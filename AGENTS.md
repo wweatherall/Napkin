@@ -10,9 +10,9 @@ Read it for architecture, conventions and tests.
    "For: Codex", and for replies to your entries.
 2. Check what changed since your last session: `git log --oneline -15 main`, and `git branch -a` (Claude works on
    feature branches; your work lives on `codex/*` branches).
-3. Decisions: `docs/decision-log.md` is a read-only copy of William's live decision log (a claude.ai Sheet only
-   Claude can reach). Active decisions win over suggestions. Search it by ID (`grep "^| I34 "`) rather than
-   reading it whole. Never edit it: propose changes in the handoff, and Claude records them.
+3. Decisions: `docs/decision-log.md` is William's decision log (P09). Active decisions win over suggestions.
+   Search it by ID (`grep "^| I34 "`) rather than reading it whole. Record a decision William makes in your chat
+   there, in the commit it belongs to, following P01 (a new row naming the old ID; the old row Superseded).
 
 ## How to work
 
@@ -37,7 +37,7 @@ Read it for architecture, conventions and tests.
   handoff-archive.md and leave a one-line index under "Archived").
 - Small fixes take the light path (P08 in the log): nothing William would notice changes, no protocol, file
   format, module boundary or saving is touched, and it's ~30 lines or less. Commit it on `codex/small-fixes`
-  after the quick test (code: `Architecture-Impact: none - <reason>`), with no handoff entry; list the fixes for
+  after the quick test (code: `Architecture-Impact: none - <reason>`), with no handoff entry or Work list row; list the fixes for
   William in your chat. If a fix grows past that, ask for a handoff job instead.
 - Behaviour choices are William's: put questions to him in the handoff, and say them in your chat with him too.
 

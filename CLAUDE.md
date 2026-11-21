@@ -5,27 +5,24 @@ while the model stays a real, editable FreeCAD file with FreeCAD's drawings. Ble
 Owner: William (teacher; shop and construction background). He thinks in systems and likes values he can tune.
 
 ## Before changing behaviour, read the decision log
-https://claude.ai/artifact/4smrjxGQm7Rt8H4jWBkpyK (tabs: Decisions, Tunables, Open questions).
-Rule P01: a change that contradicts a logged decision gets a new row naming the old ID, and the old row is
+`docs/decision-log.md` (P09): Decisions, Open questions, Work list, Tunables. Grep it by ID; edit it in the
+same commit as the change it records. Rule P01: a change that contradicts a logged decision gets a new row naming the old ID, and the old row is
 marked Superseded (never deleted). Ask William before countermanding an Active decision.
-If you can't reach the log, say so; don't guess at what it says.
-A read-only copy for tools that can't open claude.ai (ChatGPT, Codex) is `docs/decision-log.md`. After changing
-the log, regenerate the copy (read the four tabs, write the file) and commit it with the change.
 
 ## Working with William
 - He wants a partner working through the Work list one item at a time, so nothing gets missed. Say which item
-  you're on; when it's done, record the result in the Work list (commit, tests) and regenerate the log copy.
+  you're on; when it's done, record the result in the Work list (commit, tests).
 - Each item on its own branch; commit when its tests pass. Merge into main and push only when William says so
   (an earlier "merge and push" doesn't carry over to later work).
 - Quick test after every change; full test when it fails or before a merge. Add a quick-test step per feature.
 - New behaviour choices are his: ask (one question at a time, with a recommendation) and log the answer (P01).
-- One Work list item per session where possible: finish it (tests, commit, Work list result, log copy, a handoff
+- One Work list item per session where possible: finish it (tests, commit, Work list result, a handoff
   note if Codex is affected), then start the next in a fresh session. The files carry the state, not the chat.
 - Tests are the project's memory: every behaviour gets a named check, so nobody has to remember how it works.
 - Small fixes take the light path (P08): nothing William would notice changes (or the code is made to do what a
   logged decision says), no protocol, file format, module boundary or saving is touched, and it's ~30 lines or less.
   Commit it on the standing `small-fixes` branch after the quick test (code: `Architecture-Impact: none - <reason>`);
-  no Work list row, log copy or handoff. List the fixes for William at the end of the session; he says when it
+  no Work list row or handoff. List the fixes for William at the end of the session; he says when it
   merges. If a fix grows past that, make it a Work list item.
 - FreeCAD 1.1.4 is installed; don't work around bugs that 1.1.4 no longer has. The AppKit rebuild (T25) waits
   for a working prototype.
@@ -98,7 +95,7 @@ confirmed meshes, the worker link, typed values, drawing rules, viewport tests) 
 ## Known problems / open work
 - Q18: FreeCAD booleans slow down along a chain (24 chained cuts: 5 → 358 ms). Done: hole arrays, one boolean
   per run (A22b): hole 48 on a panel is 290 ms (was 4.3 s). In reserve (T9): answer from plain shapes first.
-- The work list is the decision log's "Work list" tab (T1, T2, ...).
+- The work list is the decision log's "Work list" section (T1, T2, ...).
 - Q19: stage 2, watch the file and merge FreeCAD-side changes. Q17 / stage 3: adopt solids from files Shop Sketch didn't make.
 - Q4: feel test on real hardware. Earlier tuning was judged from software-rendered recordings.
 

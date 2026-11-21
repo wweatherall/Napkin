@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Sort the decision-log copy's tables by ID, so the file reads in order: A01, A02 ... A06, A06a, A07 ... then
+"""Sort the decision log's tables by ID, so the file reads in order: A01, A02 ... A06, A06a, A07 ... then
 D, I, M, P, W; Q1 ... Q31; T1 ... T49 (numbers in number order, a letter after a number comes after it).
 
   python3 tools/sort_decision_log.py [file]       default docs/decision-log.md; rewrites it only if it changes
