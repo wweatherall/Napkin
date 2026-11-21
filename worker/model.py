@@ -284,7 +284,12 @@ class Model(PushActions, MoveActions, MirrorActions, AssemblyActions, PaintActio
         return b
 
     HANDLERS = ("rect", "push_pull", "mirror", "make_component", "move", "set_material", "detach", "make_unique",
-                "make_assembly", "turn_grain")
+                "make_assembly", "turn_grain", "property_edit")
+
+    def op_property_edit(self, op):
+        """A native property changed in the Properties panel (T46): see object_properties.apply."""
+        from object_properties import apply
+        return apply(self, op)
 
     def apply(self, op):
         if op["type"] not in self.HANDLERS:
