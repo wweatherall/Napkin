@@ -137,6 +137,7 @@ class Session:
         self.drawing = remove_drawing_pages(self.doc)
         self.doc.recompute()
         self.model = Model(self.doc)
+        self.model.add_hidden_props()           # boards saved before hiding existed (T28)
         self.rev = int(self.doc.Meta.get("ShopSketchRev", "0") or 0)
         jp = journal_path(self.path)
         j = None
@@ -223,6 +224,7 @@ class Session:
                 how = f"undid {n_undo}, applied {len(ops) - k}"
         if how != "nothing":
             self.dirty = True
+            self.model.show_as_hidden()         # FreeCAD's undo doesn't take Visibility back (T28)
         return how, round((time.perf_counter() - t0) * 1000, 1)
 
     # ----- outputs -----
@@ -262,6 +264,7 @@ class Session:
                                array=getattr(obj, "SSArray", "") or "",
                                assembly=getattr(m.assembly_of(obj), "AssemblyId", "") if m.assembly_of(obj) else "",
                                row=(m.arrays_of(obj)[0].SSSource if m.arrays_of(obj) else ""),
+                               hidden=bool(getattr(obj, "SSHidden", False)),
                                mirror_plane=([list(obj.Base), list(unit(obj.Normal))] if m.is_mirror(obj) else [])))
         shared = {}
         for e in bodies:

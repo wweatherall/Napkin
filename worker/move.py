@@ -23,7 +23,7 @@ class MoveActions:
         link.LinkedObject = dfn
         link.Placement = dfn.Placement
         link.Label = bid
-        add_props(link, BodyId=bid, SSRole="body")
+        add_props(link, BodyId=bid, SSRole="body", SSHidden=bool(getattr(obj, "SSHidden", False)))
         if asm is not None:
             asm.addObject(link)                      # the board stays in its assembly as the link
         return [bid]
@@ -42,7 +42,7 @@ class MoveActions:
         link.LinkedObject = dfn
         link.Placement = placement
         link.Label = nid
-        add_props(link, BodyId=nid, SSRole="body", SSArray=array, SSArrayIndex=index)
+        add_props(link, BodyId=nid, SSRole="body", SSArray=array, SSArrayIndex=index, SSHidden=False)
         return link
 
     def array_follow(self, obj, arr, index):
@@ -225,6 +225,9 @@ class MoveActions:
             copy.Visibility = True
             copy.Placement = link.Placement
             add_props(copy, SSArray=getattr(link, "SSArray", ""), SSArrayIndex=int(getattr(link, "SSArrayIndex", 0)))
+            if not hasattr(copy, "SSHidden"):           # (a definition from a file older than T28)
+                add_props(copy, SSHidden=False)
+            copy.SSHidden = bool(getattr(link, "SSHidden", False))
             if copy.SSArray:
                 self.array_follow(copy, self.doc.getObject(copy.SSArray), copy.SSArrayIndex)
             link.BodyId = ""

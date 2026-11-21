@@ -12,7 +12,7 @@ const SNAP_PX := 14.0         # endpoint snap radius on screen
 
 # ---------------- state ----------------
 var ops: Array = []
-var counters := {"pr": 0, "r": 0, "b": 0, "pp": 0, "m": 0, "mv": 0, "mu": 0, "dt": 0, "as": 0, "a": 0, "sm": 0, "tg": 0}
+var counters := {"pr": 0, "r": 0, "b": 0, "pp": 0, "m": 0, "mv": 0, "mu": 0, "dt": 0, "as": 0, "a": 0, "sm": 0, "tg": 0, "hd": 0}
 var seq := 0
 var in_flight := false
 var dirty := false
@@ -828,20 +828,109 @@ func leave_context() -> void:
 
 
 func _apply_context() -> void:
-	"""Grey out, and make unpickable, every board outside the one you're in."""
+	"""Grey out, and make unpickable, every board outside the one you're in. Hidden boards (T28) are left out
+	altogether, or shown ghosted (and pickable, to unhide them) with View > Hidden geometry."""
 	if mat_ghost == null:
 		mat_ghost = StandardMaterial3D.new()
 		mat_ghost.albedo_color = Color(0.75, 0.75, 0.78, 0.35)
 		mat_ghost.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	if mat_hidden_ghost == null:
+		mat_hidden_ghost = StandardMaterial3D.new()
+		mat_hidden_ghost.albedo_color = Color(0.55, 0.6, 0.7, 0.25)
+		mat_hidden_ghost.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	body_hidden = hidden_boards()
 	for node in bodies_root.get_children():
 		if not node.has_meta("body_mesh"): continue
-		var inside := in_context(String(node.name))
-		node.material_override = null if inside else mat_ghost
+		var bid := String(node.name)
+		var hidden := body_hidden.has(bid)
+		if hidden and not show_hidden:
+			node.visible = false; node.set_meta("ss_hidden", true)
+		elif node.get_meta("ss_hidden", false):
+			node.visible = true; node.set_meta("ss_hidden", false)
+		var inside := in_context(bid) and (not hidden or show_hidden)
+		node.material_override = (mat_hidden_ghost if hidden else null) if inside else mat_ghost
 		var edges: MeshInstance3D = node.get_meta("edges")
 		edges.visible = inside
 		for c in node.get_children():
 			if c is StaticBody3D: c.collision_layer = 1 if inside else 0
 	_show_mirror_plane()
+
+
+# ---------------- hide and unhide (T28, I37) ----------------
+# SketchUp style: hiding is an ordinary undoable action (op "hide", saved in the file as each board's SSHidden, so
+# FreeCAD shows them hidden too). Which boards are hidden follows from the ops at once: hide and undo show at once.
+var body_hidden := {}               # board id -> true while it's hidden
+var show_hidden := false            # View > Hidden geometry: hidden boards ghosted and pickable
+var mat_hidden_ghost: StandardMaterial3D
+
+
+func hidden_boards() -> Dictionary:
+	var out := {}
+	for op in ops:
+		if op["type"] != "hide": continue
+		for b in op["targets"]:
+			if op.get("hidden", true): out[b] = true
+			else: out.erase(b)
+	return out
+
+
+func is_hidden(bid: String) -> bool:
+	"""Hidden and out of sight: not picked, not snapped to."""
+	return body_hidden.has(bid) and not show_hidden
+
+
+func _hide_op(targets: Array, hidden: bool) -> void:
+	counters["hd"] += 1
+	ops.append({"id": "hd%d" % counters["hd"], "type": "hide", "targets": targets, "hidden": hidden})
+	set_selection(selection.filter(func(b): return not hidden or not targets.has(b)))
+	_apply_context()
+	if overlay != null: overlay.mesh = null
+	_sibling_key = "-"
+	sync()
+
+
+static func _boards_word(n: int) -> String:
+	return "%d board%s" % [n, "" if n == 1 else "s"]
+
+
+func hide_selected() -> void:
+	"""Edit > Hide (H): the selection, else the board (or assembly) under the cursor."""
+	var ids: Array = selection.duplicate()
+	if ids.is_empty() and hover_body != "": ids = unit_of(hover_body).get("bodies", [])
+	ids = ids.filter(func(b): return not body_hidden.has(b))
+	if ids.is_empty():
+		_say_status("Select the boards to hide first (Select tool)"); return
+	_hide_op(ids, true)
+	_say_status("Hid %s. Shift+H unhides all" % _boards_word(ids.size()))
+
+
+func unhide(which: String) -> void:
+	"""Edit > Unhide selected / last / all."""
+	var ids: Array = []
+	match which:
+		"selected":
+			ids = selection.filter(func(b): return body_hidden.has(b))
+			if ids.is_empty():
+				_say_status("Select hidden boards first (View > Hidden geometry shows them)"); return
+		"last":
+			for i in range(ops.size() - 1, -1, -1):
+				var op: Dictionary = ops[i]
+				if op["type"] == "hide" and op.get("hidden", true):
+					ids = op["targets"].filter(func(b): return body_hidden.has(b))
+					if not ids.is_empty(): break
+		"all":
+			ids = body_hidden.keys().filter(func(b): return body_tris.has(b))
+	if ids.is_empty():
+		_say_status("Nothing is hidden"); return
+	_hide_op(ids, false)
+	_say_status("Unhid %s" % _boards_word(ids.size()))
+
+
+func toggle_hidden_geometry() -> void:
+	show_hidden = not show_hidden
+	if not show_hidden: set_selection(selection.filter(func(b): return not body_hidden.has(b)))
+	_apply_context()
+	_update_menu_checks()
 
 
 func _show_mirror_plane() -> void:
@@ -1274,13 +1363,14 @@ func _after_removal() -> void:
 	var k := _ops_key(ops)
 	if k != shown_key and _show_state(k):      # undo: the state before this op, remembered, on screen at once
 		predicted_undo = true
+	_apply_context()                           # an undone hide shows its boards again at once (T28)
 	sync()
 
 
 func _restore_counters() -> void:
 	for op in ops:
 		var id: String = op["id"]
-		for k in ["pr", "pp", "mv", "mu", "dt", "as", "sm", "tg", "r", "m"]:
+		for k in ["pr", "pp", "mv", "mu", "dt", "as", "sm", "tg", "hd", "r", "m"]:
 			if id.begins_with(k) and id.substr(k.length()).is_valid_int():
 				counters[k] = maxi(counters[k], int(id.substr(k.length())))
 				break
@@ -2168,9 +2258,11 @@ func _make_menus() -> void:
 				  ["Open…", "open", KEY_MASK_META | KEY_O], [],
 				  ["Show in Finder", "reveal", 0], [], ["Drawing and cut list (D)", "drawing", 0]]],
 		["Edit", [["Undo", "undo", KEY_MASK_META | KEY_Z], [], ["Make assembly", "assemble", KEY_MASK_META | KEY_G],
-				  ["Make unique (U)", "unique", 0], ["Detach from array", "detach", 0]]],
+				  ["Make unique (U)", "unique", 0], ["Detach from array", "detach", 0], [],
+				  ["Hide (H)", "hide", 0], ["Unhide selected", "unhide_selected", 0], ["Unhide last", "unhide_last", 0],
+				  ["Unhide all (Shift+H)", "unhide_all", 0]]],
 		["Tools", [["Select (Space)", "select", 0], ["Paint", "paint", 0], ["Rectangle (R)", "rect", 0], ["Push/Pull (P)", "push", 0], ["Move (M)", "move", 0]]],
-		["View", [["Grid snap (G)", "grid", -1], ["New board on faces (B)", "newboard", -1]]],
+		["View", [["Grid snap (G)", "grid", -1], ["New board on faces (B)", "newboard", -1], ["Hidden geometry", "hiddengeom", -1]]],
 	]
 	for m in spec:
 		var rid := NativeMenu.create_menu()
@@ -2190,6 +2282,7 @@ func _update_menu_checks() -> void:
 	if not _menus.has("View"): return
 	NativeMenu.set_item_checked(_menus["View"], 0, grid_snap)
 	NativeMenu.set_item_checked(_menus["View"], 1, new_board)
+	NativeMenu.set_item_checked(_menus["View"], 2, show_hidden)
 
 
 func _menu(tag) -> void:
@@ -2207,6 +2300,11 @@ func _menu(tag) -> void:
 		"assemble": make_assembly()
 		"unique": _linked_op("make_unique")
 		"detach": _linked_op("detach")
+		"hide": hide_selected()
+		"unhide_selected": unhide("selected")
+		"unhide_last": unhide("last")
+		"unhide_all": unhide("all")
+		"hiddengeom": toggle_hidden_geometry()
 		"grid": grid_snap = not grid_snap; _update_toggles()
 		"newboard": new_board = not new_board; _update_toggles()
 
@@ -2343,6 +2441,7 @@ func _unhandled_input(e: InputEvent) -> void:
 			KEY_B: _menu("newboard")
 			KEY_D: export_drawing()
 			KEY_U: _menu("unique")
+			KEY_H: _menu("unhide_all" if e.shift_pressed else "hide")
 			KEY_T: _turn_grain()
 
 

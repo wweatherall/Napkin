@@ -1100,7 +1100,7 @@ func _plank(i: int, origin: Vector3, size: Vector3) -> Array:
 # any lane order works, except reject -> trackpad -> models -> worker, which carry on from each other.
 const QUICK_LANES := [
 	["hash", "rect", "push", "faces", "snap", "move", "hole"],
-	["linked", "assembly", "mirrorgroup", "faceplane", "wood"],
+	["linked", "assembly", "mirrorgroup", "faceplane", "wood", "hide"],
 	["undo", "reject", "trackpad", "models", "worker", "properties"],
 ]
 
@@ -1131,6 +1131,7 @@ func _run_quick_test() -> void:
 			"mirrorgroup": await _q_mirrorgroup()
 			"faceplane": await _q_faceplane()
 			"wood": await _q_wood()
+			"hide": await _q_hide()
 			"undo": await _q_undo()
 			"reject": await _q_reject()
 			"trackpad": await _q_trackpad()
@@ -1369,6 +1370,55 @@ func _q_assembly() -> void:
 	await _key(KEY_ESCAPE)
 	await _key(KEY_ESCAPE)
 	_ok("Esc leaves", m.context == "", m.context)
+
+
+func _q_hide() -> void:
+	# 5f. Hide and unhide, SketchUp style (T28, I37): H hides the selection, Cmd+Z brings it back at once, View >
+	# Hidden geometry ghosts hidden boards so one can be picked and unhidden, Shift+H unhides all
+	await _fresh("hide", _plank(1, Vector3.ZERO, Vector3(100, 50, 18)) + _plank(2, Vector3(300, 0, 0), Vector3(100, 50, 18)))
+	await _view(Vector3(200, 25, 0), -25, -50, 1.2)
+	var node := func(bid: String) -> MeshInstance3D: return m.bodies_root.get_node_or_null(bid)
+	var hidden_json := func() -> Array:
+		return _bodies().values().filter(func(b): return b.get("hidden", false)).map(func(b): return b["id"])
+	await _key(KEY_SPACE)
+	await _click_at(Vector3(50, 25, 18))
+	await _key(KEY_H)
+	_ok("H hides the selected board at once", m.is_hidden("b1") and not node.call("b1").visible and node.call("b2").visible
+		and m.selection.is_empty(), [m.body_hidden, m.selection])
+	await _wait_wave()
+	_ok("FreeCAD has it hidden too (bodies.json)", hidden_json.call() == ["b1"], hidden_json.call())
+	await _drag_to(Vector3(50, 25, 18), 4)
+	_ok("a hidden board can't be picked", m.pick(m.cursor2d.position).get("body", "") == "", m.pick(m.cursor2d.position))
+	var snapped: Dictionary = m.infer.point(m.cam.unproject_position(Main.m2g(Vector3(100, 50, 18))), "")
+	_ok("nor snapped to", snapped.get("body", "") != "b1", snapped)
+	await _key_cmd(KEY_Z)
+	_ok("Cmd+Z shows it again at once", not m.is_hidden("b1") and node.call("b1").visible, m.body_hidden)
+	await _wait_wave()
+	_ok("and FreeCAD agrees", hidden_json.call().is_empty(), hidden_json.call())
+	await _click_at(Vector3(50, 25, 18))
+	await _key(KEY_H)
+	await _wait_wave()
+	m._menu("hiddengeom")
+	_ok("View > Hidden geometry shows it ghosted", node.call("b1").visible and node.call("b1").material_override == m.mat_hidden_ghost,
+		node.call("b1").material_override)
+	await _click_at(Vector3(50, 25, 18))
+	_ok("a ghosted board can be selected", m.selection == ["b1"], m.selection)
+	m._menu("unhide_selected")
+	await _wait_wave()
+	_ok("Edit > Unhide selected", not m.is_hidden("b1") and hidden_json.call().is_empty(), hidden_json.call())
+	m._menu("hiddengeom")
+	m.set_selection(["b1", "b2"])
+	m._menu("hide")
+	await _wait_wave()
+	m.set_selection([])
+	await _key_shift(KEY_H)
+	await _wait_wave()
+	_ok("Shift+H unhides all", m.body_hidden.is_empty() and hidden_json.call().is_empty() and node.call("b2").visible, hidden_json.call())
+	m.set_selection(["b1"]); m.hide_selected()        # (straight calls: _menu drops a repeat within 150 ms)
+	m.set_selection(["b2"]); m.hide_selected()
+	m.unhide("last")
+	await _wait_wave()
+	_ok("Edit > Unhide last brings back only the last one hidden", hidden_json.call() == ["b1"], hidden_json.call())
 
 
 func _q_mirrorgroup() -> void:

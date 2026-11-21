@@ -13,7 +13,7 @@ ARCHITECTURE.md the module map and protocol (update it in the same commit when y
 - `model.py`: `Model` (reads the document; building blocks: boards, planes, extrusions, booleans, `Tip`; `apply`
   and `HANDLERS`). Each kind of action is a mixin in its own file: `push.py` (rect, push/pull, through-cuts),
   `move.py` (move, copies, links, arrays, detach, make unique), `mirror.py`, `assembly.py`, `paint.py` (paint,
-  grain). A new op: an `op_<type>` in the right mixin (or a new mixin listed in `Model`), and its type in `HANDLERS`.
+  grain), `visibility.py` (hide/unhide, T28). A new op: an `op_<type>` in the right mixin (or a new mixin listed in `Model`), and its type in `HANDLERS`.
 - `export.py`: bodies.json entries, per-board mesh files and their caches, model.glb, the TechDraw page.
 - `session.py`: `Session`, one live document per .FCStd: `sync`, undo, rebuild, journal, saves.
 - `serve.py`: the connection loop (`hello`, `open`, `sync`, `length`, `inspect_properties`, `bye`, `quit`; `saved`
@@ -48,7 +48,10 @@ ARCHITECTURE.md the module map and protocol (update it in the same commit when y
   mirror's Base to keep it with the rest.
 - A component instance is mirrored through a Part::Compound wrapper (`SSRole` = `mirror-input`, A26): released
   FreeCAD 1.1 mirrors an App::Link without its placement. Walk mirrors with `mirror_source()`, not `.Source`.
-- All Shop Sketch state lives on those objects (`BodyId`, `SSRole`, `RectId`, `SSMaterial`, `SSOp`, `SSGrain`).
+- All Shop Sketch state lives on those objects (`BodyId`, `SSRole`, `RectId`, `SSMaterial`, `SSOp`, `SSGrain`,
+  `SSHidden`).
+- Hidden boards (T28, I37): op `hide` sets `SSHidden`. FreeCAD's undo doesn't take `Visibility` back (it isn't in
+  FreeCAD's transactions), so no op sets a board's Visibility: `show_as_hidden()` works it out after every sync.
 - Wood: `materials.py` has Wood Handbook numbers and ambientCG CC0 textures (`materials/textures`, `<key>_end.jpg`
   end grain). The worker installs it as FreeCAD cards in
   `~/Library/Application Support/FreeCAD/v1-1/Material/Shop Sketch/` on first use and puts the card on the board's
@@ -85,7 +88,7 @@ ARCHITECTURE.md the module map and protocol (update it in the same commit when y
   `test_native_common.py`),
   `test_arrays.py` (10: hole arrays and moves), `test_combos.py` (61: features together, undo/reopen equal a fresh
   build, two models at once), `test_length_input.py` (23, incl. FreeCAD still matching tests/length_cases.json),
-  `test_properties.py` (28), `test_scenario.py` (86, T48: one busy fixture model from
+  `test_properties.py` (28), `test_scenario.py` (108, T48: one busy fixture model from
   `tests/scenario_fixture.json`, 17 steps each checked and undone back to the fixture, then a cumulative story that
   must equal a fresh build and a reopen; ~1 s. A new worker behaviour: add a step there first).
   Plain python3, starting freecadcmd themselves: `test_serve.py` (12: one worker, two windows; a worker on port 0),
