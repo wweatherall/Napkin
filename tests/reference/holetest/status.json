@@ -1,0 +1,51 @@
+{
+ "oplog": "live",
+ "total_ms": 34.5,
+ "export_ms": 19.6,
+ "how": "undid 1, applied 0",
+ "ops": [
+  {
+   "id": "r1",
+   "type": "rect",
+   "status": "ok",
+   "changed": [],
+   "ms": 0.5
+  },
+  {
+   "id": "pp1",
+   "type": "push_pull",
+   "status": "ok",
+   "changed": [
+    "b1"
+   ],
+   "ms": 1.2
+  },
+  {
+   "id": "r2",
+   "type": "rect",
+   "status": "ok",
+   "changed": [],
+   "ms": 1.9
+  },
+  {
+   "id": "pp2",
+   "type": "push_pull",
+   "status": "ok",
+   "changed": [
+    "b1"
+   ],
+   "ms": 9.7
+  },
+  {
+   "id": "mv1",
+   "type": "move",
+   "status": "ok",
+   "changed": [
+    "b1"
+   ],
+   "ms": 33.5
+  }
+ ],
+ "rev": 7,
+ "model": "/private/tmp/claude-501/-Users-Will/300ed889-a247-4a9d-ab68-891ccd0c6236/scratchpad/vp_st/holetest/out/model.FCStd"
+}

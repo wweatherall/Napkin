@@ -60,18 +60,18 @@ If you can't reach the log, say so; don't guess at what it says.
 - FreeCAD's command-line program: `/Applications/FreeCAD.app/Contents/Resources/bin/freecadcmd`
 - Godot: `/Applications/Godot.app/Contents/MacOS/Godot`
 
-## Tests (run after every change)
-Worker tests:
-- `freecadcmd worker/test_native.py`: 59 checks (native tree, undo walks, reopen, outside edits, mirrors of moved instances, rejections, runs, undo past 20, through-holes, mesh files)
-- `freecadcmd worker/test_arrays.py`: 10 checks (hole arrays and moves)
-
-Viewport suites: `Godot --path viewport -- --<suite> --out=<dir>/out --shots=<dir>/shots --port=7878`, with the worker running.
-- Suites: `--facetest` `--movetest` `--mirrortest` `--infertest` `--holetest` `--zfighttest`.
-- Each writes `<tag>_bodies.json` checkpoints. Compare them with a known-good run: volumes and world boxes must match.
-- Other test modes (print their results; look at the shots): `--linetest` (line visibility), `--undotest` (needs a worker
-  on --port), `--snaptest` (Rectangle and Push/Pull snapping), `--recttest` (click vs drag), `--perftest` (the frame when an
-  answer arrives, 40 holed panels), `--jointest` (I04b), `--rejecttest` (Q7), all need a worker on --port,
-  `--gesturetest` and `--lifecycletest` (no --port: the app starts its own worker), `--heavytest --model=<file>`. Recordings use `--true-latency` (P03), with Godot's `--write-movie`.
+## Tests
+- After every change: `tools/quicktest.sh` (~20 s). The worker tests, plus every viewport feature once in a single
+  Godot session (`--quicktest`, in `tests.gd` `_run_quick_test`), each step checking its own answer. It starts its
+  own worker, so it never touches a running Shop Sketch. Add a step there for each new feature.
+- When the quick test fails, or before a merge: `tools/fulltest.sh` (~2 min): the six recorded suites (`--facetest`
+  `--movetest` `--mirrortest` `--infertest` `--holetest` `--zfighttest`, one session each) compared with
+  `tests/reference/` by `tools/compare_suites.py`, then the targeted tests (`--undotest` `--snaptest` `--recttest`
+  `--shelltest` `--jointest` `--rejecttest`), then the worker tests. After an intended change in behaviour:
+  `tools/fulltest.sh --update-reference`.
+- Worker tests alone: `freecadcmd worker/test_native.py` (59 checks) and `worker/test_arrays.py` (10).
+- Visual checks (screenshots, no pass/fail): `--linetest`, `--zfighttest`; timing: `--perftest`. Recordings use
+  `--true-latency` (P03) with Godot's `--write-movie`; `--heavytest --model=<file>`.
 - Test hooks (`delay_ms`, forced rejection, `--*test`) are for testing only (P02).
 
 ## Known problems / open work

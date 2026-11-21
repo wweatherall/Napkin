@@ -74,6 +74,7 @@ var perf_test := false
 var shell_test := false
 var join_test := false
 var reject_test := false
+var quick_test := false
 const OVERLAY_BIAS := 0.001   # overlays sit 0.1% of the camera distance nearer the eye (invisible, beats z-fighting)
 var overlay_bias := OVERLAY_BIAS
 var grid_mat: ShaderMaterial
@@ -166,6 +167,7 @@ func _ready() -> void:
 		elif a == "--shelltest": test_mode = true; fx_test = true; shell_test = true
 		elif a == "--jointest": test_mode = true; fx_test = true; join_test = true
 		elif a == "--rejecttest": test_mode = true; fx_test = true; reject_test = true
+		elif a == "--quicktest": test_mode = true; fx_test = true; quick_test = true
 		elif a == "--lifecycletest": test_mode = true; fx_test = true; lifecycle_test = true
 		elif a == "--nobias": overlay_bias = 0.0
 		elif a.begins_with("--preload="): preload_path = a.substr(10)
@@ -1281,6 +1283,7 @@ func _process(delta: float) -> void:
 # go red with it and are removed together, with one message. Independent work stays.
 const REJECT_WINDOW_MS := 15000     # a rejection collects its dependents for this long
 var _rejected := {}                 # root op id -> {"ids", "bodies", "deps", "at", "note"}
+var last_reject_note := ""          # the latest rejection message (kept for tests; the status bar clears on your next action)
 
 
 func _op_of(oid: String) -> Dictionary:
@@ -1353,6 +1356,7 @@ func _on_rejected(o: Dictionary, w, drop_now: Array) -> void:
 	for b in _op_touches(op): e["bodies"][b] = true
 	var n: int = e["deps"].size()
 	reject_note = "%s (and %d action%s that built on it)" % [e["note"], n, "" if n == 1 else "s"]
+	last_reject_note = reject_note
 	if w != null:
 		w["state"] = "rejected"; w["dependent"] = true; w["root"] = root
 	if not op_waves.has(root):                       # its rejection has already played: remove it now

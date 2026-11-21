@@ -1,0 +1,96 @@
+{
+ "oplog": "live",
+ "total_ms": 2.5,
+ "export_ms": 20.0,
+ "how": "undid 0, applied 1",
+ "ops": [
+  {
+   "id": "r1",
+   "type": "rect",
+   "status": "ok",
+   "changed": [],
+   "ms": 0.4
+  },
+  {
+   "id": "pp1",
+   "type": "push_pull",
+   "status": "ok",
+   "changed": [
+    "b1"
+   ],
+   "ms": 1.6
+  },
+  {
+   "id": "r2",
+   "type": "rect",
+   "status": "ok",
+   "changed": [],
+   "ms": 1.2
+  },
+  {
+   "id": "pp2",
+   "type": "push_pull",
+   "status": "ok",
+   "changed": [
+    "b1"
+   ],
+   "ms": 14.8
+  },
+  {
+   "id": "m1",
+   "type": "mirror",
+   "status": "ok",
+   "changed": [
+    "b2"
+   ],
+   "ms": 2.2
+  },
+  {
+   "id": "pp3",
+   "type": "push_pull",
+   "status": "ok",
+   "changed": [
+    "b1"
+   ],
+   "ms": 13.4
+  },
+  {
+   "id": "pp4",
+   "type": "push_pull",
+   "status": "ok",
+   "changed": [
+    "b2"
+   ],
+   "ms": 30.0
+  },
+  {
+   "id": "m2",
+   "type": "mirror",
+   "status": "ok",
+   "changed": [
+    "b3"
+   ],
+   "ms": 2.3
+  },
+  {
+   "id": "m3",
+   "type": "mirror",
+   "status": "ok",
+   "changed": [
+    "b1"
+   ],
+   "ms": 3.8
+  },
+  {
+   "id": "mv1",
+   "type": "move",
+   "status": "ok",
+   "changed": [
+    "b1"
+   ],
+   "ms": 2.4
+  }
+ ],
+ "rev": 10,
+ "model": "/private/tmp/claude-501/-Users-Will/300ed889-a247-4a9d-ab68-891ccd0c6236/scratchpad/vp_st/mirrortest/out/model.FCStd"
+}

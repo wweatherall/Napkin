@@ -12,7 +12,7 @@ func run() -> void:
 		await _run_test()
 		return
 	_make_fake_cursor()
-	if not (m.join_test or m.reject_test or m.snap_test or m.rect_test or m.undo_test or m.shell_test or m.perf_test or m.line_test or m.gesture_test or m.lifecycle_test):
+	if not (m.quick_test or m.join_test or m.reject_test or m.snap_test or m.rect_test or m.undo_test or m.shell_test or m.perf_test or m.line_test or m.gesture_test or m.lifecycle_test):
 		m.new_board = true; m._update_toggles()     # the scripted suites were recorded with 'New board' on (I04 then)
 	if m.breath_test: await _run_breath_test()
 	elif m.face_test: await _run_face_test()
@@ -33,6 +33,7 @@ func run() -> void:
 	elif m.shell_test: await _run_shell_test()
 	elif m.join_test: await _run_join_test()
 	elif m.reject_test: await _run_reject_test()
+	elif m.quick_test: await _run_quick_test()
 	else: await _run_fx_test()
 
 # ---------------- fx test (--fxtest): records nicely with --write-movie ----------------
@@ -45,7 +46,11 @@ func _make_fake_cursor() -> void:
 	line.default_color = Color.BLACK; m.cursor2d.add_child(line)
 
 
+var quick := false        # quick test: fewer frames per drag, faster waves
+
+
 func _drag_to(p_model: Vector3, frames: int) -> void:
+	if quick: frames = maxi(2, frames / 3)
 	var a: Vector2 = m.cursor2d.position
 	var b := m.cam.unproject_position(Main.m2g(p_model))
 	for i in range(1, frames + 1):
@@ -990,6 +995,250 @@ func _run_reject_test() -> void:
 	print("REJECTTEST rejected %s | ops left %s | boards %s | messages %s" % [root, left, _shown_ids(), notes.keys()])
 	print("REJECTTEST done")
 	get_tree().quit()
+
+
+# ---------------- quick test (--quicktest): every feature once, in one session, checking its own answers ----------------
+var _q := [0, 0]
+var _q_section := ""
+
+
+func _ok(name: String, cond: bool, detail = "") -> void:
+	_q[0 if cond else 1] += 1
+	if not cond: print("QUICK FAIL [%s] %s  %s" % [_q_section, name, str(detail)])
+
+
+func _bodies() -> Dictionary:
+	var out := {}
+	for b in JSON.parse_string(FileAccess.get_file_as_string(m.out_dir.path_join("bodies.json"))):
+		out[b["id"]] = b
+	return out
+
+
+func _bbox(bid: String) -> Array:
+	var b: Dictionary = _bodies().get(bid, {})
+	var out := []
+	for v in b.get("world_bbox", []): out.append(snappedf(v, 0.01))
+	return out
+
+
+func _fresh(name: String, ops := []) -> void:
+	"""A clean model (File > New), optionally with some ops already in it."""
+	_q_section = name
+	m.switch_model(m.out_dir.path_join("quick_%s.FCStd" % name), true)
+	var t0 := Time.get_ticks_msec()
+	while not m.opened and Time.get_ticks_msec() - t0 < 20000: await _frames(1)
+	m.new_board = false; m._update_toggles(); m.grid_snap = true
+	if not ops.is_empty():
+		m.ops.append_array(ops)
+		m._restore_counters()
+		m.sync()
+	await _wait_confirm()
+	m.set_tool("rect")
+
+
+func _plank(i: int, origin: Vector3, size: Vector3) -> Array:
+	return [{"id": "r%d" % i, "type": "rect", "plane": {"normal": [0, 0, 1], "origin": [origin.x, origin.y, origin.z]}, "size": [size.x, size.y]},
+		{"id": "pp%d" % i, "type": "push_pull", "target": {"rect": "r%d" % i}, "distance": size.z, "body": "b%d" % i}]
+
+
+func _run_quick_test() -> void:
+	quick = true
+	Engine.time_scale = 5.0                       # waves and breathing run 5x faster; the checks don't depend on them
+	var t_start := Time.get_ticks_msec()
+	while not m.opened: await _frames(1)
+
+	# 1. Rectangle: click-click, press-drag-release, a wobbly click (I29)
+	await _fresh("rect")
+	await _view(Vector3(300, 200, 0), -30, -50, 1.4)
+	m.set_tool("rect")
+	await _drag_to(Vector3(0, 0, 0), 4); await _button(true)
+	await _drag_to(Vector3(200, 100, 0), 9); await _button(false)
+	var r: Array = _last_rect()
+	_ok("press-drag-release draws a 200 x 100", r[0] == 1 and r[1] == [200.0, 100.0], r)
+	await _drag_to(Vector3(300, 0, 0), 4); await _button(true); await _button(false)
+	await _drag_to(Vector3(400, 150, 0), 9)
+	_ok("after one click and a move, nothing is made yet", _last_rect()[0] == 1, _last_rect())
+	await _button(true); await _button(false)
+	r = _last_rect()
+	_ok("the second click finishes a 100 x 150", r[0] == 2 and r[1] == [100.0, 150.0], r)
+
+	# 2. Push/Pull: a new board, join by default (I04b), B for a separate board, the saved indicator (Q22)
+	await _fresh("push", _plank(1, Vector3.ZERO, Vector3(300, 200, 18)))
+	await _view(Vector3(150, 100, 20), -30, -40, 1.0)
+	await _rect(Vector3(100, 50, 18), Vector3(150, 100, 18), "50,50")
+	await _push(Vector3(125, 75, 18), Vector3(125, 75, 30), "20")
+	await _wait_confirm()
+	_ok("the save indicator says Saving... right after", m.ui_saved.text == "Saving…", m.ui_saved.text)
+	await _wait_wave()
+	_ok("pushed out from a face, it joins that board", _shown_ids() == ["b1"] and not m.ops.back().has("body"), [_shown_ids(), m.ops.back()])
+	_ok("the joined bump adds 50 x 50 x 20", is_equal_approx(_bodies()["b1"]["volume_mm3"], 300.0 * 200 * 18 + 50 * 50 * 20), _bodies()["b1"]["volume_mm3"])
+	var t0 := Time.get_ticks_msec()
+	while m.ui_saved.text != "Saved" and Time.get_ticks_msec() - t0 < 3000: await _frames(1)
+	_ok("then it says Saved", m.ui_saved.text == "Saved", m.ui_saved.text)
+	await _key(KEY_B)
+	await _rect(Vector3(200, 50, 18), Vector3(250, 100, 18), "40,40")
+	await _push(Vector3(220, 70, 18), Vector3(220, 70, 30), "10")
+	await _wait_wave()
+	_ok("with B, a separate board", _shown_ids() == ["b1", "b2"], _shown_ids())
+
+	# 3. Faces: a pocket, a through-hole in a side face, a bump on another side face
+	await _fresh("faces", _plank(1, Vector3.ZERO, Vector3(300, 200, 18)))
+	await _view(Vector3(150, 100, 9), -35, -30, 1.0)
+	await _rect(Vector3(50, 50, 18), Vector3(150, 130, 18), "100,80")
+	await _push(Vector3(100, 90, 18), Vector3(100, 90, 8), "-10")
+	await _wait_wave()
+	await _rect(Vector3(200, 0, 4), Vector3(220, 0, 14), "20,10")
+	await _push(Vector3(210, 0, 9), Vector3(210, 30, 9), "-200")
+	await _wait_wave()
+	var thru: Dictionary = m.ops.back()
+	_ok("a cut typed to the far face is a through-cut (I24)", thru.get("through", false), thru)
+	await _view(Vector3(300, 100, 9), 40, -25, 0.8)
+	await _rect(Vector3(300, 50, 2), Vector3(300, 100, 12), "50,10")
+	await _push(Vector3(300, 75, 7), Vector3(330, 75, 7), "30")
+	await _wait_wave()
+	var v: float = _bodies().get("b1", {}).get("volume_mm3", -1)
+	_ok("pocket, through-hole and bump add up", is_equal_approx(v, 300.0 * 200 * 18 - 100 * 80 * 10 - 20 * 10 * 200 + 50 * 10 * 30), v)
+	_ok("still one board", _shown_ids() == ["b1"], _shown_ids())
+
+	# 4. Snapping (I03b, I23): midpoint, on edge on the grid, push to a point, the back face
+	await _fresh("snap", _plank(1, Vector3.ZERO, Vector3(300, 200, 18)) + _plank(2, Vector3(400, 0, 0), Vector3(100, 100, 50)))
+	await _view(Vector3(250, 100, 20), -30, -35, 1.1)
+	m.set_tool("rect")
+	var mid := m.snap(m.pick(_screen_of(Vector3(150, 0, 18))), _screen_of(Vector3(150, 0, 18)))
+	_ok("a rectangle corner snaps to an edge's midpoint", mid.get("snap", "") == "midpoint" and mid["point"].is_equal_approx(Vector3(150, 0, 18)), mid)
+	var oe := m.snap(m.pick(_screen_of(Vector3(64, 0, 18), Vector2(0, 2))), _screen_of(Vector3(64, 0, 18), Vector2(0, 2)))
+	_ok("on an edge, it lands on the grid", oe.get("snap", "") == "on edge" and oe["point"].is_equal_approx(Vector3(60, 0, 18)), oe)
+	m.set_tool("push")
+	var push = m.tools["push"]
+	push.click(_screen_of(Vector3(150, 100, 18), Vector2.ZERO))
+	push.mouse_moved(_screen_of(Vector3(400, 0, 50)))
+	_ok("a push snaps to another board's corner height", push.state.get("dist", 0) == 32.0 and push.state.get("snap", "") == "endpoint", push.state.get("dist"))
+	m.set_tool("push")
+	push.click(_screen_of(Vector3(450, 50, 50), Vector2.ZERO))
+	push.mouse_moved(_screen_of(Vector3(450, 50, 3), Vector2.ZERO))
+	_ok("pushing in snaps to the hidden back face", push.state.get("dist", 0) == -50.0 and push.state.get("snap", "") == "back face", push.state.get("dist"))
+	m.set_tool("rect")
+
+	# 5. Move: along an axis, copy into an array, endpoint inference, a hole moved and copied (I14, I18, I21)
+	await _fresh("move", _plank(1, Vector3.ZERO, Vector3(100, 50, 18)) + _plank(2, Vector3(300, 200, 0), Vector3(100, 50, 18)))
+	await _view(Vector3(200, 100, 0), -30, -45, 1.6)
+	await _grab(Vector3(0, 25, 18))
+	await _drag_to(Vector3(80, 25, 18), 6)
+	await _type("150\n")
+	await _wait_wave()
+	_ok("moved 150 along red", _bbox("b1").slice(0, 2) == [150.0, 0.0], _bbox("b1"))
+	await _grab(Vector3(150, 25, 18))
+	await _key(KEY_ALT)
+	await _key(KEY_LEFT)                          # lock green
+	await _drag_to(Vector3(150, 80, 18), 6)
+	await _type("60\n")
+	await _frames(4)
+	await _type("3x\n")
+	await _wait_wave()
+	var last: String = _shown_ids().back()
+	_ok("copied into a row of 3 at 60 mm", _shown_ids().size() == 5 and _bbox(last).slice(0, 2) == [150.0, 180.0], [_shown_ids(), _bbox(last)])
+	m.set_tool("move"); m.tools["move"].reset()
+	await _grab(Vector3(300, 200, 18))
+	await _drag_to(Vector3(250, 50, 18), 8)
+	var kind: String = m.move_state.get("kind", "")
+	await _press()
+	await _wait_wave()
+	_ok("a corner dragged onto another board's corner snaps to it", kind == "endpoint" and _bbox("b2").slice(0, 2) == [250.0, 50.0], [kind, _bbox("b2")])
+
+	await _fresh("hole", [{"id": "r1", "type": "rect", "plane": {"normal": [0, 0, 1], "origin": [0, 0, 0]}, "size": [600, 300]},
+		{"id": "pp1", "type": "push_pull", "target": {"rect": "r1"}, "distance": 18, "body": "b1"},
+		{"id": "r2", "type": "rect", "plane": {"on": {"body": "b1", "normal": [0, 0, 1], "point": [30, 30, 18]}}, "size": [20, 20]},
+		{"id": "pp2", "type": "push_pull", "target": {"rect": "r2"}, "distance": -18}])
+	await _view(Vector3(300, 150, 0), -20, -50, 1.3)
+	await _grab(Vector3(40, 50, 9))
+	_ok("grabbing a hole's wall picks the hole", m.move_state.get("cut", {}).get("op", "") == "pp2", m.move_state.get("cut"))
+	await _key(KEY_ALT)
+	await _key(KEY_RIGHT)
+	await _drag_to(Vector3(100, 30, 9), 6)
+	await _type("60\n")
+	await _frames(4)
+	await _type("5x\n")
+	await _wait_wave()
+	var holes: Array = _bodies()["b1"]["cuts"].filter(func(c): return c["op"] == "pp2")
+	_ok("the hole copied into a row of 6", holes.size() == 6 and is_equal_approx(_bodies()["b1"]["volume_mm3"], 600.0 * 300 * 18 - 6 * 20 * 20 * 18), [holes.size(), _bodies()["b1"]["volume_mm3"]])
+
+	# 6. Undo (A28): every undo shows at once, the 21st rebuilds in FreeCAD
+	await _fresh("undo")
+	var seen := {0: []}
+	for i in 11:
+		m.ops.append_array(_plank(i + 1, Vector3(120.0 * i, 0, 0), Vector3(100, 50, 18 + 4 * i)))
+		m.sync(); await _wait_confirm(); seen[m.ops.size()] = _shown_ids()
+	m._restore_counters()
+	var bad := []
+	var rebuilt := false
+	for n in range(m.ops.size(), 0, -1):
+		m.test_delay_ms = 60
+		m.undo()
+		if _shown_ids() != seen.get(n - 1, _shown_ids()) and n % 2 == 1: bad.append(n - 1)
+		await _wait_confirm()
+		rebuilt = rebuilt or m.ui_sync.text.contains("rebuilt")
+	_ok("each undo shows the earlier boards at once", bad.is_empty(), bad)
+	_ok("undoing past FreeCAD's 20 steps rebuilds", rebuilt)
+	_ok("everything undone", m.ops.is_empty() and _shown_ids().is_empty(), [m.ops.size(), _shown_ids()])
+
+	# 7. A rejection takes what built on it (Q7)
+	await _fresh("reject", _plank(1, Vector3.ZERO, Vector3(300, 200, 18)))
+	await _view(Vector3(300, 150, 30), -30, -40, 1.6)
+	m.test_delay_ms = 600
+	m.force_reject_next = true
+	await _rect(Vector3(400, 0, 0), Vector3(500, 100, 0), "100,100")
+	await _push(Vector3(450, 50, 0), Vector3(450, 50, 50), "50")
+	await _rect(Vector3(420, 20, 50), Vector3(480, 80, 50), "60,60")
+	await _push(Vector3(450, 50, 50), Vector3(450, 50, 70), "20")
+	await _rect(Vector3(0, 300, 0), Vector3(100, 400, 0), "100,100")
+	await _push(Vector3(50, 350, 0), Vector3(50, 350, 30), "30")
+	t0 = Time.get_ticks_msec()
+	while Time.get_ticks_msec() - t0 < 2500: await _frames(1)
+	await _wait_wave()
+	var note: String = m.last_reject_note
+	var ids: Array = m.ops.map(func(o): return o["id"])
+	_ok("the rejected board and the 2 actions built on it go; the rest stays",
+		ids == ["r1", "pp1", "r2", "r4", "pp4"] and _shown_ids() == ["b1", "b3"], [ids, _shown_ids()])
+	_ok("one message for all three", note.contains("2 actions that built on it"), note)
+
+	# 8. Trackpad and wheel (I22, I30)
+	await _view(Vector3.ZERO, -30, -30, 2.0)
+	var y0 := m.yaw
+	var pan := InputEventPanGesture.new(); pan.delta = Vector2(100.0 / Main.TRACKPAD_PX, 0.0)
+	await _gesture(pan)
+	_ok("two fingers orbit like a 100 px drag", is_equal_approx(m.yaw, y0 - 0.8), m.yaw - y0)
+	var d0 := m.dist
+	for i in 10:
+		var tiny := InputEventMouseButton.new(); tiny.button_index = MOUSE_BUTTON_WHEEL_UP; tiny.pressed = true; tiny.factor = 0.1
+		tiny.position = m.cursor2d.position; m._unhandled_input(tiny)
+	_ok("ten small wheel steps zoom like one notch", is_equal_approx(m.dist, d0 * Main.ZOOM_STEP), m.dist / d0)
+
+	# 9. Switching models (T8)
+	_q_section = "models"
+	var a: String = m.model_path
+	await _fresh("models_b", _plank(1, Vector3.ZERO, Vector3(150, 200, 40)))
+	m.switch_model(a)
+	while not m.opened: await _frames(1)
+	await _wait_confirm()
+	_ok("switching back reopens the other model's boards", _shown_ids() == ["b1", "b3"] and m.ops.size() == 5, [_shown_ids(), m.ops.size()])
+	_ok("the menus exist", m._menus.keys() == ["File", "Edit", "Tools", "View"] or not NativeMenu.has_feature(NativeMenu.FEATURE_GLOBAL_MENU), m._menus.keys())
+
+	# 10. The worker stops: Shop Sketch starts it again and carries on (A27)
+	_q_section = "worker"
+	if m.worker_pid > 0:
+		var pid1: int = m.worker_pid
+		OS.kill(pid1)
+		await _frames(2)
+		m.ops.append_array(_plank(9, Vector3(0, 600, 0), Vector3(50, 50, 10)))
+		m._restore_counters()
+		m.sync(); await _wait_confirm()
+		_ok("a new worker took over and confirmed the next board", m.worker_pid != pid1 and OS.is_process_running(m.worker_pid) and "b9" in _shown_ids(), [m.worker_pid, _shown_ids()])
+	else:
+		_ok("the quick test runs with its own worker (no --port)", false)
+
+	Engine.time_scale = 1.0
+	print("QUICK %d passed, %d failed in %.1f s" % [_q[0], _q[1], (Time.get_ticks_msec() - t_start) / 1000.0])
+	get_tree().quit(1 if _q[1] > 0 else 0)
 
 
 func _run_heavy_test() -> void:
