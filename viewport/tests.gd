@@ -1432,9 +1432,53 @@ func _run_quick_test() -> void:
 	else:
 		_ok("the quick test runs with its own worker (no --port)", false)
 
+
+	# Native property panel: inspect -> expression edit -> updated geometry -> undo.
+	await _fresh("properties", _plank(1, Vector3.ZERO, Vector3(100, 50, 20)))
+	m.properties_panel.show()
+	m.set_selection(["b1"])
+	await _wait_properties()
+	await _shot("properties_board")
+	var snapshot: Dictionary = m.properties_panel.data
+	_ok("native features appear in the Properties panel", snapshot.get("objects", []).size() >= 3, snapshot.keys())
+	var plane: Dictionary = {}
+	var width: Dictionary = {}
+	for feature in snapshot.get("objects", []):
+		if feature.type == "Part::Plane":
+			plane = feature
+			for entry in feature.fields:
+				if entry.path == "Length": width = entry
+	_ok("the native rectangle length is editable", width.get("editable", false))
+	if not width.is_empty():
+		m.properties_panel.object_picker.select(snapshot.objects.find(plane))
+		m.properties_panel._show_feature()
+		await _shot("properties_dimensions")
+		for field_box in m.properties_panel.fields.get_children():
+			if field_box is VBoxContainer and field_box.get_child_count() >= 3 and field_box.get_child(0) is Label and field_box.get_child(0).text == "Length":
+				field_box.get_child(1).text = "150 mm"
+				field_box.get_child(2).get_child(0).select(1)
+				field_box.get_child(2).get_child(2).pressed.emit()
+				break
+		await _wait_confirm()
+		await _wait_properties()
+		_ok("property edit changes confirmed geometry", is_equal_approx(float(_bodies().b1.volume_mm3), 150000.0))
+		_ok("property edits are journal actions", m.ops.back().type == "property_edit")
+		m.undo()
+		await _wait_confirm()
+		await _wait_properties()
+		_ok("undo restores native property geometry", is_equal_approx(float(_bodies().b1.volume_mm3), 100000.0))
+	m.properties_panel.hide()
+
 	Engine.time_scale = 1.0
 	print("QUICK %d passed, %d failed in %.1f s" % [_q[0], _q[1], (Time.get_ticks_msec() - t_start) / 1000.0])
 	get_tree().quit(1 if _q[1] > 0 else 0)
+
+
+func _wait_properties() -> void:
+	var deadline := Time.get_ticks_msec() + 10000
+	while m.properties_seq != m.seq and Time.get_ticks_msec() < deadline:
+		await _frames(1)
+	_ok("properties reply arrives for the current state", m.properties_seq == m.seq)
 
 
 func _run_heavy_test() -> void:

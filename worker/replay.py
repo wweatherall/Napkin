@@ -937,7 +937,11 @@ class Model:
         return obj.Placement.Rotation.multVec(self.grain_local(dfn) if which == "grain" else self.across_local(dfn))
 
     HANDLERS = ("rect", "push_pull", "mirror", "make_component", "move", "set_material", "detach", "make_unique",
-                "make_assembly", "turn_grain")
+                "make_assembly", "turn_grain", "property_edit")
+
+    def op_property_edit(self, op):
+        from object_properties import apply
+        return apply(self, op)
 
     def apply(self, op):
         if op["type"] not in self.HANDLERS:
@@ -1686,6 +1690,14 @@ def serve(port):
                     resp = {"ok": True, "cmd": "open", "model": s.path, "rev": s.rev,
                             "ops": [e["op"] for e in s.applied], "undo_floor": s.undo_floor,
                             "external": s.external}
+            elif cmd == "inspect_properties":
+                model = os.path.abspath(req["model"])
+                if claim(conn, model) is not None:
+                    raise OpError("Model is open in another window")
+                s = session_for(model)
+                from object_properties import inspect
+                resp = {"ok": True, "cmd": cmd, "seq": seq, "model": model,
+                        "request_id": req["request_id"], "properties": inspect(s.model, req["body"])}
             elif cmd in ("sync", "replay"):
                 model = os.path.abspath(req.get("model") or os.path.join(req["outdir"], "model.FCStd"))
                 if claim(conn, model) is not None:
@@ -1700,6 +1712,8 @@ def serve(port):
                 raise OpError(f"unknown cmd '{cmd}'")
         except Exception as e:
             resp = {"ok": False, "cmd": cmd, "error": f"{type(e).__name__}: {e}", "seq": seq}
+        if cmd == "inspect_properties":
+            resp["request_id"] = req.get("request_id")
         send(conn, resp)
         if after:
             to_save[after[0].path] = after
