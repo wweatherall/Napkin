@@ -45,5 +45,33 @@ func _init() -> void:
 			check("round trip " + formatted, parsed.ok and absf(parsed.mm - mm) <= 25.4 / denominator / 2.0 + 0.000001)
 		var parsed := Units.parse_length(Units.format_length(mm, "metric"))
 		check("metric round trip " + str(mm), parsed.ok and absf(parsed.mm - mm) <= 0.050001)
+	_freecad_agreement()
 	print("UNITS TESTS: %d passed, %d failed" % [passed, failed])
 	quit(1 if failed else 0)
+
+
+## evaluate_length must give FreeCAD's answer whenever it answers (tests/length_cases.json, made by FreeCAD with
+## tools/length_cases.py), and answer what people type, so typed values don't wait for the worker.
+func _freecad_agreement() -> void:
+	var path := ProjectSettings.globalize_path("res://").path_join("../tests/length_cases.json")
+	var table = JSON.parse_string(FileAccess.get_file_as_string(path))
+	check("FreeCAD's length table loads", typeof(table) == TYPE_DICTIONARY and table.cases.size() > 1000)
+	if typeof(table) != TYPE_DICTIONARY: return
+	var answered := 0
+	var wrong: Array = []
+	for c in table.cases:
+		var here := Units.evaluate_length(c.text)
+		if not here.ok: continue
+		answered += 1
+		var want = c.mm
+		if want == null or absf(here.mm - float(want)) > 1e-9 * maxf(1.0, absf(float(want))):
+			wrong.append([c.text, here.mm, want])
+	check("local answers agree with FreeCAD on all %d it gave (of %d cases)" % [answered, table.cases.size()], wrong.is_empty())
+	for w in wrong.slice(0, 10): print("  DISAGREES ", w)
+	var lengths := 0
+	for c in table.cases: if c.mm != null: lengths += 1
+	print("  local evaluator answered %d of FreeCAD's %d lengths at once" % [answered, lengths])
+	check("it answers at least 95% of FreeCAD's lengths at once", answered >= 0.95 * lengths)
+	for t in ["150", "3/4\"", "1' 6 1/2\"", "5in + 23mm", "1'-6\"", "(24in - 2*19mm)/3", "2 * 19mm", "-1ft 6in", "19mm", "1 1/2 in"]:
+		check("typed without waiting: " + t, Units.evaluate_length(t).ok)
+	check("pair: 5in + 23mm, 3/4\"", Units.evaluate_pair("5in + 23mm, 3/4\"").ok and is_equal_approx(Units.evaluate_pair("5in + 23mm, 3/4\"").b_mm, 19.05))

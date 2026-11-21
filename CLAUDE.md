@@ -143,8 +143,10 @@ the log, regenerate the copy (read the four tabs, write the file) and commit it 
 - Worker tests alone: `freecadcmd worker/test_native.py` (96 checks), `worker/test_arrays.py` (10),
   `worker/test_combos.py` (61: features together, undo/reopen equal a fresh build, two models at once), and
   `python3 worker/test_serve.py` (11: one worker, two windows; it starts freecadcmd itself).
-- Units parser (`viewport/units.gd`, T32): `Godot --headless --path viewport --script res://test_units.gd` (100 checks);
-  FreeCAD length input: `freecadcmd worker/test_length_input.py` (22) and `python3 worker/test_length_protocol.py` (3,
+- Units parser (`viewport/units.gd`, T32): `Godot --headless --path viewport --script res://test_units.gd` (114 checks,
+  incl. the local evaluator against FreeCAD's answers in `tests/length_cases.json`; rebuild that with
+  `freecadcmd tools/length_cases.py` after changing `worker/length_input.py`, which `evaluate_length` ports);
+  FreeCAD length input: `freecadcmd worker/test_length_input.py` (23) and `python3 worker/test_length_protocol.py` (3,
   a real worker). Properties panel: `freecadcmd worker/test_properties.py` (28). Both scripts run all of these.
 - Visual checks (screenshots, no pass/fail): `--linetest`, `--zfighttest`; timing: `--perftest`. Recordings use
   `--true-latency` (P03) with Godot's `--write-movie`; `--heavytest --model=<file>`.

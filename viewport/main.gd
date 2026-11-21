@@ -1154,9 +1154,9 @@ func apply_vcb() -> void:
 			tools[tool].typed(txt)
 		elif tool in ["rect", "push", "move"]:
 			var texts := txt.split(",") if tool == "rect" else PackedStringArray([txt])
-			# A plain length (150, 3/4", 1' 6 1/2") is read here, at once: drafts never wait for FreeCAD. Arithmetic
-			# (5in + 23mm, 1'-6": a minus always subtracts, I35) goes to FreeCAD's expressions (T32).
-			var here := Units.parse_pair(txt) if tool == "rect" else Units.parse_length(txt)
+			# Worked out here, at once, the way FreeCAD would (units.gd evaluate_length: 150, 3/4", 1' 6 1/2",
+			# 5in + 23mm, 1'-6" = 6", I35): drafts never wait for FreeCAD. What it declines goes to FreeCAD (T32).
+			var here := Units.evaluate_pair(txt) if tool == "rect" else Units.evaluate_length(txt)
 			if here.ok:
 				length_pending = {}
 				tools[tool].typed("%.12f,%.12f" % [here.a_mm, here.b_mm] if tool == "rect" else "%.12f" % here.mm)

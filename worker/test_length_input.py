@@ -12,4 +12,17 @@ for text in ['1/0','3kg','2mm * 3mm','Probe.Length','', '3//4']:
     except Exception: passed += 1
     else: raise AssertionError(text)
 assert abs(evaluate('3/4','in')-19.05)<1e-8
-print('LENGTH TESTS: %d passed, 0 failed' % (passed+1))
+# FreeCAD still gives the answers in tests/length_cases.json (the table viewport/test_units.gd holds the local
+# evaluator to). If this fails after a FreeCAD update, rerun tools/length_cases.py and check test_units.gd.
+import json
+table = json.load(open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'tests', 'length_cases.json')))
+changed = []
+for case in table['cases']:
+    try: got = evaluate(case['text'])
+    except Exception: got = None
+    want = case['mm']
+    if (got is None) != (want is None) or (got is not None and abs(got - want) > 1e-9 * max(1.0, abs(want))):
+        changed.append((case['text'], got, want))
+assert not changed, changed[:10]
+passed += 1
+print('LENGTH TESTS: %d passed, 0 failed (FreeCAD matches all %d table cases)' % (passed+1, len(table['cases'])))
