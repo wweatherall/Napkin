@@ -41,6 +41,8 @@ If you can't reach the log, say so; don't guess at what it says.
   All Shop Sketch state lives on those objects (`BodyId`, `SSRole`, `RectId`, `SSMaterial`, `SSOp`).
 - `sync(ops)`: keep the common prefix, take back the rest with FreeCAD undo, apply new ops (A23).
   Autosave is atomic, after 0.25 s idle. The journal `<model>.shopsketch.json` sits beside the file (A24).
+  Each save adds FreeCAD's view part (`GuiDocument.xml`, `write_gui_document`): without it FreeCAD opens the model
+  with everything hidden. When a save lands the worker sends `{"cmd": "saved", "rev"}`; the status bar shows it (Q22).
   Opening a file adopts its journal. An outside edit sets an undo floor; merging is stage 2 (A25, Q19).
 - Units: model space is Z-up millimetres; Godot is Y-up metres (`m2g` / `g2m`).
   Faces are referenced by geometry `{body, normal, point}`, never by face numbers (A03).
@@ -60,7 +62,7 @@ If you can't reach the log, say so; don't guess at what it says.
 
 ## Tests (run after every change)
 Worker tests:
-- `freecadcmd worker/test_native.py`: 57 checks (native tree, undo walks, reopen, outside edits, mirrors of moved instances, rejections, runs, undo past 20, through-holes, mesh files)
+- `freecadcmd worker/test_native.py`: 59 checks (native tree, undo walks, reopen, outside edits, mirrors of moved instances, rejections, runs, undo past 20, through-holes, mesh files)
 - `freecadcmd worker/test_arrays.py`: 10 checks (hole arrays and moves)
 
 Viewport suites: `Godot --path viewport -- --<suite> --out=<dir>/out --shots=<dir>/shots --port=7878`, with the worker running.
@@ -68,7 +70,7 @@ Viewport suites: `Godot --path viewport -- --<suite> --out=<dir>/out --shots=<di
 - Each writes `<tag>_bodies.json` checkpoints. Compare them with a known-good run: volumes and world boxes must match.
 - Other test modes (print their results; look at the shots): `--linetest` (line visibility), `--undotest` (needs a worker
   on --port), `--snaptest` (Rectangle and Push/Pull snapping), `--recttest` (click vs drag), `--perftest` (the frame when an
-  answer arrives, 40 holed panels), all need a worker on --port,
+  answer arrives, 40 holed panels), `--jointest` (I04b), `--rejecttest` (Q7), all need a worker on --port,
   `--gesturetest` and `--lifecycletest` (no --port: the app starts its own worker), `--heavytest --model=<file>`. Recordings use `--true-latency` (P03), with Godot's `--write-movie`.
 - Test hooks (`delay_ms`, forced rejection, `--*test`) are for testing only (P02).
 

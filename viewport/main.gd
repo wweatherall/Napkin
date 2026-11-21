@@ -19,7 +19,7 @@ var sent_at := {}             # seq -> msec
 var last_sync_ms := 0
 var tool := "rect"
 var grid_snap := true
-var new_board := true
+var new_board := false       # a rectangle on a face joins that board when pushed out (I04b); B for a separate board
 var vcb := ""
 
 var oplog_path := ""
@@ -72,6 +72,8 @@ var snap_test := false
 var rect_test := false
 var perf_test := false
 var shell_test := false
+var join_test := false
+var reject_test := false
 const OVERLAY_BIAS := 0.001   # overlays sit 0.1% of the camera distance nearer the eye (invisible, beats z-fighting)
 var overlay_bias := OVERLAY_BIAS
 var grid_mat: ShaderMaterial
@@ -162,6 +164,8 @@ func _ready() -> void:
 		elif a == "--recttest": test_mode = true; fx_test = true; rect_test = true
 		elif a == "--perftest": test_mode = true; fx_test = true; perf_test = true
 		elif a == "--shelltest": test_mode = true; fx_test = true; shell_test = true
+		elif a == "--jointest": test_mode = true; fx_test = true; join_test = true
+		elif a == "--rejecttest": test_mode = true; fx_test = true; reject_test = true
 		elif a == "--lifecycletest": test_mode = true; fx_test = true; lifecycle_test = true
 		elif a == "--nobias": overlay_bias = 0.0
 		elif a.begins_with("--preload="): preload_path = a.substr(10)
@@ -305,6 +309,14 @@ var accent := Color(0.0, 0.48, 1.0)
 var _tool_buttons := {}
 var _toggle_buttons := {}
 var ui_vcb_label: Label
+var ui_saved: Label                 # quiet 'Saving…' / 'Saved' (Q22): the wave means accepted, this means on disk
+var pending_rev := 0                # the model revision the last confirmed change will be saved as
+var saved_rev := 0                  # the revision the worker last said it saved
+
+
+func _update_saved() -> void:
+	if ui_saved == null: return
+	ui_saved.text = "Saving…" if pending_rev > saved_rev else "Saved"
 var ui_vcb_box: PanelContainer
 var _vcb_style: StyleBoxFlat
 var _vcb_style_typing: StyleBoxFlat
@@ -428,6 +440,7 @@ func _make_ui() -> void:
 	ui_hint.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS; ui_hint.clip_text = true
 	ui_sync = Label.new(); ui_sync.theme_type_variation = "Quiet"; ui_sync.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	ui_sync.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS; ui_sync.clip_text = true
+	ui_saved = Label.new(); ui_saved.theme_type_variation = "Quiet"
 	ui_vcb_label = Label.new(); ui_vcb_label.theme_type_variation = "Quiet"
 	ui_vcb_box = PanelContainer.new()
 	ui_vcb_box.custom_minimum_size = Vector2(150, 0)
@@ -438,7 +451,7 @@ func _make_ui() -> void:
 	ui_vcb = Label.new()
 	ui_vcb.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	ui_vcb_box.add_child(ui_vcb)
-	srow.add_child(ui_hint); srow.add_child(ui_sync); srow.add_child(ui_vcb_label); srow.add_child(ui_vcb_box)
+	srow.add_child(ui_hint); srow.add_child(ui_sync); srow.add_child(ui_saved); srow.add_child(ui_vcb_label); srow.add_child(ui_vcb_box)
 	# tooltip by the cursor
 	ui_tip = Label.new()
 	ui_tip.add_theme_font_size_override("font_size", 11)
@@ -769,6 +782,8 @@ func _on_open(resp: Dictionary) -> void:
 		ui_sync.add_theme_color_override("font_color", Color(0.75, 0.1, 0.1))
 		return
 	opened = true
+	saved_rev = int(resp.get("rev", 0)); pending_rev = saved_rev
+	_update_saved()
 	if test_mode and not heavy_test and _first_open:
 		_first_open = false
 		return                      # tests start clean; a model opened later (switch_model) adopts its history
@@ -792,7 +807,13 @@ func undo() -> void:
 	remove_op(ops.back()["id"])
 
 
-func remove_op(oid: String) -> void:
+func remove_ops(ids: Array) -> void:
+	"""Remove several ops together (a rejection and what built on it): one resync."""
+	for oid in ids: remove_op(oid, false)
+	_after_removal()
+
+
+func remove_op(oid: String, resync := true) -> void:
 	"""Remove one op (undo, or FreeCAD rejected it) and resync."""
 	var idx := -1
 	for i in ops.size():
@@ -817,6 +838,10 @@ func remove_op(oid: String) -> void:
 			for r in ops:
 				if r["id"] == rid and not _consumed_rects().has(rid):
 					rects.erase(rid); _register_rect(r)
+	if resync: _after_removal()
+
+
+func _after_removal() -> void:
 	var k := _ops_key(ops)
 	if k != shown_key and _show_state(k):      # undo: the state before this op, remembered, on screen at once
 		predicted_undo = true
@@ -891,6 +916,11 @@ func _on_worker(resp: Dictionary) -> void:
 	if resp.get("cmd", "") == "open":
 		_on_open(resp)
 		return
+	if resp.get("cmd", "") == "saved":
+		if resp.get("model", "") == model_path.simplify_path():
+			saved_rev = maxi(saved_rev, int(resp.get("rev", 0)))
+			_update_saved()
+		return
 	if true_latency and resp.get("ok", false) and resp.has("wall_ms") and not resp.get("_released", false):
 		held_resp = resp
 		return
@@ -907,9 +937,10 @@ func _on_worker(resp: Dictionary) -> void:
 				confirmed_ids[o["id"]] = true
 				if w != null and w["state"] == "pending": w["state"] = "ok"
 			else:
-				reject_note = "%s: %s" % [o["id"], o["message"]]
-				if w != null: w["state"] = "rejected"     # red wave plays, then the op is removed
-				else: drop_now.append(o["id"])
+				_on_rejected(o, w, drop_now)
+		if res.get("how", "nothing") != "nothing":
+			pending_rev = maxi(pending_rev, int(res.get("rev", 0)))
+			_update_saved()
 		var ok_ids := {}
 		for o in res["ops"]:
 			if o["status"] == "ok": ok_ids[o["id"]] = true
@@ -1201,6 +1232,7 @@ func _process(delta: float) -> void:
 			r["_released"] = true
 			_on_worker(r)
 	for oid in op_waves.keys():
+		if not op_waves.has(oid): continue          # removed this frame along with a rejection it built on
 		var w: Dictionary = op_waves[oid]
 		var v0: float = 1.0 / w["dur"]
 		w["tn"] += delta
@@ -1237,7 +1269,94 @@ func _process(delta: float) -> void:
 		if w["state"] == "ok" and w["p"] > 1.25:
 			_end_wave(oid)
 		elif w["state"] == "rejected" and w["rt"] > REJECT_DUR + 0.1:
-			remove_op(oid)                                  # ends the wave, frees the draft, resyncs
+			if _rejected.has(oid):                          # a rejection: it goes with the actions that built on it
+				remove_ops([oid] + _rejected[oid]["deps"])
+			elif not w.get("dependent", false) or not op_waves.has(w["root"]):
+				remove_op(oid)                              # ends the wave, frees the draft, resyncs
+
+
+# ---------------- rejections take what built on them (T16, Q7) ----------------
+# FreeCAD rejects an action a moment after you did it; meanwhile you may have drawn on the board it made or the
+# face it changed. Those later actions fail too (what they refer to is gone): they join the first rejection,
+# go red with it and are removed together, with one message. Independent work stays.
+const REJECT_WINDOW_MS := 15000     # a rejection collects its dependents for this long
+var _rejected := {}                 # root op id -> {"ids", "bodies", "deps", "at", "note"}
+
+
+func _op_of(oid: String) -> Dictionary:
+	for op in ops:
+		if op["id"] == oid: return op
+	return {}
+
+
+static func _op_refs(op: Dictionary) -> Array:
+	"""Ids an op refers to: the board or rectangle it acts on."""
+	var out := []
+	var pl: Dictionary = op.get("plane", {})
+	if pl.has("on"): out.append(pl["on"]["body"])
+	var tg: Dictionary = op.get("target", {})
+	if tg.has("rect"): out.append(tg["rect"])
+	if tg.has("face"): out.append(tg["face"]["body"])
+	out.append_array(op.get("targets", []))
+	if op.has("cut"): out.append_array([op["cut"]["body"], op["cut"]["op"]])
+	if op["type"] == "make_component": out.append(op["body"])
+	return out
+
+
+func _op_makes(op: Dictionary) -> Array:
+	var out: Array = [op["id"]]
+	if op["type"] == "push_pull" and op.has("body"): out.append(op["body"])
+	out.append_array(op.get("new_ids", []))
+	return out
+
+
+func _op_touches(op: Dictionary) -> Array:
+	"""Boards an op changes in place (a face on them may exist only because of it)."""
+	var tg: Dictionary = op.get("target", {})
+	if op["type"] == "push_pull" and not op.has("body"):
+		if tg.has("rect"):
+			var r := _op_of(tg["rect"])
+			if not r.is_empty() and r["plane"].has("on"): return [r["plane"]["on"]["body"]]
+		if tg.has("face"): return [tg["face"]["body"]]
+	if op["type"] == "move": return op.get("targets", []) + ([op["cut"]["body"]] if op.has("cut") else [])
+	return []
+
+
+func _on_rejected(o: Dictionary, w, drop_now: Array) -> void:
+	var now := Time.get_ticks_msec()
+	for r in _rejected.keys():
+		if now - int(_rejected[r]["at"]) > REJECT_WINDOW_MS and not op_waves.has(r): _rejected.erase(r)
+	var op := _op_of(o["id"])
+	if op.is_empty(): return
+	var msg: String = o.get("message", "")
+	var root := ""
+	for r in _rejected:
+		var e: Dictionary = _rejected[r]
+		for ref in _op_refs(op):
+			if e["ids"].has(ref): root = r
+		for b in e["bodies"]:
+			if msg.contains("'%s'" % b): root = r
+		if root != "": break
+	if root == "":                                   # a rejection of its own
+		root = o["id"]
+		var e := {"ids": {}, "bodies": {}, "deps": [], "at": now, "note": "%s: %s" % [o["id"], msg]}
+		for x in _op_makes(op): e["ids"][x] = true
+		for b in _op_touches(op): e["bodies"][b] = true
+		_rejected[root] = e
+		reject_note = e["note"]
+		if w != null: w["state"] = "rejected"        # red wave plays, then it goes with its dependents
+		else: drop_now.append(o["id"])
+		return
+	var e: Dictionary = _rejected[root]              # built on an earlier rejection: goes with it
+	if not e["deps"].has(o["id"]): e["deps"].append(o["id"])
+	for x in _op_makes(op): e["ids"][x] = true
+	for b in _op_touches(op): e["bodies"][b] = true
+	var n: int = e["deps"].size()
+	reject_note = "%s (and %d action%s that built on it)" % [e["note"], n, "" if n == 1 else "s"]
+	if w != null:
+		w["state"] = "rejected"; w["dependent"] = true; w["root"] = root
+	if not op_waves.has(root):                       # its rejection has already played: remove it now
+		drop_now.append(o["id"])
 
 
 # ---------------- the FreeCAD worker (T6) ----------------

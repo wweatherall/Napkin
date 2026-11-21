@@ -438,4 +438,58 @@ check("the file is four Godot vector arrays: triangles, normals, edges (pairs), 
       and counts[2][1] == 2 * 24 and counts[3][1] == 16, counts)        # a box (12 edges) + a through-hole (12)
 s.close()
 
+# ---------- L. the saved file shows the right things when opened in FreeCAD (T29) ----------
+import zipfile
+import xml.etree.ElementTree as ET
+lpath = os.path.join(tmp, "shown.FCStd")
+for q in (lpath, journal_path(lpath)):
+    if os.path.exists(q):
+        os.remove(q)
+s = Session(lpath, fresh=True)
+s.sync(HOPS[:6])                      # a board with two holes: a Cut over the board's extrusion
+s.save(tmp)
+names = {o.Name: o.TypeId for o in s.doc.Objects}
+s.close()
+
+
+def gui_visibility(path):
+    with zipfile.ZipFile(path) as z:
+        g = ET.fromstring(z.read("GuiDocument.xml"))
+    out = {}
+    for vp in g.iter("ViewProvider"):
+        for p in vp.iter("Property"):
+            if p.get("name") == "Visibility":
+                out[vp.get("name")] = p.find("Bool").get("value") == "true"
+    return out, g
+
+
+vis, _ = gui_visibility(lpath)
+tips = [n for n, t in names.items() if t == "Part::Cut"]
+steps = [n for n, t in names.items() if t in ("Part::Extrusion", "Part::Compound")]
+origins = [n for n, t in names.items() if t in ("App::Origin", "App::Line", "App::Plane")]
+check("saved file has FreeCAD's view part: the board's solid shown, its steps and axes hidden",
+      set(vis) == set(names) and all(vis[n] for n in tips) and not any(vis[n] for n in steps + origins), (tips, steps, vis))
+# FreeCAD's own view settings survive the next Shop Sketch save
+with zipfile.ZipFile(lpath) as z:
+    entries = {n: z.read(n) for n in z.namelist()}
+g = ET.fromstring(entries["GuiDocument.xml"])
+for vp in g.iter("ViewProvider"):
+    if vp.get("name") == tips[0]:
+        props = vp.find("Properties")
+        c = ET.SubElement(props, "Property", name="LineWidth", type="App::PropertyFloat", status="1")
+        ET.SubElement(c, "Float", value="4.0")
+ET.SubElement(g, "Camera", settings="OrthographicCamera { height 123 }")
+entries["GuiDocument.xml"] = ET.tostring(g)
+with zipfile.ZipFile(lpath, "w", zipfile.ZIP_DEFLATED) as z:
+    for n, b in entries.items():
+        z.writestr(n, b)
+s = Session(lpath)
+s.sync([e["op"] for e in s.applied] + hole(50, 400, 100))
+s.save(tmp)
+s.close()
+vis2, g2 = gui_visibility(lpath)
+kept = [p for vp in g2.iter("ViewProvider") if vp.get("name") == tips[0] for p in vp.iter("Property") if p.get("name") == "LineWidth"]
+check("FreeCAD's own view settings (a line width, the camera) survive Shop Sketch's next save",
+      bool(kept) and g2.find("Camera") is not None and "123" in g2.find("Camera").get("settings") and vis2.get(tips[0]), (kept, vis2.get(tips[0])))
+
 print(f"\nNATIVE TESTS: {R[0]} passed, {R[1]} failed")

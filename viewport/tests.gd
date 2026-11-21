@@ -12,6 +12,8 @@ func run() -> void:
 		await _run_test()
 		return
 	_make_fake_cursor()
+	if not (m.join_test or m.reject_test or m.snap_test or m.rect_test or m.undo_test or m.shell_test or m.perf_test or m.line_test or m.gesture_test or m.lifecycle_test):
+		m.new_board = true; m._update_toggles()     # the scripted suites were recorded with 'New board' on (I04 then)
 	if m.breath_test: await _run_breath_test()
 	elif m.face_test: await _run_face_test()
 	elif m.orbit_test: await _run_orbit_test()
@@ -29,6 +31,8 @@ func run() -> void:
 	elif m.rect_test: await _run_rect_test()
 	elif m.perf_test: await _run_perf_test()
 	elif m.shell_test: await _run_shell_test()
+	elif m.join_test: await _run_join_test()
+	elif m.reject_test: await _run_reject_test()
 	else: await _run_fx_test()
 
 # ---------------- fx test (--fxtest): records nicely with --write-movie ----------------
@@ -929,6 +933,62 @@ func _run_shell_test() -> void:
 	print("SHELLTEST A has a board %s mm tall | new model B starts empty %s, its board %s mm | back to A: %d ops, boards %s, top %s mm (want 18) | B saved %s | menus %s" % [
 		a_top, b_empty, b_top, m.ops.size(), _shown_ids(), back, FileAccess.file_exists(b), m._menus.keys()])
 	print("SHELLTEST done")
+	get_tree().quit()
+
+
+func _run_join_test() -> void:
+	# I04b: a rectangle drawn on a board's face and pushed out joins that board by default; with B, a new board
+	await _view(Vector3(150, 100, 20), -30, -40, 1.0)
+	m.ops.append_array(_board_ops(300, 18)); m.counters["r"] = 1; m.counters["pp"] = 1; m.counters["b"] = 1
+	m.sync(); await _wait_confirm()
+	var default_join: bool = not m.new_board
+	await _rect(Vector3(100, 50, 18), Vector3(150, 100, 18), "50,50")
+	await _push(Vector3(125, 75, 18), Vector3(125, 75, 30), "20")
+	await _wait_wave()
+	var joined: Dictionary = m.ops.back()
+	var boards_after_join := _shown_ids()
+	await _key(KEY_B)
+	await _rect(Vector3(200, 50, 18), Vector3(250, 100, 18), "40,40")
+	await _push(Vector3(220, 70, 18), Vector3(220, 70, 30), "10")
+	await _wait_confirm()                          # FreeCAD has it; the save follows a quarter second later
+	var saving_seen: String = m.ui_saved.text
+	await _wait_wave()
+	var separate: Dictionary = m.ops.back()
+	var t0 := Time.get_ticks_msec()
+	while m.ui_saved.text != "Saved" and Time.get_ticks_msec() - t0 < 5000: await _frames(1)
+	print("JOINTEST save indicator: '%s' right after, then '%s' after %d ms (rev %d)" % [saving_seen, m.ui_saved.text,
+		Time.get_ticks_msec() - t0, m.saved_rev])
+	print("JOINTEST default joins %s | pushed out from b1's top: %s, boards %s (want 1) | with B: %s, boards %s (want 2)" % [
+		default_join, "joined" if not joined.has("body") else "new board " + joined["body"], boards_after_join,
+		"new board " + separate.get("body", "?") if separate.has("body") else "joined", _shown_ids()])
+	print("JOINTEST done")
+	get_tree().quit()
+
+
+func _run_reject_test() -> void:
+	# Q7 / T16: a rejection takes the actions that built on it, in one wave and one message; other work stays
+	await _view(Vector3(300, 150, 30), -30, -40, 1.6)
+	m.ops.append_array(_board_ops(300, 18)); m.counters["r"] = 1; m.counters["pp"] = 1; m.counters["b"] = 1
+	m.sync(); await _wait_confirm()
+	m.test_delay_ms = 1500                       # FreeCAD sits on its next answer while we keep working
+	m.force_reject_next = true                   # ...and that answer rejects the new board
+	await _rect(Vector3(400, 0, 0), Vector3(500, 100, 0), "100,100")
+	await _push(Vector3(450, 50, 0), Vector3(450, 50, 50), "50")             # b2, to be rejected
+	var root: String = m.ops.back()["id"]
+	await _rect(Vector3(420, 20, 50), Vector3(480, 80, 50), "60,60")      # drawn on b2's draft
+	await _push(Vector3(450, 50, 50), Vector3(450, 50, 70), "20")            # built on b2
+	await _rect(Vector3(0, 300, 0), Vector3(100, 400, 0), "100,100")      # unrelated
+	await _push(Vector3(50, 350, 0), Vector3(50, 350, 30), "30")
+	var notes := {}
+	var t0 := Time.get_ticks_msec()
+	while Time.get_ticks_msec() - t0 < 8000:
+		if m.ui_sync.text.begins_with("✗"): notes[m.ui_sync.text] = true
+		await _frames(1)
+	await _wait_wave()
+	var left := []
+	for op in m.ops: left.append(op["id"])
+	print("REJECTTEST rejected %s | ops left %s | boards %s | messages %s" % [root, left, _shown_ids(), notes.keys()])
+	print("REJECTTEST done")
 	get_tree().quit()
 
 

@@ -918,6 +918,60 @@ def remove_drawing_pages(doc):
     return bool(doomed)
 
 
+_HIDDEN_IN_FREECAD = {"App::Origin", "App::Line", "App::Plane", "App::Point", "TechDraw::DrawPage"}
+
+
+def write_gui_document(fcstd, previous=None):
+    """Add the part of the file FreeCAD's window reads (GuiDocument.xml). freecadcmd never writes it, and without
+    it FreeCAD opens the model with every object hidden. Each object shows as the model says (a board's current
+    solid shown, its steps hidden); board axes and planes and the drawing page stay hidden. View settings FreeCAD
+    saved in the previous file (colours, line widths, the camera) are kept."""
+    import zipfile
+    import xml.etree.ElementTree as ET
+    with zipfile.ZipFile(fcstd) as z:
+        if "GuiDocument.xml" in z.namelist():
+            return
+        doc = ET.fromstring(z.read("Document.xml"))
+    kinds = {o.get("name"): o.get("type") for o in doc.find("Objects").findall("Object")}
+    shown = {}
+    for o in doc.find("ObjectData").findall("Object"):
+        v = [p for p in o.iter("Property") if p.get("name") == "Visibility"]
+        shown[o.get("name")] = bool(v) and v[0].find("Bool").get("value") == "true"
+    old, camera = {}, None
+    if previous and os.path.exists(previous):
+        try:
+            with zipfile.ZipFile(previous) as z:
+                if "GuiDocument.xml" in z.namelist():
+                    g = ET.fromstring(z.read("GuiDocument.xml"))
+                    old = {vp.get("name"): vp for vp in g.iter("ViewProvider")}
+                    camera = g.find("Camera")
+        except (zipfile.BadZipFile, ET.ParseError, OSError):
+            pass
+    out = ET.Element("Document", SchemaVersion="1", HasExpansion="1")
+    ET.SubElement(out, "Expand")
+    data = ET.SubElement(out, "ViewProviderData", Count=str(len(kinds)))
+    for name, kind in kinds.items():
+        vp = old.get(name)
+        if vp is None:
+            vp = ET.Element("ViewProvider", name=name, expanded="0")
+            ET.SubElement(vp, "Properties", Count="0", TransientCount="0")
+        props = vp.find("Properties")
+        vis = [p for p in props.findall("Property") if p.get("name") == "Visibility"]
+        if vis:
+            prop = vis[0]
+        else:
+            prop = ET.SubElement(props, "Property", name="Visibility", type="App::PropertyBool", status="1")
+            ET.SubElement(prop, "Bool", value="false")
+            props.set("Count", str(len(props.findall("Property"))))
+        on = shown.get(name, False) and kind not in _HIDDEN_IN_FREECAD
+        prop.find("Bool").set("value", "true" if on else "false")
+        data.append(vp)
+    if camera is not None:
+        out.append(camera)
+    with zipfile.ZipFile(fcstd, "a", zipfile.ZIP_DEFLATED) as z:
+        z.writestr("GuiDocument.xml", b"<?xml version='1.0' encoding='utf-8'?>\n" + ET.tostring(out))
+
+
 def sha256(path):
     h = hashlib.sha256()
     with open(path, "rb") as f:
@@ -1145,6 +1199,7 @@ class Session:
                 d2.save()
             finally:
                 App.closeDocument(d2.Name)
+        write_gui_document(tmp, self.path)          # what FreeCAD's window shows (T29)
         os.replace(tmp, self.path)
         atomic_json(journal_path(self.path), {
             "format": JOURNAL_FORMAT, "rev": self.rev, "file_sha256": sha256(self.path),
@@ -1187,17 +1242,25 @@ def serve(port):
           -> {"ok", "cmd": "sync", "result": {...status...}, "outdir" (bodies.json, meshes/), "seq", "wall_ms"}
       {"cmd": "replay", ...}  same as sync on a fresh document (one-shot rebuild)
     The reply goes out first; the autosave waits until the line has been quiet for IDLE_SAVE_S,
-    so quick successive actions never queue behind a save."""
+    so quick successive actions never queue behind a save. When a save lands the worker says so on its own:
+          {"cmd": "saved", "model": "...", "rev": n}   (the viewport's quiet 'Saved' indicator, Q22)"""
     import socket
     sessions = {}
     to_save = {}          # session path -> (session, outdir)
     IDLE_SAVE_S = 0.25
+    link = {"conn": None}  # the viewport's connection, to tell it when a save lands
 
     def save_pending():
         for path, (sess, od) in list(to_save.items()):
             try:
                 save_ms = sess.save(od)
                 print(f"WORKER saved rev {sess.rev} in {save_ms} ms", flush=True)
+                if link["conn"] is not None:
+                    try:
+                        link["conn"].sendall((json.dumps({"ok": True, "cmd": "saved", "model": sess.path,
+                                                          "rev": sess.rev}) + "\n").encode())
+                    except OSError:
+                        pass
             except Exception as e:
                 print(f"WORKER save failed: {type(e).__name__}: {e}", flush=True)
             to_save.pop(path, None)
@@ -1218,6 +1281,7 @@ def serve(port):
     while True:
         save_pending()                  # a viewport that disconnects still gets its last change saved
         conn, _ = srv.accept()
+        link["conn"] = conn
         conn.settimeout(IDLE_SAVE_S)
         buf = b""
         with conn:
