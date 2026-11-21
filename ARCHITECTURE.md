@@ -8,7 +8,7 @@ Everything below is integrated on `linked-copies`: the T42 worker split, FreeCAD
 
 ## Reading and decision order
 
-Read CLAUDE.md for project conventions and the decision-log link. This file maps implementation responsibilities and constraints; it does not supersede accepted decisions. Read [Codex's suggestions.md](<Codex's suggestions.md>) for the proposed feature backlog and branching-history design. The live log requires access through Claude; [docs/decision-log.md](docs/decision-log.md) is its read-only local export. Read [docs/agent-handoff.md](docs/agent-handoff.md) for current assignments; do not change the exported log independently.
+Read CLAUDE.md for project conventions and the decision-log link, and the folder guides (`worker/CLAUDE.md`, `viewport/CLAUDE.md`, `viewport/tools/CLAUDE.md`) for each part's rules and tests. This file maps implementation responsibilities and constraints; it does not supersede accepted decisions. Read [Codex's suggestions.md](<Codex's suggestions.md>) for the proposed feature backlog and branching-history design. The live log requires access through Claude; [docs/decision-log.md](docs/decision-log.md) is its read-only local export. Read [docs/agent-handoff.md](docs/agent-handoff.md) for current assignments; do not change the exported log independently.
 
 When behaviour changes, update the decision log as required there, then keep this map and affected tests current. Proposed boundaries below are explicitly labelled; do not mistake them for existing modules.
 

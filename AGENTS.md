@@ -16,6 +16,9 @@ Read it for architecture, conventions and tests.
 
 ## How to work
 
+- Each part has a short guide: `worker/CLAUDE.md`, `viewport/CLAUDE.md`, `viewport/tools/CLAUDE.md` (what it
+  owns, its rules, its tests). They apply to you too: read the one for the folder your job touches.
+
 - Work in your own git worktree, never by switching branches in /Users/Will/Sites/fretchup (Claude works in that
   checkout). Example: `git worktree add ../fretchup-codex-<job> -b codex/<job> main`.
 - Touch only the files your handoff job lists. Don't merge into main or push unless William says so.
