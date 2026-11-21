@@ -10,7 +10,8 @@ Rule P01: a change that contradicts a logged decision gets a new row naming the 
 marked Superseded (never deleted). Ask William before countermanding an Active decision.
 If you can't reach the log, say so; don't guess at what it says.
 A read-only copy for tools that can't open claude.ai (ChatGPT, Codex) is `docs/decision-log.md`. After changing
-the log, regenerate the copy (read the four tabs, write the file) and commit it with the change.
+the log, regenerate the copy (read the four tabs, write the file) and commit it with the change; the commit hook
+sorts its rows by ID (`tools/sort_decision_log.py`), so write them in any order.
 
 ## Working with William
 - He wants a partner working through the Work list one item at a time, so nothing gets missed. Say which item
