@@ -76,6 +76,7 @@ var shell_test := false
 var join_test := false
 var reject_test := false
 var quick_test := false
+var fast_test := false    # --fast: any suite at the quick test's pace (T48; not for recordings)
 const OVERLAY_BIAS := 0.001   # overlays sit 0.1% of the camera distance nearer the eye (invisible, beats z-fighting)
 var overlay_bias := OVERLAY_BIAS
 var grid_mat: ShaderMaterial
@@ -163,6 +164,7 @@ func _ready() -> void:
 		elif a == "--infertest": test_mode = true; fx_test = true; infer_test = true
 		elif a == "--heavytest": test_mode = true; fx_test = true; heavy_test = true
 		elif a == "--true-latency": true_latency = true
+		elif a == "--fast": fast_test = true
 		elif a == "--zfighttest": test_mode = true; fx_test = true; zfight_test = true
 		elif a == "--holetest": test_mode = true; fx_test = true; hole_test = true
 		elif a == "--linetest": test_mode = true; fx_test = true; line_test = true

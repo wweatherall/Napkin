@@ -12,6 +12,9 @@ func run() -> void:
 		await _run_test()
 		return
 	_make_fake_cursor()
+	if m.fast_test:                               # --fast (T48): the quick test's pacing for any suite
+		quick = true
+		Engine.time_scale = 5.0
 	if not (m.quick_test or m.join_test or m.reject_test or m.snap_test or m.rect_test or m.undo_test or m.shell_test or m.perf_test or m.line_test or m.gesture_test or m.lifecycle_test):
 		m.new_board = true; m._update_toggles()     # the scripted suites were recorded with 'New board' on (I04 then)
 	if m.breath_test: await _run_breath_test()
@@ -683,7 +686,7 @@ func _run_undo_test() -> void:
 	# 1. one Ctrl+Z at a time; FreeCAD answers 300 ms late, so right after Ctrl+Z the screen shows the remembered state
 	var instant_bad := []; var after_bad := []; var reloads := 0; var rebuilt := []
 	for n in range(m.ops.size(), 0, -1):
-		m.test_delay_ms = 300
+		m.test_delay_ms = 100 if quick else 300      # late enough: the check below runs in the same frame (T48)
 		m.undo()
 		if _shown_ids() != seen[n - 1]: instant_bad.append([n - 1, _shown_ids(), seen[n - 1]])
 		var sc: Node = m.bodies_root.get_child(0) if m.bodies_root.get_child_count() > 0 else null
@@ -1022,6 +1025,7 @@ func _run_reject_test() -> void:
 	var t0 := Time.get_ticks_msec()
 	while Time.get_ticks_msec() - t0 < 8000:
 		if m.ui_sync.text.begins_with("✗"): notes[m.ui_sync.text] = true
+		if not notes.is_empty() and not m.dirty and not m.in_flight: break    # rejected and settled (T48)
 		await _frames(1)
 	await _wait_wave()
 	var left := []
@@ -1554,7 +1558,7 @@ func _run_heavy_test() -> void:
 
 func _frames(n := 2) -> void:
 	for i in n:
-		if not quick: await get_tree().physics_frame
+		if not (quick and m.quick_test): await get_tree().physics_frame   # --fast keeps it: picking a fresh draft needs one
 		await get_tree().process_frame
 
 
