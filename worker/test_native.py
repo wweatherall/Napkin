@@ -212,4 +212,36 @@ s = Session(model_path)
 check("after our save the file is ours again", not s.external and bodies_of(s)["b1"][1][5] == 40)
 s.close()
 
+# ---------- F. mirrors of a component instance that sits away from its definition ----------
+# Released FreeCAD 1.1 mirrors an App::Link without its placement, so instances are mirrored through a compound.
+MOPS = [
+    ground_rect("r1", [0, 0, 0], [100, 50]), push("p1", "r1", 20, "b1"),
+    {"id": "c1", "type": "make_component", "body": "b1", "name": "Shelf"},
+    {"id": "mv1", "type": "move", "targets": ["b1"], "vector": [0, 200, 0], "copy": True, "new_ids": ["b2"]},
+    {"id": "m1", "type": "mirror", "targets": ["b2"], "plane": {"point": [150, 0, 0], "normal": [1, 0, 0]},
+     "new_ids": ["b3"]},
+]
+s = Session(None)
+s.sync(MOPS)
+b = bodies_of(s)
+check("mirrored copy of a moved instance sits across the plane", b["b3"][1] == (200, 200, 0, 300, 250, 20), b["b3"][1])
+more = MOPS + [{"id": "mv2", "type": "move", "targets": ["b2"], "vector": [0, 100, 30]}]
+s.sync(more)
+b = bodies_of(s)
+check("the mirrored copy follows when its instance moves",
+      b["b2"][1] == (0, 300, 30, 100, 350, 50) and b["b3"][1] == (200, 300, 30, 300, 350, 50), (b["b2"][1], b["b3"][1]))
+more = more + [face_rect("r2", "b3", [280, 310, 50], [10, 10]), push("p2", "r2", 15),
+               {"id": "m2", "type": "mirror", "targets": ["b3"], "plane": {"point": [0, 400, 0], "normal": [0, 1, 0]},
+                "new_ids": ["b4"]}]
+s.sync(more)
+b = bodies_of(s)
+check("a bump drawn on it lands on the shared definition",
+      statuses(s)[-2:] == [("p2", "ok"), ("m2", "ok")] and all(b[k][0] == 101500 for k in ("b1", "b2", "b3", "b4"))
+      and b["b1"][1][5] == 35 and b["b3"][1][5] == 65, (statuses(s)[-3:], b["b1"], b["b3"]))
+check("a mirror of that mirror lands across its plane", b["b4"][1] == (200, 450, 30, 300, 500, 65), b["b4"][1])
+how, _ = s.sync(MOPS)
+check("undo brings the mirrored copy back", how.startswith("undid") and bodies_of(s)["b3"][1] == (200, 200, 0, 300, 250, 20),
+      (how, bodies_of(s)["b3"][1]))
+s.close()
+
 print(f"\nNATIVE TESTS: {R[0]} passed, {R[1]} failed")

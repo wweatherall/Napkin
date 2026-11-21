@@ -141,13 +141,21 @@ class Model:
         return obj.TypeId == "Part::Mirroring"
 
     @staticmethod
+    def mirror_source(m):
+        """The body a mirror reflects, stepping over the wrapper a component instance gets (mirror_input)."""
+        s = m.Source
+        if getattr(s, "SSRole", None) == "mirror-input":
+            s = s.Links[0]
+        return s
+
+    @staticmethod
     def world_shape(obj):
         return Part.getShape(obj)
 
     def definition(self, obj):
         """The board container whose features an edit really changes."""
         while self.is_mirror(obj):
-            obj = obj.Source
+            obj = self.mirror_source(obj)
         return obj.LinkedObject if self.is_instance(obj) else obj
 
     def edit_frame(self, obj):
@@ -157,7 +165,7 @@ class Model:
         fr = Frame()
         while self.is_mirror(obj):
             fr.mirror(obj.Base, obj.Normal)
-            obj = obj.Source
+            obj = self.mirror_source(obj)
         if self.is_instance(obj):
             fr.into(obj.Placement)
             obj = obj.LinkedObject
@@ -494,7 +502,7 @@ class Model:
                 # a flipped board: move its hidden source by the vector reflected across the mirror plane
                 nrm = unit(obj.Normal)
                 src_vec = vecv - nrm * (2 * vecv.dot(nrm))
-                src = obj.Source
+                src = self.mirror_source(obj)
                 src.Placement = App.Placement(src.Placement.Base + src_vec, src.Placement.Rotation)
                 changed.append(t)
                 continue
@@ -508,6 +516,20 @@ class Model:
                 self.copy_body(obj, nid, step)
                 changed.append(nid)
         return changed
+
+    def mirror_input(self, src, label):
+        """What a Part::Mirroring reads for `src`. Released FreeCAD 1.1 (checked on 1.1.3 and 1.1.4) mirrors an
+        App::Link as if it had no placement: the copy lands where the component's own shape would mirror to,
+        and it doesn't follow when the instance moves. A Part::Compound of the instance carries the placement,
+        so instances are mirrored through one. Boards and mirrors are read directly."""
+        if not self.is_instance(src):
+            return src
+        c = self.doc.addObject("Part::Compound", "MirrorInput")
+        c.Links = [src]
+        c.Label = f"{label} (placed)"
+        c.Visibility = False
+        add_props(c, SSRole="mirror-input")
+        return c
 
     def op_mirror(self, op):
         """Mirrored copy across a plane, kept live: it follows every later edit of its source (FreeCAD Part Mirror)."""
@@ -526,7 +548,7 @@ class Model:
                 src.Label = f"{t} (unflipped)"
                 src.Visibility = False
             m = self.doc.addObject("Part::Mirroring", "Mirror")
-            m.Source = src
+            m.Source = self.mirror_input(src, nid)
             m.Base = p
             m.Normal = n
             m.Label = nid
@@ -561,7 +583,7 @@ class Model:
 def to_world(model, obj, shape):
     """A shape in a board's own frame, as it appears for this body (instance / mirrored copy)."""
     if model.is_mirror(obj):
-        return to_world(model, obj.Source, shape).mirror(obj.Base, obj.Normal)
+        return to_world(model, model.mirror_source(obj), shape).mirror(obj.Base, obj.Normal)
     s = shape.copy()
     s.transformShape(obj.Placement.toMatrix())
     return s
@@ -595,7 +617,7 @@ def material_of(model, obj):
 
 def component_of(model, obj):
     if model.is_mirror(obj):
-        base = component_of(model, obj.Source)
+        base = component_of(model, model.mirror_source(obj))
         return f"{base} (mirrored)" if base else None
     return (getattr(obj.LinkedObject, "ComponentName", "") or None) if model.is_instance(obj) else None
 

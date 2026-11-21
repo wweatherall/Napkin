@@ -18,6 +18,8 @@ If you can't reach the log, say so; don't guess at what it says.
 - The .FCStd file is the model (A21). Each action becomes native features in one undo transaction (A22, A23):
   board = App::Part with Part::Plane → Part::Extrusion → Part::Fuse/Cut chain and a `Tip` link;
   components = App::Link; mirrors = Part::Mirroring; copied holes = Draft OrthoArray of the cutter.
+  A component instance is mirrored through a Part::Compound wrapper (`SSRole` = `mirror-input`, A26):
+  released FreeCAD 1.1 mirrors an App::Link without its placement. Walk mirrors with `mirror_source()`, not `.Source`.
   All Shop Sketch state lives on those objects (`BodyId`, `SSRole`, `RectId`, `SSMaterial`, `SSOp`).
 - `sync(ops)`: keep the common prefix, take back the rest with FreeCAD undo, apply new ops (A23).
   Autosave is atomic, after 0.25 s idle. The journal `<model>.shopsketch.json` sits beside the file (A24).
@@ -32,7 +34,7 @@ If you can't reach the log, say so; don't guess at what it says.
 
 ## Tests (run after every change)
 Worker tests:
-- `freecadcmd worker/test_native.py`: 25 checks (native tree, undo walks, reopen, outside edits)
+- `freecadcmd worker/test_native.py`: 29 checks (native tree, undo walks, reopen, outside edits, mirrors of moved instances)
 - `freecadcmd worker/test_arrays.py`: 10 checks (hole arrays and moves)
 
 Viewport suites: `Godot --path viewport -- --<suite> --out=<dir>/out --shots=<dir>/shots --port=7878`, with the worker running.
