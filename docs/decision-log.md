@@ -3,7 +3,7 @@
 A read-only copy of the decision log for tools that can't open it (ChatGPT, Codex).
 The live log is the claude.ai Sheet: https://claude.ai/artifact/4smrjxGQm7Rt8H4jWBkpyK
 Change decisions there, not here: this file is regenerated from it and edits here are lost.
-Exported from revision 58, 2026-11-21.
+Exported from revision 59, 2026-11-21.
 
 Rule P01: a new decision that contradicts an old one gets a new row naming the old ID; the old row is marked Superseded, never deleted. Ask William before countermanding an Active decision.
 
@@ -106,6 +106,7 @@ Rule P01: a new decision that contradicts an old one gets a new row naming the o
 | I32 | An array works like a component you enter. From outside, clicking any copy picks up the whole row: moving it moves the row with its original (and the original's other rows). Inside the array (double-click to enter, T20), moving one copy detaches it from the row and moves it alone (it stays linked in shape). Moving the original always takes its copies along. | Active | Refines I25, Q29 | Your call, 2026-11-21. Outside behaviour built (T12); the inside part comes with entering (T20). | Interaction | replay.py op_move (arrays_of); inside: T20 | 2026-11-21 |
 | M04 | Wood data and textures. Numbers: Wood Handbook GTR-190 (2010) ch. 5, Tables 5-1, 5-2, 5-3a at 12% MC (FPL's 2021 files returned server errors; recheck against GTR-282). Density = SG x 1120 kg/m3; E_L = MOE x 1.1 (table footnote); orthotropic X = along grain. Face textures: ambientCG CC0, chosen by eye per species. End grain: a band of rings cropped from ambientCG tree ends (ring-porous, diffuse, softwood), tinted per species, mirrored at each repeat across the width. No sheet goods yet (no handbook source). | Active | Refines M03 | Built with T15, 2026-11-21. | Materials | worker/materials.py; materials/textures | 2026-11-21 |
 | I33 | Turn grain 90° is T, on the board under the cursor (G was already Grid snap). Paint has no key yet: picking a wood in the Wood menu switches to Paint. | Tentative | Q30, Q14 | My pick, 2026-11-21: change it if you prefer another key. | Interaction | main.gd _turn_grain | 2026-11-21 |
+| W13 | One FreeCAD worker serves every Shop Sketch window, each window on its own FreeCAD document. A model is open in one window at a time: opening it from another brings the window that has it to the front (a window launched on it closes itself; File > Open goes back and says why). File > New Window (⌘⇧N) opens another window on a new Untitled model. The worker stops by itself shortly after its last window closes; a different version of the app gets its own worker. | Active | Refines A27 (each window started its own worker) | Your call, 2026-11-21: one window per model. Two FreeCADs on one file overwrote each other's saves; one shared FreeCAD also starts new windows faster. | Architecture | replay.py serve(); main.gd _pick_worker(), new_window() | 2026-11-21 |
 
 ## Open questions
 
@@ -176,6 +177,7 @@ Rule P01: a new decision that contradicts an old one gets a new row naming the o
 | T27 | Mirror across the plane of any face of an object (Q12), not just the red/green/blue planes. | Done | Q12, I12c | Committed 93a9efc (branch linked-copies). While mirroring, point at a face of another board: the plane goes on that face at its angle; type a distance to stand it off the face; an arrow key still forces red/green/blue. Tested: quick test (a board's top), worker (45° plane). Try a sloped face once there's a way to make one. |
 | T28 | Hide and unhide boards (and assemblies), SketchUp style. | Open |  | Your request, 2026-11-21. |
 | T29 | Models opened in FreeCAD show everything hidden: Shop Sketch saved without FreeCAD's view part of the file (GuiDocument.xml), and FreeCAD then hides every object. Write it on every save: each board's current solid shown, steps and per-board axes hidden, FreeCAD's own view settings kept. | Done | A21, A24 | Every save adds FreeCAD's view part: the board's current solid shown, steps, axes and the drawing page hidden; FreeCAD's own view settings (colours, line widths, camera) kept. Checked by opening a saved model in FreeCAD. Note: your model.FCStd was overwritten by a Shop Sketch save after you saved it in FreeCAD (the T17 case). Branch small-todos. |
+| T30 | Several windows: one FreeCAD worker serves every window, one window per model (W13); New Window. | Done | W13, A27 | Committed 7bd27df (branch linked-copies). Tested: worker/test_serve.py (11 checks), three headless windows (the second shared the worker; the third, on the first one's model, closed itself). Also fixed the same day: the worker crashed opening a model saved with a drawing page (6da4ef3). |
 
 ## Tunables
 
