@@ -69,6 +69,7 @@ var line_test := false
 var undo_test := false
 var gesture_test := false
 var snap_test := false
+var rect_test := false
 const OVERLAY_BIAS := 0.001   # overlays sit 0.1% of the camera distance nearer the eye (invisible, beats z-fighting)
 var overlay_bias := OVERLAY_BIAS
 var grid_mat: ShaderMaterial
@@ -157,6 +158,7 @@ func _ready() -> void:
 		elif a == "--undotest": test_mode = true; fx_test = true; undo_test = true
 		elif a == "--gesturetest": test_mode = true; fx_test = true; gesture_test = true
 		elif a == "--snaptest": test_mode = true; fx_test = true; snap_test = true
+		elif a == "--recttest": test_mode = true; fx_test = true; rect_test = true
 		elif a == "--lifecycletest": test_mode = true; fx_test = true; lifecycle_test = true
 		elif a == "--nobias": overlay_bias = 0.0
 		elif a.begins_with("--preload="): preload_path = a.substr(10)
@@ -1222,6 +1224,9 @@ func _run_drawing_script() -> void:
 
 # ---------------- input ----------------
 func _unhandled_input(e: InputEvent) -> void:
+	if fx_test and cursor2d != null and (e is InputEventMouseMotion or e is InputEventMouseButton) \
+			and e.position.distance_to(cursor2d.position) > 0.5:
+		return       # tests: the real pointer over the window isn't the test's cursor; ignore it
 	if e is InputEventMouseButton:
 		if e.button_index in [MOUSE_BUTTON_MIDDLE, MOUSE_BUTTON_RIGHT]:
 			orbiting = e.pressed and not e.shift_pressed
@@ -1232,6 +1237,9 @@ func _unhandled_input(e: InputEvent) -> void:
 			_zoom(1.0 / 0.88, e.position)
 		elif e.button_index == MOUSE_BUTTON_LEFT and e.pressed:
 			tool_click(e.position)
+		elif e.button_index == MOUSE_BUTTON_LEFT:
+			tools[tool].release(e.position)
+			_update_vcb()
 	elif (e is InputEventPanGesture or e is InputEventMagnifyGesture) and _repeat_gesture(e):
 		return       # Godot 4.6 hands an injected gesture over twice in the same frame (seen in tests); act once
 	elif e is InputEventPanGesture:

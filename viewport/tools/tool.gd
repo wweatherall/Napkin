@@ -31,6 +31,11 @@ func click(_screen: Vector2) -> void:
 	pass
 
 
+## the left button let go (a tool started by press-and-drag finishes here)
+func release(_screen: Vector2) -> void:
+	pass
+
+
 ## in the middle of an operation: typed characters go to the measurement box
 func busy() -> bool:
 	return false

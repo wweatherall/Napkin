@@ -1,6 +1,10 @@
 extends "res://tools/tool.gd"
 ## Rectangle (R): click a face or the ground, then click or type  width, height  + Return.
+## Started with a click, it ends with a click; started with a press-and-drag (or a press held down), it ends
+## when you let go.
 
+const DRAG_PX := 6.0          # the cursor moved this far with the button down: it's a drag
+const HOLD_MS := 300          # ...or the button stayed down this long
 var state := {}
 
 
@@ -17,6 +21,8 @@ func busy() -> bool:
 
 
 func mouse_moved(screen: Vector2) -> void:
+	if state.get("held", false) and screen.distance_to(state["press"]) > DRAG_PX:
+		state["drag"] = true
 	if state.get("active", false):
 		_rect_drag(screen)
 	else:
@@ -31,9 +37,20 @@ func click(screen: Vector2) -> void:
 		var b := Main.plane_basis(n)
 		var on: String = p["body"]
 		if p["rect"] != "": on = m.rects[p["rect"]]["on"]
-		state = {"active": true, "origin": p["point"], "n": n, "x": b[0], "y": b[1], "on": on, "du": 0.0, "dv": 0.0}
+		state = {"active": true, "origin": p["point"], "n": n, "x": b[0], "y": b[1], "on": on, "du": 0.0, "dv": 0.0,
+				 "press": screen, "held": true, "t0": Time.get_ticks_msec(), "drag": false}
 	else:
 		commit_rect(state["du"], state["dv"])
+
+
+func release(screen: Vector2) -> void:
+	if not state.get("held", false): return
+	state["held"] = false
+	if not state["drag"] and Time.get_ticks_msec() - int(state["t0"]) < HOLD_MS:
+		return                                   # a click: the rectangle ends with the next click
+	_rect_drag(screen)
+	if absf(state["du"]) >= 0.5 and absf(state["dv"]) >= 0.5:
+		commit_rect(state["du"], state["dv"])     # a drag: it ends here
 
 
 func typed(txt: String) -> void:

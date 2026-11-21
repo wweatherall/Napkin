@@ -26,6 +26,7 @@ func run() -> void:
 	elif m.gesture_test: await _run_gesture_test()
 	elif m.lifecycle_test: await _run_lifecycle_test()
 	elif m.snap_test: await _run_snap_test()
+	elif m.rect_test: await _run_rect_test()
 	else: await _run_fx_test()
 
 # ---------------- fx test (--fxtest): records nicely with --write-movie ----------------
@@ -677,7 +678,7 @@ func _run_gesture_test() -> void:
 	var pan := InputEventPanGesture.new(); pan.delta = Vector2(100.0 / Main.TRACKPAD_PX, 0.0)
 	await _gesture(pan)
 	var orbit_ok := is_equal_approx(m.yaw, y0 - 100 * 0.008) and is_equal_approx(m.pitch, p0)
-	var mouse := InputEventMouseMotion.new(); mouse.relative = Vector2(100, 0)
+	var mouse := InputEventMouseMotion.new(); mouse.relative = Vector2(100, 0); mouse.position = m.cursor2d.position
 	m.orbiting = true; m._unhandled_input(mouse); m.orbiting = false            # the same 100 px with the middle button
 	var same_as_mouse := is_equal_approx(m.yaw, y0 - 2 * 100 * 0.008)
 	var t0 := m.target
@@ -789,6 +790,53 @@ func _run_snap_test() -> void:
 	print("SNAPTEST through-hole: op %s through=%s distance %s | b2 volume %s (want %s)" % [
 		hole_op["id"], hole_op.get("through", false), hole_op.get("distance"), b2_vol, 100 * 100 * 50 - 20 * 20 * 50])
 	print("SNAPTEST done")
+	get_tree().quit()
+
+
+func _button(pressed: bool) -> void:
+	var ev := InputEventMouseButton.new()
+	ev.button_index = MOUSE_BUTTON_LEFT; ev.pressed = pressed
+	ev.position = m.cursor2d.position; ev.global_position = m.cursor2d.position
+	Input.parse_input_event(ev)
+	await _frames(1)
+
+
+func _last_rect() -> Array:
+	var rs := m.ops.filter(func(o): return o["type"] == "rect")
+	return [rs.size(), rs.back()["size"] if not rs.is_empty() else null]
+
+
+func _run_rect_test() -> void:
+	# a rectangle started with a click ends with a click; started with press-and-drag, it ends on release
+	await _view(Vector3(300, 200, 0), -30, -50, 1.4)
+	m.set_tool("rect")
+	# 1. press, drag, release
+	await _drag_to(Vector3(0, 0, 0), 4)
+	await _button(true)
+	await _drag_to(Vector3(200, 100, 0), 12)
+	await _button(false)
+	var drag := _last_rect()
+	# 2. click, move, click (no button held while moving)
+	await _drag_to(Vector3(300, 0, 0), 6)
+	await _button(true); await _button(false)
+	await _drag_to(Vector3(400, 150, 0), 12)
+	var before_second := _last_rect()
+	await _button(true); await _button(false)
+	var click := _last_rect()
+	# 3. a click that wobbles 3 px between press and release is still a click
+	await _drag_to(Vector3(0, 300, 0), 6)
+	await _button(true)
+	m.cursor2d.position += Vector2(3, 0)
+	var wob := InputEventMouseMotion.new(); wob.position = m.cursor2d.position; wob.global_position = m.cursor2d.position
+	Input.parse_input_event(wob); await _frames(1)
+	await _button(false)
+	await _drag_to(Vector3(100, 400, 0), 10)
+	var wobble_waiting: bool = _last_rect()[0] == 2 and m.tools["rect"].state.get("active", false)
+	await _button(true); await _button(false)
+	var wobble := _last_rect()
+	print("RECTTEST drag: %d rect, size %s (want 1, [200, 100]) | click: after first click and move %d rects (want 1), after second %d, size %s (want [100, 150]) | wobbly click still waiting %s, then size %s (want [100, 100])" % [
+		drag[0], drag[1], before_second[0], click[0], click[1], wobble_waiting, wobble[1]])
+	print("RECTTEST done")
 	get_tree().quit()
 
 
