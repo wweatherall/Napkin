@@ -1,0 +1,220 @@
+extends Node
+## Selection and context (A33b, T41): what a click stands for and what's picked.
+## It owns the selection, the context you've entered (an assembly or an array row), which board belongs to which
+## assembly / row / family / array / mirror pair (from FreeCAD's bodies.json), which boards are hidden (from the ops),
+## and the board under the cursor. Its actions (hide, unhide, make an assembly, make unique, detach) append ops to
+## the document (document.gd) and sync. It draws nothing: main.gd (later the presenter) draws what the signals say.
+##
+## From outside, a board in an assembly stands for the whole assembly, and a copy in an array for its whole row
+## (T20, I32). Double-click (Select) enters one: the rest greys out and can't be picked; new boards drawn inside
+## join the assembly; inside an array a copy moves alone (it leaves the row). Esc clears the selection, then leaves.
+## Hide (T28, I37) is an ordinary undoable op ("hide", saved as each board's SSHidden), so the hidden set follows
+## from the ops at once: hide and its undo show at once.
+
+signal selection_changed            # `selection` was set
+signal context_changed              # entered or left an assembly / array
+signal hidden_changed(by_op: bool)  # the hidden set or View > Hidden geometry changed (by_op: a hide / unhide op)
+signal links_changed                # a board left its family or array (the sibling highlight is out of date)
+signal say(txt: String)             # a status-bar message
+
+var doc                             # document.gd: ops, counters, sync()
+var has_board: Callable = func(_b): return true   # is this board in the model (confirmed or drafted)
+
+var selection: Array = []
+var context := ""                   # "" outside; "assembly:<id>" or "row:<original>" inside
+var body_assembly := {}             # board id -> assembly id, "" if none
+var body_row := {}                  # board id -> the original its array row was copied from, "" if none
+var body_family := {}               # board id -> its family (shared definition), "" if it isn't linked
+var body_array := {}                # board id -> the array it's a copy in, "" if none
+var body_mirror_plane := {}         # mirrored board id -> [point, normal] of its plane (model mm)
+var body_hidden := {}               # board id -> true while it's hidden (refresh_hidden() works it out from the ops)
+var show_hidden := false            # View > Hidden geometry: hidden boards ghosted and pickable
+var hover_body := ""                # the board under the cursor (Make unique / Detach / Hide act on it)
+
+
+# ---------------- what FreeCAD says each board belongs to ----------------
+
+func set_boards(data: Array) -> void:
+	"""bodies.json entries: each board's family, array, assembly, row and mirror plane."""
+	body_family = {}; body_array = {}; body_assembly = {}; body_row = {}
+	for b in data:
+		var bid: String = b["id"]
+		body_family[bid] = b.get("family", ""); body_array[bid] = b.get("array", "")
+		body_assembly[bid] = b.get("assembly", ""); body_row[bid] = b.get("row", "")
+		var mp: Array = b.get("mirror_plane", [])
+		if mp.size() == 2: body_mirror_plane[bid] = [Vector3(mp[0][0], mp[0][1], mp[0][2]), Vector3(mp[1][0], mp[1][1], mp[1][2])]
+		else: body_mirror_plane.erase(bid)
+
+
+# ---------------- queries ----------------
+
+func unit_of(bid: String) -> Dictionary:
+	"""What a tool acts on when you point at this board from where you are."""
+	if bid == "": return {}
+	if context == "":
+		var a: String = body_assembly.get(bid, "")
+		if a != "":
+			return {"id": a, "kind": "assembly", "bodies": body_assembly.keys().filter(func(b): return body_assembly[b] == a)}
+		var r: String = body_row.get(bid, "")
+		if r != "":
+			return {"id": bid, "kind": "row", "bodies": body_row.keys().filter(func(b): return body_row[b] == r)}
+	return {"id": bid, "kind": "board", "bodies": [bid]}
+
+
+func in_context(bid: String) -> bool:
+	if context == "" or bid == "": return true
+	if context.begins_with("assembly:"): return body_assembly.get(bid, "") == context.substr(9)
+	return body_row.get(bid, "") == context.substr(4)
+
+
+func context_assembly() -> String:
+	return context.substr(9) if context.begins_with("assembly:") else ""
+
+
+func members_of(assembly: String) -> Array:
+	return body_assembly.keys().filter(func(b): return body_assembly[b] == assembly)
+
+
+func mirror_plane_of_context() -> Array:
+	"""Inside a mirror group: [point, normal] of its plane; else []."""
+	var a := context_assembly()
+	if a == "": return []
+	for b in members_of(a):
+		if body_mirror_plane.has(b): return body_mirror_plane[b]
+	return []
+
+
+func edit_blocked(bid: String) -> bool:
+	"""From outside, an assembly's boards are edited by entering it (SketchUp)."""
+	if context == "" and body_assembly.get(bid, "") != "":
+		say.emit("Double-click the assembly (Select tool) to edit inside it")
+		return true
+	return false
+
+
+func siblings_of(bid: String) -> Array:
+	var fam: String = body_family.get(bid, "")
+	if fam == "": return []
+	return body_family.keys().filter(func(b): return b != bid and body_family[b] == fam)
+
+
+func hidden_boards() -> Dictionary:
+	var out := {}
+	for op in doc.ops:
+		if op["type"] != "hide": continue
+		for b in op["targets"]:
+			if op.get("hidden", true): out[b] = true
+			else: out.erase(b)
+	return out
+
+
+func refresh_hidden() -> void:
+	body_hidden = hidden_boards()
+
+
+func is_hidden(bid: String) -> bool:
+	"""Hidden and out of sight: not picked, not snapped to."""
+	return body_hidden.has(bid) and not show_hidden
+
+
+# ---------------- selection and context ----------------
+
+func set_selection(ids: Array) -> void:
+	selection = ids
+	selection_changed.emit()
+
+
+func enter_context_of(bid: String) -> void:
+	if bid == "" or context != "": return
+	if body_assembly.get(bid, "") != "": context = "assembly:" + body_assembly[bid]
+	elif body_row.get(bid, "") != "": context = "row:" + body_row[bid]
+	else: return
+	set_selection([])
+	context_changed.emit()
+
+
+func leave_context() -> void:
+	context = ""
+	context_changed.emit()
+
+
+# ---------------- actions (each one op) ----------------
+
+func _hide_op(targets: Array, hidden: bool) -> void:
+	doc.counters["hd"] += 1
+	doc.ops.append({"id": "hd%d" % doc.counters["hd"], "type": "hide", "targets": targets, "hidden": hidden})
+	set_selection(selection.filter(func(b): return not hidden or not targets.has(b)))
+	hidden_changed.emit(true)
+	doc.sync()
+
+
+static func _boards_word(n: int) -> String:
+	return "%d board%s" % [n, "" if n == 1 else "s"]
+
+
+func hide_selected() -> void:
+	"""Edit > Hide (H): the selection, else the board (or assembly) under the cursor."""
+	var ids: Array = selection.duplicate()
+	if ids.is_empty() and hover_body != "": ids = unit_of(hover_body).get("bodies", [])
+	ids = ids.filter(func(b): return not body_hidden.has(b))
+	if ids.is_empty():
+		say.emit("Select the boards to hide first (Select tool)"); return
+	_hide_op(ids, true)
+	say.emit("Hid %s. Shift+H unhides all" % _boards_word(ids.size()))
+
+
+func unhide(which: String) -> void:
+	"""Edit > Unhide selected / last / all."""
+	var ids: Array = []
+	match which:
+		"selected":
+			ids = selection.filter(func(b): return body_hidden.has(b))
+			if ids.is_empty():
+				say.emit("Select hidden boards first (View > Hidden geometry shows them)"); return
+		"last":
+			for i in range(doc.ops.size() - 1, -1, -1):
+				var op: Dictionary = doc.ops[i]
+				if op["type"] == "hide" and op.get("hidden", true):
+					ids = op["targets"].filter(func(b): return body_hidden.has(b))
+					if not ids.is_empty(): break
+		"all":
+			ids = body_hidden.keys().filter(func(b): return has_board.call(b))
+	if ids.is_empty():
+		say.emit("Nothing is hidden"); return
+	_hide_op(ids, false)
+	say.emit("Unhid %s" % _boards_word(ids.size()))
+
+
+func toggle_hidden_geometry() -> void:
+	show_hidden = not show_hidden
+	if not show_hidden: set_selection(selection.filter(func(b): return not body_hidden.has(b)))
+	hidden_changed.emit(false)
+
+
+func make_assembly() -> void:
+	var ids := selection.filter(func(b): return body_assembly.get(b, "") == "")
+	if ids.is_empty():
+		say.emit("Select the boards first (Select tool, Shift-click to add)"); return
+	doc.counters["as"] += 1; doc.counters["a"] += 1
+	doc.ops.append({"id": "as%d" % doc.counters["as"], "type": "make_assembly", "targets": ids,
+					"new_id": "a%d" % doc.counters["a"], "name": "Assembly %d" % doc.counters["a"]})
+	set_selection([])
+	doc.sync()
+	say.emit("Assembly of %d board%s: double-click it to edit inside" % [ids.size(), "" if ids.size() == 1 else "s"])
+
+
+func linked_op(kind: String) -> void:
+	"""Edit > Make unique (U) / Detach from array, on the board under the cursor."""
+	var bid := hover_body
+	if bid == "":
+		say.emit("Point at a board first"); return
+	if kind == "make_unique" and body_family.get(bid, "") == "":
+		say.emit("%s isn't linked to anything" % bid); return
+	if kind == "detach" and body_array.get(bid, "") == "":
+		say.emit("%s isn't a copy in an array" % bid); return
+	var prefix := "mu" if kind == "make_unique" else "dt"
+	doc.counters[prefix] += 1
+	doc.ops.append({"id": "%s%d" % [prefix, doc.counters[prefix]], "type": kind, "targets": [bid]})
+	links_changed.emit()
+	doc.sync()
+	say.emit(("%s is its own board now" if kind == "make_unique" else "%s no longer follows its array") % bid)

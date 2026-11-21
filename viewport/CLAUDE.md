@@ -7,11 +7,15 @@ protocol (update it in the same commit when you change either). Tools have their
 
 ## Files
 - `main.gd` (~2,500 lines; its split is T39 / T41): setup and UI, worker process and lifecycle, drafts, waves,
-  remembered states, selection and context, typed input (`apply_vcb`), input dispatch, model switching.
+  remembered states, drawing selection and context, typed input (`apply_vcb`), input dispatch, model switching.
 - `document.gd` (T39, A31): the document controller, `m.doc`. Owns the op list, counters, `seq` / `in_flight` /
   `dirty`, which reply counts, confirmed ids, undo floor, redo stack, open / reset, save revisions; reports by
   signals and knows nothing of meshes. main.gd forwards those names (`m.ops`, `m.seq`, ...) to it. Undo, redo and
   removal go through it (`op_removed` tells main to take away what an op drew).
+- `selection.gd` (T41, A33b): selection and context, `m.sel`. Owns `selection`, `context`, each board's assembly /
+  row / family / array / mirror plane, the hidden set, `show_hidden`, `hover_body`; the queries (`unit_of`,
+  `in_context`, `is_hidden`, ...) and the actions that add hide / assembly / unlink ops. Draws nothing: main.gd
+  draws on its signals (`_apply_context`, the selection overlay, the mirror plane) and forwards the old names.
 - `inference.gd`: the one snapping engine (pick; endpoint > midpoint > on edge; axis inference). Every tool uses it.
 - `tools/`: one object per tool (see its guide). `property_panel.gd`: the Properties panel (T46, I36).
 - `units.gd`: lengths. `evaluate_length` / `evaluate_pair` give FreeCAD's answer for a typed length at once (a
@@ -72,6 +76,8 @@ protocol (update it in the same commit when you change either). Tools have their
 - `test_document.gd` (headless, in the feature tests): the document controller with a stand-in client: rapid
   edits coalesce, stale and dirty replies are ignored, reconnect resends, a switched model ignores the old reply,
   undo floor, redo.
+- `test_selection.gd` (headless, in the feature tests): selection.gd with a stand-in document: what a board stands for
+  outside and inside, entering and leaving, the hidden set following the ops, hide / assembly / unlink ops.
 - `test_units.gd` (`Godot --headless --path viewport --script res://test_units.gd`, 114): the parser, and the local
   evaluator against FreeCAD's answers in `tests/length_cases.json`.
 - Tests use a private worker on a port it picks itself and reports in a file (T47); `--port=N` uses an outside
