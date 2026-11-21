@@ -6,8 +6,12 @@ evaluator; this side predicts. The top-level CLAUDE.md has the overview; ARCHITE
 protocol (update it in the same commit when you change either). Tools have their own guide in `tools/CLAUDE.md`.
 
 ## Files
-- `main.gd` (~2,300 lines; its split is T39 / T41): setup and UI, worker link and lifecycle, `sync`, drafts, waves,
+- `main.gd` (~2,500 lines; its split is T39 / T41): setup and UI, worker process and lifecycle, drafts, waves,
   remembered states, selection and context, typed input (`apply_vcb`), input dispatch, model switching.
+- `document.gd` (T39, A31): the document controller, `m.doc`. Owns the op list, counters, `seq` / `in_flight` /
+  `dirty`, which reply counts, confirmed ids, undo floor, redo stack, open / reset, save revisions; reports by
+  signals and knows nothing of meshes. main.gd forwards those names (`m.ops`, `m.seq`, ...) to it. Undo, redo and
+  removal go through it (`op_removed` tells main to take away what an op drew).
 - `inference.gd`: the one snapping engine (pick; endpoint > midpoint > on edge; axis inference). Every tool uses it.
 - `tools/`: one object per tool (see its guide). `property_panel.gd`: the Properties panel (T46, I36).
 - `units.gd`: lengths. `evaluate_length` / `evaluate_pair` give FreeCAD's answer for a typed length at once (a
@@ -65,6 +69,9 @@ protocol (update it in the same commit when you change either). Tools have their
 - Recorded suites (`--facetest --movetest --mirrortest --infertest --holetest --zfighttest`) are compared with
   `tests/reference/` by the full test; targeted: `--undotest --snaptest --recttest --shelltest --jointest
   --rejecttest`. Visual only: `--linetest`, `--zfighttest`; timing `--perftest`; `--heavytest --model=<file>`.
+- `test_document.gd` (headless, in the feature tests): the document controller with a stand-in client: rapid
+  edits coalesce, stale and dirty replies are ignored, reconnect resends, a switched model ignores the old reply,
+  undo floor, redo.
 - `test_units.gd` (`Godot --headless --path viewport --script res://test_units.gd`, 114): the parser, and the local
   evaluator against FreeCAD's answers in `tests/length_cases.json`.
 - Tests use a private worker on a port it picks itself and reports in a file (T47); `--port=N` uses an outside

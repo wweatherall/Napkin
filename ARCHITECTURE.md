@@ -19,8 +19,10 @@ Shop Sketch is a local desktop application with one Godot process per window, a 
 ```mermaid
 flowchart LR
     U[User] --> T[Godot tools and inference]
-    T --> M[main.gd: operations, drafts, UI]
-    M --> C[worker_client.gd]
+    T --> M[main.gd: drafts, UI]
+    T --> DC[document.gd: operations, sync, save state]
+    M <--> DC
+    DC --> C[worker_client.gd]
     C -->|newline JSON over localhost TCP| W[serve.py and session.py]
     W --> G[model.py + action mixins: FreeCAD features]
     G --> F[FCStd and adjacent journal]
@@ -39,7 +41,8 @@ TCP carries commands/status and output paths. Geometry is read from shared local
 | Location | Current responsibility | Useful entry points |
 |---|---|---|
 | `viewport/project.godot`, `main.tscn` | Godot configuration and startup scene | Main scene |
-| `viewport/main.gd` | Composition root; UI, model state, selection/context, operation submission, drafts, confirmation waves, caches, worker lifecycle, project switching, camera | `_ready`, `_make_tools`, `sync`, `_on_worker`, `_apply_confirmed`, `switch_model` |
+| `viewport/main.gd` | Composition root; UI, selection/context, drafts, confirmation waves, caches, worker process lifecycle, project switching (window side), camera. Routes worker replies: `sync`/`open`/`saved` to the document controller, the rest to its own handlers; draws what the controller's signals say. Forwards `ops`, `counters`, `seq`, `in_flight`, `dirty`, `model_path`, `out_dir`, `opened`, revisions and `confirmed_ids` to it, so tools and tests keep using `m.<name>` | `_ready`, `_make_tools`, `sync`, `_on_worker`, `_on_synced`, `_on_op_removed`, `_apply_confirmed`, `switch_model` |
+| `viewport/document.gd` | Document controller (A31, T39): model path and output folder, the op list and id counters, request numbering and coalescing (`seq`, `in_flight`, `dirty`), gating replies to the current state, confirmed op ids, undo floor, linear redo stack, open/reset, save revisions. No meshes, shaders or camera; reports by signals (`sync_started`, `sent`, `synced`, `sync_failed`, `save_changed`, `op_removed`, `removed`, `idle`). Tested headless by `test_document.gd` with a stand-in client | `sync`, `on_sync_reply`, `on_opened`, `on_saved`, `on_link_up`, `reset`, `open`, `remove_op(s)`, `undo`, `take_redo` |
 | `viewport/tools/tool.gd` | Common tool interface and references to viewport/inference | `setup`, `reset`, `click`, `double_click`, `release`, `mouse_moved`, `key`, `typed` |
 | `viewport/tools/select_tool.gd` | Selection and entering editing contexts | Tool event methods |
 | `viewport/tools/paint_tool.gd` | Paint selected wood onto the picked board/family | Tool event methods |
@@ -81,13 +84,13 @@ The `length` and `inspect_properties` requests are handled in `serve.py`; `prope
 | State | Owner | Meaning |
 |---|---|---|
 | Pointer gesture, typed input, hover, preview | Godot tool / main | Provisional user interaction |
-| Desired operation sequence | Godot `ops` | What the client wants the worker to materialize |
+| Desired operation sequence | Godot `document.gd` `ops` | What the client wants the worker to materialize |
 | Accepted geometry and model relationships | Live FreeCAD document | Authoritative computed model |
 | Saved model | `.FCStd` | Durable native model, including Shop Sketch properties |
 | Replay/provenance information | Adjacent `.shopsketch.json` | Operations, statuses, revision and FCStd hash |
 | Meshes, bounds, metadata, GLB, drawing outputs | Derived export files | Rebuildable presentation/export products |
 | Recently confirmed visible states | Godot `_states` / `_boards` | Fast visual restoration; not durable model history |
-| Undone actions available to redo | Godot `redo_stack` (T31) | Linear and in memory only: valid while `ops` still has the key recorded at the undo; any other change ends it. Branch history (U01) will replace it |
+| Undone actions available to redo | Godot `document.gd` `redo_stack` (T31) | Linear and in memory only: valid while `ops` still has the key recorded at the undo; any other change ends it. Branch history (U01) will replace it |
 | Last project preference | Godot `user://settings.cfg` | Application preference |
 
 An operation being confirmed does not mean it has been saved. A visible draft is not an accepted solid. A mesh snapshot cannot restore the full feature graph.
@@ -96,12 +99,12 @@ An operation being confirmed does not mean it has been saved. A visible draft is
 
 1. A tool receives input through Main and uses the shared inference engine.
 2. It renders a draft immediately and commits a semantic operation into `ops`.
-3. `sync()` advances `seq`, marks the desired state dirty, and sends when no request is in flight. Further edits coalesce into a subsequent full-log request.
+3. `sync()` (the document controller's) advances `seq`, marks the desired state dirty, and sends when no request is in flight. Further edits coalesce into a subsequent full-log request.
 4. `Session.sync()` compares canonical operation values to the applied sequence, preserving their common prefix.
 5. The worker undoes the old tail and applies the new tail. If available FreeCAD undo cannot reach the required state, it rebuilds from operations when permitted by the external-edit floor.
 6. Each applied operation runs in a FreeCAD transaction. Failure aborts that operation and records a failure status.
 7. Export writes current metadata and changed board meshes. The worker responds with per-operation status and output directory.
-8. Main applies a current response, replaces drafts with confirmed board nodes, and runs acceptance/rejection feedback. Rejection handling also considers dependent operations; review `_on_rejected` when adding new operation kinds.
+8. The document controller passes on only a response for the current `seq` with nothing newer waiting (`synced`); main then applies it, replaces drafts with confirmed board nodes, and runs acceptance/rejection feedback. Rejection handling also considers dependent operations; review `_on_rejected` when adding new operation kinds.
 9. After approximately 0.25 seconds of socket inactivity, the worker saves pending documents and sends a separate `saved` notification. Flush/quit paths also drain pending saves.
 
 The current client gates sync results using sequence and dirty state. New asynchronous work must preserve this discipline. Future branching history should additionally identify the exact requested history state and model generation.
@@ -231,7 +234,7 @@ Main currently concentrates UI, model coordination, caches, selection, history-l
 
 As features grow, consider extracting:
 
-1. **Document controller (A31 Active, T39):** current model, operations, request generation, confirmation and save status.
+1. **Document controller (A31 Active, T39; built as `document.gd`, 2026-11-21):** current model, operations, request generation, confirmation and save status. Still to route through it: tools submitting actions (they append to `ops` and call `sync()`), and history (U01).
 2. **History store (U01/U02, T35–T36):** immutable action nodes, active cursor, branch heads, persistence and checkpoint policy.
 3. **Selection/context controller (A33 Tentative):** selected units, entered assemblies/arrays and affected-instance scope.
 4. **Geometry presenter (A33 Tentative):** draft and confirmed nodes, mesh cache, picking metadata and feedback.
@@ -243,7 +246,7 @@ For branching history, retain old futures in a durable graph and materialize an 
 
 For behavioural changes, follow CLAUDE.md: run `tools/quicktest.sh`; run `tools/fulltest.sh` on failure or before merge. Worker tests check native structure, undo/reopen, arrays and relationships. Scripted viewport suites exercise gestures; reference comparisons check volumes/bounds. Visual quality and interaction feel still require real-hardware checks.
 
-`parsecheck.sh` loads every viewport/tool script first. `featuretest.sh` runs the feature tests in parallel: the worker tests (native, runs, arrays, combos, serve, length input and protocol, properties, the T48 scenario on `tests/scenario_fixture.json`) and the units parser test. `quicktest.sh` runs them alongside the viewport quick suite, dealt into three windows side by side (`tests.gd` `QUICK_LANES`, `--quick-lane=N`; T49), each with its own worker; `fulltest.sh` alongside the recorded and targeted suites at quick pace (`--fast`), in four lanes side by side, each lane with its own worker started on port 0 (T47, T49). Worker tests load the modules with `from test_load import *`. `test_serve.py` covers shared-worker ownership/lifecycle; fulltest also runs recorded suites and targeted checks. After integrating H011/H012 (linked-copies, 2026-11-21): native 96, arrays 10, combos 61, serve 11, units 114, length 23, length protocol 3, properties 28, viewport 63; zero failures. Quick-test steps check that typed arithmetic is worked out locally and a declined input (`60mm^1`) goes to FreeCAD; the rejection scenario types for real. The panel's steps drive its actual controls (inspect, expression edit, confirmed volume, undo).
+`parsecheck.sh` loads every viewport/tool script first. `featuretest.sh` runs the feature tests in parallel: the worker tests (native, runs, arrays, combos, serve, length input and protocol, properties, the T48 scenario on `tests/scenario_fixture.json`), the units parser test and the document controller's sequencing test (`test_document.gd`: coalescing, stale and dirty replies, reconnect, open/switch, undo floor, redo). `quicktest.sh` runs them alongside the viewport quick suite, dealt into three windows side by side (`tests.gd` `QUICK_LANES`, `--quick-lane=N`; T49), each with its own worker; `fulltest.sh` alongside the recorded and targeted suites at quick pace (`--fast`), in four lanes side by side, each lane with its own worker started on port 0 (T47, T49). Worker tests load the modules with `from test_load import *`. `test_serve.py` covers shared-worker ownership/lifecycle; fulltest also runs recorded suites and targeted checks. After integrating H011/H012 (linked-copies, 2026-11-21): native 96, arrays 10, combos 61, serve 11, units 114, length 23, length protocol 3, properties 28, viewport 63; zero failures. Quick-test steps check that typed arithmetic is worked out locally and a declined input (`60mm^1`) goes to FreeCAD; the rejection scenario types for real. The panel's steps drive its actual controls (inspect, expression edit, confirmed volume, undo).
 
 Known limit: a property edit names its FreeCAD object by internal name (`Extrusion003`). Names are stable on reopen and on rebuild from the journal; branch-safe IDs (T35) must take them into account.
 
