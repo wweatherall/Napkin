@@ -11,22 +11,50 @@ const GRID := 10.0            # mm, grid snap step
 const SNAP_PX := 14.0         # endpoint snap radius on screen
 
 # ---------------- state ----------------
-var ops: Array = []
-var counters := {"pr": 0, "r": 0, "b": 0, "pp": 0, "m": 0, "mv": 0, "mu": 0, "dt": 0, "as": 0, "a": 0, "sm": 0, "tg": 0, "hd": 0}
-var seq := 0
-var in_flight := false
-var dirty := false
-var sent_at := {}             # seq -> msec
-var last_sync_ms := 0
+# The model's actions and their sync with FreeCAD live in the document controller (document.gd, A31, T39). These
+# names forward to it, so tools and tests can keep writing m.ops, m.counters, m.seq.
+const Document := preload("res://document.gd")
+var doc: Document = Document.new()
+var ops: Array:
+	get: return doc.ops
+	set(v): doc.ops = v
+var counters: Dictionary:
+	get: return doc.counters
+var seq: int:
+	get: return doc.seq
+var in_flight: bool:
+	get: return doc.in_flight
+var dirty: bool:
+	get: return doc.dirty
+var last_sync_ms: int:
+	get: return doc.last_sync_ms
+var model_path: String:       # the FreeCAD file: the model itself (A21)
+	get: return doc.model_path
+	set(v): doc.model_path = v
+var out_dir: String:
+	get: return doc.out_dir
+	set(v): doc.out_dir = v
+var undo_floor: int:
+	get: return doc.undo_floor
+var confirmed_ids: Dictionary:  # op ids FreeCAD has already confirmed
+	get: return doc.confirmed_ids
+var opened: bool:             # the worker has answered our "open"
+	get: return doc.opened
+var pending_rev: int:
+	get: return doc.pending_rev
+var saved_rev: int:
+	get: return doc.saved_rev
+var redo_stack: Array:
+	get: return doc.redo_stack
+var test_delay_ms: int:       # test hook: ask the worker to sit on its answer
+	get: return doc.test_delay_ms
+	set(v): doc.test_delay_ms = v
 var tool := "rect"
 var grid_snap := true
 var new_board := false       # a rectangle on a face joins that board when pushed out (I04b); B for a separate board
 var vcb := ""
 
 var oplog_path := ""
-var model_path := ""      # the FreeCAD file: the model itself (A21)
-var undo_floor := 0       # ops before this came from a file FreeCAD has since edited
-var out_dir := ""
 var drawing_script := ""
 var test_mode := false
 var shots_dir := ""
@@ -51,7 +79,6 @@ var rects := {}               # rect id -> {"tris","n","on","pts"}
 var drafts := {}              # op id -> Node3D
 var body_cuts := {}      # body id -> [{op, kind, lo, hi}] from FreeCAD: holes and added pieces
 var fx_points := {}           # op id -> model point where the operation ended (wave origin)
-var confirmed_ids := {}       # op ids FreeCAD has already confirmed
 var fx_test := false
 var breath_test := false
 var face_test := false
@@ -209,6 +236,18 @@ func _ready() -> void:
 	if not test_mode: _remember_model(model_path)
 	client = WorkerClient.new()
 	add_child(client)
+	doc.name = "Document"
+	doc.client = client
+	doc.start_fresh = test_mode and not heavy_test
+	add_child(doc)
+	doc.sync_started.connect(_on_sync_started)
+	doc.sent.connect(func(n: int): sent_clock[n] = movie_clock)
+	doc.synced.connect(_on_synced)
+	doc.sync_failed.connect(_on_sync_failed)
+	doc.save_changed.connect(_update_saved)
+	doc.op_removed.connect(_on_op_removed)
+	doc.removed.connect(_on_removed)
+	doc.idle.connect(_request_properties)
 	client.replied.connect(_on_worker)
 	client.link_up.connect(_on_link_up)
 	client.link_down.connect(_on_link_down)
@@ -325,8 +364,6 @@ var _tool_buttons := {}
 var _toggle_buttons := {}
 var ui_vcb_label: Label
 var ui_saved: Label                 # quiet 'Saving…' / 'Saved' (Q22): the wave means accepted, this means on disk
-var pending_rev := 0                # the model revision the last confirmed change will be saved as
-var saved_rev := 0                  # the revision the worker last said it saved
 
 
 var saved_shown: Array = []         # tests: what the indicator has said, in order (T45: fast saves can't be missed)
@@ -1299,17 +1336,11 @@ func _on_open(resp: Dictionary) -> void:
 		ui_sync.text = "✗ couldn't open %s: %s" % [model_path, resp.get("error", "?")]
 		ui_sync.add_theme_color_override("font_color", Color(0.75, 0.1, 0.1))
 		return
-	opened = true
-	saved_rev = int(resp.get("rev", 0)); pending_rev = saved_rev
-	_update_saved()
-	if test_mode and not heavy_test and _first_open:
-		_first_open = false
-		return                      # tests start clean; a model opened later (switch_model) adopts its history
-	ops = resp.get("ops", [])
-	undo_floor = int(resp.get("undo_floor", 0))
-	_restore_counters()
+	var adopt := not (test_mode and not heavy_test and _first_open)   # tests start clean; a model opened later (switch_model) adopts its history
+	_first_open = false
+	doc.on_opened(resp, adopt)
+	if not adopt: return
 	_rebuild_rect_drafts()
-	for op in ops: confirmed_ids[op["id"]] = true     # already in the file: no wave
 	sync()
 	if resp.get("external", false):
 		reject_note = ""
@@ -1317,35 +1348,24 @@ func _on_open(resp: Dictionary) -> void:
 
 
 func undo() -> void:
-	if ops.is_empty(): return
-	if ops.size() <= undo_floor:
+	if doc.at_undo_floor():
 		ui_sync.text = "✗ can't undo past changes made in FreeCAD (yet)"
 		ui_sync.add_theme_color_override("font_color", Color(0.75, 0.1, 0.1))
 		return
-	var op: Dictionary = ops.back().duplicate(true)
-	if not redo_stack.is_empty() and redo_stack.back()["key"] != _ops_key(ops): redo_stack.clear()
-	remove_op(op["id"])
-	redo_stack.append({"op": op, "key": _ops_key(ops)})
+	doc.undo()
 
 
 # ---------------- redo (T31) ----------------
-# Linear redo, until branch history (U01) keeps the paths you leave: each undo puts its action on the redo stack
-# with the action list it left behind. Redo puts the action back only while the list is still that one, so any
-# new action (or an amend, a rejection, another model) ends redo, as in SketchUp.
-var redo_stack: Array = []          # [{"op", "key": ops key right after its undo}], newest last
-
-
+# Linear redo (the document controller keeps the stack and says when it's over); here it's drawn again.
 func can_redo() -> bool:
-	return not redo_stack.is_empty() and redo_stack.back()["key"] == _ops_key(ops)
+	return doc.can_redo()
 
 
 func redo() -> void:
-	if not can_redo():
-		redo_stack.clear()
+	var op: Dictionary = doc.take_redo()
+	if op.is_empty():
 		_say_status("Nothing to redo")
 		return
-	var op: Dictionary = redo_stack.pop_back()["op"]
-	ops.append(op)
 	if op["type"] == "rect":
 		if not rects.has(op["id"]): _register_rect(op)
 	elif op["type"] == "push_pull":
@@ -1358,20 +1378,16 @@ func redo() -> void:
 
 
 func remove_ops(ids: Array) -> void:
-	"""Remove several ops together (a rejection and what built on it): one resync."""
-	for oid in ids: remove_op(oid, false)
-	_after_removal()
+	doc.remove_ops(ids)
 
 
 func remove_op(oid: String, resync := true) -> void:
-	"""Remove one op (undo, or FreeCAD rejected it) and resync."""
-	var idx := -1
-	for i in ops.size():
-		if ops[i]["id"] == oid: idx = i
-	if idx < 0: return
-	var op: Dictionary = ops[idx]
-	ops.remove_at(idx)
-	confirmed_ids.erase(oid)
+	doc.remove_op(oid, resync)
+
+
+func _on_op_removed(op: Dictionary) -> void:
+	"""The document dropped an op (undo, rejection): take away what it drew."""
+	var oid: String = op["id"]
 	_end_wave(oid)
 	if drafts.has(oid):
 		drafts[oid].queue_free(); drafts.erase(oid)
@@ -1388,40 +1404,21 @@ func remove_op(oid: String, resync := true) -> void:
 			for r in ops:
 				if r["id"] == rid and not _consumed_rects().has(rid):
 					rects.erase(rid); _register_rect(r)
-	if resync: _after_removal()
 
 
-func _after_removal() -> void:
+func _on_removed() -> void:
 	var k := _ops_key(ops)
 	if k != shown_key and _show_state(k):      # undo: the state before this op, remembered, on screen at once
 		predicted_undo = true
 	_apply_context()                           # an undone hide shows its boards again at once (T28)
-	sync()
 
 
 func _restore_counters() -> void:
-	for op in ops:
-		var id: String = op["id"]
-		for k in ["pr", "pp", "mv", "mu", "dt", "as", "sm", "tg", "hd", "r", "m"]:
-			if id.begins_with(k) and id.substr(k.length()).is_valid_int():
-				counters[k] = maxi(counters[k], int(id.substr(k.length())))
-				break
-		var aid := String(op.get("new_id", "")) if op["type"] == "make_assembly" else String(op.get("group", ""))
-		if aid.begins_with("a") and aid.substr(1).is_valid_int():
-			counters["a"] = maxi(counters["a"], int(aid.substr(1)))
-		var made: Array = op.get("new_ids", [])
-		if op.has("body"): made = [op["body"]]
-		for bid in made:
-			if String(bid).begins_with("b") and String(bid).substr(1).is_valid_int():
-				counters["b"] = maxi(counters["b"], int(String(bid).substr(1)))
+	doc.restore_counters()
 
 
 func _consumed_rects() -> Dictionary:
-	var c := {}
-	for op in ops:
-		if op["type"] == "push_pull" and op["target"].has("rect"):
-			c[op["target"]["rect"]] = true
-	return c
+	return doc.consumed_rects()
 
 
 func _rebuild_rect_drafts() -> void:
@@ -1441,31 +1438,21 @@ func _register_rect_data_only(op: Dictionary) -> void:
 
 # ---------------- worker sync ----------------
 func oplog() -> Dictionary:
-	return {"format": "oplog/0.1", "units": "mm", "name": "Shop Sketch session", "ops": ops}
+	return doc.oplog()
 
 
 func sync() -> void:
+	doc.sync()
+
+
+func _on_sync_started() -> void:
 	properties_seq = -1
 	if properties_panel != null and properties_panel.visible: properties_panel.message("Waiting for FreeCAD…")
-	seq += 1
-	dirty = true
 	ui_sync.text = "● draft - FreeCAD catching up (%d ops)" % ops.size()
 	if predicted_undo:
 		ui_sync.text = "↶ undone - FreeCAD catching up (%d ops)" % ops.size()
 		predicted_undo = false
 	ui_sync.add_theme_color_override("font_color", Color(0.75, 0.45, 0.0))
-	if not in_flight:
-		_send()
-
-
-func _send(drawing := false) -> void:
-	in_flight = true
-	dirty = false
-	sent_at[seq] = Time.get_ticks_msec()
-	sent_clock[seq] = movie_clock
-	client.send({"cmd": "sync", "model": model_path, "oplog": oplog(), "outdir": out_dir, "seq": seq,
-		"drawing": drawing, "delay_ms": test_delay_ms})
-	test_delay_ms = 0
 
 
 func _on_worker(resp: Dictionary) -> void:
@@ -1482,60 +1469,54 @@ func _on_worker(resp: Dictionary) -> void:
 		_on_open(resp)
 		return
 	if resp.get("cmd", "") == "saved":
-		if resp.get("model", "") == model_path.simplify_path():
-			saved_rev = maxi(saved_rev, int(resp.get("rev", 0)))
-			_update_saved()
+		doc.on_saved(resp)
 		return
 	if true_latency and resp.get("ok", false) and resp.has("wall_ms") and not resp.get("_released", false):
 		held_resp = resp
 		return
-	in_flight = false
-	if not resp.get("ok", false):
-		ui_sync.text = "✗ worker error: %s" % resp.get("error", "?")
+	doc.on_sync_reply(resp)
+
+
+func _on_sync_failed(error: String) -> void:
+	ui_sync.text = "✗ worker error: %s" % error
+	ui_sync.add_theme_color_override("font_color", Color(0.75, 0.1, 0.1))
+
+
+func _on_synced(resp: Dictionary) -> void:
+	"""FreeCAD's answer for what's on screen: confirmed boards replace drafts, waves finish or go red."""
+	var res: Dictionary = resp["result"]
+	var drop_now := []
+	for o in res["ops"]:
+		var w = op_waves.get(o["id"])
+		if o["status"] == "ok":
+			if w != null and w["state"] == "pending": w["state"] = "ok"
+		else:
+			_on_rejected(o, w, drop_now)
+	var ok_ids := {}
+	for o in res["ops"]:
+		if o["status"] == "ok": ok_ids[o["id"]] = true
+	var key := _ops_key(ops.filter(func(op): return ok_ids.has(op["id"])))
+	if key != shown_key or not _states.has(key):        # already on screen (an undo shown from the cache): no reload
+		_apply_confirmed(resp["outdir"], key)
+	for k in drafts.keys():
+		var w = op_waves.get(k)
+		if w != null and w["state"] == "rejected": continue   # keep it until the red wave is done
+		if not rects.has(k) or _consumed_rects().has(k):
+			drafts[k].queue_free(); drafts.erase(k)
+	if true_latency: doc.last_sync_ms = int((movie_clock - float(sent_clock.get(seq, movie_clock))) * 1000.0)
+	ui_sync.text = "✓ FreeCAD confirmed  (round trip %d ms)" % last_sync_ms
+	if res.get("how", "") == "rebuilt":
+		ui_sync.text = "✓ FreeCAD rebuilt the model (undo past its 20-step history, %d ms)" % last_sync_ms
+	ui_sync.add_theme_color_override("font_color", Color(0.1, 0.5, 0.15))
+	if reject_note != "":
+		ui_sync.text = "✗ rejected " + reject_note
 		ui_sync.add_theme_color_override("font_color", Color(0.75, 0.1, 0.1))
-	elif int(resp["seq"]) == seq and not dirty:
-		var res: Dictionary = resp["result"]
-		var drop_now := []
-		for o in res["ops"]:
-			var w = op_waves.get(o["id"])
-			if o["status"] == "ok":
-				confirmed_ids[o["id"]] = true
-				if w != null and w["state"] == "pending": w["state"] = "ok"
-			else:
-				_on_rejected(o, w, drop_now)
-		if res.get("how", "nothing") != "nothing":
-			pending_rev = maxi(pending_rev, int(res.get("rev", 0)))
-			_update_saved()
-		var ok_ids := {}
-		for o in res["ops"]:
-			if o["status"] == "ok": ok_ids[o["id"]] = true
-		var key := _ops_key(ops.filter(func(op): return ok_ids.has(op["id"])))
-		if key != shown_key or not _states.has(key):        # already on screen (an undo shown from the cache): no reload
-			_apply_confirmed(resp["outdir"], key)
-		for k in drafts.keys():
-			var w = op_waves.get(k)
-			if w != null and w["state"] == "rejected": continue   # keep it until the red wave is done
-			if not rects.has(k) or _consumed_rects().has(k):
-				drafts[k].queue_free(); drafts.erase(k)
-		last_sync_ms = Time.get_ticks_msec() - int(sent_at.get(seq, Time.get_ticks_msec()))
-		if true_latency: last_sync_ms = int((movie_clock - float(sent_clock.get(seq, movie_clock))) * 1000.0)
-		ui_sync.text = "✓ FreeCAD confirmed  (round trip %d ms)" % last_sync_ms
-		if res.get("how", "") == "rebuilt":
-			ui_sync.text = "✓ FreeCAD rebuilt the model (undo past its 20-step history, %d ms)" % last_sync_ms
-		ui_sync.add_theme_color_override("font_color", Color(0.1, 0.5, 0.15))
-		if reject_note != "":
-			ui_sync.text = "✗ rejected " + reject_note
-			ui_sync.add_theme_color_override("font_color", Color(0.75, 0.1, 0.1))
-		confirmed.emit(seq)
-		if resp["result"].has("export_ms") and drawing_pending:
-			drawing_pending = false
-			_run_drawing_script()
-		for oid in drop_now:
-			remove_op(oid)
-	if dirty and not in_flight:
-		_send()
-	elif not in_flight:
-		_request_properties()
+	confirmed.emit(seq)
+	if resp["result"].has("export_ms") and drawing_pending:
+		drawing_pending = false
+		_run_drawing_script()
+	for oid in drop_now:
+		remove_op(oid)
 
 
 # ---------------- confirmed boards (T3) ----------------
@@ -1640,7 +1621,7 @@ var predicted_undo := false   # the model on screen is a remembered state; FreeC
 
 
 static func _ops_key(list: Array) -> String:
-	return JSON.stringify(list).sha256_text()
+	return Document.ops_key(list)
 
 
 func _remember_state(key: String, files: Dictionary) -> void:
@@ -1735,7 +1716,6 @@ const REJECT_DUR := 0.6
 var op_waves := {}         # op id -> wave state
 var reject_note := ""
 var force_reject_next := false
-var test_delay_ms := 0     # test hook: ask the worker to sit on its answer
 var trace_wave := ""       # test hook: record this op's front over time
 var trace_rows: Array[String] = []
 
@@ -1869,9 +1849,7 @@ var last_reject_note := ""          # the latest rejection message (kept for tes
 
 
 func _op_of(oid: String) -> Dictionary:
-	for op in ops:
-		if op["id"] == oid: return op
-	return {}
+	return doc.op_of(oid)
 
 
 static func _op_refs(op: Dictionary) -> Array:
@@ -1960,7 +1938,6 @@ var worker_pid := -1                # -1: not ours (tests pass --port), or given
 var _port_file := ""                # tests: where our worker reports the port it bound (T47)
 var _worker_restarts: Array = []
 var _worker_check := 0.0
-var opened := false                 # the worker has answered our "open"
 var _first_open := true
 var lifecycle_test := false
 
@@ -2147,7 +2124,7 @@ func _say_worker(txt: String) -> void:
 
 
 func _send_open() -> void:
-	client.send({"cmd": "open", "model": model_path, "fresh": test_mode and not heavy_test and not opened})
+	doc.send_open()
 
 
 func _on_link_down() -> void:
@@ -2157,12 +2134,7 @@ func _on_link_down() -> void:
 
 func _on_link_up(first: bool) -> void:
 	if first: return
-	# a new worker (or the same one back): whatever was in flight is gone, so send the model again
-	in_flight = false
-	if not opened:
-		_send_open()
-	else:
-		sync()
+	doc.on_link_up()
 
 
 func _shutdown_worker() -> void:
@@ -2249,9 +2221,8 @@ func switch_model(path: String, fresh := false) -> void:
 		out_dir = _out_for(path)
 		_remember_model(path)
 	DirAccess.make_dir_recursive_absolute(out_dir)
-	opened = false
 	_set_title()
-	client.send({"cmd": "open", "model": model_path, "fresh": fresh})
+	doc.open(path, fresh)
 	ui_sync.text = "opening %s" % path.get_file()
 
 
@@ -2259,15 +2230,10 @@ func _reset_model_state() -> void:
 	properties_seq = -1
 	properties_request += 1
 	set_selection([])
-	seq += 1                        # a reply still on its way belongs to the old model: it's ignored
-	dirty = false
+	doc.reset()                     # a reply still on its way belongs to the old model: it's ignored
 	for oid in op_waves.keys(): _end_wave(oid)
 	for k in drafts: drafts[k].queue_free()
-	drafts.clear(); rects.clear(); confirmed_ids.clear()
-	ops.clear()
-	redo_stack.clear()
-	for k in counters: counters[k] = 0
-	undo_floor = 0
+	drafts.clear(); rects.clear()
 	reject_note = ""
 	for c in bodies_root.get_children(): bodies_root.remove_child(c)
 	for f in _boards: _boards[f]["node"].queue_free()
@@ -2385,11 +2351,7 @@ var drawing_pending := false
 
 func export_drawing() -> void:
 	drawing_pending = true
-	seq += 1
-	if not in_flight:
-		_send(true)
-	else:
-		dirty = true
+	doc.request_drawing()
 
 
 func _run_drawing_script() -> void:
