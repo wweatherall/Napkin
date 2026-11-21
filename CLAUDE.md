@@ -22,6 +22,11 @@ the log, regenerate the copy (read the four tabs, write the file) and commit it 
 - One Work list item per session where possible: finish it (tests, commit, Work list result, log copy, a handoff
   note if Codex is affected), then start the next in a fresh session. The files carry the state, not the chat.
 - Tests are the project's memory: every behaviour gets a named check, so nobody has to remember how it works.
+- Small fixes take the light path (P08): nothing William would notice changes (or the code is made to do what a
+  logged decision says), no protocol, file format, module boundary or saving is touched, and it's ~30 lines or less.
+  Commit it on the standing `small-fixes` branch after the quick test (code: `Architecture-Impact: none - <reason>`);
+  no Work list row, log copy or handoff. List the fixes for William at the end of the session; he says when it
+  merges. If a fix grows past that, make it a Work list item.
 - FreeCAD 1.1.4 is installed; don't work around bugs that 1.1.4 no longer has. The AppKit rebuild (T25) waits
   for a working prototype.
 

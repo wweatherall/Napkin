@@ -35,6 +35,10 @@ Read it for architecture, conventions and tests.
 - Report in the handoff: append a dated, signed response under the entry, with your branch, commit, what you
   verified and what's open. Then set its Status. Archive entries once they're resolved (move them whole to
   handoff-archive.md and leave a one-line index under "Archived").
+- Small fixes take the light path (P08 in the log): nothing William would notice changes, no protocol, file
+  format, module boundary or saving is touched, and it's ~30 lines or less. Commit it on `codex/small-fixes`
+  after the quick test (code: `Architecture-Impact: none - <reason>`), with no handoff entry; list the fixes for
+  William in your chat. If a fix grows past that, ask for a handoff job instead.
 - Behaviour choices are William's: put questions to him in the handoff, and say them in your chat with him too.
 
 ## Nothing notifies the other agent
