@@ -71,6 +71,7 @@ var gesture_test := false
 var snap_test := false
 var rect_test := false
 var perf_test := false
+var shell_test := false
 const OVERLAY_BIAS := 0.001   # overlays sit 0.1% of the camera distance nearer the eye (invisible, beats z-fighting)
 var overlay_bias := OVERLAY_BIAS
 var grid_mat: ShaderMaterial
@@ -161,14 +162,18 @@ func _ready() -> void:
 		elif a == "--snaptest": test_mode = true; fx_test = true; snap_test = true
 		elif a == "--recttest": test_mode = true; fx_test = true; rect_test = true
 		elif a == "--perftest": test_mode = true; fx_test = true; perf_test = true
+		elif a == "--shelltest": test_mode = true; fx_test = true; shell_test = true
 		elif a == "--lifecycletest": test_mode = true; fx_test = true; lifecycle_test = true
 		elif a == "--nobias": overlay_bias = 0.0
 		elif a.begins_with("--preload="): preload_path = a.substr(10)
 	if oplog_path == "": oplog_path = ProjectSettings.globalize_path("user://ops.json")
-	if out_dir == "": out_dir = ProjectSettings.globalize_path("user://out")
-	DirAccess.make_dir_recursive_absolute(out_dir)
+	out_root = out_dir if out_dir != "" else ProjectSettings.globalize_path("user://out")
 	if model_path == "":
-		model_path = (out_dir + "/model.FCStd") if test_mode else ProjectSettings.globalize_path("user://model.FCStd")
+		model_path = (out_root + "/model.FCStd") if test_mode else _last_model()
+	out_dir = out_root if test_mode else _out_for(model_path)
+	DirAccess.make_dir_recursive_absolute(out_dir)
+	if drawing_script == "" and not test_mode:
+		drawing_script = _beside_project("worker/drawing.py")
 	var port := -1                 # --port=N: use a worker that's already running there (tests); else start our own
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--port="): port = int(a.substr(7))
@@ -185,6 +190,9 @@ func _ready() -> void:
 	_make_tools()
 	_make_world()
 	_make_ui()
+	_make_menus()
+	_set_title()
+	if not test_mode: _remember_model(model_path)
 	client = WorkerClient.new()
 	add_child(client)
 	client.replied.connect(_on_worker)
@@ -239,6 +247,10 @@ func _make_world() -> void:
 	env.background_mode = Environment.BG_COLOR
 	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	env.background_color = Color(0.86, 0.89, 0.92)
+	if RenderingServer.get_current_rendering_method() != "gl_compatibility":
+		# Forward+ (Metal) tone-maps the background: this renders the same colour as before
+		env.background_color = Color(0.835, 0.88, 0.94)
+		env.background_energy_multiplier = 0.9
 	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	env.ambient_light_color = Color(1, 1, 1)
 	env.ambient_light_energy = 0.42
@@ -325,6 +337,7 @@ func _make_ui() -> void:
 
 
 func _update_toggles() -> void:
+	_update_menu_checks()
 	ui_toggles.text = "Grid snap %s (G)    New board on faces %s (B)    Orbit: middle/right drag or two fingers   Pan: Shift+drag   Zoom: wheel or pinch" % [
 		"on" if grid_snap else "off", "on" if new_board else "off"]
 
@@ -638,7 +651,9 @@ func _on_open(resp: Dictionary) -> void:
 		ui_sync.add_theme_color_override("font_color", Color(0.75, 0.1, 0.1))
 		return
 	opened = true
-	if test_mode and not heavy_test: return
+	if test_mode and not heavy_test and _first_open:
+		_first_open = false
+		return                      # tests start clean; a model opened later (switch_model) adopts its history
 	ops = resp.get("ops", [])
 	undo_floor = int(resp.get("undo_floor", 0))
 	_restore_counters()
@@ -1122,6 +1137,7 @@ var worker_pid := -1                # -1: not ours (tests pass --port), or given
 var _worker_restarts: Array = []
 var _worker_check := 0.0
 var opened := false                 # the worker has answered our "open"
+var _first_open := true
 var lifecycle_test := false
 
 
@@ -1143,7 +1159,7 @@ func _start_worker() -> void:
 		for c in FREECAD_CANDIDATES:
 			if FileAccess.file_exists(c): freecad_path = c; break
 	if worker_script == "":
-		worker_script = ProjectSettings.globalize_path("res://").path_join("../worker/replay.py").simplify_path()
+		worker_script = _beside_project("worker/replay.py")
 	if worker_log == "":
 		worker_log = ProjectSettings.globalize_path("user://worker.log")
 	if freecad_path == "" or not FileAccess.file_exists(worker_script):
@@ -1156,7 +1172,7 @@ func _start_worker() -> void:
 	else:
 		worker_pid = OS.create_process("/bin/sh", ["-c", "SERVE_PORT=%d exec %s %s >> %s 2>&1" % [
 			worker_port, _sh(freecad_path), _sh(worker_script), _sh(worker_log)]])
-	print("SHOPSKETCH worker pid %d on port %d (log %s)" % [worker_pid, worker_port, worker_log])
+	print("SHOPSKETCH worker pid %d on port %d: %s (log %s)" % [worker_pid, worker_port, worker_script, worker_log])
 
 
 func _watch_worker(delta: float) -> void:
@@ -1214,6 +1230,153 @@ func _shutdown_worker() -> void:
 
 func _exit_tree() -> void:
 	_shutdown_worker()
+
+
+# ---------------- documents, menus, dialogs (T8) ----------------
+# Shop Sketch works on one FreeCAD file at a time. File > New / Open switch files without restarting; the last
+# file reopens next time. Native macOS menus and file dialogs where the system has them.
+const SETTINGS := "user://settings.cfg"
+var out_root := ""                  # each model's outputs go in a folder of their own under here
+
+
+func _beside_project(rel: String) -> String:
+	"""A file shipped next to the viewport: the repo when run from source, the app bundle's Resources otherwise."""
+	var src := ProjectSettings.globalize_path("res://")
+	if src != "" and FileAccess.file_exists(src.path_join("..").path_join(rel).simplify_path()):
+		return src.path_join("..").path_join(rel).simplify_path()
+	return OS.get_executable_path().get_base_dir().path_join("../Resources").path_join(rel).simplify_path()
+
+
+func _last_model() -> String:
+	var cfg := ConfigFile.new()
+	if cfg.load(SETTINGS) == OK:
+		var p: String = cfg.get_value("files", "last_model", "")
+		if p != "" and (FileAccess.file_exists(p) or DirAccess.dir_exists_absolute(p.get_base_dir())):
+			return p
+	var docs := OS.get_system_dir(OS.SYSTEM_DIR_DOCUMENTS).path_join("Shop Sketch")
+	DirAccess.make_dir_recursive_absolute(docs)
+	return docs.path_join("Untitled.FCStd")
+
+
+func _remember_model(path: String) -> void:
+	var cfg := ConfigFile.new()
+	cfg.load(SETTINGS)
+	cfg.set_value("files", "last_model", path)
+	cfg.save(SETTINGS)
+
+
+func _out_for(path: String) -> String:
+	return out_root.path_join("%s-%s" % [path.get_file().get_basename(), path.md5_text().left(8)])
+
+
+func _set_title() -> void:
+	if test_mode: return
+	DisplayServer.window_set_title("%s — Shop Sketch" % model_path.get_file().get_basename())
+
+
+func switch_model(path: String, fresh := false) -> void:
+	"""Close the current model (the worker keeps it saved) and open another; fresh = start it empty."""
+	if path.get_extension().to_lower() != "fcstd": path += ".FCStd"
+	if path == model_path and not fresh: return
+	_reset_model_state()
+	model_path = path
+	if not test_mode:
+		out_dir = _out_for(path)
+		_remember_model(path)
+	DirAccess.make_dir_recursive_absolute(out_dir)
+	opened = false
+	_set_title()
+	client.send({"cmd": "open", "model": model_path, "fresh": fresh})
+	ui_sync.text = "opening %s" % path.get_file()
+
+
+func _reset_model_state() -> void:
+	seq += 1                        # a reply still on its way belongs to the old model: it's ignored
+	dirty = false
+	for oid in op_waves.keys(): _end_wave(oid)
+	for k in drafts: drafts[k].queue_free()
+	drafts.clear(); rects.clear(); confirmed_ids.clear()
+	ops.clear()
+	for k in counters: counters[k] = 0
+	undo_floor = 0
+	reject_note = ""
+	for c in bodies_root.get_children(): bodies_root.remove_child(c)
+	for f in _boards: _boards[f]["node"].queue_free()
+	_boards.clear(); _states.clear(); _state_lru.clear(); shown_key = ""
+	body_tris = {}; body_verts = {}; body_edges = {}; body_cuts = {}
+	tools["move"].last_oid = ""; tools["move"].memo.clear()
+	set_tool(tool)
+	marker.visible = false
+
+
+# menus: tag -> action. Menu shortcuts and the same keys in the window may both arrive: act once.
+var _menu_last := {}
+var _menus := {}                    # name -> menu RID (for check marks)
+
+
+func _make_menus() -> void:
+	if not NativeMenu.has_feature(NativeMenu.FEATURE_GLOBAL_MENU): return
+	var main_menu := NativeMenu.get_system_menu(NativeMenu.MAIN_MENU_ID)
+	var spec := [
+		["File", [["New…", "new", KEY_MASK_META | KEY_N], ["Open…", "open", KEY_MASK_META | KEY_O], [],
+				  ["Show in Finder", "reveal", 0], [], ["Drawing and cut list (D)", "drawing", 0]]],
+		["Edit", [["Undo", "undo", KEY_MASK_META | KEY_Z]]],
+		["Tools", [["Rectangle (R)", "rect", 0], ["Push/Pull (P)", "push", 0], ["Move (M)", "move", 0]]],
+		["View", [["Grid snap (G)", "grid", -1], ["New board on faces (B)", "newboard", -1]]],
+	]
+	for m in spec:
+		var rid := NativeMenu.create_menu()
+		_menus[m[0]] = rid
+		for it in m[1]:
+			if it.is_empty():
+				NativeMenu.add_separator(rid)
+			elif it[2] == -1:
+				NativeMenu.add_check_item(rid, it[0], _menu, Callable(), it[1])
+			else:
+				NativeMenu.add_item(rid, it[0], _menu, Callable(), it[1], it[2])
+		NativeMenu.add_submenu_item(main_menu, m[0], rid)
+	_update_menu_checks()
+
+
+func _update_menu_checks() -> void:
+	if not _menus.has("View"): return
+	NativeMenu.set_item_checked(_menus["View"], 0, grid_snap)
+	NativeMenu.set_item_checked(_menus["View"], 1, new_board)
+
+
+func _menu(tag) -> void:
+	var now := Time.get_ticks_msec()
+	if now - int(_menu_last.get(tag, -1000)) < 150: return        # the menu and the key both fired
+	_menu_last[tag] = now
+	match tag:
+		"new": _file_dialog(true)
+		"open": _file_dialog(false)
+		"reveal": OS.shell_show_in_file_manager(model_path)
+		"drawing": export_drawing()
+		"undo": undo()
+		"rect", "push", "move": set_tool(tag)
+		"grid": grid_snap = not grid_snap; _update_toggles()
+		"newboard": new_board = not new_board; _update_toggles()
+
+
+func _file_dialog(new: bool) -> void:
+	var start := model_path.get_base_dir()
+	var name := "Untitled.FCStd" if new else ""
+	var filters := PackedStringArray(["*.FCStd ; FreeCAD model"])
+	var mode := DisplayServer.FILE_DIALOG_MODE_SAVE_FILE if new else DisplayServer.FILE_DIALOG_MODE_OPEN_FILE
+	var done := func(ok: bool, paths: PackedStringArray, _filter: int) -> void:
+		if ok and not paths.is_empty(): switch_model(paths[0], new)
+	if DisplayServer.has_feature(DisplayServer.FEATURE_NATIVE_DIALOG_FILE):
+		DisplayServer.file_dialog_show("New model" if new else "Open a model", start, name, false, mode, filters, done)
+	else:
+		var fd := FileDialog.new()
+		fd.access = FileDialog.ACCESS_FILESYSTEM
+		fd.file_mode = FileDialog.FILE_MODE_SAVE_FILE if new else FileDialog.FILE_MODE_OPEN_FILE
+		fd.filters = filters
+		fd.current_dir = start
+		fd.file_selected.connect(func(p: String) -> void: switch_model(p, new); fd.queue_free())
+		add_child(fd)
+		fd.popup_centered_ratio(0.6)
 
 
 # ---------------- drawing export ----------------
@@ -1280,7 +1443,9 @@ func _unhandled_input(e: InputEvent) -> void:
 		else:
 			tool_move(e.position)
 	elif e is InputEventKey and e.pressed and not e.echo:
-		if (e.ctrl_pressed or e.meta_pressed) and e.keycode == KEY_Z: undo(); return    # Cmd+Z on a Mac
+		if (e.ctrl_pressed or e.meta_pressed) and e.keycode == KEY_Z: _menu("undo"); return    # Cmd+Z on a Mac
+		if (e.ctrl_pressed or e.meta_pressed) and e.keycode == KEY_N: _menu("new"); return
+		if (e.ctrl_pressed or e.meta_pressed) and e.keycode == KEY_O: _menu("open"); return
 		match e.keycode:
 			KEY_ESCAPE: set_tool(tool); return
 			KEY_ENTER, KEY_KP_ENTER: apply_vcb(); return
@@ -1294,8 +1459,8 @@ func _unhandled_input(e: InputEvent) -> void:
 			KEY_R: set_tool("rect")
 			KEY_P: set_tool("push")
 			KEY_M: set_tool("move")
-			KEY_G: grid_snap = not grid_snap; _update_toggles()
-			KEY_B: new_board = not new_board; _update_toggles()
+			KEY_G: _menu("grid")
+			KEY_B: _menu("newboard")
 			KEY_D: export_drawing()
 
 

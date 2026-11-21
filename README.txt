@@ -1,5 +1,10 @@
 Shop Sketch - Mac
 
+The app: run  tools/build_app.sh  once (it makes "dist/Shop Sketch.app"; drag it to /Applications if you like).
+It opens your last model, or Documents/Shop Sketch/Untitled.FCStd the first time. File > New / Open (Cmd+N,
+Cmd+O) switch models; File > Show in Finder; Edit > Undo; Tools and View menus. Rebuild it after updating.
+
+Or from the repo (for development):
 1. Double-click "Start Shop Sketch.command".
    First time only: macOS may refuse to open it because it was downloaded.
    Right-click it > Open > Open (or run:  xattr -dr com.apple.quarantine <this folder>).

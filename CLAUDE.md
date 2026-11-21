@@ -46,6 +46,14 @@ If you can't reach the log, say so; don't guess at what it says.
   Faces are referenced by geometry `{body, normal, point}`, never by face numbers (A03).
 
 ## Run (macOS)
+- `tools/build_app.sh` builds `dist/Shop Sketch.app` (A30): a copy of the Godot program runs
+  `Resources/Shop Sketch.pck` (`--export-pack`, preset in `viewport/export_presets.cfg`; no export templates needed),
+  with `Resources/worker/*.py`, an icon from `tools/icon.svg`, ad-hoc signed. Files next to the viewport are found
+  with `_beside_project()` (repo when run from source, bundle Resources in the app).
+- The app opens the last model (`user://settings.cfg`), else `~/Documents/Shop Sketch/Untitled.FCStd`; File > New /
+  Open call `switch_model()`. Each model's outputs go in `user://out/<name>-<hash>/` (tests keep `--out` as is).
+- Renderer: Compatibility (on a Mac it draws through Metal). Forward+ works (`--rendering-method forward_plus`,
+  background matched) but hatches edges on thin faces; see Q5.
 - `./Start Shop Sketch.command` opens `models/model.FCStd`; the app starts its worker. Worker log: `worker.log`.
 - FreeCAD's command-line program: `/Applications/FreeCAD.app/Contents/Resources/bin/freecadcmd`
 - Godot: `/Applications/Godot.app/Contents/MacOS/Godot`

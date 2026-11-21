@@ -7,3 +7,4 @@ worker.log
 __pycache__/
 viewport/.godot/
 .DS_Store
+dist/

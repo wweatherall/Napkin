@@ -28,6 +28,7 @@ func run() -> void:
 	elif m.snap_test: await _run_snap_test()
 	elif m.rect_test: await _run_rect_test()
 	elif m.perf_test: await _run_perf_test()
+	elif m.shell_test: await _run_shell_test()
 	else: await _run_fx_test()
 
 # ---------------- fx test (--fxtest): records nicely with --write-movie ----------------
@@ -877,6 +878,45 @@ func _run_perf_test() -> void:
 		worst.append(w / 1000.0)
 	print("PERFTEST %d boards on screen | worst frame while each of 3 answers is applied: %s ms" % [m.body_tris.size(), worst])
 	print("PERFTEST done")
+	get_tree().quit()
+
+
+func _board_ops(w: float, h: float) -> Array:
+	return [{"id": "r1", "type": "rect", "plane": {"normal": [0, 0, 1], "origin": [0, 0, 0]}, "size": [w, 200]},
+		{"id": "pp1", "type": "push_pull", "target": {"rect": "r1"}, "distance": h, "body": "b1"}]
+
+
+func _top() -> float:
+	for b in JSON.parse_string(FileAccess.get_file_as_string(m.out_dir.path_join("bodies.json"))):
+		if b["id"] == "b1": return b["world_bbox"][5]
+	return -1.0
+
+
+func _run_shell_test() -> void:
+	# T8: switching models (File > New / Open) clears the viewport and adopts the other file's history
+	m.cursor2d.visible = false
+	var t0 := Time.get_ticks_msec()
+	while not m.opened and Time.get_ticks_msec() - t0 < 30000: await _frames(1)
+	var a: String = m.model_path
+	m.ops.append_array(_board_ops(300, 18)); m.counters["r"] = 1; m.counters["pp"] = 1; m.counters["b"] = 1
+	m.sync(); await _wait_confirm()
+	var a_top := _top()
+	var b: String = m.out_dir.path_join("other.FCStd")
+	m.switch_model(b, true)
+	while not m.opened: await _frames(1)
+	await _wait_confirm()
+	var b_empty: bool = m.ops.is_empty() and _shown_ids().is_empty()
+	m.ops.append_array(_board_ops(150, 40)); m.counters["r"] = 1; m.counters["pp"] = 1; m.counters["b"] = 1
+	m.sync(); await _wait_confirm()
+	var b_top := _top()
+	await _frames(30)                   # let the worker autosave
+	m.switch_model(a)
+	while not m.opened: await _frames(1)
+	await _wait_confirm()
+	var back := _top()
+	print("SHELLTEST A has a board %s mm tall | new model B starts empty %s, its board %s mm | back to A: %d ops, boards %s, top %s mm (want 18) | B saved %s | menus %s" % [
+		a_top, b_empty, b_top, m.ops.size(), _shown_ids(), back, FileAccess.file_exists(b), m._menus.keys()])
+	print("SHELLTEST done")
 	get_tree().quit()
 
 
