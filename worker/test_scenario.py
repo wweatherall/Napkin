@@ -315,6 +315,11 @@ try:
     gui = ET.fromstring(zipfile.ZipFile(path).read("GuiDocument.xml"))
     vis = {vp.get("name"): vp.find(".//Property[@name='Visibility']/Bool").get("value") for vp in gui.iter("ViewProvider")}
     names = {bid: o.Name for bid, o in S.model.bodies().items()}
+    glb = os.path.join(TESTDIR, "story.glb")
+    write_glb(S.model, glb)
+    gjs = json.loads(open(glb, "rb").read()[20:20 + int.from_bytes(open(glb, "rb").read()[12:16], "little")])
+    in_glb = {n["name"] for n in gjs.get("nodes", [])}
+    check("story: the Blender export leaves out the hidden bottom", "bottom" not in in_glb and {"left", "shelf"} <= in_glb, sorted(in_glb))
     check("story: FreeCAD's view part hides the hidden bottom and shows the rest",
           vis.get(names["bottom"]) == "false" and all(vis.get(names[k]) == "true" for k in ("left", "shelf", "shelf2", "post")),
           {k: vis.get(n) for k, n in names.items()})

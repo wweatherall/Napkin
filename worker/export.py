@@ -173,6 +173,8 @@ def write_glb(model, path):
         return len(views) - 1
 
     for bid, obj in model.bodies().items():
+        if getattr(obj, "SSHidden", False):
+            continue                                  # hidden boards stay out of renders (T28, I37)
         mesh = mesh_of(bid, obj, model)
         if mesh is None:
             continue
