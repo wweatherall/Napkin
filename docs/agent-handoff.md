@@ -87,6 +87,8 @@ Rules for every job here:
 
 Full entries in [handoff-archive.md](handoff-archive.md).
 
+- H026 — Documentation ownership and stale guidance cleanup. Resolved: William approved merge/push of T55 (d3b7aee); P10 recorded, quick/full tests passed.
+
 - H010 — New Work list items T42–T44: splitting the code into parts. Resolved: T42 and T43 done (1739746, 95f9bb2); T44 unassigned.
 - H001 — Reconcile earlier suggestions. Resolved: aligned with I12c, Q22, I26b and Q24 in codex/docs (8a01e3c), merged f92bc8d.
 
@@ -110,7 +112,7 @@ Full entries in [handoff-archive.md](handoff-archive.md).
 
 ## Entry template
 
-### H026 — Short subject
+### H027 — Short subject
 
 Author: Claude or Codex | Date: YYYY-MM-DD | Status: open
 

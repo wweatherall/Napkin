@@ -1,51 +1,32 @@
-# Instructions for Codex (and other agents) working on Shop Sketch
+# Codex instructions for Shop Sketch
 
-Claude also works on this repo; CLAUDE.md is its instruction file and the fullest description of how the app works.
-Read it for architecture, conventions and tests.
+Read [CLAUDE.md](CLAUDE.md) for the shared development workflow, architecture overview and tests.
+Its folder guides apply to Codex too. This file owns Codex-specific startup, isolation and delivery rules;
+[ARCHITECTURE.md#documentation-ownership](ARCHITECTURE.md#documentation-ownership) routes other questions.
 
 ## At the start of every session
 
-1. Read `docs/agent-handoff.md`, the shared scratchpad between Claude and Codex. It contains open entries only;
-   resolved ones are in `docs/handoff-archive.md` (read only when you need history). Look for entries marked
-   "For: Codex", and for replies to your entries.
-2. Check what changed since your last session: `git log --oneline -15 main`, and `git branch -a` (Claude works on
-   feature branches; your work lives on `codex/*` branches).
-3. Decisions: `docs/decision-log.md` is William's decision log (P09). Active decisions win over suggestions.
-   Search it by ID (`grep "^| I34 "`; "(Details below.)" means the full text is at `### I34`) rather than reading it whole. Record a decision William makes in your chat
-   there, in the commit it belongs to, following P01 (a new row naming the old ID; the old row Superseded).
-   Record every choice William makes for you, small ones too (names and labels, keys, defaults, wording), each as
-   its own row, and give its ID in your handoff response. Your branch's copy of the log goes stale while you work:
-   merge main into your branch before you edit it, and change only the rows your job adds or supersedes.
+1. Read [docs/agent-handoff.md](docs/agent-handoff.md) for open Codex entries and replies. Read the archive only for needed history.
+2. Check `git log --oneline -15 main` and `git branch -a` for changes since the last session.
+3. Search [docs/decision-log.md](docs/decision-log.md) by ID, e.g. `rg '^\| I34 ' docs/decision-log.md`;
+   a row marked "(Details below.)" has its full text at `### <ID>`. Active decisions govern.
 
-## How to work
+## Codex work and delivery
 
-- Each part has a short guide: `worker/CLAUDE.md`, `viewport/CLAUDE.md`, `viewport/tools/CLAUDE.md` (what it
-  owns, its rules, its tests). They apply to you too: read the one for the folder your job touches.
+- Work on `codex/*` in your own worktree, never by switching branches in `/Users/Will/Sites/fretchup`:
+  Claude uses that checkout. Start new jobs from main; touch the job's assigned files. William's direct
+  instructions can authorize a wider scope. Merge into main or push only when William asks.
+- Record every choice William makes, including names, labels, keys, defaults and wording, as its own
+  decision row. Follow P01/P09 in the log. Merge main into your branch before editing the log, then
+  change only rows your job adds or supersedes. Give new decision IDs in your handoff response.
+- Follow CLAUDE.md for tests and architecture maintenance. Both agents own ARCHITECTURE.md; neither needs
+  the other's permission to update it. Run commits with `git -c core.hooksPath=.githooks commit ...`.
+  A specific `Architecture-Impact: none - <reason>` is only for genuinely non-architectural changes.
+- Use P08's light path for small fixes, with Codex's standing branch `codex/small-fixes`.
+  Otherwise record the result in the Work list and append a dated, signed response in the handoff:
+  branch, commit, decision IDs, verification, architecture sections changed and anything open. Set the
+  entry's Status; archive resolved exchanges using the handoff's instructions.
+- Behaviour choices are William's. Put unresolved questions in the handoff and mention them in chat.
 
-- Work in your own git worktree, never by switching branches in /Users/Will/Sites/fretchup (Claude works in that
-  checkout). Example: `git worktree add ../fretchup-codex-<job> -b codex/<job> main`.
-- Touch only the files your handoff job lists. Don't merge into main or push unless William says so.
-- Claude and Codex both own and may edit `ARCHITECTURE.md`. The agent changing architecture updates it in the
-  same commit, in its own worktree, without seeking permission from the other agent. Reread the shared map
-  and instructions before committing. The reviewing agent checks it against the code; integration preserves
-  both agents' unrelated edits and distinguishes delivered branches from integrated code. Mention it in the handoff.
-- Use the tracked commit check: `git -c core.hooksPath=.githooks commit ...`. It flags production-module,
-  protocol/state and packaging changes without a staged architecture update. For changes which truly have no
-  architectural impact, include `Architecture-Impact: none - <specific reason>` in the commit message;
-  the reviewer must verify that claim. This never exempts an actual architecture change from the same-commit rule.
-- While building a FreeCAD-side feature, run `tools/featuretest.sh` (~5 s, no window; add steps to
-  `worker/test_scenario.py`). Before handing back, run `tools/quicktest.sh` in your worktree (it uses its own ports).
-- Report in the handoff: append a dated, signed response under the entry, with your branch, commit, what you
-  verified and what's open. Then set its Status. Archive entries once they're resolved (move them whole to
-  handoff-archive.md and leave a one-line index under "Archived").
-- Small fixes take the light path (P08 in the log): nothing William would notice changes, no protocol, file
-  format, module boundary or saving is touched, and it's ~30 lines or less. Commit it on `codex/small-fixes`
-  after the quick test (code: `Architecture-Impact: none - <reason>`), with no handoff entry or Work list row; list the fixes for
-  William in your chat. If a fix grows past that, ask for a handoff job instead.
-- Behaviour choices are William's: put questions to him in the handoff, and say them in your chat with him too.
-
-## Nothing notifies the other agent
-
-File changes don't reach Claude by themselves. When you finish a job or leave a question, tell William in your
-chat, e.g. "H006 is answered in the handoff, on branch codex/t32-units, for Claude to review", so he can pass
-it on.
+Nothing notifies Claude automatically. Tell William which handoff entry and branch are ready for review,
+so he can pass them on.

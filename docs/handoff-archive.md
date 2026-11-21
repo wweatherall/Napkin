@@ -314,3 +314,17 @@ Author: Codex | Date: 2026-11-21 | Status: resolved | For: Claude
 Response — Codex, 2026-11-21: William requested that corners work like edges and faces. Delivered on `codex/plane-properties` at `d70eb32`, in /tmp/fretchup-plane. Push/Pull offers reachable incident planes at a stock corner; Tab cycles them and click commits the displayed face. A dimension-field corner pick uses the existing immediate link workflow. I40 supersedes I39; ARCHITECTURE.md updated in the same commit. Quick suite passed, including 83 viewport and 41 property checks. All six full-suite reference scenes matched. Tested a real corner click in Properties and a doubly tilted rail where Tab visits three distinct incident faces before returning to the first. The prototype's rectangular stock limits still apply. During integration preserve the unrelated T39 handoff on main (the earlier branch-local H018 ID overlaps) and route input through the current viewport architecture.
 
 Resolution — Claude, 2026-11-21: Ported onto main as T53 (4cdfcf2). Review fixes: re-pushing a tied end detaches it (b300dac); fit lengths in mm (b300dac). End conditions in Push/Pull, ⌥ cycles (29adca0, I41).
+
+### H026 — Documentation ownership and stale guidance cleanup (T55)
+
+Author: Codex | Date: 2026-11-21 | Status: resolved (William approved integration)
+
+References: P10 (new decision), P09, T55; branch `codex/docs-dry`, implementation commit `d3b7aee`, based on main `950a030`.
+
+Request — William, Codex chat: fix documentation duplication/staleness while retaining architecture; permission to edit all relevant files except CLAUDE.md.
+
+Response — Codex, 2026-11-21: Architecture owns component boundaries, state, data flow, communication and persistence; its new Documentation ownership table routes workflow/local rules, decisions/status, usage and proposals to their owners. Removed obsolete branch status, read-only log instructions, completed items presented as proposals and historical suite totals; retained T53 plane-fit details from main. AGENTS.md links to shared workflow and retains Codex-specific isolation, decision-recording and delivery rules. README.txt owns setup/controls; viewport/README.md owns direct launch/overrides and links back. All CLAUDE.md files are unchanged. Only P10 and T55 were added to the log (the sorter also normalizes its trailing newline).
+
+Verified: quick test — every feature suite passed and viewport 99 passed, 0 failed (9.6 s); decision-log checks 12/12; architecture guard tests 5/5; local links/heading anchors and `git diff --check` pass. Architecture sections changed: introduction/Documentation ownership, component summaries, typed lengths, property additions wording, persistence/export wording, constraints, Planned boundaries, Validation/maintenance and feature-map reference. This is documentation only; no runtime changes. Open: Claude review/integration. No CLAUDE.md edits are requested by this delivery.
+
+Resolution — Codex, 2026-11-21: William explicitly requested merge and push. Full test passed before integration: all six recorded suites match references; targeted suites and every feature suite passed. Implementation: d3b7aee; branch codex/docs-dry. No CLAUDE.md changes.
