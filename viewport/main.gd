@@ -3,6 +3,7 @@ extends Node3D
 ## Model space = Z-up millimetres (what the op log uses). Godot space = Y-up metres.
 
 const WorkerClient := preload("res://worker_client.gd")
+const Units := preload("res://units.gd")
 const WAVE := preload("res://confirm_wave.gdshader")
 const WAVE_LINES := preload("res://confirm_wave_lines.gdshader")
 const LINE_SHADER := preload("res://line.gdshader")
@@ -11,7 +12,7 @@ const SNAP_PX := 14.0         # endpoint snap radius on screen
 
 # ---------------- state ----------------
 var ops: Array = []
-var counters := {"r": 0, "b": 0, "pp": 0, "m": 0, "mv": 0, "mu": 0, "dt": 0, "as": 0, "a": 0, "sm": 0, "tg": 0}
+var counters := {"pr": 0, "r": 0, "b": 0, "pp": 0, "m": 0, "mv": 0, "mu": 0, "dt": 0, "as": 0, "a": 0, "sm": 0, "tg": 0}
 var seq := 0
 var in_flight := false
 var dirty := false
@@ -84,6 +85,10 @@ var preload_path := ""
 var cursor2d: Node2D
 
 var client: Node
+var properties_panel: PanelContainer
+var properties_request := 0
+var properties_seq := -1
+
 var ui_hint: Label
 var ui_sync: Label
 var ui_vcb: Label
@@ -430,6 +435,24 @@ func _make_ui() -> void:
 	var gap := Control.new(); gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL; gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(gap)
 	row.add_child(_segments([["Grid snap", "grid", "Snap to a 10 mm grid (G)"], ["New board", "newboard", "Pushing a rectangle drawn on a face makes a separate board (B)"]], true))
+	var properties_button := Button.new()
+	properties_button.text = "Properties"
+	properties_button.focus_mode = Control.FOCUS_NONE
+	properties_button.pressed.connect(func():
+		properties_panel.visible = not properties_panel.visible
+		if properties_panel.visible: _request_properties())
+	row.add_child(properties_button)
+	properties_panel = load("res://property_panel.gd").new()
+	root.add_child(properties_panel)
+	properties_panel.set_anchors_and_offsets_preset(Control.PRESET_RIGHT_WIDE)
+	properties_panel.offset_left = -360
+	properties_panel.offset_right = -10
+	properties_panel.offset_top = 60
+	properties_panel.offset_bottom = -45
+	properties_panel.add_theme_stylebox_override("panel", _box(_c(Color(0.96, 0.96, 0.97), Color(0.17, 0.17, 0.18)), 8, _c(Color(0.7, 0.7, 0.72), Color(0.3, 0.3, 0.32)), 1, Vector2(12, 10)))
+	properties_panel.hide()
+	properties_panel.refresh_requested.connect(_request_properties)
+	properties_panel.edit_requested.connect(_edit_property)
 	# status bar with the measurements field
 	var status := PanelContainer.new()
 	status.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
@@ -661,6 +684,7 @@ func snap(p: Dictionary, screen: Vector2) -> Dictionary:
 
 
 func set_tool(t: String) -> void:
+	length_pending = {}
 	tool = t
 	for k in tools: tools[k].reset()
 	vcb = ""
@@ -681,6 +705,7 @@ func _update_vcb() -> void:
 
 
 func tool_move(screen: Vector2) -> void:
+	if not length_pending.is_empty(): return
 	tools[tool].mouse_moved(screen)
 	_show_siblings(pick(screen).get("body", ""))
 	_update_tip(screen)
@@ -839,12 +864,52 @@ func _show_mirror_plane() -> void:
 
 func set_selection(ids: Array) -> void:
 	selection = ids
+	if properties_panel != null and properties_panel.visible: _request_properties()
 	if _sel_overlay == null:
 		_sel_overlay = MeshInstance3D.new(); add_child(_sel_overlay)
 	var t := PackedVector3Array()
 	for b in ids: t.append_array(body_tris.get(b, PackedVector3Array()))
 	_sel_overlay.mesh = _tri_mesh(t, mat_selected) if not t.is_empty() else null
 
+
+func _request_properties() -> void:
+	if properties_panel == null or not properties_panel.visible: return
+	properties_request += 1
+	properties_seq = -1
+	if selection.size() != 1:
+		properties_panel.message("Select one piece to inspect its properties.")
+		return
+	if in_flight or dirty or not opened:
+		properties_panel.message("Waiting for FreeCAD…")
+		return
+	properties_panel.message("Reading properties…")
+	client.send({"cmd": "inspect_properties", "model": model_path, "body": selection[0],
+		"seq": seq, "request_id": properties_request})
+
+func _on_properties(resp: Dictionary) -> void:
+	if properties_panel == null or not properties_panel.visible: return
+	if int(resp.get("seq", -1)) != seq or in_flight or dirty: return
+	if int(resp.get("request_id", -1)) != properties_request: return
+	if not resp.get("ok", false):
+		properties_panel.message(str(resp.get("error", "Could not read properties")))
+		return
+	if resp.get("model") != model_path: return
+	if selection.size() != 1 or resp.properties.body != selection[0]: return
+	properties_seq = seq
+	properties_panel.display(resp.properties)
+
+func _edit_property(change: Dictionary) -> void:
+	if properties_seq != seq or dirty or in_flight:
+		_request_properties()
+		return
+	if selection.size() != 1 or change.body != selection[0]: return
+	counters["pr"] += 1
+	var op := change.duplicate(true)
+	op["id"] = "pr%d" % counters["pr"]
+	op["type"] = "property_edit"
+	ops.append(op)
+	properties_panel.message("Applying property…")
+	sync()
 
 func make_assembly() -> void:
 	var ids := selection.filter(func(b): return body_assembly.get(b, "") == "")
@@ -1075,11 +1140,48 @@ static func _mirror_tris(tris: PackedVector3Array, ax: int, c: float) -> PackedV
 
 
 # ---------------- typed input, undo ----------------
+var length_id := 0
+var length_pending := {}
+
 func apply_vcb() -> void:
 	var txt := vcb.strip_edges()
 	vcb = ""
 	if txt != "":
-		tools[tool].typed(txt)
+		var counts := RegEx.new()
+		counts.compile("^(?:[0-9]+x|[x*][0-9]+|/[0-9]+)$")
+		if tool == "move" and counts.search(txt.to_lower()) != null:
+			length_pending = {}
+			tools[tool].typed(txt)
+		elif tool in ["rect", "push", "move"]:
+			var texts := txt.split(",") if tool == "rect" else PackedStringArray([txt])
+			# A plain length (150, 3/4", 1' 6 1/2") is read here, at once: drafts never wait for FreeCAD. Arithmetic
+			# (5in + 23mm, 1'-6": a minus always subtracts, I35) goes to FreeCAD's expressions (T32).
+			var here := Units.parse_pair(txt) if tool == "rect" else Units.parse_length(txt)
+			if here.ok:
+				length_pending = {}
+				tools[tool].typed("%.12f,%.12f" % [here.a_mm, here.b_mm] if tool == "rect" else "%.12f" % here.mm)
+			elif texts.size() != (2 if tool == "rect" else 1):
+				ui_sync.text = "Enter two lengths separated by a comma"
+			else:
+				length_id += 1
+				length_pending = {"id": length_id, "tool": tool, "model": model_path, "seq": seq,
+					"state": tools[tool].state.duplicate(true)}
+				client.send({"cmd": "length", "id": length_id, "texts": Array(texts), "default_unit": "mm"})
+				ui_sync.text = "Evaluating length…"
+	_update_vcb()
+
+func _on_length(resp: Dictionary) -> void:
+	if length_pending.is_empty() or resp.get("id") != length_pending.id: return
+	var pending := length_pending
+	length_pending = {}
+	if tool != pending.tool or model_path != pending.model or seq != pending.seq: return
+	if tools[tool].state != pending.state: return
+	if not resp.get("ok", false):
+		ui_sync.text = "Length: " + str(resp.get("error", "Invalid input"))
+		return
+	var values := PackedStringArray()
+	for value in resp.values: values.append("%.12f" % float(value))
+	tools[tool].typed(",".join(values))
 	_update_vcb()
 
 
@@ -1169,7 +1271,7 @@ func _after_removal() -> void:
 func _restore_counters() -> void:
 	for op in ops:
 		var id: String = op["id"]
-		for k in ["pp", "mv", "mu", "dt", "as", "sm", "tg", "r", "m"]:
+		for k in ["pr", "pp", "mv", "mu", "dt", "as", "sm", "tg", "r", "m"]:
 			if id.begins_with(k) and id.substr(k.length()).is_valid_int():
 				counters[k] = maxi(counters[k], int(id.substr(k.length())))
 				break
@@ -1212,6 +1314,8 @@ func oplog() -> Dictionary:
 
 
 func sync() -> void:
+	properties_seq = -1
+	if properties_panel != null and properties_panel.visible: properties_panel.message("Waiting for FreeCAD…")
 	seq += 1
 	dirty = true
 	ui_sync.text = "● draft - FreeCAD catching up (%d ops)" % ops.size()
@@ -1234,6 +1338,12 @@ func _send(drawing := false) -> void:
 
 
 func _on_worker(resp: Dictionary) -> void:
+	if resp.get("cmd", "") == "inspect_properties":
+		_on_properties(resp)
+		return
+	if resp.get("cmd", "") == "length":
+		_on_length(resp)
+		return
 	if resp.get("cmd", "") == "focus":               # someone tried to open this window's model: come forward
 		DisplayServer.window_move_to_foreground()
 		return
@@ -1293,6 +1403,8 @@ func _on_worker(resp: Dictionary) -> void:
 			remove_op(oid)
 	if dirty and not in_flight:
 		_send()
+	elif not in_flight:
+		_request_properties()
 
 
 # ---------------- confirmed boards (T3) ----------------
@@ -1641,7 +1753,7 @@ static func _op_refs(op: Dictionary) -> Array:
 	if tg.has("face"): out.append(tg["face"]["body"])
 	out.append_array(op.get("targets", []))
 	if op.has("cut"): out.append_array([op["cut"]["body"], op["cut"]["op"]])
-	if op["type"] == "make_component": out.append(op["body"])
+	if op["type"] in ["make_component", "property_edit"]: out.append(op["body"])
 	return out
 
 
@@ -1983,6 +2095,9 @@ func switch_model(path: String, fresh := false) -> void:
 
 
 func _reset_model_state() -> void:
+	properties_seq = -1
+	properties_request += 1
+	set_selection([])
 	seq += 1                        # a reply still on its way belongs to the old model: it's ignored
 	dirty = false
 	for oid in op_waves.keys(): _end_wave(oid)
@@ -2117,6 +2232,7 @@ func _run_drawing_script() -> void:
 
 # ---------------- input ----------------
 func _unhandled_input(e: InputEvent) -> void:
+	if (e is InputEventKey and e.pressed) or (e is InputEventMouseButton and e.pressed): length_pending = {}
 	if fx_test and cursor2d != null and (e is InputEventMouseMotion or e is InputEventMouseButton) \
 			and e.position.distance_to(cursor2d.position) > 0.5:
 		return       # tests: the real pointer over the window isn't the test's cursor; ignore it
@@ -2176,7 +2292,7 @@ func _unhandled_input(e: InputEvent) -> void:
 			KEY_BACKSPACE: vcb = vcb.left(-1); _update_vcb(); return
 		var ch := char(e.unicode) if e.unicode > 0 else ""
 		var t = tools[tool]
-		if t.key(e): return                              # the tool's own keys (Move: modifiers, axis locks)
+		if not (vcb != "" and e.keycode == KEY_SHIFT) and t.key(e): return   # the tool's own keys (Move: modifiers, axis locks); while typing, Shift is for " and '
 		if t.busy() and ch != "" and t.accepts(ch):
 			vcb += ch; _update_vcb(); return
 		match e.keycode:

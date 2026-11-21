@@ -26,7 +26,7 @@ func busy() -> bool:
 
 
 func accepts(ch: String) -> bool:
-	return ch in "0123456789.,-" or ch.to_lower() in "x*/"
+	return super.accepts(ch) or ch.to_lower() == "x"
 
 
 func mouse_moved(screen: Vector2) -> void:

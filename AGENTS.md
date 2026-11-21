@@ -19,8 +19,14 @@ Read it for architecture, conventions and tests.
 - Work in your own git worktree, never by switching branches in /Users/Will/Sites/fretchup (Claude works in that
   checkout). Example: `git worktree add ../fretchup-codex-<job> -b codex/<job> main`.
 - Touch only the files your handoff job lists. Don't merge into main or push unless William says so.
-- `ARCHITECTURE.md` is your map of the code. Claude updates it with every architecture change it makes; if a job of
-  yours changes the architecture, update it in the same commit and say so in the handoff.
+- Claude and Codex both own and may edit `ARCHITECTURE.md`. The agent changing architecture updates it in the
+  same commit, in its own worktree, without seeking permission from the other agent. Reread the shared map
+  and instructions before committing. The reviewing agent checks it against the code; integration preserves
+  both agents' unrelated edits and distinguishes delivered branches from integrated code. Mention it in the handoff.
+- Use the tracked commit check: `git -c core.hooksPath=.githooks commit ...`. It flags production-module,
+  protocol/state and packaging changes without a staged architecture update. For changes which truly have no
+  architectural impact, include `Architecture-Impact: none - <specific reason>` in the commit message;
+  the reviewer must verify that claim. This never exempts an actual architecture change from the same-commit rule.
 - Before handing back, run `tools/quicktest.sh` in your worktree (it uses its own ports).
 - Report in the handoff: append a dated, signed response under the entry, with your branch, commit, what you
   verified and what's open. Then set its Status. Archive entries once they're resolved (move them whole to

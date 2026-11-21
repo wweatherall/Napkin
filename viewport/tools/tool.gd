@@ -47,7 +47,7 @@ func busy() -> bool:
 
 
 func accepts(ch: String) -> bool:
-	return ch in "0123456789.,-"
+	return ch in "0123456789.,-+*/()^" or (m.vcb != "" and ch.to_lower() in " \"'abcdefghijklmnopqrstuvwxyz")
 
 
 ## a key the tool handles itself (modifiers, axis locks); true = handled
