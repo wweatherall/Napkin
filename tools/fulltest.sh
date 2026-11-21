@@ -6,6 +6,7 @@
 cd "$(dirname "$0")/.."
 FC=/Applications/FreeCAD.app/Contents/Resources/bin/freecadcmd
 GD=/Applications/Godot.app/Contents/MacOS/Godot
+tools/parsecheck.sh || { echo "full test not run: a viewport script doesn't parse"; exit 1; }
 OUT=$(mktemp -d -t shopsketch-full)
 PORT=7890
 while lsof -iTCP:$PORT -sTCP:LISTEN >/dev/null 2>&1; do PORT=$((PORT + 1)); done

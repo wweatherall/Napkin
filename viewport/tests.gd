@@ -361,6 +361,8 @@ func _run_mirror_test() -> void:
 	await _shot("M0_plane_and_ghost")
 	await _type("300\n")
 	await _checkpoint("M1_mirrored")
+	await _key(KEY_SPACE)                          # the pair is a mirror group now (A11b): enter it to edit
+	await _double_click_at(Vector3(20, 150, 300))
 	# edit the ORIGINAL: pull its -x face out 10
 	await _view(Vector3(0, 150, 250), -60, -15, 1.3)
 	await _push(Vector3(0, 150, 300), Vector3(-30, 150, 300), "10")
@@ -396,6 +398,8 @@ func _run_mirror_test() -> void:
 	await _drag_to(Vector3(-100, 0, 420), 10)
 	await _type("100\n")
 	await _checkpoint("M5d_flipped_moved")
+	print("MIRRORTEST inside ", m.context)
+	await _key(KEY_ESCAPE)
 	await _view(Vector3(350, 450, 200), 30, -30, 3.0)
 	await _shot("M6_overview")
 	var f := FileAccess.open(m.shots_dir.path_join("draft_bboxes.json"), FileAccess.WRITE)
@@ -1272,6 +1276,35 @@ func _run_quick_test() -> void:
 	await _key(KEY_ESCAPE)
 	await _key(KEY_ESCAPE)
 	_ok("Esc leaves", m.context == "", m.context)
+
+	# 5d. Mirror groups (T26, A11b): a mirrored copy makes a group; inside, the plane shows and moving the copy
+	# moves its original the mirrored way
+	await _fresh("mirrorgroup", _plank(1, Vector3.ZERO, Vector3(100, 50, 18)))
+	await _view(Vector3(150, 25, 0), -25, -50, 1.2)
+	await _grab(Vector3(50, 25, 18))
+	await _key(KEY_ALT)                            # copy
+	await _key(KEY_SHIFT)                          # mirror
+	await _key(KEY_RIGHT)                          # across a red-axis plane (else it's parallel to the grabbed top)
+	await _drag_to(Vector3(250, 25, 18), 6)
+	await _press()
+	await _wait_wave()
+	var pair: Array = _shown_ids()
+	var grp: String = m.body_assembly.get("b1", "")
+	_ok("a mirrored copy makes a mirror group with its original", pair.size() == 2 and grp != "" and m.body_assembly.get(pair[1], "") == grp,
+		[pair, m.body_assembly])
+	var mir_b: String = pair[1]
+	m.set_tool("select")
+	await _double_click_at(Vector3(50, 25, 18))
+	_ok("inside the mirror group its plane shows", m.context == "assembly:" + grp and m._plane_node.mesh != null, m.context)
+	var x0: float = _bbox("b1")[0]
+	var mx: float = (_bbox(mir_b)[0] + _bbox(mir_b)[3]) * 0.5
+	await _grab(Vector3(mx, 25, 18))
+	await _key(KEY_RIGHT)
+	await _drag_to(Vector3(mx + 40, 25, 18), 6)
+	await _type("50\n")
+	await _wait_wave()
+	_ok("moving the copy 50 out moves the original 50 the other way", absf(_bbox("b1")[0] - (x0 - 50)) < 0.01, [x0, _bbox("b1"), _bbox(mir_b)])
+	await _key(KEY_ESCAPE); await _key(KEY_ESCAPE)
 
 	# 6. Undo (A28): every undo shows at once, the 21st rebuilds in FreeCAD
 	await _fresh("undo")

@@ -733,6 +733,8 @@ func _update_tip(screen: Vector2) -> void:
 # assembly; inside an array a copy moves alone (it leaves the row). Esc clears the selection, then leaves.
 var body_assembly := {}             # board id -> assembly id, "" if none
 var body_row := {}                  # board id -> the original its array row was copied from, "" if none
+var body_mirror_plane := {}         # mirrored board id -> [point, normal] of its plane (model mm)
+var _plane_node: MeshInstance3D     # the mirror plane, shown inside an entered mirror group (A11b)
 var context := ""                   # "" outside; "assembly:<id>" or "row:<original>" inside
 var selection: Array = []
 var _sel_overlay: MeshInstance3D
@@ -806,6 +808,34 @@ func _apply_context() -> void:
 		edges.visible = inside
 		for c in node.get_children():
 			if c is StaticBody3D: c.collision_layer = 1 if inside else 0
+	_show_mirror_plane()
+
+
+func _show_mirror_plane() -> void:
+	"""Inside a mirror group: its plane, as a soft sheet a little bigger than the pair."""
+	if _plane_node == null:
+		_plane_node = MeshInstance3D.new(); add_child(_plane_node)
+	_plane_node.mesh = null
+	var a := context_assembly()
+	if a == "": return
+	var members := body_assembly.keys().filter(func(b): return body_assembly[b] == a)
+	var plane: Array = []
+	for b in members:
+		if body_mirror_plane.has(b): plane = body_mirror_plane[b]; break
+	if plane.is_empty(): return
+	var lo := Vector3(INF, INF, INF); var hi := -lo
+	for b in members:
+		for q in body_tris.get(b, PackedVector3Array()):
+			lo = lo.min(q); hi = hi.max(q)
+	var p0: Vector3 = plane[0]; var n: Vector3 = plane[1]
+	var basis := plane_basis(n)
+	var c := (lo + hi) * 0.5
+	c -= n * (c - p0).dot(n)                       # the middle of the pair, on the plane
+	var r := maxf((hi - lo).length() * 0.6, 50.0)
+	var u: Vector3 = basis[0] * r; var v: Vector3 = basis[1] * r
+	var quad := PackedVector3Array()
+	for q in [c - u - v, c + u - v, c + u + v, c - u - v, c + u + v, c - u + v]: quad.append(q)
+	_plane_node.mesh = _tri_mesh(quad, mat_plane)
 
 
 func set_selection(ids: Array) -> void:
@@ -1020,8 +1050,9 @@ func _restore_counters() -> void:
 			if id.begins_with(k) and id.substr(k.length()).is_valid_int():
 				counters[k] = maxi(counters[k], int(id.substr(k.length())))
 				break
-		if op["type"] == "make_assembly" and String(op["new_id"]).substr(1).is_valid_int():
-			counters["a"] = maxi(counters["a"], int(String(op["new_id"]).substr(1)))
+		var aid := String(op.get("new_id", "")) if op["type"] == "make_assembly" else String(op.get("group", ""))
+		if aid.begins_with("a") and aid.substr(1).is_valid_int():
+			counters["a"] = maxi(counters["a"], int(aid.substr(1)))
 		var made: Array = op.get("new_ids", [])
 		if op.has("body"): made = [op["body"]]
 		for bid in made:
@@ -1155,6 +1186,9 @@ func _apply_confirmed(dir: String, key: String) -> void:
 		files[b["id"]] = b["mesh"]
 		body_family[b["id"]] = b.get("family", ""); body_array[b["id"]] = b.get("array", "")
 		body_assembly[b["id"]] = b.get("assembly", ""); body_row[b["id"]] = b.get("row", "")
+		var mp: Array = b.get("mirror_plane", [])
+		if mp.size() == 2: body_mirror_plane[b["id"]] = [Vector3(mp[0][0], mp[0][1], mp[0][2]), Vector3(mp[1][0], mp[1][1], mp[1][2])]
+		else: body_mirror_plane.erase(b["id"])
 		if not _boards.has(b["mesh"]):
 			_boards[b["mesh"]] = _build_board(dir, b)
 	_load_cuts(dir)

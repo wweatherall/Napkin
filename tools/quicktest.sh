@@ -5,14 +5,19 @@
 cd "$(dirname "$0")/.."
 FC=/Applications/FreeCAD.app/Contents/Resources/bin/freecadcmd
 GD=/Applications/Godot.app/Contents/MacOS/Godot
+tools/parsecheck.sh || { echo "quick test not run: a viewport script doesn't parse"; exit 1; }
 OUT=$(mktemp -d -t shopsketch-quick)
 mkdir -p "$OUT/native" "$OUT/arrays" "$OUT/vp/out" "$OUT/vp/shots"
 ( TESTDIR="$OUT/native" "$FC" worker/test_native.py > "$OUT/native.log" 2>&1
   TESTDIR="$OUT/arrays" "$FC" worker/test_arrays.py > "$OUT/arrays.log" 2>&1 ) &
 WORKER_TESTS=$!
 "$GD" --path viewport -- --quicktest --out="$OUT/vp/out" --shots="$OUT/vp/shots" --worker-log="$OUT/vp/worker.log" \
-  > "$OUT/viewport.log" 2>&1
-VP=$?
+  > "$OUT/viewport.log" 2>&1 &
+GDPID=$!
+( sleep 120; kill $GDPID 2>/dev/null && echo "QUICK FAIL the viewport run took over 120 s: stopped it" >> "$OUT/viewport.log" ) &
+WATCH=$!
+wait $GDPID; VP=$?
+kill $WATCH 2>/dev/null; wait $WATCH 2>/dev/null
 wait $WORKER_TESTS
 grep -E "^FAIL" "$OUT/native.log" "$OUT/arrays.log"
 grep -E "QUICK FAIL|SCRIPT ERROR" "$OUT/viewport.log"

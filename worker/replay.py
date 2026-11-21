@@ -644,14 +644,19 @@ class Model:
             if op.get("detach") and getattr(obj, "SSArray", ""):
                 self.op_detach({"targets": [t]})       # inside an entered array, a copy moves alone (I32)
             if not copy and self.is_mirror(obj):
-                if not getattr(obj, "Replaced", False):
-                    raise OpError(f"'{t}' is a mirrored copy: move its original and it follows")
-                # a flipped board: move its hidden source by the vector reflected across the mirror plane
+                # a mirrored copy (or flipped board): its original moves by the vector reflected across the
+                # plane, so the pair stays mirrored (A11b). The original may itself be a copy in a row.
                 nrm = unit(obj.Normal)
                 src_vec = vecv - nrm * (2 * vecv.dot(nrm))
                 src = self.mirror_source(obj)
+                while self.is_mirror(src):
+                    nrm2 = unit(src.Normal)
+                    src_vec = src_vec - nrm2 * (2 * src_vec.dot(nrm2))
+                    src = self.mirror_source(src)
+                if getattr(src, "SSArray", ""):
+                    self.op_detach({"targets": [src.BodyId]})
                 src.Placement = App.Placement(src.Placement.Base + src_vec, src.Placement.Rotation)
-                changed.append(t)
+                changed += [t, getattr(src, "BodyId", t)] if getattr(src, "SSRole", "") == "body" else [t]
                 continue
             if not copy:
                 arrays = self.arrays_of(obj)
@@ -718,17 +723,41 @@ class Model:
         return list(op["targets"])
 
     def move_assembly(self, g, vecv):
+        """Move everything in an assembly by vecv. Each real board moves once (a flipped board's hidden original
+        moves by the reflected vector); each mirror's plane shifts by what keeps its image moving with the rest."""
         members = [o for o in g.Group if getattr(o, "SSRole", None) == "body"]
+        mirrors = [o for o in members if self.is_mirror(o)]
+        refl = lambda v, n: v - n * (2 * v.dot(n))
+        moves = {o.Name: vecv for o in members}          # how far each object's own shape moves
+        hidden = []
+        for o in mirrors:
+            src = self.mirror_source(o)
+            if getattr(o, "Replaced", False) and src.Name not in moves:
+                moves[src.Name] = refl(vecv, unit(o.Normal))
+                hidden.append(src)
+        for o in mirrors:
+            src = self.mirror_source(o)
+            if src.Name not in moves:
+                raise OpError(f"'{o.BodyId}' mirrors a board outside its assembly: move them separately")
+            n = unit(o.Normal)
+            rest = vecv - refl(moves[src.Name], n)        # what the plane has to supply; it can only push along n
+            along = rest.dot(n)
+            if (rest - n * along).Length > 1e-6:
+                raise OpError(f"'{o.BodyId}' can't move with the rest: its original moves another way")
+            o.Base = o.Base + n * (along / 2)
+        plain = [o for o in members if not self.is_mirror(o)]
         moved_arrays = set()
-        for o in members:
+        for o in plain:
             for arr in self.arrays_of(o):
                 if arr.Name not in moved_arrays:
                     arr.Origin = arr.Origin + vecv
                     moved_arrays.add(arr.Name)
-        for o in members:
+        for o in plain:
             if getattr(o, "SSArray", ""):
                 continue                              # placed by its array, which just moved
             o.Placement = App.Placement(o.Placement.Base + vecv, o.Placement.Rotation)
+        for o in hidden:
+            o.Placement = App.Placement(o.Placement.Base + moves[o.Name], o.Placement.Rotation)
         return [o.BodyId for o in members]
 
     def op_detach(self, op):
@@ -777,6 +806,13 @@ class Model:
         replace = bool(op.get("replace", False))      # flip the board itself instead of making a copy
         new_ids = list(op.get("new_ids", []))
         changed = []
+        group = None
+        if not replace and op.get("group"):
+            outer = [self.assembly_of(self.body(t)) for t in op["targets"]]
+            if all(g is None for g in outer):         # (boards already in an assembly: the mirror joins that one)
+                group = self.doc.addObject("App::DocumentObjectGroup", "MirrorGroup")
+                group.Label = f"Mirrored {', '.join(op['targets'])}"
+                add_props(group, SSRole="assembly", AssemblyId=op["group"], SSKind="mirror")
         for t in op["targets"]:
             src = self.body(t)
             nid = t if replace else (new_ids.pop(0) if new_ids else f"{t}_m")
@@ -795,6 +831,13 @@ class Model:
             self.doc.recompute()
             if m.Shape.isNull() or not m.Shape.Solids:
                 raise OpError(f"could not mirror '{t}'")
+            if group is not None:
+                for other in src.InList:
+                    if other.TypeId == "App::DocumentObjectGroup":
+                        other.removeObject(src)
+                group.addObject(src); group.addObject(m)
+            elif self.assembly_of(src) is not None:
+                self.assembly_of(src).addObject(m)    # a mirror (or a flipped board) stays in its assembly
             changed.append(nid)
         return changed
 
@@ -1326,7 +1369,8 @@ class Session:
                                color=list(PALETTE.get(mat, (0.7, 0.7, 0.7))), family=m.definition(obj).Name,
                                array=getattr(obj, "SSArray", "") or "",
                                assembly=getattr(m.assembly_of(obj), "AssemblyId", "") if m.assembly_of(obj) else "",
-                               row=(m.arrays_of(obj)[0].SSSource if m.arrays_of(obj) else "")))
+                               row=(m.arrays_of(obj)[0].SSSource if m.arrays_of(obj) else ""),
+                               mirror_plane=([list(obj.Base), list(unit(obj.Normal))] if m.is_mirror(obj) else [])))
         shared = {}
         for e in bodies:
             shared[e["family"]] = shared.get(e["family"], 0) + 1

@@ -578,4 +578,40 @@ how, _ = s.sync(NO[:6])
 check("undo back to before the assembly", how.startswith("undid") and not s.model.assemblies(), how)
 s.close()
 
+# ---------- O. mirror groups (T26, A11b) ----------
+NG = [ground_rect("r1", [0, 0, 0], [100, 50]), push("p1", "r1", 18, "b1"),
+      {"id": "m1", "type": "mirror", "targets": ["b1"], "plane": {"point": [200, 0, 0], "normal": [1, 0, 0]},
+       "new_ids": ["b2"], "group": "a1"}]
+s = Session(None)
+s.sync(NG)
+g = s.model.assemblies().get("a1")
+check("a mirrored copy and its original make a mirror group", g is not None and g.SSKind == "mirror"
+      and sorted(o.BodyId for o in g.Group) == ["b1", "b2"], g and [o.Label for o in g.Group])
+check("the copy sits across the plane", bx(s, "b2")[:3] == (300, 0, 0), bx(s, "b2"))
+NG += [{"id": "mv1", "type": "move", "targets": ["b2"], "vector": [50, 20, 0]}]
+s.sync(NG)
+check("moving the copy moves the original the mirrored way (x reflected, y the same)",
+      bx(s, "b1")[:2] == (-50, 20) and bx(s, "b2")[:2] == (350, 20), [bx(s, "b1"), bx(s, "b2")])
+NG += [{"id": "mv2", "type": "move", "targets": ["b1"], "vector": [10, 0, 0]}]
+s.sync(NG)
+check("moving the original: the copy reflects it", bx(s, "b1")[0] == -40 and bx(s, "b2")[0] == 340, [bx(s, "b1"), bx(s, "b2")])
+NG += [{"id": "mv3", "type": "move", "targets": ["a1"], "vector": [0, 0, 100]}]
+s.sync(NG)
+check("moving the group moves both and its plane", bx(s, "b1")[2] == 100 and bx(s, "b2")[2] == 100 and bx(s, "b2")[0] == 340,
+      [bx(s, "b1"), bx(s, "b2")])
+NG += [{"id": "mv4", "type": "move", "targets": ["a1"], "vector": [100, 0, 0]}]
+s.sync(NG)
+check("moving the group sideways keeps the pair mirrored", bx(s, "b1")[0] == 60 and bx(s, "b2")[0] == 440, [bx(s, "b1"), bx(s, "b2")])
+NG += [{"id": "m2", "type": "mirror", "targets": ["b1"], "plane": {"point": [0, 0, 0], "normal": [1, 0, 0]}, "replace": True},
+       {"id": "mv5", "type": "move", "targets": ["a1"], "vector": [0, 0, 100]}]
+s.sync(NG)
+check("a board flipped in place stays in its group, and moves with it", s.model.assembly_of(s.model.body("b1")) is g
+      and bx(s, "b1")[2] == 200 and bx(s, "b2")[2] == 200, [bx(s, "b1"), bx(s, "b2")])
+s.export(os.path.join(tmp, "o_out"))
+ent = {e["id"]: e for e in json.load(open(os.path.join(tmp, "o_out", "bodies.json")))}
+check("bodies.json gives the copy's mirror plane", ent["b2"]["mirror_plane"] and abs(ent["b2"]["mirror_plane"][0][0] - 300) < 1e-6,
+      ent["b2"].get("mirror_plane"))
+check("statuses all ok", all(st == "ok" for _, st in statuses(s)), [x for x in statuses(s) if x[1] != "ok"])
+s.close()
+
 print(f"\nNATIVE TESTS: {R[0]} passed, {R[1]} failed")

@@ -170,6 +170,9 @@ func commit_mirror_move(ax: int, c: float) -> void:
 		m.counters["b"] += 1
 		bid = "b%d" % m.counters["b"]
 		op["new_ids"] = [bid]
+		if m.context == "" and m.body_assembly.get(body, "") == "":
+			m.counters["a"] += 1
+			op["group"] = "a%d" % m.counters["a"]   # the pair is a mirror group you enter (A11b, T26)
 	else:
 		op["replace"] = true                 # flip the board itself
 	m.ops.append(op)

@@ -47,6 +47,9 @@ If you can't reach the log, say so; don't guess at what it says.
   In the viewport, from outside a board stands for its assembly or its array row (`unit_of`); double-click with
   Select enters one (`context`, the rest greyed and unpickable), Esc leaves. Inside an entered array a moved copy
   leaves the row (op `"detach": true`, I32); a board pushed out inside an assembly joins it (op `"assembly"`).
+  A mirrored copy and its original form a mirror group (T26, A11b: an assembly with `SSKind` = `mirror`, op
+  `"group"`); inside it the plane shows (`mirror_plane` in bodies.json) and moving the copy moves the original
+  reflected. `move_assembly` moves each real board once and shifts each mirror's Base to keep it with the rest.
   A component instance is mirrored through a Part::Compound wrapper (`SSRole` = `mirror-input`, A26):
   released FreeCAD 1.1 mirrors an App::Link without its placement. Walk mirrors with `mirror_source()`, not `.Source`.
   All Shop Sketch state lives on those objects (`BodyId`, `SSRole`, `RectId`, `SSMaterial`, `SSOp`).
@@ -80,7 +83,9 @@ If you can't reach the log, say so; don't guess at what it says.
   `tests/reference/` by `tools/compare_suites.py`, then the targeted tests (`--undotest` `--snaptest` `--recttest`
   `--shelltest` `--jointest` `--rejecttest`), then the worker tests. After an intended change in behaviour:
   `tools/fulltest.sh --update-reference`.
-- Worker tests alone: `freecadcmd worker/test_native.py` (76 checks) and `worker/test_arrays.py` (10).
+- Both scripts first run `tools/parsecheck.sh` (every viewport script, ~3 s): a script that doesn't parse used to
+  leave Godot sitting with no test running. The quick test's Godot run is also stopped after 120 s.
+- Worker tests alone: `freecadcmd worker/test_native.py` (85 checks) and `worker/test_arrays.py` (10).
 - Visual checks (screenshots, no pass/fail): `--linetest`, `--zfighttest`; timing: `--perftest`. Recordings use
   `--true-latency` (P03) with Godot's `--write-movie`; `--heavytest --model=<file>`.
 - Test hooks (`delay_ms`, forced rejection, `--*test`) are for testing only (P02).
