@@ -34,5 +34,6 @@ TESTDIR="$OUT/native" "$FC" worker/test_native.py 2>&1 | grep -E "^(FAIL|NATIVE)
 "$GD" --headless --path viewport --script res://test_units.gd 2>&1 | grep -E "^(FAIL|UNITS)"
 "$FC" worker/test_length_input.py 2>&1 | grep -E "^LENGTH|Error"; python3 worker/test_length_protocol.py 2>&1 | grep -E "^LENGTH|Error"
 TESTDIR="$OUT/properties" "$FC" worker/test_properties.py 2>&1 | grep -E "^PROPERTY|Error"
+mkdir -p "$OUT/scenario"; TESTDIR="$OUT/scenario" "$FC" worker/test_scenario.py 2>&1 | grep -E "^(FAIL|SCENARIO)"
 echo "full check logs: $OUT"
 exit $FAIL
