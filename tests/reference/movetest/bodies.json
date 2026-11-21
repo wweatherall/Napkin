@@ -2,14 +2,14 @@
  {
   "id": "b1",
   "material": "",
-  "component": null,
+  "component": "b1",
   "world_bbox": [
    200.0,
    0.0,
-   0.0,
+   80.0,
    220.0,
    300.0,
-   400.0
+   480.0
   ],
   "size": [
    20.0,
@@ -18,24 +18,26 @@
   ],
   "volume_mm3": 2400000.0,
   "cuts": [],
-  "mesh": "b1-ba773cec4bf1c8fe.bin",
+  "mesh": "b1-2ba8c6275781c997.bin",
   "color": [
    0.82,
    0.8,
    0.76
-  ]
+  ],
+  "family": "Board",
+  "array": ""
  },
  {
   "id": "b3",
   "material": "",
-  "component": null,
+  "component": "b1",
   "world_bbox": [
    300.0,
    0.0,
-   0.0,
+   80.0,
    320.0,
    300.0,
-   400.0
+   480.0
   ],
   "size": [
    20.0,
@@ -44,24 +46,26 @@
   ],
   "volume_mm3": 2400000.0,
   "cuts": [],
-  "mesh": "b3-6f05159742cda163.bin",
+  "mesh": "b3-6a1b5e6ee7cfc731.bin",
   "color": [
    0.82,
    0.8,
    0.76
-  ]
+  ],
+  "family": "Board",
+  "array": "Array"
  },
  {
   "id": "b4",
   "material": "",
-  "component": null,
+  "component": "b1",
   "world_bbox": [
    400.0,
    0.0,
-   0.0,
+   80.0,
    420.0,
    300.0,
-   400.0
+   480.0
   ],
   "size": [
    20.0,
@@ -70,24 +74,26 @@
   ],
   "volume_mm3": 2400000.0,
   "cuts": [],
-  "mesh": "b4-193bd6795d91d14f.bin",
+  "mesh": "b4-097834927891e4f2.bin",
   "color": [
    0.82,
    0.8,
    0.76
-  ]
+  ],
+  "family": "Board",
+  "array": "Array"
  },
  {
   "id": "b5",
   "material": "",
-  "component": null,
+  "component": "b1",
   "world_bbox": [
    500.0,
    0.0,
-   0.0,
+   80.0,
    520.0,
    300.0,
-   400.0
+   480.0
   ],
   "size": [
    20.0,
@@ -96,17 +102,19 @@
   ],
   "volume_mm3": 2400000.0,
   "cuts": [],
-  "mesh": "b5-bd31e659900301ca.bin",
+  "mesh": "b5-821562aa8b59d947.bin",
   "color": [
    0.82,
    0.8,
    0.76
-  ]
+  ],
+  "family": "Board",
+  "array": "Array"
  },
  {
   "id": "b6",
   "material": "",
-  "component": null,
+  "component": "b1",
   "world_bbox": [
    600.0,
    0.0,
@@ -122,24 +130,26 @@
   ],
   "volume_mm3": 2400000.0,
   "cuts": [],
-  "mesh": "b6-f40ca5287a4aa164.bin",
+  "mesh": "b6-a86b362ac08a3b56.bin",
   "color": [
    0.82,
    0.8,
    0.76
-  ]
+  ],
+  "family": "Board",
+  "array": "Array"
  },
  {
   "id": "b8",
   "material": "",
-  "component": null,
+  "component": "b1",
   "world_bbox": [
    200.0,
    200.0,
-   0.0,
+   80.0,
    220.0,
    500.0,
-   400.0
+   480.0
   ],
   "size": [
    20.0,
@@ -148,24 +158,26 @@
   ],
   "volume_mm3": 2400000.0,
   "cuts": [],
-  "mesh": "b8-96cb6b7f6bf58e1e.bin",
+  "mesh": "b8-05c9c8220570db47.bin",
   "color": [
    0.82,
    0.8,
    0.76
-  ]
+  ],
+  "family": "Board",
+  "array": "Array001"
  },
  {
   "id": "b9",
   "material": "",
-  "component": null,
+  "component": "b1",
   "world_bbox": [
    200.0,
    400.0,
-   0.0,
+   80.0,
    220.0,
    700.0,
-   400.0
+   480.0
   ],
   "size": [
    20.0,
@@ -174,24 +186,26 @@
   ],
   "volume_mm3": 2400000.0,
   "cuts": [],
-  "mesh": "b9-7aeab6ac15794aa0.bin",
+  "mesh": "b9-136b6977bdf9a1e7.bin",
   "color": [
    0.82,
    0.8,
    0.76
-  ]
+  ],
+  "family": "Board",
+  "array": "Array001"
  },
  {
   "id": "b10",
   "material": "",
-  "component": null,
+  "component": "b1",
   "world_bbox": [
    200.0,
    600.0,
-   0.0,
+   80.0,
    220.0,
    900.0,
-   400.0
+   480.0
   ],
   "size": [
    20.0,
@@ -200,24 +214,26 @@
   ],
   "volume_mm3": 2400000.0,
   "cuts": [],
-  "mesh": "b10-383637b9221655f4.bin",
+  "mesh": "b10-24fcfd3177e9d2a0.bin",
   "color": [
    0.82,
    0.8,
    0.76
-  ]
+  ],
+  "family": "Board",
+  "array": "Array001"
  },
  {
   "id": "b11",
   "material": "",
-  "component": null,
+  "component": "b1 (mirrored)",
   "world_bbox": [
    420.0,
    0.0,
-   0.0,
+   80.0,
    440.0,
    300.0,
-   400.0
+   480.0
   ],
   "size": [
    20.0,
@@ -226,11 +242,13 @@
   ],
   "volume_mm3": 2400000.0,
   "cuts": [],
-  "mesh": "b11-3e67c8b8c610a217.bin",
+  "mesh": "b11-cb70b8b1d6c8baa0.bin",
   "color": [
    0.82,
    0.8,
    0.76
-  ]
+  ],
+  "family": "Board",
+  "array": ""
  }
 ]

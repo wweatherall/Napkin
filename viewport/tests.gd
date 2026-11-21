@@ -1162,6 +1162,46 @@ func _run_quick_test() -> void:
 	var holes: Array = _bodies()["b1"]["cuts"].filter(func(c): return c["op"] == "pp2")
 	_ok("the hole copied into a row of 6", holes.size() == 6 and is_equal_approx(_bodies()["b1"]["volume_mm3"], 600.0 * 300 * 18 - 6 * 20 * 20 * 18), [holes.size(), _bodies()["b1"]["volume_mm3"]])
 
+	# 5b. Linked copies (T12): a row of linked copies, the tint while editing, a hole on one shows on all, U, Detach
+	await _fresh("linked", _plank(1, Vector3.ZERO, Vector3(100, 50, 18)))
+	await _view(Vector3(250, 25, 0), -25, -50, 1.6)
+	await _grab(Vector3(0, 25, 18))
+	await _key(KEY_ALT)
+	await _key(KEY_RIGHT)                         # lock red
+	await _drag_to(Vector3(80, 25, 18), 6)
+	await _type("150\n")
+	await _frames(4)
+	await _type("3x\n")
+	await _wait_wave()
+	var row: Array = _shown_ids()
+	var fams := {}
+	for b in row: fams[m.body_family.get(b, "")] = true
+	_ok("a 3x copy makes 4 linked boards", row.size() == 4 and fams.size() == 1 and not fams.has(""), [row, m.body_family])
+	var copy_b: String = row[2]
+	m.set_tool("push")
+	await _drag_to(Vector3(325, 25, 18), 4)
+	_ok("hovering a copy tints its 3 siblings and the tooltip counts 4", m._siblings_of(copy_b).size() == 3 and m.ui_tip.text.contains("changes 4 linked boards"),
+		[m.hover_body, m._siblings_of(copy_b), m.ui_tip.text])
+	await _view(Vector3(350, 25, 18), -25, -50, 0.8)          # close enough that the start isn't within snapping range
+	await _rect(Vector3(338, 18, 18), Vector3(358, 38, 18), "20,20")
+	await _push(Vector3(348, 28, 18), Vector3(348, 28, 8), "-18")
+	await _view(Vector3(250, 25, 0), -25, -50, 1.6)
+	await _wait_wave()
+	var vols := {}
+	for b in row: vols[snappedf(_bodies()[b]["volume_mm3"], 0.1)] = true
+	_ok("a hole cut in one copy is in all four", vols.keys() == [100.0 * 50 * 18 - 20 * 20 * 18], vols.keys())
+	m.set_tool("push")
+	await _drag_to(Vector3(475, 25, 18), 4)
+	await _key(KEY_U)
+	await _wait_wave()
+	var uniq: String = m.hover_body
+	_ok("U makes the board under the cursor its own", uniq != "" and m.body_family.get(uniq, "x") == "", [uniq, m.body_family])
+	await _drag_to(Vector3(175, 25, 18), 4)
+	var det: String = m.hover_body
+	m._menu("detach")
+	await _wait_wave()
+	_ok("Edit > Detach from array takes it out of the row", m.body_array.get(det, "x") == "" and m.body_family.get(det, "") != "", [det, m.body_array, m.body_family])
+
 	# 6. Undo (A28): every undo shows at once, the 21st rebuilds in FreeCAD
 	await _fresh("undo")
 	var seen := {0: []}

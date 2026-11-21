@@ -11,7 +11,7 @@ const SNAP_PX := 14.0         # endpoint snap radius on screen
 
 # ---------------- state ----------------
 var ops: Array = []
-var counters := {"r": 0, "b": 0, "pp": 0, "m": 0, "mv": 0}
+var counters := {"r": 0, "b": 0, "pp": 0, "m": 0, "mv": 0, "mu": 0, "dt": 0}
 var seq := 0
 var in_flight := false
 var dirty := false
@@ -96,6 +96,7 @@ var mat_cut: StandardMaterial3D
 var mat_rect: ShaderMaterial
 var mat_hover: ShaderMaterial
 var mat_cut_hl: ShaderMaterial    # hole highlight in Move
+var mat_sibling: ShaderMaterial   # linked copies of the board you're editing
 var mat_plane: StandardMaterial3D  # mirror-plane visuals
 var mat_edge: StandardMaterial3D
 var mat_draft_edge: StandardMaterial3D
@@ -239,6 +240,7 @@ func _make_materials() -> void:
 	mat_hover = _overlay_mat(Color(0.2, 0.45, 1.0, 0.45))
 	mat_hover.render_priority = 2
 	mat_cut_hl = _overlay_mat(Color(0.5, 0.3, 0.85, 0.5))
+	mat_sibling = _overlay_mat(Color(0.25, 0.55, 1.0, 0.22))      # linked copies, while you edit one
 	mat_cut_hl.render_priority = 2
 	mat_edge = StandardMaterial3D.new()
 	mat_edge.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
@@ -679,6 +681,7 @@ func _update_vcb() -> void:
 
 func tool_move(screen: Vector2) -> void:
 	tools[tool].mouse_moved(screen)
+	_show_siblings(pick(screen).get("body", ""))
 	_update_tip(screen)
 
 
@@ -714,9 +717,65 @@ func _register_rect(op: Dictionary) -> void:
 func _update_tip(screen: Vector2) -> void:
 	if ui_tip == null: return
 	var txt: String = tools[tool].tip()
+	var n := _siblings_of(hover_body).size()
+	if n > 0:
+		txt = ((txt + "\n") if txt != "" else "") + "changes %d linked board%s" % [n + 1, "" if n == 0 else "s"]
 	ui_tip.visible = txt != ""
 	ui_tip.text = txt
 	ui_tip.position = screen + Vector2(22, 20)
+
+
+# ---------------- linked boards (T12: A22c, I28, Q28, Q29) ----------------
+# Copies share one definition: editing one edits all. While a tool is over a linked board its copies get a soft
+# tint and the tooltip counts them; U (Edit > Make unique) frees the board under the cursor, Edit > Detach from
+# array frees its position.
+var body_family := {}               # board id -> its family (shared definition), "" if it isn't linked
+var body_array := {}                # board id -> the array it's a copy in, "" if none
+var hover_body := ""                # the board under the cursor (Make unique / Detach act on it)
+var _sibling_overlay: MeshInstance3D
+var _sibling_key := ""
+
+
+func _siblings_of(bid: String) -> Array:
+	var fam: String = body_family.get(bid, "")
+	if fam == "": return []
+	return body_family.keys().filter(func(b): return b != bid and body_family[b] == fam)
+
+
+func _show_siblings(bid: String) -> void:
+	hover_body = bid
+	var sib := _siblings_of(bid) if tool in ["rect", "push", "move"] else []
+	var key := ",".join(sib)
+	if key == _sibling_key: return
+	_sibling_key = key
+	if _sibling_overlay == null:
+		_sibling_overlay = MeshInstance3D.new(); add_child(_sibling_overlay)
+	_sibling_overlay.mesh = null
+	var tris := PackedVector3Array()
+	for b in sib: tris.append_array(body_tris.get(b, PackedVector3Array()))
+	if not tris.is_empty():
+		_sibling_overlay.mesh = _tri_mesh(tris, mat_sibling)
+
+
+func _linked_op(kind: String) -> void:
+	var bid := hover_body
+	if bid == "":
+		_say_status("Point at a board first"); return
+	if kind == "make_unique" and body_family.get(bid, "") == "":
+		_say_status("%s isn't linked to anything" % bid); return
+	if kind == "detach" and body_array.get(bid, "") == "":
+		_say_status("%s isn't a copy in an array" % bid); return
+	var prefix := "mu" if kind == "make_unique" else "dt"
+	counters[prefix] += 1
+	ops.append({"id": "%s%d" % [prefix, counters[prefix]], "type": kind, "targets": [bid]})
+	_sibling_key = "-"
+	sync()
+	_say_status(("%s is its own board now" if kind == "make_unique" else "%s no longer follows its array") % bid)
+
+
+func _say_status(txt: String) -> void:
+	ui_sync.text = txt
+	ui_sync.remove_theme_color_override("font_color")
 
 
 # ---------------- snapping visuals (the engine is inference.gd) ----------------
@@ -853,7 +912,7 @@ func _after_removal() -> void:
 func _restore_counters() -> void:
 	for op in ops:
 		var id: String = op["id"]
-		for k in ["pp", "mv", "r", "m"]:
+		for k in ["pp", "mv", "mu", "dt", "r", "m"]:
 			if id.begins_with(k) and id.substr(k.length()).is_valid_int():
 				counters[k] = maxi(counters[k], int(id.substr(k.length())))
 				break
@@ -985,13 +1044,16 @@ func _apply_confirmed(dir: String, key: String) -> void:
 	var data = JSON.parse_string(FileAccess.get_file_as_string(dir.path_join("bodies.json")))
 	if typeof(data) != TYPE_ARRAY: return
 	var files := {}
+	body_family = {}; body_array = {}
 	for b in data:
 		files[b["id"]] = b["mesh"]
+		body_family[b["id"]] = b.get("family", ""); body_array[b["id"]] = b.get("array", "")
 		if not _boards.has(b["mesh"]):
 			_boards[b["mesh"]] = _build_board(dir, b)
 	_load_cuts(dir)
 	_show_boards(files)
 	_remember_state(key, files)
+	_sibling_key = "-"
 
 
 func _build_board(dir: String, b: Dictionary) -> Dictionary:
@@ -1561,7 +1623,7 @@ func _make_menus() -> void:
 	var spec := [
 		["File", [["New…", "new", KEY_MASK_META | KEY_N], ["Open…", "open", KEY_MASK_META | KEY_O], [],
 				  ["Show in Finder", "reveal", 0], [], ["Drawing and cut list (D)", "drawing", 0]]],
-		["Edit", [["Undo", "undo", KEY_MASK_META | KEY_Z]]],
+		["Edit", [["Undo", "undo", KEY_MASK_META | KEY_Z], [], ["Make unique (U)", "unique", 0], ["Detach from array", "detach", 0]]],
 		["Tools", [["Rectangle (R)", "rect", 0], ["Push/Pull (P)", "push", 0], ["Move (M)", "move", 0]]],
 		["View", [["Grid snap (G)", "grid", -1], ["New board on faces (B)", "newboard", -1]]],
 	]
@@ -1596,6 +1658,8 @@ func _menu(tag) -> void:
 		"drawing": export_drawing()
 		"undo": undo()
 		"rect", "push", "move": set_tool(tag)
+		"unique": _linked_op("make_unique")
+		"detach": _linked_op("detach")
 		"grid": grid_snap = not grid_snap; _update_toggles()
 		"newboard": new_board = not new_board; _update_toggles()
 
@@ -1704,6 +1768,7 @@ func _unhandled_input(e: InputEvent) -> void:
 			KEY_G: _menu("grid")
 			KEY_B: _menu("newboard")
 			KEY_D: export_drawing()
+			KEY_U: _menu("unique")
 
 
 var _last_gesture := ""

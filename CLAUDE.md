@@ -36,6 +36,11 @@ If you can't reach the log, say so; don't guess at what it says.
   A cut pushed to the opposite face (op `"through": true`, cutter `SSThrough`) has expression-driven
   LengthFwd/LengthRev that follow the board's extent (`through_all`, I24): it stays through when the board changes.
   components = App::Link; mirrors = Part::Mirroring; copied holes = Draft OrthoArray of the cutter.
+  Copies are linked (A22c, T12): copying a plain board first makes it a component (`as_component`), copies are
+  App::Links to the shared definition. Nx and /N copies get an array holder (App::Placement, `SSRole` = `array`:
+  Origin, Step, Count, Span, Distributed; /N's Step = Span / Count) and each copy's position is an expression on it
+  (`array_follow`; `SSArray`, `SSArrayIndex` on the copy). Moving any member moves its row; `detach` clears the
+  expressions; `make_unique` deep-copies the definition into a board of its own (it stays in its row).
   A component instance is mirrored through a Part::Compound wrapper (`SSRole` = `mirror-input`, A26):
   released FreeCAD 1.1 mirrors an App::Link without its placement. Walk mirrors with `mirror_source()`, not `.Source`.
   All Shop Sketch state lives on those objects (`BodyId`, `SSRole`, `RectId`, `SSMaterial`, `SSOp`).
@@ -69,7 +74,7 @@ If you can't reach the log, say so; don't guess at what it says.
   `tests/reference/` by `tools/compare_suites.py`, then the targeted tests (`--undotest` `--snaptest` `--recttest`
   `--shelltest` `--jointest` `--rejecttest`), then the worker tests. After an intended change in behaviour:
   `tools/fulltest.sh --update-reference`.
-- Worker tests alone: `freecadcmd worker/test_native.py` (59 checks) and `worker/test_arrays.py` (10).
+- Worker tests alone: `freecadcmd worker/test_native.py` (69 checks) and `worker/test_arrays.py` (10).
 - Visual checks (screenshots, no pass/fail): `--linetest`, `--zfighttest`; timing: `--perftest`. Recordings use
   `--true-latency` (P03) with Godot's `--write-movie`; `--heavytest --model=<file>`.
 - Test hooks (`delay_ms`, forced rejection, `--*test`) are for testing only (P02).

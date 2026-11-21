@@ -58,7 +58,8 @@ def rotation_from(x, y, z):
 def add_props(obj, **props):
     """All Shop Sketch properties are added when an object is created (adding them later
     inside an undo transaction is not reliably undone)."""
-    kinds = {str: "App::PropertyString", bool: "App::PropertyBool"}
+    kinds = {str: "App::PropertyString", bool: "App::PropertyBool", int: "App::PropertyInteger",
+             float: "App::PropertyFloat", App.Vector: "App::PropertyVector"}
     for name, value in props.items():
         if name == "Tip":
             obj.addProperty("App::PropertyLinkChild", "Tip", "ShopSketch", "the feature that is this board's current solid")
@@ -496,13 +497,48 @@ class Model:
         add_props(link, BodyId=bid, SSRole="body")
         return [bid]
 
-    def copy_body(self, obj, nid, step):
-        if self.is_instance(obj):
-            link = self.doc.addObject("App::Link", "Instance")
-            link.LinkedObject = obj.LinkedObject
-            link.Placement = App.Placement(obj.Placement.Base + step, obj.Placement.Rotation)
-            link.Label = nid
-            add_props(link, BodyId=nid, SSRole="body")
+    def as_component(self, obj):
+        """A plain board about to be copied becomes a component (A22c): its features move into a hidden definition
+        and the board itself becomes a link to it, like its copies. One undo step with the copy."""
+        if obj.TypeId != "App::Part" or getattr(obj, "SSRole", "") != "body":
+            return obj
+        bid = obj.BodyId
+        self.op_make_component({"body": bid, "name": bid})
+        return self.body(bid)
+
+    def new_link(self, dfn, nid, placement, array="", index=0):
+        link = self.doc.addObject("App::Link", "Instance")
+        link.LinkedObject = dfn
+        link.Placement = placement
+        link.Label = nid
+        add_props(link, BodyId=nid, SSRole="body", SSArray=array, SSArrayIndex=index)
+        return link
+
+    def array_follow(self, obj, arr, index):
+        """A member's position comes from its array: Origin + Step * index (I25)."""
+        for c in "xyz":
+            obj.setExpression(f".Placement.Base.{c}", f"{arr.Name}.Origin.{c} + {arr.Name}.Step.{c} * {index}")
+
+    def new_array(self, source, vec, count, divide, oid):
+        """The relationship behind Nx and /N copies: a small object FreeCAD can edit (Count, Step, Span). A /N array
+        keeps its span and re-spreads; an Nx array keeps its spacing."""
+        arr = self.doc.addObject("App::Placement", "Array")
+        arr.Label = f"{oid} array"
+        add_props(arr, SSRole="array", SSOp=oid, SSSource=source.BodyId, Distributed=bool(divide), Count=int(count),
+                  Origin=V(source.Placement.Base), Step=V(vec * (1.0 / count) if divide else vec),
+                  Span=V(vec if divide else vec * count))
+        if divide:
+            for c in "xyz":
+                arr.setExpression(f"Step.{c}", f"Span.{c} / Count")
+        return arr
+
+    def copy_body(self, obj, nid, step, arr=None, index=0):
+        if self.is_instance(obj) or (obj.TypeId == "App::Part" and getattr(obj, "SSRole", "") == "body"):
+            obj = self.as_component(obj)
+            link = self.new_link(obj.LinkedObject, nid, App.Placement(obj.Placement.Base + step, obj.Placement.Rotation),
+                                 arr.Name if arr else "", index)
+            if arr is not None:
+                self.array_follow(link, arr, index)
             return
         if self.is_mirror(obj):            # a mirrored copy copied: an independent board of its shape
             c = self.new_board(nid)
@@ -592,14 +628,26 @@ class Model:
                 changed.append(t)
                 continue
             if not copy:
+                arrays = self.arrays_of(obj)
+                if arrays:                                # a row moves as one, until a member is detached (Q29)
+                    src = self.body(arrays[0].SSSource)
+                    src.Placement = App.Placement(src.Placement.Base + vecv, src.Placement.Rotation)
+                    for arr in arrays:
+                        arr.Origin = arr.Origin + vecv
+                    changed += [b for b, o in self.bodies().items() if o is src or getattr(o, "SSArray", "") in [a.Name for a in arrays]]
+                    continue
                 obj.Placement = App.Placement(obj.Placement.Base + vecv, obj.Placement.Rotation)
                 changed.append(t)
                 continue
+            obj = self.as_component(obj)             # a plain board becomes a component first, once (A22c)
+            arr = self.new_array(obj, vecv, count, divide, op["id"]) if (count > 1 or divide) and not self.is_mirror(obj) else None
             for i in range(1, count + 1):
                 step = vecv * (i / count) if divide else vecv * i
                 nid = new_ids.pop(0) if new_ids else f"{t}_{i + 1}"
-                self.copy_body(obj, nid, step)
+                self.copy_body(obj, nid, step, arr, i)
                 changed.append(nid)
+            if arr is not None:
+                changed.append(t)
         return changed
 
     def mirror_input(self, src, label):
@@ -615,6 +663,53 @@ class Model:
         c.Visibility = False
         add_props(c, SSRole="mirror-input")
         return c
+
+    def arrays_of(self, obj):
+        """The arrays that move with a board: its own (a copy in a row), or every row copied from it (the original)."""
+        name = getattr(obj, "SSArray", "")
+        if name:
+            arr = self.doc.getObject(name)
+            return [a for a in self.doc.Objects if getattr(a, "SSRole", "") == "array" and a.SSSource == arr.SSSource]
+        return [a for a in self.doc.Objects if getattr(a, "SSRole", "") == "array" and a.SSSource == getattr(obj, "BodyId", None)]
+
+    def op_detach(self, op):
+        """Detach from array (Q29): the board keeps where it is and stops following the row."""
+        for t in op["targets"]:
+            obj = self.body(t)
+            if not getattr(obj, "SSArray", ""):
+                raise OpError(f"'{t}' isn't a copy in an array")
+            for c in "xyz":
+                obj.setExpression(f".Placement.Base.{c}", None)
+            obj.SSArray = ""
+        return list(op["targets"])
+
+    def op_make_unique(self, op):
+        """Make unique (I28): the board gets its own copy of the shared features, so editing it no longer changes
+        its siblings. It keeps its place in an array (Q29)."""
+        changed = []
+        for t in op["targets"]:
+            link = self.body(t)
+            if not self.is_instance(link):
+                raise OpError(f"'{t}' isn't linked to anything")
+            dfn = link.LinkedObject
+            copy = self.doc.copyObject(dfn, True)
+            for g in copy.InList:
+                if g.TypeId == "App::DocumentObjectGroup":
+                    g.removeObject(copy)
+            copy.Label = t
+            copy.SSRole = "body"
+            copy.BodyId = t
+            copy.ComponentName = ""
+            copy.Visibility = True
+            copy.Placement = link.Placement
+            add_props(copy, SSArray=getattr(link, "SSArray", ""), SSArrayIndex=int(getattr(link, "SSArrayIndex", 0)))
+            if copy.SSArray:
+                self.array_follow(copy, self.doc.getObject(copy.SSArray), copy.SSArrayIndex)
+            link.BodyId = ""
+            link.SSRole = "unique-replaced"
+            self.doc.removeObject(link.Name)
+            changed.append(t)
+        return changed
 
     def op_mirror(self, op):
         """Mirrored copy across a plane, kept live: it follows every later edit of its source (FreeCAD Part Mirror)."""
@@ -652,7 +747,7 @@ class Model:
             dfn.SSMaterial = op["material"]
         return list(op["targets"])
 
-    HANDLERS = ("rect", "push_pull", "mirror", "make_component", "move", "set_material")
+    HANDLERS = ("rect", "push_pull", "mirror", "make_component", "move", "set_material", "detach", "make_unique")
 
     def apply(self, op):
         if op["type"] not in self.HANDLERS:
@@ -1168,7 +1263,14 @@ class Session:
                 _ENTRY_CACHE[bid] = hit
             mat = hit[1]["material"]
             bodies.append(dict(hit[1], mesh=board_mesh_file(bid, obj, m, outdir),
-                               color=list(PALETTE.get(mat, (0.7, 0.7, 0.7)))))
+                               color=list(PALETTE.get(mat, (0.7, 0.7, 0.7))), family=m.definition(obj).Name,
+                               array=getattr(obj, "SSArray", "") or ""))
+        shared = {}
+        for e in bodies:
+            shared[e["family"]] = shared.get(e["family"], 0) + 1
+        for e in bodies:                         # boards that share a definition: the viewport tints them while editing
+            if shared[e["family"]] < 2:
+                e["family"] = ""
         atomic_json(os.path.join(outdir, "bodies.json"), bodies)
         return round((time.perf_counter() - t0) * 1000, 1)
 

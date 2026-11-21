@@ -104,12 +104,12 @@ check("notch on instance + bump on mirrored copy land on the shared definition",
 check("mirrored copy sits across the plane", b["b3"][1][0] == 200 and b["b3"][1][3] == 300, b["b3"][1])
 check("flipped board moved", b["b2"][1][1] == 300 and b["b2"][1][4] == 350, b["b2"][1])
 check("material set through a mirror reaches the component", b["b1"][2] == b["b2"][2] == "white oak", b)
-check("copies of a plain board are independent of later cuts",
-      b["b4"][0] == 75000 - 1000 and b["b6"][0] == 75000, (b["b4"][0], b["b6"][0]))
-check("overhanging merge adds the whole rectangle", round(b["b5"][0]) == 75000 + 30 * 30 * 12, b["b5"][0])
+check("copies of a board are linked (A22c): a cut on b4 shows on its copy b6",
+      b["b4"][0] == b["b6"][0] == 75000 - 1000 + 30 * 30 * 12, (b["b4"][0], b["b6"][0]))
+check("overhanging merge on a copy adds the whole rectangle, on every copy", round(b["b5"][0]) == 75000 - 1000 + 30 * 30 * 12, b["b5"][0])
 types = {o.TypeId for o in s.doc.Objects}
 check("native feature tree", {"App::Part", "Part::Plane", "Part::Extrusion", "Part::MultiFuse", "Part::Cut", "Part::Compound",
-                              "App::Link", "Part::Mirroring", "Part::Feature"} <= types, types)
+                              "App::Link", "Part::Mirroring", "App::Placement"} <= types and "Part::Feature" not in types, types)   # copies are links (A22c)
 check("one FreeCAD undo step per ok op", s.doc.UndoCount == sum(1 for _, v in ref_status if v == "ok"),
       (s.doc.UndoCount, len(ref_status)))
 
@@ -491,5 +491,60 @@ vis2, g2 = gui_visibility(lpath)
 kept = [p for vp in g2.iter("ViewProvider") if vp.get("name") == tips[0] for p in vp.iter("Property") if p.get("name") == "LineWidth"]
 check("FreeCAD's own view settings (a line width, the camera) survive Shop Sketch's next save",
       bool(kept) and g2.find("Camera") is not None and "123" in g2.find("Camera").get("settings") and vis2.get(tips[0]), (kept, vis2.get(tips[0])))
+
+# ---------- M. linked copies, arrays, Make unique, Detach from array (T12: A22c, I25, I28, Q29) ----------
+def bx(sess, bid):
+    return tuple(round(v, 3) for v in bodies_of(sess)[bid][1][:3])
+
+
+MO = [ground_rect("r1", [0, 0, 0], [100, 50]), push("p1", "r1", 18, "b1"),
+      {"id": "mv1", "type": "move", "targets": ["b1"], "vector": [0, 100, 0], "copy": True, "new_ids": ["b2"]}]
+s = Session(None)
+s.sync(MO)
+check("a copy of a plain board: both become links to one definition",
+      s.model.is_instance(s.model.body("b1")) and s.model.is_instance(s.model.body("b2"))
+      and s.model.body("b1").LinkedObject is s.model.body("b2").LinkedObject)
+MO += [face_rect("rm1", "b2", [50, 125, 18], [20, 20]), push("pm1", "rm1", -18)]
+s.sync(MO)
+check("a hole drawn on the copy is in the original too", bodies_of(s)["b1"][0] == bodies_of(s)["b2"][0] == 100 * 50 * 18 - 20 * 20 * 18,
+      (bodies_of(s)["b1"][0], bodies_of(s)["b2"][0]))
+MO += [{"id": "mv2", "type": "move", "targets": ["b1"], "vector": [150, 0, 0], "copy": True, "count": 3, "new_ids": ["b3", "b4", "b5"]},
+       {"id": "mv3", "type": "move", "targets": ["b1"], "vector": [0, 0, 300], "copy": True, "count": 3, "divide": True,
+        "new_ids": ["b6", "b7", "b8"]}]
+s.sync(MO)
+check("3x array at 150 mm and a /3 array over 300 mm", [bx(s, b)[0] for b in ("b3", "b4", "b5")] == [150, 300, 450]
+      and [bx(s, b)[2] for b in ("b6", "b7", "b8")] == [100, 200, 300], [bx(s, b) for b in ("b3", "b4", "b5", "b6", "b7", "b8")])
+arr3 = [o for o in s.doc.Objects if getattr(o, "SSRole", "") == "array" and o.SSOp == "mv3"][0]
+arr3.Span = V(0, 0, 600)                          # as if edited in FreeCAD
+s.doc.recompute()
+check("the /3 array re-spreads when its span changes (I25)", [bx(s, b)[2] for b in ("b6", "b7", "b8")] == [200, 400, 600],
+      [bx(s, b) for b in ("b6", "b7", "b8")])
+arr3.Span = V(0, 0, 300)
+s.doc.recompute()
+MO += [{"id": "mv4", "type": "move", "targets": ["b4"], "vector": [0, 0, 1000]}]
+s.sync(MO)
+check("moving one copy moves its whole row, original included", bx(s, "b4")[2] == 1000 and bx(s, "b1")[2] == 1000
+      and bx(s, "b3")[2] == 1000 and bx(s, "b7")[2] == 1200, [bx(s, b) for b in ("b1", "b3", "b4", "b7")])
+MO += [{"id": "dt1", "type": "detach", "targets": ["b7"]}, {"id": "mu1", "type": "make_unique", "targets": ["b8"]}]
+s.sync(MO)
+arr3 = [o for o in s.doc.Objects if getattr(o, "SSRole", "") == "array" and o.SSOp == "mv3"][0]
+arr3.Span = V(0, 0, 900)
+s.doc.recompute()
+check("a detached copy stays put when the row changes; a unique one still follows it (Q29)",
+      bx(s, "b7")[2] == 1200 and bx(s, "b8")[2] == 1900 and bx(s, "b6")[2] == 1300, [bx(s, b) for b in ("b6", "b7", "b8")])
+arr3.Span = V(0, 0, 300)
+s.doc.recompute()
+MO += [face_rect("rm2", "b1", [80, 10, 1018], [10, 10]), push("pm2", "rm2", -18)]
+s.sync(MO)
+check("after Make unique, editing the others leaves it alone (I28)",
+      bodies_of(s)["b1"][0] == bodies_of(s)["b7"][0] == 100 * 50 * 18 - 500 * 18 and bodies_of(s)["b8"][0] == 100 * 50 * 18 - 400 * 18,
+      (bodies_of(s)["b1"][0], bodies_of(s)["b7"][0], bodies_of(s)["b8"][0]))
+check("statuses all ok", all(st == "ok" for _, st in statuses(s)), [x for x in statuses(s) if x[1] != "ok"])
+s.export(os.path.join(tmp, "m_out"))
+fam = {e["id"]: e.get("family", "") for e in json.load(open(os.path.join(tmp, "m_out", "bodies.json")))}
+check("bodies.json says which boards are linked (family) for the viewport's tint", fam["b1"] == fam["b3"] != "" and fam["b8"] == "", fam)
+how, _ = s.sync(MO[:3])
+check("undo it all back to the first copy", how.startswith("undid") and len(bodies_of(s)) == 2, (how, sorted(bodies_of(s))))
+s.close()
 
 print(f"\nNATIVE TESTS: {R[0]} passed, {R[1]} failed")
