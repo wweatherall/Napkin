@@ -80,7 +80,9 @@ ARCHITECTURE.md the module map and protocol (update it in the same commit when y
 - FreeCAD 1.1.4 is installed; don't work around bugs that 1.1.4 no longer has.
 
 ## Tests (each runs in both test scripts)
-- `freecadcmd worker/test_native.py` (96: feature tree, op-by-op = fresh, undo/amend walks, reopen, outside edits),
+- `freecadcmd worker/test_native.py` (83: feature tree, op-by-op = fresh, undo/amend walks, reopen, outside edits),
+  `test_runs.py` (13: runs of cuts and merges, Q20; split out to run beside it, T49; shared helpers and `OPS` in
+  `test_native_common.py`),
   `test_arrays.py` (10: hole arrays and moves), `test_combos.py` (61: features together, undo/reopen equal a fresh
   build, two models at once), `test_length_input.py` (23, incl. FreeCAD still matching tests/length_cases.json),
   `test_properties.py` (28), `test_scenario.py` (86, T48: one busy fixture model from

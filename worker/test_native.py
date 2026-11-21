@@ -4,7 +4,8 @@
   env ORACLE=dir  -> compare against bodies.json written by the v0.1 replay worker for the same ops
 
 Covers: native feature tree, op-by-op == fresh, random undo / amend walks == fresh,
-autosave + reopen + undo past the session start, an edit made in FreeCAD showing up on reopen."""
+autosave + reopen + undo past the session start, an edit made in FreeCAD showing up on reopen.
+Runs of cuts and merges (section H) are in test_runs.py, run beside this one (T49)."""
 import json
 import os
 import random
@@ -12,79 +13,7 @@ import sys
 
 sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from test_load import *  # noqa: E402,F403  (the worker's modules, T42)
-
-R = [0, 0]
-
-
-def check(name, cond, detail=""):
-    R[0 if cond else 1] += 1
-    print(("PASS " if cond else "FAIL ") + name + ("" if cond else f"  {detail}"), flush=True)
-
-
-def ground_rect(rid, origin, size):
-    return {"id": rid, "type": "rect", "plane": {"normal": [0, 0, 1], "origin": origin}, "size": size}
-
-
-def face_rect(rid, body, point, size, normal=(0, 0, 1)):
-    return {"id": rid, "type": "rect", "plane": {"on": {"body": body, "normal": list(normal), "point": point}}, "size": size}
-
-
-def push(oid, rid, d, body=None):
-    op = {"id": oid, "type": "push_pull", "target": {"rect": rid}, "distance": d}
-    if body:
-        op["body"] = body
-    return op
-
-
-OPS = [
-    ground_rect("r1", [0, 0, 0], [100, 50]), push("p1", "r1", 20, "b1"),
-    {"id": "c1", "type": "make_component", "body": "b1", "name": "Shelf"},
-    {"id": "mv1", "type": "move", "targets": ["b1"], "vector": [0, 200, 0], "copy": True, "new_ids": ["b2"]},
-    face_rect("r2", "b2", [10, 210, 20], [20, 20]), push("p2", "r2", -5),            # notch drawn on an instance
-    {"id": "m1", "type": "mirror", "targets": ["b1"], "plane": {"point": [150, 0, 0], "normal": [1, 0, 0]},
-     "new_ids": ["b3"]},
-    face_rect("r3", "b3", [220, 10, 20], [10, 10]), push("p3", "r3", 15),             # bump drawn on a mirrored copy
-    {"id": "m2", "type": "mirror", "targets": ["b2"], "plane": {"point": [0, 225, 0], "normal": [0, 1, 0]},
-     "replace": True},
-    {"id": "mv2", "type": "move", "targets": ["b2"], "vector": [0, 100, 0]},            # move a flipped board
-    {"id": "mat1", "type": "set_material", "targets": ["b3"], "material": "white oak"},
-    ground_rect("r4", [0, 500, 0], [50, 50]), push("p4", "r4", 30, "b4"),
-    {"id": "mv3", "type": "move", "targets": ["b4"], "vector": [100, 0, 0], "copy": True, "count": 3,
-     "new_ids": ["b5", "b6", "b7"]},
-    face_rect("r5", "b4", [10, 510, 30], [10, 10]), push("p5", "r5", -10),            # cut a plain board
-    face_rect("r6", "b4", [10, 510, 30], [5, 5]), push("p6", "r6", -3),               # misses: inside the notch
-    face_rect("r7", "b5", [110, 540, 30], [30, 30]), push("p7", "r7", 12),            # partly overhanging merge
-]
-
-
-def bodies_of(sess):
-    m = sess.model
-    out = {}
-    for bid, obj in m.bodies().items():
-        ws = m.world_shape(obj)
-        bb = ws.BoundBox
-        out[bid] = (round(ws.Volume, 2), tuple(round(v, 4) for v in (bb.XMin, bb.YMin, bb.ZMin, bb.XMax, bb.YMax, bb.ZMax)),
-                    material_of(m, obj), component_of(m, obj))
-    return out
-
-
-def statuses(sess):
-    return [(e["id"], e["status"]) for e in sess.status()]
-
-
-def fresh(ops):
-    s = Session(None)
-    s.sync(ops)
-    b, st = bodies_of(s), statuses(s)
-    s.close()
-    return b, st
-
-
-def diff(a, b):
-    keys = sorted(set(a) | set(b))
-    return [(k, a.get(k), b.get(k)) for k in keys if a.get(k) != b.get(k)][:3]
-
+from test_native_common import *  # noqa: E402,F403  (check, op builders, OPS; the worker's modules)
 
 tmp = os.environ.get("TESTDIR", "/tmp/native_test")
 os.makedirs(tmp, exist_ok=True)
@@ -271,92 +200,7 @@ for name, extra, words in REJECTS:
     s.sync(GOPS)
 s.close()
 
-# ---------- H. runs: back-to-back cuts share one Cut, back-to-back merges one MultiFuse (Q20) ----------
-def hole(k, x, y, size=20, depth=-18, body="b1", z=18):
-    return [face_rect(f"rh{k}", body, [x, y, z], [size, size]), push(f"ph{k}", f"rh{k}", depth)]
-
-
-def vol(sess, bid="b1"):
-    return round(sess.model.world_shape(sess.model.body(bid)).Volume, 3)
-
-
-def kinds(sess, bid="b1"):
-    c = sess.model.definition(sess.model.body(bid))
-    return sorted(o.TypeId for o in c.Group if o.TypeId in ("Part::Cut", "Part::MultiFuse", "Part::Fuse"))
-
-
-V1 = 600 * 300 * 18
-HOPS = [ground_rect("r1", [0, 0, 0], [600, 300]), push("p1", "r1", 18, "b1")]
-for k in range(6):
-    HOPS += hole(k, 30 + k * 90, 30)
-s = Session(None)
-s.sync(HOPS)
-check("6 holes on a board: one Cut holding 6 cutters", kinds(s) == ["Part::Cut"]
-      and len(s.model.definition(s.model.body("b1")).Tip.Tool.Links) == 6 and vol(s) == V1 - 6 * 7200, (kinds(s), vol(s)))
-check("each hole is still its own undo step", s.doc.UndoCount == len(HOPS) - 0 and all(e["status"] == "ok" for e in s.applied),
-      (s.doc.UndoCount, len(HOPS)))
-how, _ = s.sync(HOPS[:-4])
-check("undo two holes: FreeCAD undo, 4 holes left", how.startswith("undid 4") and vol(s) == V1 - 4 * 7200, (how, vol(s)))
-s.sync(HOPS)
-# overlapping and nested cutters in one run
-more = HOPS + hole(10, 30, 150, size=200, depth=-6) + hole(11, 100, 200, size=10, depth=-12, z=12) \
-    + hole(12, 120, 160, size=40, depth=-10, z=12)                     # pin hole and a deeper pocket, in the pocket
-s.sync(more)
-ref = Part.makeBox(600, 300, 18)
-for k in range(6):
-    ref = ref.cut(Part.makeBox(20, 20, 18, V(30 + k * 90, 30, 0)))
-ref = ref.cut(Part.makeBox(200, 200, 6, V(30, 150, 12))).cut(Part.makeBox(10, 10, 12, V(100, 200, 0)))
-ref = ref.cut(Part.makeBox(40, 40, 10, V(120, 160, 2)))
-check("overlapping and nested cutters in one run (pin hole in a pocket, pocket in a pocket)",
-      [e["status"] for e in s.applied[-6:]] == ["ok"] * 6 and abs(vol(s) - ref.Volume) < 1e-3 and kinds(s) == ["Part::Cut"],
-      (s.status()[-6:], vol(s), ref.Volume))
-inside = more + hole(13, 30, 30, size=10, depth=-5)          # drawn in the corner of hole 0, inside its empty space
-s.sync(inside)
-check("a hole inside an existing hole of the run is rejected (I08)", s.status()[-1]["status"] == "failed", s.status()[-1])
-# a merge breaks the run; stacked and overlapping bumps in one MultiFuse
-bumps = more + hole(20, 500, 200, size=60, depth=10) + hole(21, 510, 210, size=20, depth=30, z=28) \
-    + hole(22, 540, 230, size=40, depth=10, z=28)       # starts on the first bump's top, overhangs it
-s.sync(bumps)
-ref2 = ref.fuse(Part.makeBox(60, 60, 10, V(500, 200, 18))).fuse(Part.makeBox(20, 20, 30, V(510, 210, 28)))
-ref2 = ref2.fuse(Part.makeBox(40, 40, 10, V(540, 230, 28)))
-check("bumps after cuts: a new run, one MultiFuse; stacked and overlapping bumps add up right",
-      kinds(s) == ["Part::Cut", "Part::MultiFuse"] and abs(vol(s) - ref2.Volume) < 1e-3
-      and [e["status"] for e in s.applied[-6:]] == ["ok"] * 6, (kinds(s), vol(s), ref2.Volume, s.status()[-6:]))
-detached = bumps + [{"id": "rh23", "type": "rect", "plane": {"on": {"body": "b1", "normal": [0, 0, 1], "point": [10, 10, 18]}},
-                     "corner": [900, 0], "size": [20, 20]}, push("ph23", "rh23", 5)]
-s.sync(detached)
-check("a detached bump in a merge run is rejected (I08)", s.status()[-1]["status"] == "failed"
-      and "doesn't touch" in s.status()[-1].get("message", ""), s.status()[-1])
-cuts_again = bumps + hole(30, 300, 100)
-s.sync(cuts_again)
-check("a cut after the merges starts a third run", kinds(s) == ["Part::Cut", "Part::Cut", "Part::MultiFuse"]
-      and abs(vol(s) - (ref2.Volume - 7200)) < 1e-3, (kinds(s), vol(s)))
-# move one hole out of the middle of a run, then copy another into a row
-mv = cuts_again + [{"id": "mvh", "type": "move", "targets": [], "cut": {"body": "b1", "op": "ph2"}, "vector": [0, 60, 0]}]
-s.sync(mv)
-s.export(tmp)
-cuts = {c["op"]: c for c in json.load(open(os.path.join(tmp, "bodies.json")))[0]["cuts"]}
-check("move the 3rd of 6 holes: it moves, the others stay", s.status()[-1]["status"] == "ok"
-      and [round(v) for v in cuts["ph2"]["lo"][:2]] == [210, 90] and [round(v) for v in cuts["ph3"]["lo"][:2]] == [300, 30]
-      and abs(vol(s) - (ref2.Volume - 7200)) < 1e-3, (s.status()[-1], cuts.get("ph2"), cuts.get("ph3")))
-row = mv + [{"id": "mvr", "type": "move", "targets": [], "cut": {"body": "b1", "op": "ph4"}, "vector": [0, 50, 0], "copy": True,
-             "count": 3}]
-s.sync(row)
-s.export(tmp)
-listed = [c["op"] for c in json.load(open(os.path.join(tmp, "bodies.json")))[0]["cuts"]]
-check("copy the 5th hole into a row of 4: 3 more holes, listed under its op", s.status()[-1]["status"] == "ok"
-      and abs(vol(s) - (ref2.Volume - 4 * 7200)) < 1e-3 and listed.count("ph4") == 4, (s.status()[-1], vol(s), listed))
-off = row + [{"id": "mvo", "type": "move", "targets": [], "cut": {"body": "b1", "op": "ph1"}, "vector": [5000, 0, 0]}]
-s.sync(off)
-check("moving a hole of a run off the board is rejected", s.status()[-1]["status"] == "failed", s.status()[-1])
-how, _ = s.sync(HOPS)
-check("undo all of it back to the 6 holes: FreeCAD undo", how.startswith("undid") and vol(s) == V1 - 6 * 7200 and kinds(s) == ["Part::Cut"],
-      (how, vol(s), kinds(s)))
-fb, fst = fresh(row)       # first: it leaves another document active, which Draft arrays used to trip over
-s.sync(row)
-check("redo after undo == a fresh build, with runs (and arrays build in the right document)", fb == bodies_of(s) and fst == statuses(s),
-      (diff(bodies_of(s), fb), [x for x in zip(statuses(s), fst) if x[0] != x[1]][:3]))
-s.close()
+# (H. runs of cuts and merges: worker/test_runs.py, run beside this one, T49)
 
 # ---------- I. undoing past FreeCAD's 20-step history rebuilds, one Ctrl+Z at a time ----------
 IOPS = [ground_rect("r1", [0, 0, 0], [600, 300]), push("p1", "r1", 18, "b1")]

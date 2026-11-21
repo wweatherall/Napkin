@@ -48,7 +48,9 @@ protocol (update it in the same commit when you change either). Tools have their
 
 ## Tests
 - The quick test is `tests.gd` `_run_quick_test` (`--quicktest`, run by `tools/quicktest.sh`): every feature once,
-  each step checking its own answer. Add a step for each new feature. Its sections share one model (`_fresh` clears
+  each step checking its own answer. Each section is a `_q_<name>()`; `QUICK_LANES` deals them into the three windows
+  the script runs side by side (`--quick-lane=N`, T49; keep the lanes about equal in time). A new feature: a step in a
+  section, or a new section listed in a lane and in the `match` in `_run_quick_test`. Its sections share one model (`_fresh` clears
   the window and syncs the section's ops; `own_file` for model switching); in quick mode drags take 2 frames, waves
   get 2 frames' pad and frames skip the physics tick (T48: 26 → 14 s). It prints where its time goes (`QUICK timing`).
   `--fast` gives any suite that pace but keeps the physics tick (picking a draft drawn a moment ago needs one: the
