@@ -189,7 +189,10 @@ class Model:
         p = vec(ref["point"])
         hits = []
         for f in self.world_shape(obj).Faces:
-            if f.Surface.__class__.__name__ != "Plane":
+            srf = f.Surface
+            if srf.__class__.__name__ != "Plane":
+                continue
+            if abs((p - srf.Position).dot(srf.Axis)) > TOL:     # cheap: the point isn't on this face's plane
                 continue
             u0, u1, v0, v1 = f.ParameterRange
             n = f.normalAt((u0 + u1) / 2, (v0 + v1) / 2)
@@ -293,11 +296,12 @@ class Model:
         return p0, ex, ey, n
 
     @staticmethod
-    def check_result(base, tool, distance):
-        """Shop Sketch's rejections (I08), decided on exact geometry before any feature is made."""
-        result = base.fuse(tool) if distance > 0 else base.cut(tool)
-        if not result.Solids:
-            raise OpError("operation removed the whole body")
+    def check_result(feat, distance):
+        """Shop Sketch's rejections (I08), judged on the boolean feature FreeCAD just computed (no second
+        boolean of our own: that doubled the cost). A rejected op's transaction is aborted, so it leaves nothing."""
+        base, result = feat.Base.Shape, feat.Shape
+        if result.isNull() or not result.Solids:
+            raise OpError("operation removed the whole body" if distance < 0 else "FreeCAD couldn't compute the merge")
         change = result.Volume - base.Volume
         if distance < 0 and abs(change) < 1e-3:
             raise OpError("the cut doesn't reach the board, so nothing was removed")
@@ -374,8 +378,6 @@ class Model:
         c, fr = self.edit_frame(target)
         if c.Tip is None:
             raise OpError(f"'{on}' has no solid yet")
-        local_tool = fr.shape(world_face.extrude(n * d))
-        expect = self.check_result(c.Tip.Shape, local_tool, d)
         if pl is not None:
             lp0, lex, ley = fr.pt(p0), fr.dir(ex), fr.dir(ey)
             if loose:
@@ -391,9 +393,7 @@ class Model:
         add_props(b, SSOp=oid)
         self.set_tip(c, b)
         self.doc.recompute()
-        got = b.Shape
-        if got.isNull() or not got.isValid() or abs(got.Volume - expect) > max(1e-2, 1e-6 * expect):
-            raise OpError("FreeCAD's feature didn't match the expected solid")
+        self.check_result(b, d)
         return [on]
 
     def op_make_component(self, op):

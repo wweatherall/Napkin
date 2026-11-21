@@ -34,7 +34,7 @@ If you can't reach the log, say so; don't guess at what it says.
 
 ## Tests (run after every change)
 Worker tests:
-- `freecadcmd worker/test_native.py`: 29 checks (native tree, undo walks, reopen, outside edits, mirrors of moved instances)
+- `freecadcmd worker/test_native.py`: 35 checks (native tree, undo walks, reopen, outside edits, mirrors of moved instances, rejections)
 - `freecadcmd worker/test_arrays.py`: 10 checks (hole arrays and moves)
 
 Viewport suites: `Godot --path viewport -- --<suite> --out=<dir>/out --shots=<dir>/shots --port=7878`, with the worker running.

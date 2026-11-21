@@ -244,4 +244,30 @@ check("undo brings the mirrored copy back", how.startswith("undid") and bodies_o
       (how, bodies_of(s)["b3"][1]))
 s.close()
 
+# ---------- G. rejections (I08) leave nothing behind ----------
+GOPS = [ground_rect("r1", [0, 0, 0], [100, 50]), push("p1", "r1", 20, "b1")]
+REJECTS = [
+    ("cut that misses the board", [{"id": "rg1", "type": "rect", "plane": {"on": {"body": "b1", "normal": [0, 0, 1],
+                                   "point": [10, 10, 20]}}, "corner": [300, 0], "size": [20, 20]},
+                                   push("pg1", "rg1", -5)], "doesn't reach"),
+    ("cut through the whole board", [{"id": "rg2", "type": "rect", "plane": {"on": {"body": "b1", "normal": [0, 0, 1],
+                                     "point": [10, 10, 20]}}, "corner": [-20, -20], "size": [200, 100]},
+                                     push("pg2", "rg2", -30)], "whole body"),
+    ("merge that doesn't touch the board", [{"id": "rg3", "type": "rect", "plane": {"on": {"body": "b1", "normal": [0, 0, 1],
+                                            "point": [10, 10, 20]}}, "corner": [300, 0], "size": [20, 20]},
+                                            push("pg3", "rg3", 5)], "doesn't touch"),
+]
+s = Session(None)
+s.sync(GOPS)
+ref = bodies_of(s)
+n_undo = s.doc.UndoCount
+for name, extra, words in REJECTS:
+    s.sync(GOPS + extra)
+    st = s.status()[-1]
+    check(f"rejected: {name}", st["status"] == "failed" and words in st.get("message", ""), st)
+    check(f"rejected: {name} leaves the board and undo history as they were",
+          bodies_of(s) == ref and s.doc.UndoCount == n_undo + 1, (bodies_of(s), s.doc.UndoCount))   # +1: the rect
+    s.sync(GOPS)
+s.close()
+
 print(f"\nNATIVE TESTS: {R[0]} passed, {R[1]} failed")
