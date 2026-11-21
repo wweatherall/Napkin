@@ -86,6 +86,8 @@ var rects: Dictionary:              # rect id -> {"tris","n","on","pts"}
 	get: return pres.rects
 var drafts: Dictionary:             # op id -> Node3D
 	get: return pres.drafts
+var stock_frames: Dictionary:       # body id -> rectangular stock frame (plane fits, I40)
+	get: return pres.stock_frames
 var op_waves: Dictionary:           # op id -> wave state
 	get: return pres.op_waves
 var shown_key: String:              # the confirmed state on screen
@@ -542,6 +544,14 @@ func _make_ui() -> void:
 	properties_panel.hide()
 	properties_panel.refresh_requested.connect(_request_properties)
 	properties_panel.edit_requested.connect(_edit_property)
+	var fit_outline := MeshInstance3D.new()          # the plane-fit preview (I40)
+	add_child(fit_outline)
+	properties_panel.preview_changed.connect(func(lines: PackedVector3Array):
+		fit_outline.mesh = null
+		if not lines.is_empty():
+			var outline := _lines(lines, Color(0.9, 0.4, 0.05))
+			fit_outline.mesh = outline.mesh
+			outline.free())
 	# status bar with the measurements field
 	var status := PanelContainer.new()
 	status.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
@@ -1406,6 +1416,7 @@ static func _op_refs(op: Dictionary) -> Array:
 	var pl: Dictionary = op.get("plane", {})
 	if pl.has("on"): out.append(pl["on"]["body"])
 	var tg: Dictionary = op.get("target", {})
+	if op.has("edge_fit"): out.append(op["edge_fit"]["target_body"])
 	if tg.has("rect"): out.append(tg["rect"])
 	if tg.has("face"): out.append(tg["face"]["body"])
 	out.append_array(op.get("targets", []))
@@ -1906,11 +1917,37 @@ func _run_drawing_script() -> void:
 
 
 # ---------------- input ----------------
+func _input(e: InputEvent) -> void:
+	# Push/Pull into a face (I40): Tab switches the face, Option the end condition. Before the GUI, which takes Tab.
+	if e is InputEventKey and e.pressed and not e.echo and e.keycode in [KEY_TAB, KEY_ALT] and tool == "push" \
+			and tools.has(tool) and tools[tool].key(e):
+		get_viewport().set_input_as_handled()
+
+
+var finish_reference_click := false  # the release of the click that picked a Properties reference is eaten too
+
 func _unhandled_input(e: InputEvent) -> void:
 	if (e is InputEventKey and e.pressed) or (e is InputEventMouseButton and e.pressed): length_pending = {}
 	if fx_test and cursor2d != null and (e is InputEventMouseMotion or e is InputEventMouseButton) \
 			and e.position.distance_to(cursor2d.position) > 0.5:
 		return       # tests: the real pointer over the window isn't the test's cursor; ignore it
+	if finish_reference_click and e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT:
+		finish_reference_click = false
+		if not e.pressed: return
+	if properties_panel.visible and properties_panel.picking_axis >= 0:   # Properties: pick a face to fit to
+		if e is InputEventKey and e.pressed and e.keycode == KEY_ESCAPE:
+			properties_panel.cancel_pick()
+			_request_properties()
+			return
+		if e is InputEventMouseButton and e.button_index == MOUSE_BUTTON_LEFT:
+			if e.pressed:
+				finish_reference_click = true
+				var hit := pick(e.position)
+				var near: Dictionary = infer.point(e.position, str(properties_panel.data.body))
+				if near.get("kind", "") in ["midpoint", "on edge", "endpoint"] and properties_panel.data.boards.has(near.body):
+					hit = near
+				properties_panel.pick_reference(hit)
+			return
 	if e is InputEventMouseButton:
 		if e.button_index in [MOUSE_BUTTON_MIDDLE, MOUSE_BUTTON_RIGHT]:
 			orbiting = e.pressed and not e.shift_pressed

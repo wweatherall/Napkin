@@ -46,7 +46,7 @@ class MirrorActions:
             m.Source = self.mirror_input(src, nid)
             m.Base = p
             m.Normal = n
-            m.Label = nid
+            m.Label = board_label(nid)
             add_props(m, BodyId=nid, SSRole="body", Replaced=replace,
                       SSHidden=bool(getattr(src, "SSHidden", False)) if replace else False)
             self.doc.recompute()

@@ -83,7 +83,9 @@ def describe(obj):
     return dict(name=obj.Name, label=obj.Label, type=obj.TypeId, fields=rows)
 
 def inspect(model, body):
-    return dict(body=body, objects=[describe(o) for o in related(model, body)],
+    from plane_fit import snapshot
+    boards = {key: info for key, obj in model.bodies().items() if (info := snapshot(obj))}
+    return dict(body=body, boards=boards, objects=[describe(o) for o in related(model, body)],
                 references=[dict(name=o.Name, label=o.Label) for o in model.doc.Objects if hasattr(o, 'Shape')])
 
 def apply(model, op):

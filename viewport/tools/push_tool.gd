@@ -2,11 +2,13 @@ extends "res://tools/tool.gd"
 ## Push/Pull (P): click a face or rectangle, move, then click or type a distance + Return (minus = cut).
 
 var state := {}
+var face_highlight: MeshInstance3D
 var hover := {}          # the face or rectangle under the cursor
 
 
 func reset() -> void:
 	state = {}
+	if is_instance_valid(face_highlight): face_highlight.mesh = null
 
 
 func hint() -> String:
@@ -34,7 +36,7 @@ func click(screen: Vector2) -> void:
 		state["dist"] = 0.0
 		state["depths"] = _depths_behind()
 	else:
-		commit_push(state["dist"])
+		commit_push(state["dist"], state.get("edge_fit", {}))
 
 
 func typed(txt: String) -> void:
@@ -47,6 +49,10 @@ func vcb_value() -> String:
 
 
 func tip() -> String:
+	if state.has("edge_fit"):
+		var fit: Dictionary = state.edge_fit
+		var face: String = ["Left","Right","Front","Back","Bottom","Top"][fit.face]
+		return "%s → %s face%s" % [state.edge_label,face," · Tab to switch" if state.options.size() > 1 else ""]
 	return "to " + state["snap"] if state.get("active", false) and state.get("snap", "") != "" else ""
 
 
@@ -162,8 +168,99 @@ func _push_drag(screen: Vector2) -> void:
 		m._show_marker({"hit": true, "point": pt["point"], "snap": pt["kind"]})
 	else:
 		_snap_to_face_behind(screen)
+	_edge_inference(pt, screen)
 	_preview_push(state["dist"])
 	m._update_vcb()
+
+
+static func _vec(a: Array) -> Vector3:
+	return Vector3(a[0],a[1],a[2])
+
+
+func _edge_inference(pt: Dictionary, screen: Vector2) -> void:
+	var previous: Dictionary = state.get("edge_fit", {})
+	state.erase("edge_fit")
+	if is_instance_valid(face_highlight): face_highlight.mesh = null
+	var body: String = pt.get("body","")
+	if pt.get("kind","") not in ["on edge","midpoint","endpoint"]:
+		var hit := m.pick(screen)
+		if hit.get("body","") != "": state["last_hover"] = hit
+		if not pt.is_empty() or hit.get("body","") == "": return
+		body = hit.body
+		pt = hit
+	if body == state.body or not m.stock_frames.has(body) or m.stock_frames[body].fitted: return
+	var source_size := 0.0
+	if state.rect != "":
+		if m.rects[state.rect].on != "" and not (m.new_board and state.dist > 0): return
+	else:
+		if not m.stock_frames.has(state.body) or m.stock_frames[state.body].fitted: return
+		var src: Dictionary = m.stock_frames[state.body]
+		for i in 3:
+			if absf(_vec(src.axes[i]).dot(state.n)) > 0.9999: source_size = src.sizes[i]
+		if source_size <= 0: return
+	var target: Dictionary = m.stock_frames[body]
+	var origin := _vec(target.origin)
+	var edge_point: Vector3 = pt.get("edge_point",pt.point)
+	var push: Vector3 = state.n
+	if state.rect != "" and state.dist < 0: push = -push
+	var options := []
+	for i in 3:
+		var normal := _vec(target.axes[i])
+		var denom := normal.dot(push)
+		if absf(denom) < 0.00001: continue
+		for side in 2:
+			var plane_point := origin + normal * float(target.sizes[i]) * side
+			if pt.has("normal"):
+				var face_normal := normal if side else -normal
+				if face_normal.dot(pt.normal) < 0.999: continue
+			elif absf(normal.dot(edge_point-plane_point)) > 0.002: continue
+			var depth := INF
+			for corner in state.tris:
+				depth = minf(depth,normal.dot(plane_point-corner)/denom)
+			if depth + source_size <= 0.001 or absf(depth) < 0.5: continue
+			var outward := normal if side else -normal
+			var last: Dictionary = state.get("last_hover",{})
+			var hovered: bool = last.get("body","") == body and outward.dot(last.normal) > 0.999
+			options.append({"face":2*i+side,"distance":depth*push.dot(state.n),"normal":outward,"score":snappedf(absf(denom),0.001),"hovered":hovered})
+	if options.is_empty(): return
+	options.sort_custom(func(a,b):
+		if a.score != b.score: return a.score > b.score
+		if a.hovered != b.hovered: return a.hovered
+		return a.face < b.face)
+	var choice := 0
+	var faces := options.map(func(option): return option.face)
+	faces.sort()
+	if previous.get("target_body","") == body and state.get("edge_faces",[]) == faces:
+		for i in options.size():
+			if options[i].face == previous.face: choice = i
+	state["edge_faces"] = faces
+	state["options"] = options
+	state["edge_body"] = body
+	state["edge_label"] = target.label
+	state["edge_point"] = edge_point
+	state["edge_screen"] = screen
+	_choose_face(choice)
+
+
+func _choose_face(index: int) -> void:
+	var option: Dictionary = state.options[index]
+	state["choice"] = index
+	state["dist"] = option.distance
+	state["edge_fit"] = {"target_body":state.edge_body,"face":option.face}
+	if not is_instance_valid(face_highlight):
+		face_highlight = MeshInstance3D.new()
+		m.add_child(face_highlight)
+	var triangles := coplanar_region(state.edge_body,option.normal,state.edge_point)
+	face_highlight.mesh = m._tri_mesh(triangles,m.mat_hover)
+
+
+func key(e: InputEventKey) -> bool:
+	if e.keycode != KEY_TAB or not state.has("edge_fit"): return false
+	_choose_face((state.choice+1)%state.options.size())
+	_preview_push(state.dist)
+	m._update_vcb()
+	m._update_tip(state.edge_screen)
+	return true
 
 
 func _preview_push(d: float) -> void:
@@ -174,7 +271,7 @@ func _preview_push(d: float) -> void:
 	m.overlay_lines.mesh = m._lines(Main.feature_edges(pr), Color(0.6, 0.35, 0.0)).mesh
 
 
-func commit_push(d: float) -> void:
+func commit_push(d: float, edge_fit := {}) -> void:
 	if absf(d) < 0.5: return
 	m.reject_note = ""
 	m.counters["pp"] += 1
@@ -201,6 +298,10 @@ func commit_push(d: float) -> void:
 	if m.force_reject_next and op["target"].has("rect"):
 		op["target"] = {"rect": "r_missing"}      # test hook only: guarantees FreeCAD rejects it
 		m.force_reject_next = false
+	if not edge_fit.is_empty():
+		op["edge_fit"] = edge_fit.duplicate()
+	elif state.rect == "" and m.stock_frames.has(on) and not m.stock_frames[on].fitted:
+		op["resize_stock"] = true
 	m.ops.append(op)
 	var end_point: Vector3 = state["anchor"] + state["n"] * d   # on the moved face, under the cursor's axis
 	var pr := Main.prism(state["tris"], state["n"], d)
@@ -219,7 +320,7 @@ func commit_push(d: float) -> void:
 			m._attach_wave(oid, mi, mi.get_child(mi.get_child_count() - 1), m._base_of(mi))
 	if state["rect"] != "" and m.drafts.has(state["rect"]):
 		m.drafts[state["rect"]].queue_free(); m.drafts.erase(state["rect"])
-	state = {}
+	reset()
 	m.overlay.mesh = null; m.overlay_lines.mesh = null
 	m.marker.visible = false
 	m.sync()

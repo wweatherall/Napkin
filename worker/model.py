@@ -144,7 +144,7 @@ class Model(PushActions, MoveActions, MirrorActions, AssemblyActions, PaintActio
         if bid in self.bodies():
             raise OpError(f"body id '{bid}' already exists")
         c = self.doc.addObject("App::Part", "Board")
-        c.Label = bid
+        c.Label = board_label(bid)
         add_props(c, BodyId=bid, SSRole="body", SSMaterial="", ComponentName="", Tip=None, SSGrain=App.Vector(0, 0, 0),
                   SSHidden=False)
         if placement is not None:
@@ -290,6 +290,12 @@ class Model(PushActions, MoveActions, MirrorActions, AssemblyActions, PaintActio
 
     def op_property_edit(self, op):
         """A native property changed in the Properties panel (T46): see object_properties.apply."""
+        if op.get("mode") == "replace_fit":
+            import plane_fit
+            return plane_fit.replace(self, op)
+        if op.get("mode") == "plane_fit":
+            import plane_fit
+            return plane_fit.apply(self, op)
         from object_properties import apply
         return apply(self, op)
 
@@ -298,6 +304,14 @@ class Model(PushActions, MoveActions, MirrorActions, AssemblyActions, PaintActio
             raise OpError(f"unknown op type '{op['type']}'")
         changed = getattr(self, "op_" + op["type"])(op)
         self.doc.recompute()
+        import plane_fit
+        for fit in self.doc.Objects:
+            if hasattr(fit, "SSFitResult"):
+                owner = fit.getParentGeoFeatureGroup()
+                if owner and getattr(owner, 'BodyId', ''):
+                    plane_fit.update(self, owner, fit)
+                    self.doc.recompute()
+                    changed = list(changed or []) + [owner.BodyId]
         bad = [o.Label for o in self.doc.Objects if "Invalid" in o.State or "Error" in o.State]
         if bad:
             raise OpError(f"FreeCAD couldn't recompute: {', '.join(bad[:3])}")

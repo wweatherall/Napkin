@@ -129,7 +129,9 @@ func _nearest_visible(cands: Array, screen: Vector2, radius: float, kind: String
 	for n in near:
 		var c: Array = n[1]
 		if _visible(c[2] if c.size() > 2 else c[0]):
-			return {"point": c[0], "kind": kind, "body": c[1]}
+			var point_hit := {"point": c[0], "kind": kind, "body": c[1]}
+			if c.size() > 2: point_hit["edge_point"] = c[2]
+			return point_hit
 	return {}
 
 

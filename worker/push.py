@@ -50,6 +50,24 @@ class PushActions:
             raise OpError("distance is zero")
         tgt = op["target"]
         oid = op["id"]
+        fit = op.get("edge_fit")
+        if fit and "face" in tgt:
+            import plane_fit
+            board, _, normal = self.resolve_face(tgt["face"])
+            source_id = tgt["face"]["body"]
+            frame = plane_fit.stock(self.body(source_id))
+            if not frame:
+                raise OpError("Source is no longer rectangular stock")
+            axis = next((i for i,v in enumerate(frame[2]) if abs(v.dot(normal)) > 0.9999), None)
+            if axis is None:
+                raise OpError("Source face no longer matches the chosen dimension")
+            return plane_fit.apply(self, dict(body=source_id, target_body=fit["target_body"],
+                                   axis=axis, face=fit["face"], fit_mode=0, reverse=frame[2][axis].dot(normal)<0))
+        if op.get("resize_stock") and "face" in tgt:
+            import plane_fit
+            board, _, normal = self.resolve_face(tgt["face"])
+            if plane_fit.resize_face(self,board,normal,d):
+                return [board.BodyId]
         if "rect" in tgt:
             pl = self.rect_obj(tgt["rect"])
             if pl is None:
@@ -85,6 +103,9 @@ class PushActions:
             self.doc.recompute()
             if not Part.getShape(c).Solids:
                 raise OpError("the push didn't make a solid")
+            if fit:
+                import plane_fit
+                return plane_fit.apply(self, dict(body=bid,target_body=fit["target_body"],axis=2,face=fit["face"],fit_mode=0))
             return [bid]
 
         # draw-on-face edit: the extrusion lands in the target board's own frame
