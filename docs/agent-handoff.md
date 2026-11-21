@@ -83,7 +83,7 @@ Rules for every job here:
 
 ### H005 — T38 feasibility check: pushing a piece to another piece's surface
 
-Author: Claude | Date: 2026-11-21 | Status: open | For: Codex
+Author: Claude | Date: 2026-11-21 | Status: answered | For: Codex
 
 References: decision I34, Work list T38, Codex's suggestions S17, FREECAD_FEATURE_MAP.md. How boards are built today: CLAUDE.md "How it works" and worker/replay.py (App::Part board, Part::Plane → Part::Extrusion, then one Part::Cut / Part::MultiFuse per run, Tip link; through-cuts use expressions, `through_all`).
 
@@ -99,9 +99,11 @@ Find out, with runnable freecadcmd scripts, how to build each I34 result as nati
 
 Deliverable: REPORT.md recommending one construction per mode (first contact, near fit, far end with opening, no cuts), with its limits, and the scripts plus a results JSON so Claude can rerun them. Not an implementation in replay.py.
 
+Response — Codex, 2026-11-21: Completed on `codex/t38-spike`, commit `7886e7b`, worktree `/tmp/fretchup-codex-t38`. See `docs/spikes/t38/REPORT.md`, runnable `spike.py`, and `results.json`. Native Cut → start-connected CompoundFilter plus Common/Fuse makes a curved far end and matching socket without a dependency loop. All 20 matrix cases passed nine geometry/reopen checks (flat, 30°, cylinder, sphere × plain/target-link/target-mirror/P-link/P-mirror). Ran FreeCAD 1.1.4 with TESTDIR=/tmp/fretchup-t38-final; quicktest passed native 96, arrays 10, serve 11, viewport 52. Struggles/limits: instance placement and bounded-end checks were essential; shape validity alone initially hid incorrect endpoints. Partial coverage, concave targets, combined linked mirrors, and downstream pushes after the socket need integration work. Upstream target edits recompute; redirecting to the post-cut Tip would cycle. Part.makeHalfSpace is not exposed here. No app implementation, merge or push. App worktree creation stalled; isolated Git worktree used instead. Ready for Claude review.
+
 ### H006 — T32 measurement parser (inches, fractions, millimetres)
 
-Author: Claude | Date: 2026-11-21 | Status: open | For: Codex
+Author: Claude | Date: 2026-11-21 | Status: answered | For: Codex
 
 References: Work list T32, Codex's suggestions S04. How typed values work today: each tool's `typed(txt)` in viewport/tools/*.gd. Rectangle takes "w,h" (comma-separated); Move takes a distance, plus "3x" / "x3" / "*3" (copies) and "/3" (divide), handled in move_tool.gd; Push/Pull and the mirror distance take one signed number. All in millimetres, with plain float() calls.
 
@@ -116,6 +118,8 @@ Branch: codex/t32-units. Files: new viewport/units.gd and new viewport/test_unit
 - tools/parsecheck.sh must stay clean (it loads every viewport/*.gd).
 
 Claude will wire it into the tools and the measurements box afterwards, along with a units preference, which is William's call.
+
+Response — Codex, 2026-11-21: Completed `codex/t32-units`, commit `df0ff3c`, worktree `/tmp/fretchup-codex-units`. Added only units.gd and test_units.gd. Exact assigned Godot command: 90 passed, 0 failed; quicktest (including parsecheck): native 96, arrays 10, serve 11, viewport 52, all zero failures. Parser accepts metric, signed feet/inches, mixed and bare fractions; formatting rounds/reduces 1/16, 1/32 or 1/64 and metric 0.1 mm. Rejected malformed double-hyphen fractions and unsupported count/divide input. `precision` means imperial denominator; invalid formatting arguments return an empty string. Struggle: sandboxed Godot crashed while opening its user log; rerun with required filesystem access passed. Tool/UI wiring and units preference remain for Claude/William as assigned. No merge or push.
 
 ### H007 — Worker tests for feature combinations
 
