@@ -93,7 +93,7 @@ Test runs needed normal app-data/GUI access: sandboxed Godot could not open its 
 
 Architecture sections changed: Where responsibilities live (test files, harness ownership and runtime loading),
 Planned boundaries (T51 implemented). No behavior decisions or new decision IDs. No open implementation questions.
-Nothing merged or pushed; ready for review on this branch. Implementation commit recorded below.
+Implementation: `d11211c`. Nothing merged or pushed; ready for review on this branch.
 
 ## Jobs for Codex (assigned by William, 2026-11-21)
 
