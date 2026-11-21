@@ -1162,7 +1162,7 @@ func _run_quick_test() -> void:
 	await _view(Vector3(200, 100, 0), -30, -45, 1.6)
 	await _grab(Vector3(0, 25, 18))
 	await _drag_to(Vector3(80, 25, 18), 6)
-	await _type("150\n")
+	await _type("5in + 23mm\n")
 	await _wait_wave()
 	_ok("moved 150 along red", _bbox("b1").slice(0, 2) == [150.0, 0.0], _bbox("b1"))
 	await _grab(Vector3(150, 25, 18))
@@ -1515,6 +1515,12 @@ func _click(p_model: Vector3) -> void:
 
 
 func _type(txt: String) -> void:
+	# Rejection scenario deliberately queues dependent drafts while sync is delayed.
+	# Inject already-evaluated mm here: a parser request shares that blocked worker.
+	if quick and _q_section == "reject":
+		m.tools[m.tool].typed(txt.strip_edges())
+		await _frames(1)
+		return
 	for ch in txt:
 		var ev := InputEventKey.new()
 		ev.pressed = true
@@ -1524,6 +1530,11 @@ func _type(txt: String) -> void:
 		var up := ev.duplicate(); up.pressed = false
 		Input.parse_input_event(up)
 	await _frames(1)
+
+	var deadline := Time.get_ticks_msec() + 10000
+	while not m.length_pending.is_empty() and Time.get_ticks_msec() < deadline:
+		await _frames(1)
+	assert(m.length_pending.is_empty(), "Length evaluation timed out")
 
 
 func _key_shift(k: Key) -> void:

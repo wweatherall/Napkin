@@ -661,6 +661,7 @@ func snap(p: Dictionary, screen: Vector2) -> Dictionary:
 
 
 func set_tool(t: String) -> void:
+	length_pending = {}
 	tool = t
 	for k in tools: tools[k].reset()
 	vcb = ""
@@ -681,6 +682,7 @@ func _update_vcb() -> void:
 
 
 func tool_move(screen: Vector2) -> void:
+	if not length_pending.is_empty(): return
 	tools[tool].mouse_moved(screen)
 	_show_siblings(pick(screen).get("body", ""))
 	_update_tip(screen)
@@ -1075,11 +1077,42 @@ static func _mirror_tris(tris: PackedVector3Array, ax: int, c: float) -> PackedV
 
 
 # ---------------- typed input, undo ----------------
+var length_id := 0
+var length_pending := {}
+
 func apply_vcb() -> void:
 	var txt := vcb.strip_edges()
 	vcb = ""
 	if txt != "":
-		tools[tool].typed(txt)
+		var counts := RegEx.new()
+		counts.compile("^(?:[0-9]+x|[x*][0-9]+|/[0-9]+)$")
+		if tool == "move" and counts.search(txt.to_lower()) != null:
+			length_pending = {}
+			tools[tool].typed(txt)
+		elif tool in ["rect", "push", "move"]:
+			var texts := txt.split(",") if tool == "rect" else PackedStringArray([txt])
+			if texts.size() != (2 if tool == "rect" else 1):
+				ui_sync.text = "Enter two lengths separated by a comma"
+			else:
+				length_id += 1
+				length_pending = {"id": length_id, "tool": tool, "model": model_path, "seq": seq,
+					"state": tools[tool].state.duplicate(true)}
+				client.send({"cmd": "length", "id": length_id, "texts": Array(texts), "default_unit": "mm"})
+				ui_sync.text = "Evaluating length…"
+	_update_vcb()
+
+func _on_length(resp: Dictionary) -> void:
+	if length_pending.is_empty() or resp.get("id") != length_pending.id: return
+	var pending := length_pending
+	length_pending = {}
+	if tool != pending.tool or model_path != pending.model or seq != pending.seq: return
+	if tools[tool].state != pending.state: return
+	if not resp.get("ok", false):
+		ui_sync.text = "Length: " + str(resp.get("error", "Invalid input"))
+		return
+	var values := PackedStringArray()
+	for value in resp.values: values.append("%.12f" % float(value))
+	tools[tool].typed(",".join(values))
 	_update_vcb()
 
 
@@ -1234,6 +1267,9 @@ func _send(drawing := false) -> void:
 
 
 func _on_worker(resp: Dictionary) -> void:
+	if resp.get("cmd", "") == "length":
+		_on_length(resp)
+		return
 	if resp.get("cmd", "") == "focus":               # someone tried to open this window's model: come forward
 		DisplayServer.window_move_to_foreground()
 		return
@@ -2117,6 +2153,7 @@ func _run_drawing_script() -> void:
 
 # ---------------- input ----------------
 func _unhandled_input(e: InputEvent) -> void:
+	if (e is InputEventKey and e.pressed) or (e is InputEventMouseButton and e.pressed): length_pending = {}
 	if fx_test and cursor2d != null and (e is InputEventMouseMotion or e is InputEventMouseButton) \
 			and e.position.distance_to(cursor2d.position) > 0.5:
 		return       # tests: the real pointer over the window isn't the test's cursor; ignore it
@@ -2176,7 +2213,7 @@ func _unhandled_input(e: InputEvent) -> void:
 			KEY_BACKSPACE: vcb = vcb.left(-1); _update_vcb(); return
 		var ch := char(e.unicode) if e.unicode > 0 else ""
 		var t = tools[tool]
-		if t.key(e): return                              # the tool's own keys (Move: modifiers, axis locks)
+		if vcb == "" and t.key(e): return                              # the tool's own keys (Move: modifiers, axis locks)
 		if t.busy() and ch != "" and t.accepts(ch):
 			vcb += ch; _update_vcb(); return
 		match e.keycode:

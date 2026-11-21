@@ -1,6 +1,7 @@
 """The connection loop: one worker serving every window (W13), and the one-off replay (main)."""
 from common import *
 from session import *
+import length_input
 
 
 def run_sync(session, req):
@@ -125,6 +126,9 @@ def serve(port):
             req = json.loads(line)
             cmd = req.get("cmd")
             seq = req.get("seq")
+            if cmd == "length":                     # typed lengths with arithmetic, evaluated by FreeCAD (T32, I35)
+                send(conn, length_input.handle(req))
+                return None
             if cmd == "hello":
                 send(conn, {"ok": True, "cmd": "hello", "app": "shopsketch", "worker": me, "pid": os.getpid()})
                 return None
