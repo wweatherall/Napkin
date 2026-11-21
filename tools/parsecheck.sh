@@ -6,7 +6,7 @@ cd "$(dirname "$0")/.."
 GD=/Applications/Godot.app/Contents/MacOS/Godot
 OUT=$(mktemp -d -t shopsketch-parse)
 i=0
-for f in viewport/*.gd viewport/tools/*.gd; do
+for f in viewport/*.gd viewport/tools/*.gd viewport/tests/*.gd viewport/tests/quick/*.gd viewport/tests/suites/*.gd; do
   ( ERR=$("$GD" --headless --path viewport --check-only --script "res://${f#viewport/}" 2>&1 | grep -E "SCRIPT ERROR|Parse Error" | head -3)
     [ -n "$ERR" ] && printf 'PARSE %s:\n%s\n' "$f" "$ERR" > "$OUT/$i" ) &
   i=$((i + 1))

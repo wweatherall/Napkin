@@ -24,7 +24,8 @@ protocol (update it in the same commit when you change either). Tools have their
 - `tools/`: one object per tool (see its guide). `property_panel.gd`: the Properties panel (T46, I36).
 - `units.gd`: lengths. `evaluate_length` / `evaluate_pair` give FreeCAD's answer for a typed length at once (a
   port of `worker/length_input.py`; what it declines goes to FreeCAD); `format_length` for showing lengths.
-- `worker_client.gd`: TCP framing, reconnect. `tests.gd`: every scripted suite (added only in test mode).
+- `worker_client.gd`: TCP framing, reconnect. `tests.gd`: small test-mode dispatcher; `tests/harness.gd`: shared input, timing and assertions;
+  `tests/suites/`: one script per UI suite; `tests/quick/`: one script per quick section (T51).
 - Shaders: `confirm_wave*.gdshader` (the wave), `overlay.gdshader` (highlights on faces), `line.gdshader` /
   `line.gdshaderinc` (lines), `wood.gdshader` (painted boards).
 
@@ -66,10 +67,11 @@ protocol (update it in the same commit when you change either). Tools have their
 - Test hooks (`delay_ms`, forced rejection, `--*test`) are for testing only (P02).
 
 ## Tests
-- The quick test is `tests.gd` `_run_quick_test` (`--quicktest`, run by `tools/quicktest.sh`): every feature once,
-  each step checking its own answer. Each section is a `_q_<name>()`; `QUICK_LANES` deals them into the three windows
-  the script runs side by side (`--quick-lane=N`, T49; keep the lanes about equal in time). A new feature: a step in a
-  section, or a new section listed in a lane and in the `match` in `_run_quick_test`. Its sections share one model (`_fresh` clears
+- The quick test is `tests/quick_runner.gd` (`--quicktest`, run by `tools/quicktest.sh`): every feature once,
+  each step checking its own answer. Each section is `tests/quick/<name>.gd` with a `run()` method;
+  `QUICK_LANES` in quick_runner.gd deals them into the three windows the script runs side by side
+  (`--quick-lane=N`, T49; keep the lanes about equal in time). A new feature: a step in a
+  section, or a new section file listed in a lane. Its sections share one model (`_fresh` clears
   the window and syncs the section's ops; `own_file` for model switching); in quick mode drags take 2 frames, waves
   get 2 frames' pad and frames skip the physics tick (T48: 26 → 14 s). It prints where its time goes (`QUICK timing`).
   `--fast` gives any suite that pace but keeps the physics tick (picking a draft drawn a moment ago needs one: the

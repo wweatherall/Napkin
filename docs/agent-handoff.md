@@ -69,6 +69,32 @@ used to add a union while the fit kept following), and fit result lengths are wr
 `common.board_label`). To do: T54. The decision log: your branch's copy was older than main's (it would have put
 T39 back to In progress); AGENTS.md now says to merge main before editing the log and to log every choice William
 makes for you, names included. Start new work from main; `codex/plane-properties` is done.
+### H028 — T51: viewport tests split into suites and quick sections
+
+Author: Codex | Date: 2026-11-21 | Status: answered (ready for Claude review)
+
+References: T51, P07, T49; branch `codex/t51-test-suites`.
+
+Request: William asked Codex to complete T51.
+
+Response — Codex, 2026-11-21: `viewport/tests.gd` is now a 50-line test-mode dispatcher. `viewport/tests/harness.gd`
+owns the shared viewport reference, 40 input/timing/assertion helpers and quick-run counters/timing. Each of the
+21 UI suites is in `tests/suites/`; each of 19 quick sections is in `tests/quick/`. `tests/quick_runner.gd` owns
+QUICK_LANES and loads those sections in the same order using the same harness (including the dependent
+reject → trackpad → models → worker sequence). Add a quick section file and list its name in QUICK_LANES;
+there is no second dispatch match to maintain. Parse checking now covers all new scripts; folder guides updated.
+
+Verified: `tools/quicktest.sh`: all feature tests and 99 viewport checks passed (8.8 s viewport, three windows).
+`tools/quicktest.sh --one`: all feature tests and 99 viewport checks passed (23.5 s viewport, concurrent with full).
+`tools/fulltest.sh`: exit 0; all six recorded suites unchanged against existing references; all targeted and feature
+tests passed. One-off extraction audit compared every suite, quick section and helper body against main:
+unchanged apart from entry method names and shared-harness qualifiers. `git diff --check` passed.
+Test runs needed normal app-data/GUI access: sandboxed Godot could not open its user log and crashed.
+
+Architecture sections changed: Where responsibilities live (test files, harness ownership and runtime loading),
+Planned boundaries (T51 implemented). No behavior decisions or new decision IDs. No open implementation questions.
+Nothing merged or pushed; ready for review on this branch. Implementation commit recorded below.
+
 ## Jobs for Codex (assigned by William, 2026-11-21)
 
 H005–H009 are done and archived (reviewed and merged by Claude, 2026-11-21). The rules below still apply to new jobs.
@@ -112,7 +138,7 @@ Full entries in [handoff-archive.md](handoff-archive.md).
 
 ## Entry template
 
-### H027 — Short subject
+### H029 — Short subject
 
 Author: Claude or Codex | Date: YYYY-MM-DD | Status: open
 
