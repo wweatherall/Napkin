@@ -131,6 +131,16 @@ class Model:
             raise OpError(f"unknown body '{bid}'")
         return obj
 
+    def assemblies(self):
+        return {o.AssemblyId: o for o in self.doc.Objects if getattr(o, "SSRole", None) == "assembly"}
+
+    def assembly_of(self, obj):
+        """The assembly a board is in (a FreeCAD group of boards, T20), or None."""
+        for g in obj.InList:
+            if getattr(g, "SSRole", None) == "assembly":
+                return g
+        return None
+
     def rect_obj(self, rid):
         for o in self.doc.Objects:
             if getattr(o, "RectId", None) == rid:
@@ -446,6 +456,11 @@ class Model:
             ext = self.extrusion(base, n * d, d, f"{oid} push")
             add_props(ext, SSOp=oid)
             self.set_tip(c, ext)
+            if op.get("assembly"):                   # drawn inside an entered assembly: it joins it (T20)
+                asm = self.assemblies().get(op["assembly"])
+                if asm is None:
+                    raise OpError(f"unknown assembly '{op['assembly']}'")
+                asm.addObject(c)
             self.doc.recompute()
             if not Part.getShape(c).Solids:
                 raise OpError("the push didn't make a solid")
@@ -485,6 +500,7 @@ class Model:
         if self.is_mirror(obj) or obj.TypeId != "App::Part":
             raise OpError(f"'{bid}' can't be made a component")
         dfn = obj
+        asm = self.assembly_of(obj)
         dfn.SSRole = "definition"
         dfn.ComponentName = op["name"]
         dfn.Label = op["name"]
@@ -495,6 +511,8 @@ class Model:
         link.Placement = dfn.Placement
         link.Label = bid
         add_props(link, BodyId=bid, SSRole="body")
+        if asm is not None:
+            asm.addObject(link)                      # the board stays in its assembly as the link
         return [bid]
 
     def as_component(self, obj):
@@ -537,6 +555,9 @@ class Model:
             obj = self.as_component(obj)
             link = self.new_link(obj.LinkedObject, nid, App.Placement(obj.Placement.Base + step, obj.Placement.Rotation),
                                  arr.Name if arr else "", index)
+            asm = self.assembly_of(obj)
+            if asm is not None:
+                asm.addObject(link)                  # copies made inside an assembly belong to it
             if arr is not None:
                 self.array_follow(link, arr, index)
             return
@@ -616,7 +637,12 @@ class Model:
         changed = []
         new_ids = list(op.get("new_ids", []))
         for t in op["targets"]:
+            if t in self.assemblies() and not copy:
+                changed += self.move_assembly(self.assemblies()[t], vecv)
+                continue
             obj = self.body(t)
+            if op.get("detach") and getattr(obj, "SSArray", ""):
+                self.op_detach({"targets": [t]})       # inside an entered array, a copy moves alone (I32)
             if not copy and self.is_mirror(obj):
                 if not getattr(obj, "Replaced", False):
                     raise OpError(f"'{t}' is a mirrored copy: move its original and it follows")
@@ -671,6 +697,39 @@ class Model:
             arr = self.doc.getObject(name)
             return [a for a in self.doc.Objects if getattr(a, "SSRole", "") == "array" and a.SSSource == arr.SSSource]
         return [a for a in self.doc.Objects if getattr(a, "SSRole", "") == "array" and a.SSSource == getattr(obj, "BodyId", None)]
+
+    def op_make_assembly(self, op):
+        """Group boards into an assembly (T20): a FreeCAD group, so the boards keep their own positions (no
+        container scope to break mirrors or links); moving the assembly moves them all."""
+        aid = op["new_id"]
+        if aid in self.assemblies():
+            raise OpError(f"assembly '{aid}' already exists")
+        g = self.doc.addObject("App::DocumentObjectGroup", "Assembly")
+        g.Label = op.get("name", aid)
+        add_props(g, SSRole="assembly", AssemblyId=aid)
+        for t in op["targets"]:
+            obj = self.body(t)
+            if self.assembly_of(obj) is not None:
+                raise OpError(f"'{t}' is already in an assembly")
+            for other in obj.InList:
+                if other.TypeId == "App::DocumentObjectGroup":
+                    other.removeObject(obj)
+            g.addObject(obj)
+        return list(op["targets"])
+
+    def move_assembly(self, g, vecv):
+        members = [o for o in g.Group if getattr(o, "SSRole", None) == "body"]
+        moved_arrays = set()
+        for o in members:
+            for arr in self.arrays_of(o):
+                if arr.Name not in moved_arrays:
+                    arr.Origin = arr.Origin + vecv
+                    moved_arrays.add(arr.Name)
+        for o in members:
+            if getattr(o, "SSArray", ""):
+                continue                              # placed by its array, which just moved
+            o.Placement = App.Placement(o.Placement.Base + vecv, o.Placement.Rotation)
+        return [o.BodyId for o in members]
 
     def op_detach(self, op):
         """Detach from array (Q29): the board keeps where it is and stops following the row."""
@@ -747,7 +806,8 @@ class Model:
             dfn.SSMaterial = op["material"]
         return list(op["targets"])
 
-    HANDLERS = ("rect", "push_pull", "mirror", "make_component", "move", "set_material", "detach", "make_unique")
+    HANDLERS = ("rect", "push_pull", "mirror", "make_component", "move", "set_material", "detach", "make_unique",
+                "make_assembly")
 
     def apply(self, op):
         if op["type"] not in self.HANDLERS:
@@ -1264,7 +1324,9 @@ class Session:
             mat = hit[1]["material"]
             bodies.append(dict(hit[1], mesh=board_mesh_file(bid, obj, m, outdir),
                                color=list(PALETTE.get(mat, (0.7, 0.7, 0.7))), family=m.definition(obj).Name,
-                               array=getattr(obj, "SSArray", "") or ""))
+                               array=getattr(obj, "SSArray", "") or "",
+                               assembly=getattr(m.assembly_of(obj), "AssemblyId", "") if m.assembly_of(obj) else "",
+                               row=(m.arrays_of(obj)[0].SSSource if m.arrays_of(obj) else "")))
         shared = {}
         for e in bodies:
             shared[e["family"]] = shared.get(e["family"], 0) + 1

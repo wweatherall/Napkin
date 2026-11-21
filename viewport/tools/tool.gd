@@ -31,6 +31,11 @@ func click(_screen: Vector2) -> void:
 	pass
 
 
+## a double click (Select: enter an assembly or array)
+func double_click(_screen: Vector2) -> void:
+	pass
+
+
 ## the left button let go (a tool started by press-and-drag finishes here)
 func release(_screen: Vector2) -> void:
 	pass

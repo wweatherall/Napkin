@@ -14,7 +14,7 @@ If you can't reach the log, say so; don't guess at what it says.
 - `viewport/` (Godot 4.6, Compatibility renderer): tools, instant drafts, the confirmation wave (T4 layout):
   `main.gd` setup, worker link, sync, drafts, waves, remembered states, input dispatch;
   `inference.gd` the one snapping engine (pick, endpoint > midpoint > on edge, axis inference);
-  `tools/rect_tool.gd`, `push_tool.gd`, `move_tool.gd` (base `tools/tool.gd`: each owns its state and gets
+  `tools/select_tool.gd`, `rect_tool.gd`, `push_tool.gd`, `move_tool.gd` (base `tools/tool.gd`: each owns its state and gets
   mouse_moved / click / key / typed); `tests.gd` the scripted suites (added only in test mode).
   Tools and tests `preload("res://main.gd")` for typing; main.gd `load()`s them at runtime (no preload cycle,
   and no `class_name`: Godot run from the command line doesn't register new global class names).
@@ -41,6 +41,12 @@ If you can't reach the log, say so; don't guess at what it says.
   Origin, Step, Count, Span, Distributed; /N's Step = Span / Count) and each copy's position is an expression on it
   (`array_follow`; `SSArray`, `SSArrayIndex` on the copy). Moving any member moves its row; `detach` clears the
   expressions; `make_unique` deep-copies the definition into a board of its own (it stays in its row).
+  Assemblies (T20) are App::DocumentObjectGroup (`SSRole` = `assembly`, `AssemblyId`), not App::Part: a group
+  doesn't move its members' frames, so mirrors and links that reach in or out keep working (an App::Part
+  container breaks them: "out of the allowed scope"). Moving an assembly moves each member (and its arrays).
+  In the viewport, from outside a board stands for its assembly or its array row (`unit_of`); double-click with
+  Select enters one (`context`, the rest greyed and unpickable), Esc leaves. Inside an entered array a moved copy
+  leaves the row (op `"detach": true`, I32); a board pushed out inside an assembly joins it (op `"assembly"`).
   A component instance is mirrored through a Part::Compound wrapper (`SSRole` = `mirror-input`, A26):
   released FreeCAD 1.1 mirrors an App::Link without its placement. Walk mirrors with `mirror_source()`, not `.Source`.
   All Shop Sketch state lives on those objects (`BodyId`, `SSRole`, `RectId`, `SSMaterial`, `SSOp`).
@@ -74,7 +80,7 @@ If you can't reach the log, say so; don't guess at what it says.
   `tests/reference/` by `tools/compare_suites.py`, then the targeted tests (`--undotest` `--snaptest` `--recttest`
   `--shelltest` `--jointest` `--rejecttest`), then the worker tests. After an intended change in behaviour:
   `tools/fulltest.sh --update-reference`.
-- Worker tests alone: `freecadcmd worker/test_native.py` (69 checks) and `worker/test_arrays.py` (10).
+- Worker tests alone: `freecadcmd worker/test_native.py` (76 checks) and `worker/test_arrays.py` (10).
 - Visual checks (screenshots, no pass/fail): `--linetest`, `--zfighttest`; timing: `--perftest`. Recordings use
   `--true-latency` (P03) with Godot's `--write-movie`; `--heavytest --model=<file>`.
 - Test hooks (`delay_ms`, forced rejection, `--*test`) are for testing only (P02).

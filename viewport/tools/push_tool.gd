@@ -28,6 +28,7 @@ func click(screen: Vector2) -> void:
 	if not state.get("active", false):
 		_push_hover(screen)
 		if hover.is_empty(): return
+		if m.edit_blocked(hover.get("body", "") if hover.get("rect", "") == "" else m.rects[hover["rect"]]["on"]): return
 		state = hover.duplicate()
 		state["active"] = true
 		state["dist"] = 0.0
@@ -196,6 +197,7 @@ func commit_push(d: float) -> void:
 		m.counters["b"] += 1
 		new_id = "b%d" % m.counters["b"]
 		op["body"] = new_id
+		if m.context_assembly() != "": op["assembly"] = m.context_assembly()   # drawn inside: it joins (T20)
 	if m.force_reject_next and op["target"].has("rect"):
 		op["target"] = {"rect": "r_missing"}      # test hook only: guarantees FreeCAD rejects it
 		m.force_reject_next = false

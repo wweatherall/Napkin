@@ -11,7 +11,7 @@ const SNAP_PX := 14.0         # endpoint snap radius on screen
 
 # ---------------- state ----------------
 var ops: Array = []
-var counters := {"r": 0, "b": 0, "pp": 0, "m": 0, "mv": 0, "mu": 0, "dt": 0}
+var counters := {"r": 0, "b": 0, "pp": 0, "m": 0, "mv": 0, "mu": 0, "dt": 0, "as": 0, "a": 0}
 var seq := 0
 var in_flight := false
 var dirty := false
@@ -97,6 +97,7 @@ var mat_rect: ShaderMaterial
 var mat_hover: ShaderMaterial
 var mat_cut_hl: ShaderMaterial    # hole highlight in Move
 var mat_sibling: ShaderMaterial   # linked copies of the board you're editing
+var mat_selected: ShaderMaterial  # selected boards
 var mat_plane: StandardMaterial3D  # mirror-plane visuals
 var mat_edge: StandardMaterial3D
 var mat_draft_edge: StandardMaterial3D
@@ -241,6 +242,7 @@ func _make_materials() -> void:
 	mat_hover.render_priority = 2
 	mat_cut_hl = _overlay_mat(Color(0.5, 0.3, 0.85, 0.5))
 	mat_sibling = _overlay_mat(Color(0.25, 0.55, 1.0, 0.22))      # linked copies, while you edit one
+	mat_selected = _overlay_mat(Color(0.1, 0.45, 1.0, 0.35))      # what the Select tool picked
 	mat_cut_hl.render_priority = 2
 	mat_edge = StandardMaterial3D.new()
 	mat_edge.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
@@ -421,7 +423,7 @@ func _make_ui() -> void:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
 	bar.add_child(row)
-	row.add_child(_segments([["Rectangle", "rect", "Rectangle (R)"], ["Push/Pull", "push", "Push/Pull (P)"], ["Move", "move", "Move (M)"]], false))
+	row.add_child(_segments([["Select", "select", "Select (Space)"], ["Rectangle", "rect", "Rectangle (R)"], ["Push/Pull", "push", "Push/Pull (P)"], ["Move", "move", "Move (M)"]], false))
 	for spec in [["Undo", "undo", "Undo (⌘Z)"], ["Drawing", "drawing", "Drawing and cut list (D)"]]:
 		var b := Button.new(); b.text = spec[0]; b.tooltip_text = spec[2]; b.focus_mode = Control.FOCUS_NONE
 		b.pressed.connect(_menu.bind(spec[1]))
@@ -637,7 +639,7 @@ var infer                           # inference.gd: the one snapping engine
 func _make_tools() -> void:
 	infer = load("res://inference.gd").new()
 	infer.m = self
-	for k in ["rect", "push", "move"]:
+	for k in ["select", "rect", "push", "move"]:
 		tools[k] = load("res://tools/%s_tool.gd" % k).new()
 		tools[k].setup(self)
 
@@ -723,6 +725,108 @@ func _update_tip(screen: Vector2) -> void:
 	ui_tip.visible = txt != ""
 	ui_tip.text = txt
 	ui_tip.position = screen + Vector2(22, 20)
+
+
+# ---------------- assemblies, arrays you enter, selection (T20, I32) ----------------
+# From outside, a board in an assembly stands for the whole assembly, and a copy in an array for its whole row.
+# Double-click (Select) enters one: the rest greys out and can't be picked; new boards drawn inside join the
+# assembly; inside an array a copy moves alone (it leaves the row). Esc clears the selection, then leaves.
+var body_assembly := {}             # board id -> assembly id, "" if none
+var body_row := {}                  # board id -> the original its array row was copied from, "" if none
+var context := ""                   # "" outside; "assembly:<id>" or "row:<original>" inside
+var selection: Array = []
+var _sel_overlay: MeshInstance3D
+var mat_ghost: StandardMaterial3D
+
+
+func unit_of(bid: String) -> Dictionary:
+	"""What a tool acts on when you point at this board from where you are."""
+	if bid == "": return {}
+	if context == "":
+		var a: String = body_assembly.get(bid, "")
+		if a != "":
+			return {"id": a, "kind": "assembly", "bodies": body_assembly.keys().filter(func(b): return body_assembly[b] == a)}
+		var r: String = body_row.get(bid, "")
+		if r != "":
+			return {"id": bid, "kind": "row", "bodies": body_row.keys().filter(func(b): return body_row[b] == r)}
+	return {"id": bid, "kind": "board", "bodies": [bid]}
+
+
+func unit_tris(unit: Dictionary) -> PackedVector3Array:
+	var t := PackedVector3Array()
+	for b in unit.get("bodies", []): t.append_array(body_tris.get(b, PackedVector3Array()))
+	return t
+
+
+func in_context(bid: String) -> bool:
+	if context == "" or bid == "": return true
+	if context.begins_with("assembly:"): return body_assembly.get(bid, "") == context.substr(9)
+	return body_row.get(bid, "") == context.substr(4)
+
+
+func edit_blocked(bid: String) -> bool:
+	"""From outside, an assembly's boards are edited by entering it (SketchUp)."""
+	if context == "" and body_assembly.get(bid, "") != "":
+		_say_status("Double-click the assembly (Select tool) to edit inside it")
+		return true
+	return false
+
+
+func context_assembly() -> String:
+	return context.substr(9) if context.begins_with("assembly:") else ""
+
+
+func enter_context_of(bid: String) -> void:
+	if bid == "" or context != "": return
+	if body_assembly.get(bid, "") != "": context = "assembly:" + body_assembly[bid]
+	elif body_row.get(bid, "") != "": context = "row:" + body_row[bid]
+	else: return
+	set_selection([])
+	_apply_context()
+	ui_hint.text = "Inside %s. Esc to leave" % ("the assembly" if context.begins_with("assembly:") else "the array")
+
+
+func leave_context() -> void:
+	context = ""
+	_apply_context()
+	ui_hint.text = tools[tool].hint()
+
+
+func _apply_context() -> void:
+	"""Grey out, and make unpickable, every board outside the one you're in."""
+	if mat_ghost == null:
+		mat_ghost = StandardMaterial3D.new()
+		mat_ghost.albedo_color = Color(0.75, 0.75, 0.78, 0.35)
+		mat_ghost.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	for node in bodies_root.get_children():
+		if not node.has_meta("body_mesh"): continue
+		var inside := in_context(String(node.name))
+		node.material_override = null if inside else mat_ghost
+		var edges: MeshInstance3D = node.get_meta("edges")
+		edges.visible = inside
+		for c in node.get_children():
+			if c is StaticBody3D: c.collision_layer = 1 if inside else 0
+
+
+func set_selection(ids: Array) -> void:
+	selection = ids
+	if _sel_overlay == null:
+		_sel_overlay = MeshInstance3D.new(); add_child(_sel_overlay)
+	var t := PackedVector3Array()
+	for b in ids: t.append_array(body_tris.get(b, PackedVector3Array()))
+	_sel_overlay.mesh = _tri_mesh(t, mat_selected) if not t.is_empty() else null
+
+
+func make_assembly() -> void:
+	var ids := selection.filter(func(b): return body_assembly.get(b, "") == "")
+	if ids.is_empty():
+		_say_status("Select the boards first (Select tool, Shift-click to add)"); return
+	counters["as"] += 1; counters["a"] += 1
+	ops.append({"id": "as%d" % counters["as"], "type": "make_assembly", "targets": ids, "new_id": "a%d" % counters["a"],
+				"name": "Assembly %d" % counters["a"]})
+	set_selection([])
+	sync()
+	_say_status("Assembly of %d board%s: double-click it to edit inside" % [ids.size(), "" if ids.size() == 1 else "s"])
 
 
 # ---------------- linked boards (T12: A22c, I28, Q28, Q29) ----------------
@@ -912,10 +1016,12 @@ func _after_removal() -> void:
 func _restore_counters() -> void:
 	for op in ops:
 		var id: String = op["id"]
-		for k in ["pp", "mv", "mu", "dt", "r", "m"]:
+		for k in ["pp", "mv", "mu", "dt", "as", "r", "m"]:
 			if id.begins_with(k) and id.substr(k.length()).is_valid_int():
 				counters[k] = maxi(counters[k], int(id.substr(k.length())))
 				break
+		if op["type"] == "make_assembly" and String(op["new_id"]).substr(1).is_valid_int():
+			counters["a"] = maxi(counters["a"], int(String(op["new_id"]).substr(1)))
 		var made: Array = op.get("new_ids", [])
 		if op.has("body"): made = [op["body"]]
 		for bid in made:
@@ -1044,10 +1150,11 @@ func _apply_confirmed(dir: String, key: String) -> void:
 	var data = JSON.parse_string(FileAccess.get_file_as_string(dir.path_join("bodies.json")))
 	if typeof(data) != TYPE_ARRAY: return
 	var files := {}
-	body_family = {}; body_array = {}
+	body_family = {}; body_array = {}; body_assembly = {}; body_row = {}
 	for b in data:
 		files[b["id"]] = b["mesh"]
 		body_family[b["id"]] = b.get("family", ""); body_array[b["id"]] = b.get("array", "")
+		body_assembly[b["id"]] = b.get("assembly", ""); body_row[b["id"]] = b.get("row", "")
 		if not _boards.has(b["mesh"]):
 			_boards[b["mesh"]] = _build_board(dir, b)
 	_load_cuts(dir)
@@ -1107,6 +1214,7 @@ func _show_boards(files: Dictionary) -> void:
 		for oid in op_waves:                         # a wave running for this board carries onto it
 			if bid in op_waves[oid]["bodies"]:
 				_attach_wave(oid, node, edges, _base_of(node))
+	_apply_context()
 
 
 # ---------------- confirmed states (T10) ----------------
@@ -1623,8 +1731,9 @@ func _make_menus() -> void:
 	var spec := [
 		["File", [["New…", "new", KEY_MASK_META | KEY_N], ["Open…", "open", KEY_MASK_META | KEY_O], [],
 				  ["Show in Finder", "reveal", 0], [], ["Drawing and cut list (D)", "drawing", 0]]],
-		["Edit", [["Undo", "undo", KEY_MASK_META | KEY_Z], [], ["Make unique (U)", "unique", 0], ["Detach from array", "detach", 0]]],
-		["Tools", [["Rectangle (R)", "rect", 0], ["Push/Pull (P)", "push", 0], ["Move (M)", "move", 0]]],
+		["Edit", [["Undo", "undo", KEY_MASK_META | KEY_Z], [], ["Make assembly", "assemble", KEY_MASK_META | KEY_G],
+				  ["Make unique (U)", "unique", 0], ["Detach from array", "detach", 0]]],
+		["Tools", [["Select (Space)", "select", 0], ["Rectangle (R)", "rect", 0], ["Push/Pull (P)", "push", 0], ["Move (M)", "move", 0]]],
 		["View", [["Grid snap (G)", "grid", -1], ["New board on faces (B)", "newboard", -1]]],
 	]
 	for m in spec:
@@ -1657,7 +1766,8 @@ func _menu(tag) -> void:
 		"reveal": OS.shell_show_in_file_manager(model_path)
 		"drawing": export_drawing()
 		"undo": undo()
-		"rect", "push", "move": set_tool(tag)
+		"select", "rect", "push", "move": set_tool(tag)
+		"assemble": make_assembly()
 		"unique": _linked_op("make_unique")
 		"detach": _linked_op("detach")
 		"grid": grid_snap = not grid_snap; _update_toggles()
@@ -1719,6 +1829,8 @@ func _unhandled_input(e: InputEvent) -> void:
 			var amount := clampf(e.factor if e.factor > 0.0 else 1.0, 0.0, ZOOM_MAX_STEPS)
 			var step := pow(ZOOM_STEP, amount)
 			_zoom(step if e.button_index == MOUSE_BUTTON_WHEEL_UP else 1.0 / step, e.position)
+		elif e.button_index == MOUSE_BUTTON_LEFT and e.pressed and e.double_click:
+			tools[tool].double_click(e.position)
 		elif e.button_index == MOUSE_BUTTON_LEFT and e.pressed:
 			tool_click(e.position)
 		elif e.button_index == MOUSE_BUTTON_LEFT:
@@ -1751,9 +1863,14 @@ func _unhandled_input(e: InputEvent) -> void:
 	elif e is InputEventKey and e.pressed and not e.echo:
 		if (e.ctrl_pressed or e.meta_pressed) and e.keycode == KEY_Z: _menu("undo"); return    # Cmd+Z on a Mac
 		if (e.ctrl_pressed or e.meta_pressed) and e.keycode == KEY_N: _menu("new"); return
+		if (e.ctrl_pressed or e.meta_pressed) and e.keycode == KEY_G: _menu("assemble"); return
 		if (e.ctrl_pressed or e.meta_pressed) and e.keycode == KEY_O: _menu("open"); return
 		match e.keycode:
-			KEY_ESCAPE: set_tool(tool); return
+			KEY_ESCAPE:
+				if not selection.is_empty(): set_selection([])
+				elif context != "": leave_context()
+				else: set_tool(tool)
+				return
 			KEY_ENTER, KEY_KP_ENTER: apply_vcb(); return
 			KEY_BACKSPACE: vcb = vcb.left(-1); _update_vcb(); return
 		var ch := char(e.unicode) if e.unicode > 0 else ""
@@ -1762,6 +1879,7 @@ func _unhandled_input(e: InputEvent) -> void:
 		if t.busy() and ch != "" and t.accepts(ch):
 			vcb += ch; _update_vcb(); return
 		match e.keycode:
+			KEY_SPACE: set_tool("select")
 			KEY_R: set_tool("rect")
 			KEY_P: set_tool("push")
 			KEY_M: set_tool("move")

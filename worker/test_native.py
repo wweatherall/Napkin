@@ -547,4 +547,35 @@ how, _ = s.sync(MO[:3])
 check("undo it all back to the first copy", how.startswith("undid") and len(bodies_of(s)) == 2, (how, sorted(bodies_of(s))))
 s.close()
 
+# ---------- N. assemblies (T20) ----------
+NO = [ground_rect("r1", [0, 0, 0], [100, 50]), push("p1", "r1", 18, "b1"),
+      ground_rect("r2", [0, 100, 0], [100, 50]), push("p2", "r2", 18, "b2"),
+      ground_rect("r3", [300, 0, 0], [100, 50]), push("p3", "r3", 18, "b3"),
+      {"id": "as1", "type": "make_assembly", "targets": ["b1", "b2"], "new_id": "a1", "name": "Drawer"}]
+s = Session(None)
+s.sync(NO)
+a1 = s.model.assemblies().get("a1")
+check("two boards grouped into an assembly", a1 is not None and sorted(o.BodyId for o in a1.Group) == ["b1", "b2"],
+      a1 and [o.Label for o in a1.Group])
+NO += [{"id": "mva", "type": "move", "targets": ["a1"], "vector": [0, 0, 200]}]
+s.sync(NO)
+check("moving the assembly moves both boards, not the third", bx(s, "b1")[2] == 200 and bx(s, "b2")[2] == 200 and bx(s, "b3")[2] == 0,
+      [bx(s, b) for b in ("b1", "b2", "b3")])
+NO += [face_rect("rn1", "b1", [50, 25, 218], [20, 20]), push("pn1", "rn1", -18)]
+s.sync(NO)
+check("a hole drawn inside the moved assembly lands on its board", bodies_of(s)["b1"][0] == 100 * 50 * 18 - 20 * 20 * 18, bodies_of(s)["b1"][0])
+NO += [{"id": "mvc", "type": "move", "targets": ["b1"], "vector": [500, 0, 0], "copy": True, "count": 2, "new_ids": ["b4", "b5"]},
+       {"id": "mvd", "type": "move", "targets": ["b5"], "vector": [0, 300, 0], "detach": True}]
+s.sync(NO)
+check("inside an entered array, a copy moves alone and leaves the row (I32)",
+      bx(s, "b5")[:2] == (1000, 300) and bx(s, "b4")[:2] == (500, 0) and not s.model.body("b5").SSArray, [bx(s, b) for b in ("b4", "b5")])
+s.export(os.path.join(tmp, "n_out"))
+asm = {e["id"]: e.get("assembly", "") for e in json.load(open(os.path.join(tmp, "n_out", "bodies.json")))}
+check("bodies.json says which assembly each board is in (copies made of a member join it)",
+      asm["b1"] == asm["b2"] == asm["b4"] == asm["b5"] == "a1" and asm["b3"] == "", asm)
+check("statuses all ok", all(st == "ok" for _, st in statuses(s)), [x for x in statuses(s) if x[1] != "ok"])
+how, _ = s.sync(NO[:6])
+check("undo back to before the assembly", how.startswith("undid") and not s.model.assemblies(), how)
+s.close()
+
 print(f"\nNATIVE TESTS: {R[0]} passed, {R[1]} failed")

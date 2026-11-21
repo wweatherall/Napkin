@@ -210,8 +210,11 @@ func _move_click(screen: Vector2) -> void:
 		if not p.get("hit", false) or p["body"] == "" or not m.body_tris.has(p["body"]): return
 		last_oid = ""
 		var tris: PackedVector3Array = m.body_tris[p["body"]]
-		var cut := m._cut_at(p["body"], p["point"])
+		var unit := m.unit_of(p["body"])             # from outside: the whole assembly, or the array's row (I32)
+		var cut := m._cut_at(p["body"], p["point"]) if unit["kind"] != "assembly" else {}
 		var cut_ref := {}
+		if unit["kind"] != "board":
+			tris = m.unit_tris(unit)
 		if not cut.is_empty():                       # clicked a hole: move / copy the hole, not the board
 			cut_ref = {"body": p["body"], "op": cut["op"], "kind": cut["kind"]}
 			tris = m._cut_tris(p["body"], cut["op"])
@@ -225,7 +228,7 @@ func _move_click(screen: Vector2) -> void:
 					  "vec": Vector3.ZERO, "lock": -1, "lock_mode": "free", "inferred": -1, "kind": "",
 					  "count": 1, "divide": false, "lo": lo, "hi": hi,
 					  "face_ax": fax, "face_c": snappedf(p["point"][fax], 0.01), "face_sign": signf(n[fax]),
-					  "cut": cut_ref}
+					  "cut": cut_ref, "unit": unit}
 	elif mirror and state.get("cut", {}).is_empty():
 		commit_mirror_move(state["mir_ax"], state["mir_c"])
 	else:
@@ -316,8 +319,11 @@ func _move_offsets(vec: Vector3, count: int, divide: bool, copy: bool) -> Array:
 
 func _preview_move() -> void:
 	var all := PackedVector3Array()
+	var src: PackedVector3Array = state["tris"]
+	if copy and state.get("unit", {}).get("kind", "") == "row":
+		src = m.body_tris[state["body"]]              # copying from a row copies just that board
 	for off in _move_offsets(state["vec"], state["count"], state["divide"], copy):
-		for q in state["tris"]: all.append(q + off)
+		for q in src: all.append(q + off)
 	m.overlay.mesh = m._tri_mesh(all, m.mat_draft if state.get("cut", {}).is_empty() else m.mat_cut)
 	m.overlay_lines.mesh = m._lines(Main.feature_edges(all), Color(0.6, 0.35, 0.0)).mesh
 	m._update_vcb()
@@ -330,11 +336,18 @@ func commit_move(vec: Vector3, count := 1, divide := false, reuse_oid := "") -> 
 		_commit_cut_move(vec, count, divide, reuse_oid)
 		return
 	var body: String = state.get("body", "")
+	var unit: Dictionary = state.get("unit", {"kind": "board", "bodies": [body]})
+	if copy and unit["kind"] == "assembly":
+		m._say_status("Copying an assembly isn't built yet: enter it and copy its boards")
+		return
 	var oid := reuse_oid
 	if oid == "":
 		m.counters["mv"] += 1
 		oid = "mv%d" % m.counters["mv"]
-	var op := {"id": oid, "type": "move", "targets": [body], "vector": Main.arr3(vec), "copy": copy}
+	var op := {"id": oid, "type": "move", "targets": [unit["id"] if unit["kind"] == "assembly" else body],
+			   "vector": Main.arr3(vec), "copy": copy}
+	if not copy and m.context.begins_with("row:") and m.body_array.get(body, "") != "":
+		op["detach"] = true                          # inside an entered array a copy moves alone (I32)
 	var offsets := _move_offsets(vec, count, divide, copy)
 	var made := []
 	if copy:
@@ -352,9 +365,16 @@ func commit_move(vec: Vector3, count := 1, divide := false, reuse_oid := "") -> 
 	var src: PackedVector3Array = state["tris"]
 	memo[oid] = {"tris": src, "ref": state["ref"]}
 	var wave_bodies := made if copy else [body]
+	var srcs := []
+	for i in offsets.size(): srcs.append(m.body_tris[body] if copy and unit["kind"] != "board" else src)
+	if not copy and unit["kind"] != "board":       # the whole assembly / row moves: one draft per board
+		wave_bodies = unit["bodies"]
+		srcs = []; offsets = []
+		for b in wave_bodies:
+			srcs.append(m.body_tris.get(b, PackedVector3Array())); offsets.append(vec)
 	for i in offsets.size():
 		var moved := PackedVector3Array()
-		for q in src: moved.append(q + offsets[i])
+		for q in srcs[i]: moved.append(q + offsets[i])
 		all.append_array(moved)
 		var mi := MeshInstance3D.new()
 		mi.mesh = m._tri_mesh(moved, m.mat_draft)
@@ -371,8 +391,9 @@ func commit_move(vec: Vector3, count := 1, divide := false, reuse_oid := "") -> 
 			for q in moved: lo = lo.min(q); hi = hi.max(q)
 			m.draft_bboxes[bid] = [Main.arr3(lo), Main.arr3(hi)]
 	if not copy:
-		for n in m.bodies_root.find_children(body, "MeshInstance3D", true, false):
-			n.visible = false            # it has left: hide the old spot until FreeCAD's mesh arrives
+		for b in wave_bodies:
+			for n in m.bodies_root.find_children(b, "MeshInstance3D", true, false):
+				n.visible = false        # it has left: hide the old spot until FreeCAD's mesh arrives
 	var dest: Vector3 = state["ref"] + offsets[offsets.size() - 1]
 	m._begin_wave(oid, dest, all, copy, wave_bodies)
 	for i in root.get_child_count():

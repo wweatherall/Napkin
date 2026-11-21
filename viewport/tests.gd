@@ -71,6 +71,36 @@ func _press() -> void:
 	await _frames(1)
 
 
+func _click_at(p_model: Vector3) -> void:
+	await _drag_to(p_model, 6); await _press()
+
+
+func _double_click_at(p_model: Vector3) -> void:
+	await _drag_to(p_model, 6)
+	var s: Vector2 = m.cursor2d.position
+	var ev := InputEventMouseButton.new()
+	ev.button_index = MOUSE_BUTTON_LEFT; ev.pressed = true; ev.double_click = true
+	ev.position = s; ev.global_position = s
+	Input.parse_input_event(ev)
+	var up := ev.duplicate(); up.pressed = false; up.double_click = false
+	Input.parse_input_event(up)
+	await _frames(1)
+
+
+func _key_state(k: Key, down: bool) -> void:
+	var ev := InputEventKey.new(); ev.keycode = k; ev.pressed = down
+	Input.parse_input_event(ev)
+	await _frames(1)
+
+
+func _key_cmd(k: Key) -> void:
+	var ev := InputEventKey.new(); ev.keycode = k; ev.pressed = true; ev.meta_pressed = true
+	Input.parse_input_event(ev)
+	var up := ev.duplicate(); up.pressed = false
+	Input.parse_input_event(up)
+	await _frames(1)
+
+
 func _hold(frames: int) -> void:
 	await _frames(frames)
 
@@ -1201,6 +1231,47 @@ func _run_quick_test() -> void:
 	m._menu("detach")
 	await _wait_wave()
 	_ok("Edit > Detach from array takes it out of the row", m.body_array.get(det, "x") == "" and m.body_family.get(det, "") != "", [det, m.body_array, m.body_family])
+
+	# 5c. Assemblies you enter (T20, I32): select two boards, Cmd+G, move them as one, enter, draw inside, leave
+	await _fresh("assembly", _plank(1, Vector3.ZERO, Vector3(100, 50, 18)) + _plank(2, Vector3(0, 100, 0), Vector3(100, 50, 18))
+		+ _plank(3, Vector3(300, 0, 0), Vector3(100, 50, 18)))
+	await _view(Vector3(200, 75, 0), -25, -50, 1.4)
+	await _key(KEY_SPACE)
+	await _click_at(Vector3(50, 25, 18))
+	await _key_state(KEY_SHIFT, true)
+	await _click_at(Vector3(50, 125, 18))
+	await _key_state(KEY_SHIFT, false)
+	_ok("Select: click, then Shift-click adds", m.selection == ["b1", "b2"], m.selection)
+	await _key_cmd(KEY_G)
+	await _wait_wave()
+	_ok("Cmd+G makes an assembly of them", m.body_assembly.get("b1", "") != "" and m.body_assembly["b1"] == m.body_assembly.get("b2", "")
+		and m.body_assembly.get("b3", "") == "", m.body_assembly)
+	_ok("from outside, a board stands for its assembly", m.unit_of("b1")["bodies"].size() == 2, m.unit_of("b1"))
+	m.set_tool("move")
+	await _grab(Vector3(50, 25, 18))
+	await _key(KEY_UP)
+	await _drag_to(Vector3(50, 25, 60), 6)
+	await _type("100\n")
+	await _wait_wave()
+	_ok("moving one of its boards moves the whole assembly", _bbox("b1")[2] == 100.0 and _bbox("b2")[2] == 100.0 and _bbox("b3")[2] == 0.0,
+		[_bbox("b1"), _bbox("b2"), _bbox("b3")])
+	m.set_tool("rect")
+	var n_rects: int = m.rects.size()
+	await _click_at(Vector3(50, 25, 118))
+	_ok("from outside, drawing on an assembly's board is refused with a hint", m.rects.size() == n_rects and not m.tools["rect"].state.get("active", false),
+		m.ui_sync.text)
+	await _key(KEY_ESCAPE)
+	m.set_tool("select")
+	await _double_click_at(Vector3(50, 25, 118))
+	_ok("double-click enters the assembly", m.context == "assembly:" + m.body_assembly["b1"] and not m.in_context("b3"), m.context)
+	m.set_tool("rect")
+	await _rect(Vector3(20, 10, 118), Vector3(60, 40, 118), "40,30")
+	await _push(Vector3(40, 25, 118), Vector3(40, 25, 108), "-18")
+	await _wait_wave()
+	_ok("inside, a hole on its board works", _bodies()["b1"]["volume_mm3"] == 100.0 * 50 * 18 - 40 * 30 * 18, _bodies()["b1"]["volume_mm3"])
+	await _key(KEY_ESCAPE)
+	await _key(KEY_ESCAPE)
+	_ok("Esc leaves", m.context == "", m.context)
 
 	# 6. Undo (A28): every undo shows at once, the 21st rebuilds in FreeCAD
 	await _fresh("undo")

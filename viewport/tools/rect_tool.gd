@@ -33,6 +33,7 @@ func click(screen: Vector2) -> void:
 	if not state.get("active", false):
 		var p := m.snap(m.pick(screen), screen)
 		if not p.get("hit", false): return
+		if m.edit_blocked(p["body"]): return
 		var n: Vector3 = p["normal"]
 		var b := Main.plane_basis(n)
 		var on: String = p["body"]
