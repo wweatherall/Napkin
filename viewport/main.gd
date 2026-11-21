@@ -4,8 +4,6 @@ extends Node3D
 
 const WorkerClient := preload("res://worker_client.gd")
 const Units := preload("res://units.gd")
-const WAVE := preload("res://confirm_wave.gdshader")
-const WAVE_LINES := preload("res://confirm_wave_lines.gdshader")
 const LINE_SHADER := preload("res://line.gdshader")
 const GRID := 10.0            # mm, grid snap step
 const SNAP_PX := 14.0         # endpoint snap radius on screen
@@ -73,11 +71,54 @@ var overlay: MeshInstance3D
 var overlay_lines: MeshInstance3D
 var marker: MeshInstance3D
 
-var body_tris := {}           # body id -> PackedVector3Array (model mm, 3 per tri)
-var body_verts := {}          # body id -> PackedVector3Array (unique corners)
-var rects := {}               # rect id -> {"tris","n","on","pts"}
-var drafts := {}              # op id -> Node3D
-var body_cuts := {}      # body id -> [{op, kind, lo, hi}] from FreeCAD: holes and added pieces
+# What's on screen (boards' triangles, corners, edges and cuts; drafts; confirmed boards; remembered states; waves)
+# lives in the presenter (presenter.gd, A33b, T41). These names forward to it, so tools and tests keep m.body_tris.
+var pres = load("res://presenter.gd").new()
+var body_tris: Dictionary:          # body id -> PackedVector3Array (model mm, 3 per tri)
+	get: return pres.body_tris
+var body_verts: Dictionary:         # body id -> PackedVector3Array (unique corners)
+	get: return pres.body_verts
+var body_edges: Dictionary:         # body id -> feature edge segments (model mm)
+	get: return pres.body_edges
+var body_cuts: Dictionary:          # body id -> [{op, kind, lo, hi}] from FreeCAD: holes and added pieces
+	get: return pres.body_cuts
+var rects: Dictionary:              # rect id -> {"tris","n","on","pts"}
+	get: return pres.rects
+var drafts: Dictionary:             # op id -> Node3D
+	get: return pres.drafts
+var op_waves: Dictionary:           # op id -> wave state
+	get: return pres.op_waves
+var shown_key: String:              # the confirmed state on screen
+	get: return pres.shown_key
+var predicted_undo: bool:           # the model on screen is a remembered state; FreeCAD is still catching up
+	get: return pres.predicted_undo
+	set(v): pres.predicted_undo = v
+var trace_wave: String:             # test hook: record this op's front over time
+	get: return pres.trace_wave
+	set(v): pres.trace_wave = v
+var trace_rows: Array[String]:
+	get: return pres.trace_rows
+func _register_rect(op: Dictionary) -> void: pres.register_rect(op)
+func _begin_wave(oid: String, origin_m: Vector3, tris: PackedVector3Array, is_new: bool, body) -> void:
+	pres.begin_wave(oid, origin_m, tris, is_new, body)
+func _attach_wave(oid: String, mi: MeshInstance3D, edges: MeshInstance3D, base: Color) -> void:
+	pres.attach_wave(oid, mi, edges, base)
+func _end_wave(oid: String) -> void: pres.end_wave(oid)
+func _show_state(key: String) -> bool: return pres.show_state(key)
+func _cut_at(bid: String, pt: Vector3) -> Dictionary: return pres.cut_at(bid, pt)
+func _cut_tris(bid: String, op_id: String) -> PackedVector3Array: return pres.cut_tris(bid, op_id)
+func _base_of(mi: MeshInstance3D) -> Color: return pres.base_of(mi)
+
+
+func _make_presenter() -> void:
+	pres.name = "Presenter"
+	pres.m = self
+	pres.sel = sel
+	add_child(pres)
+	pres.boards_read.connect(_on_boards_read)
+	pres.wave_rejected_done.connect(_on_wave_rejected_done)
+
+
 var fx_points := {}           # op id -> model point where the operation ended (wave origin)
 var fx_test := false
 var breath_test := false
@@ -175,6 +216,7 @@ static func plane_basis(n: Vector3) -> Array:
 
 # ---------------- setup ----------------
 func _ready() -> void:
+	_make_presenter()
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--oplog="): oplog_path = a.substr(8)
 		elif a.begins_with("--model="): model_path = a.substr(8)
@@ -768,25 +810,6 @@ static func _rect_pts(origin: Vector3, x: Vector3, y: Vector3, du: float, dv: fl
 	return PackedVector3Array([origin, origin + x * du, origin + x * du + y * dv, origin + y * dv])
 
 
-func _register_rect(op: Dictionary) -> void:
-	var pl: Dictionary = op["plane"]
-	var src: Dictionary = pl["on"] if pl.has("on") else pl
-	var origin := Vector3(src["point"][0], src["point"][1], src["point"][2]) if pl.has("on") else Vector3(src["origin"][0], src["origin"][1], src["origin"][2])
-	var n := Vector3(src["normal"][0], src["normal"][1], src["normal"][2])
-	var b := plane_basis(n)
-	var corner: Array = op.get("corner", [0, 0])     # optional, as in the worker
-	var o2: Vector3 = origin + b[0] * float(corner[0]) + b[1] * float(corner[1])
-	var pts := _rect_pts(o2, b[0], b[1], op["size"][0], op["size"][1])
-	var tris := PackedVector3Array([pts[0], pts[1], pts[2], pts[0], pts[2], pts[3]])
-	rects[op["id"]] = {"tris": tris, "n": n, "on": src.get("body", "") if pl.has("on") else "", "pts": pts}
-	var mi := MeshInstance3D.new()
-	mi.mesh = _tri_mesh(tris, mat_rect)
-	mi.add_child(_lines(PackedVector3Array([pts[0], pts[1], pts[1], pts[2], pts[2], pts[3], pts[3], pts[0]]), Color(0.1, 0.2, 0.6)))
-	drafts_root.add_child(mi)
-	_add_collision(mi, "rect_id", op["id"])
-	drafts[op["id"]] = mi
-
-
 func _update_tip(screen: Vector2) -> void:
 	if ui_tip == null: return
 	var txt: String = tools[tool].tip()
@@ -825,10 +848,10 @@ var show_hidden: bool:              # View > Hidden geometry: hidden boards ghos
 var hover_body: String:             # the board under the cursor (Make unique / Detach / Hide act on it)
 	get: return sel.hover_body
 	set(v): sel.hover_body = v
-var _plane_node: MeshInstance3D     # the mirror plane, shown inside an entered mirror group (A11b)
-var _sel_overlay: MeshInstance3D
-var mat_ghost: StandardMaterial3D
-var mat_hidden_ghost: StandardMaterial3D
+var _plane_node: MeshInstance3D:    # the mirror plane, shown inside an entered mirror group (A11b; the presenter's)
+	get: return pres.plane_node
+var mat_hidden_ghost: StandardMaterial3D:
+	get: return pres.mat_hidden_ghost
 
 
 func _make_selection() -> void:
@@ -839,7 +862,7 @@ func _make_selection() -> void:
 	sel.selection_changed.connect(_on_selection_changed)
 	sel.context_changed.connect(_on_context_changed)
 	sel.hidden_changed.connect(_on_hidden_changed)
-	sel.links_changed.connect(func(): _sibling_key = "-")
+	sel.links_changed.connect(pres.forget_siblings)
 	sel.say.connect(_say_status)
 
 
@@ -876,69 +899,17 @@ func _on_hidden_changed(by_op: bool) -> void:
 	_apply_context()
 	if by_op:
 		if overlay != null: overlay.mesh = null
-		_sibling_key = "-"
+		pres.forget_siblings()
 	else:
 		_update_menu_checks()
 
 
-func _apply_context() -> void:
-	"""Grey out, and make unpickable, every board outside the one you're in. Hidden boards (T28) are left out
-	altogether, or shown ghosted (and pickable, to unhide them) with View > Hidden geometry."""
-	if mat_ghost == null:
-		mat_ghost = StandardMaterial3D.new()
-		mat_ghost.albedo_color = Color(0.75, 0.75, 0.78, 0.35)
-		mat_ghost.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	if mat_hidden_ghost == null:
-		mat_hidden_ghost = StandardMaterial3D.new()
-		mat_hidden_ghost.albedo_color = Color(0.55, 0.6, 0.7, 0.25)
-		mat_hidden_ghost.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	sel.refresh_hidden()
-	for node in bodies_root.get_children():
-		if not node.has_meta("body_mesh"): continue
-		var bid := String(node.name)
-		var hidden := body_hidden.has(bid)
-		if hidden and not show_hidden:
-			node.visible = false; node.set_meta("ss_hidden", true)
-		elif node.get_meta("ss_hidden", false):
-			node.visible = true; node.set_meta("ss_hidden", false)
-		var inside := in_context(bid) and (not hidden or show_hidden)
-		node.material_override = (mat_hidden_ghost if hidden else null) if inside else mat_ghost
-		var edges: MeshInstance3D = node.get_meta("edges")
-		edges.visible = inside
-		for c in node.get_children():
-			if c is StaticBody3D: c.collision_layer = 1 if inside else 0
-	_show_mirror_plane()
-
-
-func _show_mirror_plane() -> void:
-	"""Inside a mirror group: its plane, as a soft sheet a little bigger than the pair."""
-	if _plane_node == null:
-		_plane_node = MeshInstance3D.new(); add_child(_plane_node)
-	_plane_node.mesh = null
-	var plane: Array = sel.mirror_plane_of_context()
-	if plane.is_empty(): return
-	var lo := Vector3(INF, INF, INF); var hi := -lo
-	for b in sel.members_of(context_assembly()):
-		for q in body_tris.get(b, PackedVector3Array()):
-			lo = lo.min(q); hi = hi.max(q)
-	var p0: Vector3 = plane[0]; var n: Vector3 = plane[1]
-	var basis := plane_basis(n)
-	var c := (lo + hi) * 0.5
-	c -= n * (c - p0).dot(n)                       # the middle of the pair, on the plane
-	var r := maxf((hi - lo).length() * 0.6, 50.0)
-	var u: Vector3 = basis[0] * r; var v: Vector3 = basis[1] * r
-	var quad := PackedVector3Array()
-	for q in [c - u - v, c + u - v, c + u + v, c - u - v, c + u + v, c - u + v]: quad.append(q)
-	_plane_node.mesh = _tri_mesh(quad, mat_plane)
+func _apply_context() -> void: pres.apply_context()
 
 
 func _on_selection_changed() -> void:
 	if properties_panel != null and properties_panel.visible: _request_properties()
-	if _sel_overlay == null:
-		_sel_overlay = MeshInstance3D.new(); add_child(_sel_overlay)
-	var t := PackedVector3Array()
-	for b in selection: t.append_array(body_tris.get(b, PackedVector3Array()))
-	_sel_overlay.mesh = _tri_mesh(t, mat_selected) if not t.is_empty() else null
+	pres.show_selection()
 
 
 func _request_properties() -> void:
@@ -1085,23 +1056,11 @@ func _turn_grain() -> void:
 # Copies share one definition: editing one edits all. While a tool is over a linked board its copies get a soft
 # tint and the tooltip counts them; U (Edit > Make unique) frees the board under the cursor, Edit > Detach from
 # array frees its position.
-var _sibling_overlay: MeshInstance3D
-var _sibling_key := ""
 
 
 func _show_siblings(bid: String) -> void:
 	hover_body = bid
-	var sib := _siblings_of(bid) if tool in ["rect", "push", "move", "paint"] else []
-	var key := ",".join(sib)
-	if key == _sibling_key: return
-	_sibling_key = key
-	if _sibling_overlay == null:
-		_sibling_overlay = MeshInstance3D.new(); add_child(_sibling_overlay)
-	_sibling_overlay.mesh = null
-	var tris := PackedVector3Array()
-	for b in sib: tris.append_array(body_tris.get(b, PackedVector3Array()))
-	if not tris.is_empty():
-		_sibling_overlay.mesh = _tri_mesh(tris, mat_sibling)
+	pres.show_siblings(_siblings_of(bid) if tool in ["rect", "push", "move", "paint"] else [])
 
 
 func _say_status(txt: String) -> void:
@@ -1112,7 +1071,6 @@ func _say_status(txt: String) -> void:
 # ---------------- snapping visuals (the engine is inference.gd) ----------------
 const SNAP_COLORS := {"endpoint": Color(0.1, 0.65, 0.1), "midpoint": Color(0.1, 0.7, 0.8), "on edge": Color(0.85, 0.15, 0.15),
 					  "on face": Color(0.2, 0.35, 0.95), "back face": Color(0.2, 0.35, 0.95), "face behind": Color(0.2, 0.35, 0.95)}
-var body_edges := {}            # body id -> feature edge segments (model mm)
 var guides: MeshInstance3D
 
 
@@ -1284,23 +1242,7 @@ func remove_op(oid: String, resync := true) -> void:
 
 func _on_op_removed(op: Dictionary) -> void:
 	"""The document dropped an op (undo, rejection): take away what it drew."""
-	var oid: String = op["id"]
-	_end_wave(oid)
-	if drafts.has(oid):
-		drafts[oid].queue_free(); drafts.erase(oid)
-	if op["type"] == "rect":
-		rects.erase(oid)
-	elif op["type"] in ["mirror", "move"]:
-		for nid in op.get("new_ids", []):
-			body_tris.erase(nid); body_verts.erase(nid); body_edges.erase(nid)
-	elif op["type"] == "push_pull":
-		if op.has("body"):
-			body_tris.erase(op["body"]); body_verts.erase(op["body"]); body_edges.erase(op["body"])
-		var rid: String = op["target"].get("rect", "")
-		if rid != "":
-			for r in ops:
-				if r["id"] == rid and not _consumed_rects().has(rid):
-					rects.erase(rid); _register_rect(r)
+	pres.forget_op(op, ops, _consumed_rects())
 
 
 func _on_removed() -> void:
@@ -1319,18 +1261,7 @@ func _consumed_rects() -> Dictionary:
 
 
 func _rebuild_rect_drafts() -> void:
-	var used := _consumed_rects()
-	for op in ops:
-		if op["type"] == "rect":
-			if used.has(op["id"]):
-				_register_rect_data_only(op)
-			elif not drafts.has(op["id"]):
-				_register_rect(op)
-
-
-func _register_rect_data_only(op: Dictionary) -> void:
-	_register_rect(op)
-	drafts[op["id"]].queue_free(); drafts.erase(op["id"])
+	pres.rebuild_rect_drafts(ops, _consumed_rects())
 
 
 # ---------------- worker sync ----------------
@@ -1393,13 +1324,8 @@ func _on_synced(resp: Dictionary) -> void:
 	for o in res["ops"]:
 		if o["status"] == "ok": ok_ids[o["id"]] = true
 	var key := _ops_key(ops.filter(func(op): return ok_ids.has(op["id"])))
-	if key != shown_key or not _states.has(key):        # already on screen (an undo shown from the cache): no reload
-		_apply_confirmed(resp["outdir"], key)
-	for k in drafts.keys():
-		var w = op_waves.get(k)
-		if w != null and w["state"] == "rejected": continue   # keep it until the red wave is done
-		if not rects.has(k) or _consumed_rects().has(k):
-			drafts[k].queue_free(); drafts.erase(k)
+	pres.show_confirmed(resp["outdir"], key)          # unless already on screen (an undo shown from the cache)
+	pres.drop_confirmed_drafts(_consumed_rects())     # a rejected draft stays until its red wave is done
 	if true_latency: doc.last_sync_ms = int((movie_clock - float(sent_clock.get(seq, movie_clock))) * 1000.0)
 	ui_sync.text = "✓ FreeCAD confirmed  (round trip %d ms)" % last_sync_ms
 	if res.get("how", "") == "rebuilt":
@@ -1416,265 +1342,27 @@ func _on_synced(resp: Dictionary) -> void:
 		remove_op(oid)
 
 
-# ---------------- confirmed boards (T3) ----------------
-# Each board FreeCAD confirmed is a node built from its own file (worker: meshes/<board>-<key>.bin: triangles,
-# normals, and FreeCAD's exact edges and corners). A reply builds only the files it hasn't seen; every other
-# board stays on screen untouched. Nodes are shared by the remembered states below.
-const M2G_BASIS := Basis(Vector3(1, 0, 0), Vector3(0, 0, -1), Vector3(0, 1, 0))     # model Z-up -> Godot Y-up
-var _boards := {}             # mesh file -> {"node", "bid", "tris", "verts", "edges"}
-
-
+# ---------------- confirmed boards (presenter.gd) ----------------
 func _apply_confirmed(dir: String, key: String) -> void:
-	var data = JSON.parse_string(FileAccess.get_file_as_string(dir.path_join("bodies.json")))
-	if typeof(data) != TYPE_ARRAY: return
-	var files := {}
+	pres.apply_confirmed(dir, key)
+
+
+func _on_boards_read(data: Array, dir: String) -> void:
+	"""bodies.json, before the presenter builds from it: what each board belongs to, and its wood."""
 	sel.set_boards(data)
 	if wood_library.is_empty(): _load_wood_library(dir)
-	for b in data:
-		var vkey := "%s|%s|%s|%s" % [b["mesh"], b.get("material", ""), b.get("grain", []), b.get("across", [])]
-		files[b["id"]] = vkey                        # a repaint or a turned grain is a new look for the same mesh
-		body_material[b["id"]] = b.get("material", "")
-		if not _boards.has(vkey):
-			_boards[vkey] = _build_board(dir, b)
-	_load_cuts(dir)
-	_show_boards(files)
-	_remember_state(key, files)
-	_sibling_key = "-"
-
-
-func _build_board(dir: String, b: Dictionary) -> Dictionary:
-	var bid: String = b["id"]
-	var bytes := FileAccess.get_file_as_bytes(dir.path_join("meshes").path_join(b["mesh"]))
-	var parts := []
-	var off := 0
-	for i in 4:                                      # tris, normals, edges, corners: Godot's own array format
-		var size := 8 + int(bytes.decode_u32(off + 4)) * 12
-		parts.append(bytes_to_var(bytes.slice(off, off + size)))
-		off += size
-	var tris: PackedVector3Array = parts[0]
-	var mi := MeshInstance3D.new()
-	mi.name = bid
-	if not tris.is_empty():
-		var arr := []
-		arr.resize(Mesh.ARRAY_MAX)
-		arr[Mesh.ARRAY_VERTEX] = Transform3D(M2G_BASIS * 0.001, Vector3.ZERO) * tris
-		arr[Mesh.ARRAY_NORMAL] = Transform3D(M2G_BASIS, Vector3.ZERO) * (parts[1] as PackedVector3Array)
-		var mesh := ArrayMesh.new()
-		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
-		var base := Color(b["color"][0], b["color"][1], b["color"][2]).linear_to_srgb()   # as glTF import did
-		var wood := _wood_material(bid, b, base)
-		if wood != null:
-			mesh.surface_set_material(0, wood)
-		else:
-			var mat := StandardMaterial3D.new()
-			mat.albedo_color = base
-			mat.roughness = 0.85
-			mesh.surface_set_material(0, mat)
-		mi.mesh = mesh
-		_add_collision(mi, "body_id", bid)
-	var edges := _lines(parts[2], Color(0.08, 0.08, 0.08))
-	mi.add_child(edges)
-	mi.set_meta("body_mesh", true); mi.set_meta("edges", edges)
-	return {"node": mi, "bid": bid, "tris": tris, "verts": parts[3], "edges": parts[2]}
-
-
-func _show_boards(files: Dictionary) -> void:
-	"""Put exactly these boards (board id -> mesh file) on screen, keeping the ones already there."""
-	var want := {}
-	for bid in files: want[_boards[files[bid]]["node"]] = files[bid]
-	for c in bodies_root.get_children():
-		if not want.has(c): bodies_root.remove_child(c)
-	body_tris = {}; body_verts = {}; body_edges = {}
-	for node in want:
-		var e: Dictionary = _boards[want[node]]
-		var bid: String = e["bid"]
-		body_tris[bid] = e["tris"]; body_verts[bid] = e["verts"]; body_edges[bid] = e["edges"]
-		if node.get_parent() == bodies_root: continue
-		bodies_root.add_child(node)
-		node.visible = true                          # a move hides the board's old spot until FreeCAD answers
-		node.material_override = null                # a wave that ran on it earlier is over
-		var edges: MeshInstance3D = node.get_meta("edges")
-		edges.material_override = null
-		for oid in op_waves:                         # a wave running for this board carries onto it
-			if bid in op_waves[oid]["bodies"]:
-				_attach_wave(oid, node, edges, _base_of(node))
-	_apply_context()
-
-
-# ---------------- confirmed states (T10) ----------------
-# The last few model states FreeCAD confirmed (which board files they had). Undo shows the previous one at once,
-# so you can keep undoing while FreeCAD catches up, even when it has to rebuild the whole model (its
-# command-line program keeps only 20 undo steps). FreeCAD's answer then matches what's on screen: no reload.
-const STATE_CACHE_MAX := 40
-var _states := {}             # ops key -> {"files": board id -> mesh file, "cuts"}
-var _state_lru: Array = []    # keys, oldest first
-var shown_key := ""           # the confirmed state on screen
-var predicted_undo := false   # the model on screen is a remembered state; FreeCAD is still catching up
+	for b in data: body_material[b["id"]] = b.get("material", "")
+	pres.forget_siblings()
 
 
 static func _ops_key(list: Array) -> String:
 	return Document.ops_key(list)
 
 
-func _remember_state(key: String, files: Dictionary) -> void:
-	_states[key] = {"files": files, "cuts": body_cuts.duplicate()}
-	_state_lru.erase(key); _state_lru.append(key)
-	shown_key = key
-	var evicted := false
-	while _state_lru.size() > STATE_CACHE_MAX:
-		var old: String = _state_lru.pop_front()
-		if old != shown_key: _states.erase(old); evicted = true
-	if evicted: _free_unused_boards()
-
-
-func _free_unused_boards() -> void:
-	var used := {}
-	for k in _states:
-		for bid in _states[k]["files"]: used[_states[k]["files"][bid]] = true
-	for f in _boards.keys():
-		if not used.has(f) and _boards[f]["node"].get_parent() != bodies_root:
-			_boards[f]["node"].queue_free()
-			_boards.erase(f)
-
-
-func _show_state(key: String) -> bool:
-	"""Put a remembered confirmed state back on screen (undo). False if it isn't remembered."""
-	if not _states.has(key): return false
-	if key == shown_key: return true
-	var st: Dictionary = _states[key]
-	body_cuts = st["cuts"].duplicate()
-	_show_boards(st["files"])
-	shown_key = key
-	_state_lru.erase(key); _state_lru.append(key)
-	return true
-
-
-func _load_cuts(dir: String) -> void:
-	body_cuts = {}
-	var path := dir.path_join("bodies.json")
-	if not FileAccess.file_exists(path): return
-	var data = JSON.parse_string(FileAccess.get_file_as_string(path))
-	if typeof(data) != TYPE_ARRAY: return
-	for b in data:
-		var lst := []
-		for c in b.get("cuts", []):
-			lst.append({"op": c["op"], "kind": c["kind"],
-				"lo": Vector3(c["lo"][0], c["lo"][1], c["lo"][2]), "hi": Vector3(c["hi"][0], c["hi"][1], c["hi"][2])})
-		body_cuts[b["id"]] = lst
-
-
-func _cut_at(bid: String, pt: Vector3) -> Dictionary:
-	"""The hole (or added piece) of a board under this point: its walls, floor or top."""
-	var best := {}
-	var best_vol := INF
-	for c in body_cuts.get(bid, []):
-		var lo: Vector3 = c["lo"] - Vector3.ONE * 0.3
-		var hi: Vector3 = c["hi"] + Vector3.ONE * 0.3
-		if pt.x >= lo.x and pt.y >= lo.y and pt.z >= lo.z and pt.x <= hi.x and pt.y <= hi.y and pt.z <= hi.z:
-			var sz: Vector3 = c["hi"] - c["lo"]
-			if sz.x * sz.y * sz.z < best_vol:                # the smallest one wins (a pin hole inside a dado)
-				best = c
-				best_vol = sz.x * sz.y * sz.z
-	return best
-
-
-static func _box_tris(lo: Vector3, hi: Vector3) -> PackedVector3Array:
-	var c := [Vector3(lo.x, lo.y, lo.z), Vector3(hi.x, lo.y, lo.z), Vector3(hi.x, hi.y, lo.z), Vector3(lo.x, hi.y, lo.z),
-		Vector3(lo.x, lo.y, hi.z), Vector3(hi.x, lo.y, hi.z), Vector3(hi.x, hi.y, hi.z), Vector3(lo.x, hi.y, hi.z)]
-	var out := PackedVector3Array()
-	for f in [[0, 1, 2, 3], [4, 5, 6, 7], [0, 1, 5, 4], [1, 2, 6, 5], [2, 3, 7, 6], [3, 0, 4, 7]]:
-		out.append_array([c[f[0]], c[f[1]], c[f[2]], c[f[0]], c[f[2]], c[f[3]]])
-	return out
-
-
-func _cut_tris(bid: String, op_id: String) -> PackedVector3Array:
-	var out := PackedVector3Array()
-	for c in body_cuts.get(bid, []):
-		if c["op"] == op_id: out.append_array(_box_tris(c["lo"], c["hi"]))
-	return out
-
-
-func _base_of(mi: MeshInstance3D) -> Color:
-	var m = mi.mesh.surface_get_material(0)
-	if m is ShaderMaterial and m.shader == WOOD: return m.get_shader_parameter("base_color")
-	return m.albedo_color if m is StandardMaterial3D else DEFAULT_BASE
-
-
-# ---------------- operation wave ----------------
-const DEFAULT_BASE := Color(0.82, 0.80, 0.76)
-const HOLD := 0.6          # fraction of the forward wave that runs before FreeCAD must have answered
-const REJECT_DUR := 0.6
-
-var op_waves := {}         # op id -> wave state
+# ---------------- the frame ----------------
+const DEFAULT_BASE := Color(0.82, 0.80, 0.76)   # a board's colour before FreeCAD says (tools start waves with it)
 var reject_note := ""
 var force_reject_next := false
-var trace_wave := ""       # test hook: record this op's front over time
-var trace_rows: Array[String] = []
-
-
-func _begin_wave(oid: String, origin_m: Vector3, tris: PackedVector3Array, is_new: bool, body) -> void:
-	var og := m2g(origin_m)
-	var reach := 0.0
-	for p in tris:
-		reach = maxf(reach, m2g(p).distance_to(og))
-	var dur := clampf(reach / 0.7, 0.5, 1.0)
-	op_waves[oid] = {"og": og, "reach": reach, "dur": dur, "tn": 0.0,
-					 "p": 0.0, "v": 1.0 / dur, "v1": 1.0 / dur,   # progress (0..1), velocity, and the first smoothing stage
-					 "hraw": 0.0, "held": 0.0, "t0": 0.0, "bphase": 0.0,
-					 "rt": -1.0, "state": "pending", "new": is_new, "body": body if body is String else "",
-					 "bodies": [body] if body is String else body, "links": []}
-
-
-func _attach_wave(oid: String, mi: MeshInstance3D, edges: MeshInstance3D, base: Color) -> void:
-	var w: Dictionary = op_waves[oid]
-	var sm := ShaderMaterial.new(); sm.shader = WAVE
-	sm.set_shader_parameter("base_color", Color(base.r, base.g, base.b))
-	sm.set_shader_parameter("draft_color", Color(mat_draft.albedo_color.r, mat_draft.albedo_color.g, mat_draft.albedo_color.b))
-	sm.set_shader_parameter("draft_alpha", mat_draft.albedo_color.a)
-	var lm := ShaderMaterial.new(); lm.shader = WAVE_LINES
-	lm.set_shader_parameter("width_px", LINE_PX * line_scale)
-	lm.set_shader_parameter("bias", overlay_bias)
-	for mat in [sm, lm]:
-		mat.set_shader_parameter("origin", w["og"])
-		mat.set_shader_parameter("reach", w["reach"])
-		mat.set_shader_parameter("duration", w["dur"])
-		mat.set_shader_parameter("reject_dur", REJECT_DUR)
-		mat.set_shader_parameter("from_draft", 1.0 if w["new"] else 0.0)
-	mi.material_override = sm
-	if edges != null: edges.material_override = lm
-	w["links"].append([mi, edges, sm, lm])
-	_push_params(w)
-
-
-func _push_params(w: Dictionary) -> void:
-	var keep := []
-	for l in w["links"]:
-		if not is_instance_valid(l[0]): continue
-		keep.append(l)
-		for mat in [l[2], l[3]]:
-			mat.set_shader_parameter("t", w["p"] * w["dur"])
-			mat.set_shader_parameter("tn", w["tn"])
-			mat.set_shader_parameter("reject_t", -1.0 if w["rt"] < 0.0 else smoothstep(0.0, 1.0, w["rt"] / REJECT_DUR) * REJECT_DUR)
-			mat.set_shader_parameter("held", w["held"])
-			mat.set_shader_parameter("bphase", w["bphase"])
-	w["links"] = keep
-
-
-func _end_wave(oid: String) -> void:
-	if not op_waves.has(oid): return
-	for l in op_waves[oid]["links"]:
-		if is_instance_valid(l[0]): l[0].material_override = null
-		if is_instance_valid(l[1]): l[1].material_override = null
-	op_waves.erase(oid)
-
-
-const SLOW := 0.35         # progress distance over which the front slows into the hold (longer = gentler)
-const TAU := 0.12          # seconds, per smoothing stage
-const TAU_UP := 0.20       # seconds, per stage, when speeding back up after FreeCAD accepts
-const LEAD := 0.10         # seconds of look-ahead in the controller (cancels overshoot from smoothing)
-const AMP_COMP := 1.11     # smoothing shrinks the swing about 10%; aim wider so the front really spans BREATH_LO..HOLD
-const BREATH_W := 2.4      # rad/s of the breathing (one glide back and forth = 2.6 s)
-const BREATH_LO := 0.3     # breathing glides between BREATH_LO and HOLD of the full travel
 
 
 func _process(delta: float) -> void:
@@ -1687,48 +1375,16 @@ func _process(delta: float) -> void:
 			held_resp = {}
 			r["_released"] = true
 			_on_worker(r)
-	for oid in op_waves.keys():
-		if not op_waves.has(oid): continue          # removed this frame along with a rejection it built on
-		var w: Dictionary = op_waves[oid]
-		var v0: float = 1.0 / w["dur"]
-		w["tn"] += delta
-		var parking: bool = w["state"] == "pending" or (w["state"] == "rejected" and w["rt"] < 0.0)
-		var breathing: bool = w["bphase"] > 0.0
-		# where the front wants to be: run free, ease to HOLD, then glide between BREATH_LO and HOLD
-		var vdes := v0
-		if parking:
-			var goal: float = HOLD
-			if w["state"] == "pending" and breathing:
-				var mid := (HOLD + BREATH_LO) * 0.5
-				goal = mid + (HOLD - mid) * AMP_COMP * cos(w["bphase"])   # zero slope at the start
+	pres.step_waves(delta)
 
-			elif w["state"] == "rejected" and breathing:
-				goal = w["p"]                                       # rejected mid-breath: settle where it is
-			# aim from slightly ahead (LEAD) so the smoothing delay doesn't make it overshoot
-			vdes = v0 * clampf((goal - (w["p"] + LEAD * w["v"])) / SLOW, -1.0, 1.0)
-		var tau := TAU_UP if w["state"] == "ok" else TAU
-		# two smoothing stages: v1 follows the command, v follows v1.
-		# speed AND acceleration stay continuous, so there's no corner (no thud) anywhere.
-		var k := 1.0 - exp(-delta / tau)
-		w["v1"] += (vdes - w["v1"]) * k
-		w["v"] += (w["v1"] - w["v"]) * k
-		w["p"] += w["v"] * delta
-		var stopped: bool = parking and absf(w["v"]) < 0.15 * v0
-		if w["state"] == "pending" and (breathing or stopped):
-			w["bphase"] += BREATH_W * delta                         # phase clock starts once the front has settled
-		if w["state"] == "rejected":
-			if w["rt"] >= 0.0 or stopped:
-				w["rt"] = maxf(w["rt"], 0.0) + delta     # red wave eases in/out (smoothstep in _push_params)
-		_push_params(w)
-		if trace_wave != "" and oid == trace_wave:
-			trace_rows.append("%.4f,%.6f,%.6f,%.4f,%s" % [w["tn"], w["p"], w["v"], w["reach"], w["state"]])
-		if w["state"] == "ok" and w["p"] > 1.25:
-			_end_wave(oid)
-		elif w["state"] == "rejected" and w["rt"] > REJECT_DUR + 0.1:
-			if _rejected.has(oid):                          # a rejection: it goes with the actions that built on it
-				remove_ops([oid] + _rejected[oid]["deps"])
-			elif not w.get("dependent", false) or not op_waves.has(w["root"]):
-				remove_op(oid)                              # ends the wave, frees the draft, resyncs
+
+func _on_wave_rejected_done(oid: String) -> void:
+	if _rejected.has(oid):                              # a rejection: it goes with the actions that built on it
+		remove_ops([oid] + _rejected[oid]["deps"])
+	else:
+		var w: Dictionary = op_waves[oid]
+		if not w.get("dependent", false) or not op_waves.has(w["root"]):
+			remove_op(oid)                              # ends the wave, frees the draft, resyncs
 
 
 # ---------------- rejections take what built on them (T16, Q7) ----------------
@@ -2123,14 +1779,8 @@ func _reset_model_state() -> void:
 	properties_request += 1
 	set_selection([])
 	doc.reset()                     # a reply still on its way belongs to the old model: it's ignored
-	for oid in op_waves.keys(): _end_wave(oid)
-	for k in drafts: drafts[k].queue_free()
-	drafts.clear(); rects.clear()
+	pres.reset()
 	reject_note = ""
-	for c in bodies_root.get_children(): bodies_root.remove_child(c)
-	for f in _boards: _boards[f]["node"].queue_free()
-	_boards.clear(); _states.clear(); _state_lru.clear(); shown_key = ""
-	body_tris = {}; body_verts = {}; body_edges = {}; body_cuts = {}
 	tools["move"].last_oid = ""; tools["move"].memo.clear()
 	set_tool(tool)
 	marker.visible = false

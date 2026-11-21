@@ -6,8 +6,8 @@ evaluator; this side predicts. The top-level CLAUDE.md has the overview; ARCHITE
 protocol (update it in the same commit when you change either). Tools have their own guide in `tools/CLAUDE.md`.
 
 ## Files
-- `main.gd` (~2,500 lines; its split is T39 / T41): setup and UI, worker process and lifecycle, drafts, waves,
-  remembered states, drawing selection and context, typed input (`apply_vcb`), input dispatch, model switching.
+- `main.gd` (~2,000 lines; split in T39 / T41): setup and UI, materials and mesh helpers (`_tri_mesh`, `_lines`),
+  worker process and lifecycle, rejection bookkeeping, typed input (`apply_vcb`), input dispatch, model switching.
 - `document.gd` (T39, A31): the document controller, `m.doc`. Owns the op list, counters, `seq` / `in_flight` /
   `dirty`, which reply counts, confirmed ids, undo floor, redo stack, open / reset, save revisions; reports by
   signals and knows nothing of meshes. main.gd forwards those names (`m.ops`, `m.seq`, ...) to it. Undo, redo and
@@ -15,7 +15,11 @@ protocol (update it in the same commit when you change either). Tools have their
 - `selection.gd` (T41, A33b): selection and context, `m.sel`. Owns `selection`, `context`, each board's assembly /
   row / family / array / mirror plane, the hidden set, `show_hidden`, `hover_body`; the queries (`unit_of`,
   `in_context`, `is_hidden`, ...) and the actions that add hide / assembly / unlink ops. Draws nothing: main.gd
-  draws on its signals (`_apply_context`, the selection overlay, the mirror plane) and forwards the old names.
+  and the presenter draw on its signals; main forwards the old names.
+- `presenter.gd` (T41, A33b): geometry on screen, `m.pres`. Owns `body_tris` / `body_verts` / `body_edges` /
+  `body_cuts`, drafts and rects, confirmed board nodes, remembered states, waves (`step_waves` each frame) and the
+  selection / context highlights. Draws with main's helpers through `m` (like the tools); main forwards the old
+  names (`m.body_tris`, `m.drafts`, `m._begin_wave`, ...). main routes the document's signals to it.
 - `inference.gd`: the one snapping engine (pick; endpoint > midpoint > on edge; axis inference). Every tool uses it.
 - `tools/`: one object per tool (see its guide). `property_panel.gd`: the Properties panel (T46, I36).
 - `units.gd`: lengths. `evaluate_length` / `evaluate_pair` give FreeCAD's answer for a typed length at once (a
@@ -28,8 +32,8 @@ protocol (update it in the same commit when you change either). Tools have their
 - Every action is drawn at once as a draft (the tool builds the op, appends it to `ops`, draws, starts the wave,
   calls `sync()`); FreeCAD catches up and the real mesh replaces the draft (W01–W09). Never block input on FreeCAD.
 - Confirmed boards: the worker writes `bodies.json` plus `meshes/<board>-<key>.bin` (triangles, normals, FreeCAD's
-  exact edges and corners, as PackedVector3Array bytes); `_apply_confirmed` builds only files it hasn't seen
-  (A29). The last 40 confirmed states are remembered (`_remember_state`), so undo shows at once (A28).
+  exact edges and corners, as PackedVector3Array bytes); `presenter.gd` `apply_confirmed` builds only files it
+  hasn't seen (A29). The last 40 confirmed states are remembered (`_remember_state`), so undo shows at once (A28).
 - Redo (T31, ⇧⌘Z): `undo()` puts the action on `redo_stack` with the ops key it left; `redo()` puts it back only
   while `ops` still has that key, so any new action, amend or rejection ends redo (linear until U01). Esc cancels
   the tool's gesture (`in_gesture()`) first, then the selection, then the assembly you're in.
@@ -46,7 +50,7 @@ protocol (update it in the same commit when you change either). Tools have their
   mirror group the plane shows and moving the copy moves the original reflected.
 - Hide (T28, I37): H hides the selection (else the board under the cursor), Shift+H unhides all; Edit > Unhide
   selected / last; View > Hidden geometry ghosts hidden boards (pickable, to unhide one). The hidden set comes
-  from `ops` (`hidden_boards()`, applied in `_apply_context`), so hide and its undo show at once; `is_hidden`
+  from `ops` (`hidden_boards()`, applied in the presenter's `apply_context`), so hide and its undo show at once; `is_hidden`
   boards aren't picked or snapped to.
 - Wood: painted boards use `wood.gdshader` (no UVs: laid out from world position along grain / across; end grain
   mirror-repeated). Board nodes are cached by mesh + material + grain, so a repaint rebuilds the look.
