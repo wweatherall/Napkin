@@ -31,5 +31,6 @@ for t in undotest snaptest recttest shelltest jointest rejecttest; do
 done
 mkdir -p "$OUT/native" "$OUT/arrays"
 TESTDIR="$OUT/native" "$FC" worker/test_native.py 2>&1 | grep -E "^(FAIL|NATIVE)" ; TESTDIR="$OUT/arrays" "$FC" worker/test_arrays.py 2>&1 | grep -E "^(FAIL|ARRAY)"; TESTDIR="$OUT/serve" python3 worker/test_serve.py 2>&1 | grep -E "^(FAIL|SERVE)"
+"$GD" --headless --path viewport --script res://test_units.gd 2>&1 | grep -E "^(FAIL|UNITS)"
 echo "full check logs: $OUT"
 exit $FAIL

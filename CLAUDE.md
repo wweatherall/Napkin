@@ -128,6 +128,8 @@ the log, regenerate the copy (read the four tabs, write the file) and commit it 
   leave Godot sitting with no test running. The quick test's Godot run is also stopped after 120 s.
 - Worker tests alone: `freecadcmd worker/test_native.py` (96 checks), `worker/test_arrays.py` (10), and
   `python3 worker/test_serve.py` (11: one worker, two windows; it starts freecadcmd itself).
+- Units parser (`viewport/units.gd`, T32): `Godot --headless --path viewport --script res://test_units.gd` (99 checks);
+  both scripts run it.
 - Visual checks (screenshots, no pass/fail): `--linetest`, `--zfighttest`; timing: `--perftest`. Recordings use
   `--true-latency` (P03) with Godot's `--write-movie`; `--heavytest --model=<file>`.
 - Test hooks (`delay_ms`, forced rejection, `--*test`) are for testing only (P02).

@@ -59,6 +59,11 @@ static func parse_length(text: String, default_unit := "mm") -> Dictionary:
 		units.append(unit)
 		total += float(numeric.value) * factor
 		remaining = remaining.substr(found.get_end()).strip_edges()
+		# Architectural 1'-6": one hyphen may join feet to the inches that follow.
+		if unit in ["ft", "'"] and remaining.begins_with("-"):
+			remaining = remaining.substr(1).strip_edges()
+			if remaining.is_empty():
+				return _error(original)
 		# Only compound feet + explicit inches is accepted; no ambiguous bare tails.
 		if units.size() > 2 or (not remaining.is_empty() and unit not in ["ft", "'"]):
 			return _error(original)
@@ -99,9 +104,11 @@ static func format_length(mm: float, system: String, precision: int = 16) -> Str
 	while numerator > 0 and numerator % 2 == 0:
 		numerator = int(float(numerator) / 2.0)
 		denominator = int(float(denominator) / 2.0)
+	# Under an inch reads 3/4", not 0 3/4".
 	var result := str(inches)
 	if numerator > 0:
-		result += " %d/%d" % [numerator, denominator]
+		var fraction := "%d/%d" % [numerator, denominator]
+		result = fraction if inches == 0 else result + " " + fraction
 	result += "\""
 	if feet > 0: result = "%d' %s" % [feet, result]
 	if mm < 0.0 and ticks > 0: result = "-" + result
