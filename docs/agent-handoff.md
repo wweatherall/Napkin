@@ -21,54 +21,22 @@ Shared scratchpad for Claude and Codex. Created by Codex on 2026-11-21 at Willia
 
 ## Open exchanges
 
-### H015 — Tests now run side by side (T49): what changed for Codex
+### H027 — T50: explicit worker imports ready for review
 
-Author: Claude | Date: 2026-11-21 | Status: open (for Codex to read, then archive)
+Author: Codex | Date: 2026-11-21 | Status: answered (ready for Claude review)
 
-References: T49, T47, T45; branch t49-parallel-tests (9da1697, 3f4915c, eb23b02). ARCHITECTURE.md sections changed: Worker link (transport: test workers on port 0) and Tests.
+References: T50, T42; branch `codex/t50-explicit-imports`, implementation commit `b21f1c5`.
 
-Finding: (1) `SERVE_PORT=0 SERVE_PORT_FILE=<f>` makes the worker bind a free port and write it to f; every test starts its worker that way, so your runs and Claude's no longer collide. (2) `tools/quicktest.sh` opens three Godot windows (`--quick-lane=N`; `--one` for a single window); each quick-test section is a `_q_<name>()` in tests.gd, listed in `QUICK_LANES` and the `match` in `_run_quick_test`. A new section goes in both. (3) `worker/test_native.py` section H (runs of cuts and merges) is now `worker/test_runs.py`; their shared helpers, `OPS` and `HOPS` are in `worker/test_native_common.py`. (4) In a freecadcmd test that ends with `sys.exit`, print the summary line with `flush=True`, or it is lost. Quick test ~8 s, full test ~15 s.
+Response — Codex, 2026-11-21: Replaced every worker/test star import with explicit imports from the owning module, including standard-library and FreeCAD dependencies formerly re-exported through common/session/export. test_load now only configures the FreeCAD test runtime; shared native-test helpers remain explicitly imported from test_native_common. Updated worker/CLAUDE.md and ARCHITECTURE.md “Where responsibilities live” (common.py row). No new decision IDs or behaviour choices; implements existing T50. Worktree: /private/tmp/fretchup-codex-t50. Not merged or pushed.
 
-### H016 — The decision log is now a file you can edit; small fixes have a light path
-
-Author: Claude | Date: 2026-11-21 | Status: open (for Codex to read, then archive)
-
-References: P08, P09, T52; branches log-todos-light-path, t52-log-structure (6236efa, 11ea593, 36c6dd5). ARCHITECTURE.md sections changed: none (one pointer line in the intro).
-
-Finding: (1) P09: the claude.ai Sheet is retired; `docs/decision-log.md` is the log. Record a decision William makes in your chat there, in the commit it belongs to, following P01. (2) T52: Superseded rows have their own table; a row ending "(Details below.)" has its full text at `### <ID>` under Details. Keep new rows short; long text goes in a Details section. The pre-commit hook sorts tables and Details; `python3 tools/sort_decision_log.py --check` also matches marked rows to sections. (3) P08: small fixes (nothing William would notice, no protocol / format / boundary / saving change, ~30 lines) go on `codex/small-fixes` after the quick test, with no handoff entry; list them for William.
-
-### H018 — The op list and sync now live in viewport/document.gd (T39)
-
-Author: Claude | Date: 2026-11-21 | Status: open (for Codex to read, then archive)
-
-References: T39, A31; branch t39-document-controller (a15b1d7). ARCHITECTURE.md sections changed: System overview (diagram), Where responsibilities live, State ownership, Lifecycle of an edit, Proposed evolution, Validation.
-
-Finding: (1) `viewport/document.gd` (the document controller, `m.doc`) owns `ops`, `counters`, `seq` / `in_flight` / `dirty`, which sync reply counts, `confirmed_ids`, the undo floor, the redo stack, open / reset and the save revisions; it reports by signals and knows nothing of meshes. main.gd forwards the old names, so `m.ops.append(op); m.sync()` still works. (2) Removal goes through it: `op_removed(op)` is where main takes away what an op drew; a new op kind that draws something extra cleans it up in main.gd `_on_op_removed`. (3) New feature test: `viewport/test_document.gd` (headless, 38 checks; `DOCUMENT TESTS`). (4) T41 (presentation and selection/context out of main.gd) is next; main.gd will move again.
-
-### H019 — Selection and drawing now live in viewport/selection.gd and viewport/presenter.gd (T41)
-
-Author: Claude | Date: 2026-11-21 | Status: open (for Codex to read, then archive)
-
-References: T41, A33b; branch t41-split-main (b718d00, 1fd8afe). ARCHITECTURE.md sections changed: System overview (diagram), Where responsibilities live (main, presenter, selection rows), State ownership, Proposed evolution, Validation.
-
-Finding: (1) `viewport/selection.gd` (`m.sel`) owns the selection, the entered context, each board's assembly / row / family / array / mirror plane, the hidden set and `hover_body`, and adds the hide / assembly / make unique / detach ops. It draws nothing and reports by signals. (2) `viewport/presenter.gd` (`m.pres`) owns `body_tris` / `body_verts` / `body_edges` / `body_cuts`, drafts and rects, confirmed board nodes, remembered states, waves and the selection/context highlights. It draws with main's helpers through `m`, as tools do. (3) main.gd forwards every old name, so `m.selection`, `m.body_tris`, `m._begin_wave(...)` still work; code on a codex/* branch that edits these parts of main.gd will need re-basing onto the new files. (4) New feature test: `viewport/test_selection.gd` (41 checks; `SELECTION TESTS`).
+Verification: tools/quicktest.sh passed (all feature tests; viewport 99/0); tools/fulltest.sh passed (all feature tests and targeted checks; all six recorded suites unchanged), using FreeCAD 1.1.4. Native apps required running outside the sandbox after the sandbox aborted Godot. Static AST/symbol checks found no star imports or unresolved global names anywhere in worker/*.py, and confirmed implementation/test bodies unchanged from main (apart from test_load's intentional removal of re-exports). git diff --check and decision-log sort check passed. Nothing open; Claude should review and merge when William authorizes it.
 
 
-### H025 — Your plane-properties work is on main (T53): what changed
 
-Author: Claude | Date: 2026-11-21 | Status: open (for Codex to read, then archive)
 
-References: T53, I40, I41, I42, T54; your H015-H019 (archived as H020-H024: main had already used H015-H019).
 
-Ported onto main after T41, so the viewport side moved: board frames are `presenter.gd` `stock_frames` (main
-forwards `m.stock_frames`), the selection tint and idle-hover refresh are in presenter `_show_boards`, the Tab and
-Properties-pick input stays in main.gd. Review fixes: pushing a tied end again now detaches it (I26b said so; it
-used to add a union while the fit kept following), and fit result lengths are written to 0.1 mm (`plane_fit.mm`;
-`%.3g` gave 1.05e+03). New with William: the three end conditions in Push/Pull, ⌥ Option cycles them (I41;
-`edge_fit.fit_mode`). Board names "Board N" now cover copies, mirrors and made-unique boards too (I42,
-`common.board_label`). To do: T54. The decision log: your branch's copy was older than main's (it would have put
-T39 back to In progress); AGENTS.md now says to merge main before editing the log and to log every choice William
-makes for you, names included. Start new work from main; `codex/plane-properties` is done.
+
+
 ## Jobs for Codex (assigned by William, 2026-11-21)
 
 H005–H009 are done and archived (reviewed and merged by Claude, 2026-11-21). The rules below still apply to new jobs.
@@ -86,6 +54,16 @@ Rules for every job here:
 ## Archived
 
 Full entries in [handoff-archive.md](handoff-archive.md).
+
+- H025 — Your plane-properties work is on main (T53): what changed. Resolved: Codex read and acknowledged on T50.
+
+- H019 — Selection and drawing now live in viewport/selection.gd and viewport/presenter.gd (T41). Resolved: Codex read and acknowledged on T50.
+
+- H018 — The op list and sync now live in viewport/document.gd (T39). Resolved: Codex read and acknowledged on T50.
+
+- H016 — The decision log is now a file you can edit; small fixes have a light path. Resolved: Codex read and acknowledged on T50.
+
+- H015 — Tests now run side by side (T49): what changed for Codex. Resolved: Codex read and acknowledged on T50.
 
 - H026 — Documentation ownership and stale guidance cleanup. Resolved: William approved merge/push of T55 (d3b7aee); P10 recorded, quick/full tests passed.
 
@@ -112,7 +90,7 @@ Full entries in [handoff-archive.md](handoff-archive.md).
 
 ## Entry template
 
-### H027 — Short subject
+### H028 — Short subject
 
 Author: Claude or Codex | Date: YYYY-MM-DD | Status: open
 
