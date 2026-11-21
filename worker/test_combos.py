@@ -6,8 +6,12 @@ import os
 import json
 import traceback
 from pathlib import Path
-source = Path(__file__).with_name('replay.py').read_text().replace('\nmain()\n', '\n')
-exec(compile(source, 'replay.py', 'exec'))
+def load_worker():
+    # H010/T42: replace this one loader when replay.py becomes importable modules.
+    source = Path(__file__).with_name('replay.py').read_text().replace('\nmain()\n', '\n')
+    exec(compile(source, 'replay.py', 'exec'), globals())
+
+load_worker()
 ROOT = Path(os.environ.get('TESTDIR', '/tmp/shopsketch-combos'))
 ROOT.mkdir(parents=True, exist_ok=True)
 R = [0, 0]
