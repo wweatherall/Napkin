@@ -2,6 +2,17 @@
 
 Reviewed: 2026-11-21 against main 5c0b602 for H009. This maps the inspected source, not a released build. The code and revision 60 decision-log export were checked; baseline quicktest results are recorded below. Updated by Claude 2026-11-21 for the T42 worker split (linked-copies 1739746).
 
+## Implementation status
+
+This map distinguishes the integrated `linked-copies` baseline (`b91c037`, including T42) from two delivered changes awaiting Claude's review/integration:
+
+| Change | Source checked | Status |
+|---|---|---|
+| FreeCAD-backed typed length input (H011 / T32, I35) | `codex/t32-units`: `ea7d4a3`, `50c60fb` | Implemented/tested on its branch; transport hook still lives in pre-T42 `replay.py` |
+| Native Properties panel (H012 / T46) | `codex/object-properties`: `877077b`, based on `50c60fb` | Implemented/tested on its branch; transport and Model hooks still live in pre-T42 `replay.py` |
+
+Codex checked the modules and call paths below on 2026-11-21. The baseline tables describe the split worker; sections marked **delivered, pending integration** describe these branch implementations. Their presence in this map does not mean they are installed in the shared checkout or packaged app. See H011/H012 for integration ownership.
+
 ## Reading and decision order
 
 Read CLAUDE.md for project conventions and the decision-log link. This file maps implementation responsibilities and constraints; it does not supersede accepted decisions. Read [Codex's suggestions.md](<Codex's suggestions.md>) for the proposed feature backlog and branching-history design. The live log requires access through Claude; [docs/decision-log.md](docs/decision-log.md) is its read-only local export. Read [docs/agent-handoff.md](docs/agent-handoff.md) for current assignments; do not change the exported log independently.
@@ -60,6 +71,18 @@ TCP carries commands/status and output paths. Geometry is read from shared local
 
 Tools currently depend directly on `main.gd`; the interface is a convention, not a strongly isolated service boundary. Main runtime-loads tools/tests while those scripts preload Main for typing, avoiding preload cycles.
 
+### Additional modules — delivered, pending integration
+
+| Location | Responsibility | Entry points |
+|---|---|---|
+| `worker/length_input.py` | Normalize supported measurement notation; evaluate numeric lengths using FreeCAD in a temporary unsaved document; return finite millimetres | `evaluate`, `handle` |
+| `viewport/main.gd` length-input additions | Route count syntax locally; submit asynchronous lengths; hold the draft and reject stale results before calling the tool | `apply_vcb`, `_on_length`, `length_pending` |
+| `worker/object_properties.py` | Describe native property types, values, formulas and permissions; validate and apply a journalled property edit | `related`, `describe`, `inspect`, `apply` |
+| `viewport/property_panel.gd` | Selected-piece feature picker, property fields, Value/Expression modes, reference insertion and read-only details | `display`, `message`, `refresh_requested`, `edit_requested` |
+| `viewport/main.gd` property additions | Tie inspection to model/selection/sequence; append property edits to `ops`; refresh after confirmation | `_request_properties`, `_on_properties`, `_edit_property` |
+
+After T42, put the `length` and `inspect_properties` handlers in `serve.py`; put the `property_edit` handler registration and `op_property_edit` delegation in `model.py`. The two new worker modules remain separate. T42's worker identity and app packaging already include non-test worker Python modules. Adapt `test_properties.py`'s isolated loader to `test_load` and register the new native tests in the integrated test runners. Do not restore the monolithic replay.py from the delivery branches.
+
 ## State ownership and authority
 
 | State | Owner | Meaning |
@@ -89,6 +112,26 @@ An operation being confirmed does not mean it has been saved. A visible draft is
 
 The current client gates sync results using sequence and dirty state. New asynchronous work must preserve this discipline. Future branching history should additionally identify the exact requested history state and model generation.
 
+### Typed length evaluation — delivered, pending integration
+
+`apply_vcb()` keeps Move copy/divide commands (`3x`, `x3`, `*3`, `/3`) in the tools. Other Rectangle, Push/Pull, Move and mirror inputs go through a `length` request; Rectangle splits its two values at the comma. Decimal commas are therefore not supported by this input path. The viewport sends `default_unit: "mm"`; it does not yet provide a unit-preference UI.
+
+`length_input.evaluate()` normalizes supported mixed fractions and compound imperial measurements, then calls FreeCAD's full `evalExpression` on a temporary feature in an unsaved document. It restores the previous active document afterwards. Unitless results acquire the requested default unit; other results must be finite lengths. This restricted numeric evaluator does not expose model-property references. It supports a fixed set of units/functions, not the whole FreeCAD expression language. I35 makes minus subtraction: `1-1/2"` is half an inch, while `1 1/2"` is one and a half inches. The older standalone `viewport/units.gd` is not the live input authority on these branches.
+
+Parsing is asynchronous from Godot's perspective but runs serially in the same worker as geometry, so a typed commit can wait behind a recompute. Main holds the current draft steady and records the tool, model, sequence and tool state with the input ID. New keypresses, clicks or tool changes cancel the pending input; replies must still match that context before reaching `typed()`. Length replies bypass the geometry-sync response path and must not clear its in-flight state. Parsing itself creates no model action, undo step or persistent formula.
+
+### Native property inspection and editing — delivered, pending integration
+
+Select one piece and open Properties. The panel lists the piece and its native dependency chain, including shared component definitions; it can also insert native object names into expression fields. FreeCAD owns the property schema, value and expression. Godot holds an inspection snapshot and provisional edit text, not an independent property database.
+
+The supported editors cover labels, scalar dimensions, integers, booleans, enumerations and vectors, including local placement translation. Internal names/IDs, structural links, protected metadata, rotation and unsupported/computed types are view-only. Other native fields remain available in expandable details. The panel currently handles one selected piece, not bulk edits. Editing a shared feature affects its linked family; coordinates are local to the owning feature/parent, not automatically world coordinates.
+
+A property edit is a normal `property_edit` operation appended to `ops`, not a separate write request. It records `body`, native `object` name, property path, `mode` (`value` or `expression`), input `value`, and the inspected `{value, expression}` as `expected`. The worker checks that the object is still in the piece's dependency chain, the property is writable and the expected snapshot still matches. The UI supplies `expected`; the worker schema currently permits its omission for programmatic callers.
+
+Expression mode uses the native object's `setExpression`, preserving references such as `Rect001.Length * 2`. Value mode evaluates the input, deliberately clears an existing formula, and assigns the property. The UI explicitly identifies this replacement. Length values use the measurement adapter; persistent formulas use native FreeCAD expression syntax. `Model.apply` recomputes and validates; Session's existing transaction abort rolls back rejected edits, including cycles. Changes follow normal export, confirmation, autosave and journal replay; affected bodies conservatively include every model body because references may reach other pieces. No new journal format or sidecar property store is introduced.
+
+Inspection waits for settled geometry. Main checks the request ID, model, selected body, sequence and dirty/in-flight state before accepting a snapshot; property submissions also require the same confirmed sequence. Switching models clears selection and invalidates the inspection state. Property operations participate in rejection-reference tracking and counter restoration. Undo/redo and reopening run through the existing Session machinery.
+
 ## Protocol at a glance
 
 Transport: UTF-8 JSON objects separated by newlines over localhost TCP. Main probes port 7878 with hello and compares the worker identity: the MD5 of every worker `.py` except `test_*`, in name order (`serve.py worker_identity`; main.gd `_worker_identity` computes the same, and a quick-test step checks they agree). A matching worker is shared; a different version or occupied port gets a private worker. Test mode uses a separate port; `--port=N` selects an external worker.
@@ -104,6 +147,16 @@ Transport: UTF-8 JSON objects separated by newlines over localhost TCP. Main pro
 | `quit` | Save and stop only if no other client remains; otherwise release the requesting client (`stopped: false`) |
 | `focus` / `already_open` | Notify the owner to come forward; refuse the second opener. A newly launched duplicate window closes, while File > Open reports the refusal |
 | `saved` event with `model`, `rev` | Successful persistence acknowledgement |
+
+Additional contracts **delivered, pending integration**:
+
+| Request / operation | Result and routing |
+|---|---|
+| `length` with `id`, `texts`, optional `default_unit` | Reply `{cmd: "length", id, ok, values}` with millimetres, or `error`; independent of geometry `seq`/`in_flight` |
+| `inspect_properties` with `model`, `body`, `seq`, `request_id` | Ownership-checked read; reply echoes `seq`, `request_id`, `model` and includes `properties: {body, objects, references}`; errors retain request identity |
+| `property_edit` inside `sync`'s operation list | Native object/property mutation; ordinary per-op confirmation/rejection, export, undo and save path; there is no standalone property-write command |
+
+Each described object includes native `name`, user-facing `label`, type and field records. Fields include property `path`, display `value`, editor `kind`, `editable`, current `expression`, and enumeration choices where applicable. Link references are displayed but cannot be reassigned through this editor.
 
 The loop multiplexes sockets with `select` but executes geometry serially; it is not parallel FreeCAD evaluation. Autosave waits for all windows to be quiet for 0.25 s. `SERVE_IDLE_EXIT` controls exit after the last connection leaves (app startup supplies 10 s; direct worker default 0 disables it). File > New Window (⌘⇧N) opens a distinct Untitled model. Ownership is local to this worker and absolute path; it is not an OS-wide lock against external FreeCAD or another worker version.
 
@@ -158,6 +211,8 @@ Main picks/probes/starts the worker (`_pick_worker`), watches loss (`_watch_work
 | Component/array/assembly semantics | Model relationship helpers | Main editing context, previews, affected-instance highlighting |
 | Material pipeline | `worker/materials.py`, `op_set_material`, `set_tip`, `grain_world`, `write_glb` | Paint tool, wood.gdshader, material/grain cache keys and Blender extras consumer |
 | Worker failure/reconnect | `worker_client.gd`, Main lifecycle | `serve`, save acknowledgement and model switching |
+| Typed measurement syntax | `length_input.py`, Main `apply_vcb` / `_on_length` (pending integration) | I35, count commands, request cancellation, parsing versus persistent expressions |
+| Native property UI or edits | `property_panel.gd`, `object_properties.py` (pending integration) | Native permissions, shared definitions, units/frames, stale snapshots, transactions, undo/reopen |
 | New persistent history | Proposed history owner, not mesh cache | Session replay, IDs, journal schema, external edits, worker request identity |
 | Drawing layout | `drawing.py` | TechDraw generation and data schema |
 | Packaging/runtime paths | `build_app.sh`, `_beside_project` | Worker and drawing dependencies inside bundle |
@@ -195,7 +250,23 @@ For behavioural changes, follow CLAUDE.md: run `tools/quicktest.sh`; run `tools/
 
 `parsecheck.sh` loads every viewport/tool script first. `quicktest.sh` runs the worker tests (native, arrays, combos, serve) and the units parser test alongside the single viewport quick suite. Worker tests load the modules with `from test_load import *`. `test_serve.py` covers shared-worker ownership/lifecycle; fulltest also runs recorded suites and targeted checks. After T42 (linked-copies 1739746): native 96, arrays 10, combos 61, serve 11, units 100, viewport 53; zero failures.
 
-Update this file when adding a module, changing a protocol/schema, moving state ownership, introducing a persistent relationship, or changing save/recovery behaviour. Keep current facts distinct from planned work, and recheck working-tree changes before acting on an inventory.
+Delivery-branch verification, separate from the integrated T42 totals above:
+
+- H011: `test_length_input.py` 22 passing cases and `test_length_protocol.py` 3 passing socket requests after I35; quicktest native 96, arrays 10, serve 11, viewport 52. The pre-split branch also passed fulltest for the initial evaluator integration.
+- H012: `test_properties.py` 28 passing checks (including formulas, stale writes, rollback, shared-family updates, save/reopen and history replay); quicktest native 96, arrays 10, serve 11, viewport 60. The viewport tests exercise actual panel controls and generate screenshots used for layout review.
+- The scripted typing helper waits for asynchronous length replies. The quick rejection scenario injects already-evaluated millimetres to preserve its deliberate queue of dependent drafts while the worker is delayed; it is not a parser test.
+
+Update this file when adding a module, changing a protocol/schema, moving state ownership, introducing a persistent relationship, or changing save/recovery behaviour. Update it in the same commit as the architectural code change and mention the update in the handoff (AGENTS.md / CLAUDE.md). Before committing, reread the current shared instructions and compare the staged file list against this map. Keep integrated code, delivered branches and proposals distinct, and recheck working-tree changes before acting on an inventory.
+
+### Shared ownership and automated omission checks
+
+Claude and Codex both maintain this map. The author updates it with architectural code changes in their own worktree; the reviewer checks the description against the code. Neither agent needs the other's permission to edit it. Integration preserves unrelated edits from both branches and keeps integration status explicit.
+
+`tools/check_architecture.py` watches non-test Python/Godot modules under worker/ and viewport/, Godot project/scenes, and app packaging. Additions, deletions and renames are included. It is deliberately conservative: modifying a watched file requires a meaningful staged ARCHITECTURE.md change or a commit-message line `Architecture-Impact: none - <specific reason>`. That line asserts there was no architectural change; it does not waive the same-commit requirement when architecture did change. Review must verify both the explanation and the prose; the tool cannot infer semantic accuracy.
+
+The tracked `.githooks/commit-msg` checks the staged snapshot, so an unstaged document edit does not count. Run commits with `git -c core.hooksPath=.githooks commit ...`. Once these files are integrated, `git config core.hooksPath .githooks` can enable the hook by default; first check existing hook configuration and preserve any custom hooks. Configuration is shared by linked worktrees, so do not redirect it to files missing from another active checkout. This delivery does not change shared Git configuration.
+
+`.github/workflows/architecture.yml` runs the guard tests and checks the complete pull-request diff with `--range BASE..HEAD`. The PR check accepts a no-impact rationale from its commit messages and catches missing updates across the PR; it does not enforce per-commit ordering. The local hook enforces staging together, and the reviewer enforces the same-commit rule across the submitted history. Both are omission checks, not automatic documentation writers. `tools/test_check_architecture.py` covers missing updates, rationales, staged versus unstaged docs, real Git diffs, renames and deletion. CI and default hook installation take effect only after integration/configuration; neither is active on the shared checkout merely because this branch exists.
 
 ## Native geometry feature mapping
 

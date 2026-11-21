@@ -35,9 +35,15 @@ the log, regenerate the copy (read the four tabs, write the file) and commit it 
   and read `Codex's suggestions.md`, `FREECAD_FEATURE_MAP.md` and `ARCHITECTURE.md` by section (grep the heading,
   then read that range).
 - Codex works on `codex/*` branches in its own worktree, on the files its handoff job lists; review and merge them.
-- `ARCHITECTURE.md` is the architecture map Codex works from (Codex wrote it). Every architecture change (a module added,
-  split or moved; a protocol or file format; who owns which state; saving and recovery) updates it in the same
-  commit, so it is always ready to hand to Codex. William's rule, 2026-11-21.
+- Claude and Codex both own and may edit `ARCHITECTURE.md`; neither needs the other's permission. The agent
+  changing a module, protocol/file format, state ownership, or saving/recovery updates the map in the same
+  commit in its own worktree. Reread the shared map and instructions before committing. The reviewer checks
+  prose against code, and integration preserves both agents' unrelated edits and explicit integration status.
+  Say which architecture sections changed in the handoff. William's rule, 2026-11-21.
+- Use `git -c core.hooksPath=.githooks commit ...` to run the tracked architecture check. A genuinely
+  non-architectural code change may use `Architecture-Impact: none - <specific reason>` in its commit message;
+  the reviewer verifies it. Actual architecture changes still require a same-commit map update. The PR check
+  is an additional omission detector, not a replacement for review.
 
 ## How it works
 - `viewport/` (Godot 4.6, Compatibility renderer): tools, instant drafts, the confirmation wave (T4 layout):
