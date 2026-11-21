@@ -10,12 +10,11 @@ FC=/Applications/FreeCAD.app/Contents/Resources/bin/freecadcmd
 GD=/Applications/Godot.app/Contents/MacOS/Godot
 tools/parsecheck.sh || { echo "full test not run: a viewport script doesn't parse"; exit 1; }
 OUT=$(mktemp -d -t shopsketch-full)
-PORT=7890
-while lsof -iTCP:$PORT -sTCP:LISTEN >/dev/null 2>&1; do PORT=$((PORT + 1)); done
-SERVE_PORT=$PORT "$FC" worker/replay.py > "$OUT/worker.log" 2>&1 &
+SERVE_PORT=0 SERVE_PORT_FILE="$OUT/worker.port" "$FC" worker/replay.py > "$OUT/worker.log" 2>&1 &   # it picks a free port (T47)
 W=$!
 trap 'kill $W 2>/dev/null' EXIT
-for i in $(seq 1 60); do grep -q "WORKER listening on 127.0.0.1:$PORT" "$OUT/worker.log" 2>/dev/null && break; sleep 0.5; done
+for i in $(seq 1 300); do [ -s "$OUT/worker.port" ] && break; sleep 0.1; done
+PORT=$(cat "$OUT/worker.port" 2>/dev/null) || { echo "full test not run: the worker didn't start (see $OUT/worker.log)"; exit 1; }
 FAST=--fast
 for a in "$@"; do [ "$a" = "--full-pace" ] && FAST=""; done
 tools/featuretest.sh "$OUT/feature" > "$OUT/feature.log" 2>&1 &

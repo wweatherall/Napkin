@@ -991,14 +991,13 @@ func _run_join_test() -> void:
 	var boards_after_join := _shown_ids()
 	await _key(KEY_B)
 	await _rect(Vector3(200, 50, 18), Vector3(250, 100, 18), "40,40")
+	m.saved_shown.clear()                          # what the indicator says from here on (T45)
 	await _push(Vector3(220, 70, 18), Vector3(220, 70, 30), "10")
-	await _wait_confirm()                          # FreeCAD has it; the save follows a quarter second later
-	var saving_seen: String = m.ui_saved.text
 	await _wait_wave()
 	var separate: Dictionary = m.ops.back()
 	var t0 := Time.get_ticks_msec()
 	while m.ui_saved.text != "Saved" and Time.get_ticks_msec() - t0 < 5000: await _frames(1)
-	print("JOINTEST save indicator: '%s' right after, then '%s' after %d ms (rev %d)" % [saving_seen, m.ui_saved.text,
+	print("JOINTEST save indicator: %s, now '%s' after %d ms (rev %d)" % [" then ".join(m.saved_shown), m.ui_saved.text,
 		Time.get_ticks_msec() - t0, m.saved_rev])
 	print("JOINTEST default joins %s | pushed out from b1's top: %s, boards %s (want 1) | with B: %s, boards %s (want 2)" % [
 		default_join, "joined" if not joined.has("body") else "new board " + joined["body"], boards_after_join,
@@ -1125,15 +1124,15 @@ func _run_quick_test() -> void:
 	await _fresh("push", _plank(1, Vector3.ZERO, Vector3(300, 200, 18)))
 	await _view(Vector3(150, 100, 20), -30, -40, 1.0)
 	await _rect(Vector3(100, 50, 18), Vector3(150, 100, 18), "50,50")
+	m.saved_shown.clear()
 	await _push(Vector3(125, 75, 18), Vector3(125, 75, 30), "20")
-	await _wait_confirm()
-	_ok("the save indicator says Saving... right after", m.ui_saved.text == "Saving…", m.ui_saved.text)
 	await _wait_wave()
 	_ok("pushed out from a face, it joins that board", _shown_ids() == ["b1"] and not m.ops.back().has("body"), [_shown_ids(), m.ops.back()])
 	_ok("the joined bump adds 50 x 50 x 20", is_equal_approx(_bodies()["b1"]["volume_mm3"], 300.0 * 200 * 18 + 50 * 50 * 20), _bodies()["b1"]["volume_mm3"])
 	var t0 := Time.get_ticks_msec()
 	while m.ui_saved.text != "Saved" and Time.get_ticks_msec() - t0 < 3000: await _frames(1)
-	_ok("then it says Saved", m.ui_saved.text == "Saved", m.ui_saved.text)
+	_ok("the save indicator says Saving..., then Saved (T45: however quickly the save lands)",
+		m.ui_saved.text == "Saved" and m.saved_shown.slice(-2) == ["Saving…", "Saved"], [m.ui_saved.text, m.saved_shown])
 	await _key(KEY_B)
 	await _rect(Vector3(200, 50, 18), Vector3(250, 100, 18), "40,40")
 	await _push(Vector3(220, 70, 18), Vector3(220, 70, 30), "10")

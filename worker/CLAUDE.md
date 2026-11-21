@@ -18,6 +18,7 @@ ARCHITECTURE.md the module map and protocol (update it in the same commit when y
 - `session.py`: `Session`, one live document per .FCStd: `sync`, undo, rebuild, journal, saves.
 - `serve.py`: the connection loop (`hello`, `open`, `sync`, `length`, `inspect_properties`, `bye`, `quit`; `saved`
   and `focus` events), ownership (one window per model), delayed saves, idle exit (`SERVE_IDLE_EXIT`).
+  `SERVE_PORT=0` binds a free port and writes it to `SERVE_PORT_FILE` (T47): tests start workers this way.
 - `length_input.py`: typed lengths through FreeCAD's expressions (T32, I35). `viewport/units.gd`
   `evaluate_length` ports it: after changing it, run `freecadcmd tools/length_cases.py` and the units test.
 - `object_properties.py`: the Properties panel's snapshot and `property_edit` (T46, I36).
@@ -85,6 +86,6 @@ ARCHITECTURE.md the module map and protocol (update it in the same commit when y
   `test_properties.py` (28), `test_scenario.py` (86, T48: one busy fixture model from
   `tests/scenario_fixture.json`, 17 steps each checked and undone back to the fixture, then a cumulative story that
   must equal a fresh build and a reopen; ~1 s. A new worker behaviour: add a step there first).
-  Plain python3, starting freecadcmd themselves: `test_serve.py` (11: one worker, two windows),
+  Plain python3, starting freecadcmd themselves: `test_serve.py` (12: one worker, two windows; a worker on port 0),
   `test_length_protocol.py` (3). Use `TESTDIR=<dir>` for outputs.
 - Tests load the modules with `from test_load import *` (after putting this folder on `sys.path`).

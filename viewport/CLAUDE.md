@@ -58,9 +58,9 @@ protocol (update it in the same commit when you change either). Tools have their
   --rejecttest`. Visual only: `--linetest`, `--zfighttest`; timing `--perftest`; `--heavytest --model=<file>`.
 - `test_units.gd` (`Godot --headless --path viewport --script res://test_units.gd`, 114): the parser, and the local
   evaluator against FreeCAD's answers in `tests/length_cases.json`.
-- Tests use a private worker (`--port=N` uses an outside one; `--shared-port=N` tries sharing next to a running
-  app).
+- Tests use a private worker on a port it picks itself and reports in a file (T47); `--port=N` uses an outside
+  one; `--shared-port=N` tries sharing next to a running app.
 - Suites drive the UI with a simulated cursor; in test mode mouse events that aren't at it are ignored (the real
   pointer over a test window used to scramble runs). Run suites on their own port (not 7878: the app's worker may
-  hold it), one at a time, and don't name a results folder after a viewport copy. Two test runs at once can still
-  collide on worker ports (T47): a run that fails everywhere at once, rerun first.
+  hold it), one at a time, and don't name a results folder after a viewport copy. Test runs at
+  the same time each own their worker ports (T47).

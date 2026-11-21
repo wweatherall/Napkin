@@ -20,14 +20,6 @@ def check(name, cond, detail=""):
     print(("PASS " if cond else "FAIL ") + name + ("" if cond else f"  {detail}"), flush=True)
 
 
-def free_port():
-    s = socket.socket()
-    s.bind(("127.0.0.1", 0))
-    p = s.getsockname()[1]
-    s.close()
-    return p
-
-
 class Window:
     """A stand-in for one Shop Sketch window: a connection and its replies (the worker may also send on its own)."""
     def __init__(self, port):
@@ -70,17 +62,26 @@ def sync(win, model, ops, seq):
                     "oplog": {"format": "oplog/0.1", "units": "mm", "ops": ops}}, "sync")
 
 
-port = free_port()
+port_file = os.path.join(tmp, "worker.port")
 log = open(os.path.join(tmp, "worker.log"), "w")
-env = dict(os.environ, SERVE_PORT=str(port), SERVE_IDLE_EXIT="2")
-proc = subprocess.Popen([FC, os.path.join(HERE, "replay.py")], env=env, stdout=log, stderr=subprocess.STDOUT)
-t0 = time.time()
-while time.time() - t0 < 60:
-    try:
-        socket.create_connection(("127.0.0.1", port), timeout=1).close()
-        break
-    except OSError:
-        time.sleep(0.2)
+env = dict(os.environ, SERVE_PORT="0", SERVE_PORT_FILE=port_file, SERVE_IDLE_EXIT="2")   # it picks its own port (T47)
+
+
+def start_worker():
+    """A worker on port 0: it binds a free port itself and writes it to SERVE_PORT_FILE (T47)."""
+    if os.path.exists(port_file):
+        os.remove(port_file)
+    p = subprocess.Popen([FC, os.path.join(HERE, "replay.py")], env=env, stdout=log, stderr=subprocess.STDOUT)
+    t0 = time.time()
+    while time.time() - t0 < 60 and not os.path.exists(port_file):
+        time.sleep(0.05)
+    return p, (int(open(port_file).read()) if os.path.exists(port_file) else 0)
+
+
+proc, port = start_worker()
+log.flush()
+check("a worker started on port 0 binds a free port itself and reports it in SERVE_PORT_FILE (T47)",
+      port > 0 and f"listening on 127.0.0.1:{port}" in open(os.path.join(tmp, "worker.log")).read(), port)
 try:
     m1, m2 = os.path.join(tmp, "one.FCStd"), os.path.join(tmp, "two.FCStd")
     a, b = Window(port), Window(port)
@@ -114,14 +115,8 @@ try:
     q = b.ask({"cmd": "quit"}, "quit")
     check("quit from the last window stops the worker", q["stopped"] and proc.wait(timeout=20) == 0, q)
     # idle exit: a fresh worker stops by itself after its last window disconnects
-    proc = subprocess.Popen([FC, os.path.join(HERE, "replay.py")], env=env, stdout=log, stderr=subprocess.STDOUT)
-    t0 = time.time()
-    while time.time() - t0 < 60:
-        try:
-            c = Window(port)
-            break
-        except OSError:
-            time.sleep(0.2)
+    proc, port = start_worker()
+    c = Window(port)
     c.ask({"cmd": "hello"}, "hello")
     c.close()
     t1 = time.time()

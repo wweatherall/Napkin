@@ -196,8 +196,14 @@ def serve(port):
 
     srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    srv.bind(("127.0.0.1", port))
+    srv.bind(("127.0.0.1", port))          # port 0: the system picks a free one (T47), reported below
     srv.listen(16)
+    port = srv.getsockname()[1]
+    if os.environ.get("SERVE_PORT_FILE"):     # whoever started us learns the port from this file (written whole)
+        tmp = os.environ["SERVE_PORT_FILE"] + ".tmp"
+        with open(tmp, "w") as f:
+            f.write(f"{port}\n")
+        os.replace(tmp, os.environ["SERVE_PORT_FILE"])
     print(f"WORKER listening on 127.0.0.1:{port}" + (f" (exits {idle_exit:g} s after the last window)" if idle_exit else ""),
           flush=True)
     while True:
