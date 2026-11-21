@@ -60,7 +60,12 @@ the log, regenerate the copy (read the four tabs, write the file) and commit it 
   Every action is drawn at once as a draft, then FreeCAD catches up and the real mesh replaces it (A01 idea, W01–W09).
 - `worker/replay.py`, which runs inside FreeCAD's command-line program (`freecadcmd`): a long-running
   worker on 127.0.0.1:7878 (newline JSON), one thread serving every connected window with `select`.
-  It keeps a live FreeCAD document per model.
+  It keeps a live FreeCAD document per model. `replay.py` only starts it; the code is in modules beside it (T42):
+  `common.py` (shared basics, `from common import *`), `model.py` (`Model`: reading the document, building blocks,
+  `apply`), one mixin per kind of action (`push.py`, `move.py`, `mirror.py`, `assembly.py`, `paint.py`), `export.py`
+  (bodies.json, mesh files, model.glb), `session.py` (sync, undo, journal, saves), `serve.py` (the connection loop).
+  The worker's hash (`hello`) covers every worker .py except tests; main.gd's `_worker_identity()` computes the same.
+  Tests load the modules with `from test_load import *`.
 - The .FCStd file is the model (A21). Each action becomes native features in one undo transaction (A22, A23):
   board = App::Part with Part::Plane → Part::Extrusion, then booleans, and a `Tip` link.
   Back-to-back cuts share one Part::Cut whose tool is a Part::Compound of cutters (`SSRole` = `cutters`);

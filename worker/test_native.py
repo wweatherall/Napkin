@@ -10,8 +10,9 @@ import os
 import random
 import sys
 
-src = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "replay.py")).read().replace("\nmain()\n", "\n")
-exec(compile(src, "replay.py", "exec"))
+sys.dont_write_bytecode = True
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from test_load import *  # noqa: E402,F403  (the worker's modules, T42)
 
 R = [0, 0]
 

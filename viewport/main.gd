@@ -1752,6 +1752,21 @@ func _worker_files() -> void:
 		worker_script = _beside_project("worker/replay.py")
 
 
+func _worker_identity() -> String:
+	"""The same hash the worker reports in hello (serve.py worker_identity): MD5 of every worker .py except the
+	tests, one after another in name order. A change to any worker module means a different worker."""
+	var folder := worker_script.get_base_dir()
+	var names: Array = Array(DirAccess.get_files_at(folder)).filter(
+		func(n: String) -> bool: return n.ends_with(".py") and not n.begins_with("test_"))
+	if names.is_empty(): return ""
+	names.sort()
+	var ctx := HashingContext.new()
+	ctx.start(HashingContext.HASH_MD5)
+	for n in names:
+		ctx.update(FileAccess.get_file_as_bytes(folder.path_join(n)))
+	return ctx.finish().hex_encode()
+
+
 func _port_free(p: int) -> bool:
 	var srv := TCPServer.new()
 	if srv.listen(p, "127.0.0.1") != OK: return false
@@ -1791,7 +1806,7 @@ func _pick_worker() -> int:
 		worker_port = _free_port(SHARED_PORT + 2)
 		_start_worker()
 		return worker_port
-	var mine := FileAccess.get_md5(worker_script)
+	var mine := _worker_identity()
 	if _port_free(SHARED_PORT):
 		shared_worker = true
 		worker_port = SHARED_PORT
