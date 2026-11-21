@@ -16,7 +16,10 @@ If you can't reach the log, say so; don't guess at what it says.
 - `worker/replay.py`, which runs inside FreeCAD's command-line program (`freecadcmd`): a long-running
   worker on 127.0.0.1:7878 (newline JSON). It keeps a live FreeCAD document.
 - The .FCStd file is the model (A21). Each action becomes native features in one undo transaction (A22, A23):
-  board = App::Part with Part::Plane → Part::Extrusion → Part::Fuse/Cut chain and a `Tip` link;
+  board = App::Part with Part::Plane → Part::Extrusion, then booleans, and a `Tip` link.
+  Back-to-back cuts share one Part::Cut whose tool is a Part::Compound of cutters (`SSRole` = `cutters`);
+  back-to-back merges share one Part::MultiFuse (`SSRole` = `merge-run`) (A22b, Q20). Find a hole by its
+  cutter's `SSOp` (`cutter_of`, `tools_of`), not by its boolean. Older files keep one boolean per op; both work.
   components = App::Link; mirrors = Part::Mirroring; copied holes = Draft OrthoArray of the cutter.
   A component instance is mirrored through a Part::Compound wrapper (`SSRole` = `mirror-input`, A26):
   released FreeCAD 1.1 mirrors an App::Link without its placement. Walk mirrors with `mirror_source()`, not `.Source`.
@@ -34,7 +37,7 @@ If you can't reach the log, say so; don't guess at what it says.
 
 ## Tests (run after every change)
 Worker tests:
-- `freecadcmd worker/test_native.py`: 35 checks (native tree, undo walks, reopen, outside edits, mirrors of moved instances, rejections)
+- `freecadcmd worker/test_native.py`: 48 checks (native tree, undo walks, reopen, outside edits, mirrors of moved instances, rejections, runs)
 - `freecadcmd worker/test_arrays.py`: 10 checks (hole arrays and moves)
 
 Viewport suites: `Godot --path viewport -- --<suite> --out=<dir>/out --shots=<dir>/shots --port=7878`, with the worker running.
@@ -44,10 +47,9 @@ Viewport suites: `Godot --path viewport -- --<suite> --out=<dir>/out --shots=<di
 - Test hooks (`delay_ms`, forced rejection, `--*test`) are for testing only (P02).
 
 ## Known problems / open work
-- Q18: FreeCAD booleans slow down along a chain. On FreeCAD 1.1.3 on William's Mac, 24 chained cuts went 5 → 358 ms.
-  Done: hole arrays (Move-copy a hole → one Draft array, one cut).
-  Proposed, awaiting William: combine consecutive cuts on a board into one Cut with several cutters
-  (and consecutive merges into one Fuse). Option kept in reserve: compute shapes in Shop Sketch and let FreeCAD catch up.
+- Q18: FreeCAD booleans slow down along a chain (24 chained cuts: 5 → 358 ms). Done: hole arrays, one boolean
+  per run (A22b): hole 48 on a panel is 290 ms (was 4.3 s). In reserve (T9): answer from plain shapes first.
+- The work list is the decision log's "Work list" tab (T1, T2, ...).
 - Q19: stage 2, watch the file and merge FreeCAD-side changes. Q17 / stage 3: adopt solids from files Shop Sketch didn't make.
 - Q4: feel test on real hardware. Earlier tuning was judged from software-rendered recordings.
 
@@ -58,3 +60,8 @@ Viewport suites: `Godot --path viewport -- --<suite> --out=<dir>/out --shots=<di
 - New FreeCAD properties go on objects when they are created. Adding properties inside an undo transaction
   isn't reliably undone.
 - `freecadcmd` passes the script itself as `sys.argv[1]`. Pass paths through environment variables.
+- Draft makes objects in the *active* document: call `App.setActiveDocument(self.doc.Name)` first.
+- Combined merges must be Part::MultiFuse: a Part::Fuse whose tool is a compound of overlapping pieces
+  counts the overlap twice. A Part::Cut with a compound tool is right even when cutters overlap.
+- Viewport suites drive the UI frame by frame: run them one at a time with no other Godot or FreeCAD
+  running, or input gets lost and results vary. `--holetest` is flaky even then (T4).

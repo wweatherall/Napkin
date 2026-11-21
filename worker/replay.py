@@ -1,7 +1,7 @@
 """Shop Sketch worker: keeps a live FreeCAD document and edits it with native features.
 
 The FreeCAD file is the model (A21). Every Shop Sketch action becomes ordinary FreeCAD
-features inside it - Part::Plane, Part::Extrusion, Part::Fuse / Part::Cut, App::Part
+features inside it - Part::Plane, Part::Extrusion, Part::Cut / Part::MultiFuse, App::Part
 placements, App::Link, Part::Mirroring - committed as one FreeCAD undo transaction.
 All Shop Sketch state lives on those objects (BodyId / SSRole / RectId ... properties),
 so FreeCAD's undo, a save, a reopen or an edit made in FreeCAD all stay consistent.
@@ -296,10 +296,9 @@ class Model:
         return p0, ex, ey, n
 
     @staticmethod
-    def check_result(feat, distance):
-        """Shop Sketch's rejections (I08), judged on the boolean feature FreeCAD just computed (no second
-        boolean of our own: that doubled the cost). A rejected op's transaction is aborted, so it leaves nothing."""
-        base, result = feat.Base.Shape, feat.Shape
+    def check_result(base, result, distance):
+        """Shop Sketch's rejections (I08), judged on what FreeCAD just computed (`result`) against the board
+        before this op (`base`); no second boolean of our own. A rejected op's transaction is aborted."""
         if result.isNull() or not result.Solids:
             raise OpError("operation removed the whole body" if distance < 0 else "FreeCAD couldn't compute the merge")
         change = result.Volume - base.Volume
@@ -311,13 +310,63 @@ class Model:
             raise OpError("the new piece doesn't touch the board it was drawn on")
         return result.Volume
 
-    def boolean(self, container, tool_feat, distance, label):
-        kind = "Part::Fuse" if distance > 0 else "Part::Cut"
-        b = self.doc.addObject(kind, "Fuse" if distance > 0 else "Cut")
-        b.Base = container.Tip
-        b.Tool = tool_feat
+    @staticmethod
+    def is_array(obj):
+        return getattr(getattr(obj, "Proxy", None), "__class__", type(None)).__name__ == "Array"
+
+    @staticmethod
+    def is_cut_run(obj):
+        return obj is not None and obj.TypeId == "Part::Cut" and getattr(obj.Tool, "SSRole", None) == "cutters"
+
+    @staticmethod
+    def is_merge_run(obj):
+        return obj is not None and obj.TypeId == "Part::MultiFuse" and getattr(obj, "SSRole", None) == "merge-run"
+
+    def tools_of(self, b):
+        """The pieces a boolean cuts away (or adds): each is an extrusion, or a Draft array made from one."""
+        if self.is_cut_run(b):
+            return list(b.Tool.Links)
+        if self.is_merge_run(b):
+            return list(b.Shapes[1:])
+        return [b.Tool] if getattr(b, "Tool", None) is not None else []      # one boolean per op (older files)
+
+    def replace_tool(self, b, old, new):
+        if self.is_cut_run(b):
+            b.Tool.Links = [new if t == old else t for t in b.Tool.Links]
+        elif self.is_merge_run(b):
+            b.Shapes = [new if t == old else t for t in b.Shapes]
+        else:
+            b.Tool = new
+
+    def boolean(self, container, tool_feat, distance, oid):
+        """Back-to-back cuts on a board share one Part::Cut whose tool is a compound of all the cutters, and
+        back-to-back merges one Part::MultiFuse (Q20). FreeCAD's booleans slow down along a chain (Q18): one
+        boolean per run keeps every edit about as fast as the first. Each op is still one undo step."""
+        tip = container.Tip
+        if distance < 0 and self.is_cut_run(tip):
+            tip.Tool.Links = tip.Tool.Links + [tool_feat]
+            return tip
+        if distance > 0 and self.is_merge_run(tip):
+            tip.Shapes = tip.Shapes + [tool_feat]
+            return tip
+        if distance < 0:
+            cutters = self.doc.addObject("Part::Compound", "Cutters")
+            cutters.Label = f"{oid} cutters"
+            add_props(cutters, SSRole="cutters")
+            cutters.Links = [tool_feat]
+            b = self.doc.addObject("Part::Cut", "Cut")
+            b.Base = tip
+            b.Tool = cutters
+            b.Label = f"{oid} cuts"
+            self.put_in(container, cutters)
+        else:
+            b = self.doc.addObject("Part::MultiFuse", "Fuse")
+            b.Shapes = [tip, tool_feat]
+            b.Label = f"{oid} merges"
+            add_props(b, SSRole="merge-run")
         b.Refine = True
-        b.Label = label
+        add_props(b, SSOp=oid)
+        self.set_tip(container, b)
         return b
 
     # ---------- operations ----------
@@ -386,14 +435,13 @@ class Model:
                 base = self.plane_feature(lp0, lex, ley, f"{tgt['rect']} again")
         else:
             base = self.face_feature(fr.shape(world_face), f"{oid} face")
+        before = c.Tip.Shape
         ext = self.extrusion(base, fr.dir(n * d), d, f"{oid} push")
         add_props(ext, SSOp=oid)
         self.put_in(c, base, ext)
-        b = self.boolean(c, ext, d, f"{oid} {'merge' if d > 0 else 'cut'}")
-        add_props(b, SSOp=oid)
-        self.set_tip(c, b)
+        b = self.boolean(c, ext, d, oid)
         self.doc.recompute()
-        self.check_result(b, d)
+        self.check_result(before, b.Shape, d)
         return [on]
 
     def op_make_component(self, op):
@@ -437,11 +485,16 @@ class Model:
         self.set_tip(c, snap)
         c.SSMaterial = getattr(self.definition(obj), "SSMaterial", "") or ""
 
-    def boolean_of(self, container, oid):
+    def cutter_of(self, container, oid):
+        """The Cut that holds the hole made by push/pull `oid`, and the tool that makes it there."""
         for o in container.Group:
-            if o.TypeId in ("Part::Cut", "Part::Fuse") and getattr(o, "SSOp", None) == oid:
-                return o
-        raise OpError(f"no cut or merge from '{oid}' on this board")
+            if o.TypeId != "Part::Cut":
+                continue
+            for t in self.tools_of(o):
+                src = t.Base if self.is_array(t) else t
+                if getattr(src, "SSOp", None) == oid:
+                    return o, t
+        raise OpError(f"no cut from '{oid}' on this board")
 
     @staticmethod
     def shift(obj, v):
@@ -453,18 +506,17 @@ class Model:
         ref = op["cut"]
         target = self.body(ref["body"])
         c, fr = self.edit_frame(target)
-        b = self.boolean_of(c, ref["op"])
+        b, tool = self.cutter_of(c, ref["op"])
         lv = fr.dir(vec(op["vector"]))
         if lv.Length < TOL:
             raise OpError("distance is zero")
         before = b.Shape.Volume
-        tool = b.Tool
-        is_array = getattr(getattr(tool, "Proxy", None), "__class__", type(None)).__name__ == "Array"
+        is_array = self.is_array(tool)
         if not op.get("copy", False):
             cutter = tool.Base if is_array else tool       # the extrusion; move what it's made from
             self.shift(cutter.Base, lv)
             self.doc.recompute()
-            if abs(b.Shape.Volume - b.Base.Shape.Volume) < 1e-3:
+            if b.Base.Shape.common(tool.Shape).Volume < 1e-3:
                 raise OpError("moved there, it no longer touches the board")
             return [ref["body"]]
         if is_array:
@@ -472,6 +524,7 @@ class Model:
         count = int(op.get("count", 1))
         step = lv * (1.0 / count) if op.get("divide", False) else lv
         import Draft
+        App.setActiveDocument(self.doc.Name)    # Draft builds in the active document, which may be another model's
         arr = Draft.make_ortho_array(tool, v_x=step, v_y=V(0, 1, 0), v_z=V(0, 0, 1),
                                      n_x=count + 1, n_y=1, n_z=1, use_link=False)
         arr.Label = f"{op['id']} array of {ref['op']}"
@@ -479,7 +532,7 @@ class Model:
         c.addObject(arr)
         tool.Visibility = False
         arr.Visibility = False
-        b.Tool = arr
+        self.replace_tool(b, tool, arr)
         self.doc.recompute()
         if abs(b.Shape.Volume - before) < 1e-3:
             raise OpError("the copies don't reach the board")
@@ -598,16 +651,16 @@ def cuts_of(model, obj):
         # a whole face pushed in or out, or an added piece, is the board itself as far as Move is concerned
         if f.TypeId != "Part::Cut" or not getattr(f, "SSOp", ""):
             continue
-        tool = f.Tool
-        if tool is None or tool.Shape.isNull():
-            continue
-        cutter = tool.Base if getattr(getattr(tool, "Proxy", None), "__class__", type(None)).__name__ == "Array" else tool
-        if getattr(getattr(cutter, "Base", None), "TypeId", "") != "Part::Plane":
-            continue
-        for sol in to_world(model, obj, tool.Shape).Solids:
-            bb = sol.BoundBox
-            out.append({"op": f.SSOp, "kind": "cut" if f.TypeId == "Part::Cut" else "merge",
-                        "lo": [bb.XMin, bb.YMin, bb.ZMin], "hi": [bb.XMax, bb.YMax, bb.ZMax]})
+        for tool in model.tools_of(f):
+            if tool is None or tool.Shape.isNull():
+                continue
+            cutter = tool.Base if model.is_array(tool) else tool
+            if getattr(getattr(cutter, "Base", None), "TypeId", "") != "Part::Plane":
+                continue
+            for sol in to_world(model, obj, tool.Shape).Solids:
+                bb = sol.BoundBox
+                out.append({"op": getattr(cutter, "SSOp", "") or f.SSOp, "kind": "cut",
+                            "lo": [bb.XMin, bb.YMin, bb.ZMin], "hi": [bb.XMax, bb.YMax, bb.ZMax]})
     return out
 
 
