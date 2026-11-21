@@ -64,5 +64,5 @@ protocol (update it in the same commit when you change either). Tools have their
   one; `--shared-port=N` tries sharing next to a running app.
 - Suites drive the UI with a simulated cursor; in test mode mouse events that aren't at it are ignored (the real
   pointer over a test window used to scramble runs). Run suites on their own port (not 7878: the app's worker may
-  hold it), one at a time, and don't name a results folder after a viewport copy. Test runs at
+  hold it), one at a time per worker (the full test's four lanes each have their own), and don't name a results folder after a viewport copy. Test runs at
   the same time each own their worker ports (T47).

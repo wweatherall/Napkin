@@ -81,8 +81,9 @@ confirmed meshes, the worker link, typed values, drawing rules, viewport tests) 
   Godot windows side by side (`--quicktest --quick-lane=N`, T49; `--one` for a single window), each step checking its
   own answer. Each window starts its own worker on a port it owns, so test runs never touch a running Shop Sketch
   or each other.
-- When the quick test fails, or before a merge: `tools/fulltest.sh` (~50 s): the six recorded suites compared
-  with `tests/reference/` (`tools/compare_suites.py`), the targeted suites, and the feature tests. Suites run at the
+- When the quick test fails, or before a merge: `tools/fulltest.sh` (~15 s): the six recorded suites compared
+  with `tests/reference/` (`tools/compare_suites.py`), the targeted suites, and the feature tests; the suites run in
+  four lanes side by side, each with its own worker (T49). Suites run at the
   quick test's pace (`--fast`, same results); `--full-pace` as recorded. After an intended change in behaviour:
   `tools/fulltest.sh --update-reference`.
 - Both scripts first run `tools/parsecheck.sh` (every viewport script, side by side, ~1 s); the quick test's Godot run stops
