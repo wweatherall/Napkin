@@ -19,9 +19,14 @@ Shop Sketch is a local desktop application with one Godot process per window, a 
 ```mermaid
 flowchart LR
     U[User] --> T[Godot tools and inference]
-    T --> M[main.gd: drafts, UI]
+    T --> M[main.gd: UI, input, worker process]
+    M --> PR[presenter.gd: drafts, boards, states, waves, highlights]
+    SC --> PR
     T --> DC[document.gd: operations, sync, save state]
     M <--> DC
+    T --> SC[selection.gd: selection, context, hidden]
+    M <--> SC
+    SC --> DC
     DC --> C[worker_client.gd]
     C -->|newline JSON over localhost TCP| W[serve.py and session.py]
     W --> G[model.py + action mixins: FreeCAD features]
@@ -41,8 +46,10 @@ TCP carries commands/status and output paths. Geometry is read from shared local
 | Location | Current responsibility | Useful entry points |
 |---|---|---|
 | `viewport/project.godot`, `main.tscn` | Godot configuration and startup scene | Main scene |
-| `viewport/main.gd` | Composition root; UI, selection/context, drafts, confirmation waves, caches, worker process lifecycle, project switching (window side), camera. Routes worker replies: `sync`/`open`/`saved` to the document controller, the rest to its own handlers; draws what the controller's signals say. Forwards `ops`, `counters`, `seq`, `in_flight`, `dirty`, `model_path`, `out_dir`, `opened`, revisions and `confirmed_ids` to it, so tools and tests keep using `m.<name>` | `_ready`, `_make_tools`, `sync`, `_on_worker`, `_on_synced`, `_on_op_removed`, `_apply_confirmed`, `switch_model` |
+| `viewport/main.gd` | Composition root; UI, materials and mesh helpers (`_tri_mesh`, `_lines`), rejection bookkeeping (which later actions go with a rejected one), worker process lifecycle, project switching (window side), camera. Routes worker replies: `sync`/`open`/`saved` to the document controller, the rest to its own handlers; routes the controller's signals to the presenter. Forwards `ops`, `counters`, `seq`, `in_flight`, `dirty`, `model_path`, `out_dir`, `opened`, revisions and `confirmed_ids` to it, and `selection`, `context`, the `body_*` relationship tables, `hover_body` and the context queries to `selection.gd`, and `body_tris` / `body_verts` / `body_edges` / `body_cuts`, `drafts`, `rects`, `op_waves` and the wave calls to `presenter.gd`, so tools and tests keep using `m.<name>` | `_ready`, `_make_tools`, `sync`, `_on_worker`, `_on_synced`, `_on_op_removed`, `_apply_confirmed`, `switch_model` |
 | `viewport/document.gd` | Document controller (A31, T39): model path and output folder, the op list and id counters, request numbering and coalescing (`seq`, `in_flight`, `dirty`), gating replies to the current state, confirmed op ids, undo floor, linear redo stack, open/reset, save revisions. No meshes, shaders or camera; reports by signals (`sync_started`, `sent`, `synced`, `sync_failed`, `save_changed`, `op_removed`, `removed`, `idle`). Tested headless by `test_document.gd` with a stand-in client | `sync`, `on_sync_reply`, `on_opened`, `on_saved`, `on_link_up`, `reset`, `open`, `remove_op(s)`, `undo`, `take_redo` |
+| `viewport/presenter.gd` | Geometry presentation (A33b, T41), `m.pres`: each board's triangles, corners, edges and cuts (what picking and snapping read), drafts and rectangles, confirmed board nodes built from the per-board mesh files (A29), the 40 remembered confirmed states (A28), the confirmation waves, and the highlights for selection and context (selection overlay, ghosting, hidden boards, mirror plane, linked-copy tint) from what `selection.gd` says. Draws with main's mesh helpers and materials. Signals `boards_read` (main updates selection tables and wood) and `wave_rejected_done` (main removes the op and its dependents) | `apply_confirmed`, `show_confirmed`, `show_state`, `forget_op`, `register_rect`, `begin_wave`, `attach_wave`, `step_waves`, `apply_context`, `show_selection`, `show_siblings`, `reset` |
+| `viewport/selection.gd` | Selection and context (A33b, T41), `m.sel`: the selection, the entered assembly or array row, each board's assembly / row / family / array / mirror plane (from `bodies.json`), the hidden set (worked out from `ops`), View > Hidden geometry, the board under the cursor. Its actions (hide, unhide, make assembly, make unique, detach) append ops to the document controller and sync. Draws nothing; reports by signals (`selection_changed`, `context_changed`, `hidden_changed`, `links_changed`, `say`). Tested headless by `test_selection.gd` with a stand-in document | `set_boards`, `unit_of`, `in_context`, `edit_blocked`, `enter_context_of`, `leave_context`, `set_selection`, `refresh_hidden`, `is_hidden`, `hide_selected`, `unhide`, `make_assembly`, `linked_op` |
 | `viewport/tools/tool.gd` | Common tool interface and references to viewport/inference | `setup`, `reset`, `click`, `double_click`, `release`, `mouse_moved`, `key`, `typed` |
 | `viewport/tools/select_tool.gd` | Selection and entering editing contexts | Tool event methods |
 | `viewport/tools/paint_tool.gd` | Paint selected wood onto the picked board/family | Tool event methods |
@@ -85,11 +92,12 @@ The `length` and `inspect_properties` requests are handled in `serve.py`; `prope
 |---|---|---|
 | Pointer gesture, typed input, hover, preview | Godot tool / main | Provisional user interaction |
 | Desired operation sequence | Godot `document.gd` `ops` | What the client wants the worker to materialize |
+| Selection, entered context, hidden set, board relationships as last confirmed | Godot `selection.gd` | What a click stands for; the hidden set follows `ops` at once, the relationships follow `bodies.json` |
 | Accepted geometry and model relationships | Live FreeCAD document | Authoritative computed model |
 | Saved model | `.FCStd` | Durable native model, including Shop Sketch properties |
 | Replay/provenance information | Adjacent `.shopsketch.json` | Operations, statuses, revision and FCStd hash |
 | Meshes, bounds, metadata, GLB, drawing outputs | Derived export files | Rebuildable presentation/export products |
-| Recently confirmed visible states | Godot `_states` / `_boards` | Fast visual restoration; not durable model history |
+| Recently confirmed visible states | Godot `presenter.gd` `_states` / `_boards` | Fast visual restoration; not durable model history |
 | Undone actions available to redo | Godot `document.gd` `redo_stack` (T31) | Linear and in memory only: valid while `ops` still has the key recorded at the undo; any other change ends it. Branch history (U01) will replace it |
 | Last project preference | Godot `user://settings.cfg` | Application preference |
 
@@ -230,14 +238,14 @@ For a new operation, define intent, input units/frame, target identity, affected
 
 ## Proposed evolution, not current implementation
 
-Main currently concentrates UI, model coordination, caches, selection, history-like state, process lifecycle and rendering (about 2,200 lines); its split is T39 and T41. The worker was split by job in T42 (2026-11-21, no behaviour change): domain operations, export, persistence and transport now live in separate modules (see the table above). T43 per-directory guidance and T44 protocol documentation are still to do.
+Main was split in T39 (document controller) and T41 (selection/context, geometry presenter), 2026-11-21, no behaviour change; it still holds UI, input dispatch, materials and mesh helpers, rejection bookkeeping and the worker process (about 2,000 lines). The worker was split by job in T42 (2026-11-21, no behaviour change): domain operations, export, persistence and transport now live in separate modules (see the table above). T43 per-directory guidance and T44 protocol documentation are still to do.
 
 As features grow, consider extracting:
 
 1. **Document controller (A31 Active, T39; built as `document.gd`, 2026-11-21):** current model, operations, request generation, confirmation and save status. Still to route through it: tools submitting actions (they append to `ops` and call `sync()`), and history (U01).
 2. **History store (U01/U02, T35–T36):** immutable action nodes, active cursor, branch heads, persistence and checkpoint policy.
-3. **Selection/context controller (A33 Tentative):** selected units, entered assemblies/arrays and affected-instance scope.
-4. **Geometry presenter (A33 Tentative):** draft and confirmed nodes, mesh cache, picking metadata and feedback.
+3. **Selection/context controller (A33b Active, T41; built as `selection.gd`, 2026-11-21):** selected units, entered assemblies/arrays, hidden boards and affected-instance scope.
+4. **Geometry presenter (A33b Active, T41; built as `presenter.gd`, 2026-11-21; materials and mesh helpers still in main):** draft and confirmed nodes, mesh cache, picking metadata and feedback.
 5. **Worker session/export boundaries:** keep transport separate from domain operations, document recovery and derived outputs.
 
 For branching history, retain old futures in a durable graph and materialize an active path through the existing sync interface initially. A 20-row sidebar window is independent of retention depth, FreeCAD's undo capacity and the viewport's 40-state cache. Branch-safe IDs, checkpoints, stale-response handling and external-edit boundaries are prerequisites. Merge should compare semantic dependencies from a common ancestor and preserve both source paths; a successful boolean replay is not sufficient proof of a conflict-free merge. See the suggestions document for staged requirements and acceptance cases.
@@ -246,7 +254,7 @@ For branching history, retain old futures in a durable graph and materialize an 
 
 For behavioural changes, follow CLAUDE.md: run `tools/quicktest.sh`; run `tools/fulltest.sh` on failure or before merge. Worker tests check native structure, undo/reopen, arrays and relationships. Scripted viewport suites exercise gestures; reference comparisons check volumes/bounds. Visual quality and interaction feel still require real-hardware checks.
 
-`parsecheck.sh` loads every viewport/tool script first. `featuretest.sh` runs the feature tests in parallel: the worker tests (native, runs, arrays, combos, serve, length input and protocol, properties, the T48 scenario on `tests/scenario_fixture.json`), the units parser test and the document controller's sequencing test (`test_document.gd`: coalescing, stale and dirty replies, reconnect, open/switch, undo floor, redo). `quicktest.sh` runs them alongside the viewport quick suite, dealt into three windows side by side (`tests.gd` `QUICK_LANES`, `--quick-lane=N`; T49), each with its own worker; `fulltest.sh` alongside the recorded and targeted suites at quick pace (`--fast`), in four lanes side by side, each lane with its own worker started on port 0 (T47, T49). Worker tests load the modules with `from test_load import *`. `test_serve.py` covers shared-worker ownership/lifecycle; fulltest also runs recorded suites and targeted checks. After integrating H011/H012 (linked-copies, 2026-11-21): native 96, arrays 10, combos 61, serve 11, units 114, length 23, length protocol 3, properties 28, viewport 63; zero failures. Quick-test steps check that typed arithmetic is worked out locally and a declined input (`60mm^1`) goes to FreeCAD; the rejection scenario types for real. The panel's steps drive its actual controls (inspect, expression edit, confirmed volume, undo).
+`parsecheck.sh` loads every viewport/tool script first. `featuretest.sh` runs the feature tests in parallel: the worker tests (native, runs, arrays, combos, serve, length input and protocol, properties, the T48 scenario on `tests/scenario_fixture.json`), the units parser test the document controller's sequencing test (`test_document.gd`: coalescing, stale and dirty replies, reconnect, open/switch, undo floor, redo) and the selection/context test (`test_selection.gd`: units from outside and inside, entering and leaving, the hidden set following the ops, hide/assembly/unlink ops). `quicktest.sh` runs them alongside the viewport quick suite, dealt into three windows side by side (`tests.gd` `QUICK_LANES`, `--quick-lane=N`; T49), each with its own worker; `fulltest.sh` alongside the recorded and targeted suites at quick pace (`--fast`), in four lanes side by side, each lane with its own worker started on port 0 (T47, T49). Worker tests load the modules with `from test_load import *`. `test_serve.py` covers shared-worker ownership/lifecycle; fulltest also runs recorded suites and targeted checks. After integrating H011/H012 (linked-copies, 2026-11-21): native 96, arrays 10, combos 61, serve 11, units 114, length 23, length protocol 3, properties 28, viewport 63; zero failures. Quick-test steps check that typed arithmetic is worked out locally and a declined input (`60mm^1`) goes to FreeCAD; the rejection scenario types for real. The panel's steps drive its actual controls (inspect, expression edit, confirmed volume, undo).
 
 Known limit: a property edit names its FreeCAD object by internal name (`Extrusion003`). Names are stable on reopen and on rebuild from the journal; branch-safe IDs (T35) must take them into account.
 
