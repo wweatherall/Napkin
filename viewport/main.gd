@@ -953,6 +953,18 @@ static func _axis_vec(ax: int) -> Vector3:
 	return [Vector3(1, 0, 0), Vector3(0, 1, 0), Vector3(0, 0, 1)][ax]
 
 
+static func reflect_point(q: Vector3, p: Vector3, n: Vector3) -> Vector3:
+	return q - n * (2.0 * (q - p).dot(n))
+
+
+static func reflect_tris(tris: PackedVector3Array, p: Vector3, n: Vector3) -> PackedVector3Array:
+	"""Mirror across any plane (T27). Each triangle's winding flips, so normals stay pointing out."""
+	var out := PackedVector3Array()
+	for i in range(0, tris.size(), 3):
+		out.append(reflect_point(tris[i], p, n)); out.append(reflect_point(tris[i + 2], p, n)); out.append(reflect_point(tris[i + 1], p, n))
+	return out
+
+
 static func _mirror_tris(tris: PackedVector3Array, ax: int, c: float) -> PackedVector3Array:
 	var out := PackedVector3Array()
 	for q in tris:

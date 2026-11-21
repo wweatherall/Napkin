@@ -67,6 +67,10 @@ func typed(txt: String) -> void:
 		_amend_last_move(txt)
 		return
 	if mirror:
+		if txt.is_valid_float() and state.get("mir_face", "") != "":
+			var fn: Vector3 = state["mir_n"]          # off the snapped face, on its outside (T27)
+			commit_mirror(state["mir_p"] + fn * float(txt), fn)
+			return
 		if txt.is_valid_float():
 			var ax: int = state.get("mir_ax", state["face_ax"])
 			var d := absf(float(txt))
@@ -89,12 +93,16 @@ func vcb_label() -> String:
 
 func vcb_value() -> String:
 	if not state.get("active", false): return ""
+	if mirror and state.get("mir_face", "") != "":
+		return "%d" % absf((state["ref"] - state["mir_p"]).dot(state["mir_n"]))
 	if mirror and state.has("mir_c"):
 		return "%d" % _mirror_face_gap(state["mir_ax"], state["mir_c"])
 	return "%d" % state["vec"].length()
 
 
 func tip() -> String:
+	if state.get("active", false) and mirror and state.get("mir_face", "") != "":
+		return "Mirror%s across %s's face\ntype a distance to stand the plane off it" % [" + copy" if copy else "", state["mir_face"]]
 	if state.get("active", false) and mirror and state.has("mir_c"):
 		var g := _mirror_face_gap(state["mir_ax"], state["mir_c"])
 		var col: String = ["red", "green", "blue"][state["mir_ax"]]
@@ -124,7 +132,21 @@ func _mirror_face_gap(ax: int, c: float) -> float:
 	return c - state["hi"][ax] if c >= (state["lo"][ax] + state["hi"][ax]) * 0.5 else state["lo"][ax] - c
 
 
+func _face_plane_under_cursor() -> Dictionary:
+	"""While mirroring with no arrow-key lock: a face of another board under the cursor (T27, Q12)."""
+	if state.get("lock_mode", "free") != "free": return {}
+	var p := m.pick(m._cursor_pos())
+	var b: String = p.get("body", "")
+	if not p.get("hit", false) or b == "" or b == state["body"] or state.get("unit", {}).get("bodies", []).has(b): return {}
+	return {"p": p["point"], "n": Main.clean_normal(p["normal"]), "body": b}
+
+
 func _preview_mirror_move() -> void:
+	var fp := _face_plane_under_cursor()
+	state["mir_face"] = fp.get("body", "")
+	if not fp.is_empty():
+		_preview_mirror_plane(fp["p"], fp["n"])
+		return
 	var r := _mirror_axis_and_plane()
 	var ax: int = r[0]; var c: float = r[1]
 	state["mir_ax"] = ax; state["mir_c"] = c
@@ -157,14 +179,47 @@ func _preview_mirror_move() -> void:
 	m._update_vcb()
 
 
+func _preview_mirror_plane(pp: Vector3, n: Vector3) -> void:
+	"""The ghost and plane for a plane at any angle (a snapped face)."""
+	state["mir_p"] = pp; state["mir_n"] = n
+	var ghost := Main.reflect_tris(state["tris"], pp, n)
+	var lo: Vector3 = state["lo"]; var hi: Vector3 = state["hi"]
+	for q in ghost: lo = lo.min(q); hi = hi.max(q)
+	var bs := Main.plane_basis(n)
+	var c := (lo + hi) * 0.5
+	c -= n * (c - pp).dot(n)
+	var r := (hi - lo).length() * 0.5 + 60.0
+	var u: Vector3 = bs[0] * r; var v: Vector3 = bs[1] * r
+	var corners := PackedVector3Array([c - u - v, c + u - v, c + u + v, c - u + v])
+	var pm := m.mat_plane.duplicate() as StandardMaterial3D
+	pm.albedo_color = Color(0.85, 0.35, 0.6, 0.3)
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for q in [corners[0], corners[1], corners[2], corners[0], corners[2], corners[3]]: st.add_vertex(Main.m2g(q))
+	var mesh := m._tri_mesh(ghost, m.mat_draft)
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, st.commit_to_arrays())
+	mesh.surface_set_material(1, pm)
+	m.overlay.mesh = mesh
+	var segs := Main.feature_edges(ghost)
+	segs.append_array(PackedVector3Array([corners[0], corners[1], corners[1], corners[2], corners[2], corners[3], corners[3], corners[0]]))
+	m.overlay_lines.mesh = m._lines(segs, Color(0.6, 0.2, 0.45)).mesh
+	m._show_marker({"hit": true, "point": Main.reflect_point(state["ref"], pp, n)})
+	m._update_vcb()
+
+
 func commit_mirror_move(ax: int, c: float) -> void:
+	var pt := Vector3.ZERO
+	pt[ax] = c
+	commit_mirror(pt, Main._axis_vec(ax))
+
+
+func commit_mirror(pp: Vector3, n: Vector3) -> void:
+	"""Mirror the grabbed board across the plane through pp with normal n (any angle)."""
 	m.reject_note = ""
 	var body: String = state["body"]
 	m.counters["m"] += 1
 	var oid := "m%d" % m.counters["m"]
-	var pt := Vector3.ZERO
-	pt[ax] = c
-	var op := {"id": oid, "type": "mirror", "targets": [body], "plane": {"point": Main.arr3(pt), "normal": Main.arr3(Main._axis_vec(ax))}}
+	var op := {"id": oid, "type": "mirror", "targets": [body], "plane": {"point": Main.arr3(pp), "normal": Main.arr3(n)}}
 	var bid := body
 	if copy:
 		m.counters["b"] += 1
@@ -176,7 +231,7 @@ func commit_mirror_move(ax: int, c: float) -> void:
 	else:
 		op["replace"] = true                 # flip the board itself
 	m.ops.append(op)
-	var ghost := Main._mirror_tris(state["tris"], ax, c)
+	var ghost := Main.reflect_tris(state["tris"], pp, n)
 	var mi := MeshInstance3D.new()
 	mi.mesh = m._tri_mesh(ghost, m.mat_draft)
 	var edges := m._lines(Main.feature_edges(ghost), Color(0.6, 0.35, 0.0))
@@ -188,14 +243,13 @@ func commit_mirror_move(ax: int, c: float) -> void:
 	m.body_verts[bid] = Main.unique_verts(ghost)
 	m.body_edges[bid] = Main.feature_edges(ghost)
 	if not copy:
-		for n in m.bodies_root.find_children(body, "MeshInstance3D", true, false):
-			n.visible = false
+		for node in m.bodies_root.find_children(body, "MeshInstance3D", true, false):
+			node.visible = false
 	if m.test_mode:
 		var blo := Vector3(INF, INF, INF); var bhi := -blo
 		for q in ghost: blo = blo.min(q); bhi = bhi.max(q)
 		m.draft_bboxes[bid] = [Main.arr3(blo), Main.arr3(bhi)]
-	var landed: Vector3 = state["ref"]
-	landed[ax] = 2.0 * c - landed[ax]
+	var landed := Main.reflect_point(state["ref"], pp, n)
 	m._begin_wave(oid, landed, ghost, copy, bid)
 	m._attach_wave(oid, mi, edges, Main.DEFAULT_BASE)
 	last_oid = ""
@@ -233,7 +287,8 @@ func _move_click(screen: Vector2) -> void:
 					  "face_ax": fax, "face_c": snappedf(p["point"][fax], 0.01), "face_sign": signf(n[fax]),
 					  "cut": cut_ref, "unit": unit}
 	elif mirror and state.get("cut", {}).is_empty():
-		commit_mirror_move(state["mir_ax"], state["mir_c"])
+		if state.get("mir_face", "") != "": commit_mirror(state["mir_p"], state["mir_n"])
+		else: commit_mirror_move(state["mir_ax"], state["mir_c"])
 	else:
 		commit_move(state["vec"])
 

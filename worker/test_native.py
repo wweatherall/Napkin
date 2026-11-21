@@ -607,6 +607,11 @@ NG += [{"id": "m2", "type": "mirror", "targets": ["b1"], "plane": {"point": [0, 
 s.sync(NG)
 check("a board flipped in place stays in its group, and moves with it", s.model.assembly_of(s.model.body("b1")) is g
       and bx(s, "b1")[2] == 200 and bx(s, "b2")[2] == 200, [bx(s, "b1"), bx(s, "b2")])
+NG += [{"id": "m3", "type": "mirror", "targets": ["b2"], "plane": {"point": [500, 0, 0], "normal": [0.7071068, 0.7071068, 0]},
+        "new_ids": ["b4"]}]
+s.sync(NG)
+v2, v4 = bodies_of(s)["b2"][0], bodies_of(s).get("b4", [0])[0]
+check("a mirror across a sloped plane (a face at 45 degrees) keeps the volume", abs(v2 - v4) < 1e-3 and v4 > 0, [v2, v4])
 s.export(os.path.join(tmp, "o_out"))
 ent = {e["id"]: e for e in json.load(open(os.path.join(tmp, "o_out", "bodies.json")))}
 check("bodies.json gives the copy's mirror plane", ent["b2"]["mirror_plane"] and abs(ent["b2"]["mirror_plane"][0][0] - 300) < 1e-6,

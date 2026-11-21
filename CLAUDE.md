@@ -85,7 +85,7 @@ If you can't reach the log, say so; don't guess at what it says.
   `tools/fulltest.sh --update-reference`.
 - Both scripts first run `tools/parsecheck.sh` (every viewport script, ~3 s): a script that doesn't parse used to
   leave Godot sitting with no test running. The quick test's Godot run is also stopped after 120 s.
-- Worker tests alone: `freecadcmd worker/test_native.py` (85 checks) and `worker/test_arrays.py` (10).
+- Worker tests alone: `freecadcmd worker/test_native.py` (86 checks) and `worker/test_arrays.py` (10).
 - Visual checks (screenshots, no pass/fail): `--linetest`, `--zfighttest`; timing: `--perftest`. Recordings use
   `--true-latency` (P03) with Godot's `--write-movie`; `--heavytest --model=<file>`.
 - Test hooks (`delay_ms`, forced rejection, `--*test`) are for testing only (P02).

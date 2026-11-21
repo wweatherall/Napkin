@@ -1306,6 +1306,31 @@ func _run_quick_test() -> void:
 	_ok("moving the copy 50 out moves the original 50 the other way", absf(_bbox("b1")[0] - (x0 - 50)) < 0.01, [x0, _bbox("b1"), _bbox(mir_b)])
 	await _key(KEY_ESCAPE); await _key(KEY_ESCAPE)
 
+	# 5e. Mirror across another board's face (T27, Q12): point at the face while mirroring
+	await _fresh("faceplane", _plank(1, Vector3.ZERO, Vector3(100, 50, 18)) + _plank(2, Vector3(300, 0, 0), Vector3(18, 50, 60)))
+	await _view(Vector3(150, 25, 30), -25, -50, 1.2)
+	await _grab(Vector3(50, 25, 18))
+	await _key(KEY_ALT)
+	await _key(KEY_SHIFT)
+	await _drag_to(Vector3(309, 25, 60), 6)
+	_ok("pointing at b2's top while mirroring snaps the plane to it", m.tools["move"].state.get("mir_face", "") == "b2" and m.ui_tip.text.contains("b2's face"),
+		[m.tools["move"].state.get("mir_face", ""), m.ui_tip.text])
+	await _press()
+	await _wait_wave()
+	var fp_ids: Array = _shown_ids()
+	var fp_new: String = fp_ids.back() if fp_ids.size() == 3 else ""
+	_ok("the copy lands mirrored across b2's top: z 102..120", fp_new != "" and _bbox(fp_new)[2] == 102.0 and _bbox(fp_new)[5] == 120.0,
+		[fp_ids, _bbox(fp_new) if fp_new != "" else []])
+	await _grab(Vector3(50, 25, 18))
+	await _key(KEY_ALT)
+	await _key(KEY_SHIFT)
+	await _drag_to(Vector3(309, 10, 60), 6)
+	await _type("20\n")
+	await _wait_wave()
+	fp_ids = _shown_ids()
+	fp_new = fp_ids.back() if fp_ids.size() == 4 else ""
+	_ok("typing 20 stands the plane 20 off the face: z 142..160", fp_new != "" and _bbox(fp_new)[2] == 142.0, [fp_ids, _bbox(fp_new) if fp_new != "" else []])
+
 	# 6. Undo (A28): every undo shows at once, the 21st rebuilds in FreeCAD
 	await _fresh("undo")
 	var seen := {0: []}
