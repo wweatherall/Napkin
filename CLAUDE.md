@@ -73,7 +73,7 @@ confirmed meshes, the worker link, typed values, drawing rules, viewport tests) 
 - Godot: `/Applications/Godot.app/Contents/MacOS/Godot`
 
 ## Tests
-- After every change: `tools/quicktest.sh` (~25 s): every worker test, the units test, and every viewport feature
+- After every change: `tools/quicktest.sh` (~20 s): every worker test, the units test, and every viewport feature
   once in a single Godot session (`--quicktest`), each step checking its own answer. It starts its own worker, so
   it never touches a running Shop Sketch. Add a step there for each new feature.
 - When the quick test fails, or before a merge: `tools/fulltest.sh` (~2 min): the six recorded suites compared
