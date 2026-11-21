@@ -773,6 +773,21 @@ func _run_snap_test() -> void:
 	m.set_tool("push")
 	print("SNAPTEST push in near the back: %s by %s (want -50 by back face) | at -28: %s, snap '%s' (want about -28, none)" % [
 		through, through_kind, free, free_kind])
+	# a real hole: rectangle on b2's top, pushed in to the back face -> a through cut FreeCAD keeps through (I24)
+	var rop := {"id": "r3", "type": "rect", "plane": {"on": {"body": "b2", "normal": [0, 0, 1], "point": [440, 40, 50]}}, "size": [20, 20]}
+	m.ops.append(rop); m._register_rect(rop); m.counters["r"] = 3
+	m.sync(); await _wait_confirm()
+	m.set_tool("push")
+	push.click(_screen_of(Vector3(450, 50, 50), Vector2.ZERO))
+	push.mouse_moved(_screen_of(Vector3(450, 50, 2), Vector2.ZERO))
+	push.click(_screen_of(Vector3(450, 50, 2), Vector2.ZERO))
+	var hole_op: Dictionary = m.ops.back()
+	await _wait_wave()
+	var b2_vol := -1.0
+	for b in JSON.parse_string(FileAccess.get_file_as_string(m.out_dir.path_join("bodies.json"))):
+		if b["id"] == "b2": b2_vol = b["volume_mm3"]
+	print("SNAPTEST through-hole: op %s through=%s distance %s | b2 volume %s (want %s)" % [
+		hole_op["id"], hole_op.get("through", false), hole_op.get("distance"), b2_vol, 100 * 100 * 50 - 20 * 20 * 50])
 	print("SNAPTEST done")
 	get_tree().quit()
 

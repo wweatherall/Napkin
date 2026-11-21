@@ -374,4 +374,41 @@ check("FreeCAD keeps 20 undo steps; the 21st Ctrl+Z in a row rebuilds, then undo
 check("the model is right after every one of those undos", vols_ok)
 s.close()
 
+# ---------- J. a cut to the opposite face stays through when the board changes in FreeCAD (I24) ----------
+JOPS = [ground_rect("r1", [0, 0, 0], [300, 200]), push("p1", "r1", 18, "b1"),
+        face_rect("rj1", "b1", [50, 50, 18], [20, 20]), dict(push("pj1", "rj1", -18), through=True),
+        face_rect("rj2", "b1", [150, 50, 18], [20, 20]), push("pj2", "rj2", -10)]
+jpath = os.path.join(tmp, "through.FCStd")
+for q in (jpath, journal_path(jpath)):
+    if os.path.exists(q):
+        os.remove(q)
+s = Session(jpath, fresh=True)
+s.sync(JOPS)
+check("through-hole and a 10 mm blind hole", vol(s) == 300 * 200 * 18 - 7200 - 4000, vol(s))
+s.export(tmp)
+hole = [c for c in json.load(open(os.path.join(tmp, "bodies.json")))[0]["cuts"] if c["op"] == "pj1"][0]
+check("the through-hole's outline stays inside the board", hole["lo"][2] >= -1e-6 and hole["hi"][2] <= 18 + 1e-6, hole)
+s.save(tmp)
+s.close()
+
+
+def set_thickness(t):
+    d = App.openDocument(jpath)
+    [o for o in d.Objects if o.TypeId == "Part::Extrusion" and getattr(o, "SSOp", "") == "p1"][0].LengthFwd = t
+    d.recompute()
+    d.save()
+    App.closeDocument(d.Name)
+
+
+set_thickness(30)
+s = Session(jpath)
+check("board made 30 mm thick in FreeCAD: the through-hole still goes through (the blind one doesn't)",
+      vol(s) == 300 * 200 * 30 - 20 * 20 * 30 - 4000, vol(s))
+s.close()
+set_thickness(12)
+s = Session(jpath)
+check("...and at 12 mm thick, still through (the blind one, drawn at 18 mm, now only reaches 8..12 mm)",
+      vol(s) == 300 * 200 * 12 - 20 * 20 * 12 - 20 * 20 * 4, vol(s))
+s.close()
+
 print(f"\nNATIVE TESTS: {R[0]} passed, {R[1]} failed")

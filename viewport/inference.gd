@@ -113,8 +113,9 @@ func point(screen: Vector2, exclude: String, plane := {}, with_rects := false, n
 		for i in range(0, segs.size(), 2):
 			if not (_on_plane(segs[i], plane) and _on_plane(segs[i + 1], plane)): continue
 			var q := closest_on_segment_to_ray(segs[i], segs[i + 1], o, d)
-			if _on_other(q, not_on): continue
-			cands.append([_grid_along(q, segs[i], segs[i + 1]), bid, q])
+			var g := _grid_along(q, segs[i], segs[i + 1])
+			if _on_other(q, not_on) or _on_other(g, not_on): continue
+			cands.append([g, bid, q])
 	return _nearest_visible(cands, screen, EDGE_PX, "on edge")
 
 

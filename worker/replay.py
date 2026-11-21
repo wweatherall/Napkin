@@ -373,6 +373,30 @@ class Model:
         return b
 
     # ---------- operations ----------
+    @staticmethod
+    def through_all(ext, plane, run_base, direction, level_pt):
+        """A cut pushed to the opposite face (I24): its length follows the board instead of a number. It runs to
+        the far side of the board (as it was before this run of cuts) plus 1 mm, and back past the face it was
+        drawn on by as much as the board has grown on that side since. Make the board thicker or thinner in
+        FreeCAD and the hole stays through. Only for axis-aligned pushes (all of them, today)."""
+        u = unit(direction)
+        axis = next((i for i in range(3) if abs(abs(u[i]) - 1.0) < 1e-6), None)
+        if axis is None:
+            return
+        A = "XYZ"[axis]
+        bb = run_base.Shape.BoundBox
+        lo, hi = getattr(bb, A + "Min"), getattr(bb, A + "Max")
+        level = level_pt[axis]
+        P, B = plane.Name, run_base.Name
+        if u[axis] < 0:            # cutting toward the board's low side
+            fwd = f"({P}.Shape.BoundBox.{A}Min - {B}.Shape.BoundBox.{A}Min) * 1mm + 1mm"
+            grown = f"{B}.Shape.BoundBox.{A}Max - {P}.Shape.BoundBox.{A}Max - {hi - level!r}"
+        else:
+            fwd = f"({B}.Shape.BoundBox.{A}Max - {P}.Shape.BoundBox.{A}Max) * 1mm + 1mm"
+            grown = f"{P}.Shape.BoundBox.{A}Min - {B}.Shape.BoundBox.{A}Min - {level - lo!r}"
+        ext.setExpression("LengthFwd", fwd)
+        ext.setExpression("LengthRev", f"(({grown}) > 0 ? ({grown}) : 0) * 1mm")
+
     def op_rect(self, op):
         rid = op["id"]
         if self.rect_obj(rid) is not None:
@@ -439,9 +463,13 @@ class Model:
         else:
             base = self.face_feature(fr.shape(world_face), f"{oid} face")
         before = c.Tip.Shape
+        run_base = c.Tip.Base if (d < 0 and self.is_cut_run(c.Tip)) else c.Tip
         ext = self.extrusion(base, fr.dir(n * d), d, f"{oid} push")
-        add_props(ext, SSOp=oid)
+        through = bool(op.get("through")) and d < 0
+        add_props(ext, SSOp=oid, **({"SSThrough": True} if through else {}))
         self.put_in(c, base, ext)
+        if through:
+            self.through_all(ext, base, run_base, fr.dir(n * d), fr.pt(world_face.CenterOfMass))
         b = self.boolean(c, ext, d, oid)
         self.doc.recompute()
         self.check_result(before, b.Shape, d)
@@ -660,8 +688,11 @@ def cuts_of(model, obj):
             cutter = tool.Base if model.is_array(tool) else tool
             if getattr(getattr(cutter, "Base", None), "TypeId", "") != "Part::Plane":
                 continue
+            board_bb = model.world_shape(obj).BoundBox
             for sol in to_world(model, obj, tool.Shape).Solids:
                 bb = sol.BoundBox
+                if bb.intersect(board_bb):
+                    bb = bb.intersected(board_bb)
                 out.append({"op": getattr(cutter, "SSOp", "") or f.SSOp, "kind": "cut",
                             "lo": [bb.XMin, bb.YMin, bb.ZMin], "hi": [bb.XMax, bb.YMax, bb.ZMax]})
     return out

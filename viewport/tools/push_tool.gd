@@ -186,6 +186,9 @@ func commit_push(d: float) -> void:
 	else:
 		op["target"] = {"face": {"body": state["body"], "normal": Main.arr3(state["n"]), "point": Main.arr3(state["anchor"])}}
 		on = state["body"]
+	var depths: Array = state.get("depths", [])
+	if d < 0 and not depths.is_empty() and absf(d - float(depths.back())) < 0.01:
+		op["through"] = true        # to the opposite face: FreeCAD keeps it through if the board changes (I24)
 	var new_id := ""
 	# a rectangle becomes its own board (free, or on a face with "new board" on);
 	# pushing a body's own face always edits that body, like SketchUp
