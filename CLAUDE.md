@@ -126,7 +126,8 @@ the log, regenerate the copy (read the four tabs, write the file) and commit it 
   `tools/fulltest.sh --update-reference`.
 - Both scripts first run `tools/parsecheck.sh` (every viewport script, ~3 s): a script that doesn't parse used to
   leave Godot sitting with no test running. The quick test's Godot run is also stopped after 120 s.
-- Worker tests alone: `freecadcmd worker/test_native.py` (96 checks), `worker/test_arrays.py` (10), and
+- Worker tests alone: `freecadcmd worker/test_native.py` (96 checks), `worker/test_arrays.py` (10),
+  `worker/test_combos.py` (61: features together, undo/reopen equal a fresh build, two models at once), and
   `python3 worker/test_serve.py` (11: one worker, two windows; it starts freecadcmd itself).
 - Units parser (`viewport/units.gd`, T32): `Godot --headless --path viewport --script res://test_units.gd` (99 checks);
   both scripts run it.
