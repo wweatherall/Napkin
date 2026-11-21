@@ -1081,6 +1081,10 @@ func _run_quick_test() -> void:
 	var t_start := Time.get_ticks_msec()
 	while not m.opened: await _frames(1)
 
+	# 0. The worker's hello hash is the one the window computes from the worker's files (W13, T42: all modules)
+	var theirs := m._probe_worker(m.worker_port)
+	_ok("the window and its worker agree on the worker's hash", theirs != "" and theirs == m._worker_identity(), [theirs, m._worker_identity()])
+
 	# 1. Rectangle: click-click, press-drag-release, a wobbly click (I29)
 	await _fresh("rect")
 	await _view(Vector3(300, 200, 0), -30, -50, 1.4)
