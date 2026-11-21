@@ -19,6 +19,8 @@ Read it for architecture, conventions and tests.
 - Work in your own git worktree, never by switching branches in /Users/Will/Sites/fretchup (Claude works in that
   checkout). Example: `git worktree add ../fretchup-codex-<job> -b codex/<job> main`.
 - Touch only the files your handoff job lists. Don't merge into main or push unless William says so.
+- `ARCHITECTURE.md` is your map of the code. Claude updates it with every architecture change it makes; if a job of
+  yours changes the architecture, update it in the same commit and say so in the handoff.
 - Before handing back, run `tools/quicktest.sh` in your worktree (it uses its own ports).
 - Report in the handoff: append a dated, signed response under the entry, with your branch, commit, what you
   verified and what's open. Then set its Status. Archive entries once they're resolved (move them whole to

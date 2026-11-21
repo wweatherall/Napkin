@@ -1,6 +1,6 @@
 # Shop Sketch architecture
 
-Reviewed: 2026-11-21 against main 5c0b602 for H009. This maps the inspected source, not a released build. The code and revision 60 decision-log export were checked; baseline quicktest results are recorded below.
+Reviewed: 2026-11-21 against main 5c0b602 for H009. This maps the inspected source, not a released build. The code and revision 60 decision-log export were checked; baseline quicktest results are recorded below. Updated by Claude 2026-11-21 for the T42 worker split (linked-copies 1739746).
 
 ## Reading and decision order
 
@@ -17,8 +17,8 @@ flowchart LR
     U[User] --> T[Godot tools and inference]
     T --> M[main.gd: operations, drafts, UI]
     M --> C[worker_client.gd]
-    C -->|newline JSON over localhost TCP| W[replay.py: serve and Session]
-    W --> G[Model and FreeCAD features]
+    C -->|newline JSON over localhost TCP| W[serve.py and session.py]
+    W --> G[model.py + action mixins: FreeCAD features]
     G --> F[FCStd and adjacent journal]
     G --> E[bodies.json and per-board meshes]
     E --> M
@@ -44,9 +44,13 @@ TCP carries commands/status and output paths. Geometry is read from shared local
 | `viewport/tools/move_tool.gd` | Move/copy/mirror gestures, arrays and operation amendments | `commit_move`, `commit_mirror_move` |
 | `viewport/inference.gd` | Shared picking and snapping, visibility checks, axis/plane destinations | `pick`, `snap`, `point`, `axis`, `axis_dest`, `plane_dest` |
 | `viewport/worker_client.gd` | TCP framing, buffering, reconnect, pending sends and link signals | `send`, `_process`, `_drain` |
-| `worker/replay.py: Model` | Native features, object relationships, geometry operations and validation | `apply`, `op_*`, `resolve_face`, `edit_frame` |
-| `worker/replay.py: Session` | Live document, applied operation sequence, undo/rebuild, external-edit detection, export and persistence | `sync`, `_apply`, `_open_existing`, `export`, `save` |
-| `worker/replay.py: serve` | select-based multi-client loop; sessions and single-window ownership by absolute file path; delayed saves and focus notifications | `handle`, `claim`, `let_go`, `release`, `save_pending`, `session_for` |
+| `worker/replay.py` | Entry point only: puts worker/ on sys.path and calls `serve.main()` (freecadcmd runs it by name) | `main` |
+| `worker/common.py` | Shared basics every module takes with `from common import *`: FreeCAD imports, tolerances, `OpError`, `vec`/`unit`, `add_props`, `Frame`, wood cards | `material_card`, `Frame` |
+| `worker/model.py: Model` | Reading the document and the building blocks (boards, planes, extrusions, booleans, Tip); combines the action mixins; validates each op | `apply`, `HANDLERS`, `resolve_face`, `edit_frame`, `boolean` |
+| `worker/push.py`, `move.py`, `mirror.py`, `assembly.py`, `paint.py` | One mixin per kind of action (`PushActions`, ...), working through `self` on the document: rect + push/pull + through-cuts; move, copies, links, arrays, detach, make unique; mirrors; assemblies; paint and grain | `op_*` |
+| `worker/export.py` | What the viewport and renders read: bodies.json entries, per-board mesh files and their caches, model.glb, the TechDraw page | `mesh_of`, `board_mesh_file`, `write_glb`, `cuts_of` |
+| `worker/session.py: Session` | Live document, applied operation sequence, undo/rebuild, external-edit detection, journal, saves (incl. GuiDocument.xml) | `sync`, `_apply`, `_open_existing`, `export`, `save` |
+| `worker/serve.py` | select-based multi-client loop; sessions and single-window ownership by absolute file path; delayed saves and focus notifications | `handle`, `claim`, `let_go`, `release`, `save_pending`, `session_for` |
 | `worker/materials.py` | Twelve-species wood library, FreeCAD card installation, texture metadata | `install`, `write_library`, `SPECIES` |
 | `worker/drawing.py` | Compose shop drawings and cut list from exported data | Script entry point |
 | `viewport/*.gdshader`, `line.gdshaderinc` | Draft/confirmation appearance, depth-biased overlays and anti-aliased lines | Shader parameters |
@@ -87,7 +91,7 @@ The current client gates sync results using sequence and dirty state. New asynch
 
 ## Protocol at a glance
 
-Transport: UTF-8 JSON objects separated by newlines over localhost TCP. Main probes port 7878 with hello and compares replay.py's MD5 identity. A matching worker is shared; a different version or occupied port gets a private worker. The identity currently hashes replay.py only, not every supporting module. Test mode uses a separate port; `--port=N` selects an external worker.
+Transport: UTF-8 JSON objects separated by newlines over localhost TCP. Main probes port 7878 with hello and compares the worker identity: the MD5 of every worker `.py` except `test_*`, in name order (`serve.py worker_identity`; main.gd `_worker_identity` computes the same, and a quick-test step checks they agree). A matching worker is shared; a different version or occupied port gets a private worker. Test mode uses a separate port; `--port=N` selects an external worker.
 
 | Command/event | Purpose |
 |---|---|
@@ -150,7 +154,7 @@ Main picks/probes/starts the worker (`_pick_worker`), watches loss (`_watch_work
 |---|---|---|
 | New drawing/manipulation tool | New script under `viewport/tools` | Main registration, inference, worker handler, rejection dependencies, tests |
 | Snap/axis/plane behaviour | `inference.gd` | Every tool and coordinate conversion |
-| New native geometric feature | `Model` in `replay.py` | Transaction behaviour, export/cache keys, persistence/reopen |
+| New native geometric feature | An `op_*` in the matching action file (`push.py`, `move.py`, ...), or a new mixin added to `Model` in `model.py`; list the op in `HANDLERS` | Transaction behaviour, export/cache keys, persistence/reopen |
 | Component/array/assembly semantics | Model relationship helpers | Main editing context, previews, affected-instance highlighting |
 | Material pipeline | `worker/materials.py`, `op_set_material`, `set_tip`, `grain_world`, `write_glb` | Paint tool, wood.gdshader, material/grain cache keys and Blender extras consumer |
 | Worker failure/reconnect | `worker_client.gd`, Main lifecycle | `serve`, save acknowledgement and model switching |
@@ -173,9 +177,7 @@ For a new operation, define intent, input units/frame, target identity, affected
 
 ## Proposed evolution, not current implementation
 
-Main currently concentrates UI, model coordination, caches, selection, history-like state, process lifecycle and rendering. Replay combines domain operations, persistence, export and transport. These are practical extraction seams, not a reason for a large rewrite.
-
-Later handoff H010 (decision-log revision 61) records planned T42 worker-module extraction and T43 per-directory guidance, assigned to Claude. Those modules do not exist at this review baseline; recheck paths and test loaders when they land. T44 protocol documentation is proposed follow-on work, not part of H009.
+Main currently concentrates UI, model coordination, caches, selection, history-like state, process lifecycle and rendering (about 2,200 lines); its split is T39 and T41. The worker was split by job in T42 (2026-11-21, no behaviour change): domain operations, export, persistence and transport now live in separate modules (see the table above). T43 per-directory guidance and T44 protocol documentation are still to do.
 
 As features grow, consider extracting:
 
@@ -191,7 +193,7 @@ For branching history, retain old futures in a durable graph and materialize an 
 
 For behavioural changes, follow CLAUDE.md: run `tools/quicktest.sh`; run `tools/fulltest.sh` on failure or before merge. Worker tests check native structure, undo/reopen, arrays and relationships. Scripted viewport suites exercise gestures; reference comparisons check volumes/bounds. Visual quality and interaction feel still require real-hardware checks.
 
-`parsecheck.sh` loads every viewport/tool script first. `quicktest.sh` runs native, arrays and shared-server tests alongside the single viewport quick suite. `test_serve.py` covers shared-worker ownership/lifecycle; fulltest also runs recorded suites and targeted checks. This documentation branch passed quicktest: native 96, arrays 10, serve 11, viewport 52; zero failures. No runtime files changed. New standalone parser/combo tests on other Codex branches are review deliverables, not yet part of main's test runners.
+`parsecheck.sh` loads every viewport/tool script first. `quicktest.sh` runs the worker tests (native, arrays, combos, serve) and the units parser test alongside the single viewport quick suite. Worker tests load the modules with `from test_load import *`. `test_serve.py` covers shared-worker ownership/lifecycle; fulltest also runs recorded suites and targeted checks. After T42 (linked-copies 1739746): native 96, arrays 10, combos 61, serve 11, units 100, viewport 53; zero failures.
 
 Update this file when adding a module, changing a protocol/schema, moving state ownership, introducing a persistent relationship, or changing save/recovery behaviour. Keep current facts distinct from planned work, and recheck working-tree changes before acting on an inventory.
 

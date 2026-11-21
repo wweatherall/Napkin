@@ -35,6 +35,9 @@ the log, regenerate the copy (read the four tabs, write the file) and commit it 
   and read `Codex's suggestions.md`, `FREECAD_FEATURE_MAP.md` and `ARCHITECTURE.md` by section (grep the heading,
   then read that range).
 - Codex works on `codex/*` branches in its own worktree, on the files its handoff job lists; review and merge them.
+- `ARCHITECTURE.md` is the architecture map Codex works from (Codex wrote it). Every architecture change (a module added,
+  split or moved; a protocol or file format; who owns which state; saving and recovery) updates it in the same
+  commit, so it is always ready to hand to Codex. William's rule, 2026-11-21.
 
 ## How it works
 - `viewport/` (Godot 4.6, Compatibility renderer): tools, instant drafts, the confirmation wave (T4 layout):
