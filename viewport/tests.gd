@@ -694,6 +694,18 @@ func _run_gesture_test() -> void:
 	var d1 := m.dist
 	var spread := InputEventMagnifyGesture.new(); spread.factor = 0.8
 	await _gesture(spread)
+	# T23: a wheel zooms by the amount scrolled (a smooth-scrolling mouse sends many small amounts)
+	var dz := m.dist
+	var notch := InputEventMouseButton.new(); notch.button_index = MOUSE_BUTTON_WHEEL_UP; notch.pressed = true; notch.factor = 1.0
+	notch.position = m.cursor2d.position; m._unhandled_input(notch)
+	var after_notch := m.dist
+	m.dist = dz; m._update_camera()
+	for i in 10:
+		var tiny := InputEventMouseButton.new(); tiny.button_index = MOUSE_BUTTON_WHEEL_UP; tiny.pressed = true; tiny.factor = 0.1
+		tiny.position = m.cursor2d.position; m._unhandled_input(tiny)
+	var after_tiny := m.dist
+	print("GESTURETEST wheel: one notch %.3f -> %.3f | ten 0.1 steps -> %.3f (same as one notch: %s)" % [dz, after_notch, after_tiny,
+		is_equal_approx(after_notch, after_tiny)])
 	print("GESTURETEST two-finger orbit %s | same as a mouse drag %s | Shift+two-finger pan %s | pinch out zooms in %s (%.2f -> %.2f) | pinch in zooms out %s" % [
 		orbit_ok, same_as_mouse, pan_ok, zoom_in, d0, d1, m.dist > d1])
 	print("GESTURETEST done")

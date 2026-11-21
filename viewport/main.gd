@@ -84,7 +84,6 @@ var client: Node
 var ui_hint: Label
 var ui_sync: Label
 var ui_vcb: Label
-var ui_toggles: Label
 var ui_tip: Label
 
 signal confirmed(seq_no: int)
@@ -186,6 +185,7 @@ func _ready() -> void:
 		_start_worker()
 
 	line_scale = maxf(1.0, DisplayServer.screen_get_scale())
+	get_window().content_scale_factor = line_scale        # the interface at its proper size on a Retina screen
 	_make_materials()
 	_make_tools()
 	_make_world()
@@ -297,49 +297,163 @@ func _make_world() -> void:
 	add_child(_lines(PackedVector3Array([Vector3.ZERO, Vector3(0, 0, 2000)]), Color(0.1, 0.25, 0.9), AXIS_LINE_PX))
 
 
+# ---------------- interface (T24: Mac-like) ----------------
+# System font, macOS colours (light or dark, your accent colour), a segmented control for the tools,
+# push buttons, a quiet status bar and a measurements field that lights up while you type.
+var dark := false
+var accent := Color(0.0, 0.48, 1.0)
+var _tool_buttons := {}
+var _toggle_buttons := {}
+var ui_vcb_label: Label
+var ui_vcb_box: PanelContainer
+var _vcb_style: StyleBoxFlat
+var _vcb_style_typing: StyleBoxFlat
+
+
+func _c(light: Color, dark_c: Color) -> Color:
+	return dark_c if dark else light
+
+
+func _box(bg: Color, radius := 6, border := Color(0, 0, 0, 0), bw := 0, pad := Vector2(10, 4)) -> StyleBoxFlat:
+	var s := StyleBoxFlat.new()
+	s.bg_color = bg
+	s.set_corner_radius_all(radius)
+	if bw > 0:
+		s.border_color = border
+		s.set_border_width_all(bw)
+	s.content_margin_left = pad.x; s.content_margin_right = pad.x
+	s.content_margin_top = pad.y; s.content_margin_bottom = pad.y
+	s.anti_aliasing = true
+	return s
+
+
+func _make_theme() -> Theme:
+	var t := Theme.new()
+	var f := SystemFont.new()
+	f.font_names = PackedStringArray([".AppleSystemUIFont", "SF Pro Text", "Helvetica Neue", "Arial"])
+	t.default_font = f
+	t.default_font_size = 13
+	var text := _c(Color(0.11, 0.11, 0.12), Color(0.92, 0.92, 0.93))
+	t.set_color("font_color", "Label", text)
+	for st in ["font_color", "font_hover_color", "font_pressed_color", "font_hover_pressed_color", "font_focus_color"]:
+		t.set_color(st, "Button", text)
+	# push buttons
+	var edge := _c(Color(0.77, 0.77, 0.79), Color(0.36, 0.36, 0.38))
+	t.set_stylebox("normal", "Button", _box(_c(Color(1, 1, 1), Color(0.36, 0.36, 0.38)), 6, edge, 1, Vector2(12, 3)))
+	t.set_stylebox("hover", "Button", _box(_c(Color(0.97, 0.97, 0.98), Color(0.4, 0.4, 0.42)), 6, edge, 1, Vector2(12, 3)))
+	t.set_stylebox("pressed", "Button", _box(_c(Color(0.86, 0.86, 0.88), Color(0.46, 0.46, 0.48)), 6, edge, 1, Vector2(12, 3)))
+	t.set_stylebox("hover_pressed", "Button", t.get_stylebox("pressed", "Button"))
+	t.set_stylebox("focus", "Button", StyleBoxEmpty.new())
+	# segments: flat inside a grey track; the selected one is a raised white tile
+	t.set_type_variation("Segment", "Button")
+	var flat := _box(Color(0, 0, 0, 0), 5, Color(0, 0, 0, 0), 0, Vector2(11, 3))
+	var hov := _box(_c(Color(0, 0, 0, 0.05), Color(1, 1, 1, 0.06)), 5, Color(0, 0, 0, 0), 0, Vector2(11, 3))
+	var sel := _box(_c(Color(1, 1, 1), Color(0.43, 0.43, 0.46)), 5, Color(0, 0, 0, 0), 0, Vector2(11, 3))
+	sel.shadow_color = Color(0, 0, 0, 0.18); sel.shadow_size = 2; sel.shadow_offset = Vector2(0, 1)
+	t.set_stylebox("normal", "Segment", flat)
+	t.set_stylebox("hover", "Segment", hov)
+	t.set_stylebox("pressed", "Segment", sel)
+	t.set_stylebox("hover_pressed", "Segment", sel)
+	t.set_stylebox("focus", "Segment", StyleBoxEmpty.new())
+	t.set_type_variation("Quiet", "Label")
+	t.set_color("font_color", "Quiet", _c(Color(0.43, 0.43, 0.45), Color(0.62, 0.62, 0.65)))
+	t.set_font_size("font_size", "Quiet", 11)
+	return t
+
+
+func _segments(items: Array, toggles: bool) -> PanelContainer:
+	var track := PanelContainer.new()
+	track.add_theme_stylebox_override("panel", _box(_c(Color(0.86, 0.86, 0.88), Color(0.24, 0.24, 0.26)), 7, Color(0, 0, 0, 0), 0, Vector2(2, 2)))
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 2)
+	track.add_child(row)
+	var group := ButtonGroup.new()
+	for it in items:
+		var b := Button.new()
+		b.text = it[0]; b.tooltip_text = it[2]
+		b.theme_type_variation = "Segment"
+		b.toggle_mode = true
+		b.focus_mode = Control.FOCUS_NONE
+		if not toggles: b.button_group = group
+		b.pressed.connect(_menu.bind(it[1]))
+		row.add_child(b)
+		(_toggle_buttons if toggles else _tool_buttons)[it[1]] = b
+	return track
+
+
 func _make_ui() -> void:
+	dark = DisplayServer.is_dark_mode_supported() and DisplayServer.is_dark_mode()
+	for a in OS.get_cmdline_user_args():
+		if a == "--appearance=light": dark = false
+		elif a == "--appearance=dark": dark = true
+	var ac := DisplayServer.get_accent_color()
+	if ac.a > 0.0: accent = ac
 	var layer := CanvasLayer.new()
 	add_child(layer)
-	var bar := HBoxContainer.new()
-	bar.position = Vector2(10, 8)
-	bar.add_theme_constant_override("separation", 6)
-	layer.add_child(bar)
-	for spec in [["Rectangle  R", "rect"], ["Push/Pull  P", "push"], ["Move  M", "move"]]:
-		var b := Button.new(); b.text = spec[0]; b.focus_mode = Control.FOCUS_NONE
-		b.pressed.connect(set_tool.bind(spec[1]))
-		bar.add_child(b)
-	var u := Button.new(); u.text = "Undo  Ctrl+Z"; u.focus_mode = Control.FOCUS_NONE
-	u.pressed.connect(undo); bar.add_child(u)
-	var dbtn := Button.new(); dbtn.text = "Drawing  D"; dbtn.focus_mode = Control.FOCUS_NONE
-	dbtn.pressed.connect(export_drawing); bar.add_child(dbtn)
-	ui_toggles = Label.new()
-	ui_toggles.position = Vector2(12, 44)
-	ui_toggles.add_theme_color_override("font_color", Color(0.2, 0.2, 0.25))
-	layer.add_child(ui_toggles)
-	var panel := PanelContainer.new()
-	panel.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
-	panel.offset_top = -34
-	layer.add_child(panel)
+	var root := Control.new()
+	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	root.theme = _make_theme()
+	layer.add_child(root)
+	# toolbar
+	var bar := PanelContainer.new()
+	bar.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
+	var bar_style := _box(_c(Color(0.93, 0.93, 0.94), Color(0.17, 0.17, 0.18)), 0, Color(0, 0, 0, 0), 0, Vector2(10, 7))
+	bar_style.border_width_bottom = 1; bar_style.border_color = _c(Color(0.8, 0.8, 0.82), Color(0.07, 0.07, 0.08))
+	bar.add_theme_stylebox_override("panel", bar_style)
+	root.add_child(bar)
 	var row := HBoxContainer.new()
-	panel.add_child(row)
-	ui_hint = Label.new(); ui_hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	ui_sync = Label.new(); ui_sync.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	ui_vcb = Label.new(); ui_vcb.custom_minimum_size = Vector2(300, 0)
+	row.add_theme_constant_override("separation", 10)
+	bar.add_child(row)
+	row.add_child(_segments([["Rectangle", "rect", "Rectangle (R)"], ["Push/Pull", "push", "Push/Pull (P)"], ["Move", "move", "Move (M)"]], false))
+	for spec in [["Undo", "undo", "Undo (⌘Z)"], ["Drawing", "drawing", "Drawing and cut list (D)"]]:
+		var b := Button.new(); b.text = spec[0]; b.tooltip_text = spec[2]; b.focus_mode = Control.FOCUS_NONE
+		b.pressed.connect(_menu.bind(spec[1]))
+		row.add_child(b)
+	var gap := Control.new(); gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL; gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	row.add_child(gap)
+	row.add_child(_segments([["Grid snap", "grid", "Snap to a 10 mm grid (G)"], ["New board", "newboard", "Pushing a rectangle drawn on a face makes a separate board (B)"]], true))
+	# status bar with the measurements field
+	var status := PanelContainer.new()
+	status.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
+	status.grow_vertical = Control.GROW_DIRECTION_BEGIN          # grow up from the bottom edge
+	var st_style := _box(_c(Color(0.95, 0.95, 0.96), Color(0.15, 0.15, 0.16)), 0, Color(0, 0, 0, 0), 0, Vector2(12, 4))
+	st_style.border_width_top = 1; st_style.border_color = _c(Color(0.82, 0.82, 0.84), Color(0.07, 0.07, 0.08))
+	status.add_theme_stylebox_override("panel", st_style)
+	root.add_child(status)
+	var srow := HBoxContainer.new()
+	srow.add_theme_constant_override("separation", 14)
+	status.add_child(srow)
+	ui_hint = Label.new(); ui_hint.theme_type_variation = "Quiet"; ui_hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	ui_hint.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS; ui_hint.clip_text = true
+	ui_sync = Label.new(); ui_sync.theme_type_variation = "Quiet"; ui_sync.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	ui_sync.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS; ui_sync.clip_text = true
+	ui_vcb_label = Label.new(); ui_vcb_label.theme_type_variation = "Quiet"
+	ui_vcb_box = PanelContainer.new()
+	ui_vcb_box.custom_minimum_size = Vector2(150, 0)
+	_vcb_style = _box(_c(Color(1, 1, 1), Color(0.11, 0.11, 0.12)), 5, _c(Color(0.75, 0.75, 0.77), Color(0.33, 0.33, 0.35)), 1, Vector2(8, 2))
+	_vcb_style_typing = _vcb_style.duplicate()
+	_vcb_style_typing.border_color = accent; _vcb_style_typing.set_border_width_all(2)
+	ui_vcb_box.add_theme_stylebox_override("panel", _vcb_style)
+	ui_vcb = Label.new()
+	ui_vcb.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	ui_vcb_box.add_child(ui_vcb)
+	srow.add_child(ui_hint); srow.add_child(ui_sync); srow.add_child(ui_vcb_label); srow.add_child(ui_vcb_box)
+	# tooltip by the cursor
 	ui_tip = Label.new()
-	ui_tip.add_theme_color_override("font_color", Color(0.1, 0.1, 0.12))
-	var tip_bg := StyleBoxFlat.new(); tip_bg.bg_color = Color(1, 1, 0.92, 0.92)
-	tip_bg.set_content_margin_all(5); tip_bg.corner_radius_top_left = 4; tip_bg.corner_radius_bottom_right = 4
-	ui_tip.add_theme_stylebox_override("normal", tip_bg)
+	ui_tip.add_theme_font_size_override("font_size", 11)
+	var tip := _box(_c(Color(1, 1, 1, 0.97), Color(0.2, 0.2, 0.22, 0.97)), 6, _c(Color(0.78, 0.78, 0.8), Color(0.33, 0.33, 0.35)), 1, Vector2(8, 4))
+	tip.shadow_color = Color(0, 0, 0, 0.18); tip.shadow_size = 4; tip.shadow_offset = Vector2(0, 2)
+	ui_tip.add_theme_stylebox_override("normal", tip)
 	ui_tip.visible = false
-	layer.add_child(ui_tip)
-	row.add_child(ui_hint); row.add_child(ui_sync); row.add_child(ui_vcb)
+	root.add_child(ui_tip)
 	_update_toggles()
 
 
 func _update_toggles() -> void:
 	_update_menu_checks()
-	ui_toggles.text = "Grid snap %s (G)    New board on faces %s (B)    Orbit: middle/right drag or two fingers   Pan: Shift+drag   Zoom: wheel or pinch" % [
-		"on" if grid_snap else "off", "on" if new_board else "off"]
+	if _toggle_buttons.has("grid"): _toggle_buttons["grid"].set_pressed_no_signal(grid_snap)
+	if _toggle_buttons.has("newboard"): _toggle_buttons["newboard"].set_pressed_no_signal(new_board)
 
 
 # ---------------- mesh helpers ----------------
@@ -536,12 +650,16 @@ func set_tool(t: String) -> void:
 	if ui_tip: ui_tip.visible = false
 	overlay.mesh = null; overlay_lines.mesh = null
 	ui_hint.text = tools[t].hint()
+	if _tool_buttons.has(t): _tool_buttons[t].set_pressed_no_signal(true)
 	_update_vcb()
 
 
 func _update_vcb() -> void:
 	var t = tools[tool]
-	ui_vcb.text = "%s   [ %s ] mm" % [t.vcb_label(), vcb if vcb != "" else t.vcb_value()]
+	var val: String = vcb if vcb != "" else t.vcb_value()
+	ui_vcb_label.text = t.vcb_label()
+	ui_vcb.text = (val + " mm") if val != "" else ""
+	ui_vcb_box.add_theme_stylebox_override("panel", _vcb_style_typing if vcb != "" else _vcb_style)   # typing: accent ring
 
 
 func tool_move(screen: Vector2) -> void:
@@ -1409,10 +1527,11 @@ func _unhandled_input(e: InputEvent) -> void:
 		if e.button_index in [MOUSE_BUTTON_MIDDLE, MOUSE_BUTTON_RIGHT]:
 			orbiting = e.pressed and not e.shift_pressed
 			panning = e.pressed and e.shift_pressed
-		elif e.button_index == MOUSE_BUTTON_WHEEL_UP and e.pressed:
-			_zoom(0.88, e.position)
-		elif e.button_index == MOUSE_BUTTON_WHEEL_DOWN and e.pressed:
-			_zoom(1.0 / 0.88, e.position)
+		elif e.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN] and e.pressed:
+			# zoom by how much was scrolled: a smooth-scrolling mouse (MX Master) sends many small steps per notch
+			var amount := clampf(e.factor if e.factor > 0.0 else 1.0, 0.0, ZOOM_MAX_STEPS)
+			var step := pow(ZOOM_STEP, amount)
+			_zoom(step if e.button_index == MOUSE_BUTTON_WHEEL_UP else 1.0 / step, e.position)
 		elif e.button_index == MOUSE_BUTTON_LEFT and e.pressed:
 			tool_click(e.position)
 		elif e.button_index == MOUSE_BUTTON_LEFT:
@@ -1478,10 +1597,14 @@ func _repeat_gesture(e: InputEventGesture) -> bool:
 const TRACKPAD_PX := 33.0     # Godot scales a trackpad's scroll by 0.03: this makes one finger-pixel = one mouse-pixel
 
 
+const ZOOM_STEP := 0.88       # zoom per notch of a plain wheel (scroll amount 1)
+const ZOOM_MAX_STEPS := 3.0   # one scroll event never zooms more than this many notches
+
+
 func _zoom(f: float, screen: Vector2) -> void:
 	var p := pick(screen)
 	if p.get("hit", false) and f < 1.0:
-		target = target.lerp(m2g(p["point"]), 0.12)
+		target = target.lerp(m2g(p["point"]), 1.0 - pow(0.88, log(f) / log(ZOOM_STEP)))   # toward the cursor, as much as zoomed
 	dist = clampf(dist * f, 0.05, 50.0)
 	_update_camera()
 
