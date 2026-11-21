@@ -8,7 +8,7 @@ This is a design handoff for William and Claude: a proposed SketchUp catch-up ba
 
 Reconcile proposals with the existing decision log and Work list before assigning implementation work. Preserve existing decision IDs and follow the supersession process in CLAUDE.md. The identifiers below are local to this document, not replacements for the decision log's IDs.
 
-Codex could not access the full decision log: the supplied Claude artifact opened a sign-in screen. This assessment used the local source, CLAUDE.md, William's conversation with Codex, and official SketchUp documentation. It is a source review, not a hands-on usability assessment. Claude was actively editing the repository during review; recheck implementation status before treating a task as missing.
+Reconciled for H009 against main 5c0b602 and the revision 60 read-only export in docs/decision-log.md. The original assessment preceded that export; current active decisions override older proposals below. This remains a source review, not a hands-on usability assessment. Check the live Work list and docs/agent-handoff.md for later implementation changes.
 
 “Original SketchUp” here means the familiar desktop modelling workflow. Current documentation also describes newer procedural tools; those are not required for the baseline. Branching history and automatic relationship maintenance are proposed Shop Sketch capabilities, not claims about classic SketchUp.
 
@@ -17,20 +17,20 @@ Codex could not access the full decision log: the supplied Claude artifact opene
 - Provide immediate, direct, SketchUp-like modelling while preserving a real, editable FreeCAD model.
 - Keep everyday work in Shop Sketch. William would prefer to use FreeCAD directly as little as possible.
 - Preserve useful relationships: arrays, mirrors, extrusions up to faces, and cuts through parts.
-- An extrusion should follow its target face until the user explicitly changes the extruded part's dimensions. Whether only length changes should detach it remains to be clarified; Codex suggested preserving the relationship on width/thickness edits, but William has not explicitly confirmed that distinction.
+- I26b decides face ties: pushing the same tied face again or typing its new length detaches it; edits to other faces preserve the tie. Moving either part preserves contact by stretching/shrinking the extrusion. Invalid zero/negative lengths are rejected; a vanished face leaves the current measured length with a note and no silent reattachment. Implementation remains T14.
 - Linked component edits affect siblings. Show that scope clearly and offer Make Unique.
 - A profile drawn on a part's surface should join that part when extruded by default.
 - Materials assigned in Godot should carry through FreeCAD into Blender, including intelligent grain handling.
 - The main practical deliverable is a buildable model with plans and possibly a cut list. Revisit the drawing generator later. CNC and 3D-printing opportunities can remain future extensions.
-- William suggested a brief green pulse on changed geometry as an autosave acknowledgement. This is an idea to evaluate, not a reason to replace the existing saved/pending indicator.
-- Exploring constituent features, separating solids, and exploded views remains future design work. Those actions need distinct meanings.
+- Q22 settles save feedback: the wave means FreeCAD accepted the action; the quiet Saving/Saved indicator means persistence. The earlier autosave-pulse proposal is dropped (T19 built).
+- Entering assemblies is built. Q24 parks exploded presentation views until the drawing workflow is revisited; splitting a board into two is not wanted for now.
 - Keep the couch discussion outside this backlog's scope.
 
 ## Existing progress to preserve
 
 The reviewed source and current CLAUDE.md describe shared snapping, through-cuts, immediate undo previews, worker restart, incremental geometry updates, file switching, native menus, and save acknowledgements.
 
-Claude's current linked-copies work includes component-backed copies, persistent arrays, array detachment, and Make Unique. Later reads also showed UI work for linked families and arrays. Finish and verify that work rather than rebuilding it based on an older inventory.
+T12 linked copies/arrays, Make Unique, detachment and family tint are built. T20 assembly entry is built; whole-assembly linked copying remains. T26/T27 mirror groups and arbitrary-face mirror planes are built. T15 wood cards, paint, grain and GLB export metadata are built. Preserve these implementations rather than rebuilding them from the original inventory.
 
 Existing undo preview caching remembers recent confirmed meshes; this is useful infrastructure, but is not itself a durable branching history system.
 
@@ -40,7 +40,7 @@ Existing undo preview caching remembers recent confirmed meshes; this is useful 
 
 #### S01 — Selection and ordinary editing
 
-Add or complete click selection, additive/subtractive selection, window/crossing selection, Delete, and multi-part transformations. Support both selecting first and activating a tool first.
+**Partly built:** Select (Space) supports click, Shift-click toggling, clear selection and context entry. Remaining S01/T34 work includes window/crossing selection, Delete and complete multi-part transformations. Support both selecting first and activating a tool first.
 
 SketchUp provides a reusable selection set: dragging one direction selects contained entities; the other selects crossing entities. Adapt this to Shop Sketch's part and feature ownership model rather than blindly selecting arbitrary mesh triangles.
 
@@ -48,7 +48,7 @@ Acceptance: select three boards, move/copy/delete them together, then undo/redo 
 
 #### S02 — Component and assembly editing scope
 
-Expose named parts, nested assemblies, visible editing context, linked-instance highlighting, and Make Unique. Distinguish shape linkage from array placement membership. Preserve the current linked-copies work.
+**Largely built (T12, T20 phase 1, T26):** linked-instance highlighting, Make Unique, separate array detachment, grouping and visible assembly/array/mirror editing context. Remaining: linked copies of whole assemblies (T20 phase 2) and any deeper nesting/name-management requirements. Distinguish shape linkage from array placement membership.
 
 SketchUp separates component definitions from instances and provides Make Unique. Its editing context tells the user what geometry they are changing.
 
@@ -138,9 +138,9 @@ Acceptance: inspect a joint internally, save the inspection view, and return to 
 
 #### S15 — Materials from modelling to rendering
 
-Expose material assignment, grain orientation, and physical texture scale in Godot. Preserve shared material metadata in FreeCAD and explicitly map it into Blender materials. Material identity and shader implementation are different things.
+**Largely built (T15, M03/M04):** wood cards, Paint/Wood menu, T grain rotation, physical texture scale, face/end-grain viewport textures, ShapeMaterial on the FreeCAD Tip and SSGrain on the definition. GLB exports texture-path/scale and grain/across extras. A Blender consumer still needs to interpret those extras; exported metadata is not proof of a ready-textured Blender scene.
 
-Proposed details: part-local grain coordinates, finish separate from species/substrate, stable per-piece appearance variation, and defined behaviour for mirrored instances and face-specific finishes. Linked geometry need not display identical grain patterns.
+Q30 decides longest-edge grain by default, 90° rotation and shared grain orientation across linked copies, with separate texture patches. Further proposals, not current requirements: finish separate from species/substrate and face-specific finishes. Validate stable texture appearance under transformations and actual Blender consumption rather than treating the entire material pipeline as missing.
 
 Acceptance: rotate, resize, copy, mirror, and make a part unique; grain follows the physical part and remains stable across save/reopen and Blender export. Resizing normally reveals more grain rather than stretching the texture.
 
@@ -204,11 +204,9 @@ Acceptance:
 
 ## Design issues to resolve early
 
-### D01 — Shift conflicts with inference-locking expectations
+### D01 — Intentional shortcut difference from SketchUp
 
-At review time, Move used Shift to toggle Mirror. SketchUp uses Shift for inference locking. A familiar precision gesture can therefore change the kind of operation instead.
-
-Proposal: reserve a consistent inference-lock gesture across tools and expose Mirror separately. Reconcile this with the decision log before changing an established shortcut.
+Resolved by I12c: Shift toggles Mirror inside Move; arrow keys lock axes/planes (I20). This is William's explicit choice. The earlier proposal to reserve Shift for inference locking is withdrawn. Keep hints and modifier state legible; do not add a separate Mirror tool or change this shortcut without the decision-log supersession process.
 
 ### D02 — Tool-first still needs selection and ownership boundaries
 
@@ -218,7 +216,7 @@ Users need to indicate which objects a tool affects. Joining an extrusion to a b
 
 Show whether an action means fixed distance, up to face, or through part. Store explicit relationship intent, not only the resulting coordinates. Provide inspection, release, and repair interactions.
 
-If a referenced face disappears or splits, proposal: preserve the last valid result, identify the broken relationship, and let the user choose a replacement. Do not silently attach to a different face.
+I26b is decided: same-face push/new length detaches; other-face edits preserve the tie; linked copies follow together and chains propagate. A vanished target freezes the current length as a measurement with a note; never silently reattach. Loss of overlap keeps following with a subtle colour cue. Point snaps do not create ties. T14 must implement these rules; they are no longer open design questions.
 
 ### D04 — Shape and placement relationships must stay separate
 
