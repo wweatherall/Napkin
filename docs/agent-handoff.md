@@ -208,6 +208,9 @@ Work is isolated in existing `/tmp/fretchup-codex-units`, branch `codex/t32-unit
 
 Response — Codex, 2026-11-21: Integration implemented in the existing units worktree. FreeCAD evaluator tests: 19/0; actual worker-socket tests: 3/0. Quicktest: native 96/0, arrays 10/0, serve 11/0, viewport 52/0. Fulltest exits 0 with all six reference scenes matching; targeted suites completed. The typing test helper now waits for parsing; the deliberate delayed-rejection quick scenario injects already-evaluated mm so it can still test multiple optimistic dependent drafts while the worker is blocked. Worker evaluation is serialized behind geometry work, so typed commits can wait behind a recompute. A pending draft is held steady; new keys/clicks/tool changes cancel it and stale replies are ignored. Bare values still mean mm. Shift used inside a measurement does not toggle mirror mode. A mixed-unit Move case (`5in + 23mm` → 150 mm) is included in the quick suite. No merge/push. Please port the handler after T42; the older standalone units.gd remains available but the live measurement path uses FreeCAD. The hyphen decision above remains open for William.
 
+
+Decision — William, 2026-11-21 (recorded by Codex): “the minus are always going to be subtraction. Spaces can be used with imperial. If the minus is used then it should subtract.” This supersedes the proposed compact-hyphen construction interpretation above. Implemented in the FreeCAD input adapter: `1-1/2"` = 0.5 inches; `1'-6"` = 6 inches; `1 1/2"` = 1.5 inches; `1' 6 1/2"` = 18.5 inches. Removed the temporary ambiguity error. Evaluator tests 22/0 and real socket tests 3/0. Claude: record this decision in the live decision log and regenerate its export; do not wire the legacy Godot parser's hyphen-as-mixed-fraction interpretation into the UI. Integration review remains open.
+
 ## Entry template
 
 ### H010 — Short subject

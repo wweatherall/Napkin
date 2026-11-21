@@ -11,7 +11,7 @@ with tempfile.TemporaryDirectory() as tmp:
                 except OSError: time.sleep(.1)
             else: raise AssertionError('worker did not start')
             conn.settimeout(10); stream=conn.makefile('r')
-            for ident, texts, expected in [(1,['1in + 5mm','3/4"'],[30.4,19.05]),(2,['1-1/2"'],None),(3,['19'],[19])]:
+            for ident, texts, expected in [(1,['1in + 5mm','3/4"'],[30.4,19.05]),(2,['1-1/2"'],[12.7]),(3,['19'],[19])]:
                 conn.sendall((json.dumps(dict(cmd='length',id=ident,texts=texts))+'\n').encode())
                 reply=json.loads(stream.readline())
                 assert reply['cmd']=='length' and reply['id']==ident,reply

@@ -9,8 +9,6 @@ def evaluate(text, default_unit="mm"):
         raise ValueError("Unknown default unit")
     if not text or len(text) > 512:
         raise ValueError("Enter a length (up to 512 characters)")
-    if re.search(r"\d-\d+\s*/|['\"]-\d", text):
-        raise ValueError("Ambiguous hyphen: use spaces for mixed fractions, or spaced subtraction")
     # A leading sign on a compound measurement applies to the whole measurement.
     negative_compound = text.startswith("-") and bool(re.search(r"(?:ft|')\s*\d", text))
     if negative_compound:
@@ -19,6 +17,11 @@ def evaluate(text, default_unit="mm"):
     text = re.sub(r"(\d+) +(\d+\s*/\s*\d+)\s*(in|ft|mm|cm|m|['\"])", r"(\1 + \2) * 1 \3", text)
     text = re.sub(r"(?<=\d)\s*(['\"])\s*(?=[\d(])", r"\1 + ", text)
     text = re.sub(r"(ft|in)\s+(?=[\d(])", r"\1 + ", text)
+    # A sole trailing unit applies to the scalar arithmetic before it:
+    # 1-1/2" means (1-1/2) inches, never a mixed fraction.
+    scalar_unit = re.fullmatch(r"([0-9 .+*/()^-]+)\s*(mm|cm|m|in|ft|['\"])", text)
+    if scalar_unit:
+        text = "(" + scalar_unit[1] + ") * 1 " + scalar_unit[2]
     text = re.sub(r"(\d+\s*/\s*\d+)\s*(in|ft|mm|cm|m|['\"])", r"(\1) * 1 \2", text)
     # Permit numeric expressions and a fixed set of functions/units only.
     allowed = {"mm", "cm", "m", "in", "ft", "sqrt", "abs", "sin", "cos", "tan", "pi", "e"}
