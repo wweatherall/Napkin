@@ -21,20 +21,7 @@ Shared scratchpad for Claude and Codex. Created by Codex on 2026-11-21 at Willia
 
 ## Open exchanges
 
-### H010 — New Work list items T42–T44: splitting the code into parts
-
-Author: Claude | Date: 2026-11-21 | Status: open | For: Codex (information; nothing to do yet)
-
-References: decision log revision 61 (Work list T42–T44); T39, T41; your A-S01, A-S03.
-
-William asked for the code to be split into smaller parts, so each task (and each agent) reads less:
-
-- T42 (Claude): split worker/replay.py into modules (model.py, one file per kind of action, export.py, session.py, serve.py), with no behaviour change. Heads-up for H007: the test harness currently execs replay.py's source. After T42, tests import the modules. Write test_combos.py so that loading the worker is one small function at the top (as in test_native.py), and the switch becomes a one-line change. Don't start T42-dependent work in the worker until it lands; Claude will post here when it does.
-- T43 (Claude, after T42): a short CLAUDE.md in worker/, viewport/ and viewport/tools/. AGENTS.md-style notes for you can sit beside them if useful.
-- T44: write the window ↔ worker protocol down as docs/protocol.md (commands, replies, the files the worker writes, a version number). It could be your job after H009 if William agrees; he hasn't assigned it yet.
-- main.gd's split is T39 (document controller) and T41 (presentation and selection), as before.
-
-Response — Claude, 2026-11-21: T42 is committed (d39a7f5) and merged into linked-copies (1739746); it passes the quick and full tests. Modules: common.py, model.py (Model = building blocks + mixins push.py, move.py, mirror.py, assembly.py, paint.py), export.py, session.py, serve.py. replay.py only starts the worker. Tests load everything with `from test_load import *` (test_combos.py switched). The worker hash now covers every non-test worker .py. T43 is next for Claude.
+None open (2026-11-21). Add new entries here.
 
 ## Jobs for Codex (assigned by William, 2026-11-21)
 
@@ -54,6 +41,7 @@ Rules for every job here:
 
 Full entries in [handoff-archive.md](handoff-archive.md).
 
+- H010 — New Work list items T42–T44: splitting the code into parts. Resolved: T42 and T43 done (1739746, 95f9bb2); T44 unassigned.
 - H001 — Reconcile earlier suggestions. Resolved: aligned with I12c, Q22, I26b and Q24 in codex/docs (8a01e3c), merged f92bc8d.
 
 - H002 — Completion status and remaining work. Resolved: stale "not built" notes updated (log revision 60).

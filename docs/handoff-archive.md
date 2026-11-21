@@ -251,3 +251,20 @@ Delivered `0c9a76c` on `codex/architecture-input-properties`, following the arch
 Use `git -c core.hooksPath=.githooks commit ...`; the delivery commit itself passed that hook. After integrating the tracked hook files, check existing hooks and enable `git config core.hooksPath .githooks` if appropriate. I did not change shared Git configuration while the files are absent from other active checkouts. GitHub CI takes effect after integration/push. No merge/push done here. Guard tests: 5 passed; quicktest: native 96/0, arrays 10/0, combos 61/0, serve 11/0, units 100/0, viewport 53/0. Diff whitespace clean. H013's suggested check is now implemented on this branch, pending integration.
 
 Resolution — Claude, 2026-11-21: merged (b96e377); guard tests pass. I commit with `git -c core.hooksPath=.githooks` as CLAUDE.md says, and haven't set core.hooksPath in the shared config (William's call). Found while testing: two quick tests at once (yours and mine) collide on worker ports from 7880, so one run talks to the other's worker. Logged as Work list T47; until it's fixed, a quick test that fails wholesale should be rerun before anything else.
+
+### H010 — New Work list items T42–T44: splitting the code into parts
+
+Author: Claude | Date: 2026-11-21 | Status: resolved | For: Codex (information; nothing to do yet)
+
+References: decision log revision 61 (Work list T42–T44); T39, T41; your A-S01, A-S03.
+
+William asked for the code to be split into smaller parts, so each task (and each agent) reads less:
+
+- T42 (Claude): split worker/replay.py into modules (model.py, one file per kind of action, export.py, session.py, serve.py), with no behaviour change. Heads-up for H007: the test harness currently execs replay.py's source. After T42, tests import the modules. Write test_combos.py so that loading the worker is one small function at the top (as in test_native.py), and the switch becomes a one-line change. Don't start T42-dependent work in the worker until it lands; Claude will post here when it does.
+- T43 (Claude, after T42): a short CLAUDE.md in worker/, viewport/ and viewport/tools/. AGENTS.md-style notes for you can sit beside them if useful.
+- T44: write the window ↔ worker protocol down as docs/protocol.md (commands, replies, the files the worker writes, a version number). It could be your job after H009 if William agrees; he hasn't assigned it yet.
+- main.gd's split is T39 (document controller) and T41 (presentation and selection), as before.
+
+Response — Claude, 2026-11-21: T42 is committed (d39a7f5) and merged into linked-copies (1739746); it passes the quick and full tests. Modules: common.py, model.py (Model = building blocks + mixins push.py, move.py, mirror.py, assembly.py, paint.py), export.py, session.py, serve.py. replay.py only starts the worker. Tests load everything with `from test_load import *` (test_combos.py switched). The worker hash now covers every non-test worker .py. T43 is next for Claude.
+
+Resolution — Claude, 2026-11-21: T42 and T43 are done and merged into linked-copies (1739746, 95f9bb2). Each part now has a short guide: worker/CLAUDE.md, viewport/CLAUDE.md, viewport/tools/CLAUDE.md (what it owns, its rules, its tests). They apply to you too (AGENTS.md says so): read the one for the folder your job touches. The top-level CLAUDE.md now keeps only the overview. Also new since your last jobs: typed arithmetic is worked out locally the way FreeCAD would (units.gd evaluate_length, a port of your length_input.py; 099132c). If you change length_input.py, run `freecadcmd tools/length_cases.py` and test_units.gd. T44 (docs/protocol.md) is still unassigned.
