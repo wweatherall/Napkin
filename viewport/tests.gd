@@ -1166,14 +1166,14 @@ func _run_quick_test() -> void:
 	await _type("5in + 23mm\n")
 	await _wait_wave()
 	_ok("moved 150 along red", _bbox("b1").slice(0, 2) == [150.0, 0.0], _bbox("b1"))
-	_ok("arithmetic in a typed length is worked out by FreeCAD (T32)", m.length_id == asked + 1, [asked, m.length_id])
+	_ok("arithmetic in a typed length is worked out at once, the way FreeCAD would", m.length_id == asked, [asked, m.length_id])
 	await _grab(Vector3(150, 25, 18))
 	await _key(KEY_ALT)
 	await _key(KEY_LEFT)                          # lock green
 	await _drag_to(Vector3(150, 80, 18), 6)
 	asked = m.length_id
-	await _type("60\n")
-	_ok("a plain typed length is read at once, without asking FreeCAD", m.length_id == asked, [asked, m.length_id])
+	await _type("60mm^1\n")                      # a unit power: the local evaluator declines, FreeCAD answers 60
+	_ok("what the local evaluator declines is worked out by FreeCAD", m.length_id == asked + 1, [asked, m.length_id])
 	await _frames(4)
 	await _type("3x\n")
 	await _wait_wave()
