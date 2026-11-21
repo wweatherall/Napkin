@@ -4,14 +4,7 @@ Reviewed: 2026-11-21 against main 5c0b602 for H009. This maps the inspected sour
 
 ## Implementation status
 
-This map distinguishes the integrated `linked-copies` baseline (`b91c037`, including T42) from two delivered changes awaiting Claude's review/integration:
-
-| Change | Source checked | Status |
-|---|---|---|
-| FreeCAD-backed typed length input (H011 / T32, I35) | `codex/t32-units`: `ea7d4a3`, `50c60fb` | Implemented/tested on its branch; transport hook still lives in pre-T42 `replay.py` |
-| Native Properties panel (H012 / T46) | `codex/object-properties`: `877077b`, based on `50c60fb` | Implemented/tested on its branch; transport and Model hooks still live in pre-T42 `replay.py` |
-
-Codex checked the modules and call paths below on 2026-11-21. The baseline tables describe the split worker; sections marked **delivered, pending integration** describe these branch implementations. Their presence in this map does not mean they are installed in the shared checkout or packaged app. See H011/H012 for integration ownership.
+Everything below is integrated on `linked-copies`: the T42 worker split, FreeCAD-backed typed lengths (H011 / T32, I35) and the native Properties panel (H012 / T46). Claude reviewed and merged the Codex branches on 2026-11-21 (merges after `3db2cff`; worker hooks moved into `serve.py` and `model.py`). Not yet on `main`.
 
 ## Reading and decision order
 
@@ -71,17 +64,17 @@ TCP carries commands/status and output paths. Geometry is read from shared local
 
 Tools currently depend directly on `main.gd`; the interface is a convention, not a strongly isolated service boundary. Main runtime-loads tools/tests while those scripts preload Main for typing, avoiding preload cycles.
 
-### Additional modules — delivered, pending integration
+### Typed lengths and the Properties panel (T32, T46)
 
 | Location | Responsibility | Entry points |
 |---|---|---|
 | `worker/length_input.py` | Normalize supported measurement notation; evaluate numeric lengths using FreeCAD in a temporary unsaved document; return finite millimetres | `evaluate`, `handle` |
-| `viewport/main.gd` length-input additions | Route count syntax locally; submit asynchronous lengths; hold the draft and reject stale results before calling the tool | `apply_vcb`, `_on_length`, `length_pending` |
+| `viewport/main.gd` length-input additions | Route count syntax locally; read plain lengths at once with `units.gd`; send arithmetic as an asynchronous `length` request, hold the draft and reject stale results before calling the tool | `apply_vcb`, `_on_length`, `length_pending`, `length_id` |
 | `worker/object_properties.py` | Describe native property types, values, formulas and permissions; validate and apply a journalled property edit | `related`, `describe`, `inspect`, `apply` |
 | `viewport/property_panel.gd` | Selected-piece feature picker, property fields, Value/Expression modes, reference insertion and read-only details | `display`, `message`, `refresh_requested`, `edit_requested` |
 | `viewport/main.gd` property additions | Tie inspection to model/selection/sequence; append property edits to `ops`; refresh after confirmation | `_request_properties`, `_on_properties`, `_edit_property` |
 
-After T42, put the `length` and `inspect_properties` handlers in `serve.py`; put the `property_edit` handler registration and `op_property_edit` delegation in `model.py`. The two new worker modules remain separate. T42's worker identity and app packaging already include non-test worker Python modules. Adapt `test_properties.py`'s isolated loader to `test_load` and register the new native tests in the integrated test runners. Do not restore the monolithic replay.py from the delivery branches.
+The `length` and `inspect_properties` requests are handled in `serve.py`; `property_edit` is in `Model.HANDLERS` and `op_property_edit` (delegating to `object_properties.apply`) in `model.py`. Both new worker modules are covered by the worker hash and the app bundle. `test_properties.py` loads the worker through `test_load`.
 
 ## State ownership and authority
 
@@ -112,15 +105,15 @@ An operation being confirmed does not mean it has been saved. A visible draft is
 
 The current client gates sync results using sequence and dirty state. New asynchronous work must preserve this discipline. Future branching history should additionally identify the exact requested history state and model generation.
 
-### Typed length evaluation — delivered, pending integration
+### Typed length evaluation
 
-`apply_vcb()` keeps Move copy/divide commands (`3x`, `x3`, `*3`, `/3`) in the tools. Other Rectangle, Push/Pull, Move and mirror inputs go through a `length` request; Rectangle splits its two values at the comma. Decimal commas are therefore not supported by this input path. The viewport sends `default_unit: "mm"`; it does not yet provide a unit-preference UI.
+`apply_vcb()` keeps Move copy/divide commands (`3x`, `x3`, `*3`, `/3`) in the tools. Other Rectangle, Push/Pull, Move and mirror inputs are first read by `viewport/units.gd` (`parse_length`, `parse_pair`): a plain length (`150`, `3/4"`, `1' 6 1/2"`, `19mm`) goes to the tool at once, so drafts never wait for FreeCAD. Anything it can't read (arithmetic such as `5in + 23mm`, and `1'-6"`, which I35 makes a subtraction) goes through a `length` request; Rectangle splits its two values at the comma. Decimal commas are therefore not supported by this input path. The viewport sends `default_unit: "mm"`; it does not yet provide a unit-preference UI.
 
-`length_input.evaluate()` normalizes supported mixed fractions and compound imperial measurements, then calls FreeCAD's full `evalExpression` on a temporary feature in an unsaved document. It restores the previous active document afterwards. Unitless results acquire the requested default unit; other results must be finite lengths. This restricted numeric evaluator does not expose model-property references. It supports a fixed set of units/functions, not the whole FreeCAD expression language. I35 makes minus subtraction: `1-1/2"` is half an inch, while `1 1/2"` is one and a half inches. The older standalone `viewport/units.gd` is not the live input authority on these branches.
+`length_input.evaluate()` normalizes supported mixed fractions and compound imperial measurements, then calls FreeCAD's full `evalExpression` on a temporary feature in an unsaved document. It restores the previous active document afterwards. Unitless results acquire the requested default unit; other results must be finite lengths. This restricted numeric evaluator does not expose model-property references. It supports a fixed set of units/functions, not the whole FreeCAD expression language. I35 makes minus subtraction: `1-1/2"` is half an inch, while `1 1/2"` is one and a half inches. `units.gd` follows the same rules for what it accepts (it rejects any minus between numbers rather than guess), so the two paths agree; it is the fast path, FreeCAD the evaluator for everything else.
 
-Parsing is asynchronous from Godot's perspective but runs serially in the same worker as geometry, so a typed commit can wait behind a recompute. Main holds the current draft steady and records the tool, model, sequence and tool state with the input ID. New keypresses, clicks or tool changes cancel the pending input; replies must still match that context before reaching `typed()`. Length replies bypass the geometry-sync response path and must not clear its in-flight state. Parsing itself creates no model action, undo step or persistent formula.
+FreeCAD evaluation is asynchronous from Godot's perspective but runs serially in the same worker as geometry, so an arithmetic entry can wait behind a recompute (plain lengths never do). Main holds the current draft steady and records the tool, model, sequence and tool state with the input ID. New keypresses, clicks or tool changes cancel the pending input; replies must still match that context before reaching `typed()`. Length replies bypass the geometry-sync response path and must not clear its in-flight state. Parsing itself creates no model action, undo step or persistent formula.
 
-### Native property inspection and editing — delivered, pending integration
+### Native property inspection and editing
 
 Select one piece and open Properties. The panel lists the piece and its native dependency chain, including shared component definitions; it can also insert native object names into expression fields. FreeCAD owns the property schema, value and expression. Godot holds an inspection snapshot and provisional edit text, not an independent property database.
 
@@ -148,7 +141,7 @@ Transport: UTF-8 JSON objects separated by newlines over localhost TCP. Main pro
 | `focus` / `already_open` | Notify the owner to come forward; refuse the second opener. A newly launched duplicate window closes, while File > Open reports the refusal |
 | `saved` event with `model`, `rev` | Successful persistence acknowledgement |
 
-Additional contracts **delivered, pending integration**:
+Typed lengths and the Properties panel add:
 
 | Request / operation | Result and routing |
 |---|---|
@@ -211,8 +204,8 @@ Main picks/probes/starts the worker (`_pick_worker`), watches loss (`_watch_work
 | Component/array/assembly semantics | Model relationship helpers | Main editing context, previews, affected-instance highlighting |
 | Material pipeline | `worker/materials.py`, `op_set_material`, `set_tip`, `grain_world`, `write_glb` | Paint tool, wood.gdshader, material/grain cache keys and Blender extras consumer |
 | Worker failure/reconnect | `worker_client.gd`, Main lifecycle | `serve`, save acknowledgement and model switching |
-| Typed measurement syntax | `length_input.py`, Main `apply_vcb` / `_on_length` (pending integration) | I35, count commands, request cancellation, parsing versus persistent expressions |
-| Native property UI or edits | `property_panel.gd`, `object_properties.py` (pending integration) | Native permissions, shared definitions, units/frames, stale snapshots, transactions, undo/reopen |
+| Typed measurement syntax | `units.gd` (fast path), `length_input.py`, Main `apply_vcb` / `_on_length` | I35, count commands, request cancellation, parsing versus persistent expressions |
+| Native property UI or edits | `property_panel.gd`, `object_properties.py` | Native permissions, shared definitions, units/frames, stale snapshots, transactions, undo/reopen |
 | New persistent history | Proposed history owner, not mesh cache | Session replay, IDs, journal schema, external edits, worker request identity |
 | Drawing layout | `drawing.py` | TechDraw generation and data schema |
 | Packaging/runtime paths | `build_app.sh`, `_beside_project` | Worker and drawing dependencies inside bundle |
@@ -248,13 +241,9 @@ For branching history, retain old futures in a durable graph and materialize an 
 
 For behavioural changes, follow CLAUDE.md: run `tools/quicktest.sh`; run `tools/fulltest.sh` on failure or before merge. Worker tests check native structure, undo/reopen, arrays and relationships. Scripted viewport suites exercise gestures; reference comparisons check volumes/bounds. Visual quality and interaction feel still require real-hardware checks.
 
-`parsecheck.sh` loads every viewport/tool script first. `quicktest.sh` runs the worker tests (native, arrays, combos, serve) and the units parser test alongside the single viewport quick suite. Worker tests load the modules with `from test_load import *`. `test_serve.py` covers shared-worker ownership/lifecycle; fulltest also runs recorded suites and targeted checks. After T42 (linked-copies 1739746): native 96, arrays 10, combos 61, serve 11, units 100, viewport 53; zero failures.
+`parsecheck.sh` loads every viewport/tool script first. `quicktest.sh` runs the worker tests (native, arrays, combos, serve, length input and protocol, properties) and the units parser test alongside the single viewport quick suite. Worker tests load the modules with `from test_load import *`. `test_serve.py` covers shared-worker ownership/lifecycle; fulltest also runs recorded suites and targeted checks. After integrating H011/H012 (linked-copies, 2026-11-21): native 96, arrays 10, combos 61, serve 11, units 100, length 22, length protocol 3, properties 28, viewport 63; zero failures. Quick-test steps check that a plain typed length doesn't ask FreeCAD and arithmetic does; the rejection scenario types for real. The panel's steps drive its actual controls (inspect, expression edit, confirmed volume, undo).
 
-Delivery-branch verification, separate from the integrated T42 totals above:
-
-- H011: `test_length_input.py` 22 passing cases and `test_length_protocol.py` 3 passing socket requests after I35; quicktest native 96, arrays 10, serve 11, viewport 52. The pre-split branch also passed fulltest for the initial evaluator integration.
-- H012: `test_properties.py` 28 passing checks (including formulas, stale writes, rollback, shared-family updates, save/reopen and history replay); quicktest native 96, arrays 10, serve 11, viewport 60. The viewport tests exercise actual panel controls and generate screenshots used for layout review.
-- The scripted typing helper waits for asynchronous length replies. The quick rejection scenario injects already-evaluated millimetres to preserve its deliberate queue of dependent drafts while the worker is delayed; it is not a parser test.
+Known limit: a property edit names its FreeCAD object by internal name (`Extrusion003`). Names are stable on reopen and on rebuild from the journal; branch-safe IDs (T35) must take them into account.
 
 Update this file when adding a module, changing a protocol/schema, moving state ownership, introducing a persistent relationship, or changing save/recovery behaviour. Update it in the same commit as the architectural code change and mention the update in the handoff (AGENTS.md / CLAUDE.md). Before committing, reread the current shared instructions and compare the staged file list against this map. Keep integrated code, delivered branches and proposals distinct, and recheck working-tree changes before acting on an inventory.
 
