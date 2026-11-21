@@ -1,5 +1,5 @@
 #!/bin/sh
-# Tracked hook (git -c core.hooksPath=.githooks commit ...): keeps the decision-log copy sorted by ID
+# Tracked hook (git -c core.hooksPath=.githooks commit ...): keeps the decision log sorted by ID
 # whenever it's in a commit (tools/sort_decision_log.py), so nobody has to remember to.
 cd "$(git rev-parse --show-toplevel)" || exit 1
 if git diff --cached --name-only | grep -qx "docs/decision-log.md"; then
