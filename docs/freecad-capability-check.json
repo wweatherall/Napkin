@@ -1,0 +1,140 @@
+{
+  "version": [
+    "1",
+    "1",
+    "4"
+  ],
+  "before": {
+    "Extrude": {
+      "type": "Part::Extrusion",
+      "valid": true,
+      "null": false,
+      "volume": 3926.99082,
+      "state": [
+        "Up-to-date"
+      ]
+    },
+    "Offset": {
+      "type": "Part::Offset2D",
+      "valid": true,
+      "null": false,
+      "volume": 0.0,
+      "state": [
+        "Up-to-date"
+      ]
+    },
+    "Scale": {
+      "type": "Part::Scale",
+      "valid": true,
+      "null": false,
+      "volume": 640000.0,
+      "state": [
+        "Up-to-date"
+      ]
+    },
+    "Fillet": {
+      "type": "Part::Fillet",
+      "valid": true,
+      "null": false,
+      "volume": 79982.83185,
+      "state": [
+        "Up-to-date"
+      ]
+    },
+    "Chamfer": {
+      "type": "Part::Chamfer",
+      "valid": true,
+      "null": false,
+      "volume": 79960.0,
+      "state": [
+        "Up-to-date"
+      ]
+    },
+    "Sweep": {
+      "type": "Part::Sweep",
+      "valid": true,
+      "null": false,
+      "volume": 2356.19449,
+      "state": [
+        "Up-to-date"
+      ]
+    },
+    "Array": {
+      "type": "Part::FeaturePython",
+      "valid": true,
+      "null": false,
+      "volume": 320000.0,
+      "state": [
+        "Up-to-date"
+      ]
+    }
+  },
+  "reopened": {
+    "Extrude": {
+      "type": "Part::Extrusion",
+      "valid": true,
+      "null": false,
+      "volume": 3926.99082,
+      "state": [
+        "Up-to-date"
+      ]
+    },
+    "Offset": {
+      "type": "Part::Offset2D",
+      "valid": true,
+      "null": false,
+      "volume": 0.0,
+      "state": [
+        "Up-to-date"
+      ]
+    },
+    "Scale": {
+      "type": "Part::Scale",
+      "valid": true,
+      "null": false,
+      "volume": 640000.0,
+      "state": [
+        "Up-to-date"
+      ]
+    },
+    "Fillet": {
+      "type": "Part::Fillet",
+      "valid": true,
+      "null": false,
+      "volume": 79982.83185,
+      "state": [
+        "Up-to-date"
+      ]
+    },
+    "Chamfer": {
+      "type": "Part::Chamfer",
+      "valid": true,
+      "null": false,
+      "volume": 79960.0,
+      "state": [
+        "Up-to-date"
+      ]
+    },
+    "Sweep": {
+      "type": "Part::Sweep",
+      "valid": true,
+      "null": false,
+      "volume": 2356.19449,
+      "state": [
+        "Up-to-date"
+      ]
+    },
+    "Array": {
+      "type": "Part::FeaturePython",
+      "valid": true,
+      "null": false,
+      "volume": 320000.0,
+      "state": [
+        "Up-to-date"
+      ]
+    }
+  },
+  "scale_after_base_change": 768000.0,
+  "redo_after_undo": 1,
+  "redo_after_new_edit": 0
+}
