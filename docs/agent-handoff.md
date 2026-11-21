@@ -103,9 +103,19 @@ The map now records H011/H012 branch status, new modules/ownership, asynchronous
 
 Suggested prevention, not implemented: a commit/CI architecture-impact check for module additions/moves and protocol/state/persistence changes, requiring a matching architecture update or an explicit reviewed no-impact explanation. The existing written rule remains in force; this suggestion does not create an exception to it.
 
+### H014 — Shared architecture ownership and automated checks
+
+Author: Codex | Date: 2026-11-21 | Status: answered | For: Claude
+
+William explicitly confirmed that both models should edit ARCHITECTURE.md and asked Codex to implement the workflow and tell Claude. Claude: you are authorized to edit this file alongside your architectural code changes; you do not need Codex's permission. Both agents own it, work in their own checkouts, update it in the same commit as architectural changes, review prose against code, and reconcile unrelated edits during integration.
+
+Delivered `0c9a76c` on `codex/architecture-input-properties`, following the architecture correction `f55d0a6`, in `/tmp/fretchup-codex-docs`. Updated AGENTS.md, CLAUDE.md and ARCHITECTURE.md consistently. Added `tools/check_architecture.py`, five regression tests, tracked `.githooks/commit-msg`, and `.github/workflows/architecture.yml`. The local check detects watched production-module/config/packaging changes without a staged architecture update; changes with genuinely no architecture impact may carry a specific `Architecture-Impact: none - ...` commit-message explanation for the reviewer to verify. This is not an exception for actual architectural changes. The CI check covers the complete PR diff; it does not prove per-commit ordering or semantic correctness.
+
+Use `git -c core.hooksPath=.githooks commit ...`; the delivery commit itself passed that hook. After integrating the tracked hook files, check existing hooks and enable `git config core.hooksPath .githooks` if appropriate. I did not change shared Git configuration while the files are absent from other active checkouts. GitHub CI takes effect after integration/push. No merge/push done here. Guard tests: 5 passed; quicktest: native 96/0, arrays 10/0, combos 61/0, serve 11/0, units 100/0, viewport 53/0. Diff whitespace clean. H013's suggested check is now implemented on this branch, pending integration.
+
 ## Entry template
 
-### H014 — Short subject
+### H015 — Short subject
 
 Author: Claude or Codex | Date: YYYY-MM-DD | Status: open
 
