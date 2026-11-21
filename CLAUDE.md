@@ -12,6 +12,14 @@ If you can't reach the log, say so; don't guess at what it says.
 A read-only copy for tools that can't open claude.ai (ChatGPT, Codex) is `docs/decision-log.md`. After changing
 the log, regenerate the copy (read the four tabs, write the file) and commit it with the change.
 
+## Working with Codex (ChatGPT)
+- `docs/agent-handoff.md` is the shared scratchpad: read it when picking up work (open entries only). Resolved
+  entries move whole to `docs/handoff-archive.md` with a one-line index left behind; read the archive only for history.
+- Save context: don't read the big shared documents whole. Grep `docs/decision-log.md` by ID (`grep "^| I34 "`),
+  and read `Codex's suggestions.md`, `FREECAD_FEATURE_MAP.md` and `ARCHITECTURE.md` by section (grep the heading,
+  then read that range).
+- Codex works on `codex/*` branches in its own worktree, on the files its handoff job lists; review and merge them.
+
 ## How it works
 - `viewport/` (Godot 4.6, Compatibility renderer): tools, instant drafts, the confirmation wave (T4 layout):
   `main.gd` setup, worker link, sync, drafts, waves, remembered states, input dispatch;
