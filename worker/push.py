@@ -63,6 +63,12 @@ class PushActions:
                 raise OpError("Source face no longer matches the chosen dimension")
             return plane_fit.apply(self, dict(body=source_id, target_body=fit["target_body"],
                                    axis=axis, face=fit["face"], fit_mode=0, reverse=frame[2][axis].dot(normal)<0))
+        if "face" in tgt and not fit:
+            import plane_fit
+            board = self.body(tgt["face"]["body"])
+            if plane_fit.fitted_end(board) is not None:      # pushing a tied end again detaches it (I26b, I40)
+                if plane_fit.push_fitted_end(self, board, unit(vec(tgt["face"]["normal"])), vec(tgt["face"]["point"]), d):
+                    return [board.BodyId]
         if op.get("resize_stock") and "face" in tgt:
             import plane_fit
             board, _, normal = self.resolve_face(tgt["face"])

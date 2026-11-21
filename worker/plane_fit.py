@@ -62,7 +62,15 @@ def geometry(source, target, axis, face, mode, reverse=False):
     return corners, ends, depths
 
 
+def mm(x):
+    """A length for the result line: 1050 mm, 302.5 mm (0.1 mm, like the viewport's format_length)."""
+    text = '%.1f' % x
+    return (text[:-2] if text.endswith('.0') else text) + ' mm'
+
+
 def update(model, board, tip):
+    if not tip.SSTargetId:          # detached (or its target is gone): the shape stays as it is
+        return
     target = model.bodies().get(tip.SSTargetId)
     src, dst = stock(board, tip), stock(target)
     if not src or not dst or hasattr(target.Tip,'SSStock'):
@@ -81,7 +89,7 @@ def update(model, board, tip):
             raise ValueError('Could not make a solid for this fit')
         tip.Shape = shape
         tip.SSFitCorners = local
-    dimension = '%.3g mm' % min(depths) if max(depths)-min(depths)<1e-6 else '%.3g–%.3g mm' % (min(depths),max(depths))
+    dimension = mm(min(depths)) if max(depths)-min(depths)<1e-6 else '%s–%s' % (mm(min(depths)), mm(max(depths)))
     # Face frame: outward Z, deterministic in-plane X, relative to stock drawing axes.
     i, side = divmod(tip.SSFace,2)
     face_rot = App.Rotation(dst[2][(i+1)%3],V(),dst[2][i]*(1 if side else -1),'ZXY')
@@ -148,6 +156,50 @@ def replace(model, op):
     length = evaluate(str(op['value']))
     if length <= 1e-6:
         raise ValueError('Enter a positive dimension')
+    _restore(model, board, length)
+    return [board.BodyId]
+
+
+def fitted_end(board):
+    """The fitted end face of a board, in world coordinates: (outward normal, a point on it), or None."""
+    tip = getattr(board, 'Tip', None)
+    if not hasattr(tip, 'SSStock') or len(tip.SSFitCorners) != 8:
+        return None
+    pts = [board.Placement.multVec(p) for p in tip.SSFitCorners]
+    start, end = pts[:4], pts[4:]
+    n = (end[1] - end[0]).cross(end[3] - end[0])
+    if n.Length < 1e-9:
+        return None
+    n.normalize()
+    middle = lambda ps: sum(ps, V()) * 0.25
+    if n.dot(middle(end) - middle(start)) < 0:
+        n = -n
+    return n, end[0]
+
+
+def push_fitted_end(model, board, normal, point, distance):
+    """Pushing a board's tied end again detaches it (I26b, I40). A square end (Butt / Fully reach) goes back to
+    plain stock at its current length and then takes the push, so its dimensions stay editable: True. A sloped end
+    (Slice) keeps its shape untied and the push is an ordinary one: False. None: this isn't the tied end."""
+    end = fitted_end(board)
+    if end is None or end[0].dot(normal) < 0.9999 or abs((point - end[1]).dot(end[0])) > 0.01:
+        return None
+    tip = board.Tip
+    if tip.SSMode == 1:
+        tip.SSTargetId = ''
+        tip.SSFitResult = 'Detached · shape kept'
+        return False
+    local = tip.SSFitCorners
+    _restore(model, board, (local[4] - local[0]).Length)
+    if not resize_face(model, board, normal, distance):
+        raise ValueError('Could not push the detached end')
+    return True
+
+
+def _restore(model, board, length):
+    """Put the board's plain extrusion back as its tip with this length along the fitted axis, keeping the
+    unfitted end where it is."""
+    tip = board.Tip
     axis = tip.SSAxis
     ext = tip.SSStock
     obj, prop = [(ext.Base,'Length'), (ext.Base,'Width'), (ext,'LengthFwd')][axis]
@@ -162,4 +214,3 @@ def replace(model, op):
     model.doc.removeObject(tip.Name)
     obj.setExpression(prop, None)
     setattr(obj, prop, length)
-    return [board.BodyId]

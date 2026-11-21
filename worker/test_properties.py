@@ -158,4 +158,41 @@ check('numeric re-pull keeps dimensions editable',abs(frame['sizes'][2]-1010)<0.
       abs(edge_session.model.world_shape(edge_session.model.body('b1')).BoundBox.ZMin-200)<0.001)
 edge_session.sync(recent)
 check('undo numeric re-pull restores dimension',abs(piece_volume()-100000)<0.01)
+# Pushing a tied end again detaches it (I26b, I40). A leg fitted up to a rail's underside at 300, pushed 50 more:
+# square ends go back to plain stock (dimensions editable), a sloped end keeps its shape; the rail no longer drags it.
+re_session = Session(os.path.join(folder,'repush.FCStd'), fresh=True)
+re_ops = [
+ {'id':'r1','type':'rect','plane':{'normal':[0,0,1],'origin':[0,0,0]},'size':[40,20]},
+ {'id':'pp1','type':'push_pull','target':{'rect':'r1'},'distance':100,'body':'b1'},
+ {'id':'r2','type':'rect','plane':{'normal':[0,0,1],'origin':[-50,-50,300]},'size':[200,200]},
+ {'id':'pp2','type':'push_pull','target':{'rect':'r2'},'distance':20,'body':'b2'},
+ dict(type='property_edit',id='fit',mode='plane_fit',body='b1',target_body='b2',axis=2,face=4,fit_mode=0),
+ {'id':'again','type':'push_pull','target':{'face':{'body':'b1','normal':[0,0,1],'point':[20,10,300]}},'distance':50},
+]
+re_session.sync(re_ops)
+leg = lambda: re_session.model.world_shape(re_session.model.body('b1')).BoundBox
+check('pushing the tied end again detaches it', re_session.status()[-1]['status']=='ok' and abs(leg().ZMax-350)<0.01
+      and re_session.model.body('b1').Tip.TypeId=='Part::Extrusion' and inspect(re_session.model,'b1')['boards']['b1']['sizes'][2]==350)
+re_session.sync(re_ops+[dict(type='move',id='mv',targets=['b2'],vector=[0,0,100])])
+check('a detached end stays put when the rail moves', abs(leg().ZMax-350)<0.01)
+re_session.sync(re_ops[:-1])
+check('undoing the push ties the end again', hasattr(re_session.model.body('b1').Tip,'SSStock') and abs(leg().ZMax-300)<0.01)
+# A sloped (Slice) end pushed again: shape kept, tie gone, the push added on.
+tilt = App.Placement(App.Vector(0,0,0), App.Rotation(App.Vector(0,1,0),20))
+slice_ops = re_ops[:4]
+re_session.sync(slice_ops)
+rail = re_session.model.body('b2'); rail.Placement = App.Placement(App.Vector(-50,-50,300), App.Rotation(App.Vector(0,1,0),20)).multiply(App.Placement(App.Vector(50,50,-300), App.Rotation()))
+re_session.doc.recompute()
+slice_fit = dict(re_ops[4], id='slicefit', fit_mode=1)
+re_session.sync(slice_ops+[slice_fit])
+end = __import__('plane_fit').fitted_end(re_session.model.body('b1'))
+check('slice fit has a sloped end', re_session.status()[-1]['status']=='ok' and end is not None and end[0].z < 0.99)
+up = dict(id='slice_again',type='push_pull',distance=30,target={'face':{'body':'b1','normal':list(end[0]),'point':list(end[1])}})
+re_session.sync(slice_ops+[slice_fit,up])
+tip = re_session.model.body('b1').Tip
+fit_obj = next(o for o in re_session.doc.Objects if hasattr(o,'SSFitResult'))
+check('pushing a sloped tied end detaches it and adds the push', re_session.status()[-1]['status']=='ok' and fit_obj.SSTargetId=='' and not hasattr(tip,'SSStock'))
+# Result lines are written in mm to 0.1, never as 1.05e+03.
+import plane_fit
+check('fit lengths read as millimetres', plane_fit.mm(1050.0)=='1050 mm' and plane_fit.mm(302.46)=='302.5 mm')
 print('PROPERTY TESTS: %d passed, 0 failed' % passed)
