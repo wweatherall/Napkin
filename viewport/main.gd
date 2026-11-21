@@ -5,6 +5,7 @@ extends Node3D
 const WorkerClient := preload("res://worker_client.gd")
 const WAVE := preload("res://confirm_wave.gdshader")
 const WAVE_LINES := preload("res://confirm_wave_lines.gdshader")
+const LINE_SHADER := preload("res://line.gdshader")
 const GRID := 10.0            # mm, grid snap step
 const SNAP_PX := 14.0         # endpoint snap radius on screen
 
@@ -68,8 +69,12 @@ var held_resp: Dictionary = {}
 var heavy_test := false
 var zfight_test := false
 var hole_test := false
+var line_test := false
+var undo_test := false
+var gesture_test := false
 const OVERLAY_BIAS := 0.001   # overlays sit 0.1% of the camera distance nearer the eye (invisible, beats z-fighting)
 var overlay_bias := OVERLAY_BIAS
+var grid_mat: ShaderMaterial
 var caption: Label
 var draft_bboxes := {}     # test: new body id -> [min, max] of its draft prism (model mm)
 var preload_path := ""
@@ -151,6 +156,10 @@ func _ready() -> void:
 		elif a == "--true-latency": true_latency = true
 		elif a == "--zfighttest": test_mode = true; fx_test = true; zfight_test = true
 		elif a == "--holetest": test_mode = true; fx_test = true; hole_test = true
+		elif a == "--linetest": test_mode = true; fx_test = true; line_test = true
+		elif a == "--undotest": test_mode = true; fx_test = true; undo_test = true
+		elif a == "--gesturetest": test_mode = true; fx_test = true; gesture_test = true
+		elif a == "--lifecycletest": test_mode = true; fx_test = true; lifecycle_test = true
 		elif a == "--nobias": overlay_bias = 0.0
 		elif a.begins_with("--preload="): preload_path = a.substr(10)
 	if oplog_path == "": oplog_path = ProjectSettings.globalize_path("user://ops.json")
@@ -158,21 +167,31 @@ func _ready() -> void:
 	DirAccess.make_dir_recursive_absolute(out_dir)
 	if model_path == "":
 		model_path = (out_dir + "/model.FCStd") if test_mode else ProjectSettings.globalize_path("user://model.FCStd")
-	var port := 7878
+	var port := -1                 # --port=N: use a worker that's already running there (tests); else start our own
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--port="): port = int(a.substr(7))
+		elif a.begins_with("--freecad="): freecad_path = a.substr(10)
+		elif a.begins_with("--worker="): worker_script = a.substr(9)
+		elif a.begins_with("--worker-log="): worker_log = a.substr(13)
+	if port < 0:
+		port = _free_port(7878)
+		worker_port = port
+		_start_worker()
 
+	line_scale = maxf(1.0, DisplayServer.screen_get_scale())
 	_make_materials()
 	_make_world()
 	_make_ui()
 	client = WorkerClient.new()
 	add_child(client)
 	client.replied.connect(_on_worker)
+	client.link_up.connect(_on_link_up)
+	client.link_down.connect(_on_link_down)
 	client.start(port)
 	_update_camera()
 	set_tool("rect")
 	# open the model file; the worker answers with its history, which we adopt (tests start clean)
-	client.send({"cmd": "open", "model": model_path, "fresh": test_mode and not heavy_test})
+	_send_open()
 	if fx_test:
 		_make_fake_cursor()
 		if breath_test: _run_breath_test.call_deferred()
@@ -184,6 +203,10 @@ func _ready() -> void:
 		elif heavy_test: _run_heavy_test.call_deferred()
 		elif zfight_test: _run_zfight_test.call_deferred()
 		elif hole_test: _run_hole_test.call_deferred()
+		elif line_test: _run_line_test.call_deferred()
+		elif undo_test: _run_undo_test.call_deferred()
+		elif gesture_test: _run_gesture_test.call_deferred()
+		elif lifecycle_test: _run_lifecycle_test.call_deferred()
 		else: _run_fx_test.call_deferred()
 	elif test_mode:
 		_run_test.call_deferred()
@@ -259,11 +282,16 @@ func _make_world() -> void:
 	var segs := PackedVector3Array()
 	for i in range(-20, 21):
 		var s := float(i) * 100.0
-		segs.append_array([Vector3(s, -2000, 0), Vector3(s, 2000, 0), Vector3(-2000, s, 0), Vector3(2000, s, 0)])
-	add_child(_lines(segs, Color(0.72, 0.75, 0.78)))
-	add_child(_lines(PackedVector3Array([Vector3.ZERO, Vector3(2000, 0, 0)]), Color(0.85, 0.1, 0.1)))
-	add_child(_lines(PackedVector3Array([Vector3.ZERO, Vector3(0, 2000, 0)]), Color(0.1, 0.65, 0.1)))
-	add_child(_lines(PackedVector3Array([Vector3.ZERO, Vector3(0, 0, 2000)]), Color(0.1, 0.25, 0.9)))
+		var end := 0.0 if i == 0 else 2000.0           # the positive axes draw over that half themselves
+		segs.append_array([Vector3(s, -2000, 0), Vector3(s, end, 0), Vector3(-2000, s, 0), Vector3(end, s, 0)])
+	var grid := _lines(segs, Color(0.62, 0.66, 0.7), GRID_LINE_PX, 0.0)
+	grid_mat = grid.mesh.surface_get_material(0).duplicate()      # its own copy: the fade follows the camera
+	grid_mat.render_priority = -10      # drawn first, so axes and edges are never painted over where grid lines cross
+	grid.mesh.surface_set_material(0, grid_mat)
+	add_child(grid)
+	add_child(_lines(PackedVector3Array([Vector3.ZERO, Vector3(2000, 0, 0)]), Color(0.85, 0.1, 0.1), AXIS_LINE_PX))
+	add_child(_lines(PackedVector3Array([Vector3.ZERO, Vector3(0, 2000, 0)]), Color(0.1, 0.65, 0.1), AXIS_LINE_PX))
+	add_child(_lines(PackedVector3Array([Vector3.ZERO, Vector3(0, 0, 2000)]), Color(0.1, 0.25, 0.9), AXIS_LINE_PX))
 
 
 func _make_ui() -> void:
@@ -306,28 +334,63 @@ func _make_ui() -> void:
 
 
 func _update_toggles() -> void:
-	ui_toggles.text = "Grid snap %s (G)    New board on faces %s (B)    Orbit: middle/right drag   Pan: Shift+drag   Zoom: wheel" % [
+	ui_toggles.text = "Grid snap %s (G)    New board on faces %s (B)    Orbit: middle/right drag or two fingers   Pan: Shift+drag   Zoom: wheel or pinch" % [
 		"on" if grid_snap else "off", "on" if new_board else "off"]
 
 
 # ---------------- mesh helpers ----------------
-func _lines(segs_m: PackedVector3Array, color: Color) -> MeshInstance3D:
+const LINE_PX := 1.5          # width of edges and outlines, in points (doubled on a Retina screen)
+const GRID_LINE_PX := 1.0
+const AXIS_LINE_PX := 1.75
+var line_scale := 1.0         # physical pixels per point
+var _line_mats := {}          # [color, width, bias] -> ShaderMaterial, shared
+
+
+func _line_mat(color: Color, width_pt: float, bias: float) -> ShaderMaterial:
+	var key := [color, width_pt, bias]
+	if not _line_mats.has(key):
+		var m := ShaderMaterial.new()
+		m.shader = LINE_SHADER
+		m.set_shader_parameter("color", color)
+		m.set_shader_parameter("width_px", width_pt * line_scale)
+		m.set_shader_parameter("bias", bias)
+		_line_mats[key] = m
+	return _line_mats[key]
+
+
+## Line segments (pairs of model-space points) as anti-aliased strips a fixed width on screen (line.gdshader).
+func _lines(segs_m: PackedVector3Array, color: Color, width_pt := LINE_PX, bias := -1.0) -> MeshInstance3D:
 	var mi := MeshInstance3D.new()
-	if segs_m.is_empty():
+	if segs_m.size() < 2:
 		return mi
-	var a := []
-	a.resize(Mesh.ARRAY_MAX)
-	var g := PackedVector3Array()
-	for p in segs_m:
-		g.append(m2g(p))
-	a[Mesh.ARRAY_VERTEX] = g
+	var n := segs_m.size() / 2
+	var verts := PackedVector3Array(); verts.resize(n * 4)
+	var other := PackedFloat32Array(); other.resize(n * 16)
+	var uvs := PackedVector2Array(); uvs.resize(n * 4)
+	var idx := PackedInt32Array(); idx.resize(n * 6)
+	for i in n:
+		var a := m2g(segs_m[2 * i]); var b := m2g(segs_m[2 * i + 1])
+		var v := 4 * i
+		verts[v] = a; verts[v + 1] = a; verts[v + 2] = b; verts[v + 3] = b
+		for k in 4:
+			var o: Vector3 = b if k < 2 else a
+			other[(v + k) * 4] = o.x; other[(v + k) * 4 + 1] = o.y; other[(v + k) * 4 + 2] = o.z; other[(v + k) * 4 + 3] = 0.0
+		uvs[v] = Vector2(0, -1); uvs[v + 1] = Vector2(0, 1); uvs[v + 2] = Vector2(1, -1); uvs[v + 3] = Vector2(1, 1)
+		var t := 6 * i
+		idx[t] = v; idx[t + 1] = v + 1; idx[t + 2] = v + 2; idx[t + 3] = v + 1; idx[t + 4] = v + 3; idx[t + 5] = v + 2
+	var arr := []
+	arr.resize(Mesh.ARRAY_MAX)
+	arr[Mesh.ARRAY_VERTEX] = verts
+	arr[Mesh.ARRAY_CUSTOM0] = other
+	arr[Mesh.ARRAY_TEX_UV] = uvs
+	arr[Mesh.ARRAY_INDEX] = idx
 	var m := ArrayMesh.new()
-	m.add_surface_from_arrays(Mesh.PRIMITIVE_LINES, a)
-	var mat := StandardMaterial3D.new()
-	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	mat.albedo_color = color
-	m.surface_set_material(0, mat)
+	m.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr, [], {},
+		Mesh.ARRAY_CUSTOM_RGBA_FLOAT << Mesh.ARRAY_FORMAT_CUSTOM0_SHIFT)
+	m.surface_set_material(0, _line_mat(color, width_pt, overlay_bias if bias < 0.0 else bias))
 	mi.mesh = m
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mi.extra_cull_margin = 0.05      # the strip is a little wider than its segment on screen
 	return mi
 
 
@@ -1474,6 +1537,7 @@ func _on_open(resp: Dictionary) -> void:
 		ui_sync.text = "✗ couldn't open %s: %s" % [model_path, resp.get("error", "?")]
 		ui_sync.add_theme_color_override("font_color", Color(0.75, 0.1, 0.1))
 		return
+	opened = true
 	if test_mode and not heavy_test: return
 	ops = resp.get("ops", [])
 	undo_floor = int(resp.get("undo_floor", 0))
@@ -1520,6 +1584,9 @@ func remove_op(oid: String) -> void:
 			for r in ops:
 				if r["id"] == rid and not _consumed_rects().has(rid):
 					rects.erase(rid); _register_rect(r)
+	var k := _ops_key(ops)
+	if k != shown_key and _show_state(k):      # undo: the state before this op, remembered, on screen at once
+		predicted_undo = true
 	sync()
 
 
@@ -1569,6 +1636,9 @@ func sync() -> void:
 	seq += 1
 	dirty = true
 	ui_sync.text = "● draft - FreeCAD catching up (%d ops)" % ops.size()
+	if predicted_undo:
+		ui_sync.text = "↶ undone - FreeCAD catching up (%d ops)" % ops.size()
+		predicted_undo = false
 	ui_sync.add_theme_color_override("font_color", Color(0.75, 0.45, 0.0))
 	if not in_flight:
 		_send()
@@ -1607,8 +1677,12 @@ func _on_worker(resp: Dictionary) -> void:
 				reject_note = "%s: %s" % [o["id"], o["message"]]
 				if w != null: w["state"] = "rejected"     # red wave plays, then the op is removed
 				else: drop_now.append(o["id"])
-		_load_confirmed(resp["glb"])
-		_load_cuts(String(resp["glb"]).get_base_dir())
+		var ok_ids := {}
+		for o in res["ops"]:
+			if o["status"] == "ok": ok_ids[o["id"]] = true
+		var key := _ops_key(ops.filter(func(op): return ok_ids.has(op["id"])))
+		if key != shown_key or not _states.has(key):        # already on screen (an undo shown from the cache): no reload
+			_load_confirmed(resp["glb"], key)
 		for k in drafts.keys():
 			var w = op_waves.get(k)
 			if w != null and w["state"] == "rejected": continue   # keep it until the red wave is done
@@ -1617,6 +1691,8 @@ func _on_worker(resp: Dictionary) -> void:
 		last_sync_ms = Time.get_ticks_msec() - int(sent_at.get(seq, Time.get_ticks_msec()))
 		if true_latency: last_sync_ms = int((movie_clock - float(sent_clock.get(seq, movie_clock))) * 1000.0)
 		ui_sync.text = "✓ FreeCAD confirmed  (round trip %d ms)" % last_sync_ms
+		if res.get("how", "") == "rebuilt":
+			ui_sync.text = "✓ FreeCAD rebuilt the model (undo past its 20-step history, %d ms)" % last_sync_ms
 		ui_sync.add_theme_color_override("font_color", Color(0.1, 0.5, 0.15))
 		if reject_note != "":
 			ui_sync.text = "✗ rejected " + reject_note
@@ -1631,20 +1707,19 @@ func _on_worker(resp: Dictionary) -> void:
 		_send()
 
 
-func _load_confirmed(path: String) -> void:
-	for c in bodies_root.get_children():
-		c.free()
-	body_tris.clear()
-	body_verts.clear()
-	body_edges.clear()
-	if FileAccess.get_file_as_bytes(path).size() < 200:
-		return   # empty model (only rectangles so far)
-	var doc := GLTFDocument.new()
-	var st := GLTFState.new()
-	if doc.append_from_file(path, st) != OK:
-		return
-	var scene := doc.generate_scene(st)
+func _load_confirmed(path: String, key: String) -> void:
+	_stash_shown()
+	body_tris = {}
+	body_verts = {}
+	body_edges = {}
+	var scene: Node3D = Node3D.new()        # empty model (only rectangles so far)
+	if FileAccess.get_file_as_bytes(path).size() >= 200:
+		var doc := GLTFDocument.new()
+		var st := GLTFState.new()
+		if doc.append_from_file(path, st) == OK:
+			scene = doc.generate_scene(st)
 	bodies_root.add_child(scene)
+	_load_cuts(path.get_base_dir())
 	for mi in scene.find_children("*", "MeshInstance3D", true, false):
 		var bid := String(mi.name)
 		var arr: Array = mi.mesh.surface_get_arrays(0)
@@ -1660,9 +1735,10 @@ func _load_confirmed(path: String) -> void:
 		body_verts[bid] = unique_verts(tris)
 		body_edges[bid] = feature_edges(tris)
 		_add_collision(mi, "body_id", bid)
-		var edges := _lines(feature_edges(tris), Color(0.08, 0.08, 0.08))
+		var edges := _lines(body_edges[bid], Color(0.08, 0.08, 0.08))
 		edges.transform = xf.affine_inverse()
 		mi.add_child(edges)
+		mi.set_meta("body_mesh", true); mi.set_meta("edges", edges)
 		var m = mi.mesh.surface_get_material(0)
 		if m is StandardMaterial3D:
 			m.roughness = 0.85
@@ -1670,10 +1746,78 @@ func _load_confirmed(path: String) -> void:
 		for oid in op_waves:
 			if bid in op_waves[oid]["bodies"]:
 				_attach_wave(oid, mi, edges, _base_of(mi))
+	_remember_state(key, scene)
+
+
+# ---------------- confirmed states (T10) ----------------
+# The last few model states FreeCAD confirmed, kept as ready scenes. Undo shows the previous one at once, so
+# you can keep undoing while FreeCAD catches up, even when it has to rebuild the whole model (its command-line
+# program keeps only 20 undo steps). FreeCAD's answer then replaces it; it's the same state, so nothing reloads.
+const STATE_CACHE_MAX := 40
+var _states := {}             # ops key -> {"scene", "tris", "verts", "edges", "cuts"} (own copies)
+var _state_lru: Array = []    # keys, oldest first
+var shown_key := ""           # the confirmed state on screen
+var predicted_undo := false   # the model on screen is a remembered state; FreeCAD is still catching up
+
+
+static func _ops_key(list: Array) -> String:
+	return JSON.stringify(list).sha256_text()
+
+
+func _remember_state(key: String, scene: Node3D) -> void:
+	if _states.has(key) and _states[key]["scene"] != scene:
+		_free_state(key)
+	_states[key] = {"scene": scene, "tris": body_tris.duplicate(), "verts": body_verts.duplicate(),
+					"edges": body_edges.duplicate(), "cuts": body_cuts.duplicate()}
+	_state_lru.erase(key); _state_lru.append(key)
+	shown_key = key
+	while _state_lru.size() > STATE_CACHE_MAX:
+		var old: String = _state_lru.pop_front()
+		if old != shown_key: _free_state(old)
+
+
+func _free_state(key: String) -> void:
+	var sc: Node3D = _states[key]["scene"]
+	if is_instance_valid(sc) and not sc.is_inside_tree(): sc.queue_free()
+	_states.erase(key)
+	_state_lru.erase(key)
+
+
+func _stash_shown() -> void:
+	"""Take the confirmed scene off screen; it stays in the cache (or is freed if it isn't cached)."""
+	for c in bodies_root.get_children():
+		bodies_root.remove_child(c)
+		if not (_states.has(shown_key) and _states[shown_key]["scene"] == c):
+			c.queue_free()
+	shown_key = ""
+
+
+func _show_state(key: String) -> bool:
+	"""Put a cached confirmed state back on screen (undo). False if it isn't cached."""
+	if not _states.has(key): return false
+	if key == shown_key: return true
+	_stash_shown()
+	var st: Dictionary = _states[key]
+	var scene: Node3D = st["scene"]
+	bodies_root.add_child(scene)
+	body_tris = st["tris"].duplicate(); body_verts = st["verts"].duplicate()
+	body_edges = st["edges"].duplicate(); body_cuts = st["cuts"].duplicate()
+	shown_key = key
+	_state_lru.erase(key); _state_lru.append(key)
+	for mi in scene.find_children("*", "MeshInstance3D", true, false):
+		if not mi.has_meta("body_mesh"): continue
+		mi.material_override = null                  # a wave that was running when it was stashed is over
+		var edges: MeshInstance3D = mi.get_meta("edges")
+		if is_instance_valid(edges): edges.material_override = null
+		var bid := String(mi.name)
+		for oid in op_waves:
+			if bid in op_waves[oid]["bodies"]:
+				_attach_wave(oid, mi, edges, _base_of(mi))
+	return true
 
 
 func _load_cuts(dir: String) -> void:
-	body_cuts.clear()
+	body_cuts = {}
 	var path := dir.path_join("bodies.json")
 	if not FileAccess.file_exists(path): return
 	var data = JSON.parse_string(FileAccess.get_file_as_string(path))
@@ -1755,6 +1899,8 @@ func _attach_wave(oid: String, mi: MeshInstance3D, edges: MeshInstance3D, base: 
 	sm.set_shader_parameter("draft_color", Color(mat_draft.albedo_color.r, mat_draft.albedo_color.g, mat_draft.albedo_color.b))
 	sm.set_shader_parameter("draft_alpha", mat_draft.albedo_color.a)
 	var lm := ShaderMaterial.new(); lm.shader = WAVE_LINES
+	lm.set_shader_parameter("width_px", LINE_PX * line_scale)
+	lm.set_shader_parameter("bias", overlay_bias)
 	for mat in [sm, lm]:
 		mat.set_shader_parameter("origin", w["og"])
 		mat.set_shader_parameter("reach", w["reach"])
@@ -1800,6 +1946,7 @@ const BREATH_LO := 0.3     # breathing glides between BREATH_LO and HOLD of the 
 
 func _process(delta: float) -> void:
 	movie_clock += delta
+	_watch_worker(delta)
 	if not held_resp.is_empty():
 		var waited: float = movie_clock - float(sent_clock.get(int(held_resp["seq"]), movie_clock))
 		if waited * 1000.0 >= float(held_resp["wall_ms"]):
@@ -1847,6 +1994,115 @@ func _process(delta: float) -> void:
 			remove_op(oid)                                  # ends the wave, frees the draft, resyncs
 
 
+# ---------------- the FreeCAD worker (T6) ----------------
+# Shop Sketch starts its own worker (freecadcmd worker/replay.py) on a free port, watches it, and starts it
+# again if it stops; the request that was lost with it is sent again. On quit the worker saves and stops.
+const FREECAD_CANDIDATES := ["/Applications/FreeCAD.app/Contents/Resources/bin/freecadcmd",
+	"/Applications/FreeCAD.app/Contents/Resources/bin/FreeCADCmd", "/Applications/FreeCAD.app/Contents/MacOS/freecadcmd",
+	"/Applications/FreeCAD.app/Contents/MacOS/FreeCADCmd", "/usr/bin/freecadcmd", "/usr/local/bin/freecadcmd"]
+const WORKER_MAX_RESTARTS := 5      # in a minute; after that, say so and stop trying
+var freecad_path := ""
+var worker_script := ""
+var worker_log := ""
+var worker_port := -1
+var worker_pid := -1                # -1: not ours (tests pass --port), or given up
+var _worker_restarts: Array = []
+var _worker_check := 0.0
+var opened := false                 # the worker has answered our "open"
+var lifecycle_test := false
+
+
+func _free_port(from: int) -> int:
+	for p in range(from, from + 100):
+		var srv := TCPServer.new()
+		if srv.listen(p, "127.0.0.1") == OK:
+			srv.stop()
+			return p
+	return from
+
+
+static func _sh(s: String) -> String:
+	return "'" + s.replace("'", "'\\''") + "'"
+
+
+func _start_worker() -> void:
+	if freecad_path == "":
+		for c in FREECAD_CANDIDATES:
+			if FileAccess.file_exists(c): freecad_path = c; break
+	if worker_script == "":
+		worker_script = ProjectSettings.globalize_path("res://").path_join("../worker/replay.py").simplify_path()
+	if worker_log == "":
+		worker_log = ProjectSettings.globalize_path("user://worker.log")
+	if freecad_path == "" or not FileAccess.file_exists(worker_script):
+		_say_worker("✗ couldn't find FreeCAD's command-line program (freecadcmd) or worker/replay.py")
+		worker_pid = -1
+		return
+	if OS.get_name() == "Windows":
+		OS.set_environment("SERVE_PORT", str(worker_port))
+		worker_pid = OS.create_process(freecad_path, [worker_script])
+	else:
+		worker_pid = OS.create_process("/bin/sh", ["-c", "SERVE_PORT=%d exec %s %s >> %s 2>&1" % [
+			worker_port, _sh(freecad_path), _sh(worker_script), _sh(worker_log)]])
+	print("SHOPSKETCH worker pid %d on port %d (log %s)" % [worker_pid, worker_port, worker_log])
+
+
+func _watch_worker(delta: float) -> void:
+	if worker_pid <= 0: return
+	_worker_check -= delta
+	if _worker_check > 0.0: return
+	_worker_check = 1.0
+	if OS.is_process_running(worker_pid): return
+	var now := Time.get_ticks_msec()
+	_worker_restarts = _worker_restarts.filter(func(t): return now - t < 60000)
+	_worker_restarts.append(now)
+	if _worker_restarts.size() > WORKER_MAX_RESTARTS:
+		_say_worker("✗ the FreeCAD worker keeps stopping - see %s" % worker_log)
+		worker_pid = -1
+		return
+	_say_worker("✗ the FreeCAD worker stopped - starting it again")
+	_start_worker()
+
+
+func _say_worker(txt: String) -> void:
+	ui_sync.text = txt
+	ui_sync.add_theme_color_override("font_color", Color(0.75, 0.1, 0.1))
+
+
+func _send_open() -> void:
+	client.send({"cmd": "open", "model": model_path, "fresh": test_mode and not heavy_test and not opened})
+
+
+func _on_link_down() -> void:
+	if worker_pid > 0 or opened:
+		_say_worker("● lost the FreeCAD worker - reconnecting")
+
+
+func _on_link_up(first: bool) -> void:
+	if first: return
+	# a new worker (or the same one back): whatever was in flight is gone, so send the model again
+	in_flight = false
+	if not opened:
+		_send_open()
+	else:
+		sync()
+
+
+func _shutdown_worker() -> void:
+	if worker_pid <= 0 or not OS.is_process_running(worker_pid): return
+	client.send({"cmd": "quit"})            # it saves anything pending, then stops
+	var t0 := Time.get_ticks_msec()
+	while OS.is_process_running(worker_pid) and Time.get_ticks_msec() - t0 < 4000:
+		client.peer.poll()
+		OS.delay_msec(50)
+	if OS.is_process_running(worker_pid):
+		OS.kill(worker_pid)
+	worker_pid = -1
+
+
+func _exit_tree() -> void:
+	_shutdown_worker()
+
+
 # ---------------- drawing export ----------------
 var drawing_pending := false
 
@@ -1880,6 +2136,19 @@ func _unhandled_input(e: InputEvent) -> void:
 			_zoom(1.0 / 0.88, e.position)
 		elif e.button_index == MOUSE_BUTTON_LEFT and e.pressed:
 			tool_click(e.position)
+	elif (e is InputEventPanGesture or e is InputEventMagnifyGesture) and _repeat_gesture(e):
+		return       # Godot 4.6 hands an injected gesture over twice in the same frame (seen in tests); act once
+	elif e is InputEventPanGesture:
+		# trackpad (and Magic Mouse) two-finger drag: orbit; with Shift, pan. A wheel mouse sends wheel buttons instead.
+		if e.shift_pressed:
+			var k := dist * 0.0012 * TRACKPAD_PX
+			target += (-cam.global_transform.basis.x * e.delta.x + cam.global_transform.basis.y * e.delta.y) * k
+		else:
+			yaw -= e.delta.x * 0.008 * TRACKPAD_PX
+			pitch = clampf(pitch - e.delta.y * 0.008 * TRACKPAD_PX, -1.5, 1.5)
+		_update_camera()
+	elif e is InputEventMagnifyGesture:
+		_zoom(1.0 / maxf(e.factor, 0.01), e.position)      # pinch out = closer, toward the cursor
 	elif e is InputEventMouseMotion:
 		if orbiting:
 			yaw -= e.relative.x * 0.008
@@ -1938,6 +2207,20 @@ func _unhandled_input(e: InputEvent) -> void:
 			KEY_D: export_drawing()
 
 
+var _last_gesture := ""
+
+
+func _repeat_gesture(e: InputEventGesture) -> bool:
+	var amount: Variant = e.delta if e is InputEventPanGesture else e.factor
+	var sig := "%d|%s|%s|%s|%s" % [Engine.get_process_frames(), e.get_class(), amount, e.position, e.shift_pressed]
+	if sig == _last_gesture: return true
+	_last_gesture = sig
+	return false
+
+
+const TRACKPAD_PX := 33.0     # Godot scales a trackpad's scroll by 0.03: this makes one finger-pixel = one mouse-pixel
+
+
 func _zoom(f: float, screen: Vector2) -> void:
 	var p := pick(screen)
 	if p.get("hit", false) and f < 1.0:
@@ -1950,6 +2233,9 @@ func _update_camera() -> void:
 	var off := Vector3(0, 0, dist).rotated(Vector3.RIGHT, pitch).rotated(Vector3.UP, yaw)
 	cam.position = target + off
 	cam.look_at(target, Vector3.UP)
+	if grid_mat != null:       # the grid fades out past a few orbit distances (no shimmer toward the horizon)
+		grid_mat.set_shader_parameter("fade_start", dist * 1.5 + 0.5)
+		grid_mat.set_shader_parameter("fade_end", dist * 3.5 + 1.5)
 
 
 # ---------------- fx test (--fxtest): records nicely with --write-movie ----------------
@@ -2507,6 +2793,140 @@ func _run_zfight_test() -> void:
 	var f := FileAccess.open(shots_dir.path_join("zfight.json"), FileAccess.WRITE)
 	f.store_string(JSON.stringify(info)); f.close()
 	print("ZFIGHTTEST done, shots: ", k, " bias: ", overlay_bias)
+	get_tree().quit()
+
+
+func _run_line_test() -> void:
+	# grid, axes and board edges where plain GL lines used to vanish: shallow angles, far away, close up
+	cursor2d.visible = false
+	var views := [["low", 0.0, 2.0, -40.0, -6.0], ["low_far", 0.0, 6.0, -40.0, -10.0], ["far", 0.0, 12.0, -30.0, -35.0],
+		["top_far", 0.0, 9.0, 0.0, -89.0], ["along_x", 0.0, 3.0, -90.0, -8.0]]
+	for v in views:
+		target = m2g(Vector3(300, 200, 0)); dist = v[2]; yaw = deg_to_rad(v[3]); pitch = deg_to_rad(v[4])
+		_update_camera()
+		await _frames(3)
+		get_viewport().get_texture().get_image().save_png(shots_dir.path_join("L_%s.png" % v[0]))
+	cursor2d.visible = true
+	await _view(Vector3(150, 100, 50), -35, -40, 1.0)
+	await _rect(Vector3(0, 0, 0), Vector3(600, 18, 0), "600,18")
+	await _push(Vector3(300, 9, 0), Vector3(300, 9, 100), "300")
+	await _wait_wave()
+	cursor2d.visible = false
+	for v in [["board_grazing", 1.2, -2.0, -3.0], ["board_edge_on", 0.8, -89.0, -20.0], ["board_far", 7.0, -35.0, -25.0]]:
+		target = m2g(Vector3(300, 9, 150)); dist = v[1]; yaw = deg_to_rad(v[2]); pitch = deg_to_rad(v[3])
+		_update_camera()
+		await _frames(3)
+		get_viewport().get_texture().get_image().save_png(shots_dir.path_join("L_%s.png" % v[0]))
+	print("LINETEST done")
+	get_tree().quit()
+
+
+func _shown_ids() -> Array:
+	var ids := []
+	for mi in bodies_root.find_children("*", "MeshInstance3D", true, false):
+		if mi.has_meta("body_mesh"): ids.append(String(mi.name))
+	ids.sort()
+	var keys := body_tris.keys()
+	keys.sort()
+	return ids if ids == keys else ["MISMATCH meshes %s vs picking data %s" % [ids, keys]]
+
+
+func _run_undo_test() -> void:
+	# T10: undo shows the remembered state at once, even past FreeCAD's 20-step history (it rebuilds meanwhile)
+	cursor2d.visible = false
+	await _view(Vector3(600, 25, 0), -30, -35, 2.5)
+	var seen := {0: []}            # ops count -> boards on screen once FreeCAD confirmed it
+	var full := []
+	for i in 11:
+		ops.append({"id": "r%d" % (i + 1), "type": "rect", "plane": {"normal": [0, 0, 1], "origin": [120.0 * i, 0, 0]}, "size": [100, 50]})
+		sync(); await _wait_confirm(); seen[ops.size()] = _shown_ids()
+		ops.append({"id": "pp%d" % (i + 1), "type": "push_pull", "target": {"rect": "r%d" % (i + 1)}, "distance": 18 + 4 * i, "body": "b%d" % (i + 1)})
+		sync(); await _wait_confirm(); seen[ops.size()] = _shown_ids()
+	full = ops.duplicate(true)
+	print("UNDOTEST built %d ops, %d boards" % [ops.size(), seen[ops.size()].size()])
+	# 1. one Ctrl+Z at a time; FreeCAD answers 300 ms late, so right after Ctrl+Z the screen shows the remembered state
+	var instant_bad := []; var after_bad := []; var reloads := 0; var rebuilt := []
+	for n in range(ops.size(), 0, -1):
+		test_delay_ms = 300
+		undo()
+		if _shown_ids() != seen[n - 1]: instant_bad.append([n - 1, _shown_ids(), seen[n - 1]])
+		var sc: Node = bodies_root.get_child(0) if bodies_root.get_child_count() > 0 else null
+		await _wait_confirm()
+		if ui_sync.text.contains("rebuilt"): rebuilt.append(full.size() - (n - 1))
+		if _shown_ids() != seen[n - 1]: after_bad.append([n - 1, _shown_ids(), seen[n - 1]])
+		if bodies_root.get_child_count() > 0 and bodies_root.get_child(0) != sc: reloads += 1
+	print("UNDOTEST one at a time: shown at once right %s %s | right after FreeCAD %s %s | reloads after FreeCAD answered: %d | FreeCAD rebuilt at undo no. %s" % [
+		instant_bad.is_empty(), instant_bad.slice(0, 2), after_bad.is_empty(), after_bad.slice(0, 2), reloads, rebuilt])
+	# 2. all of it again, then 22 Ctrl+Z as fast as you can press them
+	ops = full.duplicate(true)
+	sync(); await _wait_confirm()
+	var fast_bad := []
+	var t0 := Time.get_ticks_msec()
+	for n in range(ops.size(), 0, -1):
+		undo()
+		if _shown_ids() != seen[n - 1]: fast_bad.append([n - 1, _shown_ids()])
+		await _frames(1)
+	var t_all := Time.get_ticks_msec() - t0
+	await _wait_confirm()
+	print("UNDOTEST fast: 22 undos shown at once %s %s in %d ms of frames | after FreeCAD: %s, ops %d | %s" % [
+		fast_bad.is_empty(), fast_bad.slice(0, 2), t_all, _shown_ids(), ops.size(), ui_sync.text])
+	print("UNDOTEST done")
+	get_tree().quit()
+
+
+func _gesture(ev: InputEvent) -> void:
+	ev.position = Vector2(640, 420)
+	Input.parse_input_event(ev)
+	await _frames(2)
+
+
+func _run_gesture_test() -> void:
+	# T7: trackpad gestures move the camera like the mouse does
+	await _view(Vector3(0, 0, 0), -30, -30, 2.0)
+	var y0 := yaw; var p0 := pitch
+	var pan := InputEventPanGesture.new(); pan.delta = Vector2(100.0 / TRACKPAD_PX, 0.0)
+	await _gesture(pan)
+	var orbit_ok := is_equal_approx(yaw, y0 - 100 * 0.008) and is_equal_approx(pitch, p0)
+	var mouse := InputEventMouseMotion.new(); mouse.relative = Vector2(100, 0)
+	orbiting = true; _unhandled_input(mouse); orbiting = false            # the same 100 px with the middle button
+	var same_as_mouse := is_equal_approx(yaw, y0 - 2 * 100 * 0.008)
+	var t0 := target
+	var span := InputEventPanGesture.new(); span.delta = Vector2(0.0, 50.0 / TRACKPAD_PX); span.shift_pressed = true
+	await _gesture(span)
+	var pan_ok := target.distance_to(t0) > 0.01 and is_equal_approx(yaw, y0 - 2 * 100 * 0.008)
+	var d0 := dist
+	var pinch := InputEventMagnifyGesture.new(); pinch.factor = 1.25
+	await _gesture(pinch)
+	var zoom_in := dist < d0
+	var d1 := dist
+	var spread := InputEventMagnifyGesture.new(); spread.factor = 0.8
+	await _gesture(spread)
+	print("GESTURETEST two-finger orbit %s | same as a mouse drag %s | Shift+two-finger pan %s | pinch out zooms in %s (%.2f -> %.2f) | pinch in zooms out %s" % [
+		orbit_ok, same_as_mouse, pan_ok, zoom_in, d0, d1, dist > d1])
+	print("GESTURETEST done")
+	get_tree().quit()
+
+
+func _run_lifecycle_test() -> void:
+	# T6: the app starts its own worker; kill it mid-session and keep working; quitting stops the worker
+	cursor2d.visible = false
+	var t0 := Time.get_ticks_msec()
+	while not opened and Time.get_ticks_msec() - t0 < 60000: await _frames(1)
+	print("LIFECYCLETEST started worker pid %d port %d, opened %s in %d ms" % [worker_pid, worker_port, opened, Time.get_ticks_msec() - t0])
+	ops.append({"id": "r1", "type": "rect", "plane": {"normal": [0, 0, 1], "origin": [0, 0, 0]}, "size": [300, 200]})
+	ops.append({"id": "pp1", "type": "push_pull", "target": {"rect": "r1"}, "distance": 18, "body": "b1"})
+	sync(); await _wait_confirm()
+	var first := _shown_ids()
+	var pid1 := worker_pid
+	OS.kill(pid1)                                   # the worker crashes
+	await _frames(2)
+	ops.append({"id": "r2", "type": "rect", "plane": {"normal": [0, 0, 1], "origin": [400, 0, 0]}, "size": [300, 200]})
+	ops.append({"id": "pp2", "type": "push_pull", "target": {"rect": "r2"}, "distance": 25, "body": "b2"})
+	var t1 := Time.get_ticks_msec()
+	sync(); await _wait_confirm()
+	print("LIFECYCLETEST before crash %s | after crash: new pid %s (was %d), running %s, boards %s, confirmed after %d ms | %s" % [
+		first, worker_pid, pid1, OS.is_process_running(worker_pid), _shown_ids(), Time.get_ticks_msec() - t1, ui_sync.text])
+	print("LIFECYCLETEST worker pid at quit %d" % worker_pid)
 	get_tree().quit()
 
 

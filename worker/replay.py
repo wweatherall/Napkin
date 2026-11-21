@@ -30,7 +30,10 @@ TOL = 1e-3          # mm, for face matching
 NORMAL_TOL = 0.999  # cosine
 JOURNAL_FORMAT = "shopsketch-journal/0.1"
 
-App.ParamGet("User parameter:BaseApp/Preferences/Document").SetInt("MaxUndoSize", 500)
+# FreeCAD keeps 20 undo steps per document. Only its GUI applies the MaxUndoSize preference, and there is no
+# Python call to change it, so in freecadcmd it stays 20 (checked on 1.1.3 and 1.1.4). Undoing further back
+# rebuilds the document from the journal (Session.sync: "rebuilt"); the viewport shows the remembered state
+# meanwhile, so you can keep undoing (T10).
 
 
 class OpError(Exception):

@@ -1,6 +1,11 @@
-// Edge lines follow the same fronts as confirm_wave.gdshader.
+// Edge lines follow the same fronts as confirm_wave.gdshader. Drawn as anti-aliased strips (line.gdshaderinc).
 shader_type spatial;
-render_mode unshaded, depth_prepass_alpha;
+render_mode unshaded, cull_disabled, depth_draw_never, blend_mix, shadows_disabled;
+
+#include "res://line.gdshaderinc"
+
+uniform float width_px = 1.5;
+uniform float bias = 0.001;
 
 uniform vec3 origin;
 uniform float t = 0.0;
@@ -18,9 +23,16 @@ uniform vec3 final_edge : source_color = vec3(0.08, 0.08, 0.08);
 uniform vec3 reject_edge : source_color = vec3(0.7, 0.08, 0.05);
 
 varying vec3 wpos;
+varying float side;
+varying float half_px;
 
 void vertex() {
 	wpos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	float hp;
+	POSITION = line_position(VERTEX, CUSTOM0.xyz, UV, MODELVIEW_MATRIX, PROJECTION_MATRIX, VIEWPORT_SIZE,
+			width_px, bias, hp);
+	half_px = hp;
+	side = UV.y;
 }
 
 void fragment() {
@@ -36,5 +48,5 @@ void fragment() {
 		if (from_draft > 0.5) alpha = 1.0 - smoothstep(0.65, 1.0, reject_t / reject_dur);
 	}
 	ALBEDO = col;
-	ALPHA = alpha;
+	ALPHA = alpha * line_coverage(side, half_px, width_px);
 }

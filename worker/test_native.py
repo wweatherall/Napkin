@@ -357,4 +357,21 @@ check("redo after undo == a fresh build, with runs (and arrays build in the righ
       (diff(bodies_of(s), fb), [x for x in zip(statuses(s), fst) if x[0] != x[1]][:3]))
 s.close()
 
+# ---------- I. undoing past FreeCAD's 20-step history rebuilds, one Ctrl+Z at a time ----------
+IOPS = [ground_rect("r1", [0, 0, 0], [600, 300]), push("p1", "r1", 18, "b1")]
+for k in range(12):
+    IOPS += hole(k, 30 + (k % 6) * 90, 30 + (k // 6) * 120)
+s = Session(None)
+s.sync(IOPS)
+hows, vols_ok = [], True
+for n in range(len(IOPS) - 1, 1, -1):
+    how, _ = s.sync(IOPS[:n])
+    hows.append(how)
+    holes_left = sum(1 for o in IOPS[:n] if o["type"] == "push_pull") - 1
+    vols_ok &= vol(s) == V1 - holes_left * 7200
+check("FreeCAD keeps 20 undo steps; the 21st Ctrl+Z in a row rebuilds, then undo works again",
+      hows[:20] == ["undid 1, applied 0"] * 20 and hows[20] == "rebuilt" and all(h.startswith("undid 1") for h in hows[21:]), hows)
+check("the model is right after every one of those undos", vols_ok)
+s.close()
+
 print(f"\nNATIVE TESTS: {R[0]} passed, {R[1]} failed")

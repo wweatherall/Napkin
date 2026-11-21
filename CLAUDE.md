@@ -12,6 +12,9 @@ If you can't reach the log, say so; don't guess at what it says.
 
 ## How it works
 - `viewport/` (Godot 4.6, Compatibility renderer): tools, instant drafts, the confirmation wave.
+  It starts, watches and restarts its own worker (A27); `--port=N` uses an outside one instead (tests).
+  It remembers the last 40 confirmed states, so undo shows at once while FreeCAD catches up (A28).
+  Lines (edges, grid, axes) are anti-aliased strips from `line.gdshader` / `line.gdshaderinc`, made by `_lines()` (W12).
   Every action is drawn at once as a draft, then FreeCAD catches up and the real mesh replaces it (A01 idea, W01–W09).
 - `worker/replay.py`, which runs inside FreeCAD's command-line program (`freecadcmd`): a long-running
   worker on 127.0.0.1:7878 (newline JSON). It keeps a live FreeCAD document.
@@ -31,19 +34,20 @@ If you can't reach the log, say so; don't guess at what it says.
   Faces are referenced by geometry `{body, normal, point}`, never by face numbers (A03).
 
 ## Run (macOS)
-- `./Start Shop Sketch.command` starts the worker and opens `models/model.FCStd`. Worker log: `worker.log`.
+- `./Start Shop Sketch.command` opens `models/model.FCStd`; the app starts its worker. Worker log: `worker.log`.
 - FreeCAD's command-line program: `/Applications/FreeCAD.app/Contents/Resources/bin/freecadcmd`
 - Godot: `/Applications/Godot.app/Contents/MacOS/Godot`
 
 ## Tests (run after every change)
 Worker tests:
-- `freecadcmd worker/test_native.py`: 48 checks (native tree, undo walks, reopen, outside edits, mirrors of moved instances, rejections, runs)
+- `freecadcmd worker/test_native.py`: 50 checks (native tree, undo walks, reopen, outside edits, mirrors of moved instances, rejections, runs, undo past 20)
 - `freecadcmd worker/test_arrays.py`: 10 checks (hole arrays and moves)
 
 Viewport suites: `Godot --path viewport -- --<suite> --out=<dir>/out --shots=<dir>/shots --port=7878`, with the worker running.
 - Suites: `--facetest` `--movetest` `--mirrortest` `--infertest` `--holetest` `--zfighttest`.
 - Each writes `<tag>_bodies.json` checkpoints. Compare them with a known-good run: volumes and world boxes must match.
-- Other test modes: `--heavytest --model=<file>`. Recordings use `--true-latency` (P03), with Godot's `--write-movie`.
+- Other test modes (print their results; look at the shots): `--linetest` (line visibility), `--undotest` (needs a worker
+  on --port), `--gesturetest` and `--lifecycletest` (no --port: the app starts its own worker), `--heavytest --model=<file>`. Recordings use `--true-latency` (P03), with Godot's `--write-movie`.
 - Test hooks (`delay_ms`, forced rejection, `--*test`) are for testing only (P02).
 
 ## Known problems / open work
@@ -56,7 +60,9 @@ Viewport suites: `Godot --path viewport -- --<suite> --out=<dir>/out --shots=<di
 ## Conventions
 - Keep the user-facing feel first: drafts appear instantly. Never block input on FreeCAD.
 - Overlays lying on faces use `overlay.gdshader` (depth bias in the shader). Never offset node transforms:
-  that broke rectangle picking.
+  that broke rectangle picking. Lines get the same bias in `line.gdshaderinc`; the grid has none and draws first.
+- Never draw with PRIMITIVE_LINES: 1-pixel GL lines get no anti-aliasing and vanish. Use `_lines()`.
+- Godot 4.6 delivers an injected gesture (Input.parse_input_event) twice per frame; `_repeat_gesture` drops the copy.
 - New FreeCAD properties go on objects when they are created. Adding properties inside an undo transaction
   isn't reliably undone.
 - `freecadcmd` passes the script itself as `sys.argv[1]`. Pass paths through environment variables.

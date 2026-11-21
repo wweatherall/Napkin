@@ -1,8 +1,11 @@
 extends Node
-## Newline-delimited JSON client for the FreeCAD worker (serve.sh).
-## Reconnects on its own; queues lines until connected.
+## Newline-delimited JSON client for the FreeCAD worker (worker/replay.py).
+## Reconnects on its own; queues lines until connected. Tells the app when the link goes down and comes back,
+## so a request lost with a stopped worker can be sent again.
 
 signal replied(resp: Dictionary)
+signal link_up(first: bool)       # connected; first = the first time since start
+signal link_down
 
 var host := "127.0.0.1"
 var port := 7878
@@ -11,6 +14,7 @@ var buf := PackedByteArray()
 var pending: Array[String] = []
 var _retry := 0.0
 var connected := false
+var _ever := false
 
 
 func start(p_port: int) -> void:
@@ -20,10 +24,9 @@ func start(p_port: int) -> void:
 
 func send(obj: Dictionary) -> void:
 	var line := JSON.stringify(obj, "", false, true) + "\n"
-	if connected:
-		peer.put_data(line.to_utf8_buffer())
-	else:
-		pending.append(line)
+	if connected and peer.put_data(line.to_utf8_buffer()) == OK:
+		return
+	pending.append(line)
 
 
 func _process(delta: float) -> void:
@@ -35,6 +38,8 @@ func _process(delta: float) -> void:
 			for l in pending:
 				peer.put_data(l.to_utf8_buffer())
 			pending.clear()
+			link_up.emit(not _ever)
+			_ever = true
 		var n := peer.get_available_bytes()
 		if n > 0:
 			var r := peer.get_partial_data(n)
@@ -42,7 +47,10 @@ func _process(delta: float) -> void:
 				buf.append_array(r[1])
 				_drain()
 	elif st == StreamPeerTCP.STATUS_ERROR or st == StreamPeerTCP.STATUS_NONE:
-		connected = false
+		if connected:
+			connected = false
+			buf.clear()
+			link_down.emit()
 		_retry -= delta
 		if _retry <= 0.0:
 			_retry = 0.5
