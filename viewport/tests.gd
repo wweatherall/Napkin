@@ -1162,14 +1162,18 @@ func _run_quick_test() -> void:
 	await _view(Vector3(200, 100, 0), -30, -45, 1.6)
 	await _grab(Vector3(0, 25, 18))
 	await _drag_to(Vector3(80, 25, 18), 6)
+	var asked := m.length_id
 	await _type("5in + 23mm\n")
 	await _wait_wave()
 	_ok("moved 150 along red", _bbox("b1").slice(0, 2) == [150.0, 0.0], _bbox("b1"))
+	_ok("arithmetic in a typed length is worked out by FreeCAD (T32)", m.length_id == asked + 1, [asked, m.length_id])
 	await _grab(Vector3(150, 25, 18))
 	await _key(KEY_ALT)
 	await _key(KEY_LEFT)                          # lock green
 	await _drag_to(Vector3(150, 80, 18), 6)
+	asked = m.length_id
 	await _type("60\n")
+	_ok("a plain typed length is read at once, without asking FreeCAD", m.length_id == asked, [asked, m.length_id])
 	await _frames(4)
 	await _type("3x\n")
 	await _wait_wave()
@@ -1515,12 +1519,6 @@ func _click(p_model: Vector3) -> void:
 
 
 func _type(txt: String) -> void:
-	# Rejection scenario deliberately queues dependent drafts while sync is delayed.
-	# Inject already-evaluated mm here: a parser request shares that blocked worker.
-	if quick and _q_section == "reject":
-		m.tools[m.tool].typed(txt.strip_edges())
-		await _frames(1)
-		return
 	for ch in txt:
 		var ev := InputEventKey.new()
 		ev.pressed = true
@@ -1534,7 +1532,8 @@ func _type(txt: String) -> void:
 	var deadline := Time.get_ticks_msec() + 10000
 	while not m.length_pending.is_empty() and Time.get_ticks_msec() < deadline:
 		await _frames(1)
-	assert(m.length_pending.is_empty(), "Length evaluation timed out")
+	if not m.length_pending.is_empty():
+		_ok("a typed length came back from FreeCAD within 10 s", false, txt)
 
 
 func _key_shift(k: Key) -> void:

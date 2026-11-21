@@ -3,6 +3,7 @@ extends Node3D
 ## Model space = Z-up millimetres (what the op log uses). Godot space = Y-up metres.
 
 const WorkerClient := preload("res://worker_client.gd")
+const Units := preload("res://units.gd")
 const WAVE := preload("res://confirm_wave.gdshader")
 const WAVE_LINES := preload("res://confirm_wave_lines.gdshader")
 const LINE_SHADER := preload("res://line.gdshader")
@@ -1091,7 +1092,13 @@ func apply_vcb() -> void:
 			tools[tool].typed(txt)
 		elif tool in ["rect", "push", "move"]:
 			var texts := txt.split(",") if tool == "rect" else PackedStringArray([txt])
-			if texts.size() != (2 if tool == "rect" else 1):
+			# A plain length (150, 3/4", 1' 6 1/2") is read here, at once: drafts never wait for FreeCAD. Arithmetic
+			# (5in + 23mm, 1'-6": a minus always subtracts, I35) goes to FreeCAD's expressions (T32).
+			var here := Units.parse_pair(txt) if tool == "rect" else Units.parse_length(txt)
+			if here.ok:
+				length_pending = {}
+				tools[tool].typed("%.12f,%.12f" % [here.a_mm, here.b_mm] if tool == "rect" else "%.12f" % here.mm)
+			elif texts.size() != (2 if tool == "rect" else 1):
 				ui_sync.text = "Enter two lengths separated by a comma"
 			else:
 				length_id += 1
@@ -2213,7 +2220,7 @@ func _unhandled_input(e: InputEvent) -> void:
 			KEY_BACKSPACE: vcb = vcb.left(-1); _update_vcb(); return
 		var ch := char(e.unicode) if e.unicode > 0 else ""
 		var t = tools[tool]
-		if vcb == "" and t.key(e): return                              # the tool's own keys (Move: modifiers, axis locks)
+		if not (vcb != "" and e.keycode == KEY_SHIFT) and t.key(e): return   # the tool's own keys (Move: modifiers, axis locks); while typing, Shift is for " and '
 		if t.busy() and ch != "" and t.accepts(ch):
 			vcb += ch; _update_vcb(); return
 		match e.keycode:
