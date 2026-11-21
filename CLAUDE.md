@@ -11,7 +11,13 @@ marked Superseded (never deleted). Ask William before countermanding an Active d
 If you can't reach the log, say so; don't guess at what it says.
 
 ## How it works
-- `viewport/` (Godot 4.6, Compatibility renderer): tools, instant drafts, the confirmation wave.
+- `viewport/` (Godot 4.6, Compatibility renderer): tools, instant drafts, the confirmation wave (T4 layout):
+  `main.gd` setup, worker link, sync, drafts, waves, remembered states, input dispatch;
+  `inference.gd` the one snapping engine (pick, endpoint > midpoint > on edge, axis inference);
+  `tools/rect_tool.gd`, `push_tool.gd`, `move_tool.gd` (base `tools/tool.gd`: each owns its state and gets
+  mouse_moved / click / key / typed); `tests.gd` the scripted suites (added only in test mode).
+  Tools and tests `preload("res://main.gd")` for typing; main.gd `load()`s them at runtime (no preload cycle,
+  and no `class_name`: Godot run from the command line doesn't register new global class names).
   It starts, watches and restarts its own worker (A27); `--port=N` uses an outside one instead (tests).
   It remembers the last 40 confirmed states, so undo shows at once while FreeCAD catches up (A28).
   Lines (edges, grid, axes) are anti-aliased strips from `line.gdshader` / `line.gdshaderinc`, made by `_lines()` (W12).

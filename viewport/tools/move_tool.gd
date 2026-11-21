@@ -1,0 +1,463 @@
+extends "res://tools/tool.gd"
+## Move (M), SketchUp style: grab a point on a board (or a hole's wall: the hole), move, click or type a distance.
+## Ctrl/Option toggles copy, Shift toggles mirror (the board flips across the plane halfway to the cursor).
+## Arrows cycle axis lock -> plane lock -> free. After a copy: 5x / *5 for an array, /5 to spread copies;
+## a plain number right after a move changes its distance.
+
+var state := {}
+var copy := false
+var mirror := false
+var last_oid := ""      # the move/copy you can still adjust by typing (distance, Nx, *N, /N)
+var memo := {}          # move op id -> {"tris": geometry before the move, "ref": pick-up point}
+
+
+func reset() -> void:
+	state = {}
+	copy = false
+	mirror = false
+
+
+func hint() -> String:
+	return "Move: grab a point on a board, click or type a distance. Ctrl/Option = copy, Shift = mirror, arrows lock axis. After a copy: 5x or /5"
+
+
+func busy() -> bool:
+	return state.get("active", false) or last_oid != ""
+
+
+func accepts(ch: String) -> bool:
+	return ch in "0123456789.,-" or ch.to_lower() in "x*/"
+
+
+func mouse_moved(screen: Vector2) -> void:
+	_move_move(screen)
+
+
+func click(screen: Vector2) -> void:
+	_move_click(screen)
+
+
+func key(e: InputEventKey) -> bool:
+	if e.keycode in [KEY_CTRL, KEY_ALT, KEY_SHIFT]:
+		if e.keycode == KEY_SHIFT:
+			mirror = not mirror            # Shift: mirror across the plane halfway to the cursor
+		else:
+			copy = not copy                # SketchUp: tap Ctrl (Option on a Mac) to toggle copy
+		if state.get("active", false): _move_move(m._cursor_pos())
+		m._update_vcb(); m._update_tip(m._cursor_pos())
+		return true
+	if state.get("active", false):
+		var lock: int = {KEY_RIGHT: 0, KEY_LEFT: 1, KEY_UP: 2}.get(e.keycode, -2)
+		if lock > -2:
+			var mode: String = state.get("lock_mode", "free")
+			if state["lock"] != lock or mode == "free":
+				state["lock"] = lock; state["lock_mode"] = "axis"
+			elif mode == "axis":
+				state["lock_mode"] = "plane"          # tap again: the plane perpendicular to that axis
+			else:
+				state["lock"] = -1; state["lock_mode"] = "free"
+			_move_move(m._cursor_pos())
+			m._update_tip(m._cursor_pos())
+			return true
+	return false
+
+
+func typed(txt: String) -> void:
+	if not state.get("active", false):
+		_amend_last_move(txt)
+		return
+	if mirror:
+		if txt.is_valid_float():
+			var ax: int = state.get("mir_ax", state["face_ax"])
+			var d := absf(float(txt))
+			var side: float = signf(state["vec"][ax]) if absf(state["vec"][ax]) > 0.5 else state["face_sign"]
+			var c: float
+			if ax == state["face_ax"]:
+				c = state["face_c"] + side * d
+			else:
+				c = state["hi"][ax] + d if side >= 0 else state["lo"][ax] - d
+			commit_mirror_move(ax, c)
+		return
+	var tl := txt.to_lower()
+	if tl.is_valid_float() and state["vec"].length() > 0.5:
+		commit_move(state["vec"].normalized() * absf(float(tl)))
+
+
+func vcb_label() -> String:
+	return "Face to plane" if mirror else ("Copy distance" if copy else "Distance")
+
+
+func vcb_value() -> String:
+	if not state.get("active", false): return ""
+	if mirror and state.has("mir_c"):
+		return "%d" % _mirror_face_gap(state["mir_ax"], state["mir_c"])
+	return "%d" % state["vec"].length()
+
+
+func tip() -> String:
+	if state.get("active", false) and mirror and state.has("mir_c"):
+		var g := _mirror_face_gap(state["mir_ax"], state["mir_c"])
+		var col: String = ["red", "green", "blue"][state["mir_ax"]]
+		return "Mirror%s (%s plane)\nface → plane  %d mm\nface → mirrored face  %d mm" % [" + copy" if copy else "", col, g, 2.0 * g]
+	if state.get("active", false):
+		var k: String = state.get("kind", "")
+		return "%s  %d mm%s" % ["Copy +" if copy else "Move", state["vec"].length(), ("\n" + k) if k != "" else ""]
+	if last_oid != "" and copy:
+		return "type 5x or /5 for more copies"
+	if copy or mirror:
+		return ("+ copy " if copy else "") + ("+ mirror" if mirror else "")
+	return ""
+
+
+func _mirror_axis_and_plane() -> Array:
+	var vec: Vector3 = state["vec"]
+	var ax: int = state["lock"] if state.get("lock_mode", "free") == "axis" else -1
+	if ax < 0:
+		ax = state["face_ax"]           # parallel to the face you grabbed, unless an arrow key says otherwise
+	var ref: Vector3 = state["ref"]
+	return [ax, ref[ax] + vec[ax] * 0.5]        # perpendicular bisector: the grabbed point lands under the cursor
+
+
+func _mirror_face_gap(ax: int, c: float) -> float:
+	if ax == state["face_ax"]:
+		return absf(c - state["face_c"])
+	return c - state["hi"][ax] if c >= (state["lo"][ax] + state["hi"][ax]) * 0.5 else state["lo"][ax] - c
+
+
+func _preview_mirror_move() -> void:
+	var r := _mirror_axis_and_plane()
+	var ax: int = r[0]; var c: float = r[1]
+	state["mir_ax"] = ax; state["mir_c"] = c
+	var ghost := Main._mirror_tris(state["tris"], ax, c)
+	var lo: Vector3 = state["lo"]; var hi: Vector3 = state["hi"]
+	for q in ghost: lo = lo.min(q); hi = hi.max(q)
+	var u := (ax + 1) % 3; var v := (ax + 2) % 3
+	var corners := PackedVector3Array()
+	for uv in [[lo[u] - 60, lo[v] - 60], [hi[u] + 60, lo[v] - 60], [hi[u] + 60, hi[v] + 60], [lo[u] - 60, hi[v] + 60]]:
+		var pt := Vector3.ZERO
+		pt[ax] = c; pt[u] = uv[0]; pt[v] = uv[1]
+		corners.append(pt)
+	var pm := m.mat_plane.duplicate() as StandardMaterial3D
+	pm.albedo_color = Main.AXIS_COLORS[ax]
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for q in [corners[0], corners[1], corners[2], corners[0], corners[2], corners[3]]: st.add_vertex(Main.m2g(q))
+	var mesh := m._tri_mesh(ghost, m.mat_draft)
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, st.commit_to_arrays())
+	mesh.surface_set_material(1, pm)
+	m.overlay.mesh = mesh
+	var edge_col: Color = Main.AXIS_COLORS[ax]
+	edge_col.a = 1.0
+	var segs := Main.feature_edges(ghost)
+	segs.append_array(PackedVector3Array([corners[0], corners[1], corners[1], corners[2], corners[2], corners[3], corners[3], corners[0]]))
+	m.overlay_lines.mesh = m._lines(segs, edge_col.darkened(0.2)).mesh
+	var landed: Vector3 = state["ref"]
+	landed[ax] = 2.0 * c - landed[ax]
+	m._show_marker({"hit": true, "point": landed})
+	m._update_vcb()
+
+
+func commit_mirror_move(ax: int, c: float) -> void:
+	m.reject_note = ""
+	var body: String = state["body"]
+	m.counters["m"] += 1
+	var oid := "m%d" % m.counters["m"]
+	var pt := Vector3.ZERO
+	pt[ax] = c
+	var op := {"id": oid, "type": "mirror", "targets": [body], "plane": {"point": Main.arr3(pt), "normal": Main.arr3(Main._axis_vec(ax))}}
+	var bid := body
+	if copy:
+		m.counters["b"] += 1
+		bid = "b%d" % m.counters["b"]
+		op["new_ids"] = [bid]
+	else:
+		op["replace"] = true                 # flip the board itself
+	m.ops.append(op)
+	var ghost := Main._mirror_tris(state["tris"], ax, c)
+	var mi := MeshInstance3D.new()
+	mi.mesh = m._tri_mesh(ghost, m.mat_draft)
+	var edges := m._lines(Main.feature_edges(ghost), Color(0.6, 0.35, 0.0))
+	mi.add_child(edges)
+	m.drafts_root.add_child(mi)
+	m.drafts[oid] = mi
+	m._add_collision(mi, "body_id", bid)
+	m.body_tris[bid] = ghost
+	m.body_verts[bid] = Main.unique_verts(ghost)
+	m.body_edges[bid] = Main.feature_edges(ghost)
+	if not copy:
+		for n in m.bodies_root.find_children(body, "MeshInstance3D", true, false):
+			n.visible = false
+	if m.test_mode:
+		var blo := Vector3(INF, INF, INF); var bhi := -blo
+		for q in ghost: blo = blo.min(q); bhi = bhi.max(q)
+		m.draft_bboxes[bid] = [Main.arr3(blo), Main.arr3(bhi)]
+	var landed: Vector3 = state["ref"]
+	landed[ax] = 2.0 * c - landed[ax]
+	m._begin_wave(oid, landed, ghost, copy, bid)
+	m._attach_wave(oid, mi, edges, Main.DEFAULT_BASE)
+	last_oid = ""
+	state["active"] = false
+	if m.guides: m.guides.mesh = null
+	m.overlay.mesh = null; m.overlay_lines.mesh = null
+	m.marker.visible = false
+	m._update_tip(m._cursor_pos())
+	m.sync()
+
+
+func _move_click(screen: Vector2) -> void:
+	if not state.get("active", false):
+		var p := m.snap(m.pick(screen), screen)
+		if not p.get("hit", false) or p["body"] == "" or not m.body_tris.has(p["body"]): return
+		last_oid = ""
+		var tris: PackedVector3Array = m.body_tris[p["body"]]
+		var cut := m._cut_at(p["body"], p["point"])
+		var cut_ref := {}
+		if not cut.is_empty():                       # clicked a hole: move / copy the hole, not the board
+			cut_ref = {"body": p["body"], "op": cut["op"], "kind": cut["kind"]}
+			tris = m._cut_tris(p["body"], cut["op"])
+		var lo := Vector3(INF, INF, INF); var hi := -lo
+		for q in tris: lo = lo.min(q); hi = hi.max(q)
+		var n: Vector3 = p["normal"]
+		var fax := 0
+		for i in 3:
+			if absf(n[i]) > absf(n[fax]): fax = i
+		state = {"active": true, "body": p["body"], "tris": tris, "ref": p["point"],
+					  "vec": Vector3.ZERO, "lock": -1, "lock_mode": "free", "inferred": -1, "kind": "",
+					  "count": 1, "divide": false, "lo": lo, "hi": hi,
+					  "face_ax": fax, "face_c": snappedf(p["point"][fax], 0.01), "face_sign": signf(n[fax]),
+					  "cut": cut_ref}
+	elif mirror and state.get("cut", {}).is_empty():
+		commit_mirror_move(state["mir_ax"], state["mir_c"])
+	else:
+		commit_move(state["vec"])
+
+
+func _move_move(screen: Vector2) -> void:
+	if not state.get("active", false):
+		var hp := m.pick(screen)
+		m.overlay_lines.mesh = null
+		m.overlay.mesh = null
+		if hp.get("hit", false) and m.body_tris.has(hp["body"]):
+			var hc := m._cut_at(hp["body"], hp["point"])
+			if hc.is_empty():
+				m.overlay.mesh = m._tri_mesh(m.body_tris[hp["body"]], m.mat_hover)
+			else:
+				var ht := m._cut_tris(hp["body"], hc["op"])
+				m.overlay.mesh = m._tri_mesh(ht, m.mat_cut_hl)
+				m.overlay_lines.mesh = m._lines(Main.feature_edges(ht), Color(0.35, 0.15, 0.6)).mesh
+		return
+	var ref: Vector3 = state["ref"]
+	var body: String = state["body"]
+	var moving_cut: bool = not state.get("cut", {}).is_empty()
+	var mode: String = state.get("lock_mode", "free")
+	var lax: int = state["lock"]
+	var dest = null
+	var kind := ""
+	var guide_axis := -1
+	var guide_plane := -1
+	if mode == "axis":
+		dest = infer.axis_dest(screen, ref, lax, body)
+		kind = ["red", "green", "blue"][lax] + " axis (locked)"
+		guide_axis = lax
+	else:
+		var plane_n := Main._axis_vec(lax) if mode == "plane" else Vector3(0, 0, 1)
+		if mode == "plane": guide_plane = lax
+		var pt := infer.point(screen, "" if moving_cut else body)   # a hole can snap to its own board
+		if not pt.is_empty():
+			dest = pt["point"]
+			if mode == "plane":                       # stay on the locked plane
+				dest = dest - plane_n * (dest - ref).dot(plane_n)
+			kind = pt["kind"]
+		else:
+			var axes := [0, 1, 2] if mode == "free" else [(lax + 1) % 3, (lax + 2) % 3]
+			var inf := infer.axis(screen, ref, axes, state.get("inferred", -1))
+			state["inferred"] = inf
+			if inf >= 0:
+				dest = infer.axis_dest(screen, ref, inf, body)
+				kind = "on " + ["red", "green", "blue"][inf] + " axis"
+				guide_axis = inf
+			else:
+				var hit := m.pick(screen)
+				if hit.get("hit", false) and hit["body"] != "" and hit["body"] != body and mode == "free":
+					dest = hit["point"]                   # on another board's face
+					var fn: Vector3 = hit["normal"]
+					if m.grid_snap:
+						var vec: Vector3 = dest - ref
+						for i in 3:
+							if absf(fn[i]) < 0.5: vec[i] = snappedf(vec[i], Main.GRID)
+						dest = ref + vec
+					kind = "on face"
+				else:
+					dest = infer.plane_dest(screen, ref, plane_n)
+					kind = "free" if mode == "free" else ["green/blue", "red/blue", "red/green"][lax] + " plane (locked)"
+	if dest == null: return
+	state["vec"] = dest - ref
+	state["kind"] = kind
+	m._draw_guides(ref, guide_axis, guide_plane)
+	if mirror and not moving_cut:
+		_preview_mirror_move()
+		return
+	var mcol: Color = Main.SNAP_COLORS.get(kind, Color(0.35, 0.35, 0.4))
+	m.marker.visible = true
+	m.marker.position = Main.m2g(dest)
+	(m.marker.mesh.material as StandardMaterial3D).albedo_color = mcol
+	_preview_move()
+
+
+func _move_offsets(vec: Vector3, count: int, divide: bool, copy: bool) -> Array:
+	var out := []
+	if not copy:
+		out.append(vec)
+		return out
+	for i in range(1, count + 1):
+		out.append(vec * (float(i) / count) if divide else vec * i)
+	return out
+
+
+func _preview_move() -> void:
+	var all := PackedVector3Array()
+	for off in _move_offsets(state["vec"], state["count"], state["divide"], copy):
+		for q in state["tris"]: all.append(q + off)
+	m.overlay.mesh = m._tri_mesh(all, m.mat_draft if state.get("cut", {}).is_empty() else m.mat_cut)
+	m.overlay_lines.mesh = m._lines(Main.feature_edges(all), Color(0.6, 0.35, 0.0)).mesh
+	m._update_vcb()
+
+
+func commit_move(vec: Vector3, count := 1, divide := false, reuse_oid := "") -> void:
+	if vec.length() < 0.5: return
+	m.reject_note = ""
+	if not state.get("cut", {}).is_empty():
+		_commit_cut_move(vec, count, divide, reuse_oid)
+		return
+	var body: String = state.get("body", "")
+	var oid := reuse_oid
+	if oid == "":
+		m.counters["mv"] += 1
+		oid = "mv%d" % m.counters["mv"]
+	var op := {"id": oid, "type": "move", "targets": [body], "vector": Main.arr3(vec), "copy": copy}
+	var offsets := _move_offsets(vec, count, divide, copy)
+	var made := []
+	if copy:
+		op["count"] = count
+		op["divide"] = divide
+		for i in offsets.size():
+			m.counters["b"] += 1
+			made.append("b%d" % m.counters["b"])
+		op["new_ids"] = made
+	m.ops.append(op)
+	var root := Node3D.new()
+	m.drafts_root.add_child(root)
+	m.drafts[oid] = root
+	var all := PackedVector3Array()
+	var src: PackedVector3Array = state["tris"]
+	memo[oid] = {"tris": src, "ref": state["ref"]}
+	var wave_bodies := made if copy else [body]
+	for i in offsets.size():
+		var moved := PackedVector3Array()
+		for q in src: moved.append(q + offsets[i])
+		all.append_array(moved)
+		var mi := MeshInstance3D.new()
+		mi.mesh = m._tri_mesh(moved, m.mat_draft)
+		var edges := m._lines(Main.feature_edges(moved), Color(0.6, 0.35, 0.0))
+		mi.add_child(edges)
+		root.add_child(mi)
+		var bid: String = wave_bodies[i]
+		m._add_collision(mi, "body_id", bid)
+		m.body_tris[bid] = moved
+		m.body_verts[bid] = Main.unique_verts(moved)
+		m.body_edges[bid] = Main.feature_edges(moved)
+		if m.test_mode:
+			var lo := Vector3(INF, INF, INF); var hi := -lo
+			for q in moved: lo = lo.min(q); hi = hi.max(q)
+			m.draft_bboxes[bid] = [Main.arr3(lo), Main.arr3(hi)]
+	if not copy:
+		for n in m.bodies_root.find_children(body, "MeshInstance3D", true, false):
+			n.visible = false            # it has left: hide the old spot until FreeCAD's mesh arrives
+	var dest: Vector3 = state["ref"] + offsets[offsets.size() - 1]
+	m._begin_wave(oid, dest, all, copy, wave_bodies)
+	for i in root.get_child_count():
+		var mi: MeshInstance3D = root.get_child(i)
+		m._attach_wave(oid, mi, mi.get_child(0), Main.DEFAULT_BASE)
+	last_oid = oid
+	state["last_vec"] = vec
+	if m.guides: m.guides.mesh = null
+	state["active"] = false
+	m.overlay.mesh = null; m.overlay_lines.mesh = null
+	m.marker.visible = false
+	m._update_tip(m._cursor_pos())
+	m.sync()
+
+
+func _commit_cut_move(vec: Vector3, count: int, divide: bool, reuse_oid: String) -> void:
+	"""Move a hole, or copy it (FreeCAD makes the copies a Draft array of the cutter)."""
+	var cut: Dictionary = state["cut"]
+	var body: String = cut["body"]
+	var oid := reuse_oid
+	if oid == "":
+		m.counters["mv"] += 1
+		oid = "mv%d" % m.counters["mv"]
+	var op := {"id": oid, "type": "move", "targets": [], "cut": {"body": body, "op": cut["op"]},
+		"vector": Main.arr3(vec), "copy": copy}
+	if copy:
+		op["count"] = count
+		op["divide"] = divide
+	m.ops.append(op)
+	var root := Node3D.new()
+	m.drafts_root.add_child(root)
+	m.drafts[oid] = root
+	var src: PackedVector3Array = state["tris"]
+	memo[oid] = {"tris": src, "ref": state["ref"], "cut": cut}
+	var offsets := _move_offsets(vec, count, divide, copy)
+	for off in offsets:
+		var moved := PackedVector3Array()
+		for q in src: moved.append(q + off)
+		var mi := MeshInstance3D.new()
+		mi.mesh = m._tri_mesh(moved, m.mat_cut if cut["kind"] == "cut" else m.mat_draft)
+		mi.add_child(m._lines(Main.feature_edges(moved), Color(0.35, 0.15, 0.6)))
+		root.add_child(mi)
+	var dest: Vector3 = state["ref"] + offsets[offsets.size() - 1]
+	m._begin_wave(oid, dest, m.body_tris.get(body, src), false, body)
+	for mi in m.bodies_root.find_children(body, "MeshInstance3D", true, false):
+		m._attach_wave(oid, mi, mi.get_child(mi.get_child_count() - 1), m._base_of(mi))
+	last_oid = oid
+	state["last_vec"] = vec
+	if m.guides: m.guides.mesh = null
+	state["active"] = false
+	m.overlay.mesh = null
+	m.overlay_lines.mesh = null
+	m.marker.visible = false
+	m._update_tip(m._cursor_pos())
+	m.sync()
+
+
+func _amend_last_move(txt: String) -> bool:
+	"""SketchUp's after-the-fact typing: a distance, Nx / xN / *N (array), or /N (divide)."""
+	if last_oid == "": return false
+	var op: Dictionary = {}
+	for o in m.ops:
+		if o["id"] == last_oid: op = o
+	if op.is_empty(): return false
+	var vec := Vector3(op["vector"][0], op["vector"][1], op["vector"][2])
+	var count: int = op.get("count", 1)
+	var divide: bool = op.get("divide", false)
+	var t := txt.strip_edges().to_lower()
+	if t.begins_with("/") and t.substr(1).is_valid_int():
+		if not op["copy"]: return false
+		count = maxi(1, int(t.substr(1))); divide = true
+	elif (t.ends_with("x") and t.left(-1).is_valid_int()) or ((t.begins_with("x") or t.begins_with("*")) and t.substr(1).is_valid_int()):
+		if not op["copy"]: return false
+		count = maxi(1, int(t.trim_suffix("x").trim_prefix("x").trim_prefix("*"))); divide = false
+	elif t.is_valid_float():
+		# a new distance along the same direction (for an array this sets the spacing; for divide, the total)
+		vec = vec.normalized() * absf(float(t))
+	else:
+		return false
+	var body: String = op["cut"]["body"] if op.has("cut") else op["targets"][0]
+	var was_copy: bool = op["copy"]
+	m.remove_op(last_oid)
+	copy = was_copy
+	var memo: Dictionary = memo.get(op["id"], {})
+	if memo.is_empty(): return true
+	state = {"active": false, "body": body, "tris": memo["tris"], "ref": memo["ref"], "cut": memo.get("cut", {})}
+	commit_move(vec, count, divide, op["id"])
+	return true
