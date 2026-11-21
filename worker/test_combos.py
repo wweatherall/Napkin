@@ -9,7 +9,9 @@ from pathlib import Path
 import sys
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(Path(__file__).resolve().parent))
-from test_load import *  # noqa: E402,F403  (the worker's modules, T42)
+import test_load  # Configure the FreeCAD test runtime before loading worker modules.
+import FreeCAD as App
+from session import Session
 ROOT = Path(os.environ.get('TESTDIR', '/tmp/shopsketch-combos'))
 ROOT.mkdir(parents=True, exist_ok=True)
 R = [0, 0]

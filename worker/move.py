@@ -1,5 +1,6 @@
 """Move and copy: moving boards and holes, linked copies and arrays (A22c, T12), detach and make unique."""
-from common import *
+import FreeCAD as App
+from common import OpError, TOL, V, add_props, board_label, unit, vec
 
 
 class MoveActions:

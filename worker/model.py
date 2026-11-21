@@ -1,6 +1,10 @@
 """Model: Shop Sketch operations on a FreeCAD document. This file reads the document and has the building
 blocks (boards, extrusions, booleans); each kind of action is a mixin in its own file."""
-from common import *
+import FreeCAD as App
+import Part
+from common import (
+    Frame, NORMAL_TOL, OpError, TOL, V, add_props, board_label, rotation_from, unit, vec,
+)
 from push import PushActions
 from move import MoveActions
 from mirror import MirrorActions

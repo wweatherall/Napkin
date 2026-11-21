@@ -1,11 +1,7 @@
 """Shared by every worker module: FreeCAD, units and tolerances, OpError, Frame, the wood cards.
 
-The other modules start with `from common import *`."""
-import hashlib
-import json
+Worker modules import the shared names they use explicitly."""
 import os
-import struct
-import time
 
 import sys
 

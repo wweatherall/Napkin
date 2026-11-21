@@ -1,5 +1,6 @@
 """Assemblies (T20): grouping boards and moving a group with its arrays."""
-from common import *
+import FreeCAD as App
+from common import OpError, add_props, unit
 
 
 class AssemblyActions:
