@@ -1,0 +1,61 @@
+{
+  "format": "oplog/0.1",
+  "units": "mm",
+  "name": "Slatted bench",
+  "ops": [
+    {"id": "r_leg", "type": "rect",
+     "plane": {"origin": [50, 0, 0], "normal": [0, 0, 1]},
+     "corner": [0, 0], "size": [38, 300],
+     "note": "leg footprint on the ground"},
+
+    {"id": "pp_leg", "type": "push_pull", "target": {"rect": "r_leg"},
+     "distance": 400, "body": "leg"},
+
+    {"id": "mc_leg", "type": "make_component", "body": "leg", "name": "Leg"},
+
+    {"id": "cp_leg", "type": "move", "targets": ["leg"],
+     "vector": [1062, 0, 0], "copy": true, "count": 1, "new_ids": ["leg_2"]},
+
+    {"id": "pp_leg_taller", "type": "push_pull",
+     "target": {"face": {"body": "leg_2", "normal": [0, 0, 1], "point": [1131, 150, 400]}},
+     "distance": 20,
+     "note": "pull the top of the copy up 20 mm; it is a component, so both legs change"},
+
+    {"id": "r_hand", "type": "rect",
+     "plane": {"on": {"body": "leg", "normal": [-1, 0, 0], "point": [50, 150, 300]}},
+     "corner": [-60, -20], "size": [120, 40],
+     "note": "hand-hold outline drawn on the outer face of a leg"},
+
+    {"id": "pp_hand", "type": "push_pull", "target": {"rect": "r_hand"}, "distance": -38,
+     "note": "push it through the leg; cuts both legs"},
+
+    {"id": "r_str", "type": "rect",
+     "plane": {"on": {"body": "leg", "normal": [1, 0, 0], "point": [88, 150, 60]}},
+     "corner": [-12.5, 0], "size": [25, 80]},
+
+    {"id": "pp_str", "type": "push_pull", "target": {"rect": "r_str"},
+     "distance": 1024, "body": "stretcher",
+     "note": "body given, so this becomes its own board instead of merging into the leg"},
+
+    {"id": "r_slat", "type": "rect",
+     "plane": {"origin": [0, 0, 420], "normal": [0, 0, 1]},
+     "corner": [0, 0], "size": [1200, 50]},
+
+    {"id": "pp_slat", "type": "push_pull", "target": {"rect": "r_slat"},
+     "distance": 25, "body": "slat"},
+
+    {"id": "mc_slat", "type": "make_component", "body": "slat", "name": "Slat"},
+
+    {"id": "cp_slat", "type": "move", "targets": ["slat"],
+     "vector": [0, 250, 0], "copy": true, "count": 4, "divide": true,
+     "note": "SketchUp-style '/4': four copies spread evenly over 250 mm"},
+
+    {"id": "mat_oak", "type": "set_material", "targets": ["leg", "stretcher"], "material": "white oak"},
+    {"id": "mat_cedar", "type": "set_material", "targets": ["slat"], "material": "western red cedar"},
+
+    {"id": "op_bad", "type": "push_pull",
+     "target": {"face": {"body": "stretcher", "normal": [0, 0, 1], "point": [600, 150, 999]}},
+     "distance": 10,
+     "note": "deliberately broken reference, to show how failures are reported"}
+  ]
+}

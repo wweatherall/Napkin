@@ -1,0 +1,9 @@
+# your work and run-time files stay local
+models/*
+!models/.gitkeep
+worker.log
+*.saving.FCStd
+*.FCStd1
+__pycache__/
+viewport/.godot/
+.DS_Store
