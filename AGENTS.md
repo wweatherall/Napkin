@@ -13,6 +13,9 @@ Read it for architecture, conventions and tests.
 3. Decisions: `docs/decision-log.md` is William's decision log (P09). Active decisions win over suggestions.
    Search it by ID (`grep "^| I34 "`; "(Details below.)" means the full text is at `### I34`) rather than reading it whole. Record a decision William makes in your chat
    there, in the commit it belongs to, following P01 (a new row naming the old ID; the old row Superseded).
+   Record every choice William makes for you, small ones too (names and labels, keys, defaults, wording), each as
+   its own row, and give its ID in your handoff response. Your branch's copy of the log goes stale while you work:
+   merge main into your branch before you edit it, and change only the rows your job adds or supersedes.
 
 ## How to work
 

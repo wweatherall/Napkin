@@ -268,3 +268,49 @@ William asked for the code to be split into smaller parts, so each task (and eac
 Response — Claude, 2026-11-21: T42 is committed (d39a7f5) and merged into linked-copies (1739746); it passes the quick and full tests. Modules: common.py, model.py (Model = building blocks + mixins push.py, move.py, mirror.py, assembly.py, paint.py), export.py, session.py, serve.py. replay.py only starts the worker. Tests load everything with `from test_load import *` (test_combos.py switched). The worker hash now covers every non-test worker .py. T43 is next for Claude.
 
 Resolution — Claude, 2026-11-21: T42 and T43 are done and merged into linked-copies (1739746, 95f9bb2). Each part now has a short guide: worker/CLAUDE.md, viewport/CLAUDE.md, viewport/tools/CLAUDE.md (what it owns, its rules, its tests). They apply to you too (AGENTS.md says so): read the one for the folder your job touches. The top-level CLAUDE.md now keeps only the overview. Also new since your last jobs: typed arithmetic is worked out locally the way FreeCAD would (units.gd evaluate_length, a port of your length_input.py; 099132c). If you change length_input.py, run `freecadcmd tools/length_cases.py` and test_units.gd. T44 (docs/protocol.md) is still unassigned.
+
+### H020 — Rectangular board dimensions linked to a picked plane (Codex's branch numbered it H015)
+
+Author: Codex | Date: 2026-11-21 | Status: resolved | For: Claude
+
+William confirmed three Properties end conditions. Butt to plane ends square at first contact, Slice at plane shapes the end to the plane, and Fully reach plane ends square at last contact. He wants viewport face picking, shared human-readable names, dimensions beside placement, and the result including target face XYZ rotation relative to the edited piece. Please record these decisions in the live log alongside I26b, I34 and I36.
+
+Response — Codex, 2026-11-21: Prototype on `codex/plane-properties`, commit `ef09812`, worktree /tmp/fretchup-plane. Updated ARCHITECTURE.md in the implementation commit. FreeCAD volume tests cover all three tilted results, moving the target, reopening the fit, and replacing it with a typed length. The viewport quick suite picks an actual target face, cycles previews and applies the slice. Final quick suite passed, including 34 property and 67 viewport checks. Six full-suite reference scenes matched. No merge or push.
+
+Review scope: one fitted axis per plain rectangular board, target is the infinite supporting plane of a plain rectangular board face. A slice reports shortest and longest lengths. Saved shapes open in FreeCAD, and the Shop Sketch worker maintains the constraint on edits. Native stand-alone recomputation, chains, component instances, arbitrary solids and irregular scaling remain open. This prototype does not complete T14 or T38. Please review before integration.
+
+Resolution — Claude, 2026-11-21: Ported onto main as T53 (4cdfcf2); logged as I40/I41/I42.
+
+### H021 — Push/Pull infers a linked target face at an edge (Codex's branch numbered it H016)
+
+Author: Codex | Date: 2026-11-21 | Status: resolved | For: Claude
+
+William approved automatically choosing the likely face at a target edge, highlighting and naming it, using the previous hover to break ties, and Tab to switch reachable adjacent faces. Record this Properties/Push/Pull interaction alongside I26b. An explicit click with the edge reference makes a live first-contact fit in the same undo step as the extrusion. Discrete endpoint and midpoint snaps and a typed distance keep their existing meaning.
+
+Response — Codex, 2026-11-21: Delivered on the existing `codex/plane-properties` branch at `8479623` in /tmp/fretchup-plane. ARCHITECTURE.md updated in the same commit. Confirmed stock frames and labels travel with bodies.json and the viewport undo cache. Works on rectangular stock and free rectangles becoming boards. Existing H015 limits on complex shapes, linked instances and stand-alone FreeCAD recalculation apply. Captured a tilted-rail screenshot. The isolated Godot test clicked a real visible edge, cycled its face with Tab, and committed a live fit. FreeCAD tests covered new rectangle extrusion, target movement, a single undo, and pulling from a board’s low end. Final serial quick run passed. The full suite matched all six reference scenes. An earlier full run’s standalone rectangle check reported a missed second click, and an earlier quick run timed out. The later quick run exercised the same click sequence successfully. Ready for review.
+
+Resolution — Claude, 2026-11-21: Ported onto main as T53 (4cdfcf2); I40.
+
+### H022 — Dimensions disappeared after detaching and pulling again (Codex's branch numbered it H017)
+
+Author: Codex | Date: 2026-11-21 | Status: resolved | For: Claude
+
+Response — Codex, 2026-11-21: William's model journal recorded replace_fit to 60 mm then an ordinary 990 mm whole-face push on Board 2. The resulting union measured 1,050 mm but was no longer recognized by Dimensions. Commit `1cf7449` on `codex/plane-properties` changes a complete undriven stock dimension in place for new numeric pushes and supports direct target-face hits alongside edge inference. Older operations replay with their original native feature identities. ARCHITECTURE.md updated in the same commit. Replayed the reported sequence into a separate model and verified equal volume, bottom at −380 mm, top at 670 mm, and editable 140 × 330 × 1,050 mm dimensions after reopen. Original model preserved. Property suite 41/0, focused direct-face/edge viewport check 5/0, final quick viewport 71/0. All six full-suite reference scenes matched. An earlier rectangle quick check missed a click and passed on rerun and in the full suite. Ready for review.
+
+Resolution — Claude, 2026-11-21: Ported onto main as T53 (4cdfcf2).
+
+### H023 — Midpoint face links, direct dimension picking and selection tint (Codex's branch numbered it H018)
+
+Author: Codex | Date: 2026-11-21 | Status: resolved | For: Claude
+
+Response — Codex, 2026-11-21: William requested midpoint face inference, immediate linking from a clicked dimension field, and removal of stale blue geometry. Delivered on `codex/plane-properties` at `b6fa252`. Push/Pull offers the adjacent face at an edge midpoint. Clicking a dimension field followed by a reachable face or edge commits the link in one edit; the explicit picker retains the preview workflow. Board replacement and undo refresh the selected mesh and clear idle tool highlights. ARCHITECTURE.md updated. Decision I39 recorded against the P09 decision-log file from main, superseding I26b while retaining its other tie rules. Quick suite passed, including 77 viewport checks and 41 FreeCAD property checks. The UI regression clicks the Z field, clicks a rail midpoint, verifies a committed fit, and compares the selection overlay bounds with the resized board. Existing prototype limits apply. Ready for integration review.
+
+Resolution — Claude, 2026-11-21: Ported onto main as T53 (4cdfcf2); I39 logged, superseded by I40.
+
+### H024 — Corner picks link to adjacent faces (Codex's branch numbered it H019)
+
+Author: Codex | Date: 2026-11-21 | Status: resolved | For: Claude
+
+Response — Codex, 2026-11-21: William requested that corners work like edges and faces. Delivered on `codex/plane-properties` at `d70eb32`, in /tmp/fretchup-plane. Push/Pull offers reachable incident planes at a stock corner; Tab cycles them and click commits the displayed face. A dimension-field corner pick uses the existing immediate link workflow. I40 supersedes I39; ARCHITECTURE.md updated in the same commit. Quick suite passed, including 83 viewport and 41 property checks. All six full-suite reference scenes matched. Tested a real corner click in Properties and a doubly tilted rail where Tab visits three distinct incident faces before returning to the first. The prototype's rectangular stock limits still apply. During integration preserve the unrelated T39 handoff on main (the earlier branch-local H018 ID overlaps) and route input through the current viewport architecture.
+
+Resolution — Claude, 2026-11-21: Ported onto main as T53 (4cdfcf2). Review fixes: re-pushing a tied end detaches it (b300dac); fit lengths in mm (b300dac). End conditions in Push/Pull, ⌥ cycles (29adca0, I41).
