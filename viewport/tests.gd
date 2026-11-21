@@ -1527,6 +1527,35 @@ func _q_undo() -> void:
 	_ok("each undo shows the earlier boards at once", bad.is_empty(), bad)
 	_ok("undoing past FreeCAD's 20 steps rebuilds", rebuilt)
 	_ok("everything undone", m.ops.is_empty() and _shown_ids().is_empty(), [m.ops.size(), _shown_ids()])
+	# Redo (T31): Shift+Cmd+Z puts undone actions back, remembered states at once; a new action ends redo
+	var redo_bad := []
+	for n in range(1, 5):
+		await get_tree().create_timer(0.16, true, false, true).timeout   # _menu drops a repeat within 150 ms
+		await _key_cmd_shift(KEY_Z)
+		if m.ops.size() != n or (n % 2 == 0 and _shown_ids() != seen[n]): redo_bad.append([n, m.ops.size(), _shown_ids()])
+		await _wait_confirm()
+	_ok("Shift+Cmd+Z redoes, each one shown at once", redo_bad.is_empty(), redo_bad)
+	_ok("FreeCAD has the redone boards", _shown_ids() == seen[4] and m.ops.all(func(o): return m.confirmed_ids.has(o["id"])),
+		[_shown_ids(), seen[4]])
+	m.undo(); await _wait_confirm()
+	await _view(Vector3(400, 0, 0), -25, -50, 1.6)
+	await _rect(Vector3(400, 0, 0), Vector3(440, 30, 0), "40,30")
+	var n_ops: int = m.ops.size()
+	await _key_cmd_shift(KEY_Z)
+	_ok("after a new action there's nothing to redo", m.ops.size() == n_ops and m.ui_sync.text == "Nothing to redo",
+		[m.ops.size(), n_ops, m.ui_sync.text])
+	await _wait_confirm()
+	# Esc (T31): the gesture first, then the selection
+	m.set_selection(["b1"])
+	await _key(KEY_R)
+	await _drag_to(Vector3(500, 0, 0), 4); await _press()
+	await _drag_to(Vector3(540, 30, 0), 4)
+	var drawing: bool = m.tools["rect"].busy()
+	await _key(KEY_ESCAPE)
+	_ok("Esc cancels the gesture and keeps the selection", drawing and not m.tools["rect"].busy() and m.selection == ["b1"],
+		[drawing, m.selection])
+	await _key(KEY_ESCAPE)
+	_ok("a second Esc clears the selection", m.selection.is_empty(), m.selection)
 
 
 func _q_reject() -> void:
@@ -1733,6 +1762,14 @@ func _type(txt: String) -> void:
 
 func _key_shift(k: Key) -> void:
 	var ev := InputEventKey.new(); ev.keycode = k; ev.pressed = true; ev.shift_pressed = true
+	Input.parse_input_event(ev)
+	var up := ev.duplicate(); up.pressed = false
+	Input.parse_input_event(up)
+	await _frames(1)
+
+
+func _key_cmd_shift(k: Key) -> void:
+	var ev := InputEventKey.new(); ev.keycode = k; ev.pressed = true; ev.meta_pressed = true; ev.shift_pressed = true
 	Input.parse_input_event(ev)
 	var up := ev.duplicate(); up.pressed = false
 	Input.parse_input_event(up)

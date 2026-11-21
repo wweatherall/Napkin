@@ -437,7 +437,7 @@ func _make_ui() -> void:
 	row.add_theme_constant_override("separation", 10)
 	bar.add_child(row)
 	row.add_child(_segments([["Select", "select", "Select (Space)"], ["Paint", "paint", "Paint (pick the wood in the Wood menu)"], ["Rectangle", "rect", "Rectangle (R)"], ["Push/Pull", "push", "Push/Pull (P)"], ["Move", "move", "Move (M)"]], false))
-	for spec in [["Undo", "undo", "Undo (⌘Z)"], ["Drawing", "drawing", "Drawing and cut list (D)"]]:
+	for spec in [["Undo", "undo", "Undo (⌘Z)"], ["Redo", "redo", "Redo (⇧⌘Z)"], ["Drawing", "drawing", "Drawing and cut list (D)"]]:
 		var b := Button.new(); b.text = spec[0]; b.tooltip_text = spec[2]; b.focus_mode = Control.FOCUS_NONE
 		b.pressed.connect(_menu.bind(spec[1]))
 		row.add_child(b)
@@ -1322,7 +1322,39 @@ func undo() -> void:
 		ui_sync.text = "✗ can't undo past changes made in FreeCAD (yet)"
 		ui_sync.add_theme_color_override("font_color", Color(0.75, 0.1, 0.1))
 		return
-	remove_op(ops.back()["id"])
+	var op: Dictionary = ops.back().duplicate(true)
+	if not redo_stack.is_empty() and redo_stack.back()["key"] != _ops_key(ops): redo_stack.clear()
+	remove_op(op["id"])
+	redo_stack.append({"op": op, "key": _ops_key(ops)})
+
+
+# ---------------- redo (T31) ----------------
+# Linear redo, until branch history (U01) keeps the paths you leave: each undo puts its action on the redo stack
+# with the action list it left behind. Redo puts the action back only while the list is still that one, so any
+# new action (or an amend, a rejection, another model) ends redo, as in SketchUp.
+var redo_stack: Array = []          # [{"op", "key": ops key right after its undo}], newest last
+
+
+func can_redo() -> bool:
+	return not redo_stack.is_empty() and redo_stack.back()["key"] == _ops_key(ops)
+
+
+func redo() -> void:
+	if not can_redo():
+		redo_stack.clear()
+		_say_status("Nothing to redo")
+		return
+	var op: Dictionary = redo_stack.pop_back()["op"]
+	ops.append(op)
+	if op["type"] == "rect":
+		if not rects.has(op["id"]): _register_rect(op)
+	elif op["type"] == "push_pull":
+		var rid: String = op["target"].get("rect", "")
+		if drafts.has(rid): drafts[rid].queue_free(); drafts.erase(rid)
+	_show_state(_ops_key(ops))                 # the state it led to, if remembered: on screen at once
+	_apply_context()
+	sync()
+	ui_sync.text = "↷ redone - FreeCAD catching up (%d ops)" % ops.size()
 
 
 func remove_ops(ids: Array) -> void:
@@ -2233,6 +2265,7 @@ func _reset_model_state() -> void:
 	for k in drafts: drafts[k].queue_free()
 	drafts.clear(); rects.clear(); confirmed_ids.clear()
 	ops.clear()
+	redo_stack.clear()
 	for k in counters: counters[k] = 0
 	undo_floor = 0
 	reject_note = ""
@@ -2257,7 +2290,7 @@ func _make_menus() -> void:
 		["File", [["New Window", "newwindow", KEY_MASK_META | KEY_MASK_SHIFT | KEY_N], ["New…", "new", KEY_MASK_META | KEY_N],
 				  ["Open…", "open", KEY_MASK_META | KEY_O], [],
 				  ["Show in Finder", "reveal", 0], [], ["Drawing and cut list (D)", "drawing", 0]]],
-		["Edit", [["Undo", "undo", KEY_MASK_META | KEY_Z], [], ["Make assembly", "assemble", KEY_MASK_META | KEY_G],
+		["Edit", [["Undo", "undo", KEY_MASK_META | KEY_Z], ["Redo", "redo", KEY_MASK_META | KEY_MASK_SHIFT | KEY_Z], [], ["Make assembly", "assemble", KEY_MASK_META | KEY_G],
 				  ["Make unique (U)", "unique", 0], ["Detach from array", "detach", 0], [],
 				  ["Hide (H)", "hide", 0], ["Unhide selected", "unhide_selected", 0], ["Unhide last", "unhide_last", 0],
 				  ["Unhide all (Shift+H)", "unhide_all", 0]]],
@@ -2296,6 +2329,7 @@ func _menu(tag) -> void:
 		"reveal": OS.shell_show_in_file_manager(model_path)
 		"drawing": export_drawing()
 		"undo": undo()
+		"redo": redo()
 		"select", "rect", "push", "move", "paint": set_tool(tag)
 		"assemble": make_assembly()
 		"unique": _linked_op("make_unique")
@@ -2414,14 +2448,16 @@ func _unhandled_input(e: InputEvent) -> void:
 		else:
 			tool_move(e.position)
 	elif e is InputEventKey and e.pressed and not e.echo:
+		if (e.ctrl_pressed or e.meta_pressed) and e.shift_pressed and e.keycode == KEY_Z: _menu("redo"); return    # Shift+Cmd+Z
 		if (e.ctrl_pressed or e.meta_pressed) and e.keycode == KEY_Z: _menu("undo"); return    # Cmd+Z on a Mac
 		if (e.ctrl_pressed or e.meta_pressed) and e.shift_pressed and e.keycode == KEY_N: _menu("newwindow"); return
 		if (e.ctrl_pressed or e.meta_pressed) and e.keycode == KEY_N: _menu("new"); return
 		if (e.ctrl_pressed or e.meta_pressed) and e.keycode == KEY_G: _menu("assemble"); return
 		if (e.ctrl_pressed or e.meta_pressed) and e.keycode == KEY_O: _menu("open"); return
 		match e.keycode:
-			KEY_ESCAPE:
-				if not selection.is_empty(): set_selection([])
+			KEY_ESCAPE:                        # the gesture first, then the selection, then the assembly you're in (T31)
+				if tools[tool].in_gesture() or vcb != "": set_tool(tool)
+				elif not selection.is_empty(): set_selection([])
 				elif context != "": leave_context()
 				else: set_tool(tool)
 				return

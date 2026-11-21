@@ -87,6 +87,7 @@ The `length` and `inspect_properties` requests are handled in `serve.py`; `prope
 | Replay/provenance information | Adjacent `.shopsketch.json` | Operations, statuses, revision and FCStd hash |
 | Meshes, bounds, metadata, GLB, drawing outputs | Derived export files | Rebuildable presentation/export products |
 | Recently confirmed visible states | Godot `_states` / `_boards` | Fast visual restoration; not durable model history |
+| Undone actions available to redo | Godot `redo_stack` (T31) | Linear and in memory only: valid while `ops` still has the key recorded at the undo; any other change ends it. Branch history (U01) will replace it |
 | Last project preference | Godot `user://settings.cfg` | Application preference |
 
 An operation being confirmed does not mean it has been saved. A visible draft is not an accepted solid. A mesh snapshot cannot restore the full feature graph.

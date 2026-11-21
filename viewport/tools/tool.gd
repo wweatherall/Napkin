@@ -46,6 +46,11 @@ func busy() -> bool:
 	return false
 
 
+func in_gesture() -> bool:
+	"""In the middle of drawing, pushing or moving (Esc cancels this before anything else, T31)."""
+	return busy()
+
+
 func accepts(ch: String) -> bool:
 	return ch in "0123456789.,-+*/()^" or (m.vcb != "" and ch.to_lower() in " \"'abcdefghijklmnopqrstuvwxyz")
 
