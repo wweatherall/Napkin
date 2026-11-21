@@ -1553,33 +1553,54 @@ def run_sync(session, req):
     return result, outdir
 
 
+def worker_identity():
+    """What a window compares before sharing this worker: the script it runs (same file contents = same worker)."""
+    return hashlib.md5(open(os.path.abspath(__file__), "rb").read()).hexdigest()
+
+
 def serve(port):
-    """Long-running worker: newline-delimited JSON over localhost TCP.
+    """Long-running worker: newline-delimited JSON over localhost TCP. One worker serves every Shop Sketch window,
+    each on its own FreeCAD document; a model belongs to one window at a time (W13).
+      {"cmd": "hello"} -> {"ok", "cmd": "hello", "app": "shopsketch", "worker": <md5 of this script>, "pid"}
       {"cmd": "open", "model": ".../model.FCStd", "fresh": false}
           -> {"ok", "cmd": "open", "ops", "undo_floor", "external", "rev"}
+          -> {"ok": false, "cmd": "open", "error": "already_open", "model"} when another window has it; that window
+             is sent {"cmd": "focus", "model"} so it can come to the front
       {"cmd": "sync", "model": "...", "oplog": {...}, "outdir": "...", "seq": n, "drawing": false}
           -> {"ok", "cmd": "sync", "result": {...status...}, "outdir" (bodies.json, meshes/), "seq", "wall_ms"}
       {"cmd": "replay", ...}  same as sync on a fresh document (one-shot rebuild)
-    The reply goes out first; the autosave waits until the line has been quiet for IDLE_SAVE_S,
-    so quick successive actions never queue behind a save. When a save lands the worker says so on its own:
-          {"cmd": "saved", "model": "...", "rev": n}   (the viewport's quiet 'Saved' indicator, Q22)"""
+      {"cmd": "flush"}  save everything now;  {"cmd": "bye"}  save this window's model and let it go
+      {"cmd": "quit"}   save, and stop if no other window is connected (else just this window leaves)
+    The reply goes out first; the autosave waits until every window has been quiet for IDLE_SAVE_S, so quick
+    successive actions never queue behind a save. When a save lands the window that owns the model is told:
+          {"cmd": "saved", "model": "...", "rev": n}   (the viewport's quiet 'Saved' indicator, Q22)
+    SERVE_IDLE_EXIT=<s>: save and exit that long after the last window leaves (the shared worker windows start)."""
+    import select
     import socket
     sessions = {}
     to_save = {}          # session path -> (session, outdir)
+    owners = {}           # model path -> the connection (window) that has it open
+    clients = {}          # connection -> {"buf": bytes, "models": set of paths}
     IDLE_SAVE_S = 0.25
-    link = {"conn": None}  # the viewport's connection, to tell it when a save lands
+    idle_exit = float(os.environ.get("SERVE_IDLE_EXIT", "0") or 0)
+    me = worker_identity()
+    clock = {"active": time.monotonic(), "alone": None}
 
-    def save_pending():
+    def send(conn, obj):
+        try:
+            conn.sendall((json.dumps(obj) + "\n").encode())
+        except OSError:
+            pass
+
+    def save_pending(paths=None):
         for path, (sess, od) in list(to_save.items()):
+            if paths is not None and path not in paths:
+                continue
             try:
                 save_ms = sess.save(od)
                 print(f"WORKER saved rev {sess.rev} in {save_ms} ms", flush=True)
-                if link["conn"] is not None:
-                    try:
-                        link["conn"].sendall((json.dumps({"ok": True, "cmd": "saved", "model": sess.path,
-                                                          "rev": sess.rev}) + "\n").encode())
-                    except OSError:
-                        pass
+                if owners.get(path) in clients:
+                    send(owners[path], {"ok": True, "cmd": "saved", "model": sess.path, "rev": sess.rev})
             except Exception as e:
                 print(f"WORKER save failed: {type(e).__name__}: {e}", flush=True)
             to_save.pop(path, None)
@@ -1592,77 +1613,137 @@ def serve(port):
             sessions[path] = Session(path, fresh=fresh)
         return sessions[path]
 
+    def let_go(conn, paths):
+        save_pending(set(paths))                    # whatever it changed is saved before anyone else can open it
+        for p in paths:
+            clients[conn]["models"].discard(p)
+            if owners.get(p) is conn:
+                owners.pop(p)
+
+    def release(conn):
+        if conn in clients:
+            let_go(conn, list(clients[conn]["models"]))
+            clients.pop(conn)
+        try:
+            conn.close()
+        except OSError:
+            pass
+        if not clients:
+            clock["alone"] = time.monotonic()
+
+    def claim(conn, path):
+        """This window takes the model (leaving the one it had). Returns the other window if it's taken."""
+        other = owners.get(path)
+        if other is not None and other is not conn and other in clients:
+            return other
+        let_go(conn, [p for p in clients[conn]["models"] if p != path])
+        owners[path] = conn
+        clients[conn]["models"].add(path)
+        return None
+
+    def handle(conn, line):
+        t0 = time.perf_counter()
+        after = None
+        seq = cmd = None
+        try:
+            req = json.loads(line)
+            cmd = req.get("cmd")
+            seq = req.get("seq")
+            if cmd == "hello":
+                send(conn, {"ok": True, "cmd": "hello", "app": "shopsketch", "worker": me, "pid": os.getpid()})
+                return None
+            if cmd == "quit":
+                if len(clients) > 1:                # other windows still use this worker: only this one leaves
+                    send(conn, {"ok": True, "cmd": "quit", "stopped": False})
+                    release(conn)
+                    return None
+                save_pending()
+                send(conn, {"ok": True, "cmd": "quit", "stopped": True})
+                return "stop"
+            if cmd == "bye":
+                let_go(conn, list(clients[conn]["models"]))
+                send(conn, {"ok": True, "cmd": "bye"})
+                release(conn)
+                return None
+            if cmd == "flush":              # save now (tests, quitting the app)
+                save_pending()
+                send(conn, {"ok": True, "cmd": "flush", "seq": seq})
+                return None
+            if req.get("delay_ms"):        # test hook: simulate a slow FreeCAD calculation
+                time.sleep(float(req["delay_ms"]) / 1000.0)
+            if cmd == "open":
+                path = os.path.abspath(req["model"])
+                other = claim(conn, path)
+                if other is not None:
+                    send(other, {"ok": True, "cmd": "focus", "model": path})
+                    resp = {"ok": False, "cmd": "open", "error": "already_open", "model": path}
+                else:
+                    s = session_for(path, fresh=req.get("fresh", False), reload=True)
+                    resp = {"ok": True, "cmd": "open", "model": s.path, "rev": s.rev,
+                            "ops": [e["op"] for e in s.applied], "undo_floor": s.undo_floor,
+                            "external": s.external}
+            elif cmd in ("sync", "replay"):
+                model = os.path.abspath(req.get("model") or os.path.join(req["outdir"], "model.FCStd"))
+                if claim(conn, model) is not None:
+                    raise OpError(f"{os.path.basename(model)} is open in another window")
+                s = session_for(model, fresh=(cmd == "replay"))
+                res, outdir = run_sync(s, req)
+                resp = {"ok": True, "cmd": "sync", "result": res, "outdir": outdir,
+                        "seq": seq, "wall_ms": round((time.perf_counter() - t0) * 1000, 1)}
+                if s.dirty or req.get("drawing"):
+                    after = (s, outdir)
+            else:
+                raise OpError(f"unknown cmd '{cmd}'")
+        except Exception as e:
+            resp = {"ok": False, "cmd": cmd, "error": f"{type(e).__name__}: {e}", "seq": seq}
+        send(conn, resp)
+        if after:
+            to_save[after[0].path] = after
+        print(f"WORKER {cmd} seq={seq} {resp.get('wall_ms')} ms "
+              f"{resp.get('result', {}).get('how', '') if resp.get('ok') else resp.get('error')}"
+              f"  [{len(clients)} window{'s' if len(clients) != 1 else ''}]", flush=True)
+        return None
+
     srv = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     srv.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     srv.bind(("127.0.0.1", port))
-    srv.listen(1)
-    print(f"WORKER listening on 127.0.0.1:{port}", flush=True)
+    srv.listen(16)
+    print(f"WORKER listening on 127.0.0.1:{port}" + (f" (exits {idle_exit:g} s after the last window)" if idle_exit else ""),
+          flush=True)
     while True:
-        save_pending()                  # a viewport that disconnects still gets its last change saved
-        conn, _ = srv.accept()
-        link["conn"] = conn
-        conn.settimeout(IDLE_SAVE_S)
-        buf = b""
-        with conn:
-            while True:
-                try:
-                    chunk = conn.recv(65536)
-                except socket.timeout:
-                    save_pending()
-                    continue
-                except OSError:
-                    break
-                if not chunk:
-                    break
-                buf += chunk
-                while b"\n" in buf:
-                    line, buf = buf.split(b"\n", 1)
-                    if not line.strip():
-                        continue
-                    t0 = time.perf_counter()
-                    after = None
-                    seq = None
-                    cmd = None
-                    try:
-                        req = json.loads(line)
-                        cmd = req.get("cmd")
-                        seq = req.get("seq")
-                        if cmd == "quit":
-                            save_pending()
-                            conn.sendall(b'{"ok": true, "cmd": "quit"}\n')
-                            return
-                        if cmd == "flush":              # save now (tests, quitting the app)
-                            save_pending()
-                            conn.sendall((json.dumps({"ok": True, "cmd": "flush", "seq": req.get("seq")}) + "\n").encode())
-                            continue
-                        if req.get("delay_ms"):        # test hook: simulate a slow FreeCAD calculation
-                            time.sleep(float(req["delay_ms"]) / 1000.0)
-                        if cmd == "open":
-                            s = session_for(req["model"], fresh=req.get("fresh", False), reload=True)
-                            resp = {"ok": True, "cmd": "open", "model": s.path, "rev": s.rev,
-                                    "ops": [e["op"] for e in s.applied], "undo_floor": s.undo_floor,
-                                    "external": s.external}
-                        elif cmd in ("sync", "replay"):
-                            model = req.get("model") or os.path.join(req["outdir"], "model.FCStd")
-                            s = session_for(model, fresh=(cmd == "replay"))
-                            res, outdir = run_sync(s, req)
-                            resp = {"ok": True, "cmd": "sync", "result": res, "outdir": outdir,
-                                    "seq": seq, "wall_ms": round((time.perf_counter() - t0) * 1000, 1)}
-                            if s.dirty or req.get("drawing"):
-                                after = (s, outdir)
-                        else:
-                            raise OpError(f"unknown cmd '{cmd}'")
-                    except Exception as e:
-                        resp = {"ok": False, "cmd": cmd, "error": f"{type(e).__name__}: {e}", "seq": seq}
-                    try:
-                        conn.sendall((json.dumps(resp) + "\n").encode())
-                    except OSError:
-                        pass
-                    if after:
-                        to_save[after[0].path] = after
-                    print(f"WORKER {cmd} seq={seq} {resp.get('wall_ms')} ms "
-                          f"{resp.get('result', {}).get('how', '') if resp.get('ok') else resp.get('error')}",
-                          flush=True)
+        readable, _, _ = select.select([srv] + list(clients), [], [], IDLE_SAVE_S)
+        now = time.monotonic()
+        if not readable:
+            if to_save and now - clock["active"] >= IDLE_SAVE_S:
+                save_pending()
+            if idle_exit and not clients and clock["alone"] is not None and now - clock["alone"] >= idle_exit:
+                save_pending()
+                print("WORKER no windows left: stopping", flush=True)
+                return
+            continue
+        for sock in readable:
+            if sock is srv:
+                conn, _ = srv.accept()
+                clients[conn] = {"buf": b"", "models": set()}
+                clock["alone"] = None
+                continue
+            if sock not in clients:
+                continue
+            try:
+                chunk = sock.recv(65536)
+            except OSError:
+                chunk = b""
+            if not chunk:                   # the window went away: its last change still gets saved
+                release(sock)
+                continue
+            clock["active"] = now
+            st = clients[sock]
+            st["buf"] += chunk
+            while sock in clients and b"\n" in st["buf"]:
+                line, st["buf"] = st["buf"].split(b"\n", 1)
+                if line.strip() and handle(sock, line) == "stop":
+                    return
+            clock["active"] = time.monotonic()     # the quiet before an autosave counts from the last reply
 
 
 def main():

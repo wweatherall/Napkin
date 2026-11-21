@@ -30,6 +30,6 @@ for t in undotest snaptest recttest shelltest jointest rejecttest; do
     | grep -E "TEST|SCRIPT ERROR" | grep -v " done$"
 done
 mkdir -p "$OUT/native" "$OUT/arrays"
-TESTDIR="$OUT/native" "$FC" worker/test_native.py 2>&1 | grep -E "^(FAIL|NATIVE)" ; TESTDIR="$OUT/arrays" "$FC" worker/test_arrays.py 2>&1 | grep -E "^(FAIL|ARRAY)"
+TESTDIR="$OUT/native" "$FC" worker/test_native.py 2>&1 | grep -E "^(FAIL|NATIVE)" ; TESTDIR="$OUT/arrays" "$FC" worker/test_arrays.py 2>&1 | grep -E "^(FAIL|ARRAY)"; TESTDIR="$OUT/serve" python3 worker/test_serve.py 2>&1 | grep -E "^(FAIL|SERVE)"
 echo "full check logs: $OUT"
 exit $FAIL

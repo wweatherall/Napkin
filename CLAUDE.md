@@ -20,7 +20,13 @@ the log, regenerate the copy (read the four tabs, write the file) and commit it 
   mouse_moved / click / key / typed); `tests.gd` the scripted suites (added only in test mode).
   Tools and tests `preload("res://main.gd")` for typing; main.gd `load()`s them at runtime (no preload cycle,
   and no `class_name`: Godot run from the command line doesn't register new global class names).
-  It starts, watches and restarts its own worker (A27); `--port=N` uses an outside one instead (tests).
+  One worker serves every window (W13): a window uses the worker on port 7878 if `hello` reports the same
+  script hash, else starts it there (a different version gets a private worker on a free port). Each window has
+  its own FreeCAD document; a model is open in one window at a time (opening it elsewhere is refused with
+  `already_open` and the owner gets `focus`; a window launched on a taken model closes itself). Closing a window
+  sends `bye`; the worker exits `SERVE_IDLE_EXIT` s after its last window. If it dies, whichever window notices
+  restarts it. File > New Window (⌘⇧N) starts another window on a new Untitled model. Tests use a private
+  worker (`--port=N` uses an outside one; `--shared-port=N` tries sharing next to a running app).
   After each action the worker writes `bodies.json` plus `meshes/<board>-<key>.bin` for boards whose shape
   changed (triangles, normals, FreeCAD's exact edges and corners, as Godot PackedVector3Array bytes); the viewport
   builds only boards whose file it hasn't seen (`_apply_confirmed`, A29). The whole-model `model.glb` is written
@@ -29,7 +35,8 @@ the log, regenerate the copy (read the four tabs, write the file) and commit it 
   Lines (edges, grid, axes) are anti-aliased strips from `line.gdshader` / `line.gdshaderinc`, made by `_lines()` (W12).
   Every action is drawn at once as a draft, then FreeCAD catches up and the real mesh replaces it (A01 idea, W01–W09).
 - `worker/replay.py`, which runs inside FreeCAD's command-line program (`freecadcmd`): a long-running
-  worker on 127.0.0.1:7878 (newline JSON). It keeps a live FreeCAD document.
+  worker on 127.0.0.1:7878 (newline JSON), one thread serving every connected window with `select`.
+  It keeps a live FreeCAD document per model.
 - The .FCStd file is the model (A21). Each action becomes native features in one undo transaction (A22, A23):
   board = App::Part with Part::Plane → Part::Extrusion, then booleans, and a `Tip` link.
   Back-to-back cuts share one Part::Cut whose tool is a Part::Compound of cutters (`SSRole` = `cutters`);
@@ -95,7 +102,8 @@ the log, regenerate the copy (read the four tabs, write the file) and commit it 
   `tools/fulltest.sh --update-reference`.
 - Both scripts first run `tools/parsecheck.sh` (every viewport script, ~3 s): a script that doesn't parse used to
   leave Godot sitting with no test running. The quick test's Godot run is also stopped after 120 s.
-- Worker tests alone: `freecadcmd worker/test_native.py` (94 checks) and `worker/test_arrays.py` (10).
+- Worker tests alone: `freecadcmd worker/test_native.py` (96 checks), `worker/test_arrays.py` (10), and
+  `python3 worker/test_serve.py` (11: one worker, two windows; it starts freecadcmd itself).
 - Visual checks (screenshots, no pass/fail): `--linetest`, `--zfighttest`; timing: `--perftest`. Recordings use
   `--true-latency` (P03) with Godot's `--write-movie`; `--heavytest --model=<file>`.
 - Test hooks (`delay_ms`, forced rejection, `--*test`) are for testing only (P02).
