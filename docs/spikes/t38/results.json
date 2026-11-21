@@ -1,0 +1,3175 @@
+{
+  "freecad": [
+    "1",
+    "1",
+    "4",
+    "20260928 (Git shallow)",
+    "Unknown",
+    "2026/09/28 13:46:34",
+    "(HEAD detached at 4fd3bf320)",
+    "4fd3bf320d9566a27e60069fc8387448aaa3a094"
+  ],
+  "cases": [
+    {
+      "kind": "flat",
+      "variant": "plain",
+      "initial": {
+        "AllRemnants": {
+          "valid": true,
+          "solids": 2,
+          "volume": 7999.999999999998,
+          "zmin": 0.0,
+          "zmax": 100.0
+        },
+        "Near": {
+          "valid": true,
+          "solids": 1,
+          "volume": 3999.999999999999,
+          "zmin": 0.0,
+          "zmax": 40.0
+        },
+        "InsideTarget": {
+          "valid": true,
+          "solids": 1,
+          "volume": 1999.9999999999995,
+          "zmin": 40.0,
+          "zmax": 60.0
+        },
+        "FarEnd": {
+          "valid": true,
+          "solids": 1,
+          "volume": 6000.0,
+          "zmin": 0.0,
+          "zmax": 60.0
+        },
+        "TargetWithSocket": {
+          "valid": true,
+          "solids": 1,
+          "volume": 126000.0,
+          "zmin": 40.0,
+          "zmax": 60.0
+        },
+        "SliceBySolid": {
+          "valid": true,
+          "solids": 3,
+          "volume": 9999.999999999996,
+          "zmin": 0.0,
+          "zmax": 100.0
+        },
+        "Fragments": {
+          "valid": true,
+          "solids": 4,
+          "volume": 135999.99999999994,
+          "zmin": 0.0,
+          "zmax": 100.0
+        }
+      },
+      "modified": {
+        "Near": {
+          "valid": true,
+          "solids": 1,
+          "volume": 4500.0,
+          "zmin": 0.0,
+          "zmax": 45.0
+        },
+        "FarEnd": {
+          "valid": true,
+          "solids": 1,
+          "volume": 6600.0,
+          "zmin": 0.0,
+          "zmax": 66.0
+        },
+        "TargetWithSocket": {
+          "valid": true,
+          "solids": 1,
+          "volume": 132299.99999999997,
+          "zmin": 45.0,
+          "zmax": 66.0
+        }
+      },
+      "all_graph_recompute_ms": [
+        56.973166996613145,
+        57.11395899561467,
+        57.71095900126966,
+        56.970290999743156,
+        55.65262500022072
+      ],
+      "invalid_states": {},
+      "socket_overlap": 0.0,
+      "feature_ms": {
+        "AllRemnants": [
+          31.100707994482946,
+          31.11837500182446,
+          30.523959001584444
+        ],
+        "Near": [
+          24.47700000629993,
+          23.424334001902025,
+          24.657499998284038
+        ],
+        "InsideTarget": [
+          20.294624999223743,
+          20.388165998156182,
+          20.06249999976717
+        ],
+        "FarEnd": [
+          13.208666998252738,
+          13.279083999805152,
+          13.843416003510356
+        ],
+        "TargetWithSocket": [
+          7.398957997793332,
+          7.626458995218854,
+          6.813959000282921
+        ],
+        "SliceBySolid": [
+          9.766666997165885,
+          9.574834002705757,
+          9.892207999655511
+        ],
+        "Fragments": [
+          8.818333000817802,
+          9.2504589993041,
+          9.096624999074265
+        ]
+      },
+      "face_probes": [
+        {
+          "surface": "Plane",
+          "slice_solids": 0,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        },
+        {
+          "surface": "Plane",
+          "slice_solids": 0,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        },
+        {
+          "surface": "Plane",
+          "slice_solids": 0,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        },
+        {
+          "surface": "Plane",
+          "slice_solids": 0,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        },
+        {
+          "surface": "Plane",
+          "slice_solids": 2,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        },
+        {
+          "surface": "Plane",
+          "slice_solids": 2,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        }
+      ],
+      "reopen_equal": true,
+      "checks": {
+        "near_single": true,
+        "two_remnants": true,
+        "bounded_end": true,
+        "end_changed": true,
+        "far_single": true,
+        "valid": true,
+        "no_overlap": true,
+        "no_invalid": true,
+        "reopen": true
+      }
+    },
+    {
+      "kind": "flat",
+      "variant": "target_link",
+      "initial": {
+        "AllRemnants": {
+          "valid": true,
+          "solids": 2,
+          "volume": 7999.999999999998,
+          "zmin": 0.0,
+          "zmax": 100.0
+        },
+        "Near": {
+          "valid": true,
+          "solids": 1,
+          "volume": 3999.999999999999,
+          "zmin": 0.0,
+          "zmax": 40.0
+        },
+        "InsideTarget": {
+          "valid": true,
+          "solids": 1,
+          "volume": 1999.9999999999995,
+          "zmin": 40.0,
+          "zmax": 60.0
+        },
+        "FarEnd": {
+          "valid": true,
+          "solids": 1,
+          "volume": 6000.0,
+          "zmin": 0.0,
+          "zmax": 60.0
+        },
+        "TargetWithSocket": {
+          "valid": true,
+          "solids": 1,
+          "volume": 125999.99999999999,
+          "zmin": 40.0,
+          "zmax": 60.0
+        },
+        "SliceBySolid": {
+          "valid": true,
+          "solids": 3,
+          "volume": 9999.999999999996,
+          "zmin": 0.0,
+          "zmax": 100.0
+        },
+        "Fragments": {
+          "valid": true,
+          "solids": 4,
+          "volume": 135999.99999999997,
+          "zmin": 0.0,
+          "zmax": 100.0
+        }
+      },
+      "modified": {
+        "Near": {
+          "valid": true,
+          "solids": 1,
+          "volume": 4500.0,
+          "zmin": 0.0,
+          "zmax": 45.0
+        },
+        "FarEnd": {
+          "valid": true,
+          "solids": 1,
+          "volume": 6600.0,
+          "zmin": 0.0,
+          "zmax": 66.0
+        },
+        "TargetWithSocket": {
+          "valid": true,
+          "solids": 1,
+          "volume": 132299.99999999997,
+          "zmin": 45.0,
+          "zmax": 66.0
+        }
+      },
+      "all_graph_recompute_ms": [
+        57.27912500151433,
+        55.22975000349106,
+        56.378791996394284,
+        56.78066700056661,
+        61.88112499512499
+      ],
+      "invalid_states": {},
+      "socket_overlap": 0.0,
+      "feature_ms": {
+        "AllRemnants": [
+          30.718791000253987,
+          31.282333002309315,
+          30.878042001859285
+        ],
+        "Near": [
+          23.57241699792212,
+          23.493125001550652,
+          23.53791699715657
+        ],
+        "InsideTarget": [
+          20.015750000311527,
+          19.253165999543853,
+          20.168749993899837
+        ],
+        "FarEnd": [
+          13.465957999869715,
+          13.649125001393259,
+          13.781084002403077
+        ],
+        "TargetWithSocket": [
+          7.143542003177572,
+          7.115416003216524,
+          6.948709000425879
+        ],
+        "SliceBySolid": [
+          9.686833000159822,
+          9.356999995361548,
+          9.981541996239685
+        ],
+        "Fragments": [
+          9.592958995199297,
+          9.280665995902382,
+          8.807291997072753
+        ]
+      },
+      "face_probes": [
+        {
+          "surface": "Plane",
+          "slice_solids": 0,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        },
+        {
+          "surface": "Plane",
+          "slice_solids": 0,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        },
+        {
+          "surface": "Plane",
+          "slice_solids": 0,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        },
+        {
+          "surface": "Plane",
+          "slice_solids": 0,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        },
+        {
+          "surface": "Plane",
+          "slice_solids": 2,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        },
+        {
+          "surface": "Plane",
+          "slice_solids": 2,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        }
+      ],
+      "reopen_equal": true,
+      "checks": {
+        "near_single": true,
+        "two_remnants": true,
+        "bounded_end": true,
+        "end_changed": true,
+        "far_single": true,
+        "valid": true,
+        "no_overlap": true,
+        "no_invalid": true,
+        "reopen": true
+      }
+    },
+    {
+      "kind": "flat",
+      "variant": "target_mirror",
+      "initial": {
+        "AllRemnants": {
+          "valid": true,
+          "solids": 2,
+          "volume": 7999.999999999998,
+          "zmin": 0.0,
+          "zmax": 100.0
+        },
+        "Near": {
+          "valid": true,
+          "solids": 1,
+          "volume": 3999.999999999999,
+          "zmin": 0.0,
+          "zmax": 40.0
+        },
+        "InsideTarget": {
+          "valid": true,
+          "solids": 1,
+          "volume": 1999.9999999999995,
+          "zmin": 40.0,
+          "zmax": 60.0
+        },
+        "FarEnd": {
+          "valid": true,
+          "solids": 1,
+          "volume": 6000.0,
+          "zmin": 0.0,
+          "zmax": 60.0
+        },
+        "TargetWithSocket": {
+          "valid": true,
+          "solids": 1,
+          "volume": 126000.0,
+          "zmin": 40.0,
+          "zmax": 60.0
+        },
+        "SliceBySolid": {
+          "valid": true,
+          "solids": 3,
+          "volume": 9999.999999999996,
+          "zmin": 0.0,
+          "zmax": 100.0
+        },
+        "Fragments": {
+          "valid": true,
+          "solids": 4,
+          "volume": 135999.99999999994,
+          "zmin": 0.0,
+          "zmax": 100.0
+        }
+      },
+      "modified": {
+        "Near": {
+          "valid": true,
+          "solids": 1,
+          "volume": 3400.0,
+          "zmin": 0.0,
+          "zmax": 34.0
+        },
+        "FarEnd": {
+          "valid": true,
+          "solids": 1,
+          "volume": 5500.0,
+          "zmin": 0.0,
+          "zmax": 55.0
+        },
+        "TargetWithSocket": {
+          "valid": true,
+          "solids": 1,
+          "volume": 132300.0,
+          "zmin": 34.0,
+          "zmax": 55.0
+        }
+      },
+      "all_graph_recompute_ms": [
+        59.43824999849312,
+        58.586499995726626,
+        59.680833997845184,
+        58.04004200035706,
+        59.81350000365637
+      ],
+      "invalid_states": {},
+      "socket_overlap": 0.0,
+      "feature_ms": {
+        "AllRemnants": [
+          31.129208000493236,
+          32.22562500013737,
+          32.08250000170665
+        ],
+        "Near": [
+          24.68433399917558,
+          24.65962499991292,
+          25.005666000652127
+        ],
+        "InsideTarget": [
+          21.402125006716233,
+          22.367249999661,
+          21.65887499722885
+        ],
+        "FarEnd": [
+          14.905290998285636,
+          13.719290996959899,
+          14.080958004342392
+        ],
+        "TargetWithSocket": [
+          8.078416998614557,
+          7.647167003597133,
+          8.120542006508913
+        ],
+        "SliceBySolid": [
+          9.64895800279919,
+          9.948875005648006,
+          10.121332998096477
+        ],
+        "Fragments": [
+          9.40374999481719,
+          9.842042003583629,
+          9.403459000168368
+        ]
+      },
+      "face_probes": [
+        {
+          "surface": "Plane",
+          "slice_solids": 0,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        },
+        {
+          "surface": "Plane",
+          "slice_solids": 0,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        },
+        {
+          "surface": "Plane",
+          "slice_solids": 0,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        },
+        {
+          "surface": "Plane",
+          "slice_solids": 0,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        },
+        {
+          "surface": "Plane",
+          "slice_solids": 2,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        },
+        {
+          "surface": "Plane",
+          "slice_solids": 2,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        }
+      ],
+      "reopen_equal": true,
+      "checks": {
+        "near_single": true,
+        "two_remnants": true,
+        "bounded_end": true,
+        "end_changed": true,
+        "far_single": true,
+        "valid": true,
+        "no_overlap": true,
+        "no_invalid": true,
+        "reopen": true
+      }
+    },
+    {
+      "kind": "flat",
+      "variant": "p_link",
+      "initial": {
+        "AllRemnants": {
+          "valid": true,
+          "solids": 2,
+          "volume": 7999.999999999998,
+          "zmin": 0.0,
+          "zmax": 100.0
+        },
+        "Near": {
+          "valid": true,
+          "solids": 1,
+          "volume": 3999.999999999999,
+          "zmin": 0.0,
+          "zmax": 40.0
+        },
+        "InsideTarget": {
+          "valid": true,
+          "solids": 1,
+          "volume": 1999.9999999999995,
+          "zmin": 40.0,
+          "zmax": 60.0
+        },
+        "FarEnd": {
+          "valid": true,
+          "solids": 1,
+          "volume": 6000.0,
+          "zmin": 0.0,
+          "zmax": 60.0
+        },
+        "TargetWithSocket": {
+          "valid": true,
+          "solids": 1,
+          "volume": 126000.0,
+          "zmin": 40.0,
+          "zmax": 60.0
+        },
+        "SliceBySolid": {
+          "valid": true,
+          "solids": 3,
+          "volume": 9999.999999999996,
+          "zmin": 0.0,
+          "zmax": 100.0
+        },
+        "Fragments": {
+          "valid": true,
+          "solids": 4,
+          "volume": 135999.99999999994,
+          "zmin": 0.0,
+          "zmax": 100.0
+        }
+      },
+      "modified": {
+        "Near": {
+          "valid": true,
+          "solids": 1,
+          "volume": 4500.0,
+          "zmin": 0.0,
+          "zmax": 45.0
+        },
+        "FarEnd": {
+          "valid": true,
+          "solids": 1,
+          "volume": 6600.0,
+          "zmin": 0.0,
+          "zmax": 66.0
+        },
+        "TargetWithSocket": {
+          "valid": true,
+          "solids": 1,
+          "volume": 132299.99999999997,
+          "zmin": 45.0,
+          "zmax": 66.0
+        }
+      },
+      "all_graph_recompute_ms": [
+        55.74870800046483,
+        57.27108299470274,
+        55.55345799803035,
+        56.077041997923516,
+        56.247000000439584
+      ],
+      "invalid_states": {},
+      "socket_overlap": 0.0,
+      "feature_ms": {
+        "AllRemnants": [
+          30.448917001194786,
+          29.690374998608604,
+          30.434291002165992
+        ],
+        "Near": [
+          23.61912500055041,
+          23.94674999959534,
+          24.186292001104448
+        ],
+        "InsideTarget": [
+          20.16262499819277,
+          20.339499998954125,
+          19.829083001241088
+        ],
+        "FarEnd": [
+          13.569084003393073,
+          13.54966699727811,
+          13.65300000179559
+        ],
+        "TargetWithSocket": [
+          7.518000005802605,
+          7.079125003656372,
+          7.617542003572453
+        ],
+        "SliceBySolid": [
+          9.54312500107335,
+          9.977541994885541,
+          9.287332999520004
+        ],
+        "Fragments": [
+          9.450750003452413,
+          9.336666997114662,
+          9.587791995727457
+        ]
+      },
+      "face_probes": [
+        {
+          "surface": "Plane",
+          "slice_solids": 0,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        },
+        {
+          "surface": "Plane",
+          "slice_solids": 0,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        },
+        {
+          "surface": "Plane",
+          "slice_solids": 0,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        },
+        {
+          "surface": "Plane",
+          "slice_solids": 0,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        },
+        {
+          "surface": "Plane",
+          "slice_solids": 2,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        },
+        {
+          "surface": "Plane",
+          "slice_solids": 2,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        }
+      ],
+      "reopen_equal": true,
+      "checks": {
+        "near_single": true,
+        "two_remnants": true,
+        "bounded_end": true,
+        "end_changed": true,
+        "far_single": true,
+        "valid": true,
+        "no_overlap": true,
+        "no_invalid": true,
+        "reopen": true
+      }
+    },
+    {
+      "kind": "flat",
+      "variant": "p_mirror",
+      "initial": {
+        "AllRemnants": {
+          "valid": true,
+          "solids": 2,
+          "volume": 7999.999999999998,
+          "zmin": 0.0,
+          "zmax": 100.0
+        },
+        "Near": {
+          "valid": true,
+          "solids": 1,
+          "volume": 3999.999999999999,
+          "zmin": 0.0,
+          "zmax": 40.0
+        },
+        "InsideTarget": {
+          "valid": true,
+          "solids": 1,
+          "volume": 1999.9999999999995,
+          "zmin": 40.0,
+          "zmax": 60.0
+        },
+        "FarEnd": {
+          "valid": true,
+          "solids": 1,
+          "volume": 6000.0,
+          "zmin": 0.0,
+          "zmax": 60.0
+        },
+        "TargetWithSocket": {
+          "valid": true,
+          "solids": 1,
+          "volume": 126000.0,
+          "zmin": 40.0,
+          "zmax": 60.0
+        },
+        "SliceBySolid": {
+          "valid": true,
+          "solids": 3,
+          "volume": 9999.999999999996,
+          "zmin": 0.0,
+          "zmax": 100.0
+        },
+        "Fragments": {
+          "valid": true,
+          "solids": 4,
+          "volume": 135999.99999999994,
+          "zmin": 0.0,
+          "zmax": 100.0
+        }
+      },
+      "modified": {
+        "Near": {
+          "valid": true,
+          "solids": 1,
+          "volume": 4500.0,
+          "zmin": 0.0,
+          "zmax": 45.0
+        },
+        "FarEnd": {
+          "valid": true,
+          "solids": 1,
+          "volume": 6600.0,
+          "zmin": 0.0,
+          "zmax": 66.0
+        },
+        "TargetWithSocket": {
+          "valid": true,
+          "solids": 1,
+          "volume": 132299.99999999997,
+          "zmin": 45.0,
+          "zmax": 66.0
+        }
+      },
+      "all_graph_recompute_ms": [
+        57.91775000398047,
+        57.34149999625515,
+        58.07012500008568,
+        55.932167000719346,
+        56.422084002406336
+      ],
+      "invalid_states": {},
+      "socket_overlap": 0.0,
+      "feature_ms": {
+        "AllRemnants": [
+          31.594625004800037,
+          34.31908399943495,
+          35.77824999956647
+        ],
+        "Near": [
+          26.842958002816886,
+          27.844041003845632,
+          25.63270800601458
+        ],
+        "InsideTarget": [
+          24.009332999412436,
+          22.447625000495464,
+          22.9773329992895
+        ],
+        "FarEnd": [
+          20.21683400380425,
+          27.004999996279366,
+          13.533667006413452
+        ],
+        "TargetWithSocket": [
+          6.873417005408555,
+          7.078959002683405,
+          6.961083003261592
+        ],
+        "SliceBySolid": [
+          9.783207999134902,
+          9.237791004125029,
+          9.718458997667767
+        ],
+        "Fragments": [
+          9.577457996783778,
+          9.193083002173807,
+          9.599208002327941
+        ]
+      },
+      "face_probes": [
+        {
+          "surface": "Plane",
+          "slice_solids": 0,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        },
+        {
+          "surface": "Plane",
+          "slice_solids": 0,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        },
+        {
+          "surface": "Plane",
+          "slice_solids": 0,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        },
+        {
+          "surface": "Plane",
+          "slice_solids": 0,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        },
+        {
+          "surface": "Plane",
+          "slice_solids": 2,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        },
+        {
+          "surface": "Plane",
+          "slice_solids": 2,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        }
+      ],
+      "reopen_equal": true,
+      "checks": {
+        "near_single": true,
+        "two_remnants": true,
+        "bounded_end": true,
+        "end_changed": true,
+        "far_single": true,
+        "valid": true,
+        "no_overlap": true,
+        "no_invalid": true,
+        "reopen": true
+      }
+    },
+    {
+      "kind": "angled",
+      "variant": "plain",
+      "initial": {
+        "AllRemnants": {
+          "valid": true,
+          "solids": 2,
+          "volume": 7690.598923241498,
+          "zmin": 0.0,
+          "zmax": 100.0
+        },
+        "Near": {
+          "valid": true,
+          "solids": 1,
+          "volume": 3845.299461620749,
+          "zmin": 0.0,
+          "zmax": 41.33974596215562
+        },
+        "InsideTarget": {
+          "valid": true,
+          "solids": 1,
+          "volume": 2309.4010767585023,
+          "zmin": 35.566243270259356,
+          "zmax": 64.43375672974065
+        },
+        "FarEnd": {
+          "valid": true,
+          "solids": 1,
+          "volume": 6154.700538379252,
+          "zmin": 0.0,
+          "zmax": 64.43375672974065
+        },
+        "TargetWithSocket": {
+          "valid": true,
+          "solids": 1,
+          "volume": 125690.59892324146,
+          "zmin": 21.339745962155614,
+          "zmax": 78.66025403784438
+        },
+        "SliceBySolid": {
+          "valid": true,
+          "solids": 3,
+          "volume": 9999.999999999998,
+          "zmin": 0.0,
+          "zmax": 100.0
+        },
+        "Fragments": {
+          "valid": true,
+          "solids": 4,
+          "volume": 135690.59892324152,
+          "zmin": 0.0,
+          "zmax": 100.0
+        }
+      },
+      "modified": {
+        "Near": {
+          "valid": true,
+          "solids": 1,
+          "volume": 4345.299461620747,
+          "zmin": 0.0,
+          "zmax": 46.33974596215561
+        },
+        "FarEnd": {
+          "valid": true,
+          "solids": 1,
+          "volume": 6770.170592217176,
+          "zmin": 0.0,
+          "zmax": 70.5884572681199
+        },
+        "TargetWithSocket": {
+          "valid": true,
+          "solids": 1,
+          "volume": 131975.12886940356,
+          "zmin": 26.339745962155607,
+          "zmax": 84.52627944162882
+        }
+      },
+      "all_graph_recompute_ms": [
+        55.23125000036089,
+        54.94679100229405,
+        55.768917001842055,
+        59.672083996701986,
+        56.031667001661845
+      ],
+      "invalid_states": {},
+      "socket_overlap": 0.0,
+      "feature_ms": {
+        "AllRemnants": [
+          29.96037499542581,
+          29.772542002319824,
+          29.952166994917206
+        ],
+        "Near": [
+          23.220832998049445,
+          22.548000000824686,
+          22.942625000723638
+        ],
+        "InsideTarget": [
+          20.335582994448487,
+          19.685874998685904,
+          19.785042000876274
+        ],
+        "FarEnd": [
+          13.27145799587015,
+          15.482540999073535,
+          15.040167003462557
+        ],
+        "TargetWithSocket": [
+          7.3742919994401745,
+          7.448416996339802,
+          7.490916999813635
+        ],
+        "SliceBySolid": [
+          9.282833001634572,
+          9.79320800252026,
+          9.68795800145017
+        ],
+        "Fragments": [
+          8.86483299836982,
+          9.620416996767744,
+          8.809999999357387
+        ]
+      },
+      "face_probes": [
+        {
+          "surface": "Plane",
+          "slice_solids": 0,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        },
+        {
+          "surface": "Plane",
+          "slice_solids": 0,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        },
+        {
+          "surface": "Plane",
+          "slice_solids": 0,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        },
+        {
+          "surface": "Plane",
+          "slice_solids": 0,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        },
+        {
+          "surface": "Plane",
+          "slice_solids": 2,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        },
+        {
+          "surface": "Plane",
+          "slice_solids": 2,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        }
+      ],
+      "reopen_equal": true,
+      "checks": {
+        "near_single": true,
+        "two_remnants": true,
+        "bounded_end": true,
+        "end_changed": true,
+        "far_single": true,
+        "valid": true,
+        "no_overlap": true,
+        "no_invalid": true,
+        "reopen": true
+      }
+    },
+    {
+      "kind": "angled",
+      "variant": "target_link",
+      "initial": {
+        "AllRemnants": {
+          "valid": true,
+          "solids": 2,
+          "volume": 7690.598923241495,
+          "zmin": 0.0,
+          "zmax": 100.0
+        },
+        "Near": {
+          "valid": true,
+          "solids": 1,
+          "volume": 3903.034488539711,
+          "zmin": 0.0,
+          "zmax": 41.91709623134524
+        },
+        "InsideTarget": {
+          "valid": true,
+          "solids": 1,
+          "volume": 2309.4010767585023,
+          "zmin": 36.143593539448986,
+          "zmax": 65.01110699893027
+        },
+        "FarEnd": {
+          "valid": true,
+          "solids": 1,
+          "volume": 6212.435565298213,
+          "zmin": 0.0,
+          "zmax": 65.01110699893027
+        },
+        "TargetWithSocket": {
+          "valid": true,
+          "solids": 1,
+          "volume": 125690.59892324147,
+          "zmin": 21.339745962155614,
+          "zmax": 78.66025403784438
+        },
+        "SliceBySolid": {
+          "valid": true,
+          "solids": 3,
+          "volume": 10000.0,
+          "zmin": 0.0,
+          "zmax": 100.0
+        },
+        "Fragments": {
+          "valid": true,
+          "solids": 4,
+          "volume": 135690.5989232415,
+          "zmin": 0.0,
+          "zmax": 100.0
+        }
+      },
+      "modified": {
+        "Near": {
+          "valid": true,
+          "solids": 1,
+          "volume": 4403.03448853971,
+          "zmin": 0.0,
+          "zmax": 46.91709623134523
+        },
+        "FarEnd": {
+          "valid": true,
+          "solids": 1,
+          "volume": 6827.905619136138,
+          "zmin": 0.0,
+          "zmax": 71.16580753730952
+        },
+        "TargetWithSocket": {
+          "valid": true,
+          "solids": 1,
+          "volume": 131975.12886940353,
+          "zmin": 26.339745962155607,
+          "zmax": 84.52627944162882
+        }
+      },
+      "all_graph_recompute_ms": [
+        55.03754199889954,
+        55.97420899721328,
+        55.63524999888614,
+        55.53220799629344,
+        56.294416994205676
+      ],
+      "invalid_states": {},
+      "socket_overlap": 0.0,
+      "feature_ms": {
+        "AllRemnants": [
+          30.457624998234678,
+          30.31820899923332,
+          30.07279199664481
+        ],
+        "Near": [
+          23.906583002826665,
+          23.521791001257952,
+          23.866333001933526
+        ],
+        "InsideTarget": [
+          20.368208999570925,
+          20.355125001515262,
+          21.12854200095171
+        ],
+        "FarEnd": [
+          13.70850000239443,
+          14.080458000535145,
+          14.14012500026729
+        ],
+        "TargetWithSocket": [
+          7.989375000761356,
+          7.408292003674433,
+          6.955583005037624
+        ],
+        "SliceBySolid": [
+          9.424042000318877,
+          9.2955419968348,
+          9.864915999060031
+        ],
+        "Fragments": [
+          9.769625001354143,
+          9.162832997390069,
+          9.399458998814225
+        ]
+      },
+      "face_probes": [
+        {
+          "surface": "Plane",
+          "slice_solids": 0,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        },
+        {
+          "surface": "Plane",
+          "slice_solids": 0,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        },
+        {
+          "surface": "Plane",
+          "slice_solids": 0,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        },
+        {
+          "surface": "Plane",
+          "slice_solids": 0,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        },
+        {
+          "surface": "Plane",
+          "slice_solids": 2,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        },
+        {
+          "surface": "Plane",
+          "slice_solids": 2,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        }
+      ],
+      "reopen_equal": true,
+      "checks": {
+        "near_single": true,
+        "two_remnants": true,
+        "bounded_end": true,
+        "end_changed": true,
+        "far_single": true,
+        "valid": true,
+        "no_overlap": true,
+        "no_invalid": true,
+        "reopen": true
+      }
+    },
+    {
+      "kind": "angled",
+      "variant": "target_mirror",
+      "initial": {
+        "AllRemnants": {
+          "valid": true,
+          "solids": 2,
+          "volume": 7690.598923241497,
+          "zmin": 0.0,
+          "zmax": 100.0
+        },
+        "Near": {
+          "valid": true,
+          "solids": 1,
+          "volume": 3845.299461620749,
+          "zmin": 0.0,
+          "zmax": 41.33974596215562
+        },
+        "InsideTarget": {
+          "valid": true,
+          "solids": 1,
+          "volume": 2309.4010767585023,
+          "zmin": 35.56624327025936,
+          "zmax": 64.43375672974065
+        },
+        "FarEnd": {
+          "valid": true,
+          "solids": 1,
+          "volume": 6154.700538379252,
+          "zmin": 0.0,
+          "zmax": 64.43375672974065
+        },
+        "TargetWithSocket": {
+          "valid": true,
+          "solids": 1,
+          "volume": 125690.59892324144,
+          "zmin": 21.339745962155614,
+          "zmax": 78.66025403784438
+        },
+        "SliceBySolid": {
+          "valid": true,
+          "solids": 3,
+          "volume": 10000.0,
+          "zmin": 0.0,
+          "zmax": 100.0
+        },
+        "Fragments": {
+          "valid": true,
+          "solids": 4,
+          "volume": 135690.59892324152,
+          "zmin": 0.0,
+          "zmax": 100.0
+        }
+      },
+      "modified": {
+        "Near": {
+          "valid": true,
+          "solids": 1,
+          "volume": 3229.829407782824,
+          "zmin": 0.0,
+          "zmax": 35.18504542377637
+        },
+        "FarEnd": {
+          "valid": true,
+          "solids": 1,
+          "volume": 5654.700538379253,
+          "zmin": 0.0,
+          "zmax": 59.43375672974065
+        },
+        "TargetWithSocket": {
+          "valid": true,
+          "solids": 1,
+          "volume": 131975.1288694036,
+          "zmin": 15.473720558371184,
+          "zmax": 73.6602540378444
+        }
+      },
+      "all_graph_recompute_ms": [
+        59.35541699727764,
+        60.27770799846621,
+        59.66412500129081,
+        59.11491699953331,
+        58.28129199653631
+      ],
+      "invalid_states": {},
+      "socket_overlap": 0.0,
+      "feature_ms": {
+        "AllRemnants": [
+          32.00900000229012,
+          31.900791997031774,
+          31.81179200328188
+        ],
+        "Near": [
+          24.25954199861735,
+          24.668584002938587,
+          24.569375003920868
+        ],
+        "InsideTarget": [
+          22.115041996585205,
+          22.699125001963694,
+          21.788499994727317
+        ],
+        "FarEnd": [
+          14.848916995106265,
+          14.92004100146005,
+          14.667124996776693
+        ],
+        "TargetWithSocket": [
+          8.357208003872074,
+          8.643791996291839,
+          7.930583997222129
+        ],
+        "SliceBySolid": [
+          9.905999999318738,
+          9.455457999138162,
+          9.98187500226777
+        ],
+        "Fragments": [
+          10.068083000078332,
+          9.220250001817476,
+          9.297625001636334
+        ]
+      },
+      "face_probes": [
+        {
+          "surface": "Plane",
+          "slice_solids": 0,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        },
+        {
+          "surface": "Plane",
+          "slice_solids": 0,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        },
+        {
+          "surface": "Plane",
+          "slice_solids": 0,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        },
+        {
+          "surface": "Plane",
+          "slice_solids": 0,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        },
+        {
+          "surface": "Plane",
+          "slice_solids": 2,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        },
+        {
+          "surface": "Plane",
+          "slice_solids": 2,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        }
+      ],
+      "reopen_equal": true,
+      "checks": {
+        "near_single": true,
+        "two_remnants": true,
+        "bounded_end": true,
+        "end_changed": true,
+        "far_single": true,
+        "valid": true,
+        "no_overlap": true,
+        "no_invalid": true,
+        "reopen": true
+      }
+    },
+    {
+      "kind": "angled",
+      "variant": "p_link",
+      "initial": {
+        "AllRemnants": {
+          "valid": true,
+          "solids": 2,
+          "volume": 7690.598923241498,
+          "zmin": 0.0,
+          "zmax": 100.0
+        },
+        "Near": {
+          "valid": true,
+          "solids": 1,
+          "volume": 3845.299461620749,
+          "zmin": 0.0,
+          "zmax": 41.33974596215562
+        },
+        "InsideTarget": {
+          "valid": true,
+          "solids": 1,
+          "volume": 2309.4010767585023,
+          "zmin": 35.566243270259356,
+          "zmax": 64.43375672974065
+        },
+        "FarEnd": {
+          "valid": true,
+          "solids": 1,
+          "volume": 6154.700538379252,
+          "zmin": 0.0,
+          "zmax": 64.43375672974065
+        },
+        "TargetWithSocket": {
+          "valid": true,
+          "solids": 1,
+          "volume": 125690.59892324146,
+          "zmin": 21.339745962155614,
+          "zmax": 78.66025403784438
+        },
+        "SliceBySolid": {
+          "valid": true,
+          "solids": 3,
+          "volume": 9999.999999999998,
+          "zmin": 0.0,
+          "zmax": 100.0
+        },
+        "Fragments": {
+          "valid": true,
+          "solids": 4,
+          "volume": 135690.59892324152,
+          "zmin": 0.0,
+          "zmax": 100.0
+        }
+      },
+      "modified": {
+        "Near": {
+          "valid": true,
+          "solids": 1,
+          "volume": 4345.299461620747,
+          "zmin": 0.0,
+          "zmax": 46.33974596215561
+        },
+        "FarEnd": {
+          "valid": true,
+          "solids": 1,
+          "volume": 6770.170592217176,
+          "zmin": 0.0,
+          "zmax": 70.5884572681199
+        },
+        "TargetWithSocket": {
+          "valid": true,
+          "solids": 1,
+          "volume": 131975.12886940356,
+          "zmin": 26.339745962155607,
+          "zmax": 84.52627944162882
+        }
+      },
+      "all_graph_recompute_ms": [
+        56.77624999952968,
+        56.697125000937376,
+        55.78224999771919,
+        56.234499999845866,
+        56.00970800151117
+      ],
+      "invalid_states": {},
+      "socket_overlap": 0.0,
+      "feature_ms": {
+        "AllRemnants": [
+          29.79316600249149,
+          30.17395899951225,
+          30.255707999458537
+        ],
+        "Near": [
+          23.978292003448587,
+          23.986250002053566,
+          23.41862500179559
+        ],
+        "InsideTarget": [
+          20.34879200073192,
+          20.363542003906332,
+          20.54491700255312
+        ],
+        "FarEnd": [
+          14.158957994368393,
+          13.353957998333499,
+          13.579334001406096
+        ],
+        "TargetWithSocket": [
+          7.204499997897074,
+          8.137208002153784,
+          7.280999998329207
+        ],
+        "SliceBySolid": [
+          10.101166997628752,
+          9.497791004832834,
+          10.32600000326056
+        ],
+        "Fragments": [
+          10.034416998678353,
+          9.597457996278536,
+          9.8897499992745
+        ]
+      },
+      "face_probes": [
+        {
+          "surface": "Plane",
+          "slice_solids": 0,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        },
+        {
+          "surface": "Plane",
+          "slice_solids": 0,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        },
+        {
+          "surface": "Plane",
+          "slice_solids": 0,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        },
+        {
+          "surface": "Plane",
+          "slice_solids": 0,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        },
+        {
+          "surface": "Plane",
+          "slice_solids": 2,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        },
+        {
+          "surface": "Plane",
+          "slice_solids": 2,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        }
+      ],
+      "reopen_equal": true,
+      "checks": {
+        "near_single": true,
+        "two_remnants": true,
+        "bounded_end": true,
+        "end_changed": true,
+        "far_single": true,
+        "valid": true,
+        "no_overlap": true,
+        "no_invalid": true,
+        "reopen": true
+      }
+    },
+    {
+      "kind": "angled",
+      "variant": "p_mirror",
+      "initial": {
+        "AllRemnants": {
+          "valid": true,
+          "solids": 2,
+          "volume": 7690.598923241497,
+          "zmin": 0.0,
+          "zmax": 100.0
+        },
+        "Near": {
+          "valid": true,
+          "solids": 1,
+          "volume": 3845.2994616207493,
+          "zmin": 0.0,
+          "zmax": 41.33974596215562
+        },
+        "InsideTarget": {
+          "valid": true,
+          "solids": 1,
+          "volume": 2309.4010767585023,
+          "zmin": 35.566243270259356,
+          "zmax": 64.43375672974065
+        },
+        "FarEnd": {
+          "valid": true,
+          "solids": 1,
+          "volume": 6154.700538379251,
+          "zmin": 0.0,
+          "zmax": 64.43375672974065
+        },
+        "TargetWithSocket": {
+          "valid": true,
+          "solids": 1,
+          "volume": 125690.59892324146,
+          "zmin": 21.339745962155614,
+          "zmax": 78.66025403784438
+        },
+        "SliceBySolid": {
+          "valid": true,
+          "solids": 3,
+          "volume": 10000.0,
+          "zmin": 0.0,
+          "zmax": 100.0
+        },
+        "Fragments": {
+          "valid": true,
+          "solids": 4,
+          "volume": 135690.59892324152,
+          "zmin": 0.0,
+          "zmax": 100.0
+        }
+      },
+      "modified": {
+        "Near": {
+          "valid": true,
+          "solids": 1,
+          "volume": 4345.299461620747,
+          "zmin": 0.0,
+          "zmax": 46.339745962155604
+        },
+        "FarEnd": {
+          "valid": true,
+          "solids": 1,
+          "volume": 6770.170592217177,
+          "zmin": 0.0,
+          "zmax": 70.5884572681199
+        },
+        "TargetWithSocket": {
+          "valid": true,
+          "solids": 1,
+          "volume": 131975.12886940356,
+          "zmin": 26.339745962155607,
+          "zmax": 84.52627944162882
+        }
+      },
+      "all_graph_recompute_ms": [
+        58.11924999579787,
+        57.637999998405576,
+        56.08241700247163,
+        61.53916699986439,
+        59.01504200301133
+      ],
+      "invalid_states": {},
+      "socket_overlap": 0.0,
+      "feature_ms": {
+        "AllRemnants": [
+          30.65470900037326,
+          31.123458997171838,
+          31.04950000124518
+        ],
+        "Near": [
+          22.74895899608964,
+          23.460332995455246,
+          23.53245799895376
+        ],
+        "InsideTarget": [
+          21.032249998825137,
+          21.079666999867186,
+          20.276541996281594
+        ],
+        "FarEnd": [
+          13.857250000000931,
+          13.71383399964543,
+          14.006084005814046
+        ],
+        "TargetWithSocket": [
+          7.931875006761402,
+          6.909832998644561,
+          7.8412090006168
+        ],
+        "SliceBySolid": [
+          9.219040999596473,
+          10.072290999232791,
+          9.860375001153443
+        ],
+        "Fragments": [
+          9.698082998511381,
+          9.691333005321212,
+          9.343042002001312
+        ]
+      },
+      "face_probes": [
+        {
+          "surface": "Plane",
+          "slice_solids": 0,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        },
+        {
+          "surface": "Plane",
+          "slice_solids": 0,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        },
+        {
+          "surface": "Plane",
+          "slice_solids": 0,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        },
+        {
+          "surface": "Plane",
+          "slice_solids": 0,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        },
+        {
+          "surface": "Plane",
+          "slice_solids": 2,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        },
+        {
+          "surface": "Plane",
+          "slice_solids": 2,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        }
+      ],
+      "reopen_equal": true,
+      "checks": {
+        "near_single": true,
+        "two_remnants": true,
+        "bounded_end": true,
+        "end_changed": true,
+        "far_single": true,
+        "valid": true,
+        "no_overlap": true,
+        "no_invalid": true,
+        "reopen": true
+      }
+    },
+    {
+      "kind": "cylinder",
+      "variant": "plain",
+      "initial": {
+        "AllRemnants": {
+          "valid": true,
+          "solids": 2,
+          "volume": 6042.066285759663,
+          "zmin": 0.0,
+          "zmax": 100.0
+        },
+        "Near": {
+          "valid": true,
+          "solids": 1,
+          "volume": 3021.033142879832,
+          "zmin": 0.0,
+          "zmax": 30.63508326896293
+        },
+        "InsideTarget": {
+          "valid": true,
+          "solids": 1,
+          "volume": 3957.933714240337,
+          "zmin": 30.000000000000007,
+          "zmax": 70.0
+        },
+        "FarEnd": {
+          "valid": true,
+          "solids": 1,
+          "volume": 6978.966857120171,
+          "zmin": 0.0,
+          "zmax": 70.0
+        },
+        "TargetWithSocket": {
+          "valid": true,
+          "solids": 1,
+          "volume": 96573.03120063302,
+          "zmin": 30.0,
+          "zmax": 70.00000000000001
+        },
+        "SliceBySolid": {
+          "valid": true,
+          "solids": 3,
+          "volume": 10000.0,
+          "zmin": 0.0,
+          "zmax": 100.0
+        },
+        "Fragments": {
+          "valid": true,
+          "solids": 4,
+          "volume": 106573.03120063304,
+          "zmin": 0.0,
+          "zmax": 100.0
+        }
+      },
+      "modified": {
+        "Near": {
+          "valid": true,
+          "solids": 1,
+          "volume": 3470.5105389988303,
+          "zmin": 0.0,
+          "zmax": 35.11910464792896
+        },
+        "FarEnd": {
+          "valid": true,
+          "solids": 1,
+          "volume": 7529.489461001173,
+          "zmin": 0.0,
+          "zmax": 75.50000000000001
+        },
+        "TargetWithSocket": {
+          "valid": true,
+          "solids": 1,
+          "volume": 101561.36609168656,
+          "zmin": 34.49999999999999,
+          "zmax": 75.50000000000003
+        }
+      },
+      "all_graph_recompute_ms": [
+        71.20800000120653,
+        72.77933300065342,
+        73.25954199768603,
+        71.38854100048775,
+        69.98479199683061
+      ],
+      "invalid_states": {},
+      "socket_overlap": 0.0,
+      "feature_ms": {
+        "AllRemnants": [
+          41.36820900021121,
+          39.747375005390495,
+          41.413750004721805
+        ],
+        "Near": [
+          31.615416002750862,
+          31.86400000413414,
+          31.517125004029367
+        ],
+        "InsideTarget": [
+          29.85683400038397,
+          34.40429199690698,
+          30.903584003681317
+        ],
+        "FarEnd": [
+          21.081000006233808,
+          20.82995799719356,
+          22.030332998838276
+        ],
+        "TargetWithSocket": [
+          9.44533300207695,
+          10.011708000092767,
+          9.881874997518025
+        ],
+        "SliceBySolid": [
+          10.525541998504195,
+          10.661457999958657,
+          10.65237500006333
+        ],
+        "Fragments": [
+          10.751291003543884,
+          11.180749999766704,
+          10.662750006304123
+        ]
+      },
+      "face_probes": [
+        {
+          "surface": "Cylinder",
+          "slice_solids": 3,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        },
+        {
+          "surface": "Plane",
+          "slice_solids": 0,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        },
+        {
+          "surface": "Plane",
+          "slice_solids": 0,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        }
+      ],
+      "reopen_equal": true,
+      "checks": {
+        "near_single": true,
+        "two_remnants": true,
+        "bounded_end": true,
+        "end_changed": true,
+        "far_single": true,
+        "valid": true,
+        "no_overlap": true,
+        "no_invalid": true,
+        "reopen": true
+      }
+    },
+    {
+      "kind": "cylinder",
+      "variant": "target_link",
+      "initial": {
+        "AllRemnants": {
+          "valid": true,
+          "solids": 2,
+          "volume": 6047.233941386134,
+          "zmin": 0.0,
+          "zmax": 100.0
+        },
+        "Near": {
+          "valid": true,
+          "solids": 1,
+          "volume": 3023.6169706930677,
+          "zmin": 0.0,
+          "zmax": 30.9212159716611
+        },
+        "InsideTarget": {
+          "valid": true,
+          "solids": 1,
+          "volume": 3952.7660586138645,
+          "zmin": 30.000000000000007,
+          "zmax": 70.0
+        },
+        "FarEnd": {
+          "valid": true,
+          "solids": 1,
+          "volume": 6976.383029306934,
+          "zmin": 0.0,
+          "zmax": 70.0
+        },
+        "TargetWithSocket": {
+          "valid": true,
+          "solids": 1,
+          "volume": 96578.19885625949,
+          "zmin": 30.0,
+          "zmax": 70.00000000000001
+        },
+        "SliceBySolid": {
+          "valid": true,
+          "solids": 3,
+          "volume": 9999.999999999998,
+          "zmin": 0.0,
+          "zmax": 100.0
+        },
+        "Fragments": {
+          "valid": true,
+          "solids": 4,
+          "volume": 106578.19885625948,
+          "zmin": 0.0,
+          "zmax": 100.0
+        }
+      },
+      "modified": {
+        "Near": {
+          "valid": true,
+          "solids": 1,
+          "volume": 3473.027210100856,
+          "zmin": 0.0,
+          "zmax": 35.39770421608734
+        },
+        "FarEnd": {
+          "valid": true,
+          "solids": 1,
+          "volume": 7526.972789899145,
+          "zmin": 0.0,
+          "zmax": 75.50000000000001
+        },
+        "TargetWithSocket": {
+          "valid": true,
+          "solids": 1,
+          "volume": 101566.39943389063,
+          "zmin": 34.49999999999999,
+          "zmax": 75.50000000000003
+        }
+      },
+      "all_graph_recompute_ms": [
+        68.50991700048326,
+        69.26250000105938,
+        68.42466699890792,
+        68.20908300142037,
+        68.94166600250173
+      ],
+      "invalid_states": {},
+      "socket_overlap": 0.0,
+      "feature_ms": {
+        "AllRemnants": [
+          39.589291998709086,
+          39.11858300125459,
+          37.807375003467314
+        ],
+        "Near": [
+          30.727166995347943,
+          31.54108300077496,
+          32.91829199588392
+        ],
+        "InsideTarget": [
+          28.96729199710535,
+          28.854125004727393,
+          29.841250005119946
+        ],
+        "FarEnd": [
+          20.698416999948677,
+          21.241082999040373,
+          21.2021659972379
+        ],
+        "TargetWithSocket": [
+          9.19429200439481,
+          10.272291998262517,
+          9.124625001277309
+        ],
+        "SliceBySolid": [
+          10.980416998791043,
+          10.899375003646128,
+          10.712957999203354
+        ],
+        "Fragments": [
+          11.145167001814116,
+          11.010415997589007,
+          10.410333001345862
+        ]
+      },
+      "face_probes": [
+        {
+          "surface": "Cylinder",
+          "slice_solids": 3,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        },
+        {
+          "surface": "Plane",
+          "slice_solids": 0,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        },
+        {
+          "surface": "Plane",
+          "slice_solids": 0,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        }
+      ],
+      "reopen_equal": true,
+      "checks": {
+        "near_single": true,
+        "two_remnants": true,
+        "bounded_end": true,
+        "end_changed": true,
+        "far_single": true,
+        "valid": true,
+        "no_overlap": true,
+        "no_invalid": true,
+        "reopen": true
+      }
+    },
+    {
+      "kind": "cylinder",
+      "variant": "target_mirror",
+      "initial": {
+        "AllRemnants": {
+          "valid": true,
+          "solids": 2,
+          "volume": 6042.066285759661,
+          "zmin": 0.0,
+          "zmax": 100.0
+        },
+        "Near": {
+          "valid": true,
+          "solids": 1,
+          "volume": 3021.03314287983,
+          "zmin": 0.0,
+          "zmax": 30.63508326896291
+        },
+        "InsideTarget": {
+          "valid": true,
+          "solids": 1,
+          "volume": 3957.933714240339,
+          "zmin": 29.999999999999993,
+          "zmax": 70.0
+        },
+        "FarEnd": {
+          "valid": true,
+          "solids": 1,
+          "volume": 6978.96685712017,
+          "zmin": 0.0,
+          "zmax": 70.0
+        },
+        "TargetWithSocket": {
+          "valid": true,
+          "solids": 1,
+          "volume": 96573.03120063304,
+          "zmin": 29.999999999999986,
+          "zmax": 70.0
+        },
+        "SliceBySolid": {
+          "valid": true,
+          "solids": 3,
+          "volume": 10000.0,
+          "zmin": 0.0,
+          "zmax": 100.0
+        },
+        "Fragments": {
+          "valid": true,
+          "solids": 4,
+          "volume": 106573.03120063304,
+          "zmin": 0.0,
+          "zmax": 100.0
+        }
+      },
+      "modified": {
+        "Near": {
+          "valid": true,
+          "solids": 1,
+          "volume": 2470.51053899883,
+          "zmin": 0.0,
+          "zmax": 25.11910464792895
+        },
+        "FarEnd": {
+          "valid": true,
+          "solids": 1,
+          "volume": 6529.48946100117,
+          "zmin": 0.0,
+          "zmax": 65.5
+        },
+        "TargetWithSocket": {
+          "valid": true,
+          "solids": 1,
+          "volume": 101561.36609168656,
+          "zmin": 24.49999999999998,
+          "zmax": 65.5
+        }
+      },
+      "all_graph_recompute_ms": [
+        73.77241599897388,
+        70.92250000278,
+        71.75825000012992,
+        72.20483300625347,
+        72.51516699761851
+      ],
+      "invalid_states": {},
+      "socket_overlap": 0.0,
+      "feature_ms": {
+        "AllRemnants": [
+          42.055916004756,
+          41.18354099773569,
+          40.89633300463902
+        ],
+        "Near": [
+          32.62983299646294,
+          32.88787500059698,
+          32.71449999738252
+        ],
+        "InsideTarget": [
+          31.886874996416736,
+          32.89212499657879,
+          31.99154100002488
+        ],
+        "FarEnd": [
+          23.54554200428538,
+          21.346790999814402,
+          22.14658400043845
+        ],
+        "TargetWithSocket": [
+          10.134916999959387,
+          9.449457997106947,
+          9.839667000051122
+        ],
+        "SliceBySolid": [
+          10.9359999987646,
+          10.93320799554931,
+          11.181875001057051
+        ],
+        "Fragments": [
+          11.120791001303587,
+          10.792500004754402,
+          11.1982500020531
+        ]
+      },
+      "face_probes": [
+        {
+          "surface": "Cylinder",
+          "slice_solids": 3,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        },
+        {
+          "surface": "Plane",
+          "slice_solids": 0,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        },
+        {
+          "surface": "Plane",
+          "slice_solids": 0,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        }
+      ],
+      "reopen_equal": true,
+      "checks": {
+        "near_single": true,
+        "two_remnants": true,
+        "bounded_end": true,
+        "end_changed": true,
+        "far_single": true,
+        "valid": true,
+        "no_overlap": true,
+        "no_invalid": true,
+        "reopen": true
+      }
+    },
+    {
+      "kind": "cylinder",
+      "variant": "p_link",
+      "initial": {
+        "AllRemnants": {
+          "valid": true,
+          "solids": 2,
+          "volume": 6042.066285759663,
+          "zmin": 0.0,
+          "zmax": 100.0
+        },
+        "Near": {
+          "valid": true,
+          "solids": 1,
+          "volume": 3021.033142879832,
+          "zmin": 0.0,
+          "zmax": 30.63508326896293
+        },
+        "InsideTarget": {
+          "valid": true,
+          "solids": 1,
+          "volume": 3957.933714240337,
+          "zmin": 30.000000000000007,
+          "zmax": 70.0
+        },
+        "FarEnd": {
+          "valid": true,
+          "solids": 1,
+          "volume": 6978.966857120171,
+          "zmin": 0.0,
+          "zmax": 70.0
+        },
+        "TargetWithSocket": {
+          "valid": true,
+          "solids": 1,
+          "volume": 96573.03120063302,
+          "zmin": 30.0,
+          "zmax": 70.00000000000001
+        },
+        "SliceBySolid": {
+          "valid": true,
+          "solids": 3,
+          "volume": 10000.0,
+          "zmin": 0.0,
+          "zmax": 100.0
+        },
+        "Fragments": {
+          "valid": true,
+          "solids": 4,
+          "volume": 106573.03120063304,
+          "zmin": 0.0,
+          "zmax": 100.0
+        }
+      },
+      "modified": {
+        "Near": {
+          "valid": true,
+          "solids": 1,
+          "volume": 3470.5105389988303,
+          "zmin": 0.0,
+          "zmax": 35.11910464792896
+        },
+        "FarEnd": {
+          "valid": true,
+          "solids": 1,
+          "volume": 7529.489461001173,
+          "zmin": 0.0,
+          "zmax": 75.50000000000001
+        },
+        "TargetWithSocket": {
+          "valid": true,
+          "solids": 1,
+          "volume": 101561.36609168656,
+          "zmin": 34.49999999999999,
+          "zmax": 75.50000000000003
+        }
+      },
+      "all_graph_recompute_ms": [
+        73.10470800439361,
+        73.59154200094054,
+        72.89116599713452,
+        72.12908299698029,
+        71.35191700217547
+      ],
+      "invalid_states": {},
+      "socket_overlap": 0.0,
+      "feature_ms": {
+        "AllRemnants": [
+          41.515124998113606,
+          40.38366600434529,
+          41.334583998832386
+        ],
+        "Near": [
+          33.20199999870965,
+          32.91366600024048,
+          32.697374997951556
+        ],
+        "InsideTarget": [
+          29.656415994395502,
+          30.426124998484738,
+          30.1053330040304
+        ],
+        "FarEnd": [
+          21.53954099776456,
+          22.404582996387035,
+          22.268417000304908
+        ],
+        "TargetWithSocket": [
+          10.040125001978595,
+          9.628499996324535,
+          10.27754200185882
+        ],
+        "SliceBySolid": [
+          10.903041998972185,
+          11.098082999524195,
+          12.139916994783562
+        ],
+        "Fragments": [
+          10.95891599834431,
+          11.18283299729228,
+          11.517999999341555
+        ]
+      },
+      "face_probes": [
+        {
+          "surface": "Cylinder",
+          "slice_solids": 3,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        },
+        {
+          "surface": "Plane",
+          "slice_solids": 0,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        },
+        {
+          "surface": "Plane",
+          "slice_solids": 0,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        }
+      ],
+      "reopen_equal": true,
+      "checks": {
+        "near_single": true,
+        "two_remnants": true,
+        "bounded_end": true,
+        "end_changed": true,
+        "far_single": true,
+        "valid": true,
+        "no_overlap": true,
+        "no_invalid": true,
+        "reopen": true
+      }
+    },
+    {
+      "kind": "cylinder",
+      "variant": "p_mirror",
+      "initial": {
+        "AllRemnants": {
+          "valid": true,
+          "solids": 2,
+          "volume": 6042.066285759663,
+          "zmin": 0.0,
+          "zmax": 100.0
+        },
+        "Near": {
+          "valid": true,
+          "solids": 1,
+          "volume": 3021.033142879832,
+          "zmin": 0.0,
+          "zmax": 30.63508326896293
+        },
+        "InsideTarget": {
+          "valid": true,
+          "solids": 1,
+          "volume": 3957.933714240337,
+          "zmin": 30.000000000000007,
+          "zmax": 70.0
+        },
+        "FarEnd": {
+          "valid": true,
+          "solids": 1,
+          "volume": 6978.966857120171,
+          "zmin": 0.0,
+          "zmax": 70.0
+        },
+        "TargetWithSocket": {
+          "valid": true,
+          "solids": 1,
+          "volume": 96573.03120063302,
+          "zmin": 30.0,
+          "zmax": 70.00000000000001
+        },
+        "SliceBySolid": {
+          "valid": true,
+          "solids": 3,
+          "volume": 10000.0,
+          "zmin": 0.0,
+          "zmax": 100.0
+        },
+        "Fragments": {
+          "valid": true,
+          "solids": 4,
+          "volume": 106573.03120063304,
+          "zmin": 0.0,
+          "zmax": 100.0
+        }
+      },
+      "modified": {
+        "Near": {
+          "valid": true,
+          "solids": 1,
+          "volume": 3470.5105389988303,
+          "zmin": 0.0,
+          "zmax": 35.11910464792896
+        },
+        "FarEnd": {
+          "valid": true,
+          "solids": 1,
+          "volume": 7529.489461001173,
+          "zmin": 0.0,
+          "zmax": 75.50000000000001
+        },
+        "TargetWithSocket": {
+          "valid": true,
+          "solids": 1,
+          "volume": 101561.36609168656,
+          "zmin": 34.49999999999999,
+          "zmax": 75.50000000000003
+        }
+      },
+      "all_graph_recompute_ms": [
+        74.86724999762373,
+        74.67554200411541,
+        75.85225000366336,
+        73.95141699817032,
+        73.50925000355346
+      ],
+      "invalid_states": {},
+      "socket_overlap": 0.0,
+      "feature_ms": {
+        "AllRemnants": [
+          55.74104099650867,
+          43.27566699794261,
+          40.48487500404008
+        ],
+        "Near": [
+          32.861124993360136,
+          32.81879200221738,
+          32.12508300202899
+        ],
+        "InsideTarget": [
+          31.206166997435503,
+          31.00799999810988,
+          29.515207999793347
+        ],
+        "FarEnd": [
+          22.195999998075422,
+          21.79904199874727,
+          22.25012499548029
+        ],
+        "TargetWithSocket": [
+          9.981082999729551,
+          9.494500001892447,
+          9.4055829977151
+        ],
+        "SliceBySolid": [
+          11.183957998582628,
+          11.26408299751347,
+          11.154833999171387
+        ],
+        "Fragments": [
+          11.338042000716086,
+          11.221916996873915,
+          10.962250002194196
+        ]
+      },
+      "face_probes": [
+        {
+          "surface": "Cylinder",
+          "slice_solids": 3,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        },
+        {
+          "surface": "Plane",
+          "slice_solids": 0,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        },
+        {
+          "surface": "Plane",
+          "slice_solids": 0,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        }
+      ],
+      "reopen_equal": true,
+      "checks": {
+        "near_single": true,
+        "two_remnants": true,
+        "bounded_end": true,
+        "end_changed": true,
+        "far_single": true,
+        "valid": true,
+        "no_overlap": true,
+        "no_invalid": true,
+        "reopen": true
+      }
+    },
+    {
+      "kind": "sphere",
+      "variant": "plain",
+      "initial": {
+        "AllRemnants": {
+          "valid": true,
+          "solids": 2,
+          "volume": 6084.592598855291,
+          "zmin": 0.0,
+          "zmax": 100.0
+        },
+        "Near": {
+          "valid": true,
+          "solids": 1,
+          "volume": 3042.2963000589957,
+          "zmin": 0.0,
+          "zmax": 31.291713066130296
+        },
+        "InsideTarget": {
+          "valid": true,
+          "solids": 1,
+          "volume": 3915.407401145755,
+          "zmin": 30.0,
+          "zmax": 70.0
+        },
+        "FarEnd": {
+          "valid": true,
+          "solids": 1,
+          "volume": 6957.703700763265,
+          "zmin": 0.0,
+          "zmax": 70.0
+        },
+        "TargetWithSocket": {
+          "valid": true,
+          "solids": 1,
+          "volume": 29594.914236254648,
+          "zmin": 30.629625707238723,
+          "zmax": 69.37037429276782
+        },
+        "SliceBySolid": {
+          "valid": true,
+          "solids": 3,
+          "volume": 10000.0,
+          "zmin": 0.0,
+          "zmax": 100.0
+        },
+        "Fragments": {
+          "valid": true,
+          "solids": 4,
+          "volume": 39594.91423714579,
+          "zmin": 0.0,
+          "zmax": 100.0
+        }
+      },
+      "modified": {
+        "Near": {
+          "valid": true,
+          "solids": 1,
+          "volume": 3491.2340514122848,
+          "zmin": 0.0,
+          "zmax": 35.75811859510614
+        },
+        "FarEnd": {
+          "valid": true,
+          "solids": 1,
+          "volume": 7508.765949482622,
+          "zmin": 0.0,
+          "zmax": 75.5
+        },
+        "TargetWithSocket": {
+          "valid": true,
+          "solids": 1,
+          "volume": 32069.419313585426,
+          "zmin": 35.113795139655636,
+          "zmax": 74.88620486034436
+        }
+      },
+      "all_graph_recompute_ms": [
+        208.78366700344486,
+        216.27679200173588,
+        220.74399999837624,
+        215.19354100018973,
+        218.67616700183135
+      ],
+      "invalid_states": {},
+      "socket_overlap": 0.0,
+      "feature_ms": {
+        "AllRemnants": [
+          126.71820799732814,
+          127.55474999721628,
+          127.2652499974356
+        ],
+        "Near": [
+          97.66879199742107,
+          97.87220799626084,
+          97.19579200464068
+        ],
+        "InsideTarget": [
+          113.60379200050374,
+          115.25337499915622,
+          114.56379199807998
+        ],
+        "FarEnd": [
+          86.44066699343966,
+          85.434583001188,
+          86.15920799638843
+        ],
+        "TargetWithSocket": [
+          37.607499994919635,
+          39.47512499871664,
+          39.23399999621324
+        ],
+        "SliceBySolid": [
+          31.682291999459267,
+          31.70749999844702,
+          32.73470899875974
+        ],
+        "Fragments": [
+          32.15262499725213,
+          32.83391700097127,
+          31.38004100037506
+        ]
+      },
+      "face_probes": [
+        {
+          "surface": "Sphere",
+          "slice_solids": 3,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        }
+      ],
+      "reopen_equal": true,
+      "checks": {
+        "near_single": true,
+        "two_remnants": true,
+        "bounded_end": true,
+        "end_changed": true,
+        "far_single": true,
+        "valid": true,
+        "no_overlap": true,
+        "no_invalid": true,
+        "reopen": true
+      }
+    },
+    {
+      "kind": "sphere",
+      "variant": "target_link",
+      "initial": {
+        "AllRemnants": {
+          "valid": true,
+          "solids": 2,
+          "volume": 6089.819560991966,
+          "zmin": 0.0,
+          "zmax": 100.0
+        },
+        "Near": {
+          "valid": true,
+          "solids": 1,
+          "volume": 3044.9097794978206,
+          "zmin": 0.0,
+          "zmax": 31.588047360478036
+        },
+        "InsideTarget": {
+          "valid": true,
+          "solids": 1,
+          "volume": 3910.1804390078278,
+          "zmin": 30.0,
+          "zmax": 70.0
+        },
+        "FarEnd": {
+          "valid": true,
+          "solids": 1,
+          "volume": 6955.090221488486,
+          "zmin": 0.0,
+          "zmax": 70.0
+        },
+        "TargetWithSocket": {
+          "valid": true,
+          "solids": 1,
+          "volume": 29600.141199826565,
+          "zmin": 30.404082057734573,
+          "zmax": 69.59591794226543
+        },
+        "SliceBySolid": {
+          "valid": true,
+          "solids": 3,
+          "volume": 9999.999999999998,
+          "zmin": 0.0,
+          "zmax": 100.0
+        },
+        "Fragments": {
+          "valid": true,
+          "solids": 4,
+          "volume": 39600.14119928321,
+          "zmin": 0.0,
+          "zmax": 100.0
+        }
+      },
+      "modified": {
+        "Near": {
+          "valid": true,
+          "solids": 1,
+          "volume": 3493.778076795724,
+          "zmin": 0.0,
+          "zmax": 36.04610857897512
+        },
+        "FarEnd": {
+          "valid": true,
+          "solids": 1,
+          "volume": 7506.221924167499,
+          "zmin": 0.0,
+          "zmax": 75.5
+        },
+        "TargetWithSocket": {
+          "valid": true,
+          "solids": 1,
+          "volume": 32074.507369433908,
+          "zmin": 34.89403073711689,
+          "zmax": 75.10596926288311
+        }
+      },
+      "all_graph_recompute_ms": [
+        242.0692500018049,
+        242.84941700170748,
+        264.0895830045338,
+        253.51241599855712,
+        249.86399999761488
+      ],
+      "invalid_states": {},
+      "socket_overlap": 0.0,
+      "feature_ms": {
+        "AllRemnants": [
+          147.1506660018349,
+          149.3297910055844,
+          145.43312499881722
+        ],
+        "Near": [
+          114.13775000255555,
+          111.72595799871488,
+          114.3299589966773
+        ],
+        "InsideTarget": [
+          135.5872089989134,
+          135.20116699510254,
+          131.22616700275103
+        ],
+        "FarEnd": [
+          101.4845840036287,
+          101.51320799923269,
+          102.08158400200773
+        ],
+        "TargetWithSocket": [
+          45.600333003676496,
+          45.085040997946635,
+          45.37804100255016
+        ],
+        "SliceBySolid": [
+          37.697959000070114,
+          35.56333300366532,
+          36.20220899756532
+        ],
+        "Fragments": [
+          36.0912499963888,
+          37.64933400088921,
+          35.676041996339336
+        ]
+      },
+      "face_probes": [
+        {
+          "surface": "Sphere",
+          "slice_solids": 3,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        }
+      ],
+      "reopen_equal": true,
+      "checks": {
+        "near_single": true,
+        "two_remnants": true,
+        "bounded_end": true,
+        "end_changed": true,
+        "far_single": true,
+        "valid": true,
+        "no_overlap": true,
+        "no_invalid": true,
+        "reopen": true
+      }
+    },
+    {
+      "kind": "sphere",
+      "variant": "target_mirror",
+      "initial": {
+        "AllRemnants": {
+          "valid": true,
+          "solids": 2,
+          "volume": 6084.592598855291,
+          "zmin": 0.0,
+          "zmax": 100.0
+        },
+        "Near": {
+          "valid": true,
+          "solids": 1,
+          "volume": 3042.2963000589957,
+          "zmin": 0.0,
+          "zmax": 31.291713066130296
+        },
+        "InsideTarget": {
+          "valid": true,
+          "solids": 1,
+          "volume": 3915.4074011457546,
+          "zmin": 30.0,
+          "zmax": 70.0
+        },
+        "FarEnd": {
+          "valid": true,
+          "solids": 1,
+          "volume": 6957.703700763265,
+          "zmin": 0.0,
+          "zmax": 70.0
+        },
+        "TargetWithSocket": {
+          "valid": true,
+          "solids": 1,
+          "volume": 29594.914236254644,
+          "zmin": 30.629625707238727,
+          "zmax": 69.37037429276782
+        },
+        "SliceBySolid": {
+          "valid": true,
+          "solids": 3,
+          "volume": 10000.0,
+          "zmin": 0.0,
+          "zmax": 100.0
+        },
+        "Fragments": {
+          "valid": true,
+          "solids": 4,
+          "volume": 39594.914237145786,
+          "zmin": 0.0,
+          "zmax": 100.0
+        }
+      },
+      "modified": {
+        "Near": {
+          "valid": true,
+          "solids": 1,
+          "volume": 2491.234051331143,
+          "zmin": 0.0,
+          "zmax": 25.758118595106136
+        },
+        "FarEnd": {
+          "valid": true,
+          "solids": 1,
+          "volume": 6508.765949401502,
+          "zmin": 0.0,
+          "zmax": 65.5
+        },
+        "TargetWithSocket": {
+          "valid": true,
+          "solids": 1,
+          "volume": 32069.419313585564,
+          "zmin": 25.113795139661043,
+          "zmax": 64.88620486034436
+        }
+      },
+      "all_graph_recompute_ms": [
+        216.48149999964517,
+        205.77691699872958,
+        211.5077080015908,
+        221.30929199920502,
+        228.7592089996906
+      ],
+      "invalid_states": {},
+      "socket_overlap": 0.0,
+      "feature_ms": {
+        "AllRemnants": [
+          143.4666660061339,
+          141.33749999746215,
+          133.28904200170655
+        ],
+        "Near": [
+          109.44958300387952,
+          106.89925000042422,
+          105.32558300474193
+        ],
+        "InsideTarget": [
+          129.90679199720034,
+          126.5134589993977,
+          120.81866699736565
+        ],
+        "FarEnd": [
+          92.98920800210908,
+          93.786249999539,
+          94.54070799984038
+        ],
+        "TargetWithSocket": [
+          39.46733400516678,
+          39.466875001380686,
+          39.811334005207755
+        ],
+        "SliceBySolid": [
+          33.62504099641228,
+          32.19616699789185,
+          31.35804100020323
+        ],
+        "Fragments": [
+          31.584291005856358,
+          31.856792003964074,
+          33.90529099851847
+        ]
+      },
+      "face_probes": [
+        {
+          "surface": "Sphere",
+          "slice_solids": 3,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        }
+      ],
+      "reopen_equal": true,
+      "checks": {
+        "near_single": true,
+        "two_remnants": true,
+        "bounded_end": true,
+        "end_changed": true,
+        "far_single": true,
+        "valid": true,
+        "no_overlap": true,
+        "no_invalid": true,
+        "reopen": true
+      }
+    },
+    {
+      "kind": "sphere",
+      "variant": "p_link",
+      "initial": {
+        "AllRemnants": {
+          "valid": true,
+          "solids": 2,
+          "volume": 6084.592598855291,
+          "zmin": 0.0,
+          "zmax": 100.0
+        },
+        "Near": {
+          "valid": true,
+          "solids": 1,
+          "volume": 3042.2963000589957,
+          "zmin": 0.0,
+          "zmax": 31.291713066130296
+        },
+        "InsideTarget": {
+          "valid": true,
+          "solids": 1,
+          "volume": 3915.407401145755,
+          "zmin": 30.0,
+          "zmax": 70.0
+        },
+        "FarEnd": {
+          "valid": true,
+          "solids": 1,
+          "volume": 6957.703700763265,
+          "zmin": 0.0,
+          "zmax": 70.0
+        },
+        "TargetWithSocket": {
+          "valid": true,
+          "solids": 1,
+          "volume": 29594.914236254648,
+          "zmin": 30.629625707238723,
+          "zmax": 69.37037429276782
+        },
+        "SliceBySolid": {
+          "valid": true,
+          "solids": 3,
+          "volume": 10000.0,
+          "zmin": 0.0,
+          "zmax": 100.0
+        },
+        "Fragments": {
+          "valid": true,
+          "solids": 4,
+          "volume": 39594.91423714579,
+          "zmin": 0.0,
+          "zmax": 100.0
+        }
+      },
+      "modified": {
+        "Near": {
+          "valid": true,
+          "solids": 1,
+          "volume": 3491.2340514122848,
+          "zmin": 0.0,
+          "zmax": 35.75811859510614
+        },
+        "FarEnd": {
+          "valid": true,
+          "solids": 1,
+          "volume": 7508.765949482622,
+          "zmin": 0.0,
+          "zmax": 75.5
+        },
+        "TargetWithSocket": {
+          "valid": true,
+          "solids": 1,
+          "volume": 32069.419313585426,
+          "zmin": 35.113795139655636,
+          "zmax": 74.88620486034436
+        }
+      },
+      "all_graph_recompute_ms": [
+        245.93941600323888,
+        223.29645799618447,
+        226.49375000037253,
+        232.36075000022538,
+        233.33137499867007
+      ],
+      "invalid_states": {},
+      "socket_overlap": 0.0,
+      "feature_ms": {
+        "AllRemnants": [
+          136.37137500336394,
+          157.218374995864,
+          189.37895799899707
+        ],
+        "Near": [
+          135.42845800111536,
+          103.37712500040652,
+          96.53674999572104
+        ],
+        "InsideTarget": [
+          118.91445799847133,
+          175.30512499797624,
+          151.02120799565455
+        ],
+        "FarEnd": [
+          89.13374999974621,
+          90.24279100412969,
+          89.75216600083513
+        ],
+        "TargetWithSocket": [
+          45.079125004122034,
+          40.45266599860042,
+          40.3072080007405
+        ],
+        "SliceBySolid": [
+          40.69654200429795,
+          30.347916996106505,
+          32.583416999841575
+        ],
+        "Fragments": [
+          35.42916700098431,
+          34.9501250020694,
+          33.483833001810126
+        ]
+      },
+      "face_probes": [
+        {
+          "surface": "Sphere",
+          "slice_solids": 3,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        }
+      ],
+      "reopen_equal": true,
+      "checks": {
+        "near_single": true,
+        "two_remnants": true,
+        "bounded_end": true,
+        "end_changed": true,
+        "far_single": true,
+        "valid": true,
+        "no_overlap": true,
+        "no_invalid": true,
+        "reopen": true
+      }
+    },
+    {
+      "kind": "sphere",
+      "variant": "p_mirror",
+      "initial": {
+        "AllRemnants": {
+          "valid": true,
+          "solids": 2,
+          "volume": 6084.592598856078,
+          "zmin": 0.0,
+          "zmax": 100.0
+        },
+        "Near": {
+          "valid": true,
+          "solids": 1,
+          "volume": 3042.2963003575105,
+          "zmin": 0.0,
+          "zmax": 31.291713066130296
+        },
+        "InsideTarget": {
+          "valid": true,
+          "solids": 1,
+          "volume": 3915.407401144965,
+          "zmin": 30.0,
+          "zmax": 70.0
+        },
+        "FarEnd": {
+          "valid": true,
+          "solids": 1,
+          "volume": 6957.703699899509,
+          "zmin": 0.0,
+          "zmax": 70.0
+        },
+        "TargetWithSocket": {
+          "valid": true,
+          "solids": 1,
+          "volume": 29594.91423685216,
+          "zmin": 30.62962570724325,
+          "zmax": 69.37037429275675
+        },
+        "SliceBySolid": {
+          "valid": true,
+          "solids": 3,
+          "volume": 10000.0,
+          "zmin": 0.0,
+          "zmax": 100.0
+        },
+        "Fragments": {
+          "valid": true,
+          "solids": 4,
+          "volume": 39594.91423714658,
+          "zmin": 0.0,
+          "zmax": 100.0
+        }
+      },
+      "modified": {
+        "Near": {
+          "valid": true,
+          "solids": 1,
+          "volume": 3491.234051762456,
+          "zmin": 0.0,
+          "zmax": 35.75811859510614
+        },
+        "FarEnd": {
+          "valid": true,
+          "solids": 1,
+          "volume": 7508.765948562706,
+          "zmin": 0.0,
+          "zmax": 75.5
+        },
+        "TargetWithSocket": {
+          "valid": true,
+          "solids": 1,
+          "volume": 32069.4193141915,
+          "zmin": 35.113795139655636,
+          "zmax": 74.88620486034436
+        }
+      },
+      "all_graph_recompute_ms": [
+        222.1071669991943,
+        316.1996669950895,
+        240.5638749987702,
+        226.35366699978476,
+        221.07570799562382
+      ],
+      "invalid_states": {},
+      "socket_overlap": 0.0,
+      "feature_ms": {
+        "AllRemnants": [
+          133.53941700188443,
+          140.99237500340678,
+          131.33758399635553
+        ],
+        "Near": [
+          101.87500000029104,
+          105.41387499688426,
+          103.87137500219978
+        ],
+        "InsideTarget": [
+          115.34662500343984,
+          116.50216700218152,
+          117.38141599926166
+        ],
+        "FarEnd": [
+          100.89233300095657,
+          105.65562499687076,
+          95.01945800002431
+        ],
+        "TargetWithSocket": [
+          44.63745799876051,
+          36.6485830018064,
+          42.42937499657273
+        ],
+        "SliceBySolid": [
+          33.520999997563194,
+          38.18974999740021,
+          34.771500002534594
+        ],
+        "Fragments": [
+          35.691167002369184,
+          33.77533300226787,
+          40.08662499836646
+        ]
+      },
+      "face_probes": [
+        {
+          "surface": "Sphere",
+          "slice_solids": 3,
+          "halfspace_error": "module 'Part' has no attribute 'makeHalfSpace'"
+        }
+      ],
+      "reopen_equal": true,
+      "checks": {
+        "near_single": true,
+        "two_remnants": true,
+        "bounded_end": true,
+        "end_changed": true,
+        "far_single": true,
+        "valid": true,
+        "no_overlap": true,
+        "no_invalid": true,
+        "reopen": true
+      }
+    }
+  ],
+  "errors": []
+}
