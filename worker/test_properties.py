@@ -136,6 +136,11 @@ edge_session.sync(edge_ops+[dict(type='move',id='raise',targets=['b2'],vector=[0
 check('edge push follows raised rail',abs(piece_volume()-450000)<0.01)
 edge_session.sync(edge_ops[:-1])
 check('one undo removes the extruded piece and fit','b1' not in edge_session.model.bodies())
+# The three end conditions through a push (I41), here to a level rail: all three give the same 400000 mm3.
+for mode in (1, 2):
+    edge_session.sync(rail + [base_ops[0], dict(new_leg, id='pp1_'+str(mode), edge_fit={'target_body':'b2','face':4,'fit_mode':mode})])
+    check('push end condition '+str(mode)+' is stored', edge_session.model.body('b1').Tip.SSMode == mode and abs(piece_volume()-400000)<0.01)
+edge_session.sync(edge_ops)
 # Pull the low end of a board down to a rail. Replacing its length keeps the high end fixed.
 raised_leg = dict(base_ops[0],plane={'normal':[0,0,1],'origin':[0,0,200]})
 low_fit = dict(type='push_pull',id='low',target={'face':{'body':'b1','normal':[0,0,-1],'point':[40,20,200]}},

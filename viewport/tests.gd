@@ -1718,6 +1718,15 @@ func _q_properties() -> void:
 	var face_interior := Vector3(-20,-10,100) + Vector3(tilt.z,0,-tilt.x)*60 + Vector3.UP*32 + tilt*10
 	await _drag_to(face_interior,12)
 	_ok("drag onto target face offers live fit",m.tools.push.state.get("edge_fit",{}).get("face",-1)==5,[m.tools.push.tip(),m.pick(m.cursor2d.position),m.tools.push.state.get("body")])
+	if m.tools.push.state.has("edge_fit"):        # I41: Option cycles Butt -> Slice -> Fully reach -> Butt
+		var near: float = m.tools.push.state.dist
+		await _key(KEY_ALT)
+		var sliced: bool = m.tools.push.state.edge_fit.fit_mode == 1 and "Slice at plane" in m.tools.push.tip()
+		await _key(KEY_ALT)
+		var far: float = m.tools.push.state.dist
+		await _key(KEY_ALT)
+		_ok("Option cycles the end condition", sliced and far > near + 1.0 and m.tools.push.state.edge_fit.fit_mode == 0
+				and absf(m.tools.push.state.dist - near) < 0.01, [near, far, m.tools.push.tip()])
 	var rail_midpoint := Vector3(-20,30,100) + tilt*10
 	await _drag_to(rail_midpoint,12)
 	_ok("push midpoint infers adjacent rail face",m.tools.push.state.get("snap","") == "midpoint" and m.tools.push.state.get("edge_fit",{}).get("face",-1) == 5,m.tools.push.tip())
@@ -1730,10 +1739,12 @@ func _q_properties() -> void:
 		await _key(KEY_TAB)
 		_ok("Tab previews the adjacent face",edge_tool.state.edge_fit.face != initial,edge_tool.tip())
 		await _key(KEY_TAB)
+		await _key(KEY_ALT)                       # Slice at plane: the draft's end lies on the tilted rail
 		await _shot("push_edge_inferred_face")
 		await _press()
 		await _wait_confirm()
-		_ok("edge fit saved in a single push",m.ops.back().get("edge_fit",{}).get("face",-1)==initial and m.stock_frames.b1.fitted,m.ops.back())
+		_ok("edge fit saved in a single push",m.ops.back().get("edge_fit",{}).get("face",-1)==initial and m.stock_frames.b1.fitted
+				and m.ops.back().edge_fit.get("fit_mode",-1) == 1 and "Slice at plane" in str(m.stock_frames.b1.result),m.ops.back())
 	# All three incident planes are reachable for this small piece under a doubly tilted rail.
 	var corner_scene := _plank(1,Vector3(-18,-18,0),Vector3(8,8,15))
 	var corner_target := _plank(2,Vector3(0,0,150),Vector3(70,60,12))

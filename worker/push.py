@@ -62,7 +62,7 @@ class PushActions:
             if axis is None:
                 raise OpError("Source face no longer matches the chosen dimension")
             return plane_fit.apply(self, dict(body=source_id, target_body=fit["target_body"],
-                                   axis=axis, face=fit["face"], fit_mode=0, reverse=frame[2][axis].dot(normal)<0))
+                                   axis=axis, face=fit["face"], fit_mode=fit.get("fit_mode", 0), reverse=frame[2][axis].dot(normal)<0))
         if "face" in tgt and not fit:
             import plane_fit
             board = self.body(tgt["face"]["body"])
@@ -111,7 +111,7 @@ class PushActions:
                 raise OpError("the push didn't make a solid")
             if fit:
                 import plane_fit
-                return plane_fit.apply(self, dict(body=bid,target_body=fit["target_body"],axis=2,face=fit["face"],fit_mode=0))
+                return plane_fit.apply(self, dict(body=bid,target_body=fit["target_body"],axis=2,face=fit["face"],fit_mode=fit.get("fit_mode", 0)))
             return [bid]
 
         # draw-on-face edit: the extrusion lands in the target board's own frame

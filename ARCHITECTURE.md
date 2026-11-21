@@ -141,13 +141,14 @@ worker. The prototype supports one fitted dimension per plain rectangular board 
 Session.export includes the rectangular stock frame and current label in each
 eligible bodies.json entry (`stock_frame`; `presenter.gd` keeps them as `stock_frames`, remembered with each confirmed state). Push/Pull uses the inference engine's corner, edge and edge-midpoint snaps and this frame to rank reachable
 adjacent planes by alignment with the push, breaking ties with the last hovered face. Tab cycles the candidates.
-Committing a click carries the semantic target in `push_pull.edge_fit` and builds the source and fit in one
+⌥ Option cycles the end condition (I41). Committing a click carries the semantic target in `push_pull.edge_fit` (`target_body`, `face`, `fit_mode` 0 Butt / 1 Slice / 2 Fully reach; absent = Butt) and builds the source and fit in one
 transaction. A fit on the low end anchors the opposite end through SSReverse. A direct hit on a different stock face can also create the link. A corner can supply up to three reachable planes. Typed pushes retain their numeric distance. Clicking a dimension text field arms a
 one-click reference to a face, corner, edge or midpoint. The click commits the most aligned reachable plane with the
 selected fit mode. The explicit picker still previews before Apply. Confirmed and restored viewport meshes
 refresh selection tint and discard idle hover geometry. For a numeric pull of an entire ordinary stock face the viewport sends
 `push_pull.resize_stock`. The worker changes the native dimension and anchors the opposite end. Earlier journals
-without this flag replay their original Boolean feature history.
+without this flag replay their original Boolean feature history. A face push on a fitted board's tied end detaches the fit (I26b, I40): a square end is restored to
+the native extrusion at its current length and resized; a sloped end keeps its shape with an empty `SSTargetId`.
 
 Select one piece and open Properties. The panel lists the piece and its native dependency chain, including shared component definitions; it can also insert native object names into expression fields. FreeCAD owns the property schema, value and expression. Godot holds an inspection snapshot and provisional edit text, not an independent property database.
 

@@ -715,18 +715,24 @@ static func unique_verts(tris: PackedVector3Array) -> PackedVector3Array:
 
 static func prism(tris: PackedVector3Array, n: Vector3, d: float) -> PackedVector3Array:
 	var o := n * d
+	return prism_by(tris, func(_p: Vector3) -> Vector3: return o)
+
+
+static func prism_by(tris: PackedVector3Array, offset: Callable) -> PackedVector3Array:
+	"""A face swept out: each corner moves by offset(corner) (the same for a square end, its own for a sloped one)."""
 	var out := PackedVector3Array()
 	var edges := {}
 	for i in range(0, tris.size(), 3):
 		var a := tris[i]; var b := tris[i + 1]; var c := tris[i + 2]
-		out.append_array([a, b, c, a + o, b + o, c + o])
+		out.append_array([a, b, c, a + offset.call(a), b + offset.call(b), c + offset.call(c)])
 		for e in [[a, b], [b, c], [c, a]]:
 			var k := _ekey(e[0], e[1])
 			edges[k] = [e[0], e[1], edges.get(k, [0, 0, 0])[2] + 1]
 	for k in edges:
 		if edges[k][2] == 1:
 			var p: Vector3 = edges[k][0]; var q: Vector3 = edges[k][1]
-			out.append_array([p, q, q + o, p, q + o, p + o])
+			var po: Vector3 = p + offset.call(p); var qo: Vector3 = q + offset.call(q)
+			out.append_array([p, q, qo, p, qo, po])
 	return out
 
 

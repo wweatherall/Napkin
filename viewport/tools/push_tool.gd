@@ -3,6 +3,7 @@ extends "res://tools/tool.gd"
 
 var state := {}
 var face_highlight: MeshInstance3D
+const FIT_MODES := ["Butt to plane", "Slice at plane", "Fully reach plane"]   # I41: ⌥ Option cycles them
 var hover := {}          # the face or rectangle under the cursor
 
 
@@ -52,7 +53,8 @@ func tip() -> String:
 	if state.has("edge_fit"):
 		var fit: Dictionary = state.edge_fit
 		var face: String = ["Left","Right","Front","Back","Bottom","Top"][fit.face]
-		return "%s → %s face%s" % [state.edge_label,face," · Tab to switch" if state.options.size() > 1 else ""]
+		return "%s → %s face · %s · ⌥ end%s" % [state.edge_label, face, FIT_MODES[state.get("fit_mode", 0)],
+				" · Tab face" if state.options.size() > 1 else ""]
 	return "to " + state["snap"] if state.get("active", false) and state.get("snap", "") != "" else ""
 
 
@@ -215,13 +217,16 @@ func _edge_inference(pt: Dictionary, screen: Vector2) -> void:
 				if face_normal.dot(pt.normal) < 0.999: continue
 			elif absf(normal.dot(edge_point-plane_point)) > 0.002: continue
 			var depth := INF
+			var far := -INF
 			for corner in state.tris:
 				depth = minf(depth,normal.dot(plane_point-corner)/denom)
+				far = maxf(far,normal.dot(plane_point-corner)/denom)
 			if depth + source_size <= 0.001 or absf(depth) < 0.5: continue
 			var outward := normal if side else -normal
 			var last: Dictionary = state.get("last_hover",{})
 			var hovered: bool = last.get("body","") == body and outward.dot(last.normal) > 0.999
-			options.append({"face":2*i+side,"distance":depth*push.dot(state.n),"normal":outward,"score":snappedf(absf(denom),0.001),"hovered":hovered})
+			options.append({"face":2*i+side,"distance":depth*push.dot(state.n),"far":far*push.dot(state.n),"normal":outward,
+					"plane_point":plane_point,"plane_normal":normal,"push":push,"score":snappedf(absf(denom),0.001),"hovered":hovered})
 	if options.is_empty(): return
 	options.sort_custom(func(a,b):
 		if a.score != b.score: return a.score > b.score
@@ -245,8 +250,9 @@ func _edge_inference(pt: Dictionary, screen: Vector2) -> void:
 func _choose_face(index: int) -> void:
 	var option: Dictionary = state.options[index]
 	state["choice"] = index
-	state["dist"] = option.distance
-	state["edge_fit"] = {"target_body":state.edge_body,"face":option.face}
+	var mode: int = state.get("fit_mode", 0)
+	state["dist"] = option.far if mode == 2 else option.distance      # Fully reach: square at the last contact
+	state["edge_fit"] = {"target_body":state.edge_body,"face":option.face,"fit_mode":mode}
 	if not is_instance_valid(face_highlight):
 		face_highlight = MeshInstance3D.new()
 		m.add_child(face_highlight)
@@ -255,18 +261,33 @@ func _choose_face(index: int) -> void:
 
 
 func key(e: InputEventKey) -> bool:
-	if e.keycode != KEY_TAB or not state.has("edge_fit"): return false
-	_choose_face((state.choice+1)%state.options.size())
+	"""Pushing into a face (I40, I41): Tab switches the face, ⌥ Option the end condition (it holds for this push)."""
+	if e.keycode not in [KEY_TAB, KEY_ALT] or not state.has("edge_fit"): return false
+	if e.keycode == KEY_ALT:
+		state["fit_mode"] = (state.get("fit_mode", 0) + 1) % FIT_MODES.size()
+		_choose_face(state.choice)
+	else:
+		_choose_face((state.choice+1)%state.options.size())
 	_preview_push(state.dist)
 	m._update_vcb()
 	m._update_tip(state.edge_screen)
 	return true
 
 
+func _push_shape(d: float) -> PackedVector3Array:
+	"""What the push makes: a prism of d, or, sliced at a face's plane (I41), each corner run to that plane."""
+	if state.get("edge_fit", {}).get("fit_mode", 0) == 1 and state.has("options"):
+		var o: Dictionary = state.options[state.choice]
+		var pp: Vector3 = o.plane_point; var pn: Vector3 = o.plane_normal; var push: Vector3 = o.push
+		var denom := pn.dot(push)
+		return Main.prism_by(state["tris"], func(p: Vector3) -> Vector3: return push * (pn.dot(pp - p) / denom))
+	return Main.prism(state["tris"], state["n"], d)
+
+
 func _preview_push(d: float) -> void:
 	if absf(d) < 0.5:
 		m.overlay.mesh = m._tri_mesh(state["tris"], m.mat_hover); m.overlay_lines.mesh = null; return
-	var pr := Main.prism(state["tris"], state["n"], d)
+	var pr := _push_shape(d)
 	m.overlay.mesh = m._tri_mesh(pr, m.mat_cut if d < 0 else m.mat_draft)
 	m.overlay_lines.mesh = m._lines(Main.feature_edges(pr), Color(0.6, 0.35, 0.0)).mesh
 
@@ -304,7 +325,7 @@ func commit_push(d: float, edge_fit := {}) -> void:
 		op["resize_stock"] = true
 	m.ops.append(op)
 	var end_point: Vector3 = state["anchor"] + state["n"] * d   # on the moved face, under the cursor's axis
-	var pr := Main.prism(state["tris"], state["n"], d)
+	var pr := _push_shape(d)
 	var nodes := _add_push_draft(op, pr, d, new_id)
 	if m.test_mode and new_id != "":
 		var lo := Vector3(INF, INF, INF); var hi := -lo
