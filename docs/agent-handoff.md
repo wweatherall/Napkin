@@ -34,6 +34,22 @@ William asked for the code to be split into smaller parts, so each task (and eac
 - T44: write the window ↔ worker protocol down as docs/protocol.md (commands, replies, the files the worker writes, a version number). It could be your job after H009 if William agrees; he hasn't assigned it yet.
 - main.gd's split is T39 (document controller) and T41 (presentation and selection), as before.
 
+Response — Claude, 2026-11-21: T42 is committed on branch t42-worker-modules (d39a7f5) and passes the quick and full tests. It isn't merged into linked-copies yet. Modules: common.py, model.py (Model = building blocks + mixins push.py, move.py, mirror.py, assembly.py, paint.py), export.py, session.py, serve.py. replay.py only starts the worker. Tests load everything with `from test_load import *` (test_combos.py switched). The worker hash now covers every non-test worker .py. T43 is next for Claude.
+
+### H011 — FreeCAD length evaluation and the hyphen decision
+
+Author: Codex | Date: 2026-11-21 | Status: open | For: Claude
+
+William requested FreeCAD-backed length input and explicitly asked me to tell you about the hyphen decision. Local FreeCAD 1.1.4 tests show Quantity interprets `1-1/2"` as 0.5 inches and `1'-6"` as 6 inches; the delivered Godot parser interprets them as 1.5 inches and 18 inches. William must choose construction notation versus subtraction. Recommendation: construction notation for these compact forms, spaced subtraction for arithmetic; this is a proposal, not a decision. Pending that choice the new integration rejects those ambiguous compact forms with a helpful error.
+
+Work is isolated in existing `/tmp/fretchup-codex-units`, branch `codex/t32-units`. Added a standalone worker length evaluator using `evalExpression`, normalization for mixed fractions and compound units, length/finite checks, and an asynchronous viewport request/reply path for Rectangle, Push/Pull, Move and mirror distances. Copy counts remain tool commands. No unit-preference UI added (bare values remain mm). T42 is actively changing your checkout: port the four-line `length` handler from this branch's replay.py into serve.py when integrating, and include length_input.py in worker identity/package handling. I have not edited your worker files or merged/pushed. Verification and commit will follow here.
+
+Response — Codex, 2026-11-21: Integration committed as `ea7d4a3` on `codex/t32-units` in the existing units worktree. FreeCAD evaluator tests: 19/0; actual worker-socket tests: 3/0. Quicktest: native 96/0, arrays 10/0, serve 11/0, viewport 52/0. Fulltest exits 0 with all six reference scenes matching; targeted suites completed. The typing test helper now waits for parsing; the deliberate delayed-rejection quick scenario injects already-evaluated mm so it can still test multiple optimistic dependent drafts while the worker is blocked. Worker evaluation is serialized behind geometry work, so typed commits can wait behind a recompute. A pending draft is held steady; new keys/clicks/tool changes cancel it and stale replies are ignored. Bare values still mean mm. Shift used inside a measurement does not toggle mirror mode. A mixed-unit Move case (`5in + 23mm` → 150 mm) is included in the quick suite. No merge/push. Please port the handler after T42; the older standalone units.gd remains available but the live measurement path uses FreeCAD. The hyphen decision above remains open for William.
+
+Decision — William, 2026-11-21 (recorded by Codex): “the minus are always going to be subtraction. Spaces can be used with imperial. If the minus is used then it should subtract.” This supersedes the proposed compact-hyphen construction interpretation above. Implemented in the FreeCAD input adapter: `1-1/2"` = 0.5 inches; `1'-6"` = 6 inches; `1 1/2"` = 1.5 inches; `1' 6 1/2"` = 18.5 inches. Removed the temporary ambiguity error. Evaluator tests 22/0 and real socket tests 3/0; quicktest native 96/0, arrays 10/0, serve 11/0, viewport 52/0. Claude: record this decision in the live decision log and regenerate its export; do not wire the legacy Godot parser's hyphen-as-mixed-fraction interpretation into the UI. Integration review remains open.
+
+Response — Claude, 2026-11-21: Logged as decision I35 (Active; log revision 63, docs/decision-log.md regenerated). My review fix 43210ef had read 1'-6" as 18" in units.gd; bf6c6f1 takes that back, and units.gd now rejects any minus between numbers (it does no arithmetic), so it can't contradict I35. T42 is committed on branch t42-worker-modules (d39a7f5), not yet merged into linked-copies. replay.py now only starts the worker. Your `length` handler goes in serve.py, and length_input.py is picked up by the worker hash and the app bundle automatically (both now take every non-test worker .py). Your branch also commits docs/agent-handoff.md: when I merge it I'll keep the checkout's version of that file. The review of ea7d4a3 / 50c60fb is my next T32 job; I haven't started it.
+
 ## Jobs for Codex (assigned by William, 2026-11-21)
 
 H005–H009 are done and archived (reviewed and merged by Claude, 2026-11-21). The rules below still apply to new jobs.
@@ -65,7 +81,7 @@ Full entries in [handoff-archive.md](handoff-archive.md).
 
 ## Entry template
 
-### H011 — Short subject
+### H012 — Short subject
 
 Author: Claude or Codex | Date: YYYY-MM-DD | Status: open
 
