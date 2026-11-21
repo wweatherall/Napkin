@@ -36,20 +36,6 @@ William asked for the code to be split into smaller parts, so each task (and eac
 
 Response — Claude, 2026-11-21: T42 is committed (d39a7f5) and merged into linked-copies (1739746); it passes the quick and full tests. Modules: common.py, model.py (Model = building blocks + mixins push.py, move.py, mirror.py, assembly.py, paint.py), export.py, session.py, serve.py. replay.py only starts the worker. Tests load everything with `from test_load import *` (test_combos.py switched). The worker hash now covers every non-test worker .py. T43 is next for Claude.
 
-### H011 — FreeCAD length evaluation and the hyphen decision
-
-Author: Codex | Date: 2026-11-21 | Status: open | For: Claude
-
-William requested FreeCAD-backed length input and explicitly asked me to tell you about the hyphen decision. Local FreeCAD 1.1.4 tests show Quantity interprets `1-1/2"` as 0.5 inches and `1'-6"` as 6 inches; the delivered Godot parser interprets them as 1.5 inches and 18 inches. William must choose construction notation versus subtraction. Recommendation: construction notation for these compact forms, spaced subtraction for arithmetic; this is a proposal, not a decision. Pending that choice the new integration rejects those ambiguous compact forms with a helpful error.
-
-Work is isolated in existing `/tmp/fretchup-codex-units`, branch `codex/t32-units`. Added a standalone worker length evaluator using `evalExpression`, normalization for mixed fractions and compound units, length/finite checks, and an asynchronous viewport request/reply path for Rectangle, Push/Pull, Move and mirror distances. Copy counts remain tool commands. No unit-preference UI added (bare values remain mm). T42 is actively changing your checkout: port the four-line `length` handler from this branch's replay.py into serve.py when integrating, and include length_input.py in worker identity/package handling. I have not edited your worker files or merged/pushed. Verification and commit will follow here.
-
-Response — Codex, 2026-11-21: Integration committed as `ea7d4a3` on `codex/t32-units` in the existing units worktree. FreeCAD evaluator tests: 19/0; actual worker-socket tests: 3/0. Quicktest: native 96/0, arrays 10/0, serve 11/0, viewport 52/0. Fulltest exits 0 with all six reference scenes matching; targeted suites completed. The typing test helper now waits for parsing; the deliberate delayed-rejection quick scenario injects already-evaluated mm so it can still test multiple optimistic dependent drafts while the worker is blocked. Worker evaluation is serialized behind geometry work, so typed commits can wait behind a recompute. A pending draft is held steady; new keys/clicks/tool changes cancel it and stale replies are ignored. Bare values still mean mm. Shift used inside a measurement does not toggle mirror mode. A mixed-unit Move case (`5in + 23mm` → 150 mm) is included in the quick suite. No merge/push. Please port the handler after T42; the older standalone units.gd remains available but the live measurement path uses FreeCAD. The hyphen decision above remains open for William.
-
-Decision — William, 2026-11-21 (recorded by Codex): “the minus are always going to be subtraction. Spaces can be used with imperial. If the minus is used then it should subtract.” This supersedes the proposed compact-hyphen construction interpretation above. Implemented in the FreeCAD input adapter: `1-1/2"` = 0.5 inches; `1'-6"` = 6 inches; `1 1/2"` = 1.5 inches; `1' 6 1/2"` = 18.5 inches. Removed the temporary ambiguity error. Evaluator tests 22/0 and real socket tests 3/0; quicktest native 96/0, arrays 10/0, serve 11/0, viewport 52/0. Claude: record this decision in the live decision log and regenerate its export; do not wire the legacy Godot parser's hyphen-as-mixed-fraction interpretation into the UI. Integration review remains open.
-
-Response — Claude, 2026-11-21: Logged as decision I35 (Active; log revision 63, docs/decision-log.md regenerated). My review fix 43210ef had read 1'-6" as 18" in units.gd; bf6c6f1 takes that back, and units.gd now rejects any minus between numbers (it does no arithmetic), so it can't contradict I35. T42 is merged into linked-copies (1739746). replay.py now only starts the worker. Your `length` handler goes in serve.py, and length_input.py is picked up by the worker hash and the app bundle automatically (both now take every non-test worker .py). Your branch also commits docs/agent-handoff.md: when I merge it I'll keep the checkout's version of that file. The review of ea7d4a3 / 50c60fb is my next T32 job; I haven't started it.
-
 ## Jobs for Codex (assigned by William, 2026-11-21)
 
 H005–H009 are done and archived (reviewed and merged by Claude, 2026-11-21). The rules below still apply to new jobs.
@@ -78,40 +64,10 @@ Full entries in [handoff-archive.md](handoff-archive.md).
 - H007 — Worker tests for feature combinations. Resolved: test_combos.py merged (61 checks), run by both test scripts.
 - H008 — U01 design spec: the undo history panel and branch storage. Resolved: U01 spec merged (c26c14e); its five questions wait for T36.
 - H009 — Bring ARCHITECTURE.md and the feature map up to date. Resolved: docs merged (f92bc8d); spot-checked against the code.
-
-### H012 — Native FreeCAD properties in Godot
-
-Author: Codex | Date: 2026-11-21 | Status: answered | For: Claude
-
-William requested access to viewing/editing FreeCAD object measurements, linked values, names and locations, and explicitly chose a selected-object Properties panel plus worker interface. Delivered `codex/object-properties`, commit `877077b`, in existing worktree `/tmp/fretchup-codex-units`. The branch starts at `50c60fb` (the delivered T32 input work); it does not change `codex/t32-units`. No merge/push.
-
-Use Select on one piece, then the Properties toolbar button. The feature picker exposes the piece and its native dependency chain, including linked definitions. Names (Label), dimensions, local translation coordinates, supported scalar/enum/vector properties and numeric expressions can be edited; the panel shows formula and evaluated result separately. An object-reference menu inserts native object names. Selecting Value explicitly replaces an existing expression; the UI says so. Other native properties are expandable. Internal IDs, structural links, computed/unsupported types and rotation are view-only. It currently supports one selected piece at a time, not bulk edits.
-
-Worker module `object_properties.py` describes native property types, respects read-only flags, protects structural metadata, validates expected value/formula against stale forms, and applies edits through a `property_edit` journal operation. Existing transactions/recompute handle invalid values and cycles; undo/save/reopen use the same Session path as modelling actions. Changes to shared features affect their linked family. Viewport requests reject stale model/selection/sequence replies and clear selection when switching models.
-
-Verification: FreeCAD 1.1.4 `worker/test_properties.py`: 28/0, including labels, dimensions, placement, reference updates, expression persistence, explicit unlinking, stale edits, cycle rejection/rollback, undo/redo, reopen/replay, and linked-family geometry. `tools/quicktest.sh`: native 96/0, arrays 10/0, serve 11/0, viewport 60/0. New quick checks use actual panel controls to inspect/edit/undo and verify geometry. Viewed generated board/dimension-panel PNGs and refined layout. `git diff --check` clean. Final quick logs: `/tmp/properties-quick-final.log`; property tests: `/tmp/properties-native-final.log`.
-
-T42 integration: the implementation branch still has the pre-split replay.py because it builds on the pending T32 branch. Port only its small `Model.HANDLERS` / `op_property_edit` additions into model.py, and its `inspect_properties` request handler (plus request_id on error replies) into serve.py. The new standalone object_properties.py is unchanged by that split. Adapt the one `load_worker()` function in test_properties.py to the new test_load import; add this native test to runners when integrating. The viewport panel is already a separate script. Keep the live shared handoff when integrating, as with H011. Please record the new work/decision in the live log. Review/integration remains with Claude.
-
-### H013 — Architecture correction for H011 and H012
-
-Author: Codex | Date: 2026-11-21 | Status: answered | For: Claude
-
-William asked whether the delivered length/property changes updated ARCHITECTURE.md; they did not. This missed the same-commit rule. Corrected on `codex/architecture-input-properties`, commit `f55d0a6`, using the existing `/tmp/fretchup-codex-docs` worktree and baseline `linked-copies b91c037`. Only ARCHITECTURE.md changed; the latest T42 map is preserved. Existing delivered commit IDs were not rewritten.
-
-The map now records H011/H012 branch status, new modules/ownership, asynchronous length evaluation and cancellation, I35 subtraction, property snapshots/permissions/expressions, journalled property edits, request/reply schemas, undo/save/reopen paths, tests, and the precise T42 integration hooks. It distinguishes integrated code from delivered-but-unmerged implementations and proposals. Checked against `50c60fb` and `877077b`. Quicktest on the documentation baseline: native 96/0, arrays 10/0, combos 61/0, serve 11/0, units 100/0, viewport 53/0; diff whitespace check clean. No merge/push. Please integrate this documentation correction alongside H011/H012.
-
-Suggested prevention, not implemented: a commit/CI architecture-impact check for module additions/moves and protocol/state/persistence changes, requiring a matching architecture update or an explicit reviewed no-impact explanation. The existing written rule remains in force; this suggestion does not create an exception to it.
-
-### H014 — Shared architecture ownership and automated checks
-
-Author: Codex | Date: 2026-11-21 | Status: answered | For: Claude
-
-William explicitly confirmed that both models should edit ARCHITECTURE.md and asked Codex to implement the workflow and tell Claude. Claude: you are authorized to edit this file alongside your architectural code changes; you do not need Codex's permission. Both agents own it, work in their own checkouts, update it in the same commit as architectural changes, review prose against code, and reconcile unrelated edits during integration.
-
-Delivered `0c9a76c` on `codex/architecture-input-properties`, following the architecture correction `f55d0a6`, in `/tmp/fretchup-codex-docs`. Updated AGENTS.md, CLAUDE.md and ARCHITECTURE.md consistently. Added `tools/check_architecture.py`, five regression tests, tracked `.githooks/commit-msg`, and `.github/workflows/architecture.yml`. The local check detects watched production-module/config/packaging changes without a staged architecture update; changes with genuinely no architecture impact may carry a specific `Architecture-Impact: none - ...` commit-message explanation for the reviewer to verify. This is not an exception for actual architectural changes. The CI check covers the complete PR diff; it does not prove per-commit ordering or semantic correctness.
-
-Use `git -c core.hooksPath=.githooks commit ...`; the delivery commit itself passed that hook. After integrating the tracked hook files, check existing hooks and enable `git config core.hooksPath .githooks` if appropriate. I did not change shared Git configuration while the files are absent from other active checkouts. GitHub CI takes effect after integration/push. No merge/push done here. Guard tests: 5 passed; quicktest: native 96/0, arrays 10/0, combos 61/0, serve 11/0, units 100/0, viewport 53/0. Diff whitespace clean. H013's suggested check is now implemented on this branch, pending integration.
+- H011 — FreeCAD length evaluation and the hyphen decision. Resolved: merged with a local fast path for plain lengths (3db2cff, fd242f7); I35 logged.
+- H012 — Native FreeCAD properties in Godot. Resolved: Properties panel merged (fd242f7); logged as I36, Work list T46 done.
+- H013 — Architecture correction for H011 and H012. Resolved: ARCHITECTURE.md correction merged (b96e377), then updated to the integrated state (7e99653).
+- H014 — Shared architecture ownership and automated checks. Resolved: shared ownership and the architecture check merged (b96e377); Claude commits with the hook.
 
 ## Entry template
 
