@@ -1331,6 +1331,33 @@ func _run_quick_test() -> void:
 	fp_new = fp_ids.back() if fp_ids.size() == 4 else ""
 	_ok("typing 20 stands the plane 20 off the face: z 142..160", fp_new != "" and _bbox(fp_new)[2] == 142.0, [fp_ids, _bbox(fp_new) if fp_new != "" else []])
 
+	# 5f. Wood (T15): pick a wood, paint a board, the board shows it; T turns its grain
+	await _fresh("wood", _plank(1, Vector3.ZERO, Vector3(600, 90, 19)))
+	await _view(Vector3(560, 45, 10), -50, -25, 0.5)
+	m.set_paint_material("black-walnut")
+	_ok("picking a wood switches to Paint", m.tool == "paint", m.tool)
+	await _click_at(Vector3(300, 45, 19))
+	await _wait_wave()
+	await _frames(30)
+	var wb: Dictionary = _bodies().get("b1", {})
+	var node: MeshInstance3D = m.bodies_root.get_node_or_null("b1")
+	var smat = node.mesh.surface_get_material(0) if node != null else null
+	_ok("painted walnut: FreeCAD has it, the board shows the wood shader", wb.get("material", "") == "black-walnut"
+		and smat is ShaderMaterial and smat.shader == m.WOOD, [wb.get("material", ""), smat])
+	await _drag_to(Vector3(700, 300, 0), 3)       # off the board: no hover highlight
+	await _shot("wood_walnut")
+	await _view(Vector3(600, 45, 10), 60, -12, 0.13)
+	await _drag_to(Vector3(700, 300, 0), 2)
+	await _shot("wood_walnut_end")
+	await _view(Vector3(560, 45, 10), -50, -25, 0.5)
+	await _drag_to(Vector3(500, 45, 19), 3)
+	await _key(KEY_T)
+	await _wait_wave()
+	_ok("T turns the grain across the board", _bodies()["b1"].get("grain", []) == [0.0, 1.0, 0.0], _bodies()["b1"].get("grain", []))
+	await _drag_to(Vector3(700, 300, 0), 2)
+	await _frames(20)
+	await _shot("wood_walnut_turned")
+
 	# 6. Undo (A28): every undo shows at once, the 21st rebuilds in FreeCAD
 	await _fresh("undo")
 	var seen := {0: []}

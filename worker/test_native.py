@@ -619,4 +619,47 @@ check("bodies.json gives the copy's mirror plane", ent["b2"]["mirror_plane"] and
 check("statuses all ok", all(st == "ok" for _, st in statuses(s)), [x for x in statuses(s) if x[1] != "ok"])
 s.close()
 
+# ---------- P. materials and grain (T15, M03) ----------
+NP = [ground_rect("r1", [0, 0, 0], [600, 90]), push("p1", "r1", 19, "b1"),
+      {"id": "sm1", "type": "set_material", "targets": ["b1"], "material": "white-oak"}]
+s = Session(None)
+s.sync(NP)
+tip = s.model.body("b1").Tip
+check("painting puts FreeCAD's White Oak card on the board's solid", tip.ShapeMaterial.Name == "White Oak", tip.ShapeMaterial.Name)
+NP += [face_rect("rp1", "b1", [300, 45, 19], [20, 20]), push("pp1", "rp1", -19)]
+s.sync(NP)
+tip2 = s.model.body("b1").Tip
+check("the material moves on to the new solid after a cut", tip2 is not tip and tip2.ShapeMaterial.Name == "White Oak",
+      (tip2.Name, tip2.ShapeMaterial.Name))
+s.export(os.path.join(tmp, "p_out"))
+ent = {e["id"]: e for e in json.load(open(os.path.join(tmp, "p_out", "bodies.json")))}
+check("bodies.json: material, its colour, grain along the longest edge",
+      ent["b1"]["material"] == "white-oak" and abs(ent["b1"]["color"][0] - 0.809) < 1e-6 and ent["b1"]["grain"] == [1, 0, 0],
+      {k: ent["b1"][k] for k in ("material", "color", "grain")})
+lib = json.load(open(os.path.join(tmp, "p_out", "materials.json")))
+check("materials.json lists the 12 woods with face and end textures", len(lib) == 12 and all(
+      os.path.exists(os.path.join(os.path.dirname(__file__), "..", "materials", "textures", x[f])) for x in lib for f in ("texture", "end_texture")),
+      [x["key"] for x in lib])
+NP += [{"id": "tg1", "type": "turn_grain", "targets": ["b1"]}]
+s.sync(NP)
+s.export(os.path.join(tmp, "p_out"))
+ent = {e["id"]: e for e in json.load(open(os.path.join(tmp, "p_out", "bodies.json")))}
+check("turning the grain puts it across the board (its middle edge)", ent["b1"]["grain"] == [0, 1, 0], ent["b1"]["grain"])
+NP += [{"id": "mvp", "type": "move", "targets": ["b1"], "vector": [0, 200, 0], "copy": True, "count": 1, "new_ids": ["b2"]},
+       {"id": "sm2", "type": "set_material", "targets": ["b2"], "material": "black-walnut"}]
+s.sync(NP)
+s.export(os.path.join(tmp, "p_out"))
+ent = {e["id"]: e for e in json.load(open(os.path.join(tmp, "p_out", "bodies.json")))}
+check("painting a linked copy paints the family", ent["b1"]["material"] == ent["b2"]["material"] == "black-walnut",
+      [ent["b1"]["material"], ent["b2"]["material"]])
+glb_path = os.path.join(tmp, "p_out", "model.glb")
+write_glb(s.model, glb_path)
+gj = json.loads(open(glb_path, "rb").read()[20:20 + struct.unpack("<I", open(glb_path, "rb").read()[12:16])[0]])
+wm = [mm for mm in gj["materials"] if mm.get("extras", {}).get("wood") == "Black Walnut"]
+check("model.glb (for Blender) carries the wood's textures and each board's grain",
+      len(wm) == 1 and os.path.exists(wm[0]["extras"]["end_texture"]) and all("grain_zup" in nd["extras"] for nd in gj["nodes"]),
+      [wm, [nd["extras"] for nd in gj["nodes"]]])
+check("statuses all ok", all(st == "ok" for _, st in statuses(s)), [x for x in statuses(s) if x[1] != "ok"])
+s.close()
+
 print(f"\nNATIVE TESTS: {R[0]} passed, {R[1]} failed")

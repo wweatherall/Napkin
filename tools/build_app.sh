@@ -14,7 +14,8 @@ echo "Packing the viewport..."
 "$GD" --headless --path viewport --export-pack "macOS" "$PWD/$C/Resources/Shop Sketch.pck" > dist/pack.log 2>&1 \
   || { tail -20 dist/pack.log; exit 1; }
 cp "$GD" "$C/MacOS/Shop Sketch"              # Godot runs "<its name>.pck" from Resources
-cp worker/replay.py worker/drawing.py "$C/Resources/worker/"
+cp worker/replay.py worker/drawing.py worker/materials.py "$C/Resources/worker/"
+mkdir -p "$C/Resources/materials" && cp -R materials/textures "$C/Resources/materials/"     # wood (T15)
 
 echo "Icon..."
 ICON_TMP=$(mktemp -d)

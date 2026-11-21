@@ -14,7 +14,7 @@ If you can't reach the log, say so; don't guess at what it says.
 - `viewport/` (Godot 4.6, Compatibility renderer): tools, instant drafts, the confirmation wave (T4 layout):
   `main.gd` setup, worker link, sync, drafts, waves, remembered states, input dispatch;
   `inference.gd` the one snapping engine (pick, endpoint > midpoint > on edge, axis inference);
-  `tools/select_tool.gd`, `rect_tool.gd`, `push_tool.gd`, `move_tool.gd` (base `tools/tool.gd`: each owns its state and gets
+  `tools/select_tool.gd`, `paint_tool.gd`, `rect_tool.gd`, `push_tool.gd`, `move_tool.gd` (base `tools/tool.gd`: each owns its state and gets
   mouse_moved / click / key / typed); `tests.gd` the scripted suites (added only in test mode).
   Tools and tests `preload("res://main.gd")` for typing; main.gd `load()`s them at runtime (no preload cycle,
   and no `class_name`: Godot run from the command line doesn't register new global class names).
@@ -52,7 +52,15 @@ If you can't reach the log, say so; don't guess at what it says.
   reflected. `move_assembly` moves each real board once and shifts each mirror's Base to keep it with the rest.
   A component instance is mirrored through a Part::Compound wrapper (`SSRole` = `mirror-input`, A26):
   released FreeCAD 1.1 mirrors an App::Link without its placement. Walk mirrors with `mirror_source()`, not `.Source`.
-  All Shop Sketch state lives on those objects (`BodyId`, `SSRole`, `RectId`, `SSMaterial`, `SSOp`).
+  All Shop Sketch state lives on those objects (`BodyId`, `SSRole`, `RectId`, `SSMaterial`, `SSOp`, `SSGrain`).
+  Wood (T15, M03): `worker/materials.py` is the library (Wood Handbook numbers, ambientCG CC0 textures in
+  `materials/textures`, `<key>_end.jpg` end grain). The worker installs it as FreeCAD cards in
+  `~/Library/Application Support/FreeCAD/v1-1/Material/Shop Sketch/` on first use and puts the card on the board's
+  current solid (`ShapeMaterial`; `set_tip` carries it to each new solid). `SSGrain` (board frame, zero = longest
+  edge) and the across-the-width direction go out in bodies.json; `materials.json` is the paint list. The viewport
+  draws painted boards with `wood.gdshader` (no UVs: laid out from world position along grain / across; end grain
+  is mirror-repeated). Board nodes are cached by mesh + material + grain, so a repaint rebuilds the look.
+  Paint tool (no key yet, Q14), Wood menu, T turns the grain of the board under the cursor.
 - `sync(ops)`: keep the common prefix, take back the rest with FreeCAD undo, apply new ops (A23).
   Autosave is atomic, after 0.25 s idle. The journal `<model>.shopsketch.json` sits beside the file (A24).
   Each save adds FreeCAD's view part (`GuiDocument.xml`, `write_gui_document`): without it FreeCAD opens the model
@@ -85,7 +93,7 @@ If you can't reach the log, say so; don't guess at what it says.
   `tools/fulltest.sh --update-reference`.
 - Both scripts first run `tools/parsecheck.sh` (every viewport script, ~3 s): a script that doesn't parse used to
   leave Godot sitting with no test running. The quick test's Godot run is also stopped after 120 s.
-- Worker tests alone: `freecadcmd worker/test_native.py` (86 checks) and `worker/test_arrays.py` (10).
+- Worker tests alone: `freecadcmd worker/test_native.py` (94 checks) and `worker/test_arrays.py` (10).
 - Visual checks (screenshots, no pass/fail): `--linetest`, `--zfighttest`; timing: `--perftest`. Recordings use
   `--true-latency` (P03) with Godot's `--write-movie`; `--heavytest --model=<file>`.
 - Test hooks (`delay_ms`, forced rejection, `--*test`) are for testing only (P02).

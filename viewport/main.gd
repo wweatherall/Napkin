@@ -11,7 +11,7 @@ const SNAP_PX := 14.0         # endpoint snap radius on screen
 
 # ---------------- state ----------------
 var ops: Array = []
-var counters := {"r": 0, "b": 0, "pp": 0, "m": 0, "mv": 0, "mu": 0, "dt": 0, "as": 0, "a": 0}
+var counters := {"r": 0, "b": 0, "pp": 0, "m": 0, "mv": 0, "mu": 0, "dt": 0, "as": 0, "a": 0, "sm": 0, "tg": 0}
 var seq := 0
 var in_flight := false
 var dirty := false
@@ -423,7 +423,7 @@ func _make_ui() -> void:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
 	bar.add_child(row)
-	row.add_child(_segments([["Select", "select", "Select (Space)"], ["Rectangle", "rect", "Rectangle (R)"], ["Push/Pull", "push", "Push/Pull (P)"], ["Move", "move", "Move (M)"]], false))
+	row.add_child(_segments([["Select", "select", "Select (Space)"], ["Paint", "paint", "Paint (pick the wood in the Wood menu)"], ["Rectangle", "rect", "Rectangle (R)"], ["Push/Pull", "push", "Push/Pull (P)"], ["Move", "move", "Move (M)"]], false))
 	for spec in [["Undo", "undo", "Undo (⌘Z)"], ["Drawing", "drawing", "Drawing and cut list (D)"]]:
 		var b := Button.new(); b.text = spec[0]; b.tooltip_text = spec[2]; b.focus_mode = Control.FOCUS_NONE
 		b.pressed.connect(_menu.bind(spec[1]))
@@ -639,7 +639,7 @@ var infer                           # inference.gd: the one snapping engine
 func _make_tools() -> void:
 	infer = load("res://inference.gd").new()
 	infer.m = self
-	for k in ["select", "rect", "push", "move"]:
+	for k in ["select", "rect", "push", "move", "paint"]:
 		tools[k] = load("res://tools/%s_tool.gd" % k).new()
 		tools[k].setup(self)
 
@@ -859,6 +859,107 @@ func make_assembly() -> void:
 	_say_status("Assembly of %d board%s: double-click it to edit inside" % [ids.size(), "" if ids.size() == 1 else "s"])
 
 
+# ---------------- wood (T15, M03) ----------------
+# The worker writes materials.json (the library) beside bodies.json; each board's material, grain and across
+# directions come in bodies.json. Textures live in materials/textures beside the project (or in the app bundle).
+const WOOD := preload("res://wood.gdshader")
+var wood_library := {}              # key -> library entry
+var wood_keys: Array = []           # in library order, for the menu
+var body_material := {}             # board id -> material key
+var paint_material := "white-oak"   # what the Paint tool puts on
+var _wood_tex := {}                 # texture file -> ImageTexture
+
+
+func _load_wood_library(dir: String) -> void:
+	var data = JSON.parse_string(FileAccess.get_file_as_string(dir.path_join("materials.json")))
+	if typeof(data) != TYPE_ARRAY: return
+	wood_keys = []
+	for e in data:
+		wood_library[e["key"]] = e; wood_keys.append(e["key"])
+	_build_materials_menu()
+
+
+func _wood_texture(file: String) -> Texture2D:
+	if not _wood_tex.has(file):
+		var img := Image.load_from_file(_beside_project("materials/textures/" + file))
+		if img == null or img.is_empty():
+			_wood_tex[file] = null
+		else:
+			img.generate_mipmaps()
+			_wood_tex[file] = ImageTexture.create_from_image(img)
+	return _wood_tex[file]
+
+
+func _wood_material(bid: String, b: Dictionary, base: Color) -> ShaderMaterial:
+	var e: Dictionary = wood_library.get(b.get("material", ""), {})
+	if e.is_empty(): return null
+	var side := _wood_texture(e["texture"]); var end := _wood_texture(e["end_texture"])
+	if side == null or end == null: return null
+	var sm := ShaderMaterial.new(); sm.shader = WOOD
+	sm.set_shader_parameter("side_tex", side); sm.set_shader_parameter("end_tex", end)
+	var g: Array = b.get("grain", [1, 0, 0]); var a: Array = b.get("across", [0, 1, 0])
+	sm.set_shader_parameter("grain", m2g(Vector3(g[0], g[1], g[2])))
+	sm.set_shader_parameter("across", m2g(Vector3(a[0], a[1], a[2])))
+	sm.set_shader_parameter("side_size", float(e["size_mm"]) / 1000.0)
+	sm.set_shader_parameter("side_grain_v", e["grain"] == "v")
+	sm.set_shader_parameter("end_size", float(e["end_size_mm"]) / 1000.0)
+	var et := end.get_size()
+	sm.set_shader_parameter("end_aspect", et.y / maxf(et.x, 1.0))
+	var h := hash(bid)
+	sm.set_shader_parameter("offset", Vector2(float(h & 1023) / 1024.0, float((h >> 10) & 1023) / 1024.0))
+	sm.set_shader_parameter("base_color", base)
+	return sm
+
+
+func _build_materials_menu() -> void:
+	"""The Wood menu: pick what Paint puts on (picking one switches to Paint)."""
+	if not NativeMenu.has_feature(NativeMenu.FEATURE_GLOBAL_MENU) or _wood_menu_rid.is_valid(): return
+	var bar := NativeMenu.get_system_menu(NativeMenu.MAIN_MENU_ID)
+	_wood_menu_rid = NativeMenu.create_menu()
+	for k in wood_keys:
+		var i := NativeMenu.add_radio_check_item(_wood_menu_rid, wood_library[k]["name"], _on_wood_menu, Callable(), k)
+		NativeMenu.set_item_checked(_wood_menu_rid, i, k == paint_material)
+	NativeMenu.add_separator(_wood_menu_rid)
+	NativeMenu.add_item(_wood_menu_rid, "Turn grain 90° (T)", _on_wood_menu, Callable(), "turn")
+	NativeMenu.add_submenu_item(bar, "Wood", _wood_menu_rid)
+
+
+var _wood_menu_rid := RID()
+
+
+func _on_wood_menu(tag) -> void:
+	if tag == "turn":
+		_turn_grain(); return
+	set_paint_material(String(tag))
+
+
+func set_paint_material(k: String) -> void:
+	if not wood_library.has(k): return
+	paint_material = k
+	if _wood_menu_rid.is_valid():
+		for i in NativeMenu.get_item_count(_wood_menu_rid):
+			NativeMenu.set_item_checked(_wood_menu_rid, i, NativeMenu.get_item_tag(_wood_menu_rid, i) == k)
+	set_tool("paint")
+
+
+func paint(bodies: Array) -> void:
+	if bodies.is_empty() or not wood_library.has(paint_material): return
+	counters["sm"] += 1
+	ops.append({"id": "sm%d" % counters["sm"], "type": "set_material", "targets": bodies, "material": paint_material})
+	sync()
+	_say_status("%s: %s" % [", ".join(bodies), wood_library[paint_material]["name"]])
+
+
+func _turn_grain() -> void:
+	var bid := hover_body
+	if bid == "" or body_material.get(bid, "") == "":
+		_say_status("Point at a painted board to turn its grain"); return
+	counters["tg"] += 1
+	ops.append({"id": "tg%d" % counters["tg"], "type": "turn_grain", "targets": [bid]})
+	sync()
+	_say_status("%s: grain turned 90°" % bid)
+
+
 # ---------------- linked boards (T12: A22c, I28, Q28, Q29) ----------------
 # Copies share one definition: editing one edits all. While a tool is over a linked board its copies get a soft
 # tint and the tooltip counts them; U (Edit > Make unique) frees the board under the cursor, Edit > Detach from
@@ -878,7 +979,7 @@ func _siblings_of(bid: String) -> Array:
 
 func _show_siblings(bid: String) -> void:
 	hover_body = bid
-	var sib := _siblings_of(bid) if tool in ["rect", "push", "move"] else []
+	var sib := _siblings_of(bid) if tool in ["rect", "push", "move", "paint"] else []
 	var key := ",".join(sib)
 	if key == _sibling_key: return
 	_sibling_key = key
@@ -1058,7 +1159,7 @@ func _after_removal() -> void:
 func _restore_counters() -> void:
 	for op in ops:
 		var id: String = op["id"]
-		for k in ["pp", "mv", "mu", "dt", "as", "r", "m"]:
+		for k in ["pp", "mv", "mu", "dt", "as", "sm", "tg", "r", "m"]:
 			if id.begins_with(k) and id.substr(k.length()).is_valid_int():
 				counters[k] = maxi(counters[k], int(id.substr(k.length())))
 				break
@@ -1194,15 +1295,18 @@ func _apply_confirmed(dir: String, key: String) -> void:
 	if typeof(data) != TYPE_ARRAY: return
 	var files := {}
 	body_family = {}; body_array = {}; body_assembly = {}; body_row = {}
+	if wood_library.is_empty(): _load_wood_library(dir)
 	for b in data:
-		files[b["id"]] = b["mesh"]
+		var vkey := "%s|%s|%s|%s" % [b["mesh"], b.get("material", ""), b.get("grain", []), b.get("across", [])]
+		files[b["id"]] = vkey                        # a repaint or a turned grain is a new look for the same mesh
+		body_material[b["id"]] = b.get("material", "")
 		body_family[b["id"]] = b.get("family", ""); body_array[b["id"]] = b.get("array", "")
 		body_assembly[b["id"]] = b.get("assembly", ""); body_row[b["id"]] = b.get("row", "")
 		var mp: Array = b.get("mirror_plane", [])
 		if mp.size() == 2: body_mirror_plane[b["id"]] = [Vector3(mp[0][0], mp[0][1], mp[0][2]), Vector3(mp[1][0], mp[1][1], mp[1][2])]
 		else: body_mirror_plane.erase(b["id"])
-		if not _boards.has(b["mesh"]):
-			_boards[b["mesh"]] = _build_board(dir, b)
+		if not _boards.has(vkey):
+			_boards[vkey] = _build_board(dir, b)
 	_load_cuts(dir)
 	_show_boards(files)
 	_remember_state(key, files)
@@ -1228,10 +1332,15 @@ func _build_board(dir: String, b: Dictionary) -> Dictionary:
 		arr[Mesh.ARRAY_NORMAL] = Transform3D(M2G_BASIS, Vector3.ZERO) * (parts[1] as PackedVector3Array)
 		var mesh := ArrayMesh.new()
 		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
-		var mat := StandardMaterial3D.new()
-		mat.albedo_color = Color(b["color"][0], b["color"][1], b["color"][2]).linear_to_srgb()   # as glTF import did
-		mat.roughness = 0.85
-		mesh.surface_set_material(0, mat)
+		var base := Color(b["color"][0], b["color"][1], b["color"][2]).linear_to_srgb()   # as glTF import did
+		var wood := _wood_material(bid, b, base)
+		if wood != null:
+			mesh.surface_set_material(0, wood)
+		else:
+			var mat := StandardMaterial3D.new()
+			mat.albedo_color = base
+			mat.roughness = 0.85
+			mesh.surface_set_material(0, mat)
 		mi.mesh = mesh
 		_add_collision(mi, "body_id", bid)
 	var edges := _lines(parts[2], Color(0.08, 0.08, 0.08))
@@ -1358,6 +1467,7 @@ func _cut_tris(bid: String, op_id: String) -> PackedVector3Array:
 
 func _base_of(mi: MeshInstance3D) -> Color:
 	var m = mi.mesh.surface_get_material(0)
+	if m is ShaderMaterial and m.shader == WOOD: return m.get_shader_parameter("base_color")
 	return m.albedo_color if m is StandardMaterial3D else DEFAULT_BASE
 
 
@@ -1779,7 +1889,7 @@ func _make_menus() -> void:
 				  ["Show in Finder", "reveal", 0], [], ["Drawing and cut list (D)", "drawing", 0]]],
 		["Edit", [["Undo", "undo", KEY_MASK_META | KEY_Z], [], ["Make assembly", "assemble", KEY_MASK_META | KEY_G],
 				  ["Make unique (U)", "unique", 0], ["Detach from array", "detach", 0]]],
-		["Tools", [["Select (Space)", "select", 0], ["Rectangle (R)", "rect", 0], ["Push/Pull (P)", "push", 0], ["Move (M)", "move", 0]]],
+		["Tools", [["Select (Space)", "select", 0], ["Paint", "paint", 0], ["Rectangle (R)", "rect", 0], ["Push/Pull (P)", "push", 0], ["Move (M)", "move", 0]]],
 		["View", [["Grid snap (G)", "grid", -1], ["New board on faces (B)", "newboard", -1]]],
 	]
 	for m in spec:
@@ -1812,7 +1922,7 @@ func _menu(tag) -> void:
 		"reveal": OS.shell_show_in_file_manager(model_path)
 		"drawing": export_drawing()
 		"undo": undo()
-		"select", "rect", "push", "move": set_tool(tag)
+		"select", "rect", "push", "move", "paint": set_tool(tag)
 		"assemble": make_assembly()
 		"unique": _linked_op("make_unique")
 		"detach": _linked_op("detach")
@@ -1933,6 +2043,7 @@ func _unhandled_input(e: InputEvent) -> void:
 			KEY_B: _menu("newboard")
 			KEY_D: export_drawing()
 			KEY_U: _menu("unique")
+			KEY_T: _turn_grain()
 
 
 var _last_gesture := ""

@@ -23,8 +23,40 @@ import os
 import struct
 import time
 
+import sys
+
 import FreeCAD as App
 import Part
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+sys.path.insert(0, HERE)
+import materials as wood                      # the wood library (T15): cards for FreeCAD, materials.json for the viewport
+
+_MATERIALS = {"installed": False, "outdirs": set()}
+
+
+def material_card(key):
+    """FreeCAD's material for a library key (installing the cards the first time), or None."""
+    import Materials
+    if key not in wood.SPECIES:
+        return None
+    mm = Materials.MaterialManager()
+    if not _MATERIALS["installed"]:
+        _MATERIALS["installed"] = True
+        try:
+            if wood.install(os.path.join(App.getUserAppDataDir(), "Material"),
+                            os.path.join(HERE, "..", "materials", "textures")):
+                mm.refresh()
+        except OSError as e:
+            print(f"WORKER could not install the wood cards: {e}", flush=True)
+    try:
+        return mm.getMaterial(wood.material_uuid(key))
+    except Exception:
+        mm.refresh()
+        try:
+            return mm.getMaterial(wood.material_uuid(key))
+        except Exception:
+            return None
 
 V = App.Vector
 TOL = 1e-3          # mm, for face matching
@@ -247,7 +279,7 @@ class Model:
             raise OpError(f"body id '{bid}' already exists")
         c = self.doc.addObject("App::Part", "Board")
         c.Label = bid
-        add_props(c, BodyId=bid, SSRole="body", SSMaterial="", ComponentName="", Tip=None)
+        add_props(c, BodyId=bid, SSRole="body", SSMaterial="", ComponentName="", Tip=None, SSGrain=App.Vector(0, 0, 0))
         if placement is not None:
             c.Placement = placement
         return c
@@ -257,6 +289,8 @@ class Model:
         container.addObject(feat)
         if old is not None:
             old.Visibility = False
+            if hasattr(old, "ShapeMaterial") and hasattr(feat, "ShapeMaterial") and getattr(container, "SSMaterial", ""):
+                feat.ShapeMaterial = old.ShapeMaterial     # FreeCAD sees the material on the board's current solid
         feat.Visibility = True
         container.Tip = feat
 
@@ -842,15 +876,68 @@ class Model:
         return changed
 
     def op_set_material(self, op):
+        """Paint (T15): the material goes on the board's definition (so linked copies share it) and, as a FreeCAD
+        material card, on its current solid (ShapeMaterial), where FreeCAD's FEM and renderers read it."""
+        key = op["material"]
+        card = material_card(key) if key else None
+        if key and card is None and key not in PALETTE:
+            raise OpError(f"unknown material '{key}'")
+        changed = []
         for t in op["targets"]:
             dfn = self.definition(self.body(t))
             if not hasattr(dfn, "SSMaterial"):
                 raise OpError(f"'{t}' has no material field")
-            dfn.SSMaterial = op["material"]
-        return list(op["targets"])
+            dfn.SSMaterial = key
+            tip = getattr(dfn, "Tip", None)
+            if card is not None and tip is not None and hasattr(tip, "ShapeMaterial"):
+                tip.ShapeMaterial = card
+            changed += [b for b, o in self.bodies().items() if self.definition(o) is dfn]
+        return changed
+
+    def grain_local(self, dfn):
+        """The board's grain in its own frame: as set, else along its longest edge (M03)."""
+        g = getattr(dfn, "SSGrain", None)
+        if g is not None and g.Length > 1e-9:
+            return g
+        return self.board_axes(dfn)[0]
+
+    @staticmethod
+    def board_axes(dfn):
+        tip = getattr(dfn, "Tip", None)
+        bb = tip.Shape.BoundBox if tip is not None else Part.getShape(dfn).BoundBox
+        axes = sorted([(bb.XLength, App.Vector(1, 0, 0)), (bb.YLength, App.Vector(0, 1, 0)), (bb.ZLength, App.Vector(0, 0, 1))],
+                      key=lambda a: -a[0])
+        return [a[1] for a in axes]
+
+    def op_turn_grain(self, op):
+        """Turn the grain 90 degrees in the board's face (Q30): between its longest and its middle edge."""
+        changed = []
+        for t in op["targets"]:
+            dfn = self.definition(self.body(t))
+            if not hasattr(dfn, "SSGrain"):
+                raise OpError(f"'{t}' was made before grain direction existed: make it unique or redraw it")
+            long_ax, mid_ax, _ = self.board_axes(dfn)
+            g = self.grain_local(dfn)
+            dfn.SSGrain = mid_ax if abs(g.dot(long_ax)) > 0.9 else long_ax
+            changed += [b for b, o in self.bodies().items() if self.definition(o) is dfn]
+        return changed
+
+    def across_local(self, dfn):
+        """Across the board's width: the one of its two long edges the grain doesn't run along."""
+        long_ax, mid_ax, _ = self.board_axes(dfn)
+        return mid_ax if abs(self.grain_local(dfn).dot(long_ax)) > 0.9 else long_ax
+
+    def grain_world(self, obj, which="grain"):
+        """The grain (or across-the-width) direction as the board appears, through instances and mirrors."""
+        if self.is_mirror(obj):
+            g = self.grain_world(self.mirror_source(obj), which)
+            n = unit(obj.Normal)
+            return g - n * (2 * g.dot(n))
+        dfn = self.definition(obj)
+        return obj.Placement.Rotation.multVec(self.grain_local(dfn) if which == "grain" else self.across_local(dfn))
 
     HANDLERS = ("rect", "push_pull", "mirror", "make_component", "move", "set_material", "detach", "make_unique",
-                "make_assembly")
+                "make_assembly", "turn_grain")
 
     def apply(self, op):
         if op["type"] not in self.HANDLERS:
@@ -914,6 +1001,12 @@ PALETTE = {
     "western red cedar": (0.66, 0.38, 0.24),
     "": (0.82, 0.80, 0.76),
 }
+
+
+def material_color(key):
+    if key in wood.SPECIES:
+        return wood.SPECIES[key][10]
+    return PALETTE.get(key, (0.7, 0.7, 0.7) if key else PALETTE[""])
 
 
 _MESH_CACHE = {}
@@ -1041,14 +1134,22 @@ def write_glb(model, path):
         na_i = len(accessors) - 1
         m = material_of(model, obj)
         if m not in mat_index:
-            r, g, b = PALETTE.get(m, (0.7, 0.7, 0.7))
-            mats.append({"name": m or "unassigned",
-                         "pbrMetallicRoughness": {"baseColorFactor": [r, g, b, 1], "metallicFactor": 0, "roughnessFactor": 0.8}})
+            r, g, b = material_color(m)
+            mat = {"name": m or "unassigned",
+                   "pbrMetallicRoughness": {"baseColorFactor": [r, g, b, 1], "metallicFactor": 0, "roughnessFactor": 0.8}}
+            if m in wood.SPECIES:                     # for a Blender set-up: the textures and their real size (T15)
+                sp = wood.SPECIES[m]
+                tdir = os.path.normpath(os.path.join(HERE, "..", "materials", "textures"))
+                mat["extras"] = {"wood": sp[0], "texture": os.path.join(tdir, sp[7] + ".jpg"),
+                                 "texture_grain_along": sp[8], "texture_size_mm": sp[9],
+                                 "end_texture": os.path.join(tdir, m + "_end.jpg"), "end_size_mm": wood.END_SIZE_MM}
+            mats.append(mat)
             mat_index[m] = len(mats) - 1
         meshes.append({"name": bid, "primitives": [{"attributes": {"POSITION": pa_i, "NORMAL": na_i},
                                                     "material": mat_index[m]}]})
         nodes.append({"name": bid, "mesh": len(meshes) - 1,
                       "extras": {"body_id": bid, "material": m, "component": component_of(model, obj),
+                                 "grain_zup": list(model.grain_world(obj)), "across_zup": list(model.grain_world(obj, "across")),
                                  "state": "confirmed"}})
 
     tmp = path + ".tmp"
@@ -1352,21 +1453,23 @@ class Session:
         m = self.model
         bodies = []
         for bid, obj in m.bodies().items():
-            key = (shape_key(obj), material_of(m, obj), component_of(m, obj))
+            key = (shape_key(obj), material_of(m, obj), component_of(m, obj),
+                   tuple(round(c, 6) for c in m.grain_world(obj)))
             hit = _ENTRY_CACHE.get(bid)
             if not hit or hit[0] != key:
                 ws = m.world_shape(obj)
                 bb = ws.BoundBox
                 dfn = m.definition(obj)
                 lb = (dfn.Tip.Shape if getattr(dfn, "Tip", None) is not None else ws).BoundBox
-                hit = (key, {"id": bid, "material": key[1], "component": key[2],
+                hit = (key, {"id": bid, "material": key[1], "component": key[2], "grain": list(key[3]),
+                             "across": [round(c, 6) for c in m.grain_world(obj, "across")],
                              "world_bbox": [bb.XMin, bb.YMin, bb.ZMin, bb.XMax, bb.YMax, bb.ZMax],
                              "size": sorted([round(lb.XLength, 2), round(lb.YLength, 2), round(lb.ZLength, 2)]),
                              "volume_mm3": round(ws.Volume, 1), "cuts": cuts_of(m, obj)})
                 _ENTRY_CACHE[bid] = hit
             mat = hit[1]["material"]
             bodies.append(dict(hit[1], mesh=board_mesh_file(bid, obj, m, outdir),
-                               color=list(PALETTE.get(mat, (0.7, 0.7, 0.7))), family=m.definition(obj).Name,
+                               color=list(material_color(mat)), family=m.definition(obj).Name,
                                array=getattr(obj, "SSArray", "") or "",
                                assembly=getattr(m.assembly_of(obj), "AssemblyId", "") if m.assembly_of(obj) else "",
                                row=(m.arrays_of(obj)[0].SSSource if m.arrays_of(obj) else ""),
@@ -1378,6 +1481,9 @@ class Session:
             if shared[e["family"]] < 2:
                 e["family"] = ""
         atomic_json(os.path.join(outdir, "bodies.json"), bodies)
+        if outdir not in _MATERIALS["outdirs"]:             # the paint list, once per output folder
+            _MATERIALS["outdirs"].add(outdir)
+            wood.write_library(os.path.join(outdir, "materials.json"))
         return round((time.perf_counter() - t0) * 1000, 1)
 
     def save(self, outdir=None):
