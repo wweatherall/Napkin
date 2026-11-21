@@ -31,6 +31,7 @@ func click(screen: Vector2) -> void:
 		state = hover.duplicate()
 		state["active"] = true
 		state["dist"] = 0.0
+		state["depths"] = _depths_behind()
 	else:
 		commit_push(state["dist"])
 
@@ -46,6 +47,40 @@ func vcb_value() -> String:
 
 func tip() -> String:
 	return "to " + state["snap"] if state.get("active", false) and state.get("snap", "") != "" else ""
+
+
+func _depths_behind() -> Array:
+	"""How far behind the pushed face each face of the same board lies (the back face, a pocket's floor), as
+	negative push distances, deepest last. Measured straight through the board, so hidden faces count here."""
+	var bid: String = state["body"] if state.get("rect", "") == "" else m.rects[state["rect"]]["on"]
+	var tris: PackedVector3Array = m.body_tris.get(bid, PackedVector3Array())
+	var n: Vector3 = state["n"]
+	var from: Vector3 = state["anchor"] - n * 0.01
+	var found := {}
+	for i in range(0, tris.size(), 3):
+		var hit = Geometry3D.ray_intersects_triangle(from, -n, tris[i], tris[i + 1], tris[i + 2])
+		if hit == null: continue
+		var t: float = Main.r3((hit - state["anchor"]).dot(-n))
+		if t > 0.5: found[-t] = true
+	var out := found.keys()
+	out.sort()
+	out.reverse()            # nearest first: -6 (a pocket floor), then -18 (the back face)
+	return out
+
+
+func _snap_to_face_behind(screen: Vector2) -> void:
+	"""Pushing in: within a few pixels of a face behind (the back face for a through-hole), go exactly there."""
+	var depths: Array = state.get("depths", [])
+	if depths.is_empty() or state["dist"] >= 0.0: return
+	var here := m.cam.unproject_position(Main.m2g(state["anchor"] + state["n"] * state["dist"]))
+	for k in depths.size():
+		var c: float = depths[k]
+		var at: Vector3 = state["anchor"] + state["n"] * c
+		if m.cam.unproject_position(Main.m2g(at)).distance_to(here) < Main.SNAP_PX:
+			state["dist"] = c
+			state["snap"] = "back face" if k == depths.size() - 1 else "face behind"
+			m._show_marker({"hit": true, "point": at, "snap": state["snap"]})
+			return
 
 
 func _push_hover(screen: Vector2) -> void:
@@ -124,6 +159,8 @@ func _push_drag(screen: Vector2) -> void:
 		state["dist"] = Main.r3((pt["point"] - state["anchor"]).dot(state["n"]))
 		state["snap"] = pt["kind"]
 		m._show_marker({"hit": true, "point": pt["point"], "snap": pt["kind"]})
+	else:
+		_snap_to_face_behind(screen)
 	_preview_push(state["dist"])
 	m._update_vcb()
 

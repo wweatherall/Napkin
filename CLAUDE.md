@@ -78,5 +78,5 @@ Viewport suites: `Godot --path viewport -- --<suite> --out=<dir>/out --shots=<di
   counts the overlap twice. A Part::Cut with a compound tool is right even when cutters overlap.
 - Viewport suites drive the UI frame by frame: run them one at a time with no other Godot window open
   (a window that takes focus loses their input), and don't name a results folder after a viewport copy.
-  `--holetest` and `--zfighttest` are flaky even then: a typed push sometimes lands after the next
+  `--holetest`, `--zfighttest` and `--facetest` are flaky even then: a typed push sometimes lands after the next
   rectangle. Compare against a run that has all its ops.

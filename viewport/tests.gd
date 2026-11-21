@@ -763,6 +763,16 @@ func _run_snap_test() -> void:
 		if b["id"] == "b1": top = b["world_bbox"][5]
 	print("SNAPTEST push to a point: distance %s (want 32) by %s | b1's top now at %s mm (want 50) | own face's edges ignored %s" % [
 		dist, kind, top, own_edge_ignored])
+	# pushing in: the back face snaps (a through-hole) even though you can't see it; elsewhere, no snap
+	m.set_tool("push")
+	push.click(_screen_of(Vector3(450, 50, 50), Vector2.ZERO))
+	push.mouse_moved(_screen_of(Vector3(450, 50, 3), Vector2.ZERO))
+	var through: float = push.state.get("dist", 0); var through_kind: String = push.state.get("snap", "")
+	push.mouse_moved(_screen_of(Vector3(450, 50, 22), Vector2.ZERO))
+	var free: float = push.state.get("dist", 0); var free_kind: String = push.state.get("snap", "")
+	m.set_tool("push")
+	print("SNAPTEST push in near the back: %s by %s (want -50 by back face) | at -28: %s, snap '%s' (want about -28, none)" % [
+		through, through_kind, free, free_kind])
 	print("SNAPTEST done")
 	get_tree().quit()
 

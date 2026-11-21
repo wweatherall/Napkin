@@ -571,7 +571,7 @@ func _update_tip(screen: Vector2) -> void:
 
 # ---------------- snapping visuals (the engine is inference.gd) ----------------
 const SNAP_COLORS := {"endpoint": Color(0.1, 0.65, 0.1), "midpoint": Color(0.1, 0.7, 0.8), "on edge": Color(0.85, 0.15, 0.15),
-					  "on face": Color(0.2, 0.35, 0.95)}
+					  "on face": Color(0.2, 0.35, 0.95), "back face": Color(0.2, 0.35, 0.95), "face behind": Color(0.2, 0.35, 0.95)}
 var body_edges := {}            # body id -> feature edge segments (model mm)
 var guides: MeshInstance3D
 
