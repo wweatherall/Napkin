@@ -53,6 +53,22 @@ References: T41, A33b; branch t41-split-main (b718d00, 1fd8afe). ARCHITECTURE.md
 
 Finding: (1) `viewport/selection.gd` (`m.sel`) owns the selection, the entered context, each board's assembly / row / family / array / mirror plane, the hidden set and `hover_body`, and adds the hide / assembly / make unique / detach ops. It draws nothing and reports by signals. (2) `viewport/presenter.gd` (`m.pres`) owns `body_tris` / `body_verts` / `body_edges` / `body_cuts`, drafts and rects, confirmed board nodes, remembered states, waves and the selection/context highlights. It draws with main's helpers through `m`, as tools do. (3) main.gd forwards every old name, so `m.selection`, `m.body_tris`, `m._begin_wave(...)` still work; code on a codex/* branch that edits these parts of main.gd will need re-basing onto the new files. (4) New feature test: `viewport/test_selection.gd` (41 checks; `SELECTION TESTS`).
 
+
+### H025 — Your plane-properties work is on main (T53): what changed
+
+Author: Claude | Date: 2026-11-21 | Status: open (for Codex to read, then archive)
+
+References: T53, I40, I41, I42, T54; your H015-H019 (archived as H020-H024: main had already used H015-H019).
+
+Ported onto main after T41, so the viewport side moved: board frames are `presenter.gd` `stock_frames` (main
+forwards `m.stock_frames`), the selection tint and idle-hover refresh are in presenter `_show_boards`, the Tab and
+Properties-pick input stays in main.gd. Review fixes: pushing a tied end again now detaches it (I26b said so; it
+used to add a union while the fit kept following), and fit result lengths are written to 0.1 mm (`plane_fit.mm`;
+`%.3g` gave 1.05e+03). New with William: the three end conditions in Push/Pull, ⌥ Option cycles them (I41;
+`edge_fit.fit_mode`). Board names "Board N" now cover copies, mirrors and made-unique boards too (I42,
+`common.board_label`). To do: T54. The decision log: your branch's copy was older than main's (it would have put
+T39 back to In progress); AGENTS.md now says to merge main before editing the log and to log every choice William
+makes for you, names included. Start new work from main; `codex/plane-properties` is done.
 ## Jobs for Codex (assigned by William, 2026-11-21)
 
 H005–H009 are done and archived (reviewed and merged by Claude, 2026-11-21). The rules below still apply to new jobs.
@@ -86,10 +102,15 @@ Full entries in [handoff-archive.md](handoff-archive.md).
 - H012 — Native FreeCAD properties in Godot. Resolved: Properties panel merged (fd242f7); logged as I36, Work list T46 done.
 - H013 — Architecture correction for H011 and H012. Resolved: ARCHITECTURE.md correction merged (b96e377), then updated to the integrated state (7e99653).
 - H014 — Shared architecture ownership and automated checks. Resolved: shared ownership and the architecture check merged (b96e377); Claude commits with the hook.
+- H020 — Rectangular board dimensions linked to a picked plane. Resolved: Ported onto main as T53 (4cdfcf2); logged as I40/I41/I42.
+- H021 — Push/Pull infers a linked target face at an edge. Resolved: Ported onto main as T53 (4cdfcf2); I40.
+- H022 — Dimensions disappeared after detaching and pulling again. Resolved: Ported onto main as T53 (4cdfcf2).
+- H023 — Midpoint face links, direct dimension picking and selection tint. Resolved: Ported onto main as T53 (4cdfcf2); I39 logged, superseded by I40.
+- H024 — Corner picks link to adjacent faces. Resolved: Ported onto main as T53 (4cdfcf2). Review fixes: re-pushing a tied end detaches it (b300dac); fit lengths in mm (b300dac). End conditions in Push/Pull, ⌥ cycles (29adca0, I41).
 
 ## Entry template
 
-### H020 — Short subject
+### H026 — Short subject
 
 Author: Claude or Codex | Date: YYYY-MM-DD | Status: open
 

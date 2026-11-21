@@ -71,6 +71,11 @@ def rotation_from(x, y, z):
     return App.Rotation(x, y, z, "ZXY")
 
 
+def board_label(bid):
+    """The name FreeCAD's tree shows for a board: 'Board 3' for b3 (William's call, I41); other ids as they are."""
+    return f"Board {bid[1:]}" if bid.startswith("b") and bid[1:].isdigit() else bid
+
+
 def add_props(obj, **props):
     """All Shop Sketch properties are added when an object is created (adding them later
     inside an undo transaction is not reliably undone)."""

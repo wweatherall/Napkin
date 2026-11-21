@@ -22,7 +22,7 @@ class MoveActions:
         link = self.doc.addObject("App::Link", "Instance")
         link.LinkedObject = dfn
         link.Placement = dfn.Placement
-        link.Label = bid
+        link.Label = board_label(bid)
         add_props(link, BodyId=bid, SSRole="body", SSHidden=bool(getattr(obj, "SSHidden", False)))
         if asm is not None:
             asm.addObject(link)                      # the board stays in its assembly as the link
@@ -41,7 +41,7 @@ class MoveActions:
         link = self.doc.addObject("App::Link", "Instance")
         link.LinkedObject = dfn
         link.Placement = placement
-        link.Label = nid
+        link.Label = board_label(nid)
         add_props(link, BodyId=nid, SSRole="body", SSArray=array, SSArrayIndex=index, SSHidden=False)
         return link
 
@@ -218,7 +218,7 @@ class MoveActions:
             for g in copy.InList:
                 if g.TypeId == "App::DocumentObjectGroup":
                     g.removeObject(copy)
-            copy.Label = t
+            copy.Label = board_label(t)
             copy.SSRole = "body"
             copy.BodyId = t
             copy.ComponentName = ""

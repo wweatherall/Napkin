@@ -4,6 +4,7 @@ from common import _MATERIALS
 from export import *
 from export import _ENTRY_CACHE
 from model import Model
+from plane_fit import snapshot as stock_snapshot
 
 
 _HIDDEN_IN_FREECAD = {"App::Origin", "App::Line", "App::Plane", "App::Point", "TechDraw::DrawPage"}
@@ -259,7 +260,7 @@ class Session:
                              "volume_mm3": round(ws.Volume, 1), "cuts": cuts_of(m, obj)})
                 _ENTRY_CACHE[bid] = hit
             mat = hit[1]["material"]
-            bodies.append(dict(hit[1], mesh=board_mesh_file(bid, obj, m, outdir),
+            bodies.append(dict(hit[1], stock_frame=stock_snapshot(obj), mesh=board_mesh_file(bid, obj, m, outdir),
                                color=list(material_color(mat)), family=m.definition(obj).Name,
                                array=getattr(obj, "SSArray", "") or "",
                                assembly=getattr(m.assembly_of(obj), "AssemblyId", "") if m.assembly_of(obj) else "",

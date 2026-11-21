@@ -127,6 +127,29 @@ FreeCAD evaluation is asynchronous from Godot's perspective but runs serially in
 
 ### Native property inspection and editing
 
+Plane fits (I40, T53). `worker/plane_fit.py` describes rectangular stock using its
+base rectangle, extrusion direction, local dimensions and world frame. The inspection snapshot includes these
+frames and native labels under `boards`. Properties captures a viewport face click for the active dimension.
+The panel previews four corner rays intersecting the selected face's infinite supporting plane. The worker
+independently solves those intersections and builds a solid with a square or sloping end. A `property_edit`
+with mode `plane_fit` records the source and target BodyIds, local axis, semantic face and end condition.
+The board's new Part::Feature tip stores its source extrusion link and the relationship. Model.apply updates
+fitted solids inside the transaction after geometry changes. A `replace_fit` edit restores the native extrusion
+with the entered dimension. FreeCAD can open the saved solid directly. Updating the fit requires the Shop Sketch
+worker. The prototype supports one fitted dimension per plain rectangular board and rectangular targets.
+
+Session.export includes the rectangular stock frame and current label in each
+eligible bodies.json entry (`stock_frame`; `presenter.gd` keeps them as `stock_frames`, remembered with each confirmed state). Push/Pull uses the inference engine's corner, edge and edge-midpoint snaps and this frame to rank reachable
+adjacent planes by alignment with the push, breaking ties with the last hovered face. Tab cycles the candidates.
+⌥ Option cycles the end condition (I41). Committing a click carries the semantic target in `push_pull.edge_fit` (`target_body`, `face`, `fit_mode` 0 Butt / 1 Slice / 2 Fully reach; absent = Butt) and builds the source and fit in one
+transaction. A fit on the low end anchors the opposite end through SSReverse. A direct hit on a different stock face can also create the link. A corner can supply up to three reachable planes. Typed pushes retain their numeric distance. Clicking a dimension text field arms a
+one-click reference to a face, corner, edge or midpoint. The click commits the most aligned reachable plane with the
+selected fit mode. The explicit picker still previews before Apply. Confirmed and restored viewport meshes
+refresh selection tint and discard idle hover geometry. For a numeric pull of an entire ordinary stock face the viewport sends
+`push_pull.resize_stock`. The worker changes the native dimension and anchors the opposite end. Earlier journals
+without this flag replay their original Boolean feature history. A face push on a fitted board's tied end detaches the fit (I26b, I40): a square end is restored to
+the native extrusion at its current length and resized; a sloped end keeps its shape with an empty `SSTargetId`.
+
 Select one piece and open Properties. The panel lists the piece and its native dependency chain, including shared component definitions; it can also insert native object names into expression fields. FreeCAD owns the property schema, value and expression. Godot holds an inspection snapshot and provisional edit text, not an independent property database.
 
 The supported editors cover labels, scalar dimensions, integers, booleans, enumerations and vectors, including local placement translation. Internal names/IDs, structural links, protected metadata, rotation and unsupported/computed types are view-only. Other native fields remain available in expandable details. The panel currently handles one selected piece, not bulk edits. Editing a shared feature affects its linked family; coordinates are local to the owning feature/parent, not automatically world coordinates.

@@ -23,6 +23,7 @@ var body_edges := {}                # body id -> feature edge segments (model mm
 var body_cuts := {}                 # body id -> [{op, kind, lo, hi}] from FreeCAD: holes and added pieces
 var rects := {}                     # rect id -> {"tris","n","on","pts"}
 var drafts := {}                    # op id -> Node3D
+var stock_frames := {}              # body id -> rectangular stock frame from bodies.json (plane fits, I40)
 
 
 func reset() -> void:
@@ -33,7 +34,7 @@ func reset() -> void:
 	for c in m.bodies_root.get_children(): m.bodies_root.remove_child(c)
 	for f in _boards: _boards[f]["node"].queue_free()
 	_boards.clear(); _states.clear(); _state_lru.clear(); shown_key = ""
-	body_tris = {}; body_verts = {}; body_edges = {}; body_cuts = {}
+	body_tris = {}; body_verts = {}; body_edges = {}; body_cuts = {}; stock_frames = {}
 
 
 # ---------------- rectangles drawn on faces and in space ----------------
@@ -120,7 +121,9 @@ func apply_confirmed(dir: String, key: String) -> void:
 	if typeof(data) != TYPE_ARRAY: return
 	boards_read.emit(data, dir)
 	var files := {}
+	stock_frames = {}
 	for b in data:
+		if b.get("stock_frame") is Dictionary: stock_frames[b["id"]] = b["stock_frame"]
 		var vkey := "%s|%s|%s|%s" % [b["mesh"], b.get("material", ""), b.get("grain", []), b.get("across", [])]
 		files[b["id"]] = vkey                        # a repaint or a turned grain is a new look for the same mesh
 		if not _boards.has(vkey):
@@ -187,6 +190,10 @@ func _show_boards(files: Dictionary) -> void:
 		for oid in op_waves:                         # a wave running for this board carries onto it
 			if bid in op_waves[oid]["bodies"]:
 				attach_wave(oid, node, edges, base_of(node))
+	show_selection()                                 # the selected board may have a new shape
+	var t = m.tools.get(m.tool)
+	if t != null and not t.busy():                   # an idle tool's hover highlight is of the old shape
+		m.overlay.mesh = null; m.overlay_lines.mesh = null
 	apply_context()
 
 
@@ -202,7 +209,7 @@ var predicted_undo := false   # the model on screen is a remembered state; FreeC
 
 
 func _remember_state(key: String, files: Dictionary) -> void:
-	_states[key] = {"files": files, "cuts": body_cuts.duplicate()}
+	_states[key] = {"files": files, "cuts": body_cuts.duplicate(), "stock_frames": stock_frames.duplicate()}
 	_state_lru.erase(key); _state_lru.append(key)
 	shown_key = key
 	var evicted := false
@@ -228,6 +235,7 @@ func show_state(key: String) -> bool:
 	if key == shown_key: return true
 	var st: Dictionary = _states[key]
 	body_cuts = st["cuts"].duplicate()
+	stock_frames = st["stock_frames"].duplicate()
 	_show_boards(st["files"])
 	shown_key = key
 	_state_lru.erase(key); _state_lru.append(key)

@@ -38,6 +38,8 @@ marked Superseded (never deleted). Ask William before countermanding an Active d
   and read `Codex's suggestions.md`, `FREECAD_FEATURE_MAP.md` and `ARCHITECTURE.md` by section (grep the heading,
   then read that range).
 - Codex works on `codex/*` branches in its own worktree, on the files its handoff job lists; review and merge them.
+- Codex records William's decisions in the log itself (P09, AGENTS.md). When integrating its branch, carry over
+  only the rows it added or superseded: its copy of the rest may be older than main's.
 - Claude and Codex both own and may edit `ARCHITECTURE.md`; neither needs the other's permission. The agent
   changing a module, protocol/file format, state ownership, or saving/recovery updates the map in the same
   commit in its own worktree. Reread the shared map and instructions before committing. The reviewer checks
