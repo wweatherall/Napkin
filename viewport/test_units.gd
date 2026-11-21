@@ -13,16 +13,16 @@ func check(label: String, condition: bool) -> void:
 
 func _init() -> void:
 	var cases := {"19": 19.0, "19mm": 19.0, "1.9cm": 19.0, "0.019m": 19.0,
-		"3/4\"": 19.05, "0.75in": 19.05, "1-1/2\"": 38.1, "1 1/2\"": 38.1,
-		"1'": 304.8, "1'6\"": 457.2, "1'6-1/2\"": 469.9, "-12": -12.0,
-		"+5": 5.0, " 3/4 in ": 19.05, "-1' 6\"": -457.2, "1'-6\"": 457.2, "1' - 6\"": 457.2, "1'-6-1/2\"": 469.9,
+		"3/4\"": 19.05, "0.75in": 19.05, "1 1/2\"": 38.1,
+		"1'": 304.8, "1'6\"": 457.2, "1'6 1/2\"": 469.9, "1' 6 1/2\"": 469.9, "-12": -12.0,
+		"+5": 5.0, " 3/4 in ": 19.05, "-1' 6\"": -457.2,
 		".5 m": 500.0, "2 FT 3 IN": 685.8, "1 / 2 mm": 0.5, "0": 0.0}
 	for input in cases:
 		var result := Units.parse_length(input)
 		check(input, result.ok and absf(result.mm - cases[input]) < 0.00001)
 	check("default inches", is_equal_approx(Units.parse_length("3/4", "in").mm, 19.05))
 	check("default cm", is_equal_approx(Units.parse_length("2", "cm").mm, 20.0))
-	for input in ["", "abc", "3//4", "1/0", "3x", "/3", "1 2", "1mm junk", "1'6", "1in2in", "--2", "1--1/2", "1 -1/2", "1.2.3", "1mm 2cm", "1,5", "nan", "inf", "1e3", "1-2-3/4", "1'2'", "1/2/3", "1 +2", "2m-1m", "1'-", "1'-6", "1'--6\"", "6\"-1'"]:
+	for input in ["", "abc", "3//4", "1/0", "3x", "/3", "1 2", "1mm junk", "1'6", "1in2in", "--2", "1--1/2", "1 -1/2", "1.2.3", "1mm 2cm", "1,5", "nan", "inf", "1e3", "1-2-3/4", "1'2'", "1/2/3", "1 +2", "2m-1m", "1'-", "1'-6", "1'--6\"", "6\"-1'", "1-1/2\"", "1'-6\"", "1'-6-1/2\"", "1'6-1/2\""]:
 		var result := Units.parse_length(input)
 		check("reject " + input, not result.ok and not result.error.is_empty())
 	check("bad default unit", not Units.parse_length("2", "yards").ok)

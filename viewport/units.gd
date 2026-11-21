@@ -1,6 +1,8 @@
 extends RefCounted
 ## Lengths are millimetres internally. Commas separate pairs, never decimals.
 ## Array syntax (3x, /3) belongs to tools and is deliberately rejected here.
+## A minus between numbers always means subtraction (William, 2026-11-21: 1-1/2" is 1/2", 1'-6" is 6"); this
+## parser does no arithmetic, so it rejects those forms. Mixed numbers take a space: 1 1/2", 1' 6 1/2".
 
 static func _error(text: String) -> Dictionary:
 	return {"ok": false, "mm": 0.0, "error": "can't read '%s'" % text}
@@ -16,7 +18,7 @@ static func _factor(unit: String) -> float:
 
 static func _number(text: String) -> Dictionary:
 	var re := RegEx.new()
-	re.compile("^(?:(\\d+)(?: +|-))?(\\d+)\\s*/\\s*(\\d+)$")
+	re.compile("^(?:(\\d+) +)?(\\d+)\\s*/\\s*(\\d+)$")
 	var fraction := re.search(text)
 	if fraction:
 		var denominator := float(fraction.get_string(3))
@@ -44,7 +46,7 @@ static func parse_length(text: String, default_unit := "mm") -> Dictionary:
 		remaining = remaining.substr(1).strip_edges()
 	var re := RegEx.new()
 	# Greedy mixed fractions before plain decimals; every character must be consumed.
-	re.compile("^((?:\\d+(?: +|-))?\\d+\\s*/\\s*\\d+|(?:\\d+(?:\\.\\d*)?|\\.\\d+))\\s*(mm|cm|ft|in|m|\"|')?")
+	re.compile("^((?:\\d+ +)?\\d+\\s*/\\s*\\d+|(?:\\d+(?:\\.\\d*)?|\\.\\d+))\\s*(mm|cm|ft|in|m|\"|')?")
 	var total := 0.0
 	var units: Array[String] = []
 	while not remaining.is_empty():
@@ -59,11 +61,6 @@ static func parse_length(text: String, default_unit := "mm") -> Dictionary:
 		units.append(unit)
 		total += float(numeric.value) * factor
 		remaining = remaining.substr(found.get_end()).strip_edges()
-		# Architectural 1'-6": one hyphen may join feet to the inches that follow.
-		if unit in ["ft", "'"] and remaining.begins_with("-"):
-			remaining = remaining.substr(1).strip_edges()
-			if remaining.is_empty():
-				return _error(original)
 		# Only compound feet + explicit inches is accepted; no ambiguous bare tails.
 		if units.size() > 2 or (not remaining.is_empty() and unit not in ["ft", "'"]):
 			return _error(original)
