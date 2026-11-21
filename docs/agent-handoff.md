@@ -29,6 +29,14 @@ References: T49, T47, T45; branch t49-parallel-tests (9da1697, 3f4915c, eb23b02)
 
 Finding: (1) `SERVE_PORT=0 SERVE_PORT_FILE=<f>` makes the worker bind a free port and write it to f; every test starts its worker that way, so your runs and Claude's no longer collide. (2) `tools/quicktest.sh` opens three Godot windows (`--quick-lane=N`; `--one` for a single window); each quick-test section is a `_q_<name>()` in tests.gd, listed in `QUICK_LANES` and the `match` in `_run_quick_test`. A new section goes in both. (3) `worker/test_native.py` section H (runs of cuts and merges) is now `worker/test_runs.py`; their shared helpers, `OPS` and `HOPS` are in `worker/test_native_common.py`. (4) In a freecadcmd test that ends with `sys.exit`, print the summary line with `flush=True`, or it is lost. Quick test ~8 s, full test ~15 s.
 
+### H016 — The decision log is now a file you can edit; small fixes have a light path
+
+Author: Claude | Date: 2026-11-21 | Status: open (for Codex to read, then archive)
+
+References: P08, P09, T52; branches log-todos-light-path, t52-log-structure (6236efa, 11ea593, 36c6dd5). ARCHITECTURE.md sections changed: none (one pointer line in the intro).
+
+Finding: (1) P09: the claude.ai Sheet is retired; `docs/decision-log.md` is the log. Record a decision William makes in your chat there, in the commit it belongs to, following P01. (2) T52: Superseded rows have their own table; a row ending "(Details below.)" has its full text at `### <ID>` under Details. Keep new rows short; long text goes in a Details section. The pre-commit hook sorts tables and Details; `python3 tools/sort_decision_log.py --check` also matches marked rows to sections. (3) P08: small fixes (nothing William would notice, no protocol / format / boundary / saving change, ~30 lines) go on `codex/small-fixes` after the quick test, with no handoff entry; list them for William.
+
 ## Jobs for Codex (assigned by William, 2026-11-21)
 
 H005–H009 are done and archived (reviewed and merged by Claude, 2026-11-21). The rules below still apply to new jobs.
@@ -65,7 +73,7 @@ Full entries in [handoff-archive.md](handoff-archive.md).
 
 ## Entry template
 
-### H015 — Short subject
+### H017 — Short subject
 
 Author: Claude or Codex | Date: YYYY-MM-DD | Status: open
 
