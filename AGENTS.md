@@ -11,7 +11,7 @@ Read it for architecture, conventions and tests.
 2. Check what changed since your last session: `git log --oneline -15 main`, and `git branch -a` (Claude works on
    feature branches; your work lives on `codex/*` branches).
 3. Decisions: `docs/decision-log.md` is William's decision log (P09). Active decisions win over suggestions.
-   Search it by ID (`grep "^| I34 "`) rather than reading it whole. Record a decision William makes in your chat
+   Search it by ID (`grep "^| I34 "`; "(Details below.)" means the full text is at `### I34`) rather than reading it whole. Record a decision William makes in your chat
    there, in the commit it belongs to, following P01 (a new row naming the old ID; the old row Superseded).
 
 ## How to work

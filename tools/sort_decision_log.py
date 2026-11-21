@@ -6,6 +6,8 @@ D, I, M, P, W; Q1 ... Q31; T1 ... T49 (numbers in number order, a letter after a
   python3 tools/sort_decision_log.py --check      exit 1 if the file isn't sorted
 
 Tables whose first column isn't an ID (Tunables: setting names, grouped by what they tune) keep their order.
+Under "## Details", each "### <ID>" section (the full text of a long decision) is sorted the same way, and
+--check also fails when a row says "(Details below.)" without a section, or a section has no such row.
 The pre-commit hook (.githooks/pre-commit) runs this whenever docs/decision-log.md is committed."""
 import re
 import sys
@@ -35,7 +37,53 @@ def sort_text(text):
         else:
             out.append(lines[i])
             i += 1
-    return "\n".join(out)
+    return sort_details("\n".join(out))
+
+
+def sort_details(text):
+    """Sort the "### <ID>" sections under "## Details" (which runs to the next "## " heading or the end)."""
+    lines = text.split("\n")
+    if "## Details" not in lines:
+        return text
+    a = lines.index("## Details") + 1
+    b = next((k for k in range(a, len(lines)) if lines[k].startswith("## ")), len(lines))
+    first = next((k for k in range(a, b) if lines[k].startswith("### ")), b)
+    sections, k = [], first
+    while k < b:
+        j = next((m for m in range(k + 1, b) if lines[m].startswith("### ")), b)
+        body = lines[k:j]
+        while body and body[-1] == "":
+            body.pop()
+        sections.append(body)
+        k = j
+    if not all(ID.match(sec[0][4:].strip()) for sec in sections):
+        return text
+    sections.sort(key=lambda sec: key("| " + sec[0][4:].strip() + " |"))
+    body = []
+    for sec in sections:
+        body += sec + [""]
+    tail = lines[b:]
+    if tail:
+        return "\n".join(lines[:first] + body + tail)
+    while body and body[-1] == "":
+        body.pop()
+    return "\n".join(lines[:first] + body) + ("\n" if text.endswith("\n") else "")
+
+
+def details_problems(text):
+    """Rows marked "(Details below.)" and "### <ID>" sections must match one to one."""
+    marked = {r.split("|")[1].strip() for r in text.split("\n") if r.startswith("| ") and "(Details below.)" in r}
+    lines = text.split("\n")
+    have = set()
+    if "## Details" in lines:
+        for l in lines[lines.index("## Details") + 1:]:
+            if l.startswith("## "):
+                break
+            if l.startswith("### "):
+                have.add(l[4:].strip())
+    out = [f"{i} says (Details below.) but has no ### {i} section" for i in sorted(marked - have)]
+    out += [f"### {i} has no row saying (Details below.)" for i in sorted(have - marked)]
+    return out
 
 
 def main():
@@ -46,6 +94,10 @@ def main():
     if "--check" in sys.argv:
         if new != text:
             print(f"{path} is not sorted by ID: run python3 tools/sort_decision_log.py")
+            sys.exit(1)
+        problems = details_problems(text)
+        if problems:
+            print("\n".join(problems))
             sys.exit(1)
         return
     if new != text:

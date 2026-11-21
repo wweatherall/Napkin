@@ -5,8 +5,9 @@ while the model stays a real, editable FreeCAD file with FreeCAD's drawings. Ble
 Owner: William (teacher; shop and construction background). He thinks in systems and likes values he can tune.
 
 ## Before changing behaviour, read the decision log
-`docs/decision-log.md` (P09): Decisions, Open questions, Work list, Tunables. Grep it by ID; edit it in the
-same commit as the change it records. Rule P01: a change that contradicts a logged decision gets a new row naming the old ID, and the old row is
+`docs/decision-log.md` (P09): Decisions, Superseded, Open questions, Work list, Tunables, Details. Grep it by ID
+(a row ending "(Details below.)" has its full text at `### <ID>`); edit it in the same commit as the change. Keep
+rows short (the file's header says how). Rule P01: a change that contradicts a logged decision gets a new row naming the old ID, and the old row is
 marked Superseded (never deleted). Ask William before countermanding an Active decision.
 
 ## Working with William
@@ -76,7 +77,7 @@ confirmed meshes, the worker link, typed values, drawing rules, viewport tests) 
 
 ## Tests
 - Two kinds of test (P07): feature tests check Shop Sketch's answers against FreeCAD with no window
-  (`tools/featuretest.sh`, ~5 s, all side by side: every worker test, the T48 scenario, the units test); UI tests drive the viewport.
+  (`tools/featuretest.sh`, ~5 s, all side by side: every worker test, the T48 scenario, the units test, the log sort test); UI tests drive the viewport.
   A new feature gets steps in `worker/test_scenario.py` first (run the feature tests while building it), then a
   quick-test step once its tool exists.
 - After every change: `tools/quicktest.sh` (~8 s): the feature tests beside every viewport feature once, in three
