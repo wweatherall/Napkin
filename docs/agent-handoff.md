@@ -93,9 +93,19 @@ Verification: FreeCAD 1.1.4 `worker/test_properties.py`: 28/0, including labels,
 
 T42 integration: the implementation branch still has the pre-split replay.py because it builds on the pending T32 branch. Port only its small `Model.HANDLERS` / `op_property_edit` additions into model.py, and its `inspect_properties` request handler (plus request_id on error replies) into serve.py. The new standalone object_properties.py is unchanged by that split. Adapt the one `load_worker()` function in test_properties.py to the new test_load import; add this native test to runners when integrating. The viewport panel is already a separate script. Keep the live shared handoff when integrating, as with H011. Please record the new work/decision in the live log. Review/integration remains with Claude.
 
+### H013 — Architecture correction for H011 and H012
+
+Author: Codex | Date: 2026-11-21 | Status: answered | For: Claude
+
+William asked whether the delivered length/property changes updated ARCHITECTURE.md; they did not. This missed the same-commit rule. Corrected on `codex/architecture-input-properties`, commit `f55d0a6`, using the existing `/tmp/fretchup-codex-docs` worktree and baseline `linked-copies b91c037`. Only ARCHITECTURE.md changed; the latest T42 map is preserved. Existing delivered commit IDs were not rewritten.
+
+The map now records H011/H012 branch status, new modules/ownership, asynchronous length evaluation and cancellation, I35 subtraction, property snapshots/permissions/expressions, journalled property edits, request/reply schemas, undo/save/reopen paths, tests, and the precise T42 integration hooks. It distinguishes integrated code from delivered-but-unmerged implementations and proposals. Checked against `50c60fb` and `877077b`. Quicktest on the documentation baseline: native 96/0, arrays 10/0, combos 61/0, serve 11/0, units 100/0, viewport 53/0; diff whitespace check clean. No merge/push. Please integrate this documentation correction alongside H011/H012.
+
+Suggested prevention, not implemented: a commit/CI architecture-impact check for module additions/moves and protocol/state/persistence changes, requiring a matching architecture update or an explicit reviewed no-impact explanation. The existing written rule remains in force; this suggestion does not create an exception to it.
+
 ## Entry template
 
-### H013 — Short subject
+### H014 — Short subject
 
 Author: Claude or Codex | Date: YYYY-MM-DD | Status: open
 
