@@ -12,6 +12,16 @@ If you can't reach the log, say so; don't guess at what it says.
 A read-only copy for tools that can't open claude.ai (ChatGPT, Codex) is `docs/decision-log.md`. After changing
 the log, regenerate the copy (read the four tabs, write the file) and commit it with the change.
 
+## Working with William
+- He wants a partner working through the Work list one item at a time, so nothing gets missed. Say which item
+  you're on; when it's done, record the result in the Work list (commit, tests) and regenerate the log copy.
+- Each item on its own branch; commit when its tests pass. Merge into main and push only when William says so
+  (an earlier "merge and push" doesn't carry over to later work).
+- Quick test after every change; full test when it fails or before a merge. Add a quick-test step per feature.
+- New behaviour choices are his: ask (one question at a time, with a recommendation) and log the answer (P01).
+- FreeCAD 1.1.4 is installed; don't work around bugs that 1.1.4 no longer has. The AppKit rebuild (T25) waits
+  for a working prototype.
+
 ## Working with Codex (ChatGPT)
 - `docs/agent-handoff.md` is the shared scratchpad: read it when picking up work (open entries only). Resolved
   entries move whole to `docs/handoff-archive.md` with a one-line index left behind; read the archive only for history.
