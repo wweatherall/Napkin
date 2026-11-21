@@ -3,7 +3,7 @@
 A read-only copy of the decision log for tools that can't open it (ChatGPT, Codex).
 The live log is the claude.ai Sheet: https://claude.ai/artifact/4smrjxGQm7Rt8H4jWBkpyK
 Change decisions there, not here: this file is regenerated from it and edits here are lost.
-Exported from revision 66, 2026-11-21.
+Exported from revision 67, 2026-11-21.
 
 Rule P01: a new decision that contradicts an old one gets a new row naming the old ID; the old row is marked Superseded, never deleted. Ask William before countermanding an Active decision.
 
@@ -201,6 +201,7 @@ Rule P01: a new decision that contradicts an old one gets a new row naming the o
 | T43 | A short CLAUDE.md in each part's folder (worker/, viewport/, viewport/tools/): what that part owns, its rules and its tests. The top-level CLAUDE.md keeps the overview and links to them. | Open |  | Your call, 2026-11-21: each loads only when that folder is being worked on, so every session reads less. After T42, so the worker one describes the new modules. |
 | T44 | Write the window ↔ worker protocol down as one document (docs/protocol.md): every command and reply (hello, open, sync, replay, flush, bye, quit, saved, focus), the files the worker writes (bodies.json, meshes, materials.json, model.glb, the journal) and their fields, with a version number. | Open | W13, A27, A29 | Your call, 2026-11-21: both sides and Codex follow the document instead of reading each other's code. Could be a Codex job. |
 | T45 | Flaky quick-test step: 'the save indicator says Saving... right after' (tests.gd, step 2, Push/Pull) sometimes sees 'Saved' because the save already landed. A timing race in the test, not a save bug: make the check independent of how fast the save is (e.g. watch for the Saving… state at any point between confirm and Saved). | Open | Q22, T19 | Found 2026-11-21: failed once in five quick-test runs (the T42 work), passed on the rerun. Likelier since the combination tests run beside the viewport session and load the machine. |
+| T46 | Properties panel: select one piece, open Properties, and see and edit its FreeCAD values: names, dimensions, positions, linked values and expressions (formula and result shown apart), through the native dependency chain; edits are ordinary undoable actions (op property_edit). | Open | T32 | Your request to Codex, 2026-11-21 (handoff H012). Built by Codex on codex/object-properties (877077b, on top of codex/t32-units): test_properties.py 28/0, quick test viewport 60/0 on its branch. Waiting for Claude's review, after the T32 input review; its worker handlers move into model.py / serve.py (T42). The panel choice to be logged as a decision at review. |
 
 ## Tunables
 

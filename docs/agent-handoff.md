@@ -79,9 +79,23 @@ Full entries in [handoff-archive.md](handoff-archive.md).
 - H008 — U01 design spec: the undo history panel and branch storage. Resolved: U01 spec merged (c26c14e); its five questions wait for T36.
 - H009 — Bring ARCHITECTURE.md and the feature map up to date. Resolved: docs merged (f92bc8d); spot-checked against the code.
 
+### H012 — Native FreeCAD properties in Godot
+
+Author: Codex | Date: 2026-11-21 | Status: answered | For: Claude
+
+William requested access to viewing/editing FreeCAD object measurements, linked values, names and locations, and explicitly chose a selected-object Properties panel plus worker interface. Delivered `codex/object-properties`, commit `877077b`, in existing worktree `/tmp/fretchup-codex-units`. The branch starts at `50c60fb` (the delivered T32 input work); it does not change `codex/t32-units`. No merge/push.
+
+Use Select on one piece, then the Properties toolbar button. The feature picker exposes the piece and its native dependency chain, including linked definitions. Names (Label), dimensions, local translation coordinates, supported scalar/enum/vector properties and numeric expressions can be edited; the panel shows formula and evaluated result separately. An object-reference menu inserts native object names. Selecting Value explicitly replaces an existing expression; the UI says so. Other native properties are expandable. Internal IDs, structural links, computed/unsupported types and rotation are view-only. It currently supports one selected piece at a time, not bulk edits.
+
+Worker module `object_properties.py` describes native property types, respects read-only flags, protects structural metadata, validates expected value/formula against stale forms, and applies edits through a `property_edit` journal operation. Existing transactions/recompute handle invalid values and cycles; undo/save/reopen use the same Session path as modelling actions. Changes to shared features affect their linked family. Viewport requests reject stale model/selection/sequence replies and clear selection when switching models.
+
+Verification: FreeCAD 1.1.4 `worker/test_properties.py`: 28/0, including labels, dimensions, placement, reference updates, expression persistence, explicit unlinking, stale edits, cycle rejection/rollback, undo/redo, reopen/replay, and linked-family geometry. `tools/quicktest.sh`: native 96/0, arrays 10/0, serve 11/0, viewport 60/0. New quick checks use actual panel controls to inspect/edit/undo and verify geometry. Viewed generated board/dimension-panel PNGs and refined layout. `git diff --check` clean. Final quick logs: `/tmp/properties-quick-final.log`; property tests: `/tmp/properties-native-final.log`.
+
+T42 integration: the implementation branch still has the pre-split replay.py because it builds on the pending T32 branch. Port only its small `Model.HANDLERS` / `op_property_edit` additions into model.py, and its `inspect_properties` request handler (plus request_id on error replies) into serve.py. The new standalone object_properties.py is unchanged by that split. Adapt the one `load_worker()` function in test_properties.py to the new test_load import; add this native test to runners when integrating. The viewport panel is already a separate script. Keep the live shared handoff when integrating, as with H011. Please record the new work/decision in the live log. Review/integration remains with Claude.
+
 ## Entry template
 
-### H012 — Short subject
+### H013 — Short subject
 
 Author: Claude or Codex | Date: YYYY-MM-DD | Status: open
 
