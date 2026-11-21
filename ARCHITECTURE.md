@@ -1,16 +1,25 @@
 # Shop Sketch architecture
 
-Reviewed: 2026-11-21 against main 5c0b602 for H009. This maps the inspected source, not a released build. The code and revision 60 decision-log export were checked; baseline quicktest results are recorded below. Updated by Claude 2026-11-21 for the T42 worker split (linked-copies 1739746).
+This is the map of the current implementation: component boundaries, state ownership, data flow,
+communication and persistence. Read it by section when a change crosses those boundaries.
+Implementation below was checked against `main` at `950a030`; later feature branches may add to it.
 
-## Implementation status
+## Documentation ownership
 
-Everything below is integrated on `linked-copies`: the T42 worker split, FreeCAD-backed typed lengths (H011 / T32, I35) and the native Properties panel (H012 / T46). Claude reviewed and merged the Codex branches on 2026-11-21 (merges after `3db2cff`; worker hooks moved into `serve.py` and `model.py`). Not yet on `main`.
+| Question | Read / maintain here |
+|---|---|
+| How do I install and use the app? | [README.txt](README.txt) |
+| What development workflow and test commands apply? | [CLAUDE.md](CLAUDE.md); Codex-specific instructions in [AGENTS.md](AGENTS.md) |
+| What local rules, traps and tests apply to this part? | [Worker guide](worker/CLAUDE.md), [viewport guide](viewport/CLAUDE.md), [tool guide](viewport/tools/CLAUDE.md) |
+| How do components fit together; who owns state and durable data? | This architecture map |
+| What has William approved, and what work is open or done? | [Decision log](docs/decision-log.md), edited directly in the repo (P09) |
+| What does the other agent need to know about a delivery? | [Handoff](docs/agent-handoff.md); resolved exchanges in its archive |
+| What is proposed, and what native capabilities could support it? | [Suggestions](<Codex's suggestions.md>), [design specs](docs/specs/U01-history.md), [FreeCAD feature map](FREECAD_FEATURE_MAP.md) |
 
-## Reading and decision order
-
-Read CLAUDE.md for project conventions, `docs/decision-log.md` for decisions, and the folder guides (`worker/CLAUDE.md`, `viewport/CLAUDE.md`, `viewport/tools/CLAUDE.md`) for each part's rules and tests. This file maps implementation responsibilities and constraints; it does not supersede accepted decisions. Read [Codex's suggestions.md](<Codex's suggestions.md>) for the proposed feature backlog and branching-history design. The live log requires access through Claude; [docs/decision-log.md](docs/decision-log.md) is its read-only local export. Read [docs/agent-handoff.md](docs/agent-handoff.md) for current assignments; do not change the exported log independently.
-
-When behaviour changes, update the decision log as required there, then keep this map and affected tests current. Proposed boundaries below are explicitly labelled; do not mistake them for existing modules.
+Keep each rule or status in its owning document and link to it elsewhere. Decision IDs connect this map
+to the rationale; active decisions govern. Branch delivery notes and test-run totals belong in the Work
+list or handoff, not in the current system description. Architecture updates follow the shared workflow
+in CLAUDE.md; local implementation rules stay in the folder guides.
 
 ## System overview
 
@@ -46,10 +55,10 @@ TCP carries commands/status and output paths. Geometry is read from shared local
 | Location | Current responsibility | Useful entry points |
 |---|---|---|
 | `viewport/project.godot`, `main.tscn` | Godot configuration and startup scene | Main scene |
-| `viewport/main.gd` | Composition root; UI, materials and mesh helpers (`_tri_mesh`, `_lines`), rejection bookkeeping (which later actions go with a rejected one), worker process lifecycle, project switching (window side), camera. Routes worker replies: `sync`/`open`/`saved` to the document controller, the rest to its own handlers; routes the controller's signals to the presenter. Forwards `ops`, `counters`, `seq`, `in_flight`, `dirty`, `model_path`, `out_dir`, `opened`, revisions and `confirmed_ids` to it, and `selection`, `context`, the `body_*` relationship tables, `hover_body` and the context queries to `selection.gd`, and `body_tris` / `body_verts` / `body_edges` / `body_cuts`, `drafts`, `rects`, `op_waves` and the wave calls to `presenter.gd`, so tools and tests keep using `m.<name>` | `_ready`, `_make_tools`, `sync`, `_on_worker`, `_on_synced`, `_on_op_removed`, `_apply_confirmed`, `switch_model` |
-| `viewport/document.gd` | Document controller (A31, T39): model path and output folder, the op list and id counters, request numbering and coalescing (`seq`, `in_flight`, `dirty`), gating replies to the current state, confirmed op ids, undo floor, linear redo stack, open/reset, save revisions. No meshes, shaders or camera; reports by signals (`sync_started`, `sent`, `synced`, `sync_failed`, `save_changed`, `op_removed`, `removed`, `idle`). Tested headless by `test_document.gd` with a stand-in client | `sync`, `on_sync_reply`, `on_opened`, `on_saved`, `on_link_up`, `reset`, `open`, `remove_op(s)`, `undo`, `take_redo` |
-| `viewport/presenter.gd` | Geometry presentation (A33b, T41), `m.pres`: each board's triangles, corners, edges and cuts (what picking and snapping read), drafts and rectangles, confirmed board nodes built from the per-board mesh files (A29), the 40 remembered confirmed states (A28), the confirmation waves, and the highlights for selection and context (selection overlay, ghosting, hidden boards, mirror plane, linked-copy tint) from what `selection.gd` says. Draws with main's mesh helpers and materials. Signals `boards_read` (main updates selection tables and wood) and `wave_rejected_done` (main removes the op and its dependents) | `apply_confirmed`, `show_confirmed`, `show_state`, `forget_op`, `register_rect`, `begin_wave`, `attach_wave`, `step_waves`, `apply_context`, `show_selection`, `show_siblings`, `reset` |
-| `viewport/selection.gd` | Selection and context (A33b, T41), `m.sel`: the selection, the entered assembly or array row, each board's assembly / row / family / array / mirror plane (from `bodies.json`), the hidden set (worked out from `ops`), View > Hidden geometry, the board under the cursor. Its actions (hide, unhide, make assembly, make unique, detach) append ops to the document controller and sync. Draws nothing; reports by signals (`selection_changed`, `context_changed`, `hidden_changed`, `links_changed`, `say`). Tested headless by `test_selection.gd` with a stand-in document | `set_boards`, `unit_of`, `in_context`, `edit_blocked`, `enter_context_of`, `leave_context`, `set_selection`, `refresh_hidden`, `is_hidden`, `hide_selected`, `unhide`, `make_assembly`, `linked_op` |
+| `viewport/main.gd` | Composition root: UI/input/camera, worker lifecycle, model switching, mesh helpers and rejection bookkeeping. Routes document/selection signals to presentation; forwards legacy `m.*` access to their owners. | `_ready`, `_make_tools`, `sync`, `_on_worker`, `_on_synced`, `_on_op_removed`, `_apply_confirmed`, `switch_model` |
+| `viewport/document.gd` | Owns desired ops, IDs, request sequencing/coalescing, confirmation, undo/redo, model path and save revisions. Reports by signals; no geometry or camera. | `sync`, `on_sync_reply`, `on_opened`, `on_saved`, `on_link_up`, `reset`, `open`, `remove_op(s)`, `undo`, `take_redo` |
+| `viewport/presenter.gd` | Owns drafts, confirmed board geometry and nodes, cached visible states, waves and highlights. Reads selection; draws through Main helpers. Emits board metadata and completed rejections. | `apply_confirmed`, `show_confirmed`, `show_state`, `forget_op`, `register_rect`, `begin_wave`, `attach_wave`, `step_waves`, `apply_context`, `show_selection`, `show_siblings`, `reset` |
+| `viewport/selection.gd` | Owns selection, entered context, confirmed board relationships and hidden state. Appends selection-related ops through the document; reports changes without drawing. | `set_boards`, `unit_of`, `in_context`, `edit_blocked`, `enter_context_of`, `leave_context`, `set_selection`, `refresh_hidden`, `is_hidden`, `hide_selected`, `unhide`, `make_assembly`, `linked_op` |
 | `viewport/tools/tool.gd` | Common tool interface and references to viewport/inference | `setup`, `reset`, `click`, `double_click`, `release`, `mouse_moved`, `key`, `typed` |
 | `viewport/tools/select_tool.gd` | Selection and entering editing contexts | Tool event methods |
 | `viewport/tools/paint_tool.gd` | Paint selected wood onto the picked board/family | Tool event methods |
@@ -79,12 +88,12 @@ Tools currently depend directly on `main.gd`; the interface is a convention, not
 | Location | Responsibility | Entry points |
 |---|---|---|
 | `worker/length_input.py` | Normalize supported measurement notation; evaluate numeric lengths using FreeCAD in a temporary unsaved document; return finite millimetres | `evaluate`, `handle` |
-| `viewport/main.gd` length-input additions | Route count syntax locally; read plain lengths at once with `units.gd`; send arithmetic as an asynchronous `length` request, hold the draft and reject stale results before calling the tool | `apply_vcb`, `_on_length`, `length_pending`, `length_id` |
+| `viewport/main.gd` length-input additions | Route count syntax to tools; evaluate supported lengths/arithmetic locally; send declined input as an asynchronous `length` request and reject stale results | `apply_vcb`, `_on_length`, `length_pending`, `length_id` |
 | `worker/object_properties.py` | Describe native property types, values, formulas and permissions; validate and apply a journalled property edit | `related`, `describe`, `inspect`, `apply` |
 | `viewport/property_panel.gd` | Selected-piece feature picker, property fields, Value/Expression modes, reference insertion and read-only details | `display`, `message`, `refresh_requested`, `edit_requested` |
 | `viewport/main.gd` property additions | Tie inspection to model/selection/sequence; append property edits to `ops`; refresh after confirmation | `_request_properties`, `_on_properties`, `_edit_property` |
 
-The `length` and `inspect_properties` requests are handled in `serve.py`; `property_edit` is in `Model.HANDLERS` and `op_property_edit` (delegating to `object_properties.apply`) in `model.py`. Both new worker modules are covered by the worker hash and the app bundle. `test_properties.py` loads the worker through `test_load`.
+The `length` and `inspect_properties` requests are handled in `serve.py`; `property_edit` is in `Model.HANDLERS` and `op_property_edit` (delegating to `object_properties.apply`) in `model.py`. Both modules are covered by worker identity hashing and app packaging.
 
 ## State ownership and authority
 
@@ -121,7 +130,7 @@ The current client gates sync results using sequence and dirty state. New asynch
 
 `apply_vcb()` keeps Move copy/divide commands (`3x`, `x3`, `*3`, `/3`) in the tools. Other Rectangle, Push/Pull, Move and mirror inputs are first worked out by `viewport/units.gd` `evaluate_length` / `evaluate_pair`, a port of `length_input.evaluate`: the same rewriting steps, then FreeCAD's rules for this subset (left-to-right `^` after a leading minus, trig in degrees, a unit belongs to the number before it, unit mismatch and division by zero refused). It answers at once, so drafts never wait for FreeCAD, including arithmetic (`5in + 23mm`, `1'-6"` = 6", I35). When unsure (a unit power such as `2mm^2`, a unit after a bracket, `pi mm`) it declines, and the input goes through a `length` request; FreeCAD also supplies the error message for bad input. Rectangle splits its two values at the comma. Decimal commas are therefore not supported by this input path. The viewport sends `default_unit: "mm"`; it does not yet provide a unit-preference UI.
 
-`length_input.evaluate()` normalizes supported mixed fractions and compound imperial measurements, then calls FreeCAD's full `evalExpression` on a temporary feature in an unsaved document. It restores the previous active document afterwards. Unitless results acquire the requested default unit; other results must be finite lengths. This restricted numeric evaluator does not expose model-property references. It supports a fixed set of units/functions, not the whole FreeCAD expression language. I35 makes minus subtraction: `1-1/2"` is half an inch, while `1 1/2"` is one and a half inches. The two must never disagree. `tests/length_cases.json` holds FreeCAD's answers for 2,500 typed lengths (curated cases plus seeded random expressions; regenerate with `freecadcmd tools/length_cases.py` after changing `length_input.py`). `test_length_input.py` checks FreeCAD still gives them; `test_units.gd` checks every local answer matches and that it answers at least 95% of FreeCAD's lengths (1,145 of 1,149 today). The older `parse_length` / `parse_pair` stay in `units.gd` but aren't the input path.
+`length_input.evaluate()` normalizes supported mixed fractions and compound imperial measurements, then calls FreeCAD's full `evalExpression` on a temporary feature in an unsaved document. It restores the previous active document afterwards. Unitless results acquire the requested default unit; other results must be finite lengths. This restricted numeric evaluator does not expose model-property references. It supports a fixed set of units/functions, not the whole FreeCAD expression language. I35 makes minus subtraction: `1-1/2"` is half an inch, while `1 1/2"` is one and a half inches. The two must never disagree. The shared [length fixture](tests/length_cases.json) checks agreement between FreeCAD and the local evaluator; coverage and regeneration instructions belong to the folder guides. The older `parse_length` / `parse_pair` stay in `units.gd` but aren't the input path.
 
 FreeCAD evaluation is asynchronous from Godot's perspective but runs serially in the same worker as geometry, so a declined entry can wait behind a recompute (what the local evaluator answers never does). Main holds the current draft steady and records the tool, model, sequence and tool state with the input ID. New keypresses, clicks or tool changes cancel the pending input; replies must still match that context before reaching `typed()`. Length replies bypass the geometry-sync response path and must not clear its in-flight state. Parsing itself creates no model action, undo step or persistent formula.
 
@@ -213,7 +222,7 @@ Model coordinates are Z-up millimetres; Godot coordinates are Y-up metres. Use e
 
 `Session.save()` exports GLB when an output directory exists, writes a temporary FCStd, optionally adds TechDraw data through a separate document, writes GUI visibility information, replaces the model file, then writes its journal with revision and hash.
 
-Each file replacement is atomic; the FCStd and journal are not one atomic multi-file transaction. A crash between replacements can leave a detectable mismatch. Opening compares revision/hash and treats unmatched or externally modified documents conservatively, including an undo floor. Live watching/merging of outside edits and adoption of arbitrary foreign solids are still identified as future work in CLAUDE.md.
+Each file replacement is atomic; the FCStd and journal are not one atomic multi-file transaction. A crash between replacements can leave a detectable mismatch. Opening compares revision/hash and treats unmatched or externally modified documents conservatively, including an undo floor. For planned external-edit watching/merging and foreign-solid adoption, see Q19/T17 and Q17/T18 in the decision log.
 
 Save failures currently log an error in `save_pending`; there is no dedicated save-failure event in that path. Do not interpret confirmation or a missing error toast as proof of durability. Explicit save-error/retry behaviour is a useful future contract improvement.
 
@@ -223,7 +232,7 @@ Main picks/probes/starts the worker (`_pick_worker`), watches loss (`_watch_work
 
 - `bodies.json` describes current bodies, geometry metadata, appearance and relationship information.
 - `meshes/<board>-<key>.bin` stores packed triangle positions, normals, edges and corners. `board_mesh_file` writes it; `_build_board` reads it. Change both ends together.
-- Main reuses board nodes by mesh filename plus material/grain appearance key and remembers a bounded set of confirmed states (currently 40). Cache eviction must not become history deletion.
+- The presenter reuses board nodes by mesh filename plus material/grain appearance key and remembers a bounded set of confirmed states (currently 40). Cache eviction must not become history deletion.
 - `model.glb` is generated at save time. Material extras include face/end texture paths, real texture size and species; node extras include `grain_zup` and `across_zup`. The export writes base-colour PBR materials plus these custom extras, not ready-wired Blender texture nodes. A Blender consumer must interpret the extras and resolve the texture files; this review does not establish a complete rendered .blend workflow.
 - `worker/materials.py` installs FreeCAD cards under the user `Material/Shop Sketch` directory (v1-1 on this Mac). `op_set_material` sets the shared definition's SSMaterial and Tip ShapeMaterial; `set_tip` carries that card forward. SSGrain is definition-local, defaults to the longest axis, and `turn_grain` switches longest/middle axes. Linked siblings share it; export transforms grain/across into world coordinates.
 - `materials.json` supplies the viewport library. `paint_tool.gd`, the Wood menu and T grain rotation expose it. `wood.gdshader` uses world position projected along grain/across with physical texture scale and mirrored end-grain repeats; no per-face UV mesh is required.
@@ -250,49 +259,47 @@ For a new operation, define intent, input units/frame, target identity, affected
 
 ## Architectural constraints worth preserving
 
-- Never block normal input while waiting for FreeCAD; distinguish provisional, accepted and saved states.
-- New operations must have transaction-safe failure and leave a valid prior model when rejected.
-- Add FreeCAD properties at object creation where possible; property additions inside transactions have undo caveats documented in CLAUDE.md.
-- Set the active FreeCAD document before invoking Draft helpers.
-- Use MultiFuse for overlapping additive features; a Fuse of overlapping compound members can miscount volume.
-- Apply overlay depth bias in shaders, not moved geometry nodes; moving overlays previously broke picking.
-- Use the existing anti-aliased strip-line implementation rather than primitive one-pixel lines.
-- Keep test delays, forced rejections and synthetic input hooks confined to tests.
+- Input stays responsive while FreeCAD evaluates; provisional, confirmed and saved states are distinct.
+- Each operation has transaction-safe failure and leaves the prior model valid when rejected.
+- The FCStd document is authoritative; geometry caches and visible undo states cannot replace durable history.
+- Tools share inference and coordinate conversions; world, parent and definition frames are distinct.
+- Cross-boundary changes cover both producer and consumer: protocol fields, mesh layouts, cache keys and save/recovery semantics.
 
-## Proposed evolution, not current implementation
+For FreeCAD transaction/Draft/boolean traps and viewport drawing rules, use the folder guides linked above.
 
-Main was split in T39 (document controller) and T41 (selection/context, geometry presenter), 2026-11-21, no behaviour change; it still holds UI, input dispatch, materials and mesh helpers, rejection bookkeeping and the worker process (about 2,000 lines). The worker was split by job in T42 (2026-11-21, no behaviour change): domain operations, export, persistence and transport now live in separate modules (see the table above). T43 per-directory guidance and T44 protocol documentation are still to do.
+## Planned boundaries
 
-As features grow, consider extracting:
-
-1. **Document controller (A31 Active, T39; built as `document.gd`, 2026-11-21):** current model, operations, request generation, confirmation and save status. Still to route through it: tools submitting actions (they append to `ops` and call `sync()`), and history (U01).
-2. **History store (U01/U02, T35–T36):** immutable action nodes, active cursor, branch heads, persistence and checkpoint policy.
-3. **Selection/context controller (A33b Active, T41; built as `selection.gd`, 2026-11-21):** selected units, entered assemblies/arrays, hidden boards and affected-instance scope.
-4. **Geometry presenter (A33b Active, T41; built as `presenter.gd`, 2026-11-21; materials and mesh helpers still in main):** draft and confirmed nodes, mesh cache, picking metadata and feedback.
-5. **Worker session/export boundaries:** keep transport separate from domain operations, document recovery and derived outputs.
-
-For branching history, retain old futures in a durable graph and materialize an active path through the existing sync interface initially. A 20-row sidebar window is independent of retention depth, FreeCAD's undo capacity and the viewport's 40-state cache. Branch-safe IDs, checkpoints, stale-response handling and external-edit boundaries are prerequisites. Merge should compare semantic dependencies from a common ancestor and preserve both source paths; a successful boolean replay is not sufficient proof of a conflict-free merge. See the suggestions document for staged requirements and acceptance cases.
+Current owners are in the component and state tables above. The remaining proposals live in the
+[decision log Work list](docs/decision-log.md#work-list): T35–T36 for durable branching history,
+T44 for the comprehensive protocol reference, T50 for explicit worker imports, and T51 for test-suite
+separation. T39/T41/T42/T43 are represented by the existing controllers, worker modules and folder guides.
+See [U01](docs/specs/U01-history.md) for the history design; proposals do not describe implemented behaviour.
 
 ## Validation and maintenance
 
-For behavioural changes, follow CLAUDE.md: run `tools/quicktest.sh`; run `tools/fulltest.sh` on failure or before merge. Worker tests check native structure, undo/reopen, arrays and relationships. Scripted viewport suites exercise gestures; reference comparisons check volumes/bounds. Visual quality and interaction feel still require real-hardware checks.
+Use [CLAUDE.md#tests](CLAUDE.md#tests) for commands and when to run them; folder guides own coverage
+and feature-test extension instructions. Native structure/undo/reopen tests, controller tests and scripted
+viewport comparisons validate different boundaries. Visual feel still needs real-hardware checks.
+Record actual commands/results against the delivered commit in the Work list or handoff.
 
-`parsecheck.sh` loads every viewport/tool script first. `featuretest.sh` runs the feature tests in parallel: the worker tests (native, runs, arrays, combos, serve, length input and protocol, properties, the T48 scenario on `tests/scenario_fixture.json`), the units parser test the document controller's sequencing test (`test_document.gd`: coalescing, stale and dirty replies, reconnect, open/switch, undo floor, redo) and the selection/context test (`test_selection.gd`: units from outside and inside, entering and leaving, the hidden set following the ops, hide/assembly/unlink ops). `quicktest.sh` runs them alongside the viewport quick suite, dealt into three windows side by side (`tests.gd` `QUICK_LANES`, `--quick-lane=N`; T49), each with its own worker; `fulltest.sh` alongside the recorded and targeted suites at quick pace (`--fast`), in four lanes side by side, each lane with its own worker started on port 0 (T47, T49). Worker tests load the modules with `from test_load import *`. `test_serve.py` covers shared-worker ownership/lifecycle; fulltest also runs recorded suites and targeted checks. After integrating H011/H012 (linked-copies, 2026-11-21): native 96, arrays 10, combos 61, serve 11, units 114, length 23, length protocol 3, properties 28, viewport 63; zero failures. Quick-test steps check that typed arithmetic is worked out locally and a declined input (`60mm^1`) goes to FreeCAD; the rejection scenario types for real. The panel's steps drive its actual controls (inspect, expression edit, confirmed volume, undo).
+Architecture ownership and the same-commit update rule are defined in CLAUDE.md / AGENTS.md.
+Update the affected sections when a boundary, protocol/file format, state owner, persistent relationship,
+or save/recovery path changes. Keep this map about the resulting system rather than the delivery history.
 
-Known limit: a property edit names its FreeCAD object by internal name (`Extrusion003`). Names are stable on reopen and on rebuild from the journal; branch-safe IDs (T35) must take them into account.
+### Automated omission checks
 
-Update this file when adding a module, changing a protocol/schema, moving state ownership, introducing a persistent relationship, or changing save/recovery behaviour. Update it in the same commit as the architectural code change and mention the update in the handoff (AGENTS.md / CLAUDE.md). Before committing, reread the current shared instructions and compare the staged file list against this map. Keep integrated code, delivered branches and proposals distinct, and recheck working-tree changes before acting on an inventory.
-
-### Shared ownership and automated omission checks
-
-Claude and Codex both maintain this map. The author updates it with architectural code changes in their own worktree; the reviewer checks the description against the code. Neither agent needs the other's permission to edit it. Integration preserves unrelated edits from both branches and keeps integration status explicit.
-
-`tools/check_architecture.py` watches non-test Python/Godot modules under worker/ and viewport/, Godot project/scenes, and app packaging. Additions, deletions and renames are included. It is deliberately conservative: modifying a watched file requires a meaningful staged ARCHITECTURE.md change or a commit-message line `Architecture-Impact: none - <specific reason>`. That line asserts there was no architectural change; it does not waive the same-commit requirement when architecture did change. Review must verify both the explanation and the prose; the tool cannot infer semantic accuracy.
-
-The tracked `.githooks/commit-msg` checks the staged snapshot, so an unstaged document edit does not count. Run commits with `git -c core.hooksPath=.githooks commit ...`. Once these files are integrated, `git config core.hooksPath .githooks` can enable the hook by default; first check existing hook configuration and preserve any custom hooks. Configuration is shared by linked worktrees, so do not redirect it to files missing from another active checkout. This delivery does not change shared Git configuration.
-
-`.github/workflows/architecture.yml` runs the guard tests and checks the complete pull-request diff with `--range BASE..HEAD`. The PR check accepts a no-impact rationale from its commit messages and catches missing updates across the PR; it does not enforce per-commit ordering. The local hook enforces staging together, and the reviewer enforces the same-commit rule across the submitted history. Both are omission checks, not automatic documentation writers. `tools/test_check_architecture.py` covers missing updates, rationales, staged versus unstaged docs, real Git diffs, renames and deletion. CI and default hook installation take effect only after integration/configuration; neither is active on the shared checkout merely because this branch exists.
+[tools/check_architecture.py](tools/check_architecture.py) watches production Python/Godot modules,
+project/scenes and packaging, including additions, deletions and renames. The tracked commit-message hook
+checks the staged snapshot for an architecture update or a specific `Architecture-Impact: none` rationale.
+The workflow in [.github/workflows/architecture.yml](.github/workflows/architecture.yml) checks the whole
+PR diff. The local hook checks staging together; the PR check does not enforce per-commit ordering.
+Neither check proves that prose is accurate: reviewers verify the map, rationale and same-commit rule.
+[Guard tests](tools/test_check_architecture.py) cover staged versus unstaged updates, rationales, renames
+and deletion. Hook activation/commit commands belong to the shared workflow; this document does not
+change shared Git configuration.
 
 ## Native geometry feature mapping
 
-See [FREECAD_FEATURE_MAP.md](FREECAD_FEATURE_MAP.md) for S01–S16 providers, native object types, workbench requirements, evidence and integration limits. William clarified that SketchUp-style actions should translate to reasonable FreeCAD counterparts, including combinations of operations and downloadable workbenches; custom UI/history are allowed. A one-to-one command or stock-FreeCAD-only implementation is not required. The mapping separates geometry capabilities from custom orchestration and unverified rendering/relationship behaviour.
+See [FREECAD_FEATURE_MAP.md](FREECAD_FEATURE_MAP.md) for native providers, object types,
+workbench requirements, evidence and integration limits. It owns the capability mapping; approved
+representation choices and rationale remain in the decision log.
