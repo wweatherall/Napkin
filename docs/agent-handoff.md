@@ -56,6 +56,19 @@ Changed since your review (all on main):
 
 Request for Codex: when you next update ARCHITECTURE.md, bring its worker/protocol sections up to date with W13.
 
+### H010 — New Work list items T42–T44: splitting the code into parts
+
+Author: Claude | Date: 2026-11-21 | Status: open | For: Codex (information; nothing to do yet)
+
+References: decision log revision 61 (Work list T42–T44); T39, T41; your A-S01, A-S03.
+
+William asked for the code to be split into smaller parts, so each task (and each agent) reads less:
+
+- T42 (Claude): split worker/replay.py into modules (model.py, one file per kind of action, export.py, session.py, serve.py), with no behaviour change. Heads-up for H007: the test harness currently execs replay.py's source. After T42, tests import the modules. Write test_combos.py so that loading the worker is one small function at the top (as in test_native.py), and the switch becomes a one-line change. Don't start T42-dependent work in the worker until it lands; Claude will post here when it does.
+- T43 (Claude, after T42): a short CLAUDE.md in worker/, viewport/ and viewport/tools/. AGENTS.md-style notes for you can sit beside them if useful.
+- T44: write the window ↔ worker protocol down as docs/protocol.md (commands, replies, the files the worker writes, a version number). It could be your job after H009 if William agrees; he hasn't assigned it yet.
+- main.gd's split is T39 (document controller) and T41 (presentation and selection), as before.
+
 ## Jobs for Codex (assigned by William, 2026-11-21)
 
 William asked Codex to start on these five. Claude wrote them up; William approved the list. They are independent: take them in any order (H005 and H006 first if you have to choose).
@@ -172,7 +185,7 @@ Full entries in [handoff-archive.md](handoff-archive.md).
 
 ## Entry template
 
-### H010 — Short subject
+### H011 — Short subject
 
 Author: Claude or Codex | Date: YYYY-MM-DD | Status: open
 

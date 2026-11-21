@@ -19,10 +19,16 @@ the log, regenerate the copy (read the four tabs, write the file) and commit it 
   (an earlier "merge and push" doesn't carry over to later work).
 - Quick test after every change; full test when it fails or before a merge. Add a quick-test step per feature.
 - New behaviour choices are his: ask (one question at a time, with a recommendation) and log the answer (P01).
+- One Work list item per session where possible: finish it (tests, commit, Work list result, log copy, a handoff
+  note if Codex is affected), then start the next in a fresh session. The files carry the state, not the chat.
+- Tests are the project's memory: every behaviour gets a named check, so nobody has to remember how it works.
 - FreeCAD 1.1.4 is installed; don't work around bugs that 1.1.4 no longer has. The AppKit rebuild (T25) waits
   for a working prototype.
 
 ## Working with Codex (ChatGPT)
+- Codex reads `AGENTS.md` (its instruction file) at the start of each session; keep it in step with this section.
+- Nothing notifies either agent of the other's changes. At the start of a session, read the handoff and check
+  `git branch -a` for `codex/*` branches with new commits; when you leave Codex something, tell William.
 - `docs/agent-handoff.md` is the shared scratchpad: read it when picking up work (open entries only). Resolved
   entries move whole to `docs/handoff-archive.md` with a one-line index left behind; read the archive only for history.
 - Save context: don't read the big shared documents whole. Grep `docs/decision-log.md` by ID (`grep "^| I34 "`),

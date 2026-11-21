@@ -3,7 +3,7 @@
 A read-only copy of the decision log for tools that can't open it (ChatGPT, Codex).
 The live log is the claude.ai Sheet: https://claude.ai/artifact/4smrjxGQm7Rt8H4jWBkpyK
 Change decisions there, not here: this file is regenerated from it and edits here are lost.
-Exported from revision 60, 2026-11-21.
+Exported from revision 61, 2026-11-21.
 
 Rule P01: a new decision that contradicts an old one gets a new row naming the old ID; the old row is marked Superseded, never deleted. Ask William before countermanding an Active decision.
 
@@ -196,6 +196,9 @@ Rule P01: a new decision that contradicts an old one gets a new row naming the o
 | T39 | Document controller (A31): move the action list, sync, request tracking and save state out of main.gd behind one boundary. | Open | A31 | In steps, keeping behaviour; T36 builds on it. |
 | T40 | Save generations and failure reporting (A32). | Open | A32 | Proposal; before branch history is stored in the journal. |
 | T41 | Split geometry presentation and selection/context out of main.gd (A33). | Open | A33 | Proposal; do it with the features that need it. |
+| T42 | Split worker/replay.py (~1,800 lines) into modules: building boards (model.py), one file per kind of action (move, mirror, push, ...), outputs (export.py: bodies.json, mesh files, model.glb), session / undo / journal (session.py), the connection loop (serve.py). No behaviour change. | Open | A31, A33 | Your call, 2026-11-21: so a task reads one small file instead of the whole worker. Guarded by the existing tests; the test harness (which execs replay.py) moves to importing the modules. The worker half of the A31/A33 split; main.gd's half is T39 and T41. |
+| T43 | A short CLAUDE.md in each part's folder (worker/, viewport/, viewport/tools/): what that part owns, its rules and its tests. The top-level CLAUDE.md keeps the overview and links to them. | Open |  | Your call, 2026-11-21: each loads only when that folder is being worked on, so every session reads less. After T42, so the worker one describes the new modules. |
+| T44 | Write the window ↔ worker protocol down as one document (docs/protocol.md): every command and reply (hello, open, sync, replay, flush, bye, quit, saved, focus), the files the worker writes (bodies.json, meshes, materials.json, model.glb, the journal) and their fields, with a version number. | Open | W13, A27, A29 | Your call, 2026-11-21: both sides and Codex follow the document instead of reading each other's code. Could be a Codex job. |
 
 ## Tunables
 
