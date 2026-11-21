@@ -33,6 +33,10 @@ protocol (update it in the same commit when you change either). Tools have their
   one (`enter_context_of`, the rest greyed and unpickable), Esc leaves. Inside an entered array a moved copy leaves
   the row (op `"detach": true`, I32); a board pushed out inside an assembly joins it (op `"assembly"`). Inside a
   mirror group the plane shows and moving the copy moves the original reflected.
+- Hide (T28, I37): H hides the selection (else the board under the cursor), Shift+H unhides all; Edit > Unhide
+  selected / last; View > Hidden geometry ghosts hidden boards (pickable, to unhide one). The hidden set comes
+  from `ops` (`hidden_boards()`, applied in `_apply_context`), so hide and its undo show at once; `is_hidden`
+  boards aren't picked or snapped to.
 - Wood: painted boards use `wood.gdshader` (no UVs: laid out from world position along grain / across; end grain
   mirror-repeated). Board nodes are cached by mesh + material + grain, so a repaint rebuilds the look.
 - Units: model space is Z-up millimetres; Godot is Y-up metres (`m2g` / `g2m`).

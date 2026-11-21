@@ -30,6 +30,15 @@ def check(name, cond, detail=""):
     print(("PASS " if cond else "FAIL ") + name + ("" if cond else f"  {detail}"), flush=True)
 
 
+def shown_in_freecad(m, obj):
+    """What FreeCAD's window would show of this board (T28, T29): the board itself, and its current solid alone
+    among its steps (FreeCAD's undo doesn't take back Visibility, so the worker sets it after each sync)."""
+    dfn = m.definition(obj)
+    steps = [o.Name for o in getattr(dfn, "Group", []) if o.isDerivedFrom("Part::Feature") and o.Visibility]
+    tip = getattr(dfn, "Tip", None)
+    return (bool(obj.Visibility), steps == ([tip.Name] if tip is not None else steps))
+
+
 def snap(sess):
     """Every board: volume, world box, material, grain (in its own frame); and every group's members."""
     m = sess.model
@@ -40,7 +49,8 @@ def snap(sess):
         g = m.grain_local(m.definition(obj))
         out[bid] = {"vol": round(sh.Volume, 2),
                     "box": tuple(round(v, 3) for v in (bb.XMin, bb.YMin, bb.ZMin, bb.XMax, bb.YMax, bb.ZMax)),
-                    "mat": material_of(m, obj), "grain": tuple(round(abs(v), 3) for v in (g.x, g.y, g.z))}
+                    "mat": material_of(m, obj), "grain": tuple(round(abs(v), 3) for v in (g.x, g.y, g.z)),
+                    "hidden": bool(getattr(obj, "SSHidden", False)), "shown": shown_in_freecad(m, obj)}
     groups = {k: sorted(getattr(o, "BodyId", "") for o in g.Group) for k, g in m.assemblies().items()}
     return {"boards": out, "groups": groups}
 
@@ -245,13 +255,46 @@ step("cut a through-hole in the left side", FIX + HOLE_L, lambda st, a, b: [
 # 15. undo into the fixture itself and redo (sync to a shorter prefix, then back)
 def short_prefix(st, a, b):
     return [("shelf copy gone", "shelf2" not in b["boards"] and "shelf" in b["boards"], sorted(b["boards"])),
-            ("bottom unpainted", b["boards"]["bottom"]["mat"] == "", b["boards"]["bottom"]["mat"])]
+            ("bottom unpainted", b["boards"]["bottom"]["mat"] == "", b["boards"]["bottom"]["mat"]),
+            ("FreeCAD shows the shelf again (copying had hidden it as a definition)", b["boards"]["shelf"]["shown"] == (True, True),
+             b["boards"]["shelf"]["shown"])]
 step("undo the last two fixture actions", FIX[:-2], short_prefix)
+
+# 16. hide two boards (T28, I37): an undoable property; FreeCAD shows them hidden; a linked copy stays shown
+HIDE = {"id": "s16", "type": "hide", "targets": ["bottom", "shelf"], "hidden": True}
+step("hide the bottom and the shelf", FIX + [HIDE], lambda st, a, b: [
+    ok(st, 1), only(a, b, {"bottom", "shelf"}),
+    ("both hidden", b["boards"]["bottom"]["hidden"] and b["boards"]["shelf"]["hidden"], (b["boards"]["bottom"], b["boards"]["shelf"])),
+    ("FreeCAD hides them", not b["boards"]["bottom"]["shown"][0] and not b["boards"]["shelf"]["shown"][0],
+     (b["boards"]["bottom"]["shown"], b["boards"]["shelf"]["shown"])),
+    ("the shelf's linked copy stays shown", not b["boards"]["shelf2"]["hidden"] and b["boards"]["shelf2"]["shown"] == (True, True),
+     b["boards"]["shelf2"]),
+    ("shapes unchanged", all(b["boards"][k]["vol"] == a["boards"][k]["vol"] for k in ("bottom", "shelf")), "")])
+
+# 16b. unhide one of them again
+UNHIDE = {"id": "s16b", "type": "hide", "targets": ["shelf"], "hidden": False}
+step("hide two, unhide the shelf", FIX + [HIDE, UNHIDE], lambda st, a, b: [
+    ok(st, 2), only(a, b, {"bottom"}),
+    ("shelf shown again", not b["boards"]["shelf"]["hidden"] and b["boards"]["shelf"]["shown"][0], b["boards"]["shelf"]),
+    ("bottom still hidden", b["boards"]["bottom"]["hidden"] and not b["boards"]["bottom"]["shown"][0], b["boards"]["bottom"])])
+
+# 16c. a hidden board flipped in place stays hidden; making a hidden copy unique keeps it hidden
+FLIP = {"id": "s16c", "type": "mirror", "targets": ["bottom"], "plane": {"point": [300, 0, 0], "normal": [1, 0, 0]}, "replace": True}
+HIDE2 = {"id": "s16d", "type": "hide", "targets": ["shelf2"], "hidden": True}
+UNIQ2 = {"id": "s16e", "type": "make_unique", "targets": ["shelf2"]}
+step("flip a hidden board; make a hidden copy unique", FIX + [HIDE, FLIP, HIDE2, UNIQ2], lambda st, a, b: [
+    ok(st, 4),
+    ("the flipped bottom is still hidden", b["boards"]["bottom"]["hidden"] and not b["boards"]["bottom"]["shown"][0], b["boards"]["bottom"]),
+    ("the unique shelf copy is still hidden", b["boards"]["shelf2"]["hidden"] and not b["boards"]["shelf2"]["shown"][0], b["boards"]["shelf2"])])
+
+# 16d. hiding a board that isn't there is refused
+step("hide a board that doesn't exist (refused)", FIX + [{"id": "s16f", "type": "hide", "targets": ["nope"], "hidden": True}],
+     lambda st, a, b: [("refused", st[-1]["status"] == "failed", st[-1]), only(a, b, set())])
 
 T_STEPS = time.perf_counter() - T0 - T_FIX
 
 # ---------- the cumulative story: steps one after another, as a person would ----------
-STORY = FIX + [FRONT, THICK] + BUMP + [PAINT, GRAIN] + ASM + POSTS + HOLE_L
+STORY = FIX + [FRONT, THICK] + BUMP + [PAINT, GRAIN] + ASM + POSTS + HOLE_L + [HIDE, UNHIDE]
 try:
     S.sync(STORY)
     bad = [(e["id"], e.get("message")) for e in S.status() if e["status"] != "ok"]
@@ -267,6 +310,19 @@ try:
     S.close()
     S = Session(path)
     check("story: reopened file equals the live session", snap(S) == live, diff(live, snap(S)))
+    import zipfile
+    import xml.etree.ElementTree as ET
+    gui = ET.fromstring(zipfile.ZipFile(path).read("GuiDocument.xml"))
+    vis = {vp.get("name"): vp.find(".//Property[@name='Visibility']/Bool").get("value") for vp in gui.iter("ViewProvider")}
+    names = {bid: o.Name for bid, o in S.model.bodies().items()}
+    glb = os.path.join(TESTDIR, "story.glb")
+    write_glb(S.model, glb)
+    gjs = json.loads(open(glb, "rb").read()[20:20 + int.from_bytes(open(glb, "rb").read()[12:16], "little")])
+    in_glb = {n["name"] for n in gjs.get("nodes", [])}
+    check("story: the Blender export leaves out the hidden bottom", "bottom" not in in_glb and {"left", "shelf"} <= in_glb, sorted(in_glb))
+    check("story: FreeCAD's view part hides the hidden bottom and shows the rest",
+          vis.get(names["bottom"]) == "false" and all(vis.get(names[k]) == "true" for k in ("left", "shelf", "shelf2", "post")),
+          {k: vis.get(n) for k, n in names.items()})
     check("story: no invalid FreeCAD objects", not [o.Name for o in S.doc.Objects if "Invalid" in o.State])
     how, _ = S.sync(FIX)
     check("story: undo back to the fixture after reopening", snap(S) == S0, (how, diff(S0, snap(S))))
@@ -274,6 +330,22 @@ except Exception:
     check("story: ran without an error", False, traceback.format_exc(limit=3))
 finally:
     S.close()
+
+# ---------- a file saved before hiding existed (T28): its boards get SSHidden on opening ----------
+try:
+    old = Session(os.path.join(TESTDIR, "before-t28.FCStd"), fresh=True)
+    old.sync(FIX)
+    for o in old.model.bodies().values():
+        o.removeProperty("SSHidden")
+    old.save()
+    old.close()
+    old = Session(os.path.join(TESTDIR, "before-t28.FCStd"))
+    old.sync(FIX + [HIDE])
+    check("old file: hiding works after reopening", old.status()[-1]["status"] == "ok" and old.model.body("bottom").SSHidden
+          and not old.model.body("bottom").Visibility, old.status()[-1])
+    old.close()
+except Exception:
+    check("old file: ran without an error", False, traceback.format_exc(limit=3))
 
 total = time.perf_counter() - T0
 slow = sorted(STEP_MS, key=lambda x: -x[1])[:3]

@@ -47,7 +47,8 @@ class MirrorActions:
             m.Base = p
             m.Normal = n
             m.Label = nid
-            add_props(m, BodyId=nid, SSRole="body", Replaced=replace)
+            add_props(m, BodyId=nid, SSRole="body", Replaced=replace,
+                      SSHidden=bool(getattr(src, "SSHidden", False)) if replace else False)
             self.doc.recompute()
             if m.Shape.isNull() or not m.Shape.Solids:
                 raise OpError(f"could not mirror '{t}'")

@@ -80,9 +80,9 @@ func point(screen: Vector2, exclude: String, plane := {}, with_rects := false, n
 	var verts := {}
 	var edges := {}
 	for bid in m.body_verts:
-		if bid != exclude: verts[bid] = m.body_verts[bid]
+		if bid != exclude and not m.is_hidden(bid): verts[bid] = m.body_verts[bid]
 	for bid in m.body_edges:
-		if bid != exclude: edges[bid] = m.body_edges[bid]
+		if bid != exclude and not m.is_hidden(bid): edges[bid] = m.body_edges[bid]
 	if with_rects:
 		for rid in m.rects:
 			var pts: PackedVector3Array = PackedVector3Array(m.rects[rid]["pts"])

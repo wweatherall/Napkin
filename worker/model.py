@@ -6,9 +6,10 @@ from move import MoveActions
 from mirror import MirrorActions
 from assembly import AssemblyActions
 from paint import PaintActions
+from visibility import VisibilityActions
 
 
-class Model(PushActions, MoveActions, MirrorActions, AssemblyActions, PaintActions):
+class Model(PushActions, MoveActions, MirrorActions, AssemblyActions, PaintActions, VisibilityActions):
     """Shop Sketch operations on a FreeCAD document. Holds no state of its own."""
 
     def __init__(self, doc):
@@ -144,7 +145,8 @@ class Model(PushActions, MoveActions, MirrorActions, AssemblyActions, PaintActio
             raise OpError(f"body id '{bid}' already exists")
         c = self.doc.addObject("App::Part", "Board")
         c.Label = bid
-        add_props(c, BodyId=bid, SSRole="body", SSMaterial="", ComponentName="", Tip=None, SSGrain=App.Vector(0, 0, 0))
+        add_props(c, BodyId=bid, SSRole="body", SSMaterial="", ComponentName="", Tip=None, SSGrain=App.Vector(0, 0, 0),
+                  SSHidden=False)
         if placement is not None:
             c.Placement = placement
         return c
@@ -284,7 +286,7 @@ class Model(PushActions, MoveActions, MirrorActions, AssemblyActions, PaintActio
         return b
 
     HANDLERS = ("rect", "push_pull", "mirror", "make_component", "move", "set_material", "detach", "make_unique",
-                "make_assembly", "turn_grain", "property_edit")
+                "make_assembly", "turn_grain", "property_edit", "hide")
 
     def op_property_edit(self, op):
         """A native property changed in the Properties panel (T46): see object_properties.apply."""
