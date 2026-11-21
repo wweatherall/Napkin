@@ -7,6 +7,7 @@ const Main := preload("res://main.gd")
 const EDGE_PX := 8.0            # on-edge snap radius, pixels
 const INFER_DEG := 8.0          # drag within this angle of an axis's on-screen direction -> sticks to it
 const RELEASE_DEG := 12.0       # ...and lets go beyond this (hysteresis)
+const PLANE_TOL := 0.5          # mm: how far off a plane a point may sit and still count as on it
 var m: Main
 
 
@@ -39,25 +40,14 @@ func pick(screen: Vector2) -> Dictionary:
 
 
 func snap(p: Dictionary, screen: Vector2) -> Dictionary:
+	"""A point picked on a plane (a face or the ground), snapped like Move snaps (Q16): endpoint > midpoint >
+	on edge, on any board or rectangle but staying on that plane; else the grid."""
 	if not p.get("hit", false):
 		return p
 	var n: Vector3 = p["normal"]
-	var best = null
-	var bestd := Main.SNAP_PX
-	var pools := []
-	if p["body"] != "": pools.append(m.body_verts.get(p["body"], PackedVector3Array()))
-	else: for k in m.body_verts: pools.append(m.body_verts[k])
-	for k in m.rects: pools.append(PackedVector3Array(m.rects[k]["pts"]))
-	for pool in pools:
-		for v in pool:
-			if absf((v - p["point"]).dot(n)) > 0.5: continue   # stay on the plane
-			var gv := Main.m2g(v)
-			if m.cam.is_position_behind(gv): continue
-			var dd := m.cam.unproject_position(gv).distance_to(screen)
-			if dd < bestd:
-				bestd = dd; best = v
-	if best != null:
-		p["point"] = best; p["snap"] = "endpoint"
+	var hit := point(screen, "", {"n": n, "p": p["point"]}, true)
+	if not hit.is_empty():
+		p["point"] = hit["point"]; p["snap"] = hit["kind"]
 	elif m.grid_snap:
 		var pt: Vector3 = p["point"]
 		for i in 3:
@@ -67,41 +57,101 @@ func snap(p: Dictionary, screen: Vector2) -> Dictionary:
 	return p
 
 
-func point(screen: Vector2, exclude: String) -> Dictionary:
-	"""Point snaps on other boards, in SketchUp's priority: endpoint > midpoint > on edge. Empty if none."""
-	var best := {}
-	var bestd := Main.SNAP_PX
+static func _on_plane(v: Vector3, plane: Dictionary) -> bool:
+	return plane.is_empty() or absf((v - plane["p"]).dot(plane["n"])) <= PLANE_TOL
+
+
+static func _on_other(v: Vector3, plane: Dictionary) -> bool:
+	return not plane.is_empty() and absf((v - plane["p"]).dot(plane["n"])) <= PLANE_TOL
+
+
+func _screen_d(v: Vector3, screen: Vector2) -> float:
+	var gv := Main.m2g(v)
+	if m.cam.is_position_behind(gv): return INF
+	return m.cam.unproject_position(gv).distance_to(screen)
+
+
+func point(screen: Vector2, exclude: String, plane := {}, with_rects := false, not_on := {}) -> Dictionary:
+	"""Point snaps in SketchUp's priority: endpoint > midpoint > on edge, nearest first, and only points you can
+	see (one hidden behind a board doesn't count). Empty if none.
+	exclude: a board to ignore (the one being moved). plane: {"n", "p"}: only points on that plane.
+	with_rects: rectangles' corners and sides count too (drawing on a face).
+	not_on: {"n", "p"}: ignore points on this plane (Push/Pull: the face being pushed)."""
+	var verts := {}
+	var edges := {}
 	for bid in m.body_verts:
-		if bid == exclude: continue
-		for v in m.body_verts[bid]:
-			var gv := Main.m2g(v)
-			if m.cam.is_position_behind(gv): continue
-			var dd := m.cam.unproject_position(gv).distance_to(screen)
-			if dd < bestd: bestd = dd; best = {"point": v, "kind": "endpoint", "body": bid}
-	if not best.is_empty(): return best
-	bestd = Main.SNAP_PX
+		if bid != exclude: verts[bid] = m.body_verts[bid]
 	for bid in m.body_edges:
-		if bid == exclude: continue
-		var segs: PackedVector3Array = m.body_edges[bid]
+		if bid != exclude: edges[bid] = m.body_edges[bid]
+	if with_rects:
+		for rid in m.rects:
+			var pts: PackedVector3Array = PackedVector3Array(m.rects[rid]["pts"])
+			verts["rect " + rid] = pts
+			edges["rect " + rid] = PackedVector3Array([pts[0], pts[1], pts[1], pts[2], pts[2], pts[3], pts[3], pts[0]])
+	var keep := func(v: Vector3) -> bool: return _on_plane(v, plane) and not _on_other(v, not_on)
+	# endpoints
+	var cands := []
+	for bid in verts:
+		for v in verts[bid]:
+			if keep.call(v): cands.append([v, bid])
+	var best := _nearest_visible(cands, screen, Main.SNAP_PX, "endpoint")
+	if not best.is_empty(): return best
+	# midpoints
+	cands = []
+	for bid in edges:
+		var segs: PackedVector3Array = edges[bid]
 		for i in range(0, segs.size(), 2):
 			var mid := (segs[i] + segs[i + 1]) * 0.5
-			var gm := Main.m2g(mid)
-			if m.cam.is_position_behind(gm): continue
-			var dd := m.cam.unproject_position(gm).distance_to(screen)
-			if dd < bestd: bestd = dd; best = {"point": mid, "kind": "midpoint", "body": bid}
+			if keep.call(mid): cands.append([mid, bid])
+	best = _nearest_visible(cands, screen, Main.SNAP_PX, "midpoint")
 	if not best.is_empty(): return best
-	bestd = EDGE_PX
+	# on an edge
+	cands = []
 	var o := Main.g2m(m.cam.project_ray_origin(screen)); var d := Main.n_g2m(m.cam.project_ray_normal(screen))
-	for bid in m.body_edges:
-		if bid == exclude: continue
-		var segs: PackedVector3Array = m.body_edges[bid]
+	for bid in edges:
+		var segs: PackedVector3Array = edges[bid]
 		for i in range(0, segs.size(), 2):
+			if not (_on_plane(segs[i], plane) and _on_plane(segs[i + 1], plane)): continue
 			var q := closest_on_segment_to_ray(segs[i], segs[i + 1], o, d)
-			var gq := Main.m2g(q)
-			if m.cam.is_position_behind(gq): continue
-			var dd := m.cam.unproject_position(gq).distance_to(screen)
-			if dd < bestd: bestd = dd; best = {"point": q, "kind": "on edge", "body": bid}
-	return best
+			if _on_other(q, not_on): continue
+			cands.append([_grid_along(q, segs[i], segs[i + 1]), bid, q])
+	return _nearest_visible(cands, screen, EDGE_PX, "on edge")
+
+
+func _nearest_visible(cands: Array, screen: Vector2, radius: float, kind: String) -> Dictionary:
+	"""The candidate nearest the cursor on screen (within radius pixels) that isn't hidden behind a board."""
+	var near := []
+	for c in cands:
+		var dd := _screen_d(c[2] if c.size() > 2 else c[0], screen)
+		if dd < radius: near.append([dd, c])
+	near.sort_custom(func(x, y): return x[0] < y[0])
+	for n in near:
+		var c: Array = n[1]
+		if _visible(c[2] if c.size() > 2 else c[0]):
+			return {"point": c[0], "kind": kind, "body": c[1]}
+	return {}
+
+
+func _visible(v: Vector3) -> bool:
+	"""Nothing solid between the camera and this point (a point on a board's surface sees itself)."""
+	var o := m.cam.global_position
+	var g := Main.m2g(v)
+	var dist := o.distance_to(g)
+	var q := PhysicsRayQueryParameters3D.create(o, g, 1)       # boards only, not rectangles
+	q.hit_back_faces = true
+	var r := m.get_world_3d().direct_space_state.intersect_ray(q)
+	return r.is_empty() or o.distance_to(r["position"]) >= dist - (0.001 + dist * 0.003)
+
+
+func _grid_along(q: Vector3, a: Vector3, b: Vector3) -> Vector3:
+	"""With grid snap on, a point on a straight (axis-aligned) edge lands on the grid along it."""
+	if not m.grid_snap: return q
+	var u := (b - a).normalized()
+	for i in 3:
+		if absf(absf(u[i]) - 1.0) < 1e-6:
+			var lo := minf(a[i], b[i]); var hi := maxf(a[i], b[i])
+			q[i] = clampf(snappedf(q[i], Main.GRID), lo, hi)
+	return q
 
 
 static func closest_on_segment_to_ray(p0: Vector3, p1: Vector3, o: Vector3, d: Vector3) -> Vector3:

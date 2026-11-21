@@ -44,6 +44,10 @@ func vcb_value() -> String:
 	return "%d" % state["dist"] if state.get("active", false) else ""
 
 
+func tip() -> String:
+	return "to " + state["snap"] if state.get("active", false) and state.get("snap", "") != "" else ""
+
+
 func _push_hover(screen: Vector2) -> void:
 	hover = {}
 	m.overlay.mesh = null
@@ -112,6 +116,14 @@ func _push_drag(screen: Vector2) -> void:
 	if absf(den) < 1e-9: return
 	var s := (bb * ee - cc * dd) / den
 	state["dist"] = roundf(s * 1000.0)
+	state["snap"] = ""
+	# push to a point (Q16): over a corner, midpoint or edge of any board, the face goes to that point's level
+	var pt := infer.point(screen, "", {}, false, {"n": state["n"], "p": state["anchor"]})
+	m.marker.visible = false
+	if not pt.is_empty():
+		state["dist"] = Main.r3((pt["point"] - state["anchor"]).dot(state["n"]))
+		state["snap"] = pt["kind"]
+		m._show_marker({"hit": true, "point": pt["point"], "snap": pt["kind"]})
 	_preview_push(state["dist"])
 	m._update_vcb()
 
@@ -167,6 +179,7 @@ func commit_push(d: float) -> void:
 		m.drafts[state["rect"]].queue_free(); m.drafts.erase(state["rect"])
 	state = {}
 	m.overlay.mesh = null; m.overlay_lines.mesh = null
+	m.marker.visible = false
 	m.sync()
 
 

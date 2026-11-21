@@ -25,6 +25,7 @@ func run() -> void:
 	elif m.undo_test: await _run_undo_test()
 	elif m.gesture_test: await _run_gesture_test()
 	elif m.lifecycle_test: await _run_lifecycle_test()
+	elif m.snap_test: await _run_snap_test()
 	else: await _run_fx_test()
 
 # ---------------- fx test (--fxtest): records nicely with --write-movie ----------------
@@ -716,6 +717,53 @@ func _run_lifecycle_test() -> void:
 	print("LIFECYCLETEST before crash %s | after crash: new pid %s (was %d), running %s, boards %s, confirmed after %d ms | %s" % [
 		first, m.worker_pid, pid1, OS.is_process_running(m.worker_pid), _shown_ids(), Time.get_ticks_msec() - t1, m.ui_sync.text])
 	print("LIFECYCLETEST worker pid at quit %d" % m.worker_pid)
+	get_tree().quit()
+
+
+func _screen_of(p_model: Vector3, nudge := Vector2(3, 2)) -> Vector2:
+	return m.cam.unproject_position(Main.m2g(p_model)) + nudge
+
+
+func _run_snap_test() -> void:
+	# Q16: Rectangle and Push/Pull snap like Move (endpoint > midpoint > on edge > grid; push to a point)
+	m.cursor2d.visible = false
+	m.ops.append({"id": "r1", "type": "rect", "plane": {"normal": [0, 0, 1], "origin": [0, 0, 0]}, "size": [300, 200]})
+	m.ops.append({"id": "pp1", "type": "push_pull", "target": {"rect": "r1"}, "distance": 18, "body": "b1"})
+	m.ops.append({"id": "r2", "type": "rect", "plane": {"normal": [0, 0, 1], "origin": [400, 0, 0]}, "size": [100, 100]})
+	m.ops.append({"id": "pp2", "type": "push_pull", "target": {"rect": "r2"}, "distance": 50, "body": "b2"})
+	m.counters["r"] = 2; m.counters["pp"] = 2; m.counters["b"] = 2
+	m.sync(); await _wait_confirm()
+	await _view(Vector3(250, 100, 20), -30, -35, 1.1)
+	m.set_tool("rect")
+	var mid := m.snap(m.pick(_screen_of(Vector3(150, 0, 18))), _screen_of(Vector3(150, 0, 18)))
+	var mid_ok: bool = mid.get("snap", "") == "midpoint" and mid["point"].is_equal_approx(Vector3(150, 0, 18))
+	var on_edge := m.snap(m.pick(_screen_of(Vector3(64, 0, 18), Vector2(0, 2))), _screen_of(Vector3(64, 0, 18), Vector2(0, 2)))
+	var edge_ok: bool = on_edge.get("snap", "") == "on edge" and on_edge["point"].is_equal_approx(Vector3(60, 0, 18))
+	var near_corner := _screen_of(Vector3(296, 196, 18), Vector2.ZERO)      # on the face, a few pixels from its corner
+	var corner := m.snap(m.pick(near_corner), near_corner)
+	var corner_ok: bool = corner.get("snap", "") == "endpoint" and corner["point"].is_equal_approx(Vector3(300, 200, 18))
+	var inside := m.snap(m.pick(_screen_of(Vector3(121, 93, 18), Vector2.ZERO)), _screen_of(Vector3(121, 93, 18), Vector2.ZERO))
+	var grid_ok: bool = inside.get("snap", "") == "grid" and inside["point"].is_equal_approx(Vector3(120, 90, 18))
+	print("SNAPTEST rectangle: midpoint %s %s | on edge, on the grid %s %s | endpoint %s | grid inside a face %s %s" % [
+		mid_ok, mid.get("snap"), edge_ok, on_edge.get("point"), corner_ok, grid_ok, inside.get("point")])
+	# push b1's top up to the level of b2's top corner
+	m.set_tool("push")
+	var push = m.tools["push"]
+	push.click(_screen_of(Vector3(150, 100, 18), Vector2.ZERO))
+	push.mouse_moved(_screen_of(Vector3(150, 200, 18), Vector2(0, 2)))     # over the pushed face's own far edge
+	var own_edge_ignored: bool = push.state.get("snap", "") == ""
+	if not own_edge_ignored: print("SNAPTEST own-edge hover snapped: %s, distance %s" % [push.state.get("snap"), push.state.get("dist")])
+	push.mouse_moved(_screen_of(Vector3(400, 0, 50)))
+	var dist: float = push.state.get("dist", -1)
+	var kind: String = push.state.get("snap", "")
+	push.click(_screen_of(Vector3(400, 0, 50)))
+	await _wait_wave()
+	var top := -1.0
+	for b in JSON.parse_string(FileAccess.get_file_as_string(m.out_dir.path_join("bodies.json"))):
+		if b["id"] == "b1": top = b["world_bbox"][5]
+	print("SNAPTEST push to a point: distance %s (want 32) by %s | b1's top now at %s mm (want 50) | own face's edges ignored %s" % [
+		dist, kind, top, own_edge_ignored])
+	print("SNAPTEST done")
 	get_tree().quit()
 
 

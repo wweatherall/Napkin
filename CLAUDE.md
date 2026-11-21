@@ -53,7 +53,8 @@ Viewport suites: `Godot --path viewport -- --<suite> --out=<dir>/out --shots=<di
 - Suites: `--facetest` `--movetest` `--mirrortest` `--infertest` `--holetest` `--zfighttest`.
 - Each writes `<tag>_bodies.json` checkpoints. Compare them with a known-good run: volumes and world boxes must match.
 - Other test modes (print their results; look at the shots): `--linetest` (line visibility), `--undotest` (needs a worker
-  on --port), `--gesturetest` and `--lifecycletest` (no --port: the app starts its own worker), `--heavytest --model=<file>`. Recordings use `--true-latency` (P03), with Godot's `--write-movie`.
+  on --port), `--snaptest` (Rectangle and Push/Pull snapping, needs a worker on --port),
+  `--gesturetest` and `--lifecycletest` (no --port: the app starts its own worker), `--heavytest --model=<file>`. Recordings use `--true-latency` (P03), with Godot's `--write-movie`.
 - Test hooks (`delay_ms`, forced rejection, `--*test`) are for testing only (P02).
 
 ## Known problems / open work
@@ -75,5 +76,7 @@ Viewport suites: `Godot --path viewport -- --<suite> --out=<dir>/out --shots=<di
 - Draft makes objects in the *active* document: call `App.setActiveDocument(self.doc.Name)` first.
 - Combined merges must be Part::MultiFuse: a Part::Fuse whose tool is a compound of overlapping pieces
   counts the overlap twice. A Part::Cut with a compound tool is right even when cutters overlap.
-- Viewport suites drive the UI frame by frame: run them one at a time with no other Godot or FreeCAD
-  running, or input gets lost and results vary. `--holetest` is flaky even then (T4).
+- Viewport suites drive the UI frame by frame: run them one at a time with no other Godot window open
+  (a window that takes focus loses their input), and don't name a results folder after a viewport copy.
+  `--holetest` and `--zfighttest` are flaky even then: a typed push sometimes lands after the next
+  rectangle. Compare against a run that has all its ops.

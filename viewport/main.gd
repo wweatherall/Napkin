@@ -68,6 +68,7 @@ var hole_test := false
 var line_test := false
 var undo_test := false
 var gesture_test := false
+var snap_test := false
 const OVERLAY_BIAS := 0.001   # overlays sit 0.1% of the camera distance nearer the eye (invisible, beats z-fighting)
 var overlay_bias := OVERLAY_BIAS
 var grid_mat: ShaderMaterial
@@ -155,6 +156,7 @@ func _ready() -> void:
 		elif a == "--linetest": test_mode = true; fx_test = true; line_test = true
 		elif a == "--undotest": test_mode = true; fx_test = true; undo_test = true
 		elif a == "--gesturetest": test_mode = true; fx_test = true; gesture_test = true
+		elif a == "--snaptest": test_mode = true; fx_test = true; snap_test = true
 		elif a == "--lifecycletest": test_mode = true; fx_test = true; lifecycle_test = true
 		elif a == "--nobias": overlay_bias = 0.0
 		elif a.begins_with("--preload="): preload_path = a.substr(10)
@@ -473,7 +475,7 @@ func _show_marker(p: Dictionary) -> void:
 	marker.visible = p.get("hit", false)
 	if marker.visible:
 		marker.position = m2g(p["point"])
-		var col := Color(0.1, 0.6, 0.1) if p.get("snap", "") == "endpoint" else Color(0.35, 0.35, 0.4)
+		var col: Color = SNAP_COLORS.get(p.get("snap", ""), Color(0.35, 0.35, 0.4))
 		(marker.mesh.material as StandardMaterial3D).albedo_color = col
 
 
