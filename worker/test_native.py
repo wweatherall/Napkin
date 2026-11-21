@@ -386,8 +386,8 @@ s = Session(jpath, fresh=True)
 s.sync(JOPS)
 check("through-hole and a 10 mm blind hole", vol(s) == 300 * 200 * 18 - 7200 - 4000, vol(s))
 s.export(tmp)
-hole = [c for c in json.load(open(os.path.join(tmp, "bodies.json")))[0]["cuts"] if c["op"] == "pj1"][0]
-check("the through-hole's outline stays inside the board", hole["lo"][2] >= -1e-6 and hole["hi"][2] <= 18 + 1e-6, hole)
+thru = [c for c in json.load(open(os.path.join(tmp, "bodies.json")))[0]["cuts"] if c["op"] == "pj1"][0]
+check("the through-hole's outline stays inside the board", thru["lo"][2] >= -1e-6 and thru["hi"][2] <= 18 + 1e-6, thru)
 s.save(tmp)
 s.close()
 
@@ -409,6 +409,33 @@ set_thickness(12)
 s = Session(jpath)
 check("...and at 12 mm thick, still through (the blind one, drawn at 18 mm, now only reaches 8..12 mm)",
       vol(s) == 300 * 200 * 12 - 20 * 20 * 12 - 20 * 20 * 4, vol(s))
+s.close()
+
+# ---------- K. one mesh file per board, rewritten only when that board changes (T3) ----------
+kdir = os.path.join(tmp, "meshes_test")
+KOPS = [ground_rect("r1", [0, 0, 0], [300, 200]), push("p1", "r1", 18, "b1"),
+        ground_rect("r2", [400, 0, 0], [100, 100]), push("p2", "r2", 30, "b2")]
+s = Session(None)
+s.sync(KOPS)
+s.export(kdir)
+first = {b["id"]: b["mesh"] for b in json.load(open(os.path.join(kdir, "bodies.json")))}
+files0 = sorted(os.listdir(os.path.join(kdir, "meshes")))
+check("a mesh file per board", sorted(first.values()) == files0 and len(files0) == 2, (first, files0))
+s.sync(KOPS + hole("k", 50, 50))
+s.export(kdir)
+second = {b["id"]: b["mesh"] for b in json.load(open(os.path.join(kdir, "bodies.json")))}
+files1 = sorted(os.listdir(os.path.join(kdir, "meshes")))
+check("a hole in b1 rewrites b1's file only, and the old one is gone",
+      second["b2"] == first["b2"] and second["b1"] != first["b1"] and files1 == sorted(second.values()), (first, second, files1))
+raw = open(os.path.join(kdir, "meshes", second["b1"]), "rb").read()
+counts, off = [], 0
+for _ in range(4):
+    t, n = struct.unpack_from("<II", raw, off)
+    counts.append((t, n))
+    off += 8 + n * 12
+check("the file is four Godot vector arrays: triangles, normals, edges (pairs), corners",
+      off == len(raw) and all(t == 36 for t, _ in counts) and counts[0][1] == counts[1][1] and counts[0][1] % 3 == 0
+      and counts[2][1] == 2 * 24 and counts[3][1] == 16, counts)        # a box (12 edges) + a through-hole (12)
 s.close()
 
 print(f"\nNATIVE TESTS: {R[0]} passed, {R[1]} failed")

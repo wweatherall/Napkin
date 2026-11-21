@@ -14,7 +14,8 @@ Writes beside the model:
   model.FCStd                the document (autosaved atomically after every change)
   model.shopsketch.json      journal: the op list, statuses, revision, file hash
 and into the output folder:
-  model.glb  status.json  bodies.json  (views.json when a drawing is asked for)
+  bodies.json  status.json  meshes/<board>-<key>.bin (one per board, rewritten only when it changes)
+  model.glb at each autosave (views.json when a drawing is asked for)
 """
 import hashlib
 import json
@@ -762,6 +763,59 @@ def mesh_of(bid, obj, model):
     return packed
 
 
+# ---------- per-board mesh files for the viewport (T3) ----------
+_MESH_FILES = {}    # (outdir, board id) -> the file currently describing it
+
+
+def _pv3(points):
+    """Points as a Godot PackedVector3Array in Godot's own binary format (var_to_bytes): the viewport reads
+    it with one native call. Type 36, count, then float32 x y z."""
+    flat = []
+    for p in points:
+        flat += (p[0], p[1], p[2])
+    return struct.pack("<II", 36, len(points)) + struct.pack(f"<{len(flat)}f", *flat)
+
+
+def board_mesh_file(bid, obj, model, outdir):
+    """The board's file, written only when its shape changed: triangles and normals (model mm, Z-up; listed
+    clockwise from outside, as Godot draws front faces), then FreeCAD's own edges and corners for snapping."""
+    key = hashlib.sha1(repr(shape_key(obj)).encode()).hexdigest()[:16]
+    name = f"{bid}-{key}.bin"
+    folder = os.path.join(outdir, "meshes")
+    path = os.path.join(folder, name)
+    if not os.path.exists(path):
+        ws = model.world_shape(obj)
+        verts, tris = ws.tessellate(0.1)
+        pos, nor = [], []
+        for a, b, c in tris:
+            pa, pb, pc = verts[a], verts[b], verts[c]
+            n = (pb - pa).cross(pc - pa)
+            n = n.normalize() if n.Length > 1e-12 else V(0, 0, 1)
+            pos += (pa, pc, pb)
+            nor += (n, n, n)
+        edges = []
+        for e in ws.Edges:
+            if isinstance(e.Curve, Part.Line) and len(e.Vertexes) == 2:
+                pts = [e.Vertexes[0].Point, e.Vertexes[1].Point]
+            else:
+                pts = e.discretize(Deflection=0.1)
+            for i in range(len(pts) - 1):
+                edges += (pts[i], pts[i + 1])
+        corners = [v.Point for v in ws.Vertexes]
+        os.makedirs(folder, exist_ok=True)
+        with open(path + ".tmp", "wb") as f:
+            f.write(_pv3(pos) + _pv3(nor) + _pv3(edges) + _pv3(corners))
+        os.replace(path + ".tmp", path)
+    old = _MESH_FILES.get((outdir, bid))
+    if old and old != name:
+        try:
+            os.remove(os.path.join(folder, old))
+        except OSError:
+            pass
+    _MESH_FILES[(outdir, bid)] = name
+    return name
+
+
 def write_glb(model, path):
     bin_parts, accessors, views, meshes, nodes, mats = [], [], [], [], [], []
     mat_index = {}
@@ -1040,9 +1094,9 @@ class Session:
         return out
 
     def export(self, outdir):
+        """bodies.json plus a mesh file per board that changed (the viewport rebuilds only those, T3)."""
         os.makedirs(outdir, exist_ok=True)
         t0 = time.perf_counter()
-        write_glb(self.model, os.path.join(outdir, "model.glb"))
         m = self.model
         bodies = []
         for bid, obj in m.bodies().items():
@@ -1058,7 +1112,9 @@ class Session:
                              "size": sorted([round(lb.XLength, 2), round(lb.YLength, 2), round(lb.ZLength, 2)]),
                              "volume_mm3": round(ws.Volume, 1), "cuts": cuts_of(m, obj)})
                 _ENTRY_CACHE[bid] = hit
-            bodies.append(hit[1])
+            mat = hit[1]["material"]
+            bodies.append(dict(hit[1], mesh=board_mesh_file(bid, obj, m, outdir),
+                               color=list(PALETTE.get(mat, (0.7, 0.7, 0.7)))))
         atomic_json(os.path.join(outdir, "bodies.json"), bodies)
         return round((time.perf_counter() - t0) * 1000, 1)
 
@@ -1068,6 +1124,8 @@ class Session:
         if not self.path:
             return None
         t0 = time.perf_counter()
+        if outdir:
+            write_glb(self.model, os.path.join(outdir, "model.glb"))     # the whole model, for renders (A07)
         self.rev += 1
         meta = self.doc.Meta
         meta["ShopSketchRev"] = str(self.rev)
@@ -1126,7 +1184,7 @@ def serve(port):
       {"cmd": "open", "model": ".../model.FCStd", "fresh": false}
           -> {"ok", "cmd": "open", "ops", "undo_floor", "external", "rev"}
       {"cmd": "sync", "model": "...", "oplog": {...}, "outdir": "...", "seq": n, "drawing": false}
-          -> {"ok", "cmd": "sync", "result": {...status...}, "glb", "seq", "wall_ms"}
+          -> {"ok", "cmd": "sync", "result": {...status...}, "outdir" (bodies.json, meshes/), "seq", "wall_ms"}
       {"cmd": "replay", ...}  same as sync on a fresh document (one-shot rebuild)
     The reply goes out first; the autosave waits until the line has been quiet for IDLE_SAVE_S,
     so quick successive actions never queue behind a save."""
@@ -1205,7 +1263,7 @@ def serve(port):
                             model = req.get("model") or os.path.join(req["outdir"], "model.FCStd")
                             s = session_for(model, fresh=(cmd == "replay"))
                             res, outdir = run_sync(s, req)
-                            resp = {"ok": True, "cmd": "sync", "result": res, "glb": os.path.join(outdir, "model.glb"),
+                            resp = {"ok": True, "cmd": "sync", "result": res, "outdir": outdir,
                                     "seq": seq, "wall_ms": round((time.perf_counter() - t0) * 1000, 1)}
                             if s.dirty or req.get("drawing"):
                                 after = (s, outdir)

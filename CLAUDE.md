@@ -19,7 +19,11 @@ If you can't reach the log, say so; don't guess at what it says.
   Tools and tests `preload("res://main.gd")` for typing; main.gd `load()`s them at runtime (no preload cycle,
   and no `class_name`: Godot run from the command line doesn't register new global class names).
   It starts, watches and restarts its own worker (A27); `--port=N` uses an outside one instead (tests).
-  It remembers the last 40 confirmed states, so undo shows at once while FreeCAD catches up (A28).
+  After each action the worker writes `bodies.json` plus `meshes/<board>-<key>.bin` for boards whose shape
+  changed (triangles, normals, FreeCAD's exact edges and corners, as Godot PackedVector3Array bytes); the viewport
+  builds only boards whose file it hasn't seen (`_apply_confirmed`, A29). The whole-model `model.glb` is written
+  at autosave, for renders.
+  It remembers the last 40 confirmed states (which board file each had), so undo shows at once (A28).
   Lines (edges, grid, axes) are anti-aliased strips from `line.gdshader` / `line.gdshaderinc`, made by `_lines()` (W12).
   Every action is drawn at once as a draft, then FreeCAD catches up and the real mesh replaces it (A01 idea, W01–W09).
 - `worker/replay.py`, which runs inside FreeCAD's command-line program (`freecadcmd`): a long-running
@@ -48,14 +52,15 @@ If you can't reach the log, say so; don't guess at what it says.
 
 ## Tests (run after every change)
 Worker tests:
-- `freecadcmd worker/test_native.py`: 54 checks (native tree, undo walks, reopen, outside edits, mirrors of moved instances, rejections, runs, undo past 20, through-holes)
+- `freecadcmd worker/test_native.py`: 57 checks (native tree, undo walks, reopen, outside edits, mirrors of moved instances, rejections, runs, undo past 20, through-holes, mesh files)
 - `freecadcmd worker/test_arrays.py`: 10 checks (hole arrays and moves)
 
 Viewport suites: `Godot --path viewport -- --<suite> --out=<dir>/out --shots=<dir>/shots --port=7878`, with the worker running.
 - Suites: `--facetest` `--movetest` `--mirrortest` `--infertest` `--holetest` `--zfighttest`.
 - Each writes `<tag>_bodies.json` checkpoints. Compare them with a known-good run: volumes and world boxes must match.
 - Other test modes (print their results; look at the shots): `--linetest` (line visibility), `--undotest` (needs a worker
-  on --port), `--snaptest` (Rectangle and Push/Pull snapping), `--recttest` (click vs drag), both need a worker on --port,
+  on --port), `--snaptest` (Rectangle and Push/Pull snapping), `--recttest` (click vs drag), `--perftest` (the frame when an
+  answer arrives, 40 holed panels), all need a worker on --port,
   `--gesturetest` and `--lifecycletest` (no --port: the app starts its own worker), `--heavytest --model=<file>`. Recordings use `--true-latency` (P03), with Godot's `--write-movie`.
 - Test hooks (`delay_ms`, forced rejection, `--*test`) are for testing only (P02).
 

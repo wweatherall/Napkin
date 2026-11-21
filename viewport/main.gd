@@ -70,6 +70,7 @@ var undo_test := false
 var gesture_test := false
 var snap_test := false
 var rect_test := false
+var perf_test := false
 const OVERLAY_BIAS := 0.001   # overlays sit 0.1% of the camera distance nearer the eye (invisible, beats z-fighting)
 var overlay_bias := OVERLAY_BIAS
 var grid_mat: ShaderMaterial
@@ -159,6 +160,7 @@ func _ready() -> void:
 		elif a == "--gesturetest": test_mode = true; fx_test = true; gesture_test = true
 		elif a == "--snaptest": test_mode = true; fx_test = true; snap_test = true
 		elif a == "--recttest": test_mode = true; fx_test = true; rect_test = true
+		elif a == "--perftest": test_mode = true; fx_test = true; perf_test = true
 		elif a == "--lifecycletest": test_mode = true; fx_test = true; lifecycle_test = true
 		elif a == "--nobias": overlay_bias = 0.0
 		elif a.begins_with("--preload="): preload_path = a.substr(10)
@@ -780,7 +782,7 @@ func _on_worker(resp: Dictionary) -> void:
 			if o["status"] == "ok": ok_ids[o["id"]] = true
 		var key := _ops_key(ops.filter(func(op): return ok_ids.has(op["id"])))
 		if key != shown_key or not _states.has(key):        # already on screen (an undo shown from the cache): no reload
-			_load_confirmed(resp["glb"], key)
+			_apply_confirmed(resp["outdir"], key)
 		for k in drafts.keys():
 			var w = op_waves.get(k)
 			if w != null and w["state"] == "rejected": continue   # keep it until the red wave is done
@@ -805,54 +807,86 @@ func _on_worker(resp: Dictionary) -> void:
 		_send()
 
 
-func _load_confirmed(path: String, key: String) -> void:
-	_stash_shown()
-	body_tris = {}
-	body_verts = {}
-	body_edges = {}
-	var scene: Node3D = Node3D.new()        # empty model (only rectangles so far)
-	if FileAccess.get_file_as_bytes(path).size() >= 200:
-		var doc := GLTFDocument.new()
-		var st := GLTFState.new()
-		if doc.append_from_file(path, st) == OK:
-			scene = doc.generate_scene(st)
-	bodies_root.add_child(scene)
-	_load_cuts(path.get_base_dir())
-	for mi in scene.find_children("*", "MeshInstance3D", true, false):
-		var bid := String(mi.name)
-		var arr: Array = mi.mesh.surface_get_arrays(0)
-		var v: PackedVector3Array = arr[Mesh.ARRAY_VERTEX]
-		var idx = arr[Mesh.ARRAY_INDEX]
-		var xf: Transform3D = mi.transform
-		var tris := PackedVector3Array()
-		if idx != null and idx.size() > 0:
-			for i in idx: tris.append(g2m(xf * v[i]))
-		else:
-			for p in v: tris.append(g2m(xf * p))
-		body_tris[bid] = tris
-		body_verts[bid] = unique_verts(tris)
-		body_edges[bid] = feature_edges(tris)
+# ---------------- confirmed boards (T3) ----------------
+# Each board FreeCAD confirmed is a node built from its own file (worker: meshes/<board>-<key>.bin: triangles,
+# normals, and FreeCAD's exact edges and corners). A reply builds only the files it hasn't seen; every other
+# board stays on screen untouched. Nodes are shared by the remembered states below.
+const M2G_BASIS := Basis(Vector3(1, 0, 0), Vector3(0, 0, -1), Vector3(0, 1, 0))     # model Z-up -> Godot Y-up
+var _boards := {}             # mesh file -> {"node", "bid", "tris", "verts", "edges"}
+
+
+func _apply_confirmed(dir: String, key: String) -> void:
+	var data = JSON.parse_string(FileAccess.get_file_as_string(dir.path_join("bodies.json")))
+	if typeof(data) != TYPE_ARRAY: return
+	var files := {}
+	for b in data:
+		files[b["id"]] = b["mesh"]
+		if not _boards.has(b["mesh"]):
+			_boards[b["mesh"]] = _build_board(dir, b)
+	_load_cuts(dir)
+	_show_boards(files)
+	_remember_state(key, files)
+
+
+func _build_board(dir: String, b: Dictionary) -> Dictionary:
+	var bid: String = b["id"]
+	var bytes := FileAccess.get_file_as_bytes(dir.path_join("meshes").path_join(b["mesh"]))
+	var parts := []
+	var off := 0
+	for i in 4:                                      # tris, normals, edges, corners: Godot's own array format
+		var size := 8 + int(bytes.decode_u32(off + 4)) * 12
+		parts.append(bytes_to_var(bytes.slice(off, off + size)))
+		off += size
+	var tris: PackedVector3Array = parts[0]
+	var mi := MeshInstance3D.new()
+	mi.name = bid
+	if not tris.is_empty():
+		var arr := []
+		arr.resize(Mesh.ARRAY_MAX)
+		arr[Mesh.ARRAY_VERTEX] = Transform3D(M2G_BASIS * 0.001, Vector3.ZERO) * tris
+		arr[Mesh.ARRAY_NORMAL] = Transform3D(M2G_BASIS, Vector3.ZERO) * (parts[1] as PackedVector3Array)
+		var mesh := ArrayMesh.new()
+		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+		var mat := StandardMaterial3D.new()
+		mat.albedo_color = Color(b["color"][0], b["color"][1], b["color"][2]).linear_to_srgb()   # as glTF import did
+		mat.roughness = 0.85
+		mesh.surface_set_material(0, mat)
+		mi.mesh = mesh
 		_add_collision(mi, "body_id", bid)
-		var edges := _lines(body_edges[bid], Color(0.08, 0.08, 0.08))
-		edges.transform = xf.affine_inverse()
-		mi.add_child(edges)
-		mi.set_meta("body_mesh", true); mi.set_meta("edges", edges)
-		var m = mi.mesh.surface_get_material(0)
-		if m is StandardMaterial3D:
-			m.roughness = 0.85
-		# a wave already running for this board carries straight over onto the real mesh
-		for oid in op_waves:
+	var edges := _lines(parts[2], Color(0.08, 0.08, 0.08))
+	mi.add_child(edges)
+	mi.set_meta("body_mesh", true); mi.set_meta("edges", edges)
+	return {"node": mi, "bid": bid, "tris": tris, "verts": parts[3], "edges": parts[2]}
+
+
+func _show_boards(files: Dictionary) -> void:
+	"""Put exactly these boards (board id -> mesh file) on screen, keeping the ones already there."""
+	var want := {}
+	for bid in files: want[_boards[files[bid]]["node"]] = files[bid]
+	for c in bodies_root.get_children():
+		if not want.has(c): bodies_root.remove_child(c)
+	body_tris = {}; body_verts = {}; body_edges = {}
+	for node in want:
+		var e: Dictionary = _boards[want[node]]
+		var bid: String = e["bid"]
+		body_tris[bid] = e["tris"]; body_verts[bid] = e["verts"]; body_edges[bid] = e["edges"]
+		if node.get_parent() == bodies_root: continue
+		bodies_root.add_child(node)
+		node.visible = true                          # a move hides the board's old spot until FreeCAD answers
+		node.material_override = null                # a wave that ran on it earlier is over
+		var edges: MeshInstance3D = node.get_meta("edges")
+		edges.material_override = null
+		for oid in op_waves:                         # a wave running for this board carries onto it
 			if bid in op_waves[oid]["bodies"]:
-				_attach_wave(oid, mi, edges, _base_of(mi))
-	_remember_state(key, scene)
+				_attach_wave(oid, node, edges, _base_of(node))
 
 
 # ---------------- confirmed states (T10) ----------------
-# The last few model states FreeCAD confirmed, kept as ready scenes. Undo shows the previous one at once, so
-# you can keep undoing while FreeCAD catches up, even when it has to rebuild the whole model (its command-line
-# program keeps only 20 undo steps). FreeCAD's answer then replaces it; it's the same state, so nothing reloads.
+# The last few model states FreeCAD confirmed (which board files they had). Undo shows the previous one at once,
+# so you can keep undoing while FreeCAD catches up, even when it has to rebuild the whole model (its
+# command-line program keeps only 20 undo steps). FreeCAD's answer then matches what's on screen: no reload.
 const STATE_CACHE_MAX := 40
-var _states := {}             # ops key -> {"scene", "tris", "verts", "edges", "cuts"} (own copies)
+var _states := {}             # ops key -> {"files": board id -> mesh file, "cuts"}
 var _state_lru: Array = []    # keys, oldest first
 var shown_key := ""           # the confirmed state on screen
 var predicted_undo := false   # the model on screen is a remembered state; FreeCAD is still catching up
@@ -862,55 +896,36 @@ static func _ops_key(list: Array) -> String:
 	return JSON.stringify(list).sha256_text()
 
 
-func _remember_state(key: String, scene: Node3D) -> void:
-	if _states.has(key) and _states[key]["scene"] != scene:
-		_free_state(key)
-	_states[key] = {"scene": scene, "tris": body_tris.duplicate(), "verts": body_verts.duplicate(),
-					"edges": body_edges.duplicate(), "cuts": body_cuts.duplicate()}
+func _remember_state(key: String, files: Dictionary) -> void:
+	_states[key] = {"files": files, "cuts": body_cuts.duplicate()}
 	_state_lru.erase(key); _state_lru.append(key)
 	shown_key = key
+	var evicted := false
 	while _state_lru.size() > STATE_CACHE_MAX:
 		var old: String = _state_lru.pop_front()
-		if old != shown_key: _free_state(old)
+		if old != shown_key: _states.erase(old); evicted = true
+	if evicted: _free_unused_boards()
 
 
-func _free_state(key: String) -> void:
-	var sc: Node3D = _states[key]["scene"]
-	if is_instance_valid(sc) and not sc.is_inside_tree(): sc.queue_free()
-	_states.erase(key)
-	_state_lru.erase(key)
-
-
-func _stash_shown() -> void:
-	"""Take the confirmed scene off screen; it stays in the cache (or is freed if it isn't cached)."""
-	for c in bodies_root.get_children():
-		bodies_root.remove_child(c)
-		if not (_states.has(shown_key) and _states[shown_key]["scene"] == c):
-			c.queue_free()
-	shown_key = ""
+func _free_unused_boards() -> void:
+	var used := {}
+	for k in _states:
+		for bid in _states[k]["files"]: used[_states[k]["files"][bid]] = true
+	for f in _boards.keys():
+		if not used.has(f) and _boards[f]["node"].get_parent() != bodies_root:
+			_boards[f]["node"].queue_free()
+			_boards.erase(f)
 
 
 func _show_state(key: String) -> bool:
-	"""Put a cached confirmed state back on screen (undo). False if it isn't cached."""
+	"""Put a remembered confirmed state back on screen (undo). False if it isn't remembered."""
 	if not _states.has(key): return false
 	if key == shown_key: return true
-	_stash_shown()
 	var st: Dictionary = _states[key]
-	var scene: Node3D = st["scene"]
-	bodies_root.add_child(scene)
-	body_tris = st["tris"].duplicate(); body_verts = st["verts"].duplicate()
-	body_edges = st["edges"].duplicate(); body_cuts = st["cuts"].duplicate()
+	body_cuts = st["cuts"].duplicate()
+	_show_boards(st["files"])
 	shown_key = key
 	_state_lru.erase(key); _state_lru.append(key)
-	for mi in scene.find_children("*", "MeshInstance3D", true, false):
-		if not mi.has_meta("body_mesh"): continue
-		mi.material_override = null                  # a wave that was running when it was stashed is over
-		var edges: MeshInstance3D = mi.get_meta("edges")
-		if is_instance_valid(edges): edges.material_override = null
-		var bid := String(mi.name)
-		for oid in op_waves:
-			if bid in op_waves[oid]["bodies"]:
-				_attach_wave(oid, mi, edges, _base_of(mi))
 	return true
 
 
