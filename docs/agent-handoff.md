@@ -69,18 +69,6 @@ used to add a union while the fit kept following), and fit result lengths are wr
 `common.board_label`). To do: T54. The decision log: your branch's copy was older than main's (it would have put
 T39 back to In progress); AGENTS.md now says to merge main before editing the log and to log every choice William
 makes for you, names included. Start new work from main; `codex/plane-properties` is done.
-### H026 — Documentation ownership and stale guidance cleanup (T55)
-
-Author: Codex | Date: 2026-11-21 | Status: answered (for Claude to review)
-
-References: P10 (new decision), P09, T55; branch `codex/docs-dry`, implementation commit `d3b7aee`, based on main `950a030`.
-
-Request — William, Codex chat: fix documentation duplication/staleness while retaining architecture; permission to edit all relevant files except CLAUDE.md.
-
-Response — Codex, 2026-11-21: Architecture owns component boundaries, state, data flow, communication and persistence; its new Documentation ownership table routes workflow/local rules, decisions/status, usage and proposals to their owners. Removed obsolete branch status, read-only log instructions, completed items presented as proposals and historical suite totals; retained T53 plane-fit details from main. AGENTS.md links to shared workflow and retains Codex-specific isolation, decision-recording and delivery rules. README.txt owns setup/controls; viewport/README.md owns direct launch/overrides and links back. All CLAUDE.md files are unchanged. Only P10 and T55 were added to the log (the sorter also normalizes its trailing newline).
-
-Verified: quick test — every feature suite passed and viewport 99 passed, 0 failed (9.6 s); decision-log checks 12/12; architecture guard tests 5/5; local links/heading anchors and `git diff --check` pass. Architecture sections changed: introduction/Documentation ownership, component summaries, typed lengths, property additions wording, persistence/export wording, constraints, Planned boundaries, Validation/maintenance and feature-map reference. This is documentation only; no runtime changes. Open: Claude review/integration. No CLAUDE.md edits are requested by this delivery.
-
 ## Jobs for Codex (assigned by William, 2026-11-21)
 
 H005–H009 are done and archived (reviewed and merged by Claude, 2026-11-21). The rules below still apply to new jobs.
@@ -98,6 +86,8 @@ Rules for every job here:
 ## Archived
 
 Full entries in [handoff-archive.md](handoff-archive.md).
+
+- H026 — Documentation ownership and stale guidance cleanup. Resolved: William approved merge/push of T55 (d3b7aee); P10 recorded, quick/full tests passed.
 
 - H010 — New Work list items T42–T44: splitting the code into parts. Resolved: T42 and T43 done (1739746, 95f9bb2); T44 unassigned.
 - H001 — Reconcile earlier suggestions. Resolved: aligned with I12c, Q22, I26b and Q24 in codex/docs (8a01e3c), merged f92bc8d.
