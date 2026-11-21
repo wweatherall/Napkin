@@ -25,6 +25,10 @@ func busy() -> bool:
 	return state.get("active", false) or last_oid != ""
 
 
+func in_gesture() -> bool:
+	return state.get("active", false)        # (after a move, typing amends it; that isn't a gesture)
+
+
 func accepts(ch: String) -> bool:
 	return super.accepts(ch) or ch.to_lower() == "x"
 

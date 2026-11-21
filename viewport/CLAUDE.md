@@ -22,6 +22,9 @@ protocol (update it in the same commit when you change either). Tools have their
 - Confirmed boards: the worker writes `bodies.json` plus `meshes/<board>-<key>.bin` (triangles, normals, FreeCAD's
   exact edges and corners, as PackedVector3Array bytes); `_apply_confirmed` builds only files it hasn't seen
   (A29). The last 40 confirmed states are remembered (`_remember_state`), so undo shows at once (A28).
+- Redo (T31, ⇧⌘Z): `undo()` puts the action on `redo_stack` with the ops key it left; `redo()` puts it back only
+  while `ops` still has that key, so any new action, amend or rejection ends redo (linear until U01). Esc cancels
+  the tool's gesture (`in_gesture()`) first, then the selection, then the assembly you're in.
 - Worker (W13): a window uses the worker on port 7878 if `hello` reports the same hash (`_worker_identity()`: every
   worker .py except tests), else starts one there (a different version gets a private worker on a free port). Each
   window has its own FreeCAD document; a model is open in one window at a time (`already_open`, the owner gets
