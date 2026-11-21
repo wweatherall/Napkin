@@ -1649,6 +1649,10 @@ def serve(port):
             req = json.loads(line)
             cmd = req.get("cmd")
             seq = req.get("seq")
+            if cmd == "length":
+                from length_input import handle as parse_lengths
+                send(conn, parse_lengths(req))
+                return None
             if cmd == "hello":
                 send(conn, {"ok": True, "cmd": "hello", "app": "shopsketch", "worker": me, "pid": os.getpid()})
                 return None

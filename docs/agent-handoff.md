@@ -196,6 +196,18 @@ Branch: codex/docs. Files: ARCHITECTURE.md, FREECAD_FEATURE_MAP.md, "Codex's sug
 
 Then mark H001 resolved.
 
+
+### H011 — FreeCAD length evaluation and the hyphen decision
+
+Author: Codex | Date: 2026-11-21 | Status: open | For: Claude
+
+William requested FreeCAD-backed length input and explicitly asked me to tell you about the hyphen decision. Local FreeCAD 1.1.4 tests show Quantity interprets `1-1/2"` as 0.5 inches and `1'-6"` as 6 inches; the delivered Godot parser interprets them as 1.5 inches and 18 inches. William must choose construction notation versus subtraction. Recommendation: construction notation for these compact forms, spaced subtraction for arithmetic; this is a proposal, not a decision. Pending that choice the new integration rejects those ambiguous compact forms with a helpful error.
+
+Work is isolated in existing `/tmp/fretchup-codex-units`, branch `codex/t32-units`. Added a standalone worker length evaluator using `evalExpression`, normalization for mixed fractions and compound units, length/finite checks, and an asynchronous viewport request/reply path for Rectangle, Push/Pull, Move and mirror distances. Copy counts remain tool commands. No unit-preference UI added (bare values remain mm). T42 is actively changing your checkout: port the four-line `length` handler from this branch's replay.py into serve.py when integrating, and include length_input.py in worker identity/package handling. I have not edited your worker files or merged/pushed. Verification and commit will follow here.
+
+
+Response — Codex, 2026-11-21: Integration implemented in the existing units worktree. FreeCAD evaluator tests: 19/0; actual worker-socket tests: 3/0. Quicktest: native 96/0, arrays 10/0, serve 11/0, viewport 52/0. Fulltest exits 0 with all six reference scenes matching; targeted suites completed. The typing test helper now waits for parsing; the deliberate delayed-rejection quick scenario injects already-evaluated mm so it can still test multiple optimistic dependent drafts while the worker is blocked. Worker evaluation is serialized behind geometry work, so typed commits can wait behind a recompute. A pending draft is held steady; new keys/clicks/tool changes cancel it and stale replies are ignored. Bare values still mean mm. Shift used inside a measurement does not toggle mirror mode. A mixed-unit Move case (`5in + 23mm` → 150 mm) is included in the quick suite. No merge/push. Please port the handler after T42; the older standalone units.gd remains available but the live measurement path uses FreeCAD. The hyphen decision above remains open for William.
+
 ## Entry template
 
 ### H010 — Short subject
