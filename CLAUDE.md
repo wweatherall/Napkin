@@ -139,7 +139,7 @@ the log, regenerate the copy (read the four tabs, write the file) and commit it 
   `python3 worker/test_serve.py` (11: one worker, two windows; it starts freecadcmd itself).
 - Units parser (`viewport/units.gd`, T32): `Godot --headless --path viewport --script res://test_units.gd` (100 checks);
   FreeCAD length input: `freecadcmd worker/test_length_input.py` (22) and `python3 worker/test_length_protocol.py` (3,
-  a real worker). Both scripts run all three.
+  a real worker). Properties panel: `freecadcmd worker/test_properties.py` (28). Both scripts run all of these.
 - Visual checks (screenshots, no pass/fail): `--linetest`, `--zfighttest`; timing: `--perftest`. Recordings use
   `--true-latency` (P03) with Godot's `--write-movie`; `--heavytest --model=<file>`.
 - Test hooks (`delay_ms`, forced rejection, `--*test`) are for testing only (P02).
