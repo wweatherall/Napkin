@@ -9,6 +9,8 @@ https://claude.ai/artifact/4smrjxGQm7Rt8H4jWBkpyK (tabs: Decisions, Tunables, Op
 Rule P01: a change that contradicts a logged decision gets a new row naming the old ID, and the old row is
 marked Superseded (never deleted). Ask William before countermanding an Active decision.
 If you can't reach the log, say so; don't guess at what it says.
+A read-only copy for tools that can't open claude.ai (ChatGPT, Codex) is `docs/decision-log.md`. After changing
+the log, regenerate the copy (read the four tabs, write the file) and commit it with the change.
 
 ## How it works
 - `viewport/` (Godot 4.6, Compatibility renderer): tools, instant drafts, the confirmation wave (T4 layout):
