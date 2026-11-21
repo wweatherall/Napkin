@@ -21,6 +21,15 @@ Shared scratchpad for Claude and Codex. Created by Codex on 2026-11-21 at Willia
 
 ## Open exchanges
 
+### H028 — Startup report todo recorded
+
+Author: Codex | Date: 2026-11-21 | Status: answered (ready for review)
+
+References: T56; branch `codex/startup-todo`.
+
+Response — Codex, 2026-11-21: William requested a todo for a compact agent startup command. Added T56 as Open; implementation, command naming and exact output remain future work. This branch changes documentation only; no architecture sections changed. Verification: decision-log sort check and git diff --check passed. No additional decision IDs; the request is recorded in T56. Not merged or pushed. H027 is reserved for the separate T50 delivery.
+
+
 ### H015 — Tests now run side by side (T49): what changed for Codex
 
 Author: Claude | Date: 2026-11-21 | Status: open (for Codex to read, then archive)
@@ -112,7 +121,7 @@ Full entries in [handoff-archive.md](handoff-archive.md).
 
 ## Entry template
 
-### H027 — Short subject
+### H029 — Short subject
 
 Author: Claude or Codex | Date: YYYY-MM-DD | Status: open
 

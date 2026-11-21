@@ -236,6 +236,8 @@ Kept for history (P01: never deleted). Each names the decision that replaced it.
 | T54 | Plane fits: after every action the worker re-fits every fitted board (a recompute each) and reports each as changed, even when nothing it depends on moved. Re-fit only boards whose source or target changed, recompute once. | Open | T53, I40 | Found in review 2026-11-21. Harmless now (the viewport doesn't read 'changed'), slow on a model with many fits. |
 | T55 | Remove duplicated/stale documentation while retaining the architecture map; leave every CLAUDE.md untouched. | Done | P10, P09 | Implemented d3b7aee, branch codex/docs-dry. William authorized merge/push; quick test 99 viewport checks and all feature suites passed; full test passed, six recorded suites unchanged. H026 archived. |
 
+| T56 | Add a compact agent startup command: show checkout/worktree status, recent main commits and branches, open handoff headings, and a requested Work list item with its decision references. Point agents to relevant sections for follow-up reads instead of dumping whole documents. | Open | P09, T52, T55 | William requested this todo via Codex, 2026-11-21. Read-only report; document its use in the agent startup instructions. Choose command name and exact output when implementing. |
+
 ## Tunables
 
 | Setting | Value | What it does | File | Decision |
