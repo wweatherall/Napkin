@@ -73,12 +73,17 @@ confirmed meshes, the worker link, typed values, drawing rules, viewport tests) 
 - Godot: `/Applications/Godot.app/Contents/MacOS/Godot`
 
 ## Tests
-- After every change: `tools/quicktest.sh` (~25 s): every worker test, the units test, and every viewport feature
-  once in a single Godot session (`--quicktest`), each step checking its own answer. It starts its own worker, so
-  it never touches a running Shop Sketch. Add a step there for each new feature.
-- When the quick test fails, or before a merge: `tools/fulltest.sh` (~2 min): the six recorded suites compared
-  with `tests/reference/` (`tools/compare_suites.py`), the targeted suites, then every worker and unit test. After
-  an intended change in behaviour: `tools/fulltest.sh --update-reference`.
+- Two kinds of test (P07): feature tests check Shop Sketch's answers against FreeCAD with no window
+  (`tools/featuretest.sh`, ~8 s: every worker test, the T48 scenario, the units test); UI tests drive the viewport.
+  A new feature gets steps in `worker/test_scenario.py` first (run the feature tests while building it), then a
+  quick-test step once its tool exists.
+- After every change: `tools/quicktest.sh` (~20 s): the feature tests beside every viewport feature once in a single
+  Godot session (`--quicktest`), each step checking its own answer. It starts its own worker, so it never touches a
+  running Shop Sketch.
+- When the quick test fails, or before a merge: `tools/fulltest.sh` (~50 s): the six recorded suites compared
+  with `tests/reference/` (`tools/compare_suites.py`), the targeted suites, and the feature tests. Suites run at the
+  quick test's pace (`--fast`, same results); `--full-pace` as recorded. After an intended change in behaviour:
+  `tools/fulltest.sh --update-reference`.
 - Both scripts first run `tools/parsecheck.sh` (every viewport script, ~3 s); the quick test's Godot run stops
   after 120 s. Which tests exist and what they cover: the folder guides.
 - Recordings use `--true-latency` (P03) with Godot's `--write-movie`.

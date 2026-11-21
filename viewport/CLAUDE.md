@@ -48,7 +48,11 @@ protocol (update it in the same commit when you change either). Tools have their
 
 ## Tests
 - The quick test is `tests.gd` `_run_quick_test` (`--quicktest`, run by `tools/quicktest.sh`): every feature once,
-  each step checking its own answer. Add a step for each new feature.
+  each step checking its own answer. Add a step for each new feature. Its sections share one model (`_fresh` clears
+  the window and syncs the section's ops; `own_file` for model switching); in quick mode drags take 2 frames, waves
+  get 2 frames' pad and frames skip the physics tick (T48: 26 → 14 s). It prints where its time goes (`QUICK timing`).
+  `--fast` gives any suite that pace but keeps the physics tick (picking a draft drawn a moment ago needs one: the
+  face test's draw-on-a-draft step misses without it). Not for recordings (P03).
 - Recorded suites (`--facetest --movetest --mirrortest --infertest --holetest --zfighttest`) are compared with
   `tests/reference/` by the full test; targeted: `--undotest --snaptest --recttest --shelltest --jointest
   --rejecttest`. Visual only: `--linetest`, `--zfighttest`; timing `--perftest`; `--heavytest --model=<file>`.

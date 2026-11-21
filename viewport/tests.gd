@@ -12,6 +12,9 @@ func run() -> void:
 		await _run_test()
 		return
 	_make_fake_cursor()
+	if m.fast_test:                               # --fast (T48): the quick test's pacing for any suite
+		quick = true
+		Engine.time_scale = 5.0
 	if not (m.quick_test or m.join_test or m.reject_test or m.snap_test or m.rect_test or m.undo_test or m.shell_test or m.perf_test or m.line_test or m.gesture_test or m.lifecycle_test):
 		m.new_board = true; m._update_toggles()     # the scripted suites were recorded with 'New board' on (I04 then)
 	if m.breath_test: await _run_breath_test()
@@ -50,7 +53,7 @@ var quick := false        # quick test: fewer frames per drag, faster waves
 
 
 func _drag_to(p_model: Vector3, frames: int) -> void:
-	if quick: frames = maxi(2, frames / 3)
+	if quick: frames = 2                         # quick test: start and end are what the tools act on (T48)
 	var a: Vector2 = m.cursor2d.position
 	var b := m.cam.unproject_position(Main.m2g(p_model))
 	for i in range(1, frames + 1):
@@ -109,7 +112,7 @@ func _wait_wave() -> void:
 	await _wait_confirm()
 	while not m.op_waves.is_empty() or m.dirty or m.in_flight:
 		await _frames(1)
-	await _frames(12)
+	await _frames(2 if quick else 12)            # quick test: the checks read state, not pixels (T48)
 
 
 func _run_fx_test() -> void:
@@ -683,7 +686,7 @@ func _run_undo_test() -> void:
 	# 1. one Ctrl+Z at a time; FreeCAD answers 300 ms late, so right after Ctrl+Z the screen shows the remembered state
 	var instant_bad := []; var after_bad := []; var reloads := 0; var rebuilt := []
 	for n in range(m.ops.size(), 0, -1):
-		m.test_delay_ms = 300
+		m.test_delay_ms = 100 if quick else 300      # late enough: the check below runs in the same frame (T48)
 		m.undo()
 		if _shown_ids() != seen[n - 1]: instant_bad.append([n - 1, _shown_ids(), seen[n - 1]])
 		var sc: Node = m.bodies_root.get_child(0) if m.bodies_root.get_child_count() > 0 else null
@@ -1022,6 +1025,7 @@ func _run_reject_test() -> void:
 	var t0 := Time.get_ticks_msec()
 	while Time.get_ticks_msec() - t0 < 8000:
 		if m.ui_sync.text.begins_with("✗"): notes[m.ui_sync.text] = true
+		if not notes.is_empty() and not m.dirty and not m.in_flight: break    # rejected and settled (T48)
 		await _frames(1)
 	await _wait_wave()
 	var left := []
@@ -1034,6 +1038,9 @@ func _run_reject_test() -> void:
 # ---------------- quick test (--quicktest): every feature once, in one session, checking its own answers ----------------
 var _q := [0, 0]
 var _q_section := ""
+var _q_times := []          # [section, ms since the previous section started]
+var _q_mark := 0
+var _q_fresh_ms := 0        # time spent opening fresh models
 
 
 func _ok(name: String, cond: bool, detail = "") -> void:
@@ -1055,19 +1062,33 @@ func _bbox(bid: String) -> Array:
 	return out
 
 
-func _fresh(name: String, ops := []) -> void:
-	"""A clean model (File > New), optionally with some ops already in it."""
-	_q_section = name
-	m.switch_model(m.out_dir.path_join("quick_%s.FCStd" % name), true)
-	var t0 := Time.get_ticks_msec()
-	while not m.opened and Time.get_ticks_msec() - t0 < 20000: await _frames(1)
+func _fresh(name: String, ops := [], own_file := false) -> void:
+	"""A clean start for a section, optionally with some ops already in it. Sections share one model (T48): the
+	window forgets the last section's state and syncs the new ops, and the worker takes the rest back with FreeCAD
+	undo (or rebuilds). own_file = a model of its own (File > New), for checks about switching models."""
+	_q_lap(name)
+	var shared := m.out_dir.path_join("quick_shared.FCStd")
+	if own_file or m.model_path != shared:
+		m.switch_model(shared if not own_file else m.out_dir.path_join("quick_%s.FCStd" % name), true)
+		var t0 := Time.get_ticks_msec()
+		while not m.opened and Time.get_ticks_msec() - t0 < 20000: await _frames(1)
+	else:
+		m._reset_model_state()
 	m.new_board = false; m._update_toggles(); m.grid_snap = true
-	if not ops.is_empty():
-		m.ops.append_array(ops)
-		m._restore_counters()
-		m.sync()
+	m.ops.append_array(ops)
+	m._restore_counters()
+	m.sync()
 	await _wait_confirm()
 	m.set_tool("rect")
+	_q_fresh_ms += Time.get_ticks_msec() - _q_mark
+
+
+func _q_lap(name: String) -> void:
+	"""Start timing a new section (the quick test prints where its time goes)."""
+	var now := Time.get_ticks_msec()
+	if _q_section != "": _q_times.append([_q_section, now - _q_mark])
+	_q_section = name
+	_q_mark = now
 
 
 func _plank(i: int, origin: Vector3, size: Vector3) -> Array:
@@ -1389,6 +1410,7 @@ func _run_quick_test() -> void:
 	await _fresh("reject", _plank(1, Vector3.ZERO, Vector3(300, 200, 18)))
 	await _view(Vector3(300, 150, 30), -30, -40, 1.6)
 	m.test_delay_ms = 600
+	m.last_reject_note = ""
 	m.force_reject_next = true
 	await _rect(Vector3(400, 0, 0), Vector3(500, 100, 0), "100,100")
 	await _push(Vector3(450, 50, 0), Vector3(450, 50, 50), "50")
@@ -1397,7 +1419,7 @@ func _run_quick_test() -> void:
 	await _rect(Vector3(0, 300, 0), Vector3(100, 400, 0), "100,100")
 	await _push(Vector3(50, 350, 0), Vector3(50, 350, 30), "30")
 	t0 = Time.get_ticks_msec()
-	while Time.get_ticks_msec() - t0 < 2500: await _frames(1)
+	while m.last_reject_note == "" and Time.get_ticks_msec() - t0 < 5000: await _frames(1)   # until the red wave's message (T48)
 	await _wait_wave()
 	var note: String = m.last_reject_note
 	var ids: Array = m.ops.map(func(o): return o["id"])
@@ -1418,9 +1440,9 @@ func _run_quick_test() -> void:
 	_ok("ten small wheel steps zoom like one notch", is_equal_approx(m.dist, d0 * Main.ZOOM_STEP), m.dist / d0)
 
 	# 9. Switching models (T8)
-	_q_section = "models"
+	_q_lap("models")
 	var a: String = m.model_path
-	await _fresh("models_b", _plank(1, Vector3.ZERO, Vector3(150, 200, 40)))
+	await _fresh("models_b", _plank(1, Vector3.ZERO, Vector3(150, 200, 40)), true)
 	m.switch_model(a)
 	while not m.opened: await _frames(1)
 	await _wait_confirm()
@@ -1428,7 +1450,7 @@ func _run_quick_test() -> void:
 	_ok("the menus exist", m._menus.keys() == ["File", "Edit", "Tools", "View"] or not NativeMenu.has_feature(NativeMenu.FEATURE_GLOBAL_MENU), m._menus.keys())
 
 	# 10. The worker stops: Shop Sketch starts it again and carries on (A27)
-	_q_section = "worker"
+	_q_lap("worker")
 	if m.worker_pid > 0:
 		var pid1: int = m.worker_pid
 		OS.kill(pid1)
@@ -1477,6 +1499,10 @@ func _run_quick_test() -> void:
 		_ok("undo restores native property geometry", is_equal_approx(float(_bodies().b1.volume_mm3), 100000.0))
 	m.properties_panel.hide()
 
+	_q_lap("")
+	var laps := ""
+	for t in _q_times: laps += "%s %.1f  " % [t[0], t[1] / 1000.0]
+	print("QUICK timing (s): " + laps + "| opening fresh models %.1f" % (_q_fresh_ms / 1000.0))
 	Engine.time_scale = 1.0
 	print("QUICK %d passed, %d failed in %.1f s" % [_q[0], _q[1], (Time.get_ticks_msec() - t_start) / 1000.0])
 	get_tree().quit(1 if _q[1] > 0 else 0)
@@ -1532,7 +1558,7 @@ func _run_heavy_test() -> void:
 
 func _frames(n := 2) -> void:
 	for i in n:
-		await get_tree().physics_frame
+		if not (quick and m.quick_test): await get_tree().physics_frame   # --fast keeps it: picking a fresh draft needs one
 		await get_tree().process_frame
 
 

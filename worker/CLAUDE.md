@@ -82,6 +82,9 @@ ARCHITECTURE.md the module map and protocol (update it in the same commit when y
 - `freecadcmd worker/test_native.py` (96: feature tree, op-by-op = fresh, undo/amend walks, reopen, outside edits),
   `test_arrays.py` (10: hole arrays and moves), `test_combos.py` (61: features together, undo/reopen equal a fresh
   build, two models at once), `test_length_input.py` (23, incl. FreeCAD still matching tests/length_cases.json),
-  `test_properties.py` (28). Plain python3, starting freecadcmd themselves: `test_serve.py` (11: one worker, two
-  windows), `test_length_protocol.py` (3). Use `TESTDIR=<dir>` for outputs.
+  `test_properties.py` (28), `test_scenario.py` (86, T48: one busy fixture model from
+  `tests/scenario_fixture.json`, 17 steps each checked and undone back to the fixture, then a cumulative story that
+  must equal a fresh build and a reopen; ~1 s. A new worker behaviour: add a step there first).
+  Plain python3, starting freecadcmd themselves: `test_serve.py` (11: one worker, two windows),
+  `test_length_protocol.py` (3). Use `TESTDIR=<dir>` for outputs.
 - Tests load the modules with `from test_load import *` (after putting this folder on `sys.path`).
