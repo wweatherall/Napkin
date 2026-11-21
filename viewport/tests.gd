@@ -991,14 +991,13 @@ func _run_join_test() -> void:
 	var boards_after_join := _shown_ids()
 	await _key(KEY_B)
 	await _rect(Vector3(200, 50, 18), Vector3(250, 100, 18), "40,40")
+	m.saved_shown.clear()                          # what the indicator says from here on (T45)
 	await _push(Vector3(220, 70, 18), Vector3(220, 70, 30), "10")
-	await _wait_confirm()                          # FreeCAD has it; the save follows a quarter second later
-	var saving_seen: String = m.ui_saved.text
 	await _wait_wave()
 	var separate: Dictionary = m.ops.back()
 	var t0 := Time.get_ticks_msec()
 	while m.ui_saved.text != "Saved" and Time.get_ticks_msec() - t0 < 5000: await _frames(1)
-	print("JOINTEST save indicator: '%s' right after, then '%s' after %d ms (rev %d)" % [saving_seen, m.ui_saved.text,
+	print("JOINTEST save indicator: %s, now '%s' after %d ms (rev %d)" % [" then ".join(m.saved_shown), m.ui_saved.text,
 		Time.get_ticks_msec() - t0, m.saved_rev])
 	print("JOINTEST default joins %s | pushed out from b1's top: %s, boards %s (want 1) | with B: %s, boards %s (want 2)" % [
 		default_join, "joined" if not joined.has("body") else "new board " + joined["body"], boards_after_join,
@@ -1096,16 +1095,67 @@ func _plank(i: int, origin: Vector3, size: Vector3) -> Array:
 		{"id": "pp%d" % i, "type": "push_pull", "target": {"rect": "r%d" % i}, "distance": size.z, "body": "b%d" % i}]
 
 
+# The quick test's sections, in the order one session runs them; --quick-lane=N runs lane N only, in a window
+# with its own worker, so tools/quicktest.sh runs the lanes side by side (T49). A section starts from _fresh, so
+# any lane order works, except reject -> trackpad -> models -> worker, which carry on from each other.
+const QUICK_LANES := [
+	["hash", "rect", "push", "faces", "snap", "move", "hole"],
+	["linked", "assembly", "mirrorgroup", "faceplane", "wood"],
+	["undo", "reject", "trackpad", "models", "worker", "properties"],
+]
+
+
 func _run_quick_test() -> void:
 	quick = true
 	Engine.time_scale = 5.0                       # waves and breathing run 5x faster; the checks don't depend on them
 	var t_start := Time.get_ticks_msec()
 	while not m.opened: await _frames(1)
 
+	var lane := -1
+	for a in OS.get_cmdline_user_args():
+		if a.begins_with("--quick-lane="): lane = int(a.substr(13))
+	var sections: Array = []
+	for i in QUICK_LANES.size():
+		if lane < 0 or lane == i + 1: sections.append_array(QUICK_LANES[i])
+	for s in sections:
+		match s:
+			"hash": await _q_hash()
+			"rect": await _q_rect()
+			"push": await _q_push()
+			"faces": await _q_faces()
+			"snap": await _q_snap()
+			"move": await _q_move()
+			"hole": await _q_hole()
+			"linked": await _q_linked()
+			"assembly": await _q_assembly()
+			"mirrorgroup": await _q_mirrorgroup()
+			"faceplane": await _q_faceplane()
+			"wood": await _q_wood()
+			"undo": await _q_undo()
+			"reject": await _q_reject()
+			"trackpad": await _q_trackpad()
+			"models": await _q_models()
+			"worker": await _q_worker()
+			"properties": await _q_properties()
+			_: _ok("QUICK_LANES names a section that has no _q_ function", false, s)
+
+	_q_lap("")
+	var laps := ""
+	for t in _q_times: laps += "%s %.1f  " % [t[0], t[1] / 1000.0]
+	print("QUICK timing (s): " + laps + "| opening fresh models %.1f" % (_q_fresh_ms / 1000.0))
+	Engine.time_scale = 1.0
+	print("QUICK %d passed, %d failed in %.1f s" % [_q[0], _q[1], (Time.get_ticks_msec() - t_start) / 1000.0])
+	get_tree().quit(1 if _q[1] > 0 else 0)
+
+
+
+func _q_hash() -> void:
 	# 0. The worker's hello hash is the one the window computes from the worker's files (W13, T42: all modules)
 	var theirs := m._probe_worker(m.worker_port)
 	_ok("the window and its worker agree on the worker's hash", theirs != "" and theirs == m._worker_identity(), [theirs, m._worker_identity()])
 
+
+func _q_rect() -> void:
 	# 1. Rectangle: click-click, press-drag-release, a wobbly click (I29)
 	await _fresh("rect")
 	await _view(Vector3(300, 200, 0), -30, -50, 1.4)
@@ -1121,25 +1171,29 @@ func _run_quick_test() -> void:
 	r = _last_rect()
 	_ok("the second click finishes a 100 x 150", r[0] == 2 and r[1] == [100.0, 150.0], r)
 
+
+func _q_push() -> void:
 	# 2. Push/Pull: a new board, join by default (I04b), B for a separate board, the saved indicator (Q22)
 	await _fresh("push", _plank(1, Vector3.ZERO, Vector3(300, 200, 18)))
 	await _view(Vector3(150, 100, 20), -30, -40, 1.0)
 	await _rect(Vector3(100, 50, 18), Vector3(150, 100, 18), "50,50")
+	m.saved_shown.clear()
 	await _push(Vector3(125, 75, 18), Vector3(125, 75, 30), "20")
-	await _wait_confirm()
-	_ok("the save indicator says Saving... right after", m.ui_saved.text == "Saving…", m.ui_saved.text)
 	await _wait_wave()
 	_ok("pushed out from a face, it joins that board", _shown_ids() == ["b1"] and not m.ops.back().has("body"), [_shown_ids(), m.ops.back()])
 	_ok("the joined bump adds 50 x 50 x 20", is_equal_approx(_bodies()["b1"]["volume_mm3"], 300.0 * 200 * 18 + 50 * 50 * 20), _bodies()["b1"]["volume_mm3"])
 	var t0 := Time.get_ticks_msec()
 	while m.ui_saved.text != "Saved" and Time.get_ticks_msec() - t0 < 3000: await _frames(1)
-	_ok("then it says Saved", m.ui_saved.text == "Saved", m.ui_saved.text)
+	_ok("the save indicator says Saving..., then Saved (T45: however quickly the save lands)",
+		m.ui_saved.text == "Saved" and m.saved_shown.slice(-2) == ["Saving…", "Saved"], [m.ui_saved.text, m.saved_shown])
 	await _key(KEY_B)
 	await _rect(Vector3(200, 50, 18), Vector3(250, 100, 18), "40,40")
 	await _push(Vector3(220, 70, 18), Vector3(220, 70, 30), "10")
 	await _wait_wave()
 	_ok("with B, a separate board", _shown_ids() == ["b1", "b2"], _shown_ids())
 
+
+func _q_faces() -> void:
 	# 3. Faces: a pocket, a through-hole in a side face, a bump on another side face
 	await _fresh("faces", _plank(1, Vector3.ZERO, Vector3(300, 200, 18)))
 	await _view(Vector3(150, 100, 9), -35, -30, 1.0)
@@ -1159,6 +1213,8 @@ func _run_quick_test() -> void:
 	_ok("pocket, through-hole and bump add up", is_equal_approx(v, 300.0 * 200 * 18 - 100 * 80 * 10 - 20 * 10 * 200 + 50 * 10 * 30), v)
 	_ok("still one board", _shown_ids() == ["b1"], _shown_ids())
 
+
+func _q_snap() -> void:
 	# 4. Snapping (I03b, I23): midpoint, on edge on the grid, push to a point, the back face
 	await _fresh("snap", _plank(1, Vector3.ZERO, Vector3(300, 200, 18)) + _plank(2, Vector3(400, 0, 0), Vector3(100, 100, 50)))
 	await _view(Vector3(250, 100, 20), -30, -35, 1.1)
@@ -1178,6 +1234,8 @@ func _run_quick_test() -> void:
 	_ok("pushing in snaps to the hidden back face", push.state.get("dist", 0) == -50.0 and push.state.get("snap", "") == "back face", push.state.get("dist"))
 	m.set_tool("rect")
 
+
+func _q_move() -> void:
 	# 5. Move: along an axis, copy into an array, endpoint inference, a hole moved and copied (I14, I18, I21)
 	await _fresh("move", _plank(1, Vector3.ZERO, Vector3(100, 50, 18)) + _plank(2, Vector3(300, 200, 0), Vector3(100, 50, 18)))
 	await _view(Vector3(200, 100, 0), -30, -45, 1.6)
@@ -1208,6 +1266,8 @@ func _run_quick_test() -> void:
 	await _wait_wave()
 	_ok("a corner dragged onto another board's corner snaps to it", kind == "endpoint" and _bbox("b2").slice(0, 2) == [250.0, 50.0], [kind, _bbox("b2")])
 
+
+func _q_hole() -> void:
 	await _fresh("hole", [{"id": "r1", "type": "rect", "plane": {"normal": [0, 0, 1], "origin": [0, 0, 0]}, "size": [600, 300]},
 		{"id": "pp1", "type": "push_pull", "target": {"rect": "r1"}, "distance": 18, "body": "b1"},
 		{"id": "r2", "type": "rect", "plane": {"on": {"body": "b1", "normal": [0, 0, 1], "point": [30, 30, 18]}}, "size": [20, 20]},
@@ -1225,6 +1285,8 @@ func _run_quick_test() -> void:
 	var holes: Array = _bodies()["b1"]["cuts"].filter(func(c): return c["op"] == "pp2")
 	_ok("the hole copied into a row of 6", holes.size() == 6 and is_equal_approx(_bodies()["b1"]["volume_mm3"], 600.0 * 300 * 18 - 6 * 20 * 20 * 18), [holes.size(), _bodies()["b1"]["volume_mm3"]])
 
+
+func _q_linked() -> void:
 	# 5b. Linked copies (T12): a row of linked copies, the tint while editing, a hole on one shows on all, U, Detach
 	await _fresh("linked", _plank(1, Vector3.ZERO, Vector3(100, 50, 18)))
 	await _view(Vector3(250, 25, 0), -25, -50, 1.6)
@@ -1265,6 +1327,8 @@ func _run_quick_test() -> void:
 	await _wait_wave()
 	_ok("Edit > Detach from array takes it out of the row", m.body_array.get(det, "x") == "" and m.body_family.get(det, "") != "", [det, m.body_array, m.body_family])
 
+
+func _q_assembly() -> void:
 	# 5c. Assemblies you enter (T20, I32): select two boards, Cmd+G, move them as one, enter, draw inside, leave
 	await _fresh("assembly", _plank(1, Vector3.ZERO, Vector3(100, 50, 18)) + _plank(2, Vector3(0, 100, 0), Vector3(100, 50, 18))
 		+ _plank(3, Vector3(300, 0, 0), Vector3(100, 50, 18)))
@@ -1306,6 +1370,8 @@ func _run_quick_test() -> void:
 	await _key(KEY_ESCAPE)
 	_ok("Esc leaves", m.context == "", m.context)
 
+
+func _q_mirrorgroup() -> void:
 	# 5d. Mirror groups (T26, A11b): a mirrored copy makes a group; inside, the plane shows and moving the copy
 	# moves its original the mirrored way
 	await _fresh("mirrorgroup", _plank(1, Vector3.ZERO, Vector3(100, 50, 18)))
@@ -1335,6 +1401,8 @@ func _run_quick_test() -> void:
 	_ok("moving the copy 50 out moves the original 50 the other way", absf(_bbox("b1")[0] - (x0 - 50)) < 0.01, [x0, _bbox("b1"), _bbox(mir_b)])
 	await _key(KEY_ESCAPE); await _key(KEY_ESCAPE)
 
+
+func _q_faceplane() -> void:
 	# 5e. Mirror across another board's face (T27, Q12): point at the face while mirroring
 	await _fresh("faceplane", _plank(1, Vector3.ZERO, Vector3(100, 50, 18)) + _plank(2, Vector3(300, 0, 0), Vector3(18, 50, 60)))
 	await _view(Vector3(150, 25, 30), -25, -50, 1.2)
@@ -1360,6 +1428,8 @@ func _run_quick_test() -> void:
 	fp_new = fp_ids.back() if fp_ids.size() == 4 else ""
 	_ok("typing 20 stands the plane 20 off the face: z 142..160", fp_new != "" and _bbox(fp_new)[2] == 142.0, [fp_ids, _bbox(fp_new) if fp_new != "" else []])
 
+
+func _q_wood() -> void:
 	# 5f. Wood (T15): pick a wood, paint a board, the board shows it; T turns its grain
 	await _fresh("wood", _plank(1, Vector3.ZERO, Vector3(600, 90, 19)))
 	await _view(Vector3(560, 45, 10), -50, -25, 0.5)
@@ -1387,6 +1457,8 @@ func _run_quick_test() -> void:
 	await _frames(20)
 	await _shot("wood_walnut_turned")
 
+
+func _q_undo() -> void:
 	# 6. Undo (A28): every undo shows at once, the 21st rebuilds in FreeCAD
 	await _fresh("undo")
 	var seen := {0: []}
@@ -1406,6 +1478,8 @@ func _run_quick_test() -> void:
 	_ok("undoing past FreeCAD's 20 steps rebuilds", rebuilt)
 	_ok("everything undone", m.ops.is_empty() and _shown_ids().is_empty(), [m.ops.size(), _shown_ids()])
 
+
+func _q_reject() -> void:
 	# 7. A rejection takes what built on it (Q7)
 	await _fresh("reject", _plank(1, Vector3.ZERO, Vector3(300, 200, 18)))
 	await _view(Vector3(300, 150, 30), -30, -40, 1.6)
@@ -1418,7 +1492,7 @@ func _run_quick_test() -> void:
 	await _push(Vector3(450, 50, 50), Vector3(450, 50, 70), "20")
 	await _rect(Vector3(0, 300, 0), Vector3(100, 400, 0), "100,100")
 	await _push(Vector3(50, 350, 0), Vector3(50, 350, 30), "30")
-	t0 = Time.get_ticks_msec()
+	var t0 := Time.get_ticks_msec()
 	while m.last_reject_note == "" and Time.get_ticks_msec() - t0 < 5000: await _frames(1)   # until the red wave's message (T48)
 	await _wait_wave()
 	var note: String = m.last_reject_note
@@ -1427,7 +1501,10 @@ func _run_quick_test() -> void:
 		ids == ["r1", "pp1", "r2", "r4", "pp4"] and _shown_ids() == ["b1", "b3"], [ids, _shown_ids()])
 	_ok("one message for all three", note.contains("2 actions that built on it"), note)
 
+
+func _q_trackpad() -> void:
 	# 8. Trackpad and wheel (I22, I30)
+	_q_lap("trackpad")
 	await _view(Vector3.ZERO, -30, -30, 2.0)
 	var y0 := m.yaw
 	var pan := InputEventPanGesture.new(); pan.delta = Vector2(100.0 / Main.TRACKPAD_PX, 0.0)
@@ -1439,6 +1516,8 @@ func _run_quick_test() -> void:
 		tiny.position = m.cursor2d.position; m._unhandled_input(tiny)
 	_ok("ten small wheel steps zoom like one notch", is_equal_approx(m.dist, d0 * Main.ZOOM_STEP), m.dist / d0)
 
+
+func _q_models() -> void:
 	# 9. Switching models (T8)
 	_q_lap("models")
 	var a: String = m.model_path
@@ -1449,6 +1528,8 @@ func _run_quick_test() -> void:
 	_ok("switching back reopens the other model's boards", _shown_ids() == ["b1", "b3"] and m.ops.size() == 5, [_shown_ids(), m.ops.size()])
 	_ok("the menus exist", m._menus.keys() == ["File", "Edit", "Tools", "View"] or not NativeMenu.has_feature(NativeMenu.FEATURE_GLOBAL_MENU), m._menus.keys())
 
+
+func _q_worker() -> void:
 	# 10. The worker stops: Shop Sketch starts it again and carries on (A27)
 	_q_lap("worker")
 	if m.worker_pid > 0:
@@ -1463,6 +1544,7 @@ func _run_quick_test() -> void:
 		_ok("the quick test runs with its own worker (no --port)", false)
 
 
+func _q_properties() -> void:
 	# Native property panel: inspect -> expression edit -> updated geometry -> undo.
 	await _fresh("properties", _plank(1, Vector3.ZERO, Vector3(100, 50, 20)))
 	m.properties_panel.show()
@@ -1499,13 +1581,6 @@ func _run_quick_test() -> void:
 		_ok("undo restores native property geometry", is_equal_approx(float(_bodies().b1.volume_mm3), 100000.0))
 	m.properties_panel.hide()
 
-	_q_lap("")
-	var laps := ""
-	for t in _q_times: laps += "%s %.1f  " % [t[0], t[1] / 1000.0]
-	print("QUICK timing (s): " + laps + "| opening fresh models %.1f" % (_q_fresh_ms / 1000.0))
-	Engine.time_scale = 1.0
-	print("QUICK %d passed, %d failed in %.1f s" % [_q[0], _q[1], (Time.get_ticks_msec() - t_start) / 1000.0])
-	get_tree().quit(1 if _q[1] > 0 else 0)
 
 
 func _wait_properties() -> void:

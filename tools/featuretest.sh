@@ -1,6 +1,6 @@
 #!/bin/bash
 # Feature tests (~10 s): everything that checks Shop Sketch's answers against FreeCAD, with no window: the worker
-# tests (native, arrays, combos, properties, length input, the T48 scenario), the serve and length-protocol tests
+# tests (native, runs, arrays, combos, properties, length input, the T48 scenario), the serve and length-protocol tests
 # (plain python3, they start freecadcmd themselves) and the units parser. Run them while building a feature,
 # before its tool exists; tools/quicktest.sh runs them too, beside the viewport session.
 #   tools/featuretest.sh [outdir]      exit status 0 = all passed; prints one summary line
@@ -12,6 +12,7 @@ mkdir -p "$OUT"
 # name | command | summary line it prints
 TESTS=(
   "native|$FC worker/test_native.py|NATIVE TESTS"
+  "runs|$FC worker/test_runs.py|RUN TESTS"
   "arrays|$FC worker/test_arrays.py|ARRAY TESTS"
   "combos|$FC worker/test_combos.py|COMBO TESTS"
   "properties|$FC worker/test_properties.py|PROPERTY TESTS"

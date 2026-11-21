@@ -18,6 +18,7 @@ ARCHITECTURE.md the module map and protocol (update it in the same commit when y
 - `session.py`: `Session`, one live document per .FCStd: `sync`, undo, rebuild, journal, saves.
 - `serve.py`: the connection loop (`hello`, `open`, `sync`, `length`, `inspect_properties`, `bye`, `quit`; `saved`
   and `focus` events), ownership (one window per model), delayed saves, idle exit (`SERVE_IDLE_EXIT`).
+  `SERVE_PORT=0` binds a free port and writes it to `SERVE_PORT_FILE` (T47): tests start workers this way.
 - `length_input.py`: typed lengths through FreeCAD's expressions (T32, I35). `viewport/units.gd`
   `evaluate_length` ports it: after changing it, run `freecadcmd tools/length_cases.py` and the units test.
 - `object_properties.py`: the Properties panel's snapshot and `property_edit` (T46, I36).
@@ -79,12 +80,14 @@ ARCHITECTURE.md the module map and protocol (update it in the same commit when y
 - FreeCAD 1.1.4 is installed; don't work around bugs that 1.1.4 no longer has.
 
 ## Tests (each runs in both test scripts)
-- `freecadcmd worker/test_native.py` (96: feature tree, op-by-op = fresh, undo/amend walks, reopen, outside edits),
+- `freecadcmd worker/test_native.py` (83: feature tree, op-by-op = fresh, undo/amend walks, reopen, outside edits),
+  `test_runs.py` (13: runs of cuts and merges, Q20; split out to run beside it, T49; shared helpers and `OPS` in
+  `test_native_common.py`),
   `test_arrays.py` (10: hole arrays and moves), `test_combos.py` (61: features together, undo/reopen equal a fresh
   build, two models at once), `test_length_input.py` (23, incl. FreeCAD still matching tests/length_cases.json),
   `test_properties.py` (28), `test_scenario.py` (86, T48: one busy fixture model from
   `tests/scenario_fixture.json`, 17 steps each checked and undone back to the fixture, then a cumulative story that
   must equal a fresh build and a reopen; ~1 s. A new worker behaviour: add a step there first).
-  Plain python3, starting freecadcmd themselves: `test_serve.py` (11: one worker, two windows),
+  Plain python3, starting freecadcmd themselves: `test_serve.py` (12: one worker, two windows; a worker on port 0),
   `test_length_protocol.py` (3). Use `TESTDIR=<dir>` for outputs.
 - Tests load the modules with `from test_load import *` (after putting this folder on `sys.path`).

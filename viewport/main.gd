@@ -212,6 +212,9 @@ func _ready() -> void:
 	client.replied.connect(_on_worker)
 	client.link_up.connect(_on_link_up)
 	client.link_down.connect(_on_link_down)
+	if port == 0 and _port_file != "":
+		port = _await_port_file()                   # the worker has been starting while the window was built
+		worker_port = port
 	client.start(port)
 	_update_camera()
 	set_tool("rect")
@@ -326,9 +329,13 @@ var pending_rev := 0                # the model revision the last confirmed chan
 var saved_rev := 0                  # the revision the worker last said it saved
 
 
+var saved_shown: Array = []         # tests: what the indicator has said, in order (T45: fast saves can't be missed)
+
+
 func _update_saved() -> void:
 	if ui_saved == null: return
 	ui_saved.text = "Saving…" if pending_rev > saved_rev else "Saved"
+	if test_mode and (saved_shown.is_empty() or saved_shown.back() != ui_saved.text): saved_shown.append(ui_saved.text)
 var ui_vcb_box: PanelContainer
 var _vcb_style: StyleBoxFlat
 var _vcb_style_typing: StyleBoxFlat
@@ -1828,6 +1835,7 @@ var worker_script := ""
 var worker_log := ""
 var worker_port := -1
 var worker_pid := -1                # -1: not ours (tests pass --port), or given up
+var _port_file := ""                # tests: where our worker reports the port it bound (T47)
 var _worker_restarts: Array = []
 var _worker_check := 0.0
 var opened := false                 # the worker has answered our "open"
@@ -1916,8 +1924,7 @@ func _probe_worker(p: int) -> String:
 
 func _pick_worker() -> int:
 	_worker_files()
-	if test_mode:                                   # tests: a worker of their own, as before
-		worker_port = _free_port(SHARED_PORT + 2)
+	if test_mode:                                   # tests: a worker of their own, on a port it picks itself (T47)
 		_start_worker()
 		return worker_port
 	var mine := _worker_identity()
@@ -1947,13 +1954,43 @@ func _start_worker() -> void:
 		_say_worker("✗ couldn't find FreeCAD's command-line program (freecadcmd) or worker/replay.py")
 		worker_pid = -1
 		return
+	# a test's worker binds port 0 and writes the port the system gave it to a file: two test runs at once can't
+	# pick the same port before either binds it (T47). The app's workers keep their known ports (W13).
+	var port_file := ""
+	if test_mode:
+		port_file = OS.get_temp_dir().path_join("shopsketch-worker-%d.port" % OS.get_process_id())
+		DirAccess.remove_absolute(port_file)
+		worker_port = 0
 	if OS.get_name() == "Windows":
 		OS.set_environment("SERVE_PORT", str(worker_port))
+		OS.set_environment("SERVE_PORT_FILE", port_file)
 		worker_pid = OS.create_process(freecad_path, [worker_script])
 	else:
-		worker_pid = OS.create_process("/bin/sh", ["-c", "SERVE_PORT=%d SERVE_IDLE_EXIT=%d exec %s %s >> %s 2>&1" % [
-			worker_port, SHARED_IDLE_EXIT, _sh(freecad_path), _sh(worker_script), _sh(worker_log)]])   # never outlives its windows
-	print("SHOPSKETCH worker pid %d on port %d: %s (log %s)" % [worker_pid, worker_port, worker_script, worker_log])
+		worker_pid = OS.create_process("/bin/sh", ["-c", "SERVE_PORT=%d SERVE_PORT_FILE=%s SERVE_IDLE_EXIT=%d exec %s %s >> %s 2>&1" % [
+			worker_port, _sh(port_file), SHARED_IDLE_EXIT, _sh(freecad_path), _sh(worker_script), _sh(worker_log)]])   # never outlives its windows
+	_port_file = port_file
+	if port_file != "" and client != null:           # a restarted worker: wait for its new port
+		worker_port = _await_port_file()
+		client.port = worker_port
+	print("SHOPSKETCH worker pid %d %s: %s (log %s)" % [worker_pid, "port pending" if worker_port == 0 else
+		"on port %d" % worker_port, worker_script, worker_log])
+
+
+func _await_port_file() -> int:
+	"""Tests only: wait for the worker to report the port it bound (it starts in about a second)."""
+	var path := _port_file
+	var t0 := Time.get_ticks_msec()
+	while Time.get_ticks_msec() - t0 < 60000:
+		if FileAccess.file_exists(path):
+			var p := int(FileAccess.get_file_as_string(path).strip_edges())
+			DirAccess.remove_absolute(path)
+			if p > 0:
+				print("SHOPSKETCH worker on port %d" % p)
+				return p
+		if worker_pid > 0 and not OS.is_process_running(worker_pid): break
+		OS.delay_msec(20)
+	push_error("SHOPSKETCH the worker didn't report its port: see %s" % worker_log)
+	return -1
 
 
 func _watch_worker(delta: float) -> void:

@@ -1,11 +1,14 @@
 """Real worker socket: length replies are isolated from model sync."""
 import json, os, socket, subprocess, tempfile, time
 from pathlib import Path
-sock = socket.socket(); sock.bind(('127.0.0.1',0)); port=sock.getsockname()[1]; sock.close()
 with tempfile.TemporaryDirectory() as tmp:
     with open(Path(tmp)/'worker.log','w') as log:
-        proc=subprocess.Popen(['/Applications/FreeCAD.app/Contents/Resources/bin/freecadcmd',str(Path(__file__).resolve().with_name('replay.py'))],env=dict(os.environ,SERVE_PORT=str(port)),stdout=log,stderr=log)
+        proc=subprocess.Popen(['/Applications/FreeCAD.app/Contents/Resources/bin/freecadcmd',str(Path(__file__).resolve().with_name('replay.py'))],env=dict(os.environ,SERVE_PORT='0',SERVE_PORT_FILE=str(Path(tmp)/'worker.port')),stdout=log,stderr=log)
         try:
+            for _ in range(600):
+                if (Path(tmp)/'worker.port').exists(): break
+                time.sleep(.05)
+            port=int((Path(tmp)/'worker.port').read_text())
             for _ in range(100):
                 try: conn=socket.create_connection(('127.0.0.1',port),timeout=2); break
                 except OSError: time.sleep(.1)

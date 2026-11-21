@@ -30,7 +30,7 @@ Read it for architecture, conventions and tests.
   protocol/state and packaging changes without a staged architecture update. For changes which truly have no
   architectural impact, include `Architecture-Impact: none - <specific reason>` in the commit message;
   the reviewer must verify that claim. This never exempts an actual architecture change from the same-commit rule.
-- While building a FreeCAD-side feature, run `tools/featuretest.sh` (~8 s, no window; add steps to
+- While building a FreeCAD-side feature, run `tools/featuretest.sh` (~5 s, no window; add steps to
   `worker/test_scenario.py`). Before handing back, run `tools/quicktest.sh` in your worktree (it uses its own ports).
 - Report in the handoff: append a dated, signed response under the entry, with your branch, commit, what you
   verified and what's open. Then set its Status. Archive entries once they're resolved (move them whole to
