@@ -662,4 +662,20 @@ check("model.glb (for Blender) carries the wood's textures and each board's grai
 check("statuses all ok", all(st == "ok" for _, st in statuses(s)), [x for x in statuses(s) if x[1] != "ok"])
 s.close()
 
+# ---------- Q. reopening a file saved with a drawing page (crashed FreeCAD 1.1.4: bus error) ----------
+qp = os.path.join(tmp, "q_drawing.FCStd")
+NQ = [ground_rect("r1", [0, 0, 0], [300, 90]), push("p1", "r1", 19, "b1")]
+s = Session(qp, fresh=True)
+s.sync(NQ)
+s.drawing = True
+os.makedirs(os.path.join(tmp, "q_out"), exist_ok=True)
+s.save(os.path.join(tmp, "q_out"))
+s.close()
+import zipfile
+check("the saved file has a drawing page", "TechDraw" in zipfile.ZipFile(qp).read("Document.xml").decode(), qp)
+s = Session(qp)
+check("it opens again (the page and its views are cleared from the live document)",
+      not [o for o in s.model.doc.Objects if o.TypeId.startswith("TechDraw")] and "b1" in s.model.bodies(), qp)
+s.close()
+
 print(f"\nNATIVE TESTS: {R[0]} passed, {R[1]} failed")

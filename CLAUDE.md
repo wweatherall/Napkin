@@ -114,6 +114,11 @@ If you can't reach the log, say so; don't guess at what it says.
 - New FreeCAD properties go on objects when they are created. Adding properties inside an undo transaction
   isn't reliably undone.
 - `freecadcmd` passes the script itself as `sys.argv[1]`. Pass paths through environment variables.
+- When a script raises, `freecadcmd` runs it a second time: a crashed test run shows every check twice, and the
+  second pass trips over the first one's files (that was the "extra mesh files" in section K). Read the first error.
+- Removing a TechDraw page also removes its views and template (1.1.4); removing an already-deleted object then
+  crashes FreeCAD with a bus error (no Python error, the worker just dies). Remove by name, views first, and check
+  `doc.getObject(name)` before each removal (`remove_drawing_pages`).
 - Draft makes objects in the *active* document: call `App.setActiveDocument(self.doc.Name)` first.
 - Combined merges must be Part::MultiFuse: a Part::Fuse whose tool is a compound of overlapping pieces
   counts the overlap twice. A Part::Cut with a compound tool is right even when cutters overlap.

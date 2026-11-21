@@ -1208,10 +1208,15 @@ def add_drawing_page(doc, objs):
 
 def remove_drawing_pages(doc):
     """Drawing pages are regenerated in the saved copy; the live document stays model-only."""
-    doomed = [o for o in doc.Objects if o.TypeId.startswith("TechDraw::")]
-    for o in doomed:
+    # Views first, then templates, then pages, by name, skipping any already gone: FreeCAD 1.1.4 deletes a page's
+    # views and template along with it, and removing an object that's already deleted crashes FreeCAD (bus error).
+    rank = lambda o: 2 if o.TypeId == "TechDraw::DrawPage" else 1 if "Template" in o.TypeId else 0
+    doomed = [o.Name for o in sorted((o for o in doc.Objects if o.TypeId.startswith("TechDraw::")), key=rank)]
+    for name in doomed:
+        if doc.getObject(name) is None:
+            continue
         try:
-            doc.removeObject(o.Name)
+            doc.removeObject(name)
         except Exception:
             pass
     return bool(doomed)
