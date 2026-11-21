@@ -199,13 +199,13 @@ def serve(port):
     srv.bind(("127.0.0.1", port))          # port 0: the system picks a free one (T47), reported below
     srv.listen(16)
     port = srv.getsockname()[1]
-    if os.environ.get("SERVE_PORT_FILE"):     # whoever started us learns the port from this file (written whole)
-        tmp = os.environ["SERVE_PORT_FILE"] + ".tmp"
+    print(f"WORKER listening on 127.0.0.1:{port}" + (f" (exits {idle_exit:g} s after the last window)" if idle_exit else ""),
+          flush=True)
+    if os.environ.get("SERVE_PORT_FILE"):     # whoever started us learns the port from this file (written whole,
+        tmp = os.environ["SERVE_PORT_FILE"] + ".tmp"     # after the line above, so its log already says so)
         with open(tmp, "w") as f:
             f.write(f"{port}\n")
         os.replace(tmp, os.environ["SERVE_PORT_FILE"])
-    print(f"WORKER listening on 127.0.0.1:{port}" + (f" (exits {idle_exit:g} s after the last window)" if idle_exit else ""),
-          flush=True)
     while True:
         readable, _, _ = select.select([srv] + list(clients), [], [], IDLE_SAVE_S)
         now = time.monotonic()
