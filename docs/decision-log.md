@@ -3,7 +3,7 @@
 A read-only copy of the decision log for tools that can't open it (ChatGPT, Codex).
 The live log is the claude.ai Sheet: https://claude.ai/artifact/4smrjxGQm7Rt8H4jWBkpyK
 Change decisions there, not here: this file is regenerated from it and edits here are lost.
-Exported from revision 64, 2026-11-21.
+Exported from revision 65, 2026-11-21.
 
 Rule P01: a new decision that contradicts an old one gets a new row naming the old ID; the old row is marked Superseded, never deleted. Ask William before countermanding an Active decision.
 
@@ -197,7 +197,7 @@ Rule P01: a new decision that contradicts an old one gets a new row naming the o
 | T39 | Document controller (A31): move the action list, sync, request tracking and save state out of main.gd behind one boundary. | Open | A31 | In steps, keeping behaviour; T36 builds on it. |
 | T40 | Save generations and failure reporting (A32). | Open | A32 | Proposal; before branch history is stored in the journal. |
 | T41 | Split geometry presentation and selection/context out of main.gd (A33). | Open | A33 | Proposal; do it with the features that need it. |
-| T42 | Split worker/replay.py (~1,800 lines) into modules: building boards (model.py), one file per kind of action (move, mirror, push, ...), outputs (export.py: bodies.json, mesh files, model.glb), session / undo / journal (session.py), the connection loop (serve.py). No behaviour change. | Done | A31, A33 | Committed d39a7f5 (branch t42-worker-modules, not merged yet). replay.py only starts the worker; common.py, model.py (Model + one mixin per action: push, move, mirror, assembly, paint), export.py, session.py, serve.py. The worker hash now covers every worker script, not just replay.py (a quick-test step checks the window agrees); the app bundle copies them all. Tests: quick test (3 runs) and full test, all passing, recorded suites the same. |
+| T42 | Split worker/replay.py (~1,800 lines) into modules: building boards (model.py), one file per kind of action (move, mirror, push, ...), outputs (export.py: bodies.json, mesh files, model.glb), session / undo / journal (session.py), the connection loop (serve.py). No behaviour change. | Done | A31, A33 | Committed d39a7f5, merged into linked-copies (1739746). replay.py only starts the worker; common.py, model.py (Model + one mixin per action: push, move, mirror, assembly, paint), export.py, session.py, serve.py. The worker hash now covers every worker script, not just replay.py (a quick-test step checks the window agrees); the app bundle copies them all. Tests: quick test (3 runs, and after the merge) and full test, all passing, recorded suites the same. |
 | T43 | A short CLAUDE.md in each part's folder (worker/, viewport/, viewport/tools/): what that part owns, its rules and its tests. The top-level CLAUDE.md keeps the overview and links to them. | Open |  | Your call, 2026-11-21: each loads only when that folder is being worked on, so every session reads less. After T42, so the worker one describes the new modules. |
 | T44 | Write the window ↔ worker protocol down as one document (docs/protocol.md): every command and reply (hello, open, sync, replay, flush, bye, quit, saved, focus), the files the worker writes (bodies.json, meshes, materials.json, model.glb, the journal) and their fields, with a version number. | Open | W13, A27, A29 | Your call, 2026-11-21: both sides and Codex follow the document instead of reading each other's code. Could be a Codex job. |
 
