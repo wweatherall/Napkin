@@ -128,6 +128,10 @@ class ModelCapability extends _Capability:
 		"""A drawn rectangle or circle: {tris, n, on, pts, kind}; {} if there's none (a missing kind: a rectangle)."""
 		return _pres.rects.get(id, {}).duplicate(true)
 
+	func lines_on(body: String, normal: Vector3, point: Vector3) -> Array:
+		"""Saved segment snapshots on this body/plane, including ids."""
+		return _pres.lines_on(body, normal, point)
+
 	func stock_frame(id: String) -> Dictionary:
 		return _pres.stock_frames.get(id, {}).duplicate(true)
 

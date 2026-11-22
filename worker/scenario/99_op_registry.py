@@ -1,5 +1,5 @@
 """The op registry: Model's op types are its op_<type> methods, its mixins every top-level *Actions class
-(model.action_mixins). Pins today's fourteen types; a helper like move_cut is not an op."""
+(model.action_mixins). Pins today's fifteen types; a helper like move_cut is not an op."""
 from model import Model, action_mixins
 
 requires = ()
@@ -11,7 +11,7 @@ MIXINS = {"LineActions", "CircleActions", "AssemblyActions", "DeleteActions", "M
 
 
 def run(ctx):
-    ctx.check("op registry: the op types are the fourteen op_ methods", set(Model.HANDLERS) == TYPES,
+    ctx.check("op registry: the op types are the fifteen op_ methods", set(Model.HANDLERS) == TYPES,
               sorted(set(Model.HANDLERS) ^ TYPES))
     ctx.check("op registry: every *Actions mixin joins Model", {c.__name__ for c in action_mixins()} == MIXINS
               and all(c in Model.__mro__ for c in action_mixins()), [c.__name__ for c in Model.__mro__])

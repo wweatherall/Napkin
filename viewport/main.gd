@@ -1367,6 +1367,7 @@ static func _op_refs(op: Dictionary) -> Array:
 	if pl.has("on"): out.append(pl["on"]["body"])
 	var tg: Dictionary = op.get("target", {})
 	if op.has("edge_fit"): out.append(op["edge_fit"]["target_body"])
+	if tg.has("region"): out.append_array(tg.region.get("lines", []))
 	if tg.has("rect"): out.append(tg["rect"])
 	if tg.has("face"): out.append(tg["face"]["body"])
 	out.append_array(op.get("targets", []))

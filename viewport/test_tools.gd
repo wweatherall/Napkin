@@ -1,5 +1,5 @@
 extends SceneTree
-## The tool registry with no window (in the feature tests): tools/ lists exactly the six tools, in toolbar order,
+## The tool registry with no window (in the feature tests): tools/ lists exactly the seven tools, in toolbar order,
 ## with their labels, tooltips, keys and menu names. Also run inside the built app's pack (tools/build_app.sh
 ## --check), where tools/ holds .gd.remap / .gdc files, to prove discovery works there too.
 const Registry = preload("res://tool_registry.gd")
@@ -32,7 +32,7 @@ func _init() -> void:
 		["push", "Push/Pull", "Push/Pull (P)", KEY_P, "Push/Pull (P)", true],
 		["move", "Move", "Move (M)", KEY_M, "Move (M)", true],
 	]
-	check("tools/ declares Select, Paint, Rectangle, Circle, Push/Pull, Move in that order", got.map(func(g): return g[0]) == want.map(func(w): return w[0]), got)
+	check("tools/ declares Select, Paint, Rectangle, Circle, Line, Push/Pull, Move in that order", got.map(func(g): return g[0]) == want.map(func(w): return w[0]), got)
 	for i in mini(got.size(), want.size()):
 		check("%s: label, tooltip, key, menu name, linked tint" % want[i][0], got[i] == want[i], got[i])
 	check("no problems (fields, repeated ids or keys)", Registry.problems(found).is_empty(), Registry.problems(found))

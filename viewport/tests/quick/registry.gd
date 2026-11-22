@@ -1,6 +1,6 @@
 extends RefCounted
 ## The tool registry (tool_registry.gd): the toolbar, the Tools menu and the tool keys come from each tool's TOOL.
-## Pins what William sees: these six tools, in this order, with these tooltips and keys.
+## Pins what William sees: these seven tools, in this order, with these tooltips and keys.
 
 const Main := preload("res://main.gd")
 const Harness := preload("res://tests/harness.gd")
@@ -29,7 +29,7 @@ func run() -> void:
 			for id in m._tool_buttons:
 				if m._tool_buttons[id] == b: bar.append([id, b.text, b.tooltip_text])
 	var want_bar: Array = WANT.map(func(w): return [w[0], w[1], w[2]])
-	harness._ok("the toolbar is Select, Paint, Rectangle, Circle, Push/Pull, Move with their tooltips", bar == want_bar, bar)
+	harness._ok("the toolbar is Select, Paint, Rectangle, Circle, Line, Push/Pull, Move with their tooltips", bar == want_bar, bar)
 	var registry = load("res://tool_registry.gd")
 	var menu: Array = m.tool_list.map(func(t): return [t["id"], registry.menu_label(t)])
 	harness._ok("the Tools menu names them the same way", menu == WANT.map(func(w): return [w[0], w[3]]), menu)
@@ -41,8 +41,8 @@ func run() -> void:
 		m.set_tool("paint")
 		await harness._key(w[4])
 		picked.append([OS.get_keycode_string(w[4]), m.tool])
-	harness._ok("Space, R, C, P and M pick Select, Rectangle, Circle, Push/Pull and Move", picked == [["Space", "select"], ["R", "rect"], ["C", "circle"], ["L", "line"], ["P", "push"], ["M", "move"]], picked)
-	harness._ok("the keys map only those five", m.tool_keys == {KEY_SPACE: "select", KEY_R: "rect", KEY_C: "circle", KEY_L: "line", KEY_P: "push", KEY_M: "move"}, m.tool_keys)
+	harness._ok("Space, R, C, L, P and M pick Select, Rectangle, Circle, Line, Push/Pull and Move", picked == [["Space", "select"], ["R", "rect"], ["C", "circle"], ["L", "line"], ["P", "push"], ["M", "move"]], picked)
+	harness._ok("the keys map only those six", m.tool_keys == {KEY_SPACE: "select", KEY_R: "rect", KEY_C: "circle", KEY_L: "line", KEY_P: "push", KEY_M: "move"}, m.tool_keys)
 	# a toolbar segment and a Tools menu item pick their tool (the menu's tag is the tool's id)
 	m._tool_buttons["move"].pressed.emit()
 	var by_button := m.tool

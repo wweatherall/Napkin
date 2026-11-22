@@ -55,5 +55,11 @@ def run(ctx):
     ctx.S.close()
     ctx.S = Session(path)
     ctx.check("line reopen preserves solid and all drawings", snap(ctx.S) == live and len([o for o in ctx.S.doc.Objects if getattr(o, "SSLineId", "")]) == 3)
+    ctx.S.sync(ctx.FIX + drawing)
+    ctx.S.save()
+    path = ctx.S.path
+    ctx.S.close()
+    ctx.S = Session(path)
+    ctx.check("loose line-only work reopens without adding a solid", "triangle" not in ctx.S.model.bodies() and ctx.S.model.rect_obj("line2") is not None and len([o for o in ctx.S.doc.Objects if getattr(o, "SSLineId", "")]) == 3)
     ctx.S.sync(ctx.FIX)
     ctx.check("line undo all restores fixture", snap(ctx.S) == ctx.S0)

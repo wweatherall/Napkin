@@ -30,7 +30,13 @@ func click(screen: Vector2) -> void:
 	var on: String = p.body
 	if p.rect != "": on = ctx.model.profile(p.rect).on
 	if ctx.selection.edit_blocked(on): return
-	state = {"a": p.point, "b": p.point, "n": p.normal, "on": on, "chain": [p.point]}
+	var source: PackedVector3Array = ctx.model.profile(p.rect).tris if p.rect != "" else ctx.model.triangles(on)
+	for i in range(0, source.size(), 3):
+		var n: Vector3 = (source[i + 1] - source[i]).cross(source[i + 2] - source[i]).normalized()
+		if absf(n.dot(p.normal)) > 0.999 and absf((p.point - source[i]).dot(p.normal)) < GEOMETRY_TOLERANCE_MM:
+			p.point -= p.normal * (p.point - source[i]).dot(p.normal)
+			break
+	state = {"a": p.point, "b": p.point, "n": p.normal, "on": on, "chain": [p.point], "plane_point": p.point, "start_snap": p.get("snap", "") in ["endpoint", "midpoint", "on edge"]}
 	press_started(screen)
 
 func release(screen: Vector2) -> void:
@@ -44,6 +50,7 @@ func _drag(screen: Vector2) -> void:
 	if absf(den) < 1e-8: return
 	var q: Vector3 = ray.origin + ray.direction * ((state.a - ray.origin).dot(state.n) / den)
 	var p: Dictionary = ctx.pick.snap({"hit": true, "point": q, "normal": state.n, "body": state.on, "rect": ""}, screen)
+	p.point -= state.n * (p.point - state.plane_point).dot(state.n)
 	state.b = p.point
 	state.snapped = p.get("snap", "") in ["endpoint", "midpoint", "on edge"]
 	ctx.view.marker(p)
@@ -56,6 +63,7 @@ func typed(txt: String) -> void:
 	var length := float(txt)
 	if not is_finite(length) or length < GEOMETRY_TOLERANCE_MM or delta.length() < GEOMETRY_TOLERANCE_MM: return
 	state.b = state.a + delta.normalized() * length
+	state.snapped = false
 	_commit(false)
 
 func _finish(single: bool) -> void:
@@ -66,7 +74,7 @@ func _commit(single: bool) -> void:
 	var a: Vector3 = state.a; var b: Vector3 = state.b
 	var plane := {"origin": [a.x, a.y, a.z], "normal": [state.n.x, state.n.y, state.n.z]}
 	if state.on != "": plane = {"on": {"body": state.on, "normal": plane.normal, "point": plane.origin}}
-	var op := {"id": ctx.document.next_id("r"), "type": "line", "plane": plane, "end": [b.x, b.y, b.z]}
+	var op := {"id": ctx.document.next_id("r"), "type": "line", "plane": plane, "end": [b.x, b.y, b.z], "snap_start": state.get("start_snap", false), "snap_end": state.get("snapped", false)}
 	var chain: Array = state.chain
 	var closed := chain.size() >= 3 and b.distance_to(chain[0]) < GEOMETRY_TOLERANCE_MM
 	if closed: op["outline"] = chain.map(func(v): return [v.x, v.y, v.z])
@@ -77,5 +85,6 @@ func _commit(single: bool) -> void:
 	else:
 		chain.append(b)
 		state.a = b
+		state.start_snap = state.get("snapped", false)
 		ctx.view.clear_preview()
 	ctx.document.sync()

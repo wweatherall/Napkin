@@ -10,6 +10,7 @@ extends Node
 signal boards_read(data: Array, dir: String)   # bodies.json read, before building: main updates selection and wood
 signal wave_rejected_done(oid: String)        # a red wave has played out: main removes the op (and its dependents)
 
+const Regions := preload("res://regions.gd")
 const WAVE := preload("res://confirm_wave.gdshader")
 const WAVE_LINES := preload("res://confirm_wave_lines.gdshader")
 const WOOD := preload("res://wood.gdshader")
@@ -51,12 +52,37 @@ func register_line(op: Dictionary) -> void:
 	var a := Vector3(start[0], start[1], start[2])
 	var b := Vector3(op.end[0], op.end[1], op.end[2])
 	var n := Vector3(src.normal[0], src.normal[1], src.normal[2])
-	loose_lines[op.id] = {"a": a, "b": b, "n": n, "on": src.get("body", "")}
+	loose_lines[op.id] = {"a": a, "b": b, "n": n, "on": src.get("body", ""), "snap_start": op.get("snap_start", false), "snap_end": op.get("snap_end", false)}
 	drop_draft("line:" + op.id)
 	var node = m._lines(PackedVector3Array([a, b]), Color(0.1, 0.2, 0.6))
 	m.drafts_root.add_child(node)
 	drafts["line:" + op.id] = node
 	if op.has("outline"): register_rect(op)
+
+
+func lines_on(body: String, normal: Vector3, point: Vector3) -> Array:
+	"""Snapshot of drawings belonging to this body and plane; no cache escapes."""
+	var result := []
+	for id in loose_lines:
+		var line: Dictionary = loose_lines[id]
+		if line.on != body: continue
+		if absf((line.a - point).dot(normal)) > Regions.EPS or absf((line.b - point).dot(normal)) > Regions.EPS: continue
+		var copy := line.duplicate(true); copy["id"] = id
+		result.append(copy)
+	return result
+
+
+func drawn_region(source: PackedVector3Array, body: String, normal: Vector3, point: Vector3) -> Dictionary:
+	var lines := lines_on(body, normal, point)
+	if lines.is_empty(): return {}
+	var result := Regions.find(source, lines, normal, point)
+	if not result.is_empty() and not source.is_empty():
+		var area := 0.0
+		for i in range(0, source.size(), 3): area += (source[i + 1] - source[i]).cross(source[i + 2] - source[i]).length() * 0.5
+		# An unrelated/dangling line does not replace an exact circle or a stock resize with mesh facets.
+		if absf(result.area - area) <= maxf(0.001, area * 1e-6): return {}
+	if not result.is_empty(): result["lines"] = lines.map(func(line): return line.id)
+	return result
 
 
 func register_rect(op: Dictionary) -> void:
@@ -73,6 +99,7 @@ func register_rect(op: Dictionary) -> void:
 		var poly := PackedVector2Array()
 		for p in pts: poly.append(Vector2(p.dot(b[0]), p.dot(b[1])))
 		var indices := Geometry2D.triangulate_polygon(poly)
+		if indices.is_empty(): return
 		for i in indices: tris.append(pts[i])
 		for i in pts.size(): lines.append_array([pts[i], pts[(i + 1) % pts.size()]])
 	elif op["type"] == "circle":
