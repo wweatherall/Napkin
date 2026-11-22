@@ -24,7 +24,8 @@ Its folder guides apply to Codex too. This file owns Codex-specific startup, iso
   prints its handoff (a returned job continues its branch, with the integrator's notes). Nothing Ready: say so
   and stop.
 - Work only in that worktree, never by switching branches in `/Users/Will/Sites/fretchup`: Claude uses that
-  checkout. Touch the job's Touches files; William's direct instructions can authorize a wider scope. Merge into
+  checkout. Your scratch files, logs and measurements go in `scratch/` inside the worktree (git ignores it),
+  never in /private/tmp: the worktree's removal at merge takes them too (P25). Touch the job's Touches files; William's direct instructions can authorize a wider scope. Merge into
   main or push only when William asks. Keep a job to one session; merge main into your branch at least once a
   day while it's open.
 - The dead man's switch: commits, quick-test runs and `job.py` commands beat; with no beat for 30 minutes the
