@@ -22,7 +22,7 @@ The viewport guide (`../CLAUDE.md`) covers drafts, waves and the rules for drawi
   measurements, tooltip, rejection note, New board) and `ctx.paint` (`current_name`, `apply`; owned by `../appearance.gd`). Answers are copies; no adapter gives out
   Main, a node, a material or a cache map. Pure geometry is `Geo` (`../tool_geometry.gd`), preloaded in tool.gd.
 - Legacy, until each tool moves (T88 steps 1–6): `uses_main()` is the temporary marker. While it returns true
-  (the five legacy tools: Select, Rectangle, Circle, Push/Pull, Move), main.gd also calls `setup(m)`, giving `m` (main.gd) and `infer` (inference.gd). A tool
+  (the four legacy tools: Rectangle, Circle, Push/Pull, Move), main.gd also calls `setup(m)`, giving `m` (main.gd) and `infer` (inference.gd). A tool
   moved to the context overrides `uses_main()` to return false, uses only `ctx` and `Geo`, and leaves
   `STILL_ON_MAIN` in `../test_tools.gd` in the same commit. A new tool (Line, H046) starts on the context; Paint (H065) is the worked example of a move.
   Snap only through inference (`ctx.pick`, or `infer` / `m.snap()` / `m.pick()` in a legacy tool): one snapping
@@ -62,7 +62,7 @@ geometry and Main's wrappers agreeing, and no main.gd reference in the context, 
 `../test_tools.gd` makes every tool with a context and pins which still use main.gd.
 
 ## The tools
-- `select_tool.gd` (Space): click selects (from outside, an assembly or array row whole), Shift-click adds or
+- `select_tool.gd` (Space; context-only, H071): click selects (from outside, an assembly or array row whole), Shift-click adds or
   removes, empty space clears; drag right selects enclosed units, left selects crossing units, Shift adds. Double-click enters an assembly or array (T20), Esc cancels a box before leaving. Delete acts on the reusable selection (T34).
 - `paint_tool.gd` (no key yet, Q14; context-only, H065): paints the Wood menu's wood; a linked board paints its family. T turns grain.
 - `rect_tool.gd` (R): click a face or the ground, then click or type `width, height` (or press-and-drag, I43). Its

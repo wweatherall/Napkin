@@ -5,7 +5,7 @@ Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: open | For
 References: P18 (the gate), H057's and the integrator's follow-ups in docs/follow-ups.md, A36 (outside saves), W13.
 William chose this job, 2026-11-22 (review: re-running the gate on a flake must not become a habit).
 
-Touches: worker/test_serve.py, worker/test_outside_save.py, tools/test_startup.py, docs/follow-ups.md (remove the three lines this clears).
+Touches: worker/test_serve.py, worker/test_outside_save.py, tools/test_startup.py, docs/follow-ups.md (remove the lines this clears: H057's, the integrator's outside-save one, H066's and H071's).
 Not worker/serve.py or worker/session.py unless the cause is a real bug there: then stop and say so in your response
 first (that would be a behaviour fix, its own job).
 

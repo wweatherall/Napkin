@@ -24,7 +24,7 @@ protocol (update it in the same commit when you change either). Tools have their
   and the presenter draw on its signals; main forwards the old names.
 - `presenter.gd` (T41, A33b): geometry on screen, `m.pres`. Owns `body_tris` / `body_verts` / `body_edges` /
   `body_cuts`, drafts and rects, confirmed board nodes, remembered states, waves (`step_waves` each frame) and the
-  selection / context highlights. Draws with main's helpers through `m` (like the tools); main forwards the old
+  selection / context highlights. Also owns a unit's joined triangles (`unit_tris`) and Select's drag box (T88 step 2). Draws with main's helpers through `m` (like the legacy tools); main forwards the old
   names (`m.body_tris`, `m.drafts`, `m._begin_wave`, ...). main routes the document's signals to it.
 - `inference.gd`: the one snapping engine (pick; endpoint > midpoint > on edge; axis inference). Every tool uses it.
 - `tools/`: one object per tool (see its guide); `tool_registry.gd` finds them (each declares a `TOOL`), and the
