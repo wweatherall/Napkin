@@ -300,6 +300,20 @@ func _init() -> void:
 	d.reset()
 	check("switching models forgets the old model's failed save", d.save_error == "")
 
+	# --- a recovered save (A32): the open reply's recovered field, shown once ---
+	t = make(); d = t[0]; c = t[1]; seen = t[2]
+	d.on_opened({"ok": true, "rev": 6, "ops": [op("r1")], "recovered": {"from": "prev", "rev": 6, "why": "the journal was missing"}}, true)
+	check("an open that recovered says so in the save indicator", d.recovered_note == "Recovered the last whole save (rev 6)")
+	d.on_saved({"cmd": "saved", "model": d.model_path, "rev": 7})
+	check("... once: the next save that lands clears it", d.recovered_note == "")
+	d.on_opened({"ok": true, "rev": 7, "ops": [op("r1")]}, true)
+	check("an open with nothing recovered says nothing", d.recovered_note == "")
+	check("finishing a save that stopped part way reads differently",
+		d.recovered_text({"from": "new", "rev": 8, "why": "x"}) == "Finished the last save (rev 8)")
+	d.on_opened({"ok": true, "rev": 8, "ops": [], "recovered": {"from": "new", "rev": 8, "why": "x"}}, true)
+	d.reset()
+	check("switching models forgets the note", d.recovered_note == "")
+
 	for n in made: n.free()
 	print("DOCUMENT TESTS: %d passed, %d failed" % [passed, failed])
 	quit(1 if failed > 0 else 0)
