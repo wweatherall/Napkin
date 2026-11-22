@@ -36,13 +36,18 @@ PIDS=()
 for t in "${TESTS[@]}"; do
   IFS='|' read -r name cmd _ <<< "$t"
   mkdir -p "$OUT/$name"
-  ( TESTDIR="$OUT/$name" $cmd > "$OUT/$name.log" 2>&1 ) &
+  ( TEST_START=$SECONDS
+    TESTDIR="$OUT/$name" $cmd > "$OUT/$name.log" 2>&1; RC=$?
+    echo "TIMING feature $name: $((SECONDS - TEST_START)) s" > "$OUT/$name.time"
+    exit $RC
+  ) &
   PIDS+=($!)
 done
 wait "${PIDS[@]}"
 OK=1; LINE=""
 for t in "${TESTS[@]}"; do
   IFS='|' read -r name _ tag <<< "$t"
+  cat "$OUT/$name.time"
   grep -E "^FAIL" "$OUT/$name.log" | sed "s/^/[$name] /"
   s=$(grep -E "^$tag" "$OUT/$name.log" | head -1)
   LINE="$LINE${s:-$name did not finish} | "

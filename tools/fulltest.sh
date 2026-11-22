@@ -6,10 +6,19 @@
 # don't use the mouse over them. Suites run at the quick test's pace (--fast, T48: same results); --full-pace runs
 # them as recorded. After an intended change in behaviour, refresh the references:
 #   tools/fulltest.sh --update-reference
+#   --gate-ui-only is internal to gate.sh: quick already passed parsing and features.
 cd "$(dirname "$0")/.."
 FC=/Applications/FreeCAD.app/Contents/Resources/bin/freecadcmd
+START=$SECONDS
 GD=/Applications/Godot.app/Contents/MacOS/Godot
-tools/parsecheck.sh || { echo "full test not run: a viewport script doesn't parse"; exit 1; }
+# Only the gate uses this mode, after quicktest has parsed scripts and run feature tests.
+GATE_UI_ONLY=0
+for a in "$@"; do [ "$a" = "--gate-ui-only" ] && GATE_UI_ONLY=1; done
+if [ $GATE_UI_ONLY -eq 0 ]; then
+  tools/parsecheck.sh || { echo "full test not run: a viewport script doesn't parse"; exit 1; }
+fi
+if [ $GATE_UI_ONLY -eq 0 ]; then echo "TIMING parse: $((SECONDS - START)) s";
+else echo "TIMING parse/features: reused successful quick checks"; fi
 OUT=$(mktemp -d -t shopsketch-full)
 FAST=--fast
 for a in "$@"; do [ "$a" = "--full-pace" ] && FAST=""; done
@@ -18,18 +27,23 @@ TARGETED="undotest snaptest recttest shelltest jointest rejecttest"
 # lanes balanced by time (seconds at --fast pace, 2026-11-21: undo 7, face/move/mirror/zfight 5, infer/hole 4,
 # reject 3, the rest 2)
 LANES=("undotest snaptest recttest" "facetest movetest shelltest" "mirrortest infertest jointest" "holetest zfighttest rejecttest")
-tools/featuretest.sh "$OUT/feature" > "$OUT/feature.log" 2>&1 &
-FEATURES=$!
+FEATURES=""
+if [ $GATE_UI_ONLY -eq 0 ]; then
+  tools/featuretest.sh "$OUT/feature" > "$OUT/feature.log" 2>&1 &
+  FEATURES=$!
+fi
 WORKERS=()
 trap 'kill "${WORKERS[@]}" 2>/dev/null' EXIT
 lane() {   # lane <n> <suites...>: its own worker, then each suite in turn
   local n=$1; shift
+  local lane_start=$SECONDS
   SERVE_PORT=0 SERVE_PORT_FILE="$OUT/worker$n.port" "$FC" worker/replay.py > "$OUT/worker$n.log" 2>&1 &   # T47
   local w=$!
   for i in $(seq 1 300); do [ -s "$OUT/worker$n.port" ] && break; sleep 0.1; done
   local port; port=$(cat "$OUT/worker$n.port" 2>/dev/null) || { echo "lane $n: the worker didn't start" > "$OUT/lane$n.fail"; kill $w; return; }
   for suite in "$@"; do
     mkdir -p "$OUT/$suite/out" "$OUT/$suite/shots"
+    local suite_start=$SECONDS
     for try in 1 2; do
       timeout 300 "$GD" --path viewport -- --$suite $FAST --out="$OUT/$suite/out" --shots="$OUT/$suite/shots" --port=$port \
         > "$OUT/$suite/godot.log" 2>&1
@@ -45,12 +59,15 @@ lane() {   # lane <n> <suites...>: its own worker, then each suite in turn
       [ $rc = 0 ] || echo "$suite exited $rc" >> "$OUT/lane$n.fail"
       break
     done
+    echo "TIMING suite $suite: $((SECONDS - suite_start)) s" >> "$OUT/timing$n.log"
   done
+  echo "TIMING full lane $n: $((SECONDS - lane_start)) s" >> "$OUT/timing$n.log"
   kill $w 2>/dev/null
 }
 PIDS=()
 for i in "${!LANES[@]}"; do lane $((i + 1)) ${LANES[$i]} & PIDS+=($!); done
 wait "${PIDS[@]}"
+cat "$OUT"/timing*.log
 FAIL=0
 [ -f "$OUT/retries" ] && cat "$OUT/retries"
 for f in "$OUT"/lane*.fail; do [ -f "$f" ] && { cat "$f"; FAIL=1; }; done
@@ -60,7 +77,9 @@ if [[ " $* " == *" --update-reference "* ]]; then
 fi
 python3 tools/compare_suites.py "$OUT" || FAIL=1
 for t in $TARGETED; do grep -E "TEST|SCRIPT ERROR" "$OUT/$t/godot.log" | grep -v " done$"; done
-wait $FEATURES || FAIL=1
-cat "$OUT/feature.log"
+if [ -n "$FEATURES" ]; then
+  wait $FEATURES || FAIL=1
+  cat "$OUT/feature.log"
+fi
 echo "full check logs: $OUT"
 exit $FAIL
