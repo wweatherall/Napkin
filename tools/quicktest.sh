@@ -22,7 +22,11 @@ for i in "${!RUNS[@]}"; do
     > "$D.log" 2>&1 &
   PIDS+=($!)
 done
-( sleep 120; for p in "${PIDS[@]}"; do kill $p 2>/dev/null && echo "QUICK FAIL the viewport run took over 120 s: stopped it" >> "$OUT/stopped.log"; done ) &
+# The watchdog's sleep is its own process: stop it with the watchdog, and give neither our stdout, or a captured
+# run ($(tools/quicktest.sh), the gate) would wait out the 120 s after the result (T86).
+( sleep 120 & SLEEP=$!; trap 'kill $SLEEP 2>/dev/null; exit 0' TERM; wait $SLEEP
+  for p in "${PIDS[@]}"; do kill $p 2>/dev/null && echo "QUICK FAIL the viewport run took over 120 s: stopped it" >> "$OUT/stopped.log"; done
+) > /dev/null 2>&1 &
 WATCH=$!
 VP=0
 for p in "${PIDS[@]}"; do wait $p || VP=1; done
