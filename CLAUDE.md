@@ -8,7 +8,8 @@ Owner: William (teacher; shop and construction background). He thinks in systems
 `docs/decision-log.md` (P09, P23) is what's live: a Subjects index, Principles, Decisions grouped by subject, Open
 questions, Work list, Tunables, Details; `docs/decision-archive.md` is its history (superseded, decided, done), same
 IDs. Don't read it whole: start with the top, down to `## Decisions` (~7 KB: the subjects and the principles), then
-read only your subject's group (`### <subject>`). Grep both files by ID (a row ending "(Details below.)" has its full text at `### <ID>` in the same file); edit the
+`python3 tools/log.py show <subject>` for your subject's group and `log.py show <ID>` for one row (its Details and
+principles come with it); add rows with `log.py add`, never by hand. Grep both files by ID (a row ending "(Details below.)" has its full text at `### <ID>` in the same file); edit the
 live file in the same commit as the change. Keep rows short (the file's header says how). Rule P01: a change that contradicts a logged decision gets a new row naming the old ID, and the old row is
 marked Superseded (never deleted). Ask William before countermanding an Active decision.
 

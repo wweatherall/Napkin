@@ -29,6 +29,7 @@ TESTS=(
   "logsort|python3 tools/test_sort_decision_log.py|LOG SORT TESTS"
   "logarchive|python3 tools/test_log_archive.py|LOG ARCHIVE TESTS"
   "job|python3 tools/test_job.py|JOB TESTS"
+  "log|python3 tools/test_log.py|LOG TESTS"
   "ids|python3 tools/test_number_ids.py|ID TESTS"
   "startup|python3 tools/test_startup.py|STARTUP TESTS"
   "lock|python3 tools/test_integrator.py|LOCK TESTS"
