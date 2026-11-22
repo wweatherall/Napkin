@@ -77,7 +77,7 @@ TCP carries commands/status and output paths. Geometry is read from shared local
 | `worker/materials.py` | Twelve-species wood library, FreeCAD card installation, texture metadata | `install`, `write_library`, `SPECIES` |
 | `worker/drawing.py` | Compose shop drawings and cut list from exported data | Script entry point |
 | `viewport/*.gdshader`, `line.gdshaderinc` | Draft/confirmation appearance, depth-biased overlays and anti-aliased lines | Shader parameters |
-| `viewport/tests.gd`, `viewport/tests/`, `worker/test_*.py` | Test-mode dispatcher; shared UI harness, separate suites and quick sections; worker geometry/persistence tests | Suite entry points |
+| `viewport/tests.gd`, `viewport/tests/`, `worker/test_*.py`, `worker/scenario/` | Test-mode dispatcher; shared UI harness, separate suites and quick sections; worker geometry/persistence tests | Suite entry points |
 | `tools/featuretest.sh`, `quicktest.sh`, `fulltest.sh`, `compare_suites.py` | Test orchestration and geometry comparisons (feature tests without a window; UI tests in the viewport, P07) | Shell entry points |
 | `tools/build_app.sh`, `export_presets.cfg` | macOS application packaging | App build |
 
@@ -89,6 +89,8 @@ using one shared `tests/harness.gd` Node per window. The harness owns simulated 
 quick-test totals and section timing; it references the same Main throughout the run. `tests/quick_runner.gd`
 owns `QUICK_LANES` (unlisted section files join the shortest lane; a listed name with no file fails), loads sections in their original order and passes that harness to each, preserving
 sections that continue from the preceding state. Helpers that await frames remain on the harness in the scene tree.
+
+`worker/test_scenario.py` discovers numbered `worker/scenario/NN_feature.py` files in lexical order (T76), validates their declared earlier-file prerequisites, and calls `run(ctx)`. `scenario/context.py` owns the live fixture session, snapshots, checks and shared story actions; feature files import helpers explicitly and publish cross-feature operations through `ctx.actions`. Missing prerequisites fail before opening the fixture; new feature files need no shared registration.
 
 ### Typed lengths and the Properties panel (T32, T46)
 

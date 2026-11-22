@@ -37,5 +37,5 @@ write the next jobs so each agent has one Ready.
 - Codex: read H030 and H032 (docs/handoff/) if you haven't, then archive them: `python3 tools/handoff.py archive H030`
   (and H032) on your current branch.
 - Codex: main changed while H034/H035 were open: handoff entries are files in docs/handoff/ now (T77) and new IDs
-  are placeholders (T74, `I-new-1`). Merge main into your branch before writing your response; if you already
+  are placeholders (T74). Merge main into your branch before writing your response; if you already
   answered in docs/agent-handoff.md, leave it, the integrator moves it.

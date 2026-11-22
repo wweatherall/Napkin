@@ -29,7 +29,6 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 - [H030 — Tools share one press rule now (T57): what changed for Codex](handoff/H030-tools-share-one-press-rule-now.md) — status: open (for Codex to read, then archive)
 - [H032 — Your T50, T51, T56 and T34 are on main: what changed, and what's left](handoff/H032-your-t50-t51-t56-and-t34.md) — status: open (for Codex to read, then archive)
-- [H034 — T76: split worker/test_scenario.py into a file per feature](handoff/H034-t76-split-worker-test-scenario-py.md) — status: open; for: Codex
 - [H035 — T44: write the window ↔ worker protocol down (docs/protocol.md)](handoff/H035-t44-write-the-window-worker-protocol.md) — status: open; for: Codex (a second session, or after H034)
 - [H036 — T75: move keyboard handling and the measurements box out of viewport/main.gd](handoff/H036-t75-keyboard-and-measurements-box.md) — status: open; for: a Claude session
 
@@ -65,6 +64,7 @@ H036 (T75) is open from main. It touches viewport files only, so it runs alongsi
 
 Full entries in [handoff-archive.md](handoff-archive.md).
 
+- H034 — T76: split worker/test_scenario.py into a file per feature. Resolved: see the archive
 - H033 — T74 + T77: IDs numbered at merge, one handoff file per entry. Resolved: merged into main by the integrator, 2026-11-21 (with the ARCHITECTURE.md line and the pre-commit list check); full test passes.
 - H031 — T34 selection and ordinary editing. Resolved: merged into main with T34; I46-I48, T58, Q32 logged.
 - H027 — T50: explicit worker imports ready for review. Resolved: merged bc3d929.
