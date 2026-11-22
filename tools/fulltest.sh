@@ -30,8 +30,21 @@ lane() {   # lane <n> <suites...>: its own worker, then each suite in turn
   local port; port=$(cat "$OUT/worker$n.port" 2>/dev/null) || { echo "lane $n: the worker didn't start" > "$OUT/lane$n.fail"; kill $w; return; }
   for suite in "$@"; do
     mkdir -p "$OUT/$suite/out" "$OUT/$suite/shots"
-    timeout 300 "$GD" --path viewport -- --$suite $FAST --out="$OUT/$suite/out" --shots="$OUT/$suite/shots" --port=$port \
-      > "$OUT/$suite/godot.log" 2>&1 || echo "$suite exited $?" >> "$OUT/lane$n.fail"
+    for try in 1 2; do
+      timeout 300 "$GD" --path viewport -- --$suite $FAST --out="$OUT/$suite/out" --shots="$OUT/$suite/shots" --port=$port \
+        > "$OUT/$suite/godot.log" 2>&1
+      local rc=$?
+      # T80: Godot sometimes crashes at startup (signal 11 in macOS open-file handling) before any of our scripts
+      # print. That says nothing about Shop Sketch: run the suite once more, and say so.
+      if [ $rc -ge 128 ] && [ $rc -ne 143 ] && [ $try = 1 ] && \
+         ! grep -qE "^(SHOT|TEST|SHOPSKETCH|SCRIPT ERROR|QUICK)|GDScript backtrace" "$OUT/$suite/godot.log"; then
+        mv "$OUT/$suite/godot.log" "$OUT/$suite/godot-crash.log"
+        echo "$suite: Godot crashed at startup (exit $rc) before our scripts ran; ran it again (log: $OUT/$suite/godot-crash.log)" >> "$OUT/retries"
+        continue
+      fi
+      [ $rc = 0 ] || echo "$suite exited $rc" >> "$OUT/lane$n.fail"
+      break
+    done
   done
   kill $w 2>/dev/null
 }
@@ -39,6 +52,7 @@ PIDS=()
 for i in "${!LANES[@]}"; do lane $((i + 1)) ${LANES[$i]} & PIDS+=($!); done
 wait "${PIDS[@]}"
 FAIL=0
+[ -f "$OUT/retries" ] && cat "$OUT/retries"
 for f in "$OUT"/lane*.fail; do [ -f "$f" ] && { cat "$f"; FAIL=1; }; done
 if [[ " $* " == *" --update-reference "* ]]; then
   for s in $RECORDED; do cp "$OUT/$s/out/bodies.json" "$OUT/$s/out/status.json" tests/reference/$s/; done
