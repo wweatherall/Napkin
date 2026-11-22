@@ -27,7 +27,6 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 <!-- open list: built from docs/handoff/ by tools/handoff.py; don't edit by hand -->
 
-- [H045 — T86: a process outlives the quick test](handoff/H045-quick-test-leftover-process.md) — status: open; for: Claude
 - [H046 — T82: the Line tool, closed outlines and split faces](handoff/H046-t82-lines-split-faces.md) — status: queued (after T88); for: Codex
 - [H047 — T88 stage 1: the tools' interface to Main (inventory and proposal)](handoff/H047-t88-tool-interface.md) — status: open; for: Codex
 - [H048 — T79: a failed save is forgotten](handoff/H048-t79-failed-save.md) — status: open; for: Claude
@@ -67,6 +66,7 @@ H036 (T75) is open from main. It touches viewport files only, so it runs alongsi
 
 Full entries in [handoff-archive.md](handoff-archive.md).
 
+- H045 — T86: a process outlives the quick test. Resolved: merged into main by the integrator, 2026-11-22.
 - H041 — T81: the Circle tool. Resolved: merged into main by the integrator, 2026-11-22.
 - H042 — T70: a late worker reply can't replace a newer state. Resolved: merged into main by the integrator, 2026-11-22.
 - H044 — T58: copy an assembly into a row (3x, /3). Resolved: merged into main by the integrator, 2026-11-22.

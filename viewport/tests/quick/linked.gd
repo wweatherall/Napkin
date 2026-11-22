@@ -45,6 +45,6 @@ func run() -> void:
 	harness._ok("U makes the board under the cursor its own", uniq != "" and m.body_family.get(uniq, "x") == "", [uniq, m.body_family])
 	await harness._drag_to(Vector3(175, 25, 18), 4)
 	var det: String = m.hover_body
-	m._menu("detach")
+	await harness._menu("detach")
 	await harness._wait_wave()
 	harness._ok("Edit > Detach from array takes it out of the row", m.body_array.get(det, "x") == "" and m.body_family.get(det, "") != "", [det, m.body_array, m.body_family])
