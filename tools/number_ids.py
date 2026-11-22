@@ -65,6 +65,11 @@ def taken(root):
 def tracked(root):
     """Text files git tracks (plus new ones not yet added), relative to root."""
     try:
+        top = subprocess.run(["git", "rev-parse", "--show-toplevel"], cwd=root,
+                             capture_output=True, text=True, check=True).stdout.strip()
+        if os.path.realpath(top) != os.path.realpath(root):
+            # A scratch fixture inside a checkout is its own tree, not that checkout's tracked files.
+            raise OSError("root is nested inside another repository")
         out = subprocess.run(["git", "ls-files", "--cached", "--others", "--exclude-standard"], cwd=root,
                              capture_output=True, text=True, check=True).stdout.split("\n")
     except (OSError, subprocess.CalledProcessError):

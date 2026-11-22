@@ -30,7 +30,6 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 <!-- open list: built from docs/handoff/ by tools/handoff.py; don't edit by hand -->
 
-- [H046 — T82: the Line tool, closed outlines and split faces](handoff/H046-t82-lines-split-faces.md) — status: open; for: Codex
 - [H050 — For the next integrator session: where things stand](handoff/H050-integrator-state.md) — status: open; for: the integrator
 - [H052 — T66: lengths shown in the model's units](handoff/H052-t66-units.md) — status: queued (after T88's tool moves); for: either
 - [H059 — T67: IDs that never collide across kept history branches](handoff/H059-t67-branch-safe-ids.md) — status: queued (after H046); for: Codex
@@ -69,6 +68,7 @@ H036 (T75) is open from main. It touches viewport files only, so it runs alongsi
 
 Full entries in [handoff-archive.md](handoff-archive.md).
 
+- H046 — T82: the Line tool, closed outlines and split faces. Resolved: merged into main by the integrator, 2026-11-22.
 - H064 — T100: ARCHITECTURE.md and docs/protocol.md are the integrator's. Resolved: merged into main by the integrator, 2026-11-22.
 - H062 — T40: the model and its journal saved as one generation. Resolved: merged into main by the integrator, 2026-11-22.
 - H061 — T98: a worker session chains up to 3 jobs. Resolved: merged into main by the integrator, 2026-11-22.

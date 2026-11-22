@@ -128,6 +128,10 @@ class ModelCapability extends _Capability:
 		"""A drawn rectangle or circle: {tris, n, on, pts, kind}; {} if there's none (a missing kind: a rectangle)."""
 		return _pres.rects.get(id, {}).duplicate(true)
 
+	func lines_on(body: String, normal: Vector3, point: Vector3) -> Array:
+		"""Saved segment snapshots on this body/plane, including ids."""
+		return _pres.lines_on(body, normal, point)
+
 	func stock_frame(id: String) -> Dictionary:
 		return _pres.stock_frames.get(id, {}).duplicate(true)
 
@@ -309,6 +313,10 @@ class ViewCapability extends _Capability:
 	func register_profile(o: Dictionary) -> void:
 		"""Draw a just-made rect or circle op as a pickable profile (presenter.gd register_rect)."""
 		_pres.register_rect(o.duplicate(true))
+
+	func register_line(o: Dictionary) -> void:
+		"""Preserve a loose segment and its optional closed outline in the presenter."""
+		_pres.register_line(o.duplicate(true))
 
 
 # ---------------------------------------------------------------- measurements, tooltip, options

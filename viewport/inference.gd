@@ -109,6 +109,11 @@ func point(screen: Vector2, exclude: String, plane := {}, with_rects := false, n
 			for i in pts.size():
 				perimeter.append_array(PackedVector3Array([pts[i], pts[(i + 1) % pts.size()]]))
 			edges["rect " + rid] = perimeter
+	for lid in pres.loose_lines:
+		var line: Dictionary = pres.loose_lines[lid]
+		if line.on != "" and sel.is_hidden(line.on): continue
+		verts["line " + lid] = PackedVector3Array([line.a, line.b])
+		edges["line " + lid] = PackedVector3Array([line.a, line.b])
 	var keep := func(v: Vector3) -> bool: return _on_plane(v, plane) and not _on_other(v, not_on)
 	# endpoints
 	var cands := []

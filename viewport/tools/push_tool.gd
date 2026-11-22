@@ -117,14 +117,18 @@ func _push_hover(screen: Vector2) -> void:
 	m.overlay.mesh = null
 	var p := m.pick(screen)
 	m.marker.visible = false
-	if not p.get("hit", false) or p.get("ground", false): return
+	if not p.get("hit", false): return
 	var tris := PackedVector3Array()
 	if p["rect"] != "":
 		tris = m.rects[p["rect"]]["tris"]
 	elif p["body"] != "":
 		tris = coplanar_region(p["body"], p["normal"], p["point"])
+	var on: String = m.rects[p.rect].on if p.rect != "" else p.body
+	var region: Dictionary = m.pres.drawn_region(tris, on, p.normal, p.point)
+	if not region.is_empty(): tris = region.tris
 	if tris.is_empty(): return
 	hover = {"rect": p["rect"], "body": p["body"], "n": p["normal"], "anchor": p["point"], "tris": tris}
+	if not region.is_empty(): hover["region"] = region
 	m.overlay.mesh = m._tri_mesh(tris, m.mat_hover)
 
 
@@ -200,6 +204,7 @@ static func _vec(a: Array) -> Vector3:
 
 
 func _edge_inference(pt: Dictionary, screen: Vector2) -> void:
+	if state.has("region"): return     # a region push must not resize an entire stock face
 	var previous: Dictionary = state.get("edge_fit", {})
 	state.erase("edge_fit")
 	if is_instance_valid(face_highlight): face_highlight.mesh = null
@@ -214,7 +219,7 @@ func _edge_inference(pt: Dictionary, screen: Vector2) -> void:
 	var source_size := 0.0
 	if state.rect != "":
 		# Plane-fit stock dimensions describe rectangles. Circle pushes still use point/back-face inference.
-		if m.rects[state.rect].get("kind", "rect") == "circle": return
+		if m.rects[state.rect].get("kind", "rect") != "rect": return
 		if m.rects[state.rect].on != "" and not (m.new_board and state.dist > 0): return
 	else:
 		if not m.stock_frames.has(state.body) or m.stock_frames[state.body].fitted: return
@@ -332,13 +337,20 @@ func commit_push(d: float, edge_fit := {}) -> void:
 	else:
 		op["target"] = {"face": {"body": state["body"], "normal": Main.arr3(state["n"]), "point": Main.arr3(state["anchor"])}}
 		on = state["body"]
+	if state.has("region"):
+		var r: Dictionary = state.region
+		var array3 := func(v: Vector3) -> Array: return [v.x, v.y, v.z]
+		op.target["region"] = {"outline": Array(r.outline).map(array3),
+			"holes": r.holes.map(func(h): return Array(h).map(array3)), "lines": r.lines,
+			"normal": array3.call(state.n)}
+		if on == "": op.target.erase("face")
 	var depths: Array = state.get("depths", [])
 	if d < 0 and not depths.is_empty() and absf(d - float(depths.back())) < 0.01:
 		op["through"] = true        # to the opposite face: FreeCAD keeps it through if the board changes (I24)
 	var new_id := ""
 	# a rectangle becomes its own board (free, or on a face with "new board" on);
 	# pushing a body's own face always edits that body, like SketchUp
-	if state["rect"] != "" and (on == "" or (d > 0 and m.new_board)):
+	if (state["rect"] != "" or state.has("region")) and (on == "" or (d > 0 and m.new_board)):
 		m.counters["b"] += 1
 		new_id = "b%d" % m.counters["b"]
 		op["body"] = new_id
@@ -348,7 +360,7 @@ func commit_push(d: float, edge_fit := {}) -> void:
 		m.force_reject_next = false
 	if not edge_fit.is_empty():
 		op["edge_fit"] = edge_fit.duplicate()
-	elif state.rect == "" and m.stock_frames.has(on) and not m.stock_frames[on].fitted:
+	elif not state.has("region") and state.rect == "" and m.stock_frames.has(on) and not m.stock_frames[on].fitted:
 		op["resize_stock"] = true
 	m.ops.append(op)
 	var end_point: Vector3 = state["anchor"] + state["n"] * d   # on the moved face, under the cursor's axis

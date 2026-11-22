@@ -17,6 +17,13 @@ var failed := 0
 var made: Array = []
 
 
+class LinePresenter:
+	var received := {}
+	func register_line(o: Dictionary) -> void:
+		received = o.duplicate(true)
+		o.end[0] = 999
+
+
 class FakeClient:
 	var sent: Array = []
 	func send(d: Dictionary) -> void: sent.append(d)
@@ -38,12 +45,12 @@ const ALLOW := {
 	"pick": ["hit", "snap", "on_grid", "point", "axis", "axis_dest", "plane_dest", "ray", "project", "cursor",
 			 "grid_enabled", "grid_step", "snap_radius"],
 	"model": ["body_ids", "has_body", "triangles", "profile", "stock_frame", "unit_triangles", "cut_at",
-			  "cut_triangles", "circle_geometry"],
+			  "cut_triangles", "circle_geometry", "lines_on"],
 	"selection": ["ids", "context", "assembly_of", "members_of", "unit_of", "in_context", "is_hidden",
 				  "context_assembly", "edit_blocked", "set_ids", "enter"],
 	"document": ["next_id", "op", "append", "remove", "sync"],
 	"view": ["preview", "clear_preview", "marker", "hide_marker", "guides", "clear_guides", "selection_box",
-			 "clear_selection_box", "face_highlight", "clear_face_highlight", "register_profile"],
+			 "clear_selection_box", "face_highlight", "clear_face_highlight", "register_profile", "register_line"],
 	"ui": ["typed_text", "refresh_measurements", "refresh_tip", "clear_rejection", "new_board"],
 	"paint": ["current_name", "apply"],
 }
@@ -118,6 +125,12 @@ func _initialize() -> void:
 			if pm["methods"].has(r) or pm["props"].has(r): leaks.append("%s.%s" % [cap, r])
 	check("no capability exposes Main, a controller, the camera, a node or a cache by name", leaks.is_empty(), leaks)
 
+	var line_pres := LinePresenter.new()
+	var line_ctx := ToolContext.new({"pres": line_pres})
+	var line_op := {"id": "rline", "type": "line", "end": [10, 20, 0]}
+	line_ctx.view.register_line(line_op)
+	check("view.register_line passes a deep copy to the presenter", line_pres.received == line_op and line_op.end[0] == 10)
+
 	# --- snapshots: what a tool gets back is its own copy ---
 	var pres = t["pres"]; var sel = t["sel"]; var doc = t["doc"]
 	var tri := PackedVector3Array([Vector3(0, 0, 0), Vector3(10, 0, 0), Vector3(0, 10, 0)])
@@ -133,6 +146,11 @@ func _initialize() -> void:
 	check("model.profile is a deep copy", pres.rects["r1"]["n"] == Vector3(0, 0, 1) and pres.rects["r1"]["nested"]["a"].size() == 2
 		and pres.rects["r1"]["pts"][0] == Vector3.ZERO)
 	check("model.profile keeps kind, and {} for a missing profile", ctx.model.profile("r1")["kind"] == "rect" and ctx.model.profile("r9").is_empty())
+	pres.loose_lines["rline"] = {"a": Vector3.ZERO, "b": Vector3(10,0,0), "n": Vector3(0,0,1), "on": "b1"}
+	var saved: Array = ctx.model.lines_on("b1", Vector3(0,0,1), Vector3.ZERO)
+	saved[0].a = Vector3.ONE
+	check("model.lines_on returns a snapshot with ids", saved[0].id == "rline" and pres.loose_lines.rline.a == Vector3.ZERO)
+	check("model.lines_on filters body and plane", ctx.model.lines_on("b2", Vector3(0,0,1), Vector3.ZERO).is_empty() and ctx.model.lines_on("b1", Vector3(0,0,1), Vector3(0,0,1)).is_empty())
 	var sf: Dictionary = ctx.model.stock_frame("b1")
 	sf["axes"][0].append(5)
 	check("model.stock_frame is a deep copy; {} for none", pres.stock_frames["b1"]["axes"][0].size() == 3 and ctx.model.stock_frame("b2").is_empty())
