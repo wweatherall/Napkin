@@ -87,7 +87,7 @@ Tools currently depend directly on `main.gd`; the interface is a convention, not
 Each suite in `viewport/tests/suites/` and each section in `viewport/tests/quick/` is a RefCounted scenario
 using one shared `tests/harness.gd` Node per window. The harness owns simulated input, pacing, assertions,
 quick-test totals and section timing; it references the same Main throughout the run. `tests/quick_runner.gd`
-owns `QUICK_LANES`, loads sections in their original order and passes that harness to each, preserving
+owns `QUICK_LANES` (unlisted section files join the shortest lane; a listed name with no file fails), loads sections in their original order and passes that harness to each, preserving
 sections that continue from the preceding state. Helpers that await frames remain on the harness in the scene tree.
 
 ### Typed lengths and the Properties panel (T32, T46)
