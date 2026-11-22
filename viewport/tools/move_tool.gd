@@ -13,6 +13,7 @@ var memo := {}          # move op id -> {"tris": geometry before the move, "ref"
 
 func reset() -> void:
 	state = {}
+	press_reset()
 	copy = false
 	mirror = false
 
@@ -34,11 +35,22 @@ func accepts(ch: String) -> bool:
 
 
 func mouse_moved(screen: Vector2) -> void:
+	press_moved(screen)
 	_move_move(screen)
 
 
 func click(screen: Vector2) -> void:
 	_move_click(screen)
+
+
+func release(screen: Vector2) -> void:
+	# a press-and-drag ends here; a click goes on until the next click (I43). A mirror only if the cursor moved:
+	# a long press in place would otherwise mirror the board where it stands.
+	var r := press_released()
+	if not r.get("drag", false) or not state.get("active", false): return
+	if mirror and state.get("cut", {}).is_empty() and not r["moved"]: return
+	_move_move(screen)
+	_finish()
 
 
 func key(e: InputEventKey) -> bool:
@@ -298,7 +310,14 @@ func _move_click(screen: Vector2) -> void:
 					  "count": 1, "divide": false, "lo": lo, "hi": hi,
 					  "face_ax": fax, "face_c": snappedf(p["point"][fax], 0.01), "face_sign": signf(n[fax]),
 					  "cut": cut_ref, "unit": unit}
-	elif mirror and state.get("cut", {}).is_empty():
+		press_started(screen)
+	else:
+		_finish()
+
+
+func _finish() -> void:
+	"""The second click, or the release of a drag: the move (or mirror) is made."""
+	if mirror and state.get("cut", {}).is_empty():
 		if state.get("mir_face", "") != "": commit_mirror(state["mir_p"], state["mir_n"])
 		else: commit_mirror_move(state["mir_ax"], state["mir_c"])
 	else:

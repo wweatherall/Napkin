@@ -13,7 +13,7 @@ var m: Main:
 # any lane order works, except reject -> trackpad -> models -> worker, which carry on from each other.
 const QUICK_LANES := [
 	["hash", "rect", "push", "faces", "snap", "move", "hole", "selection"],
-	["linked", "assembly", "mirrorgroup", "faceplane", "wood", "hide"],
+	["linked", "assembly", "mirrorgroup", "faceplane", "wood", "hide", "press"],
 	["undo", "reject", "trackpad", "models", "worker", "properties"],
 ]
 

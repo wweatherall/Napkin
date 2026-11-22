@@ -12,6 +12,9 @@ The viewport guide (`../CLAUDE.md`) covers drafts, waves and the rules for drawi
 - `busy()`: in the middle of an operation, so typed characters go to the measurements box; `accepts(ch)`: which
   characters it takes (digits and arithmetic; letters, spaces and quotes once something is typed, for units).
 - While typing, Shift stays with the text (for `"` and `'`); other tool keys (arrow-key locks) still reach `key()`.
+- Press and drag, or click and click (I43): a tool that starts on a press calls `press_started(screen)`, then
+  `press_moved(screen)` on every move, and in `release` asks `press_released()`: `drag` true = end the action
+  now, false = it was a click and the next click ends it. The thresholds are tool.gd's (tunables DRAG_PX, HOLD_MS).
 - `typed()` gets lengths already worked out, in mm (`"150.000000000000"`, Rectangle `"w,h"`): main.gd evaluates
   what was typed (units.gd, or FreeCAD for what it declines). Move also gets its count syntax raw (`3x`, `/3`).
 
@@ -27,12 +30,14 @@ Tools talk to the worker only through `ops` and `m.sync()`.
 - `select_tool.gd` (Space): click selects (from outside, an assembly or array row whole), Shift-click adds or
   removes, empty space clears; drag right selects enclosed units, left selects crossing units, Shift adds. Double-click enters an assembly or array (T20), Esc cancels a box before leaving. Delete acts on the reusable selection (T34).
 - `paint_tool.gd` (no key yet, Q14): paints the Wood menu's wood; a linked board paints its family. T turns grain.
-- `rect_tool.gd` (R): click a face or the ground, then click or type `width, height`. Started with a click it ends
-  with a click; started with a press-and-drag it ends on release (a wobbly click still counts as a click, I29).
-- `push_tool.gd` (P): click a face or rectangle, move, click or type a distance (minus = cut). Snaps to faces
-  behind (to the back face = a through-cut, `"through": true`, I24); on a face it joins that board, B for a new
-  board (I04b).
-- `move_tool.gd` (M), SketchUp style: grabbing a selected board transforms the whole selection (T34; move/copy/mirror are each one op); otherwise grab a point on a board (or a hole's wall: the hole), move, click or type a
-  distance. Ctrl/Option toggles copy; Shift toggles mirror (I12c); arrows cycle axis lock → plane lock → free.
+- `rect_tool.gd` (R): click a face or the ground, then click or type `width, height` (or press-and-drag, I43). Its
+  second corner ignores snaps that would leave a side at zero (I44).
+- `push_tool.gd` (P): click a face or rectangle, move, click or type a distance (minus = cut), or press-and-drag
+  (I43). Snaps to faces behind (I23, I45; to the back face = a through-cut, `"through": true`, I24); on a face it
+  joins that board, B for a new board (I04b).
+- `move_tool.gd` (M), SketchUp style: grabbing a selected board transforms the whole selection (T34; move/copy/mirror
+  are each one op); otherwise grab a point on a board (or a hole's wall: the hole), move, click or type a distance,
+  or press-and-drag (I43). Ctrl/Option toggles copy; Shift toggles mirror (I12c); arrows cycle axis lock → plane
+  lock → free.
   After a copy: `5x` / `*5` for an array, `/5` to spread copies; a plain number right after a move changes its
   distance (`_amend_last_move`). Mirroring can use any face's plane (T27).

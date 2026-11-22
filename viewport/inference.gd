@@ -48,12 +48,19 @@ func snap(p: Dictionary, screen: Vector2) -> Dictionary:
 	var hit := point(screen, "", {"n": n, "p": p["point"]}, true)
 	if not hit.is_empty():
 		p["point"] = hit["point"]; p["snap"] = hit["kind"]
-	elif m.grid_snap:
-		var pt: Vector3 = p["point"]
-		for i in 3:
-			if absf(n[i]) < 0.5:
-				pt[i] = snappedf(pt[i], Main.GRID)
-		p["point"] = pt; p["snap"] = "grid"
+		return p
+	return on_grid(p)
+
+
+func on_grid(p: Dictionary) -> Dictionary:
+	"""A point on a plane put on the grid along that plane (when grid snap is on); no point snaps."""
+	if not m.grid_snap: return p
+	var n: Vector3 = p["normal"]
+	var pt: Vector3 = p["point"]
+	for i in 3:
+		if absf(n[i]) < 0.5:
+			pt[i] = snappedf(pt[i], Main.GRID)
+	p["point"] = pt; p["snap"] = "grid"
 	return p
 
 
