@@ -14,8 +14,7 @@ marked Superseded (never deleted). Ask William before countermanding an Active d
 - He wants a partner working through the Work list one item at a time, so nothing gets missed. Say which item
   you're on; when it's done, record the result in the Work list (commit, tests).
 - Each item on its own branch; commit when its tests pass. The integrator merges into main when it judges a branch
-  good enough (review done, full test passes; P13); other sessions never merge. Push only when William says so
-  (an earlier "push" doesn't carry over to later work).
+  good enough (review done, full test passes) and pushes main after merging (P16); other sessions never merge or push.
 - Quick test after every change; full test when it fails or before a merge. Add a quick-test step per feature.
 - New behaviour choices are his: ask (one question at a time, with a recommendation) and log the answer (P01).
 - One Work list item per session where possible: finish it (tests, commit, Work list result, a handoff
@@ -30,7 +29,7 @@ marked Superseded (never deleted). Ask William before countermanding an Active d
   for a working prototype.
 
 ## Working with Codex (ChatGPT)
-- One Claude session is the integrator (P13): it assigns jobs in the handoff's Jobs section, reviews and merges.
+- One Claude session is the integrator (P16): it assigns jobs in the handoff's Jobs section, reviews and merges.
   Any other session (Claude or Codex) takes the job it's given, works in its own worktree and delivers to the
   integrator; it doesn't merge into main. "Check the board" means: follow `BOARD.md` (P14).
 - Codex reads `AGENTS.md` (its instruction file) at the start of each session; keep it in step with this section.
