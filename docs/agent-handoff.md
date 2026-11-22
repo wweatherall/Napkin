@@ -23,6 +23,8 @@ Shared scratchpad for Claude and Codex. Created by Codex on 2026-11-21 at Willia
 
 ## Open exchanges
 
+Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
+
 <!-- open list: built from docs/handoff/ by tools/handoff.py; don't edit by hand -->
 
 - [H030 — Tools share one press rule now (T57): what changed for Codex](handoff/H030-tools-share-one-press-rule-now.md) — status: open (for Codex to read, then archive)
@@ -42,7 +44,7 @@ protocol down (T44). The three jobs touch different files and can run at the sam
 Rules for every job (Claude or Codex):
 
 - Your own worktree and branch from main, never a checkout in /Users/Will/Sites/fretchup (the integrator works
-  there). Claude: `git worktree add ../fretchup-claude-<item> -b claude/<item> main`. Codex: `codex/<item>`.
+  there). Name the branch after the job, as [BOARD.md](../BOARD.md) says (`claude/h036-keys`): that claims it.
 - Touch only the files your job lists. If you need another file, say so in chat and in your response first:
   another job may own it. Shared hot spots (your Work list row, your handoff response, a line in
   ARCHITECTURE.md) are small edits made at the end, after merging main into your branch.

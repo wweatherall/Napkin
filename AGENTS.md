@@ -15,7 +15,7 @@ Its folder guides apply to Codex too. This file owns Codex-specific startup, iso
 ## Codex work and delivery
 
 - A Claude session is the integrator (P13): take the job it assigned you in the handoff's Jobs section and
-  deliver your branch to it for review.
+  deliver your branch to it for review. "Check the board" means: follow [BOARD.md](BOARD.md) (P14).
 - Work on `codex/*` in your own worktree, never by switching branches in `/Users/Will/Sites/fretchup`:
   Claude uses that checkout. Start new jobs from main; touch the job's assigned files. William's direct
   instructions can authorize a wider scope. Merge into main or push only when William asks.
