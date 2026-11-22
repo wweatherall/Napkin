@@ -10,8 +10,8 @@ Touches: docs/decision-log.md, docs/decision-archive.md (new), tools/sort_decisi
 tools/test_sort_decision_log.py, tools/number_ids.py and tools/test_number_ids.py, tools/startup.py and
 tools/test_startup.py, tools/integrate.py, a new tools/test_log_archive.py for integrate.py's new steps (not
 the existing integrate tests or the feature-test script, H049 owns them; give the feature-test line in your
-response), .githooks/pre-commit, CLAUDE.md, AGENTS.md, worker/CLAUDE.md, viewport/CLAUDE.md, viewport/tools/CLAUDE.md
-(only lines that say how to search the log), docs/agent-handoff.md (its rules section, same).
+response), .githooks/pre-commit, CLAUDE.md, AGENTS.md and docs/agent-handoff.md (only lines that say how to search the log;
+the folder guides don't mention it).
 
 Request: build P23.
 1. Archive: move to docs/decision-archive.md the Superseded decisions, the Decided questions, the Done Work list
