@@ -10,7 +10,8 @@ Its folder guides apply to Codex too. This file owns Codex-specific startup, iso
    Then read [docs/agent-handoff.md](docs/agent-handoff.md): its rules and the open list. Each open entry is its own
    file in docs/handoff/; read the Codex ones and their replies. Read the archive only for needed history.
 2. Check `git log --oneline -15 main` and `git branch -a` for changes since the last session.
-3. Search the decision log by ID in both its files (P23): [docs/decision-log.md](docs/decision-log.md) is live,
+3. Don't read the decision log whole: read its top, down to `## Decisions` (~7 KB: the subjects and the principles),
+   then only your subject's `### <subject>` group. Search it by ID in both its files (P23): [docs/decision-log.md](docs/decision-log.md) is live,
    [docs/decision-archive.md](docs/decision-archive.md) the history, e.g. `rg '^\| I34 ' docs/decision-*.md`;
    a row marked "(Details below.)" has its full text at `### <ID>` in the same file. Active decisions govern.
 
