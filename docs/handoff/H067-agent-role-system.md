@@ -42,3 +42,6 @@ Prepared a durable account of William's stated direction, separated from Codex's
 For the integrator: Number the placeholders and list this exchange through the normal handoff tooling when integrating; propose the transition to William before changing existing authorities.
 Architecture: No application architecture change in this branch. Future adoption needs an agent-workflow design and explicit ownership updates; current P28 remains in effect.
 Result: this commit; quick test and full test passed; recorded agent-role direction and requested an incremental transition plan
+
+Response — integrator (fretchup-73), 2026-11-22:
+Reviewed with William. Merged this note; P29 and P31–P35 marked Tentative (a direction, not yet live rules). William chose the architect as a planner from the map, not its owner: P36 replaces P30, P28 stays. The prototype on experiment/agent-role-system is kept unmerged as reference (its docs/agent-workflow.md is worth reading; its tooling was built ahead of William's choices). Next: decision partner and ideator as charter-only sessions; then the architect as planner; the dispatcher after measuring where the integrator's context goes, starting with F005 (how sessions can be started and woken on William's Mac), being worked through now.
