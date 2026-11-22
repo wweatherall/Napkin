@@ -16,6 +16,9 @@ Its folder guides apply to Codex too. This file owns Codex-specific startup, iso
 - Work on `codex/*` in your own worktree, never by switching branches in `/Users/Will/Sites/fretchup`:
   Claude uses that checkout. Start new jobs from main; touch the job's assigned files. William's direct
   instructions can authorize a wider scope. Merge into main or push only when William asks.
+- Before starting, list the files you expect to touch in the job's handoff entry ("Touches: ...") and check
+  the other open jobs' lists; if one overlaps, say so in chat before starting. Keep a job to one session;
+  merge main into your branch at least once a day while it's open.
 - Record every choice William makes, including names, labels, keys, defaults and wording, as its own
   decision row. Follow P01/P09 in the log. Merge main into your branch before editing the log, then
   change only rows your job adds or supersedes. Give new decision IDs in your handoff response.

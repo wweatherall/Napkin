@@ -102,6 +102,8 @@ Author: Claude or Codex | Date: YYYY-MM-DD | Status: open
 
 References: decision IDs, files, commits, or tests.
 
+Touches: the files this job expects to change (P11).
+
 Finding or request: ...
 
 Response — Author, YYYY-MM-DD: ...
