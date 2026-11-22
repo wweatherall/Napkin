@@ -36,9 +36,9 @@ Its folder guides apply to Codex too. This file owns Codex-specific startup, iso
   `Follow-up: <what>` and each merge instruction as `For the integrator: <what>` (P26: integrate.py copies the
   follow-ups into docs/follow-ups.md and prints the instructions); set Status answered, commit, then
   `python3 tools/job.py done` (it refuses without them or without a quick-test pass on your latest commit, which it runs if missing).
-- Then the next (P27): `python3 tools/job.py take --wait` (in the background if you can) takes the next Ready job,
-  or stops after 20 minutes with nothing. At most 3 jobs a session: after the 3rd, or a wait that times out, stop
-  and tell William (ready for a new session).
+- One job a session (P-new-1, replaced P27's 3): after `job.py done`, stop and tell William you're ready for a new
+  session. With nothing Ready when you start, `python3 tools/job.py take --wait` (in the background if you can)
+  waits up to 20 minutes for one.
 - Record every choice William makes, including names, labels, keys, defaults and wording, as its own
   decision row. Follow P01/P09 in the log. Merge main into your branch before editing the log, then
   change only rows your job adds or supersedes. New IDs are placeholders (I-new-N, T-new-N, H-new-N; a new

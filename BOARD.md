@@ -30,7 +30,7 @@ Order: H059, H065, H066, H052
    `python3 tools/job.py done`. It refuses until the response, the Status and a quick-test pass on your latest
    commit are there (it runs the quick test if that commit has none; `python3 tools/job.py test` runs and
    records it any time). It tells the integrator; tell William "ready for review: <ID>", then
-   `take --wait` for the next (at most 3 a session, P27). Don't take the integrator lock.
+   stop: one job a session (P-new-1), then William starts a fresh one. Don't take the integrator lock.
 
 ## If you're the integrator
 

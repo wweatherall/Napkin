@@ -22,7 +22,7 @@ marked Superseded (never deleted). Ask William before countermanding an Active d
 - Quick test after every change; full test when it fails or before a merge. Add a quick-test step per feature.
 - New behaviour choices are his: ask (one question at a time, with a recommendation) and log the answer (P01).
 - One Work list item at a time: finish it (tests, commit, the result in your handoff, a handoff note if Codex is
-  affected) before the next; a worker session takes at most 3 (P27), then a fresh session. The files carry the
+  affected) before the next; a worker session takes one job (P-new-1), then a fresh session. The files carry the
   state, not the chat.
 - Tests are the project's memory: every behaviour gets a named check, so nobody has to remember how it works.
 - Small fixes take the light path (P22, was P08): nothing William would notice changes (or the code is made to do what a
@@ -59,9 +59,9 @@ marked Superseded (never deleted). Ask William before countermanding an Active d
   reviews each done job; integrate.py also removes a merged job's worktree and branch. Leftovers go in a response
   as `Follow-up:` lines and merge instructions as `For the integrator:` lines; integrate.py copies the first into
   docs/follow-ups.md and prints the second (P26).
-- A worker chains jobs (P27): take, work, done, then `job.py take --wait` with `run_in_background` (it wakes you with
-  the next job, or exits after 20 min); at most 3 a session (job.py refuses a 4th): after the 3rd, or a wait that
-  times out, stop and tell William you're ready for a /clear (a /clear gives a new CLAUDE_CODE_SESSION_ID).
+- A worker session does one job (P-new-1, replaced P27's 3: context grown over several jobs used up William's usage):
+  take, work, done, then stop and tell William you're ready for a /clear (job.py refuses a 2nd; a /clear gives a new
+  CLAUDE_CODE_SESSION_ID). With nothing Ready, `job.py take --wait` with `run_in_background` waits up to 20 min.
 - A job's scratch files, logs and measurements go in `scratch/` inside its worktree (git ignores it), never in
   /private/tmp or elsewhere: removing the worktree at merge takes them too (P25).
 - Codex works on `codex/*` branches in its own worktree, on the files its handoff job lists; review and merge them.
