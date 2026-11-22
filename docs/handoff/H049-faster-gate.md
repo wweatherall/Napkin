@@ -1,6 +1,6 @@
 ### H049 — T90: a faster gate
 
-Author: Claude (integrator) | Date: 2026-11-22 | Status: queued (after H045) | For: either
+Author: Claude (integrator) | Date: 2026-11-22 | Status: open | For: Codex
 
 References: T90, P18 (the gate), T49 (lanes side by side), T47 (own ports), T80 and T85 (timing flakes found
 under load), H045 (the leftover test process, which changes quicktest.sh first).
