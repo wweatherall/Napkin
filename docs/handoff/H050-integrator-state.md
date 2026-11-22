@@ -10,12 +10,27 @@ Taking over: William must have told you, in your session, that you're the integr
 `python3 tools/integrator.py take <your session name>`: refused while fretchup-73 holds it; if William says so, add
 `--william`. A plain /clear of fretchup-73 keeps the name, so `take fretchup-73` works. Then `python3 tools/startup.py`.
 
-In flight (2026-11-22 ~16:25; main pushed, gate passing, ~42 s): `python3 tools/startup.py` and
-`python3 tools/job.py status` show the live queue. Ready: H059 (T67, branch-safe IDs, Codex). Queued behind it:
-H065 (T88 step 1, Paint to ToolContext, either; both edit tool_context.gd), H066 (T101, A37 recovery: the newest
-file wins, either; shares worker/session.py), then H052 (T66 units, after the tool moves). After H065: T88 steps
-2-4 (Select, Circle, Rectangle), one job each. Parked: T65 (waits for the branch view, T71). fretchup-e1 has done
-its 3 jobs (P27): it needs a /clear before taking more.
+In flight (2026-11-22 ~17:45; main pushed, gate passing, ~42 s): `python3 tools/startup.py` and
+`python3 tools/job.py status` show the live queue. Merged today since 16:25: H067 (agent-role note, P29-P35
+Tentative; P36: the architect plans from the map, P28 stays), P37 (one job a worker session), P38
+(tools/start_worker.sh), P39 (no timed check-ins), P40 (job.py run: workers handle their own hung tests), H068
+(integrate.py/log.py follow-ups), H059 (T67, branch-safe IDs, protocol 7; P41, W14). Ready: H065 (T88 step 1, Paint
+to ToolContext) and H066 (T101, recovery: newest file wins), both "either", no overlap. Queued: H069 (flaky
+timing tests, after H066: shares test_outside_save.py), H070 (trim CLAUDE.md and AGENTS.md, Ready). Then H052 (T66
+units, after the tool moves); after H065, T88 steps 2-4 (Select, Circle, Rectangle), one job each. Parked: T65.
+experiment/agent-role-system: Antigravity's prototype, kept unmerged as reference (William, 2026-11-22); its
+docs/agent-workflow.md is worth reading for the role plan (H067). Next on roles: decision partner and ideator as
+charter-only sessions, the architect as planner (P36); the dispatcher only after measuring.
+
+Starting workers (P38): `tools/start_worker.sh [name]` opens Terminal with `claude --remote-control <name> "Check the
+board"`; William follows it in the Claude app. Ask William before starting one (usage). One job a session (P37).
+
+William's concerns from the 2026-11-22 review, still open: process work crowding out the product (freeze process
+changes for a while; H070 trims the instructions every session reads); flaky tests (H069; don't make re-running the
+gate a habit); decisions relayed by an agent ("William approved ..." in another agent's row) can't be verified:
+proposed rule, not yet decided: such a row says it was relayed and William glances at it; never write an example
+placeholder (P-new-1 style) in prose: number_ids.py numbers it at merge; H059's viewport test edits were skimmed,
+not read line by line; Q4 feel test on real hardware.
 
 How merges go (P28 since 2026-11-22): ARCHITECTURE.md and docs/protocol.md are the integrator's. A job with
 "Architecture:" lines stops after the gate with the merge staged: check the lines against the code, write them
@@ -37,7 +52,7 @@ deleted small-fixes once).
 
 Waiting on William: `python3 tools/startup.py` lists it, from main (T93); it isn't kept here.
 
-Watching (session-only; re-arm after a clear or restart): `python3 -u tools/job.py watch --next` with Bash
+Watching (session-only; re-arm after a clear or restart; integrate.py's --impact takes the reason only: it adds "none - "): `python3 -u tools/job.py watch --next` with Bash
 run_in_background. It wakes you once, on the first new queue event (done, stale, waiting, returned, queue empty);
 deal with it, then start it again. No timed check-ins and no Monitor: William removed the 20-minute check-in on
 2026-11-22 (each wake re-reads the whole context and used up his usage), and a Monitor expires every 30 min.

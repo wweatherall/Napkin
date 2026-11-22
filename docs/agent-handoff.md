@@ -35,6 +35,8 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H065 — T88 step 1: Paint moves to ToolContext](handoff/H065-t88-paint-to-toolcontext.md) — status: open; for: either
 - [H066 — T101: recovery on opening, the newest file wins](handoff/H066-t101-recovery-newest-wins.md) — status: open; for: either
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
+- [H069 — Two timing-sensitive worker tests that fail under load](handoff/H069-flaky-timing-tests.md) — status: queued (after H066); for: either
+- [H070 — Trim CLAUDE.md and AGENTS.md to what a session needs](handoff/H070-trim-instructions.md) — status: open; for: Claude
 
 <!-- end of open list -->
 

@@ -53,9 +53,11 @@ shows the queue; `python3 tools/job.py board` rebuilds the table (the commit hoo
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H065 | either | **Ready** | T88 step 1: Paint moves to ToolContext | [H065](docs/handoff/H065-t88-paint-to-toolcontext.md) |  |
+| H065 | either | **Done**: for review (codex) | T88 step 1: Paint moves to ToolContext | [H065](docs/handoff/H065-t88-paint-to-toolcontext.md) |  |
 | H066 | either | **Ready** | T101: recovery on opening, the newest file wins | [H066](docs/handoff/H066-t101-recovery-newest-wins.md) |  |
 | H052 | either | Queued | T66: lengths shown in the model's units | [H052](docs/handoff/H052-t66-units.md) | T88's tool moves |
+| H069 | either | Queued | Two timing-sensitive worker tests that fail under load | [H069](docs/handoff/H069-flaky-timing-tests.md) | H066 |
+| H070 | Claude | **Ready** | Trim CLAUDE.md and AGENTS.md to what a session needs | [H070](docs/handoff/H070-trim-instructions.md) |  |
 
 <!-- end of job table -->
 
