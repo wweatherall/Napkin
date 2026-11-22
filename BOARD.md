@@ -39,7 +39,9 @@ one line per event: a job done, a job stale (its deadline passed: check its bran
 waiting on William, a job returned, the queue empty for Claude or Codex (check in with William). Review every
 done job; merge what's good with `python3 tools/integrate.py <branch> --as <name> --push` (P20; it also removes
 the job's worktree and branch and marks it merged); put one that fails review or the gate back with
-`python3 tools/job.py return <id> "<notes>"`. Then update the Work list and write the next jobs (a handoff entry
+`python3 tools/job.py return <id> "<notes>"`. integrate.py commits each response's Result line
+to its Work list row (T91) and, with --push, stops before pushing for you to look (`--yes` goes on); a
+response without one is yours to record. Then write the next jobs (a handoff entry
 with Status open is Ready; "queued (after H0NN)" waits), and keep the Order line. `python3 tools/job.py status`
 shows the queue; `python3 tools/job.py board` rebuilds the table (the commit hook does it on main).
 

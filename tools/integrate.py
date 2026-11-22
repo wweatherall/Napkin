@@ -2,7 +2,7 @@
 """Merge one agent branch into main (P20): the integrator's steps, in one command.
 
   python3 tools/integrate.py <branch> --as <name> [--status T33=Done ...] [--subject I-new-N=Snapping ...]
-                             [--push] [--no-gate] [--impact "<reason>"]
+                             [--push [--yes]] [--no-gate] [--impact "<reason>"]
 
 Run in the main checkout, on main, clean, holding the integrator lock (tools/integrator.py). In order:
  1. git merge --no-ff --no-commit <branch>
@@ -18,8 +18,12 @@ Run in the main checkout, on main, clean, holding the integrator lock (tools/int
  5. tools/gate.sh (the quick and full tests, tests/known_failures.txt); a failing gate stops here, uncommitted
  6. commit ("Merge <branch>: <its subject>"; --impact adds an Architecture-Impact line), then --push pushes main
  7. the job queue (P24, tools/job.py): the job is marked merged, its worktree removed and its branch deleted
+ 8. the Work list result (T91): each answered entry's newest "Result: <commit>; <tests>; <what changed>" line
+    (docs/agent-handoff.md's rules) is appended to its item's row as "Result (<commit>, merged <merge>): ...", in
+    its own commit; the item is the --status T<n> (or the one the entry's heading names). The commit is shown and,
+    with --push, it stops before the push until --yes is given. No Result line: left for the integrator, as before
 BOARD.md's job table is generated (tools/job.py board): a conflict in it is settled by rebuilding it.
-What it leaves to the integrator: reviewing the branch first, and the Work list result."""
+What it leaves to the integrator: reviewing the branch first, and a Result line a response didn't give."""
 import os
 import re
 import subprocess
@@ -323,6 +327,52 @@ def resolve(root, rel):
     return hid
 
 
+RESULT = re.compile(r"(?m)^[-*]?\s*Result:\s*([0-9a-f]{7,40})\s*;\s*(.+?)\s*$")
+
+
+def result_line(text):
+    """The newest "Result: <commit>; <tests>; <what changed>" line in a handoff entry: (commit, rest) or None."""
+    found = RESULT.findall(text or "")
+    return (found[-1][0][:7], found[-1][1]) if found else None
+
+
+def entry_item(text, statuses):
+    """The Work list item an entry's result belongs to: the --status item its heading names, the only --status
+    item, or the T<n> its heading names."""
+    head = re.search(r"(?m)^### .*$", text or "")
+    named = re.findall(r"\bT\d+\b", head.group(0)) if head else []
+    hit = [t for t in statuses if t in named]
+    if hit:
+        return hit[0]
+    if len(statuses) == 1:
+        return statuses[0]
+    return named[0] if named else None
+
+
+def record_result(root, tid, commit, rest, merge):
+    """Append "Result (<commit>, merged <merge>): <rest>" to tid's row, in the live log or the archive.
+    Returns (the file changed or None, what happened)."""
+    rest = rest.replace("|", "/").rstrip()
+    rest = rest if rest.endswith(".") else rest + "."
+    for rel in (LOG, ARCHIVE):
+        p = os.path.join(root, rel)
+        if not os.path.isfile(p):
+            continue
+        lines = open(p, encoding="utf-8").read().split("\n")
+        i = sort_decision_log.find_row(lines, tid)
+        if i is None:
+            continue
+        c = sort_decision_log.cells(lines[i])
+        if f"Result ({commit}" in c[-1]:
+            return None, f"{tid}: result {commit} is already in its row"
+        add = f"Result ({commit}, merged {merge}): {rest}"
+        c[-1] = f"{c[-1]} {add}" if c[-1] else add
+        lines[i] = sort_decision_log.make_row(c)
+        open(p, "w", encoding="utf-8").write("\n".join(lines))
+        return rel, f"{tid}: added {add[:100]}{'...' if len(add) > 100 else ''}"
+    return None, f"{tid}: not in the decision log"
+
+
 def main(argv):
     if not argv or argv[0].startswith("-") or "--as" not in argv:
         print(__doc__)
@@ -388,12 +438,19 @@ def main(argv):
     extra = outside_touches(root, branch, base)
     if extra:
         say("OUTSIDE ITS TOUCHES LIST: " + ", ".join(extra) + " (check the job's response says why)")
+    statuses = [argv[i + 1].split("=", 1) for i, a in enumerate(argv)
+                if a == "--status" and i + 1 < len(argv) and "=" in argv[i + 1]]
+    results, missing = [], []           # read before resolve() moves the entries to the archive
     for rel in answered_by(root, branch, base):
+        text = open(os.path.join(root, rel), encoding="utf-8").read()
+        hid, got, tid = os.path.basename(rel).split("-")[0], result_line(text), entry_item(text, [t for t, _ in statuses])
+        if got and tid:
+            results.append((hid, tid) + got)
+        else:
+            missing.append(f"{hid} ({'no Result line in its response' if not got else 'no Work list item: give --status T<n>=...'})")
         say(f"resolved and archived {resolve(root, rel)}")
-    for i, a in enumerate(argv):          # --status T33=Done: the integrator's verdict for the item the branch did
-        if a == "--status" and i + 1 < len(argv) and "=" in argv[i + 1]:
-            tid, status = argv[i + 1].split("=", 1)
-            say(set_status(root, tid, status))
+    for tid, status in statuses:        # --status T33=Done: the integrator's verdict for the item the branch did
+        say(set_status(root, tid, status))
     number_ids.apply(root, out=lambda s: say(s) if s != "no placeholders" else None)
     bpath = os.path.join(root, job.BOARD)
     if os.path.isfile(bpath) and job.START in open(bpath, encoding="utf-8").read():
@@ -428,13 +485,44 @@ def main(argv):
         say("commit refused:\n" + (r.stdout + r.stderr).strip() + "\n(the merge is left staged; add --impact if the hook asks)"); return 1
     say("committed " + git("log", "--oneline", "-1", root=root).stdout.strip())
     job.merged(root, branch, out=say)
+    drafted = draft_results(root, results, name, say)
+    if missing:
+        say("left for you: the Work list result of " + ", ".join(missing))
     if "--push" in argv:
+        if drafted and "--yes" not in argv:
+            say("look the result over (above); fix it with `git commit --amend` if needed, then push: "
+                "git push origin main (or give --push --yes next time to push without stopping)")
+            return 0
         p = git("push", "-q", "origin", "main", root=root)
         say("pushed main" if p.returncode == 0 else "push failed: " + p.stderr.strip())
         if p.returncode:
             return 1
-    say("left for you: the Work list result")
     return 0
+
+
+def draft_results(root, results, name, say):
+    """Step 8: append each Result line to its Work list row and commit it on its own; show the commit. True if made."""
+    if not results:
+        return False
+    merge = git("rev-parse", "--short", "HEAD", root=root).stdout.strip()
+    changed, items = set(), []
+    for hid, tid, commit, rest in results:
+        rel, what = record_result(root, tid, commit, rest, merge)
+        say(what)
+        if rel:
+            changed.add(rel); items.append(f"{tid} ({hid})")
+    if not changed:
+        return False
+    git("add", *sorted(changed), root=root)
+    msg = (f"{', '.join(items)}: Work list result, merged {merge}\n\nDrafted by tools/integrate.py ({name}) from the "
+           "handoff response's Result line.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>")
+    r = subprocess.run(["git", "-c", "core.hooksPath=.githooks", "commit", "-q", "-F", "-"], input=msg, cwd=root,
+                       capture_output=True, text=True)
+    if r.returncode != 0:
+        say("the result commit was refused (left staged):\n" + (r.stdout + r.stderr).strip()); return True
+    say("committed " + git("log", "--oneline", "-1", root=root).stdout.strip())
+    print(git("show", "--format=", "--word-diff=plain", "HEAD", root=root).stdout.rstrip())
+    return True
 
 
 if __name__ == "__main__":

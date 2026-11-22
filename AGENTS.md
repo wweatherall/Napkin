@@ -30,8 +30,9 @@ Its folder guides apply to Codex too. This file owns Codex-specific startup, iso
 - The dead man's switch: commits, quick-test runs and `job.py` commands beat; with no beat for 30 minutes the
   integrator is told. Run `python3 tools/job.py check` now and then on a long job (it lists your worktree's
   processes, flags hung ones, and beats). Waiting on William: `python3 tools/job.py wait "<question>"`.
-- When it's done: append your response, set Status answered, commit, then `python3 tools/job.py done` (it refuses
-  without them or without a quick-test pass on your latest commit, which it runs if missing).
+- When it's done: append your response, ending with one line `Result: <commit>; <tests>; <what changed>`
+  (integrate.py copies it into the Work list at merge, T91), set Status answered, commit, then
+  `python3 tools/job.py done` (it refuses without them or without a quick-test pass on your latest commit, which it runs if missing).
 - Record every choice William makes, including names, labels, keys, defaults and wording, as its own
   decision row. Follow P01/P09 in the log. Merge main into your branch before editing the log, then
   change only rows your job adds or supersedes. New IDs are placeholders (I-new-N, T-new-N, H-new-N; a new
