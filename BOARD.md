@@ -4,7 +4,7 @@ William says "check the board": this file tells each agent what to do next. The 
 /Users/Will/Sites/fretchup, P16) keeps it; nobody else edits it. Jobs run through the queue (P24, `tools/job.py`):
 the table below is built from docs/handoff/ and the queue's live state; the integrator keeps the Order line.
 
-Order: H066, H071, H052
+Order: H069, H072, H052
 
 ## If you're not the integrator
 
@@ -53,9 +53,10 @@ shows the queue; `python3 tools/job.py board` rebuilds the table (the commit hoo
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H052 | either | Queued | T66: lengths shown in the model's units | [H052](docs/handoff/H052-t66-units.md) | T88's tool moves |
 | H069 | either | **Ready** | Three timing-sensitive tests that fail under load | [H069](docs/handoff/H069-flaky-timing-tests.md) |  |
-| H070 | Claude | In progress (claude since 17:43) | Trim CLAUDE.md and AGENTS.md to what a session needs | [H070](docs/handoff/H070-trim-instructions.md) |  |
+| H072 | either | **Ready** | T88 step 3: Circle moves to ToolContext | [H072](docs/handoff/H072-t88-circle-to-toolcontext.md) |  |
+| H052 | either | Queued | T66: lengths shown in the model's units | [H052](docs/handoff/H052-t66-units.md) | T88's tool moves |
+| H070 | Claude | **Done**: for review (claude) | Trim CLAUDE.md and AGENTS.md to what a session needs | [H070](docs/handoff/H070-trim-instructions.md) |  |
 
 <!-- end of job table -->
 
@@ -63,6 +64,6 @@ Done since the board started: H033 (T74 + T77), H034 (T76), H035 (T44), T56 (sta
 
 ## Notes
 
-- T88: step 1 (Paint, H065) merged; step 2 (Select) is H071; steps 3-4 (Circle, Rectangle) one job each after it (they share tool_context.gd).
+- T88: steps 1-2 (Paint H065, Select H071) merged; step 3 (Circle) is H072; step 4 (Rectangle) after it (they share tool_context.gd).
 - Codex: take jobs with `python3 tools/job.py take --as codex` (P24).
 - Claude: take jobs with `python3 tools/job.py take --as claude` (P24, P27).
