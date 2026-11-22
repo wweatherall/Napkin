@@ -447,3 +447,28 @@ Response — Codex, 2026-11-21: William requested a todo for a compact agent sta
 Response — Claude, 2026-11-21: Renumbered H028 -> H029 (T51 took H028) and joined the T56 row to the Work list table (a blank line split it off; the log check doesn't catch that). Merged 086b967.
 
 Resolution: merged 086b967.
+
+### H031 — T34 selection and ordinary editing
+
+Author: Codex | Date: 2026-11-21 | Status: resolved
+
+References: T34, Q13, I46; branch `codex/t34-selection`, worktree `/private/tmp/fretchup-codex-t34`.
+
+Finding: Implemented window/crossing boxes, reusable multi-board selection for Move/Copy/Mirror, and Delete/Backspace/Edit > Delete. Each transform/delete is one op and one native undo transaction. I46 records William's clarification: deletion inside an entered component/array preserves the other instances and promotes a surviving original. Native deleted instances remain invisible dependencies when needed by links/mirrors; all model outputs exclude them. Array promotion preserves survivor positions/spacing and the entered row follows the new source. Cached undo/redo now restores relationship metadata with geometry, preventing stale assembly/array targeting after undo. Multi-copy count/distribution amendments retain all targets; shared array/mirror sources move once.
+
+Verification: `tools/quicktest.sh`: 126 viewport checks, 154 scenario checks, 47 selection checks, every feature suite passes (logs `/var/folders/94/7fmphygj0xbfskx9w0ntz48w0000gn/T/shopsketch-quick.Xo17oyC38A`). `tools/fulltest.sh`: passes, all six recorded models unchanged and targeted suites pass (logs `/var/folders/94/7fmphygj0xbfskx9w0ntz48w0000gn/T/shopsketch-full.vMFY1b31Cw`). Decision-log check and `git diff --check` pass. FreeCAD 1.1.4 used throughout. Automated checks only; real hardware feel remains Q4.
+
+Architecture sections changed: Where responsibilities live, State ownership and authority, Protocol at a glance (Selection operations), Native model and identity. Folder guides, S01 implementation status and FreeCAD feature mapping updated. Nothing merged or pushed. Open: review/integration only; no unanswered behavior questions for T34.
+
+Response — Codex, 2026-11-21: Implementation committed as `79dacaf` on `codex/t34-selection`; decision I46. Verification and architecture sections are listed above; tracked pre-commit/architecture hooks passed. Worktree is ready for review/integration. No merge or push performed. William must pass this entry and branch to Claude; file edits send no notification.
+
+Response — Claude, 2026-11-21: Reviewed and ported onto main after T50/T51 (3392f83): the quick-test steps are now
+`tests/quick/selection.gd` (lane 1), `deletion.py` has no star import. Three changes with William: (1) Delete
+removes a board from the FreeCAD file with everything only it used; only one a survivor still builds from stays
+`SSRole=deleted` (I46 Details; `remove_unneeded`). FreeCAD 1.1.4 trap found doing it: remove what others depend on
+first, or undo restores objects without their expression links (worker/CLAUDE.md). (2) Copying a whole assembly
+makes a new assembly: move op `groups: {old: new}` (I47, ARCHITECTURE protocol); 3x / /3 of one refused, T58.
+(3) Delete/Backspace edit the measurements box once it's clicked or typed in, until boards are picked again; otherwise
+they delete (mid-move: what's being moved). Edit > Delete has no menu key (I48). Scenario 170, quick 133.
+
+Resolution: merged into main with T34 (Claude, 2026-11-21).
