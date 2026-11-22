@@ -49,7 +49,7 @@ One subject per decision; the Decisions column is generated.
 | Feedback | The confirmation wave and what colours mean. | I06, W01, W02, W03, W04, W05, W06, W07, W08, W09 |
 | Materials | Wood cards, grain and painting. | A05, I33, M01, M02, M03, M04 |
 | Output | Drawings, cut lists and renders. | A07, D01, D02, P06 |
-| Process | How the agents work, test, merge and record decisions. | P01, P02, P03, P07, P09, P10, P11, P14, P15, P16, P17, P18, P19, P20, P21, P22, P23, P24, P25, P26, P28, P29, P31, P32, P33, P34, P35, P36, P37, P38, P39 |
+| Process | How the agents work, test, merge and record decisions. | P01, P02, P03, P07, P09, P10, P11, P14, P15, P16, P17, P18, P19, P20, P21, P22, P23, P24, P25, P26, P28, P29, P31, P32, P33, P34, P35, P36, P37, P38, P39, P40 |
 
 ## Principles
 
@@ -68,7 +68,7 @@ Each states one idea; Explains (generated) lists the decisions that name it. Wil
 | G09 | Never lose work: always saved, atomically, and undo crosses sessions without hiding changes made in FreeCAD. | Active | A24, A25, A27, A28, A32, A36, A37, I54, I55, U01, U02, U03, W13 | 2026-11-22 |
 | G10 | A rejected action says why and leaves nothing behind. | Active | A23, I06, I08, W06 | 2026-11-22 |
 | G11 | Nothing rests on memory: every decision is logged, every behaviour has a named test, and every prediction of FreeCAD's answer is checked against FreeCAD. | Active | I51, P01, P02, P03, P07, P09, P18, P21, P23, P26, P28, P29, P31, P32, P33, P34, P35, P36 | 2026-11-22 |
-| G12 | Work splits by files, and one integrator merges, numbers and keeps the records. | Active | A31, A33b, A34, A35, P10, P11, P14, P15, P16, P17, P18, P19, P20, P22, P24, P25, P26, P28, P29, P31, P32, P33, P34, P35, P36, P37, P38, P39 | 2026-11-22 |
+| G12 | Work splits by files, and one integrator merges, numbers and keeps the records. | Active | A31, A33b, A34, A35, P10, P11, P14, P15, P16, P17, P18, P19, P20, P22, P24, P25, P26, P28, P29, P31, P32, P33, P34, P35, P36, P37, P38, P39, P40 | 2026-11-22 |
 | G13 | Show what an edit will change before it does. | Active | I28 | 2026-11-22 |
 
 ## Decisions
@@ -273,6 +273,7 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | P37 | A worker session does one job: take, work, done, then it stops and tells you it's ready for a /clear; job.py counts jobs per session name and refuses a 2nd (MAX_JOBS, 1). With nothing Ready when it starts, it waits in the background (job.py take --wait, up to WORKER_WAIT, 20 min). | Active | Replaces P27 (at most 3 a session) | Your call, 2026-11-22: three jobs in one session used up your usage in one 5-hour window (each job's context carried into the next). | G12 | tools/job.py MAX_JOBS, next_step(); checks: tools/test_job.py | 2026-11-22 |
 | P38 | Workers are started in a visible Terminal window with Remote Control, so you can follow or answer one from the Claude app: tools/start_worker.sh [name] runs claude --remote-control <name> "Check the board" in the repository (the same as typing cd, claude, /remote-control, Check the board). | Active | Answers F005 (how sessions are started; prototype branch) | Your call, 2026-11-22: if a worker stops you can see why; no-window sessions were the other option. | G12 | tools/start_worker.sh; checks: tools/test_start_worker.py | 2026-11-22 |
 | P39 | The integrator has no timed check-ins: it is woken only by the queue, with job.py watch --next run in the background (one wake on the first new event: done, stale, waiting, returned, queue empty), started again after each. | Active |  | Your call, 2026-11-22: the 20-minute check-in re-read the integrator's whole context each time and used up your usage. | G12 | tools/job.py watch(until_new); tools/startup.py's reminder; docs/handoff/H050-integrator-state.md; checks: tools/test_job.py, tools/test_startup.py | 2026-11-22 |
+| P40 | A worker deals with its own hung processes; the integrator hears only of a worker that has gone quiet. Workers run tests and long commands through job.py run, which stops one past HUNG_AFTER (10 min) with every process it started and says HUNG, so the worker is always woken; job.py done refuses while a worktree process looks hung. Workers set no check-in timer (the 20-minute CronCreate is gone); the 30-minute dead man's switch stays. | Active | Refines P24 (the dead man's switch) | Your call, 2026-11-22: a hung test in the background shouldn't need you or the integrator; timers cost usage. | G12 | tools/job.py run(), done(); BOARD.md step 3, AGENTS.md; checks: tools/test_job.py | 2026-11-22 |
 
 ## Open questions
 

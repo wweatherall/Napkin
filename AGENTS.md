@@ -29,8 +29,10 @@ Its folder guides apply to Codex too. This file owns Codex-specific startup, iso
   main or push only when William asks. Keep a job to one session; merge main into your branch at least once a
   day while it's open.
 - The dead man's switch: commits, quick-test runs and `job.py` commands beat; with no beat for 30 minutes the
-  integrator is told. Run `python3 tools/job.py check` now and then on a long job (it lists your worktree's
-  processes, flags hung ones, and beats). Waiting on William: `python3 tools/job.py wait "<question>"`.
+  integrator is told. Run tests and other long commands through `python3 tools/job.py run -- <command>`: past
+  10 minutes it stops the command and everything it started and says HUNG (exit 124), so a hung test is yours to
+  sort out, not the integrator's (P40); `job.py check` lists your worktree's processes any time, and `done`
+  refuses while one looks hung. Waiting on William: `python3 tools/job.py wait "<question>"`.
 - When it's done: append your response, ending with one line `Result: <commit>; <tests>; <what changed>`
   (integrate.py copies it into the Work list at merge, T91); write each leftover as its own line
   `Follow-up: <what>` and each merge instruction as `For the integrator: <what>` (P26: integrate.py copies the

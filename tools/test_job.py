@@ -196,6 +196,12 @@ job.QUICKTEST = ["sh", "-c", "exit 1"]
 r, out = run(job.done, wt1)
 check("a pass on an older commit doesn't count", not r and "no quick-test pass recorded" in out, out)
 job.QUICKTEST = ["true"]
+_procs = job.processes
+job.processes = lambda wt: [(4242, job.HUNG_AFTER + 60, "godot --quicktest")]
+r, out = run(job.done, wt1)
+job.processes = _procs
+check("done refuses while a process from the worktree looks hung, and names it (P40)",
+      not r and "pid 4242" in out and "looks hung" in out and state(root)["jobs"]["H001"]["state"] != "done", out)
 r, out = run(job.done, wt1)
 j = state(root)["jobs"]["H001"]
 check("done marks the job done once all is in order", r and j["state"] == "done" and "ready for review: H001" in out, out)
@@ -355,6 +361,20 @@ check("... and holds no job while it waits", "c3" not in [j.get("session") for j
 r, out = run(job.take_wait, root, "claude", "w", wait=60, poll=5, sleep=fake_sleep, clock=lambda: clock[0])
 check("take --wait gives up at once when refused (the session's 3 jobs)", r is None and "has done 3" in out
       and "waiting up to" not in out, out)
+# --- run: a long command can't hang unseen (P40) ---
+msgs = []
+check("run passes a command's exit code through", job.run(root, ["sh", "-c", "exit 3"], out=msgs.append) == 3, msgs)
+msgs = []
+t0 = time.time()
+rc = job.run(root, ["sh", "-c", "sleep 31.7 & sleep 31.7; wait"], limit=1, out=msgs.append)
+time.sleep(0.3)
+left = subprocess.run(["pgrep", "-f", "sleep 31.7"], capture_output=True, text=True).stdout.strip()
+check("run stops a command past its limit with every process it started, says HUNG, exits 124",
+      rc == 124 and any(m.startswith("HUNG:") for m in msgs) and not left and time.time() - t0 < 10, (rc, msgs, left))
+msgs = []
+check("run says so when the command can't start", job.run(root, ["/no/such/program"], out=msgs.append) == 127
+      and "can't start" in msgs[0], msgs)
+
 for w in [l.split()[1] for l in sh(root, "git", "worktree", "list", "--porcelain").stdout.split("\n")
           if l.startswith("worktree ")][1:]:
     sh(root, "git", "worktree", "remove", "--force", w)
