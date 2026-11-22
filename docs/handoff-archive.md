@@ -926,11 +926,7 @@ Resolution: merged into main by the integrator, 2026-11-22.
 
 ### H042 — T70: a late worker reply can't replace a newer state
 
-<<<<<<< HEAD
-Author: Claude (integrator) | Date: 2026-11-22 | Status: queued (after H041) | For: Claude
-=======
 Author: Claude (integrator) | Date: 2026-11-22 | Status: resolved | For: Claude
->>>>>>> claude/h042-late-replies
 
 References: T70, U02 (its last clause), W13; docs/protocol.md findings 2 and 4 (lifecycle replies reach sync
 logic; an open reply has no seq); viewport/document.gd `send_open`, `on_opened`, `on_sync_reply`;
