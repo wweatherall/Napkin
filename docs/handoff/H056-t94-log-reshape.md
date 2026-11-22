@@ -34,6 +34,9 @@ Request: build P23.
    T<n>=Done moves the item to the archive, and its log settling places a branch's new rows (written in the old
    layout, e.g. H051 and H049 in flight) under the right subject heading, asking when the subject isn't clear.
 5. The instruction files' lines on searching the log name both files.
+Also (2026-11-22, William agreed): the subject is what a decision is about; its letter is just part of its name.
+P covers process and product, W13 is architecture, I24 is architecture: file each by subject, keep every ID, and
+say so in the log's header. Don't renumber.
 Checks: sort/number/startup tests for both files; a sample branch in the old layout settles into the new one; a
 round trip (every ID before = every ID after, each in exactly one file, rows byte-identical apart from the
 subject/principle columns). Quick test, then the gate. William reviews the principles list at merge.

@@ -35,6 +35,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H054 — T92: tools/log.py add, for decision log rows](handoff/H054-t92-log-add.md) — status: queued (after H056); for: Claude
 - [H055 — T93: startup.py shows what waits on William](handoff/H055-t93-waiting-on-william.md) — status: queued (after H056); for: Claude
 - [H056 — T94: reshape the decision log (live file + archive, subjects, principles)](handoff/H056-t94-log-reshape.md) — status: open; for: Claude
+- [H057 — T95: the feature tests find the test files themselves](handoff/H057-t95-tests-find-themselves.md) — status: queued (after H049); for: either
 
 <!-- end of open list -->
 

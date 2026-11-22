@@ -36,6 +36,7 @@ so each agent has one Ready.
 | H049 | Codex | **Ready** | T90: a faster gate (measure first) | [H049](docs/handoff/H049-faster-gate.md) | |
 | H046 | Codex | **Ready** | T82: the Line tool, closed outlines and split faces (I51) | [H046](docs/handoff/H046-t82-lines-split-faces.md) | |
 | H052 | either | Queued | T66: lengths in the model's units (I57, I59) | [H052](docs/handoff/H052-t66-units.md) | T88's tool moves (every tool's vcb_value) |
+| H057 | either | Queued | T95: the feature tests find the test files themselves | [H057](docs/handoff/H057-t95-tests-find-themselves.md) | H049 (the test scripts) |
 | next | Claude | Queued | T88 steps 1-4: Paint, Select, Circle, Rectangle move to ToolContext (one job each, on files H046 doesn't touch) | written when ready | H056 (William's priority: the integrator's tools first) |
 
 Done since the board started: H033 (T74 + T77), H034 (T76), H035 (T44), T56 (startup report), H036 (T75), H037 (T54), H038 (T78), H039 (T80), H040 (T33), H043 (T85), H044 (T58), H042 (T70), H041 (T81, Circle), H045 (T86), H047 (T88 spec), H048 (T79), H051 (T88 step 0).
