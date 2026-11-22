@@ -44,14 +44,16 @@ Its folder guides apply to Codex too. This file owns Codex-specific startup, iso
   change only rows your job adds or supersedes. New IDs are placeholders (I-new-N, T-new-N, H-new-N; a new
   entry is docs/handoff/H-new-N-slug.md): the integrator numbers them at merge (tools/number_ids.py, T74).
   List your placeholders in your handoff response.
-- Follow CLAUDE.md for tests and architecture maintenance. Both agents own ARCHITECTURE.md; neither needs
-  the other's permission to update it. Run commits with `git -c core.hooksPath=.githooks commit ...`.
-  A specific `Architecture-Impact: none - <reason>` is only for genuinely non-architectural changes.
+- Follow CLAUDE.md for tests and architecture maintenance. Don't edit ARCHITECTURE.md or docs/protocol.md: they
+  are the integrator's (P28). Write what your change does to them as `Architecture: <what>` lines in your handoff
+  entry, and commit code that changes them with `Architecture-Impact: in the handoff - H0NN`; the integrator
+  writes them in at merge. Run commits with `git -c core.hooksPath=.githooks commit ...`. A specific
+  `Architecture-Impact: none - <reason>` is only for genuinely non-architectural changes.
 - Use P22's light path for small fixes (was P08), with Codex's standing branch `codex/small-fixes`; the integrator
   merges and pushes it when the gate passes.
   Otherwise append a dated, signed response in the handoff (don't edit the Work list: the integrator writes your
   result there at merge, P17):
-  branch, commit, decision IDs, verification, architecture sections changed and anything open. Set the
+  branch, commit, decision IDs, verification, `Architecture:` lines (P28) and anything open. Set the
   entry's Status; archive resolved exchanges with `python3 tools/handoff.py archive H0NN`.
 - Behaviour choices are William's. Put unresolved questions in the handoff and mention them in chat.
 

@@ -35,7 +35,6 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H052 — T66: lengths shown in the model's units](handoff/H052-t66-units.md) — status: queued (after T88's tool moves); for: either
 - [H059 — T67: IDs that never collide across kept history branches](handoff/H059-t67-branch-safe-ids.md) — status: queued (after H046); for: Codex
 - [H063 — T64: watch the model file and reload FreeCAD's saves, with a wave](handoff/H063-t64-reload-freecad-saves.md) — status: open; for: Claude
-- [H064 — T100: ARCHITECTURE.md and docs/protocol.md are the integrator's](handoff/H064-t100-map-is-the-integrators.md) — status: open; for: Claude
 
 <!-- end of open list -->
 
@@ -70,6 +69,7 @@ H036 (T75) is open from main. It touches viewport files only, so it runs alongsi
 
 Full entries in [handoff-archive.md](handoff-archive.md).
 
+- H064 — T100: ARCHITECTURE.md and docs/protocol.md are the integrator's. Resolved: merged into main by the integrator, 2026-11-22.
 - H062 — T40: the model and its journal saved as one generation. Resolved: merged into main by the integrator, 2026-11-22.
 - H061 — T98: a worker session chains up to 3 jobs. Resolved: merged into main by the integrator, 2026-11-22.
 - H057 — T95: the feature tests find the test files themselves. Resolved: merged into main by the integrator, 2026-11-22.
