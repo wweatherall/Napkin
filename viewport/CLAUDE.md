@@ -87,16 +87,12 @@ protocol (update it in the same commit when you change either). Tools have their
 - Recorded suites (`--facetest --movetest --mirrortest --infertest --holetest --zfighttest`) are compared with
   `tests/reference/` by the full test; targeted: `--undotest --snaptest --recttest --shelltest --jointest
   --rejecttest`. Visual only: `--linetest`, `--zfighttest`; timing `--perftest`; `--heavytest --model=<file>`.
-- `test_document.gd` (headless, in the feature tests): the document controller with a stand-in client: rapid
-  edits coalesce, stale and dirty replies are ignored, reconnect resends, a switched model ignores the old reply,
-  undo floor, redo.
-- `test_selection.gd` (headless, in the feature tests): selection.gd with a stand-in document: what a board stands for
-  outside and inside, entering and leaving, the hidden/deleted sets following ops, hide / delete / assembly / unlink ops and context following original promotion. Quick-test `selection` covers boxes, Shift-click, multi-board move/copy/count amendments/mirror/delete, undo/redo, tool-first grabs after undo and deletion inside an entered array.
-- `test_tools.gd` (headless, in the feature tests, and run by `tools/build_app.sh` inside the built pack): the tool
-  registry finds exactly Select, Paint, Rectangle, Push/Pull, Move with their labels, tooltips, keys, menu names.
-  Quick-test `registry` checks the real toolbar, Tools menu names and that each tool key picks its tool.
-- `test_units.gd` (`Godot --headless --path viewport --script res://test_units.gd`, 114): the parser, and the local
-  evaluator against FreeCAD's answers in `tests/length_cases.json`.
+- Headless tests: `tools/featuretest.sh` finds every `viewport/test_*.gd` and runs it with
+  `Godot --headless --path viewport --script res://<file>`; each prints `<NAME> TESTS: N passed, M failed` and its
+  first lines say what it covers (the document controller, selection, the tool registry, the tool interface, the
+  units parser against `tests/length_cases.json`). A new file needs no other edit. `test_tools.gd` also runs inside
+  the built pack (`tools/build_app.sh`); quick-test `registry` checks the real toolbar, and `selection` the
+  selection behaviour in the window.
 - Tests use a private worker on a port it picks itself and reports in a file (T47); `--port=N` uses an outside
   one; `--shared-port=N` tries sharing next to a running app.
 - Suites drive the UI with a simulated cursor; in test mode mouse events that aren't at it are ignored (the real

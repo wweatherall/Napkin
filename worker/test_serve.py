@@ -1,3 +1,4 @@
+# runner: python3 (it starts freecadcmd itself)
 """One FreeCAD worker serving several windows (W13): run with plain python3 (it starts freecadcmd itself).
   python3 worker/test_serve.py   (TESTDIR=<folder> for its files; FREECAD=<freecadcmd> to override)"""
 import json

@@ -1,3 +1,4 @@
+# runner: python3 (it starts freecadcmd itself)
 """Real worker socket: length replies are isolated from model sync."""
 import json, os, socket, subprocess, tempfile, time
 from pathlib import Path
@@ -22,6 +23,6 @@ with tempfile.TemporaryDirectory() as tmp:
                 if expected:
                     assert all(abs(a-b)<1e-8 for a,b in zip(reply['values'],expected)),reply
             conn.close()
-            print('LENGTH PROTOCOL: 3 passed, 0 failed')
+            print('LENGTH PROTOCOL TESTS: 3 passed, 0 failed')
         finally:
             proc.terminate(); proc.wait(timeout=10)

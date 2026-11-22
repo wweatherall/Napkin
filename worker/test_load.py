@@ -1,3 +1,4 @@
+# runner: none (a helper the worker tests import, not a test)
 """Configure the FreeCAD test runtime before tests import worker modules explicitly.
 
 freecadcmd does not put a script's folder on sys.path; callers add worker/ first.
