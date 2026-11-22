@@ -1,6 +1,6 @@
 ### H071 — T88 step 2: Select moves to ToolContext
 
-Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: open | For: either
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: answered | For: either
 
 References: T88, docs/specs/T88-tool-interface.md (§ select_tool.gd, the delivery table's step 2), A34, H051
 (ToolContext), H065 (Paint, step 1: the worked example; follow its pattern and test shape).
@@ -38,12 +38,8 @@ behind-camera vertices); tool registry 13/13; existing selection quick checks un
 all feature suites pass. Gate passes: full test passes, quick 240/240, zero known failures (68 s). Main merged
 before delivery (9cfc929). No new decisions or placeholders; no open questions or leftovers.
 
-Architecture: Select is context-only alongside Line and Paint; four tools remain on Main (Rectangle, Circle,
-Push/Pull and Move). Select's camera projection goes through pick.project and all model/selection reads through
-snapshot adapters; its public box_ids signature and selection behavior are preserved.
-Architecture: presenter.gd owns Select's drag-box Panel lifetime and styling (selection_box / clear_selection_box),
-called privately by ToolContext.view. presenter.unit_tris now implements joined unit geometry; ToolContext.model
-uses it for unit_triangles and Main.unit_tris remains a forwarding wrapper. No protocol or persistence changes.
-For the integrator: Update ARCHITECTURE.md's presenter/ToolContext entries and tool-dependency paragraph with the
-ownership and migration above; update viewport/CLAUDE.md and viewport/tools/CLAUDE.md to name Select context-only,
-four legacy tools, and the presenter's selection-box and unit-triangle ownership.
+Architecture: Select is context-only alongside Line and Paint; four tools remain on Main (Rectangle, Circle, Push/Pull and Move). Select's camera projection goes through pick.project and all model/selection reads through snapshot adapters; its public box_ids signature and selection behavior are preserved.
+Architecture: presenter.gd owns Select's drag-box Panel lifetime and styling (selection_box / clear_selection_box), called privately by ToolContext.view. presenter.unit_tris now implements joined unit geometry; ToolContext.model uses it for unit_triangles and Main.unit_tris remains a forwarding wrapper. No protocol or persistence changes.
+For the integrator: Update ARCHITECTURE.md's presenter/ToolContext entries and tool-dependency paragraph with the ownership and migration above; update viewport/CLAUDE.md and viewport/tools/CLAUDE.md to name Select context-only, four legacy tools, and the presenter's selection-box and unit-triangle ownership.
+
+Result: 2513292; ToolContext 101/101, registry 13/13, quick 240/240 and all feature suites pass, full gate passes with zero known failures; Select uses only ToolContext, presenter owns its box and unit triangles, Main keeps the legacy unit_tris wrapper.
