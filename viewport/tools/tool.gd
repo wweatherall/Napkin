@@ -1,16 +1,20 @@
 extends RefCounted
 ## A tool owns its state; main.gd hands it the cursor, clicks, keys and typed values (T4). All tools snap
-## through the one engine in inference.gd (`infer`). `m` is the viewport (main.gd).
+## through the one engine in inference.gd. A tool uses what `ctx` (tool_context.gd, T88) offers; until it has
+## moved there, it also gets `m` (main.gd) and `infer` (the legacy setup below).
 
-const Main := preload("res://main.gd")
+const Main := preload("res://main.gd")          # T88: only for the legacy setup; goes at step 6
 const Inference := preload("res://inference.gd")
+const ToolContext := preload("res://tool_context.gd")
+const Geo := preload("res://tool_geometry.gd")
 # Independent policies (T33): pointer intent, native model resolution, and text only.
 const ACCIDENTAL_DRAG_MM := 0.5
 const GEOMETRY_TOLERANCE_MM := 0.001  # worker/common.py TOL; never the drag threshold
 const DISTANCE_DISPLAY_FORMAT := "%d"  # existing whole-mm display; never round an op with this
 const DIMENSIONS_DISPLAY_FORMAT := "%d, %d"
 
-var m: Main
+var ctx: ToolContext   # every tool gets this (setup_context)
+var m: Main            # legacy: only tools whose uses_main() is true get these (setup)
 var infer: Inference
 
 
@@ -25,7 +29,20 @@ static func clean_pointer_distance(distance: float) -> float:
 	return whole if absf(distance - whole) < GEOMETRY_TOLERANCE_MM * 0.1 else distance
 
 
+func setup_context(context: ToolContext) -> void:
+	"""Every tool: what it may use (tool_context.gd)."""
+	ctx = context
+
+
+## T88 migration marker (temporary, removed at step 6 with setup below): true = this tool still reaches into
+## main.gd and gets the legacy setup too. A tool moved to ToolContext overrides this to return false; main.gd
+## asks each tool rather than listing them (A34), and test_tools.gd pins which tools still return true.
+func uses_main() -> bool:
+	return true
+
+
 func setup(viewport: Main) -> void:
+	"""Legacy (T88: goes at step 6): main.gd itself, for tools not yet moved to ctx."""
 	m = viewport
 	infer = viewport.infer
 
@@ -69,7 +86,7 @@ func in_gesture() -> bool:
 
 
 func accepts(ch: String) -> bool:
-	return ch in "0123456789.,-+*/()^" or (m.vcb != "" and ch.to_lower() in " \"'abcdefghijklmnopqrstuvwxyz")
+	return ch in "0123456789.,-+*/()^" or (ctx.ui.typed_text() != "" and ch.to_lower() in " \"'abcdefghijklmnopqrstuvwxyz")
 
 
 ## a key the tool handles itself (modifiers, axis locks); true = handled

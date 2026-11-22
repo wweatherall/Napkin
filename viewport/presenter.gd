@@ -13,6 +13,11 @@ signal wave_rejected_done(oid: String)        # a red wave has played out: main 
 const WAVE := preload("res://confirm_wave.gdshader")
 const WAVE_LINES := preload("res://confirm_wave_lines.gdshader")
 const WOOD := preload("res://wood.gdshader")
+# Rendering constants (T88: moved from main.gd, which keeps the old names)
+const DEFAULT_BASE := Color(0.82, 0.80, 0.76)   # a board's colour before FreeCAD says (tools start waves with it)
+const SNAP_COLORS := {"endpoint": Color(0.1, 0.65, 0.1), "midpoint": Color(0.1, 0.7, 0.8), "on edge": Color(0.85, 0.15, 0.15),
+					  "on face": Color(0.2, 0.35, 0.95), "back face": Color(0.2, 0.35, 0.95), "face behind": Color(0.2, 0.35, 0.95)}
+const AXIS_COLORS := [Color(0.85, 0.15, 0.15, 0.16), Color(0.15, 0.65, 0.2, 0.16), Color(0.2, 0.35, 0.95, 0.16)]
 
 var m                               # main.gd
 var sel                             # selection.gd: what to highlight, ghost and hide
@@ -321,7 +326,7 @@ func cut_tris(bid: String, op_id: String) -> PackedVector3Array:
 func base_of(mi: MeshInstance3D) -> Color:
 	var mat = mi.mesh.surface_get_material(0)
 	if mat is ShaderMaterial and mat.shader == WOOD: return mat.get_shader_parameter("base_color")
-	return mat.albedo_color if mat is StandardMaterial3D else m.DEFAULT_BASE
+	return mat.albedo_color if mat is StandardMaterial3D else DEFAULT_BASE
 
 
 # ---------------- operation wave (W01–W09) ----------------
