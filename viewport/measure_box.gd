@@ -73,7 +73,7 @@ func apply() -> void:
 		if tool == "move" and counts.search(txt.to_lower()) != null:
 			length_pending = {}
 			tools[tool].typed(txt)
-		elif tool in ["rect", "circle", "push", "move"]:
+		elif tool in ["rect", "circle", "line", "push", "move"]:
 			var texts := txt.split(",") if tool == "rect" else PackedStringArray([txt])
 			# Worked out here, at once, the way FreeCAD would (units.gd evaluate_length: 150, 3/4", 1' 6 1/2",
 			# 5in + 23mm, 1'-6" = 6", I35): drafts never wait for FreeCAD. What it declines goes to FreeCAD (T32).

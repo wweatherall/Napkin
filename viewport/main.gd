@@ -1172,7 +1172,9 @@ func redo() -> void:
 	if op.is_empty():
 		_say_status("Nothing to redo")
 		return
-	if op["type"] in ["rect", "circle"]:
+	if op.type == "line":
+		pres.register_line(op)
+	elif op["type"] in ["rect", "circle"]:
 		if not rects.has(op["id"]): _register_rect(op)
 	elif op["type"] == "push_pull":
 		var rid: String = op["target"].get("rect", "")
@@ -1377,6 +1379,7 @@ static func _op_refs(op: Dictionary) -> Array:
 	if pl.has("on"): out.append(pl["on"]["body"])
 	var tg: Dictionary = op.get("target", {})
 	if op.has("edge_fit"): out.append(op["edge_fit"]["target_body"])
+	if tg.has("region"): out.append_array(tg.region.get("lines", []))
 	if tg.has("rect"): out.append(tg["rect"])
 	if tg.has("face"): out.append(tg["face"]["body"])
 	out.append_array(op.get("targets", []))
@@ -1516,7 +1519,7 @@ func _port_free(p: int) -> bool:
 
 # The window <-> worker protocol's version (docs/protocol.md): bump it when a message or shared-file field changes.
 # The worker reports its own (worker/serve.py PROTOCOL_VERSION) in hello; a worker speaking another isn't shared.
-const PROTOCOL_VERSION := 5
+const PROTOCOL_VERSION := 6
 
 
 func _probe_worker(p: int) -> String:

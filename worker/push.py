@@ -52,7 +52,7 @@ class PushActions:
         tgt = op["target"]
         oid = op["id"]
         fit = op.get("edge_fit")
-        if fit and "face" in tgt:
+        if fit and "face" in tgt and "region" not in tgt:
             import plane_fit
             board, _, normal = self.resolve_face(tgt["face"])
             source_id = tgt["face"]["body"]
@@ -64,13 +64,13 @@ class PushActions:
                 raise OpError("Source face no longer matches the chosen dimension")
             return plane_fit.apply(self, dict(body=source_id, target_body=fit["target_body"],
                                    axis=axis, face=fit["face"], fit_mode=fit.get("fit_mode", 0), reverse=frame[2][axis].dot(normal)<0))
-        if "face" in tgt and not fit:
+        if "face" in tgt and not fit and "region" not in tgt:
             import plane_fit
             board = self.body(tgt["face"]["body"])
             if plane_fit.fitted_end(board) is not None:      # pushing a tied end again detaches it (I26b, I40)
                 if plane_fit.push_fitted_end(self, board, unit(vec(tgt["face"]["normal"])), vec(tgt["face"]["point"]), d):
                     return [board.BodyId]
-        if op.get("resize_stock") and "face" in tgt:
+        if op.get("resize_stock") and "face" in tgt and "region" not in tgt:
             import plane_fit
             board, _, normal = self.resolve_face(tgt["face"])
             if plane_fit.resize_face(self,board,normal,d):
@@ -79,8 +79,12 @@ class PushActions:
             pl = self.rect_obj(tgt["rect"])
             if pl is None:
                 raise OpError(f"unknown rect '{tgt['rect']}'")
+            polygonal = getattr(pl, "SSRole", "") == "line-profile"
             circular = pl.TypeId == "Sketcher::SketchObject"
-            if circular:
+            if polygonal:
+                world_face = pl.Shape.Faces[0]
+                n = world_face.normalAt(0, 0)
+            elif circular:
                 p0, ex, ey, n, radius = self.circle_world(pl)
                 world_face = Part.Face(Part.Wire([Part.makeCircle(radius, p0, n)]))
             else:
@@ -88,17 +92,38 @@ class PushActions:
                 world_face = Part.Face(Part.makePolygon([p0, p0 + ex, p0 + ex + ey, p0 + ey, p0]))
             on = pl.OnBody
             loose = any(g.TypeId == "App::DocumentObjectGroup" for g in pl.InList)
-        else:
+        elif "face" in tgt:
             _, world_face, n = self.resolve_face(tgt["face"])
             on = tgt["face"]["body"]
             pl = None
+        elif "region" in tgt:
+            world_face, n = self.region_face(tgt["region"])
+            on, pl = "", None
+        else:
+            raise OpError("push needs a profile, face or closed region")
+
+        if "region" in tgt:
+            source = world_face
+            world_face, region_n = self.region_face(tgt["region"])
+            if n.dot(region_n) < 0.999999:
+                raise OpError("region normal differs from target plane")
+            if "face" in tgt or "rect" in tgt:
+                world_face = self.native_region(source, world_face, tgt["region"])
+                if abs(source.common(world_face).Area - world_face.Area) > max(TOL, world_face.Area * 1e-6):
+                    raise OpError("region leaves its target face")
+            known = {getattr(o, "SSLineId", "") for o in self.doc.Objects}
+            if any(lid not in known for lid in tgt["region"].get("lines", [])):
+                raise OpError("region refers to a missing drawing")
+            pl = None  # materialize this region, never extrude the whole source profile
 
         if not on or op.get("body"):
             # a free rectangle, or the user asked for a separate board: a new board, world frame
             bid = op.get("body") or f"{oid}_body"
             c = self.new_board(bid)
             if pl is not None:
-                if circular:
+                if polygonal:
+                    base = self.face_feature(world_face, f"{tgt['rect']} outline")
+                elif circular:
                     base = self.circle_feature(p0, ex, ey, radius, f"{tgt['rect']} again", existing=pl if loose else None)
                 else:
                     base = pl if loose else self.plane_feature(p0, ex, ey, f"{tgt['rect']} again")
@@ -129,13 +154,16 @@ class PushActions:
         if c.Tip is None:
             raise OpError(f"'{on}' has no solid yet")
         if pl is not None:
-            lp0, lex, ley = fr.pt(p0), fr.dir(ex), fr.dir(ey)
-            if circular:
-                base = self.circle_feature(lp0, lex, ley, radius, f"{tgt['rect']} again", existing=pl if loose else None)
-            elif loose:
-                base = self.plane_feature(lp0, lex, ley, "", existing=pl)
+            if polygonal:
+                base = self.face_feature(fr.shape(world_face), f"{tgt['rect']} outline")
             else:
-                base = self.plane_feature(lp0, lex, ley, f"{tgt['rect']} again")
+                lp0, lex, ley = fr.pt(p0), fr.dir(ex), fr.dir(ey)
+                if circular:
+                    base = self.circle_feature(lp0, lex, ley, radius, f"{tgt['rect']} again", existing=pl if loose else None)
+                elif loose:
+                    base = self.plane_feature(lp0, lex, ley, "", existing=pl)
+                else:
+                    base = self.plane_feature(lp0, lex, ley, f"{tgt['rect']} again")
         else:
             base = self.face_feature(fr.shape(world_face), f"{oid} face")
         before = c.Tip.Shape
