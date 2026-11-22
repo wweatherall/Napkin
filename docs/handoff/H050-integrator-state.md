@@ -23,7 +23,7 @@ into it in a scratch worktree first (as for H056, H058) and integrate that. Then
 <branch> --as <name> --status T<n>=Done --push --yes`: it settles handoff/log/board conflicts, numbers
 placeholders (log.py add writes them on a branch), runs the gate, commits, copies the response's Result line into
 the Work list (T91; without --yes it stops before the push so you can look), removes the job's worktree and branch
-(never small-fixes / codex/small-fixes, P22), and pushes. Add what the response asks for (feature-test lines,
+(never the standing small-fixes branches, P22), and pushes. Add what the response asks for (feature-test lines,
 CLAUDE.md / AGENTS.md lines), keep BOARD.md's Order line and Notes (`python3 tools/job.py board` rebuilds the
 table), and write the next jobs. Small fixes: on small-fixes, merged the same way without asking (P22).
 A trap seen twice: a merge that brings in a new version of a tool integrate.py itself imports (number_ids, job)
