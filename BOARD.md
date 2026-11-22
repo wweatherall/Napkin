@@ -30,7 +30,8 @@ so each agent has one Ready.
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
 | H045 | Claude | **Ready** | T86: a process outlives the quick test (and linked.gd's direct menu call) | [H045](docs/handoff/H045-quick-test-leftover-process.md) | |
-| H046 | Codex | **Ready** | T82: the Line tool, closed outlines and split faces (I51) | [H046](docs/handoff/H046-t82-lines-split-faces.md) | |
+| H047 | Codex | **Ready** | T88 stage 1: the tools' interface to Main (spec only) | [H047](docs/handoff/H047-t88-tool-interface.md) | |
+| H046 | Codex | Queued | T82: the Line tool, closed outlines and split faces (I51) | [H046](docs/handoff/H046-t82-lines-split-faces.md) | T88 (William: interface first) |
 | next | either | Queued | T79: a failed save is forgotten; shutdown waits on a saved revision | written when ready | T70 (document.gd, main.gd) |
 | next | either | Queued | T66: units in the measurements box | written when ready | William: the units preference |
 
@@ -38,5 +39,5 @@ Done since the board started: H033 (T74 + T77), H034 (T76), H035 (T44), T56 (sta
 
 ## Notes
 
-- Codex: H046 (Lines and split faces) is Ready. Ask William the key and the gesture first (the job says how).
+- Codex: H047 (the tools' interface spec, read-only on code) is Ready. H046 (Lines) waits for T88, William's call.
 - Claude: H045 is Ready (found by the H043 worker). T79 (failed saves) comes after Circle: both touch the protocol.

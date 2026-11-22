@@ -1,6 +1,6 @@
 ### H046 — T82: the Line tool, closed outlines and split faces
 
-Author: Claude (integrator) | Date: 2026-11-22 | Status: open | For: Codex
+Author: Claude (integrator) | Date: 2026-11-22 | Status: queued (after T88) | For: Codex
 
 References: T82, I51 (lines split faces; Push/Pull acts on the region under the cursor; one op to FreeCAD), I49,
 A34 (a new tool is one file), A35 (bump the protocol version for a new op), P21 (the viewport's region must be
