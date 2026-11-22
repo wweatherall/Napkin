@@ -29,16 +29,14 @@ so each agent has one Ready.
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H048 | Claude | **Ready** | T79: a failed save is forgotten (save stays pending, the window is told) | [H048](docs/handoff/H048-t79-failed-save.md) | |
 | H049 | Codex | **Ready** | T90: a faster gate (measure first) | [H049](docs/handoff/H049-faster-gate.md) | |
 | H046 | Codex | Queued | T82: the Line tool, closed outlines and split faces (I51) | [H046](docs/handoff/H046-t82-lines-split-faces.md) | T88: William reviews docs/specs/T88-tool-interface.md, then the tool moves |
-| next | either | Queued | T79: a failed save is forgotten; shutdown waits on a saved revision | written when ready | T70 (document.gd, main.gd) |
 | next | either | Queued | T66: units in the measurements box | written when ready | William: the units preference |
 
-Done since the board started: H033 (T74 + T77), H034 (T76), H035 (T44), T56 (startup report), H036 (T75), H037 (T54), H038 (T78), H039 (T80), H040 (T33), H043 (T85), H044 (T58), H042 (T70), H041 (T81, Circle), H045 (T86), H047 (T88 spec).
+Done since the board started: H033 (T74 + T77), H034 (T76), H035 (T44), T56 (startup report), H036 (T75), H037 (T54), H038 (T78), H039 (T80), H040 (T33), H043 (T85), H044 (T58), H042 (T70), H041 (T81, Circle), H045 (T86), H047 (T88 spec), H048 (T79).
 
 ## Notes
 
 - Codex: H049 (a faster gate: measure first) is Ready.
-- Claude: H048 (failed saves) is claimed. Nothing else Ready for Claude until William reviews the T88 spec.
+- Claude: nothing Ready until William reviews the T88 spec (or answers T66 / T38).
 - William: the T88 spec is in docs/specs/T88-tool-interface.md; the tool moves wait for your review.
