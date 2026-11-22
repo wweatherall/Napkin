@@ -314,6 +314,88 @@ func _init() -> void:
 	d.reset()
 	check("switching models forgets the note", d.recovered_note == "")
 
+	# --- outside saves (A36, T64): FreeCAD saved the model ---
+	t = make(); d = t[0]; c = t[1]; seen = t[2]
+	var waits := [0]
+	var reloads: Array = []
+	var kept: Array = []
+	d.outside_waiting.connect(func(): waits[0] += 1)
+	d.reloaded.connect(func(r): reloads.append(r))
+	d.on_opened({"ok": true, "rev": 2, "ops": [op("r1"), op("r2")]}, true)
+	d.on_outside_save({"cmd": "outside_save", "model": "/tmp/other.FCStd", "rev": 2, "unsaved": false})
+	check("another model's outside save is ignored", d.outside.is_empty() and c.sent.is_empty())
+	d.on_outside_save({"cmd": "outside_save", "model": d.model_path, "rev": 2, "unsaved": false})
+	var rl: Dictionary = c.last()
+	check("with nothing on its way, an outside save is reloaded at once",
+		rl["cmd"] == "reload" and rl["model"] == d.model_path and rl["outdir"] == d.out_dir and waits[0] == 0)
+	d.ops.append(op("r3")); d.sync()
+	check("an action drawn while the reload is out waits for it (no sync on the old file)", c.syncs().is_empty())
+	d.on_sync_reply(reply(d, ["r1", "r2", "r3"], rl["seq"]))
+	check("a sync answer can't pass for the reload's", d.outside_seq == rl["seq"] and seen["synced"].is_empty())
+	d.on_reload_reply({"ok": true, "cmd": "reload", "seq": rl["seq"], "model": d.model_path, "rev": 2,
+		"ops": [op("r1")], "undo_floor": 1, "changed": ["b1"], "removed": ["b2"], "dropped": [op("r2")]})
+	check("the reload's ops are the list, with the action drawn meanwhile on top",
+		d.ops.map(func(o): return o["id"]) == ["r1", "r3"] and reloads.size() == 1)
+	check("what FreeCAD's save didn't have is dropped from the list and remembered",
+		seen["removed_ops"] == ["r2"] and d.dropped.map(func(o): return o["id"]) == ["r2"])
+	check("undo stops at the FreeCAD change", d.undo_floor == 1 and d.saved_rev == 2 and d.outside.is_empty())
+	check("then the action drawn meanwhile is synced on top", c.last()["cmd"] == "sync"
+		and c.last()["oplog"]["ops"].map(func(o): return o["id"]) == ["r1", "r3"])
+
+	t = make(); d = t[0]; c = t[1]; seen = t[2]
+	waits = [0]
+	d.outside_waiting.connect(func(): waits[0] += 1)
+	d.on_opened({"ok": true, "rev": 1, "ops": [op("r1")]}, true)
+	d.ops.append(op("r2")); d.sync()
+	var s1: int = d.seq
+	d.on_outside_save({"cmd": "outside_save", "model": d.model_path, "rev": 1, "unsaved": true})
+	check("with a sync on its way, an outside save waits (main gives it OUTSIDE_SAVE_WAIT)",
+		waits[0] == 1 and c.last()["cmd"] == "sync" and not d.outside.is_empty())
+	d.on_sync_reply(reply(d, ["r1", "r2"], s1))
+	check("once it lands, the reload goes", c.last()["cmd"] == "reload" and seen["idle"] == 0)
+	d.on_reload_reply({"ok": true, "cmd": "reload", "seq": c.last()["seq"], "model": d.model_path, "rev": 1,
+		"ops": [op("r1")], "undo_floor": 1, "changed": [], "removed": ["b2"], "dropped": [op("r2")]})
+	check("and the landed action FreeCAD's save lacks is dropped", d.ops.size() == 1 and d.dropped.size() == 1
+		and seen["idle"] == 1)
+
+	t = make(); d = t[0]; c = t[1]; seen = t[2]
+	d.on_opened({"ok": true, "rev": 1, "ops": [op("r1")]}, true)
+	d.ops.append(op("r2")); d.sync()
+	d.on_outside_save({"cmd": "outside_save", "model": d.model_path, "rev": 1, "unsaved": true})
+	d.send_reload()
+	var forced: Dictionary = c.last()
+	check("'Use FreeCAD's version' reloads even with a sync out", forced["cmd"] == "reload")
+	d.on_sync_reply(reply(d, ["r1", "r2"], forced["seq"] - 1))
+	check("the stuck sync's late answer then counts for nothing", seen["synced"].is_empty() and d.outside_seq == forced["seq"])
+
+	t = make(); d = t[0]; c = t[1]; seen = t[2]
+	d.kept_mine.connect(func(r): kept.append(r))
+	d.on_opened({"ok": true, "rev": 1, "ops": [op("r1")]}, true)
+	d.ops.append(op("r2")); d.sync()
+	var s2: int = d.seq
+	d.on_outside_save({"cmd": "outside_save", "model": d.model_path, "rev": 1, "unsaved": true})
+	d.send_keep_mine()
+	var km: Dictionary = c.last()
+	check("'Keep Shop Sketch's' asks the worker to keep both", km["cmd"] == "keep_mine" and km["model"] == d.model_path
+		and d.outside.is_empty())
+	d.on_sync_reply(reply(d, ["r1", "r2"], s2, {"rev": 2}))
+	check("its actions carry on landing, and no reload follows", seen["synced"].size() == 1 and c.last()["cmd"] == "keep_mine")
+	d.on_keep_mine_reply({"ok": true, "cmd": "keep_mine", "seq": km["seq"], "model": d.model_path,
+		"aside": "/tmp/doc-test.freecad-20261122-120000.FCStd", "rev": 2})
+	check("the answer says where FreeCAD's file went and the save landed", kept.size() == 1 and d.saved_rev == 2)
+
+	t = make(); d = t[0]; c = t[1]; seen = t[2]
+	d.on_opened({"ok": true, "rev": 1, "ops": [op("r1")]}, true)
+	d.ops.append(op("r2")); d.sync()
+	d.on_outside_save({"cmd": "outside_save", "model": d.model_path, "rev": 1, "unsaved": true})
+	var n_sent: int = c.sent.size()
+	d.on_link_up()
+	check("a worker back after a crash gets no sync while the choice is open", c.sent.size() == n_sent and d.dirty)
+	d.send_keep_mine()
+	check("the choice then sends the model again", c.sent[-2]["cmd"] == "keep_mine" and c.last()["cmd"] == "sync")
+	d.reset()
+	check("switching models forgets an outside save", d.outside.is_empty() and d.dropped.is_empty())
+
 	for n in made: n.free()
 	print("DOCUMENT TESTS: %d passed, %d failed" % [passed, failed])
 	quit(1 if failed > 0 else 0)

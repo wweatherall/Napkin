@@ -15,6 +15,9 @@ signal close_blocked(reason: String)   # closing: the latest revision couldn't b
 signal op_removed(op: Dictionary)   # one op left the list (undo, rejection): drop what it drew
 signal removed                      # done removing (one or several): show the state before resyncing
 signal idle                         # nothing in flight and nothing waiting
+signal outside_waiting              # FreeCAD saved the model while actions were on their way (A36): main waits, then asks
+signal reloaded(resp: Dictionary)   # FreeCAD's save is the model now: main shows it, with the wave on changed boards
+signal kept_mine(resp: Dictionary)  # Shop Sketch's version went over FreeCAD's save (copied aside first)
 
 var client                          # anything with send(Dictionary) (worker_client.gd; a stand-in in tests)
 var model_path := ""                # the FreeCAD file: the model itself (A21)
@@ -41,6 +44,12 @@ var recovered_note := ""            # opening fell back to the newest whole save
 var closing := false                # begin_close(): waiting for the latest revision to be saved (I55)
 var close_seq := -1                 # the seq of closing's flush: only its answer counts
 var test_delay_ms := 0              # test hook (P02): ask the worker to sit on its next answer
+# Outside saves (A36, T64): FreeCAD saved this model. Once nothing is on its way the worker reloads it; while a
+# reload is out, syncs wait (they'd build on the old file) and actions drawn meanwhile go on top of the reloaded one.
+var outside := {}                   # {"rev", "unsaved"}: an outside save not yet reloaded or kept
+var outside_seq := -1               # the seq of the reload / keep_mine out: only its answer counts
+var _ops_at_reload := 0             # ops past this were drawn after the reload left
+var dropped: Array = []             # the ops the last reload took out (FreeCAD's save didn't have them; T65)
 
 # Linear redo (T31), until branch history (U01) keeps the paths you leave: each undo puts its action here with the
 # action list it left behind. Redo puts it back only while the list is still that one, so any new action (or an
@@ -113,6 +122,9 @@ func on_sync_reply(resp: Dictionary) -> void:
 	if dirty and not in_flight:
 		_send()
 	elif not in_flight:
+		if not outside.is_empty() and outside_seq < 0:
+			send_reload()               # everything landed: now FreeCAD's save can be the model (A36)
+			return
 		idle.emit()
 		if closing and close_seq < 0: _send_close_flush()
 
@@ -184,8 +196,92 @@ func on_link_up() -> void:
 	in_flight_seq = -1
 	if not opened:
 		send_open()
+	elif not outside.is_empty():
+		dirty = true                    # not now: a sync would build on FreeCAD's file before the choice (A36)
+		outside_seq = -1                # a reload or keep_mine out went with the old worker
 	else:
 		sync()
+
+
+# ---------------- outside saves (A36, T64) ----------------
+func busy() -> bool:
+	"""Actions on their way to FreeCAD (or waiting to be sent)."""
+	return in_flight or dirty
+
+
+func on_outside_save(resp: Dictionary) -> void:
+	"""The worker says FreeCAD saved this model. Nothing on its way: reload now; else wait for it to land (main
+	gives it OUTSIDE_SAVE_WAIT, then asks)."""
+	if not opened or resp.get("model", "") != model_path.simplify_path(): return
+	outside = {"rev": int(resp.get("rev", 0)), "unsaved": bool(resp.get("unsaved", false))}
+	if busy():
+		outside_waiting.emit()
+	elif outside_seq < 0:
+		send_reload()
+
+
+func send_reload() -> void:
+	"""Take FreeCAD's save as the model (also 'Use FreeCAD's version'): a sync still out is answered too late to count."""
+	seq += 1
+	outside_seq = seq
+	_ops_at_reload = ops.size()
+	in_flight = true                # syncs wait for the reload: sync() only marks dirty meanwhile
+	in_flight_seq = seq
+	client.send({"cmd": "reload", "model": model_path, "outdir": out_dir, "seq": seq})
+
+
+func send_keep_mine() -> void:
+	"""'Keep Shop Sketch's': the worker copies FreeCAD's file aside, then saves ours over it. Syncs carry on."""
+	outside_seq = seq               # numbered like closing's flush: the latest sync's answer still counts
+	outside = {}
+	client.send({"cmd": "keep_mine", "model": model_path, "outdir": out_dir, "seq": seq})
+	if dirty and not in_flight: _send()
+
+
+func on_reload_reply(resp: Dictionary) -> void:
+	"""FreeCAD's save is the model: its ops become ours (undo stops at them), actions drawn since go on top."""
+	if seq_of(resp) != outside_seq: return
+	outside_seq = -1
+	in_flight = false
+	outside = {}
+	if not resp.get("ok", false):
+		sync_failed.emit(str(resp.get("error", "?")))
+		if dirty: _send()
+		return
+	var later: Array = ops.slice(_ops_at_reload)
+	var keep := {}
+	for o in resp.get("ops", []): keep[o["id"]] = true
+	for o in ops.slice(0, _ops_at_reload):
+		if not keep.has(o["id"]):
+			confirmed_ids.erase(o["id"])
+			op_removed.emit(o)
+	ops = resp.get("ops", []).duplicate(true)
+	ops.append_array(later)
+	undo_floor = int(resp.get("undo_floor", 0))
+	saved_rev = int(resp.get("rev", 0)); pending_rev = saved_rev
+	save_error = ""
+	redo_stack.clear()
+	dropped = resp.get("dropped", [])
+	restore_counters()
+	for o in resp.get("ops", []): confirmed_ids[o["id"]] = true
+	save_changed.emit()
+	reloaded.emit(resp)
+	if not later.is_empty() or dirty:
+		sync()
+	else:
+		idle.emit()
+
+
+func on_keep_mine_reply(resp: Dictionary) -> void:
+	if seq_of(resp) != outside_seq: return
+	outside_seq = -1
+	if not resp.get("ok", false):
+		sync_failed.emit(str(resp.get("error", "?")))
+		return
+	saved_rev = maxi(saved_rev, int(resp.get("rev", 0)))
+	save_error = ""
+	save_changed.emit()
+	kept_mine.emit(resp)
 
 
 # ---------------- opening and switching models ----------------
@@ -231,6 +327,9 @@ func reset() -> void:
 	_drawing_pending = false
 	save_error = ""
 	recovered_note = ""
+	outside = {}
+	outside_seq = -1
+	dropped = []
 	confirmed_ids.clear()
 	ops.clear()
 	redo_stack.clear()
