@@ -27,10 +27,10 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 <!-- open list: built from docs/handoff/ by tools/handoff.py; don't edit by hand -->
 
-- [H038 — T78: a drawing request made while a sync is in flight is lost](handoff/H038-t78-drawing-request-lost-during-sync.md) — status: open; for: Codex
 - [H039 — T80: make the full test reliable (suites that sometimes differ, a startup crash)](handoff/H039-t80-flaky-full-test.md) — status: open; for: Claude
 - [H040 — T33: small distances: typed values of any size get through](handoff/H040-t33-small-distances.md) — status: open; for: Codex
 - [H041 — T81: the Circle tool](handoff/H041-circle-tool.md) — status: queued (after H040); for: either
+- [H042 — T70: a late worker reply can't replace a newer state](handoff/H042-t70-late-replies.md) — status: open; for: Claude
 
 <!-- end of open list -->
 
@@ -64,6 +64,7 @@ H036 (T75) is open from main. It touches viewport files only, so it runs alongsi
 
 Full entries in [handoff-archive.md](handoff-archive.md).
 
+- H038 — T78: a drawing request made while a sync is in flight is lost. Resolved: merged into main by the integrator, 2026-11-22.
 - H037 — T54: plane fits re-fit only the boards whose source or target changed. Resolved: merged into main by the integrator, 2026-11-22.
 - H036 — T75: move keyboard handling and the measurements box out of viewport/main.gd. Resolved: merged into main by the integrator, 2026-11-22. The flaky full test it found is T80.
 - H032 — Your T50, T51, T56 and T34 are on main: what changed, and what's left. Resolved: Codex read it (its H034 response, 2026-11-21); archived by the integrator, 2026-11-22.

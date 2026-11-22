@@ -23,6 +23,7 @@ var counters := {"pr": 0, "r": 0, "b": 0, "pp": 0, "m": 0, "mv": 0, "mu": 0, "dt
 var seq := 0                        # numbers each desired state; a reply counts only for the latest
 var in_flight := false
 var dirty := false                  # changed since the request in flight: send again when it returns
+var _drawing_pending := false       # include drawing=true in the next sync sent for this model
 var sent_at := {}                   # seq -> msec
 var last_sync_ms := 0
 var undo_floor := 0                 # ops before this came from a file FreeCAD has since edited
@@ -59,13 +60,16 @@ func sync() -> void:
 func request_drawing() -> void:
 	"""Ask for the drawing page with the next sync (export_drawing)."""
 	seq += 1
+	_drawing_pending = true
 	if not in_flight:
-		_send(true)
+		_send()
 	else:
 		dirty = true
 
 
-func _send(drawing := false) -> void:
+func _send() -> void:
+	var drawing := _drawing_pending
+	_drawing_pending = false
 	in_flight = true
 	dirty = false
 	sent_at[seq] = Time.get_ticks_msec()
@@ -131,6 +135,7 @@ func reset() -> void:
 	"""Forget this model's actions (switching models). A reply still on its way is for the old one: ignored."""
 	seq += 1
 	dirty = false
+	_drawing_pending = false
 	confirmed_ids.clear()
 	ops.clear()
 	redo_stack.clear()

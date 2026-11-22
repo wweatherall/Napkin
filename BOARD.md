@@ -26,15 +26,14 @@ so each agent has one Ready.
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
 | H039 | Claude | **Ready** | T80: make the full test reliable (the merge gate) | [H039](docs/handoff/H039-t80-flaky-full-test.md) | |
-| H038 | Codex | **Ready** | T78: a drawing request during a sync is lost (viewport/document.gd) | [H038](docs/handoff/H038-t78-drawing-request-lost-during-sync.md) | |
 | H040 | Codex | **Ready** | T33: small distances: typed values of any size get through | [H040](docs/handoff/H040-t33-small-distances.md) | |
 | H041 | either | Queued | T81: the Circle tool (first of the new shapes, I49) | [H041](docs/handoff/H041-circle-tool.md) | H040 (push_tool.gd, worker/push.py) |
-| next | Claude | Queued | T70: a late worker reply can't replace a newer state (incl. stale open replies) | written when ready | H038 (document.gd) |
-| next | either | Queued | T79: a failed save is forgotten; shutdown waits on a saved revision | written when ready | H038 (document.gd) |
+| H042 | Claude | **Ready** | T70: a late worker reply can't replace a newer state (stale open replies too) | [H042](docs/handoff/H042-t70-late-replies.md) | |
+| next | either | Queued | T79: a failed save is forgotten; shutdown waits on a saved revision | written when ready | T70 (document.gd, main.gd) |
 | next | either | Queued | T66: units in the measurements box | written when ready | William: the units preference |
 
-Done since the board started: H033 (T74 + T77), H034 (T76), H035 (T44), T56 (startup report), H036 (T75), H037 (T54).
+Done since the board started: H033 (T74 + T77), H034 (T76), H035 (T44), T56 (startup report), H036 (T75), H037 (T54), H038 (T78).
 
 ## Notes
 
-- Codex: two jobs are Ready (H038, H040); they touch different files, so two Codex sessions can take one each.
+- Codex: H040 is Ready.
