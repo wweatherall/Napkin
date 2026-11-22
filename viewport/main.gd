@@ -51,6 +51,7 @@ var tool := "rect"
 var grid_snap := true
 var new_board := false       # a rectangle on a face joins that board when pushed out (I04b); B for a separate board
 var vcb := ""
+var typing := false                 # the measurements box has Delete/Backspace: since a click on it or a typed key, until a click in the view (I45)
 
 var oplog_path := ""
 var drawing_script := ""
@@ -575,6 +576,9 @@ func _make_ui() -> void:
 	_vcb_style_typing = _vcb_style.duplicate()
 	_vcb_style_typing.border_color = accent; _vcb_style_typing.set_border_width_all(2)
 	ui_vcb_box.add_theme_stylebox_override("panel", _vcb_style)
+	ui_vcb_box.gui_input.connect(func(ev):
+		if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
+			typing = true; _update_vcb())
 	ui_vcb = Label.new()
 	ui_vcb.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 	ui_vcb_box.add_child(ui_vcb)
@@ -806,7 +810,7 @@ func _update_vcb() -> void:
 	var val: String = vcb if vcb != "" else t.vcb_value()
 	ui_vcb_label.text = t.vcb_label()
 	ui_vcb.text = (val + " mm") if val != "" else ""
-	ui_vcb_box.add_theme_stylebox_override("panel", _vcb_style_typing if vcb != "" else _vcb_style)   # typing: accent ring
+	ui_vcb_box.add_theme_stylebox_override("panel", _vcb_style_typing if vcb != "" or typing else _vcb_style)   # typing: accent ring
 
 
 func tool_move(screen: Vector2) -> void:
@@ -926,6 +930,8 @@ func _apply_context() -> void: pres.apply_context()
 func _on_selection_changed() -> void:
 	if properties_panel != null and properties_panel.visible: _request_properties()
 	pres.show_selection()
+	if typing and not sel.selection.is_empty():           # selecting boards again gives Delete back to them (I45)
+		typing = false; _update_vcb()
 
 
 func _request_properties() -> void:
@@ -1967,6 +1973,7 @@ func _unhandled_input(e: InputEvent) -> void:
 		elif e.button_index == MOUSE_BUTTON_LEFT and e.pressed and e.double_click:
 			tools[tool].double_click(e.position)
 		elif e.button_index == MOUSE_BUTTON_LEFT and e.pressed:
+			if typing: typing = false; _update_vcb()      # picking in the view again gives Delete back to the model (I45)
 			tool_click(e.position)
 		elif e.button_index == MOUSE_BUTTON_LEFT:
 			tools[tool].release(e.position)
@@ -2010,8 +2017,9 @@ func _unhandled_input(e: InputEvent) -> void:
 				else: set_tool(tool)
 				return
 			KEY_ENTER, KEY_KP_ENTER: apply_vcb(); return
-			KEY_DELETE, KEY_BACKSPACE:              # text typed: they edit it; nothing typed: they delete (I45)
+			KEY_DELETE, KEY_BACKSPACE:              # in the measurements box they edit it; otherwise they delete (I45)
 				if vcb != "": vcb = vcb.left(-1); _update_vcb()
+				elif typing: pass                         # emptied the box: the next press doesn't delete boards
 				elif tool == "move" and tools["move"].in_gesture():
 					var grabbed: Dictionary = tools["move"].state       # mid-move: what's being moved goes
 					if grabbed.get("cut", {}).is_empty():               # (a hole being moved: deleting holes isn't built)
@@ -2023,7 +2031,7 @@ func _unhandled_input(e: InputEvent) -> void:
 		var t = tools[tool]
 		if not (vcb != "" and e.keycode == KEY_SHIFT) and t.key(e): return   # the tool's own keys (Move: modifiers, axis locks); while typing, Shift is for " and '
 		if t.busy() and ch != "" and t.accepts(ch):
-			vcb += ch; _update_vcb(); return
+			vcb += ch; typing = true; _update_vcb(); return
 		match e.keycode:
 			KEY_SPACE: set_tool("select")
 			KEY_R: set_tool("rect")
