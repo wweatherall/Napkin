@@ -4,7 +4,7 @@ William says "check the board": this file tells each agent what to do next. The 
 /Users/Will/Sites/fretchup, P16) keeps it; nobody else edits it. Jobs run through the queue (P24, `tools/job.py`):
 the table below is built from docs/handoff/ and the queue's live state; the integrator keeps the Order line.
 
-Order: H053, H059, H046, H057, H052
+Order: H057, H059, H046, H057, H052
 
 ## If you're not the integrator
 
@@ -24,7 +24,8 @@ Order: H053, H059, H046, H057, H052
 4. Waiting on William? `python3 tools/job.py wait "<the question>"`, and ask him in chat: the switch pauses until
    your next beat.
 5. When it's done (tests pass, the goal is met): append your response to the handoff (branch, commit, tests,
-   anything open; your result goes there, not the Work list, P17), set its Status to answered, commit, then
+   anything open; your result goes there, not the Work list, P17), end it with a line `Result: <commit>; <tests>; <what changed>` (integrate.py copies it into the Work list),
+   set its Status to answered, commit, then
    `python3 tools/job.py done`. It refuses until the response, the Status and a quick-test pass on your latest
    commit are there (it runs the quick test if that commit has none; `python3 tools/job.py test` runs and
    records it any time). It tells the integrator; tell William "ready for review: <ID>". Don't take the
@@ -53,15 +54,15 @@ shows the queue; `python3 tools/job.py board` rebuilds the table (the commit hoo
 |---|---|---|---|---|---|
 | H059 | Codex | Queued | T67: IDs that never collide across kept history branches | [H059](docs/handoff/H059-t67-branch-safe-ids.md) | H046 |
 | H046 | Codex | In progress (codex since 12:07) | T82: the Line tool, closed outlines and split faces | [H046](docs/handoff/H046-t82-lines-split-faces.md) |  |
-| H057 | either | Queued | T95: the feature tests find the test files themselves | [H057](docs/handoff/H057-t95-tests-find-themselves.md) | H053 |
+| H057 | either | **Ready** | T95: the feature tests find the test files themselves | [H057](docs/handoff/H057-t95-tests-find-themselves.md) |  |
 | H052 | either | Queued | T66: lengths shown in the model's units | [H052](docs/handoff/H052-t66-units.md) | T88's tool moves |
 
 <!-- end of job table -->
 
-Done since the board started: H033 (T74 + T77), H034 (T76), H035 (T44), T56 (startup report), H036 (T75), H037 (T54), H038 (T78), H039 (T80), H040 (T33), H043 (T85), H044 (T58), H042 (T70), H041 (T81, Circle), H045 (T86), H047 (T88 spec), H048 (T79), H051 (T88 step 0), H049 (T90), H056 (T94), H058 (T96), H054 (T92), H055 (T93).
+Done since the board started: H033 (T74 + T77), H034 (T76), H035 (T44), T56 (startup report), H036 (T75), H037 (T54), H038 (T78), H039 (T80), H040 (T33), H043 (T85), H044 (T58), H042 (T70), H041 (T81, Circle), H045 (T86), H047 (T88 spec), H048 (T79), H051 (T88 step 0), H049 (T90), H056 (T94), H058 (T96), H054 (T92), H055 (T93), H053 (T91).
 
 ## Notes
 
 - Later (no handoff yet): T88 steps 1-4, Paint, Select, Circle, Rectangle move to ToolContext (Claude; one job each, on files H046 doesn't touch), after H054 and H055 (William's priority: the integrator's tools first).
-- Codex: after H046 (Lines), H059 (T67, branch-safe IDs: William's choice, 2026-11-22); H057 (tests find themselves) follows H053 (both edit CLAUDE.md). Take jobs with `python3 tools/job.py take --as codex` (P24).
-- Claude: William's priority (2026-11-22): the integrator's tools first: H053 next. Take jobs with `python3 tools/job.py take --as claude` from now on (P24).
+- Codex: after H046 (Lines), H059 (T67, branch-safe IDs: William's choice, 2026-11-22);  Take jobs with `python3 tools/job.py take --as codex` (P24).
+- Claude: William's priority (2026-11-22): the integrator's tools first: H057 (tests find themselves) next. Take jobs with `python3 tools/job.py take --as claude` from now on (P24).
