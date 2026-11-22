@@ -38,6 +38,9 @@ check("a remote copy of a local branch is not shown twice", "origin/codex/plane"
 check("a remote claude/* branch is shown; other remote branches aren't",
       "origin/claude/cloud" in names and "origin/other" not in names)
 check("branches with nothing ahead are hidden and counted", hidden == 2 and "codex/old" not in names)
+check("a branch an open handoff names but that's gone is reported; a live one (local or origin/) isn't",
+      s.gone_branches({"H1.md": "on claude/h043-hide-check and codex/plane, claude/cloud.", "H2.md": "no branch"},
+                      ["codex/plane", "origin/claude/cloud"]) == [("H1.md", "claude/h043-hide-check")])
 
 BOARD = ("# Work board\n\n## Jobs\n\n| Job | For | Status | Item | Handoff | Waits for |\n|---|---|---|---|---|---|\n"
          "| H036 | Claude | **Ready** | T75: keys | [H036](x) | |\n"
