@@ -2168,8 +2168,8 @@ Request: fix these three, each with a named check. Nothing William would notice 
    "integrator (2026-11-22)").
 3. log.py add: (a) can't add a Tunables row (no kind for it); add one (name, value, what it does, where, decisions),
    following the table's columns (follow-up H063). (b) On a branch it picks the next placeholder by counting
-   placeholder IDs anywhere in the text, so a placeholder already named in a doc (e.g. CLAUDE.md says "P41" before
-   the row exists) makes it skip to P42. It should count only rows (and Details headings) that define an ID, as
+   placeholder IDs anywhere in the text, so a placeholder already named in a doc (e.g. CLAUDE.md names a P-new placeholder before
+   the row exists) makes it skip one. It should count only rows (and Details headings) that define an ID, as
    number_ids.py does; seen three times on 2026-11-22.
 
 Run tests through `python3 tools/job.py run -- <command>` (P40). Checks: the new cases in tools/test_integrate.py /
