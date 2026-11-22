@@ -310,6 +310,10 @@ class ViewCapability extends _Capability:
 		"""Draw a just-made rect or circle op as a pickable profile (presenter.gd register_rect)."""
 		_pres.register_rect(o.duplicate(true))
 
+	func register_line(o: Dictionary) -> void:
+		"""Preserve a loose segment and its optional closed outline in the presenter."""
+		_pres.register_line(o.duplicate(true))
+
 
 # ---------------------------------------------------------------- measurements, tooltip, options
 class UiCapability extends _Capability:

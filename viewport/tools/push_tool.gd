@@ -214,7 +214,7 @@ func _edge_inference(pt: Dictionary, screen: Vector2) -> void:
 	var source_size := 0.0
 	if state.rect != "":
 		# Plane-fit stock dimensions describe rectangles. Circle pushes still use point/back-face inference.
-		if m.rects[state.rect].get("kind", "rect") == "circle": return
+		if m.rects[state.rect].get("kind", "rect") != "rect": return
 		if m.rects[state.rect].on != "" and not (m.new_board and state.dist > 0): return
 	else:
 		if not m.stock_frames.has(state.body) or m.stock_frames[state.body].fitted: return

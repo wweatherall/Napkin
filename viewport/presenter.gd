@@ -27,6 +27,7 @@ var body_verts := {}                # body id -> PackedVector3Array (unique corn
 var body_edges := {}                # body id -> feature edge segments (model mm)
 var body_cuts := {}                 # body id -> [{op, kind, lo, hi}] from FreeCAD: holes and added pieces
 var rects := {}                     # profile id (rectangle or circle) -> {"tris","n","on","pts"}
+var loose_lines := {}             # line id -> {a, b, n, on}; rebuilt from journal
 var drafts := {}                    # op id -> Node3D
 var stock_frames := {}              # body id -> rectangular stock frame from bodies.json (plane fits, I40)
 
@@ -35,7 +36,7 @@ func reset() -> void:
 	"""Another model: nothing of the old one stays on screen or in the caches."""
 	for oid in op_waves.keys(): end_wave(oid)
 	for k in drafts: drafts[k].queue_free()
-	drafts.clear(); rects.clear()
+	drafts.clear(); rects.clear(); loose_lines.clear()
 	for c in m.bodies_root.get_children(): m.bodies_root.remove_child(c)
 	for f in _boards: _boards[f]["node"].queue_free()
 	_boards.clear(); _states.clear(); _state_lru.clear(); shown_key = ""
@@ -43,6 +44,20 @@ func reset() -> void:
 
 
 # ---------------- rectangles drawn on faces and in space ----------------
+
+func register_line(op: Dictionary) -> void:
+	var src: Dictionary = op.plane.get("on", op.plane)
+	var start: Array = src.get("point", src.get("origin", [0, 0, 0]))
+	var a := Vector3(start[0], start[1], start[2])
+	var b := Vector3(op.end[0], op.end[1], op.end[2])
+	var n := Vector3(src.normal[0], src.normal[1], src.normal[2])
+	loose_lines[op.id] = {"a": a, "b": b, "n": n, "on": src.get("body", "")}
+	drop_draft("line:" + op.id)
+	var node = m._lines(PackedVector3Array([a, b]), Color(0.1, 0.2, 0.6))
+	m.drafts_root.add_child(node)
+	drafts["line:" + op.id] = node
+	if op.has("outline"): register_rect(op)
+
 
 func register_rect(op: Dictionary) -> void:
 	var pl: Dictionary = op["plane"]
@@ -53,7 +68,14 @@ func register_rect(op: Dictionary) -> void:
 	var pts: PackedVector3Array
 	var tris: PackedVector3Array
 	var lines := PackedVector3Array()
-	if op["type"] == "circle":
+	if op["type"] == "line":
+		for p in op.outline: pts.append(Vector3(p[0], p[1], p[2]))
+		var poly := PackedVector2Array()
+		for p in pts: poly.append(Vector2(p.dot(b[0]), p.dot(b[1])))
+		var indices := Geometry2D.triangulate_polygon(poly)
+		for i in indices: tris.append(pts[i])
+		for i in pts.size(): lines.append_array([pts[i], pts[(i + 1) % pts.size()]])
+	elif op["type"] == "circle":
 		var center: Array = op.get("center", [0, 0])
 		var shape := circle_geometry(origin + b[0] * float(center[0]) + b[1] * float(center[1]), n, op["radius"])
 		pts = shape.pts; tris = shape.tris; lines = shape.lines
@@ -99,6 +121,10 @@ func drop_draft(oid: String) -> void:
 func rebuild_rect_drafts(ops: Array, used: Dictionary) -> void:
 	"""After an open: every rectangle's data, and a draft for those not yet pushed out."""
 	for op in ops:
+		if op.type == "line":
+			if not loose_lines.has(op.id): register_line(op)
+			if used.has(op.id): drop_draft(op.id)
+			continue
 		if op["type"] in ["rect", "circle"]:
 			if used.has(op["id"]):
 				register_rect(op); drop_draft(op["id"])
@@ -111,7 +137,9 @@ func forget_op(op: Dictionary, ops: Array, used: Dictionary) -> void:
 	var oid: String = op["id"]
 	end_wave(oid)
 	drop_draft(oid)
-	if op["type"] in ["rect", "circle"]:
+	if op.type == "line":
+		loose_lines.erase(oid); rects.erase(oid); drop_draft("line:" + oid)
+	elif op["type"] in ["rect", "circle"]:
 		rects.erase(oid)
 	elif op["type"] in ["mirror", "move"]:
 		for nid in op.get("new_ids", []):
@@ -131,6 +159,7 @@ func drop_confirmed_drafts(used: Dictionary) -> void:
 	for k in drafts.keys():
 		var w = op_waves.get(k)
 		if w != null and w["state"] == "rejected": continue
+		if k.begins_with("line:"): continue
 		if not rects.has(k) or used.has(k):
 			drafts[k].queue_free(); drafts.erase(k)
 

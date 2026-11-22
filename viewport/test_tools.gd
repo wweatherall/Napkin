@@ -28,6 +28,7 @@ func _init() -> void:
 		["paint", "Paint", "Paint (pick the wood in the Wood menu)", KEY_NONE, "Paint", true],
 		["rect", "Rectangle", "Rectangle (R)", KEY_R, "Rectangle (R)", true],
 		["circle", "Circle", "Circle (C)", KEY_C, "Circle (C)", true],
+		["line", "Line", "Line (L)", KEY_L, "Line (L)", true],
 		["push", "Push/Pull", "Push/Pull (P)", KEY_P, "Push/Pull (P)", true],
 		["move", "Move", "Move (M)", KEY_M, "Move (M)", true],
 	]

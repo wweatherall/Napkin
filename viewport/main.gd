@@ -1169,7 +1169,9 @@ func redo() -> void:
 	if op.is_empty():
 		_say_status("Nothing to redo")
 		return
-	if op["type"] in ["rect", "circle"]:
+	if op.type == "line":
+		pres.register_line(op)
+	elif op["type"] in ["rect", "circle"]:
 		if not rects.has(op["id"]): _register_rect(op)
 	elif op["type"] == "push_pull":
 		var rid: String = op["target"].get("rect", "")
@@ -1504,7 +1506,7 @@ func _port_free(p: int) -> bool:
 
 # The window <-> worker protocol's version (docs/protocol.md): bump it when a message or shared-file field changes.
 # The worker reports its own (worker/serve.py PROTOCOL_VERSION) in hello; a worker speaking another isn't shared.
-const PROTOCOL_VERSION := 4
+const PROTOCOL_VERSION := 5
 
 
 func _probe_worker(p: int) -> String:

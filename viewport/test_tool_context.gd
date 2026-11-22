@@ -17,6 +17,13 @@ var failed := 0
 var made: Array = []
 
 
+class LinePresenter:
+	var received := {}
+	func register_line(o: Dictionary) -> void:
+		received = o.duplicate(true)
+		o.end[0] = 999
+
+
 class FakeClient:
 	var sent: Array = []
 	func send(d: Dictionary) -> void: sent.append(d)
@@ -43,7 +50,7 @@ const ALLOW := {
 				  "context_assembly", "edit_blocked", "set_ids", "enter"],
 	"document": ["next_id", "op", "append", "remove", "sync"],
 	"view": ["preview", "clear_preview", "marker", "hide_marker", "guides", "clear_guides", "selection_box",
-			 "clear_selection_box", "face_highlight", "clear_face_highlight", "register_profile"],
+			 "clear_selection_box", "face_highlight", "clear_face_highlight", "register_profile", "register_line"],
 	"ui": ["typed_text", "refresh_measurements", "refresh_tip", "clear_rejection", "new_board"],
 	"paint": ["current_name", "apply"],
 }
@@ -117,6 +124,12 @@ func _initialize() -> void:
 		for r in raw:
 			if pm["methods"].has(r) or pm["props"].has(r): leaks.append("%s.%s" % [cap, r])
 	check("no capability exposes Main, a controller, the camera, a node or a cache by name", leaks.is_empty(), leaks)
+
+	var line_pres := LinePresenter.new()
+	var line_ctx := ToolContext.new({"pres": line_pres})
+	var line_op := {"id": "rline", "type": "line", "end": [10, 20, 0]}
+	line_ctx.view.register_line(line_op)
+	check("view.register_line passes a deep copy to the presenter", line_pres.received == line_op and line_op.end[0] == 10)
 
 	# --- snapshots: what a tool gets back is its own copy ---
 	var pres = t["pres"]; var sel = t["sel"]; var doc = t["doc"]

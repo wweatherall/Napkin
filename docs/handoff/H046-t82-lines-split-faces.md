@@ -31,3 +31,14 @@ press-drag-release for a single line (I43's rule). Build on ToolContext (H051, m
 the first file: no m.* in line_tool.gd, and uses_main() returns false. What ctx lacks for Line (loose lines,
 regions), add to its capability with a test in test_tool_context.gd and say so. Push/Pull hasn't moved to the context yet when you start (it moves after
 Line): change push_tool.gd as little as the region push needs.
+
+Response in progress — Codex, 2026-11-22:
+
+Stage 1 implementation on `codex/h046-t82-lines-split-faces`: context-only Line, saved editable segment sketches, optional closed polygon profiles and polygon Push/Pull. Additional necessary wiring: viewport/tool_context.gd and test_tool_context.gd (register_line capability and deep-copy check), viewport/main.gd (redo line presentation and protocol constant) and worker/serve.py (matching protocol constant). No other active job owns these paths. Stage 2 and gates pending. No new decision IDs; follows I49, I51, I58.
+
+Architecture: Stage 1 adds auto-discovered worker/line.py LineActions.op_line. Payload: id, type line, plane (existing Plane), end (world-mm 3-vector); optional outline is an ordered world-mm polygon without repeated final vertex. Segments are fully constrained native Sketcher lines tagged SSLineId, grouped in Lines; an optional Part::Feature profile tagged RectId and SSRole=line-profile shares target.rect and r counters. Push/Pull creates native extrusions and joins/cuts in the board definition frame.
+Architecture: viewport/tools/line_tool.gd uses only ToolContext, uses_main false. ViewCapability.register_line sends a deep copy to presenter; presenter owns loose_lines, saved line drafts, optional triangulated polygon profiles, undo/redo/open reconstruction. Inference includes line endpoints, midpoints and edges. Wire protocol version increments 4 to 5 (main already uses 4 for save generations) on both sides for line. Tests are discovered automatically after H057.
+
+Additional required paths: viewport/measure_box.gd includes Line in typed length evaluation (tested with fractional inches); tools/number_ids.py rejects an ancestor repository when enumerating a nested fixture, falling back to its own tree. The existing number_ids feature test exposed this when TMPDIR is inside scratch under P25. These paths do not overlap H063.
+
+Stage 1 validation: tools/gate.sh passes (219 UI quick checks, all feature tests, full test, 0 known failures; 49 s). The protocol constant is now 5 on both sides; stage-one commit gets another gate below.

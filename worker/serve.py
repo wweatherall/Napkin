@@ -9,7 +9,7 @@ import length_input
 
 # The window <-> worker protocol's version (docs/protocol.md): bump it when a message or shared-file field changes.
 # Reported in hello; a window whose PROTOCOL_VERSION (viewport/main.gd) differs starts its own worker.
-PROTOCOL_VERSION = 4
+PROTOCOL_VERSION = 5
 
 
 def run_sync(session, req):

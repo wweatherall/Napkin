@@ -4,9 +4,9 @@ from model import Model, action_mixins
 
 requires = ()
 
-TYPES = {"circle", "rect", "push_pull", "mirror", "make_component", "move", "set_material", "detach", "make_unique",
+TYPES = {"line", "circle", "rect", "push_pull", "mirror", "make_component", "move", "set_material", "detach", "make_unique",
          "make_assembly", "turn_grain", "property_edit", "hide", "delete"}
-MIXINS = {"CircleActions", "AssemblyActions", "DeleteActions", "MirrorActions", "MoveActions", "PaintActions", "PushActions",
+MIXINS = {"LineActions", "CircleActions", "AssemblyActions", "DeleteActions", "MirrorActions", "MoveActions", "PaintActions", "PushActions",
           "VisibilityActions"}
 
 

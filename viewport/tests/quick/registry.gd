@@ -13,6 +13,7 @@ const WANT := [
 	["paint", "Paint", "Paint (pick the wood in the Wood menu)", "Paint", KEY_NONE],
 	["rect", "Rectangle", "Rectangle (R)", "Rectangle (R)", KEY_R],
 	["circle", "Circle", "Circle (C)", "Circle (C)", KEY_C],
+	["line", "Line", "Line (L)", "Line (L)", KEY_L],
 	["push", "Push/Pull", "Push/Pull (P)", "Push/Pull (P)", KEY_P],
 	["move", "Move", "Move (M)", "Move (M)", KEY_M],
 ]
@@ -40,8 +41,8 @@ func run() -> void:
 		m.set_tool("paint")
 		await harness._key(w[4])
 		picked.append([OS.get_keycode_string(w[4]), m.tool])
-	harness._ok("Space, R, C, P and M pick Select, Rectangle, Circle, Push/Pull and Move", picked == [["Space", "select"], ["R", "rect"], ["C", "circle"], ["P", "push"], ["M", "move"]], picked)
-	harness._ok("the keys map only those five", m.tool_keys == {KEY_SPACE: "select", KEY_R: "rect", KEY_C: "circle", KEY_P: "push", KEY_M: "move"}, m.tool_keys)
+	harness._ok("Space, R, C, P and M pick Select, Rectangle, Circle, Push/Pull and Move", picked == [["Space", "select"], ["R", "rect"], ["C", "circle"], ["L", "line"], ["P", "push"], ["M", "move"]], picked)
+	harness._ok("the keys map only those five", m.tool_keys == {KEY_SPACE: "select", KEY_R: "rect", KEY_C: "circle", KEY_L: "line", KEY_P: "push", KEY_M: "move"}, m.tool_keys)
 	# a toolbar segment and a Tools menu item pick their tool (the menu's tag is the tool's id)
 	m._tool_buttons["move"].pressed.emit()
 	var by_button := m.tool

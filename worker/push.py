@@ -79,8 +79,12 @@ class PushActions:
             pl = self.rect_obj(tgt["rect"])
             if pl is None:
                 raise OpError(f"unknown rect '{tgt['rect']}'")
+            polygonal = getattr(pl, "SSRole", "") == "line-profile"
             circular = pl.TypeId == "Sketcher::SketchObject"
-            if circular:
+            if polygonal:
+                world_face = pl.Shape.Faces[0]
+                n = world_face.normalAt(0, 0)
+            elif circular:
                 p0, ex, ey, n, radius = self.circle_world(pl)
                 world_face = Part.Face(Part.Wire([Part.makeCircle(radius, p0, n)]))
             else:
@@ -98,7 +102,9 @@ class PushActions:
             bid = op.get("body") or f"{oid}_body"
             c = self.new_board(bid)
             if pl is not None:
-                if circular:
+                if polygonal:
+                    base = self.face_feature(world_face, f"{tgt['rect']} outline")
+                elif circular:
                     base = self.circle_feature(p0, ex, ey, radius, f"{tgt['rect']} again", existing=pl if loose else None)
                 else:
                     base = pl if loose else self.plane_feature(p0, ex, ey, f"{tgt['rect']} again")
@@ -129,8 +135,13 @@ class PushActions:
         if c.Tip is None:
             raise OpError(f"'{on}' has no solid yet")
         if pl is not None:
-            lp0, lex, ley = fr.pt(p0), fr.dir(ex), fr.dir(ey)
-            if circular:
+            if polygonal:
+                base = self.face_feature(fr.shape(world_face), f"{tgt['rect']} outline")
+            else:
+                lp0, lex, ley = fr.pt(p0), fr.dir(ex), fr.dir(ey)
+            if polygonal:
+                pass
+            elif circular:
                 base = self.circle_feature(lp0, lex, ley, radius, f"{tgt['rect']} again", existing=pl if loose else None)
             elif loose:
                 base = self.plane_feature(lp0, lex, ley, "", existing=pl)

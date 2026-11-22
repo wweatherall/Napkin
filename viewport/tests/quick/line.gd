@@ -1,0 +1,51 @@
+extends RefCounted
+## T82: real chain/drag/typed gestures, undo/redo, snapping and exact polygon Push/Pull.
+const Main := preload("res://main.gd")
+const Harness := preload("res://tests/harness.gd")
+var harness: Harness
+var m: Main:
+	get: return harness.m
+
+func run() -> void:
+	await harness._fresh("line")
+	await harness._view(Vector3(120, 60, 0), -30, -50, 1.2)
+	await harness._key(KEY_L)
+	harness._ok("L selects the context-only Line tool", m.tool == "line" and not m.tools.line.uses_main() and m.tools.line.m == null)
+	await harness._drag_to(Vector3.ZERO, 4)
+	await harness._button(true)
+	await harness._drag_to(Vector3(100, 0, 0), 6)
+	await harness._button(false)
+	harness._ok("Line drag releases one saved segment", m.ops.size() == 1 and m.ops.back().type == "line" and not m.tools.line.busy(), m.ops)
+	m.undo()
+	await harness._wait_confirm()
+	harness._ok("line undo removes drawing and snap data", m.pres.loose_lines.is_empty(), m.pres.loose_lines)
+	m.redo()
+	await harness._wait_confirm()
+	harness._ok("line redo restores the drawing", m.pres.loose_lines.size() == 1 and m.drafts.has("line:r1"), m.pres.loose_lines)
+	# A chain starts at the end of the earlier single line and closes a triangle.
+	await harness._click_at(Vector3(100, 0, 0))
+	await harness._click_at(Vector3(100, 60, 0))
+	harness._ok("each chain click ends a segment and keeps drawing", m.ops.size() == 2 and m.tools.line.busy(), m.ops)
+	await harness._click_at(Vector3(200, 0, 0))
+	await harness._click_at(Vector3(100, 0, 0))
+	harness._ok("clicking chain start creates a closed profile and ends chain", m.ops.size() == 4 and m.ops.back().has("outline") and not m.tools.line.busy() and m.rects.has("r4"), m.ops)
+	await harness.get_tree().physics_frame
+	await harness._push(Vector3(125, 20, 0), Vector3(125, 20, 40), "20")
+	await harness._wait_wave()
+	var bodies := harness._bodies()
+	harness._ok("closed lines push an exact triangular board", bodies.has("b1") and absf(bodies.get("b1", {}).get("volume_mm3", 0.0) - 60000) < 0.1, bodies)
+	m.undo()
+	await harness._wait_wave()
+	harness._ok("undo polygon push restores pickable outline", m.drafts.has("r4") and not m.body_tris.has("b1"), m.drafts.keys())
+	m.redo()
+	await harness._wait_wave()
+	harness._ok("redo polygon push consumes profile again", not m.drafts.has("r4") and m.body_tris.has("b1"), m.drafts.keys())
+	await harness._key(KEY_L)
+	await harness._click_at(Vector3(300, 0, 0))
+	await harness._drag_to(Vector3(330, 0, 0), 4)
+	await harness._type("3/4\"\n")
+	var last: Dictionary = m.ops.back()
+	var start: Array = last.plane.get("origin", [])
+	harness._ok("typed fractional inch line keeps exact length and chain", last.type == "line" and start.size() == 3 and absf(Vector3(last.end[0], last.end[1], last.end[2]).distance_to(Vector3(start[0], start[1], start[2])) - 19.05) < 0.001 and m.tools.line.busy(), last)
+	await harness._key(KEY_ESCAPE)
+	harness._ok("Escape ends chain without removing committed lines", not m.tools.line.busy() and m.ops.back().id == last.id, m.tools.line.state)

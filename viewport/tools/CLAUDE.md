@@ -67,6 +67,7 @@ geometry and Main's wrappers agreeing, and no main.gd reference in the context, 
 - `paint_tool.gd` (no key yet, Q14): paints the Wood menu's wood; a linked board paints its family. T turns grain.
 - `rect_tool.gd` (R): click a face or the ground, then click or type `width, height` (or press-and-drag, I43). Its
   second corner ignores snaps that would leave a side at zero (I44).
+- `line_tool.gd` (L, T82): context-only click-click chains and single press-drag-release segments; typed lengths follow the cursor. Esc ends a chain, clicking its start closes a polygon profile. Each segment is a saved `line` op, with world-mm endpoint and plane; the closing op also holds the ordered outline. Presenter registers drawings through `ctx.view.register_line`; polygon profiles share `target.rect` Push/Pull.
 - `circle_tool.gd` (C, T81): click a face or the ground for the centre, then click or type a radius (or
   press-and-drag, I43). Uses Rectangle's snapping and distance policies; the measurements box accepts the same
   length syntax. Makes a `circle` op with an exact radius. Loose profiles share the existing `rects` presentation,
