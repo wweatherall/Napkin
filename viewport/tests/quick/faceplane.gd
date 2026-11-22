@@ -16,7 +16,7 @@ func run() -> void:
 	await harness._key(KEY_ALT)
 	await harness._key(KEY_SHIFT)
 	await harness._drag_to(Vector3(309, 25, 60), 6)
-	harness._ok("pointing at b2's top while mirroring snaps the plane to it", m.tools["move"].state.get("mir_face", "") == "b2" and m.ui_tip.text.contains("b2's face"),
+	harness._ok("pointing at b2's top while mirroring snaps the plane to it", m.tools["move"].state.get("mir_face", "") == harness.id("b2") and m.ui_tip.text.contains("b2's face"),
 		[m.tools["move"].state.get("mir_face", ""), m.ui_tip.text])
 	await harness._press()
 	await harness._wait_wave()

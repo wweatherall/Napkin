@@ -327,8 +327,7 @@ func _finish_push() -> void:
 func commit_push(d: float, edge_fit := {}) -> void:
 	if absf(d) < GEOMETRY_TOLERANCE_MM: return
 	m.reject_note = ""
-	m.counters["pp"] += 1
-	var oid := "pp%d" % m.counters["pp"]
+	var oid := m.doc.next_id("pp")
 	var op := {"id": oid, "type": "push_pull", "distance": d}
 	var on := ""
 	if state["rect"] != "":
@@ -351,8 +350,7 @@ func commit_push(d: float, edge_fit := {}) -> void:
 	# a rectangle becomes its own board (free, or on a face with "new board" on);
 	# pushing a body's own face always edits that body, like SketchUp
 	if (state["rect"] != "" or state.has("region")) and (on == "" or (d > 0 and m.new_board)):
-		m.counters["b"] += 1
-		new_id = "b%d" % m.counters["b"]
+		new_id = m.doc.next_id("b")
 		op["body"] = new_id
 		if m.context_assembly() != "": op["assembly"] = m.context_assembly()   # drawn inside: it joins (T20)
 	if m.force_reject_next and op["target"].has("rect"):

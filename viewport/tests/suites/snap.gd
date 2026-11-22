@@ -44,7 +44,7 @@ func run() -> void:
 	await harness._wait_wave()
 	var top := -1.0
 	for b in JSON.parse_string(FileAccess.get_file_as_string(m.out_dir.path_join("bodies.json"))):
-		if b["id"] == "b1": top = b["world_bbox"][5]
+		if b["id"] == harness.id("b1"): top = b["world_bbox"][5]
 	print("SNAPTEST push to a point: distance %s (want 32) by %s | b1's top now at %s mm (want 50) | own face's edges ignored %s" % [
 		dist, kind, top, own_edge_ignored])
 	# pushing in: the back face snaps (a through-hole) even though you can't see it; elsewhere, no snap
@@ -69,7 +69,7 @@ func run() -> void:
 	await harness._wait_wave()
 	var b2_vol := -1.0
 	for b in JSON.parse_string(FileAccess.get_file_as_string(m.out_dir.path_join("bodies.json"))):
-		if b["id"] == "b2": b2_vol = b["volume_mm3"]
+		if b["id"] == harness.id("b2"): b2_vol = b["volume_mm3"]
 	print("SNAPTEST through-hole: op %s through=%s distance %s | b2 volume %s (want %s)" % [
 		hole_op["id"], hole_op.get("through", false), hole_op.get("distance"), b2_vol, 100 * 100 * 50 - 20 * 20 * 50])
 	print("SNAPTEST done")

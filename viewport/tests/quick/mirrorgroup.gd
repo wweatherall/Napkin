@@ -21,19 +21,19 @@ func run() -> void:
 	await harness._press()
 	await harness._wait_wave()
 	var pair: Array = harness._shown_ids()
-	var grp: String = m.body_assembly.get("b1", "")
+	var grp: String = m.body_assembly.get(harness.id("b1"), "")
 	harness._ok("a mirrored copy makes a mirror group with its original", pair.size() == 2 and grp != "" and m.body_assembly.get(pair[1], "") == grp,
 		[pair, m.body_assembly])
 	var mir_b: String = pair[1]
 	m.set_tool("select")
 	await harness._double_click_at(Vector3(50, 25, 18))
 	harness._ok("inside the mirror group its plane shows", m.context == "assembly:" + grp and m._plane_node.mesh != null, m.context)
-	var x0: float = harness._bbox("b1")[0]
+	var x0: float = harness._bbox(harness.id("b1"))[0]
 	var mx: float = (harness._bbox(mir_b)[0] + harness._bbox(mir_b)[3]) * 0.5
 	await harness._grab(Vector3(mx, 25, 18))
 	await harness._key(KEY_RIGHT)
 	await harness._drag_to(Vector3(mx + 40, 25, 18), 6)
 	await harness._type("50\n")
 	await harness._wait_wave()
-	harness._ok("moving the copy 50 out moves the original 50 the other way", absf(harness._bbox("b1")[0] - (x0 - 50)) < 0.01, [x0, harness._bbox("b1"), harness._bbox(mir_b)])
+	harness._ok("moving the copy 50 out moves the original 50 the other way", absf(harness._bbox(harness.id("b1"))[0] - (x0 - 50)) < 0.01, [x0, harness._bbox(harness.id("b1")), harness._bbox(mir_b)])
 	await harness._key(KEY_ESCAPE); await harness._key(KEY_ESCAPE)

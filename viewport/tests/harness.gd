@@ -307,3 +307,26 @@ func _wait_confirm() -> void:
 		await get_tree().process_frame
 		if Time.get_ticks_msec() - t0 > 90000: print("TIMEOUT waiting for worker"); return
 	await _frames(3)
+
+
+func id(alias: String) -> String:
+	# Resolve current-path identities first: reopened reservations also include abandoned futures.
+	var current := {}
+	_collect_ids(m.ops, current)
+	if current.has(alias): return alias
+	for identity in current:
+		if String(identity).begins_with(alias + "_"): return identity
+	for identity in m.doc.reserved_ids:
+		if String(identity).begins_with(alias + "_"): return identity
+	return alias
+
+
+func _collect_ids(value, into: Dictionary) -> void:
+	if value is String:
+		into[value] = true
+	elif value is Array:
+		for item in value: _collect_ids(item, into)
+	elif value is Dictionary:
+		for key in value:
+			_collect_ids(key, into)
+			_collect_ids(value[key], into)

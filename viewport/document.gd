@@ -1,6 +1,6 @@
 extends Node
 ## The document controller (A31, T39): one model's action list and its sync with FreeCAD.
-## It owns the model path, the ops, id counters, request numbering, which ops FreeCAD has confirmed, the undo floor,
+## It owns the model path, the ops, ID reservations and friendly counters, request numbering, which ops FreeCAD has confirmed, the undo floor,
 ## the redo stack and the save revisions. Tools append to `ops` and call sync(); FreeCAD's replies come in here and
 ## go out as signals. It knows nothing of meshes, shaders or the camera: main.gd draws what the signals say.
 ## Undo and (later) branching history (U01, T36) go through here.
@@ -25,6 +25,9 @@ var out_dir := ""                   # where the worker writes this model's meshe
 
 var ops: Array = []
 var counters := {"pr": 0, "r": 0, "b": 0, "pp": 0, "m": 0, "mv": 0, "mu": 0, "dt": 0, "as": 0, "a": 0, "sm": 0, "tg": 0, "hd": 0, "del": 0}
+# Reservations outlive undo, rejected actions and abandoned futures; only reset() changes documents.
+var reserved_ids := {}
+var _crypto := Crypto.new()
 var seq := 0                        # numbers each desired state; a reply counts only for the latest
 var in_flight := false
 var in_flight_seq := -1             # the seq of the sync in flight: only its answer clears in_flight (T70)
@@ -68,7 +71,9 @@ static func ops_key(list: Array) -> String:
 
 
 func oplog() -> Dictionary:
-	return {"format": "oplog/0.1", "units": "mm", "name": "Shop Sketch session", "ops": ops}
+	reserve_values(ops)
+	return {"format": "oplog/0.1", "units": "mm", "name": "Shop Sketch session", "ops": ops,
+		"reserved_ids": reserved_ids.keys()}
 
 
 # ---------------- sync ----------------
@@ -255,6 +260,7 @@ func on_reload_reply(resp: Dictionary) -> void:
 		if not keep.has(o["id"]):
 			confirmed_ids.erase(o["id"])
 			op_removed.emit(o)
+	reserve_values(resp.get("reserved_ids", []))
 	ops = resp.get("ops", []).duplicate(true)
 	ops.append_array(later)
 	undo_floor = int(resp.get("undo_floor", 0))
@@ -306,6 +312,7 @@ func on_opened(resp: Dictionary, adopt: bool) -> void:
 	recovered_note = recovered_text(resp.get("recovered", {}))
 	save_changed.emit()
 	if not adopt: return
+	reserve_values(resp.get("reserved_ids", []))
 	ops = resp.get("ops", [])
 	undo_floor = int(resp.get("undo_floor", 0))
 	restore_counters()
@@ -331,6 +338,7 @@ func reset() -> void:
 	outside_seq = -1
 	dropped = []
 	confirmed_ids.clear()
+	reserved_ids.clear()
 	ops.clear()
 	redo_stack.clear()
 	for k in counters: counters[k] = 0
@@ -395,23 +403,58 @@ func take_redo() -> Dictionary:
 
 
 # ---------------- what the ops say ----------------
+func reserve_values(value) -> void:
+	# Conservatively reserve strings from old ops too: legacy IDs have no required spelling.
+	if value is String:
+		if value != "": reserved_ids[value] = true
+	elif value is Array:
+		for item in value: reserve_values(item)
+	elif value is Dictionary:
+		for key in value:
+			reserve_values(key)
+			reserve_values(value[key])
+
+
+func next_id(prefix: String) -> String:
+	if not counters.has(prefix):
+		push_error("Document.next_id: unknown prefix \"%s\"" % prefix)
+		return ""
+	reserve_values(ops)
+	counters[prefix] += 1             # friendly number only; random bytes provide identity
+	while true:
+		var bytes := _crypto.generate_random_bytes(16)
+		if bytes.size() != 16:
+			push_error("Document.next_id: secure random bytes unavailable")
+			return ""
+		var id := "%s%d_%s" % [prefix, counters[prefix], bytes.hex_encode()]
+		if not reserved_ids.has(id):
+			reserved_ids[id] = true
+			return id
+	return ""
+
+
+static func board_name(identity: String) -> String:
+	var match_id := RegEx.create_from_string("^b([0-9]+)(?:_[0-9a-f]{32})?$").search(identity)
+	return "Board " + match_id.get_string(1) if match_id else identity
+
+
+static func readable_ids(text: String) -> String:
+	var pattern := RegEx.create_from_string("\\bb([0-9]+)_[0-9a-f]{32}\\b")
+	var names := pattern.sub(text, "Board $1", true)
+	var ids := RegEx.create_from_string("\\b([a-z]+[0-9]+)_[0-9a-f]{32}\\b")
+	return ids.sub(names, "$1", true)
+
+
 func restore_counters() -> void:
-	for op in ops:
-		var id: String = op["id"]
-		for k in ["del", "pr", "pp", "mv", "mu", "dt", "as", "sm", "tg", "hd", "r", "m"]:
-			if id.begins_with(k) and id.substr(k.length()).is_valid_int():
-				counters[k] = maxi(counters[k], int(id.substr(k.length())))
-				break
-		var aids: Array = op.get("groups", {}).values()
-		aids.append(String(op.get("new_id", "")) if op["type"] == "make_assembly" else String(op.get("group", "")))
-		for aid in aids:
-			if String(aid).begins_with("a") and String(aid).substr(1).is_valid_int():
-				counters["a"] = maxi(counters["a"], int(String(aid).substr(1)))
-		var made: Array = op.get("new_ids", [])
-		if op.has("body"): made = [op["body"]]
-		for bid in made:
-			if String(bid).begins_with("b") and String(bid).substr(1).is_valid_int():
-				counters["b"] = maxi(counters["b"], int(String(bid).substr(1)))
+	reserve_values(ops)
+	reserve_values(dropped)
+	# These numbers label boards and assemblies; they are never the source of identity.
+	var pattern := RegEx.create_from_string("^([a-z]+)([0-9]+)(?:_[0-9a-f]{32})?$")
+	for id in reserved_ids:
+		var match_id := pattern.search(id)
+		if match_id and counters.has(match_id.get_string(1)):
+			var prefix := match_id.get_string(1)
+			counters[prefix] = maxi(counters[prefix], int(match_id.get_string(2)))
 
 
 func op_of(oid: String) -> Dictionary:

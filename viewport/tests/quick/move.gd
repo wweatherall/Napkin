@@ -17,7 +17,7 @@ func run() -> void:
 	var asked := m.length_id
 	await harness._type("5in + 23mm\n")
 	await harness._wait_wave()
-	harness._ok("moved 150 along red", harness._bbox("b1").slice(0, 2) == [150.0, 0.0], harness._bbox("b1"))
+	harness._ok("moved 150 along red", harness._bbox(harness.id("b1")).slice(0, 2) == [150.0, 0.0], harness._bbox(harness.id("b1")))
 	harness._ok("arithmetic in a typed length is worked out at once, the way FreeCAD would", m.length_id == asked, [asked, m.length_id])
 	await harness._grab(Vector3(150, 25, 18))
 	await harness._key(KEY_ALT)
@@ -37,4 +37,4 @@ func run() -> void:
 	var kind: String = m.move_state.get("kind", "")
 	await harness._press()
 	await harness._wait_wave()
-	harness._ok("a corner dragged onto another board's corner snaps to it", kind == "endpoint" and harness._bbox("b2").slice(0, 2) == [250.0, 50.0], [kind, harness._bbox("b2")])
+	harness._ok("a corner dragged onto another board's corner snaps to it", kind == "endpoint" and harness._bbox(harness.id("b2")).slice(0, 2) == [250.0, 50.0], [kind, harness._bbox(harness.id("b2"))])

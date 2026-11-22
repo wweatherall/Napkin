@@ -830,7 +830,7 @@ func _update_tip(screen: Vector2) -> void:
 	if n > 0:
 		txt = ((txt + "\n") if txt != "" else "") + "changes %d linked board%s" % [n + 1, "" if n == 0 else "s"]
 	ui_tip.visible = txt != ""
-	ui_tip.text = txt
+	ui_tip.text = doc.readable_ids(txt)
 	ui_tip.position = screen + Vector2(22, 20)
 
 
@@ -957,9 +957,8 @@ func _edit_property(change: Dictionary) -> void:
 		_request_properties()
 		return
 	if selection.size() != 1 or change.body != selection[0]: return
-	counters["pr"] += 1
 	var op := change.duplicate(true)
-	op["id"] = "pr%d" % counters["pr"]
+	op["id"] = doc.next_id("pr")
 	op["type"] = "property_edit"
 	ops.append(op)
 	properties_panel.message("Applying property…")
@@ -1050,20 +1049,18 @@ func set_paint_material(k: String) -> void:
 
 func paint(bodies: Array) -> void:
 	if bodies.is_empty() or not wood_library.has(paint_material): return
-	counters["sm"] += 1
-	ops.append({"id": "sm%d" % counters["sm"], "type": "set_material", "targets": bodies, "material": paint_material})
+	ops.append({"id": doc.next_id("sm"), "type": "set_material", "targets": bodies, "material": paint_material})
 	sync()
-	_say_status("%s: %s" % [", ".join(bodies), wood_library[paint_material]["name"]])
+	_say_status("%s: %s" % [", ".join(bodies.map(func(b): return doc.board_name(b))), wood_library[paint_material]["name"]])
 
 
 func _turn_grain() -> void:
 	var bid := hover_body
 	if bid == "" or body_material.get(bid, "") == "":
 		_say_status("Point at a painted board to turn its grain"); return
-	counters["tg"] += 1
-	ops.append({"id": "tg%d" % counters["tg"], "type": "turn_grain", "targets": [bid]})
+	ops.append({"id": doc.next_id("tg"), "type": "turn_grain", "targets": [bid]})
 	sync()
-	_say_status("%s: grain turned 90°" % bid)
+	_say_status("%s: grain turned 90°" % doc.board_name(bid))
 
 
 # ---------------- linked boards (T12: A22c, I28, Q28, Q29) ----------------
@@ -1078,7 +1075,7 @@ func _show_siblings(bid: String) -> void:
 
 
 func _say_status(txt: String) -> void:
-	ui_sync.text = txt
+	ui_sync.text = doc.readable_ids(txt)
 	ui_sync.remove_theme_color_override("font_color")
 
 
@@ -1304,7 +1301,7 @@ func _on_synced(resp: Dictionary) -> void:
 		ui_sync.text = "✓ FreeCAD rebuilt the model (undo past its 20-step history, %d ms)" % last_sync_ms
 	ui_sync.add_theme_color_override("font_color", Color(0.1, 0.5, 0.15))
 	if reject_note != "":
-		ui_sync.text = "✗ rejected " + reject_note
+		ui_sync.text = "✗ rejected " + doc.readable_ids(reject_note)
 		ui_sync.add_theme_color_override("font_color", Color(0.75, 0.1, 0.1))
 	confirmed.emit(seq)
 	if resp["result"].has("export_ms") and drawing_pending:
@@ -1519,7 +1516,7 @@ func _port_free(p: int) -> bool:
 
 # The window <-> worker protocol's version (docs/protocol.md): bump it when a message or shared-file field changes.
 # The worker reports its own (worker/serve.py PROTOCOL_VERSION) in hello; a worker speaking another isn't shared.
-const PROTOCOL_VERSION := 6
+const PROTOCOL_VERSION := 7
 
 
 func _probe_worker(p: int) -> String:
@@ -1662,7 +1659,7 @@ func _watch_worker(delta: float) -> void:
 
 
 func _say_worker(txt: String) -> void:
-	ui_sync.text = txt
+	ui_sync.text = doc.readable_ids(txt)
 	ui_sync.add_theme_color_override("font_color", Color(0.75, 0.1, 0.1))
 
 

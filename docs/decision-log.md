@@ -45,11 +45,11 @@ One subject per decision; the Decisions column is generated.
 | Move, copies and arrays | Move, linked copies, arrays, mirrors, components and assemblies. | A10, A11b, A22c, A26, I10, I12c, I13b, I14, I15, I16, I17, I20, I21, I25, I28, I32, I46, I52, I53 |
 | Snapping | Points, edges, axes and the grid, shared by every tool. | I03b, I18, I19 |
 | Measurements | Typed values, units and the measurements box. | I35, I48, I57, I59 |
-| View and look | Camera and input devices, panels, the Mac look, lines, lighting, hiding. | I22, I30, I31, I36, I37, W10, W11, W12 |
+| View and look | Camera and input devices, panels, the Mac look, lines, lighting, hiding. | I22, I30, I31, I36, I37, W10, W11, W12, W14 |
 | Feedback | The confirmation wave and what colours mean. | I06, W01, W02, W03, W04, W05, W06, W07, W08, W09 |
 | Materials | Wood cards, grain and painting. | A05, I33, M01, M02, M03, M04 |
 | Output | Drawings, cut lists and renders. | A07, D01, D02, P06 |
-| Process | How the agents work, test, merge and record decisions. | P01, P02, P03, P07, P09, P10, P11, P14, P15, P16, P17, P18, P19, P20, P21, P22, P23, P24, P25, P26, P28, P29, P31, P32, P33, P34, P35, P36, P37, P38, P39, P40 |
+| Process | How the agents work, test, merge and record decisions. | P01, P02, P03, P07, P09, P10, P11, P14, P15, P16, P17, P18, P19, P20, P21, P22, P23, P24, P25, P26, P28, P29, P31, P32, P33, P34, P35, P36, P37, P38, P39, P40, P41 |
 
 ## Principles
 
@@ -59,7 +59,7 @@ Each states one idea; Explains (generated) lists the decisions that name it. Wil
 |---|---|---|---|---|
 | G01 | Feel first: a draft appears the moment you act and input never waits on FreeCAD; FreeCAD catches up and the wave confirms it. | Active | A02, A06, A08, A23, A24, A27, A28, A29, I01, I11, I16, I17, I23, I43, I44, I45, W01, W02, W03, W04, W07, W09 | 2026-11-22 |
 | G02 | The .FCStd file is the model: every action becomes ordinary, editable FreeCAD features, and Shop Sketch is a view of them. | Active | A05, A07, A09, A21, A23, A25, A26, D01, D02, I36, I37, I42, M01, M02, M03, P04, P06 | 2026-11-22 |
-| G03 | Work as SketchUp does, and as a Mac app does, unless there's a reason not to; a decision that departs from SketchUp says why. | Active | A06, A30, I01, I02, I04b, I05, I09, I10, I14, I18, I22, I28, I30, I31, I37, I38, I49, I50, I51, I58, I59, P04 | 2026-11-22 |
+| G03 | Work as SketchUp does, and as a Mac app does, unless there's a reason not to; a decision that departs from SketchUp says why. | Active | A06, A30, I01, I02, I04b, I05, I09, I10, I14, I18, I22, I28, I30, I31, I37, I38, I49, I50, I51, I58, I59, P04, W14 | 2026-11-22 |
 | G04 | Relationships stay live: copies, arrays, mirrors and fits follow later edits, and you can detach one on purpose. | Active | A10, A11b, A22c, A26, I21, I24, I25, I28, I32, I34, I40, I41, I46, I52, I53 | 2026-11-22 |
 | G05 | One key per idea, meaning the same thing in every tool. | Active | I03b, I12c, I15, I20, I33, I48, I50, I56 | 2026-11-22 |
 | G06 | Typed values follow what you're doing: the direction you drag, and the model's units for a bare number; any unit you type, written however you write it, is understood. | Active | I02, I13b, I14, I19, I35, I57, I59 | 2026-11-22 |
@@ -68,7 +68,7 @@ Each states one idea; Explains (generated) lists the decisions that name it. Wil
 | G09 | Never lose work: always saved, atomically, and undo crosses sessions without hiding changes made in FreeCAD. | Active | A24, A25, A27, A28, A32, A36, A37, I54, I55, U01, U02, U03, W13 | 2026-11-22 |
 | G10 | A rejected action says why and leaves nothing behind. | Active | A23, I06, I08, W06 | 2026-11-22 |
 | G11 | Nothing rests on memory: every decision is logged, every behaviour has a named test, and every prediction of FreeCAD's answer is checked against FreeCAD. | Active | I51, P01, P02, P03, P07, P09, P18, P21, P23, P26, P28, P29, P31, P32, P33, P34, P35, P36 | 2026-11-22 |
-| G12 | Work splits by files, and one integrator merges, numbers and keeps the records. | Active | A31, A33b, A34, A35, P10, P11, P14, P15, P16, P17, P18, P19, P20, P22, P24, P25, P26, P28, P29, P31, P32, P33, P34, P35, P36, P37, P38, P39, P40 | 2026-11-22 |
+| G12 | Work splits by files, and one integrator merges, numbers and keeps the records. | Active | A31, A33b, A34, A35, P10, P11, P14, P15, P16, P17, P18, P19, P20, P22, P24, P25, P26, P28, P29, P31, P32, P33, P34, P35, P36, P37, P38, P39, P40, P41 | 2026-11-22 |
 | G13 | Show what an edit will change before it does. | Active | I28 | 2026-11-22 |
 
 ## Decisions
@@ -202,6 +202,7 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | W10 | Lighting toned down (filmic tone mapping, lower sun and ambient). | Active |  | Top faces were clipping to white and hiding the wave. | G07 | main.gd _make_world() | 2026-11-20 |
 | W11 | Highlights and drafts that lie on a face are drawn with a small depth bias in their shader (pulled toward the camera along the line of sight), so they never flicker against the face beneath. | Active |  | Found by you: white triangles in highlighted faces while orbiting and zooming. Tested: 36 views, gaps gone. A first fix that moved the nodes broke clicking on rectangles, so the bias is in rendering only. | — | viewport/overlay.gdshader | 2026-11-20 |
 | W12 | Lines are anti-aliased strips a fixed width on screen (edges 1.5 pt, grid 1 pt, axes 1.75 pt), pulled slightly toward the camera; the grid draws first and fades with distance. (Details below.) | Active |  | Your request: grid and axis lines vanished (1-pixel GL lines get no anti-aliasing). | — | viewport/line.gdshader, line.gdshaderinc; main.gd _lines() | 2026-11-21 |
+| W14 | H059 may replace raw IDs with readable board names in main.gd and selection.gd status messages, so random IDs do not appear in paint, grain or linked-board feedback (William). | Active |  | Preserve readable feedback when internal IDs become random. | G03 |  | 2026-11-22 |
 
 ### Feedback
 
@@ -274,6 +275,7 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | P38 | Workers are started in a visible Terminal window with Remote Control, so you can follow or answer one from the Claude app: tools/start_worker.sh [name] runs claude --remote-control <name> "Check the board" in the repository (the same as typing cd, claude, /remote-control, Check the board). | Active | Answers F005 (how sessions are started; prototype branch) | Your call, 2026-11-22: if a worker stops you can see why; no-window sessions were the other option. | G12 | tools/start_worker.sh; checks: tools/test_start_worker.py | 2026-11-22 |
 | P39 | The integrator has no timed check-ins: it is woken only by the queue, with job.py watch --next run in the background (one wake on the first new event: done, stale, waiting, returned, queue empty), started again after each. | Active |  | Your call, 2026-11-22: the 20-minute check-in re-read the integrator's whole context each time and used up your usage. | G12 | tools/job.py watch(until_new); tools/startup.py's reminder; docs/handoff/H050-integrator-state.md; checks: tools/test_job.py, tools/test_startup.py | 2026-11-22 |
 | P40 | A worker deals with its own hung processes; the integrator hears only of a worker that has gone quiet. Workers run tests and long commands through job.py run, which stops one past HUNG_AFTER (10 min) with every process it started and says HUNG, so the worker is always woken; job.py done refuses while a worktree process looks hung. Workers set no check-in timer (the 20-minute CronCreate is gone); the 30-minute dead man's switch stays. | Active | Refines P24 (the dead man's switch) | Your call, 2026-11-22: a hung test in the background shouldn't need you or the integrator; timers cost usage. | G12 | tools/job.py run(), done(); BOARD.md step 3, AGENTS.md; checks: tools/test_job.py | 2026-11-22 |
+| P41 | H059 includes the direct ID allocation sites in viewport/tools/, selection.gd and main.gd and affected tests; changes in those production files are limited to replacing ID allocation with the document allocator (William, relaying the integrator's scope clarification). | Active |  |  | G12 |  | 2026-11-22 |
 
 ## Open questions
 
@@ -309,7 +311,6 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | T63 | The colour cue for tied faces (from T14). | Open | I26b | Look to be settled with you when built. |
 | T65 | When a FreeCAD save dropped Shop Sketch actions, ask: re-apply them on top, or keep FreeCAD's version (from T17). | Parked | Q19, A25, A36 | Your call, 2026-11-22: wait for the branch view (T71) rather than build a dialog to throw away; the dropped actions (journal `dropped`, T64) become an abandoned branch there. Until then they're safe in the journal, with no way back in the app. |
 | T66 | Lengths shown in the measurements box in your units, display rounding separate from stored precision, and a units preference (from T32). | Open | T32, I35, I57 | Units preference: your call. Decided 2026-11-22: I57 (formats, rounding, ~ for rounded, saved per model). Typed bare numbers: I59. Assigned: H052 (after T88's tool moves, since every tool's vcb_value changes). |
-| T67 | IDs that never collide across kept history branches (from T35). | Open | U02 | William chose it as Codex's next job, 2026-11-22. Assigned: H059 (Codex). |
 | T68 | One undo step per user action (from T35). | Open | U02, A23 |  |
 | T69 | Typed corrections that don't rewrite kept versions (from T35). | Open | U02 |  |
 | T71 | History stage 2: keep abandoned futures in memory and show the history panel on the right (from T36). | Open | U01, A36 | Needs T67–T69. Spec: docs/specs/U01-history.md. Also (your call, 2026-11-22, for T65): a FreeCAD save that dropped actions shows as a new step branching from the revision FreeCAD opened, with Shop Sketch's dropped actions (journal `dropped`, T64) greyed out on the other branch; re-applying them is T37's merge. |

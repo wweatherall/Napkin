@@ -14,6 +14,10 @@ class FakeDoc:
 	var ops: Array = []
 	var counters := {"hd": 0, "as": 0, "a": 0, "mu": 0, "dt": 0, "del": 0}
 	var syncs := 0
+	func board_name(identity: String) -> String: return identity
+	func next_id(prefix: String) -> String:
+		counters[prefix] += 1
+		return "%s%d" % [prefix, counters[prefix]]
 	func sync() -> void: syncs += 1
 
 

@@ -191,8 +191,7 @@ func leave_context() -> void:
 # ---------------- actions (each one op) ----------------
 
 func _hide_op(targets: Array, hidden: bool) -> void:
-	doc.counters["hd"] += 1
-	doc.ops.append({"id": "hd%d" % doc.counters["hd"], "type": "hide", "targets": targets, "hidden": hidden})
+	doc.ops.append({"id": doc.next_id("hd"), "type": "hide", "targets": targets, "hidden": hidden})
 	set_selection(selection.filter(func(b): return not hidden or not targets.has(b)))
 	hidden_changed.emit(true)
 	doc.sync()
@@ -245,9 +244,9 @@ func make_assembly() -> void:
 	var ids := selection.filter(func(b): return body_assembly.get(b, "") == "")
 	if ids.is_empty():
 		say.emit("Select the boards first (Select tool, Shift-click to add)"); return
-	doc.counters["as"] += 1; doc.counters["a"] += 1
-	doc.ops.append({"id": "as%d" % doc.counters["as"], "type": "make_assembly", "targets": ids,
-					"new_id": "a%d" % doc.counters["a"], "name": "Assembly %d" % doc.counters["a"]})
+	var aid: String = doc.next_id("a")
+	doc.ops.append({"id": doc.next_id("as"), "type": "make_assembly", "targets": ids,
+					"new_id": aid, "name": "Assembly %d" % doc.counters["a"]})
 	set_selection([])
 	doc.sync()
 	say.emit("Assembly of %d board%s: double-click it to edit inside" % [ids.size(), "" if ids.size() == 1 else "s"])
@@ -259,22 +258,20 @@ func linked_op(kind: String) -> void:
 	if bid == "":
 		say.emit("Point at a board first"); return
 	if kind == "make_unique" and body_family.get(bid, "") == "":
-		say.emit("%s isn't linked to anything" % bid); return
+		say.emit("%s isn't linked to anything" % doc.board_name(bid)); return
 	if kind == "detach" and body_array.get(bid, "") == "":
-		say.emit("%s isn't a copy in an array" % bid); return
+		say.emit("%s isn't a copy in an array" % doc.board_name(bid)); return
 	var prefix := "mu" if kind == "make_unique" else "dt"
-	doc.counters[prefix] += 1
-	doc.ops.append({"id": "%s%d" % [prefix, doc.counters[prefix]], "type": kind, "targets": [bid]})
+	doc.ops.append({"id": doc.next_id(prefix), "type": kind, "targets": [bid]})
 	links_changed.emit()
 	doc.sync()
-	say.emit(("%s is its own board now" if kind == "make_unique" else "%s no longer follows its array") % bid)
+	say.emit(("%s is its own board now" if kind == "make_unique" else "%s no longer follows its array") % doc.board_name(bid))
 
 
 func delete_selected() -> void:
 	var ids := selection.filter(func(b): return has_board.call(b) and in_context(b))
 	if ids.is_empty(): return
-	doc.counters["del"] += 1
-	doc.ops.append({"id": "del%d" % doc.counters["del"], "type": "delete", "targets": ids})
+	doc.ops.append({"id": doc.next_id("del"), "type": "delete", "targets": ids})
 	set_selection([])
 	refresh_hidden()
 	hidden_changed.emit(true)

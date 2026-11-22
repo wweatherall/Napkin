@@ -43,7 +43,7 @@ func run() -> void:
 	# T3: grab the bottom front corner and land it on the slab's top front edge midpoint
 	var slab := {}
 	for b in JSON.parse_string(FileAccess.get_file_as_string(m.out_dir.path_join("bodies.json"))):
-		if b["id"] == "b2": slab = b
+		if b["id"] == harness.id("b2"): slab = b
 	var bb: Array = slab["world_bbox"]
 	var mid := Vector3((bb[0] + bb[3]) * 0.5, bb[1], bb[5])
 	await harness._grab(Vector3(152, 2, 202))
@@ -54,7 +54,7 @@ func run() -> void:
 	# T4: tap Right twice -> green/blue plane lock; drag well off to the side; red must not change
 	var pb := {}
 	for b in JSON.parse_string(FileAccess.get_file_as_string(m.out_dir.path_join("bodies.json"))):
-		if b["id"] == "b1": pb = b
+		if b["id"] == harness.id("b1"): pb = b
 	var top := Vector3(pb["world_bbox"][0], pb["world_bbox"][1], pb["world_bbox"][5])
 	await harness._grab(top + Vector3(2, 2, 0))
 	await harness._key(KEY_RIGHT); await harness._key(KEY_RIGHT)
@@ -64,7 +64,7 @@ func run() -> void:
 	await harness._checkpoint("I10_plane_locked")
 	# T6: the full cycle: axis -> plane -> free (grab the panel where it is now)
 	for b in JSON.parse_string(FileAccess.get_file_as_string(m.out_dir.path_join("bodies.json"))):
-		if b["id"] == "b1": pb = b
+		if b["id"] == harness.id("b1"): pb = b
 	top = Vector3(pb["world_bbox"][0], pb["world_bbox"][1], pb["world_bbox"][5])
 	await harness._view(top + Vector3(10, 150, -200), 30, -28, 2.5)
 	await harness._grab(top + Vector3(2, 2, 0))

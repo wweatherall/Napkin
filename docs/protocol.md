@@ -32,7 +32,7 @@ Examples are illustrative JSON lines; timing values, paths, IDs and hashes vary.
 
 ### `hello`
 
-Request: `cmd: "hello"`, `seq?`. Success: `ok: true`, `cmd: "hello"`, `seq` (echo or null), `app: "shopsketch"`, `protocol: integer` (the protocol version, currently 6), `worker: string` (32 lowercase hex MD5), `pid: integer`. The window uses the worker only if `protocol` equals its own version and `worker` its own identity.
+Request: `cmd: "hello"`, `seq?`. Success: `ok: true`, `cmd: "hello"`, `seq` (echo or null), `app: "shopsketch"`, `protocol: integer` (the protocol version, currently 7), `worker: string` (32 lowercase hex MD5), `pid: integer`. The window uses the worker only if `protocol` equals its own version and `worker` its own identity.
 
 ```json
 {"cmd":"hello"}
@@ -43,7 +43,7 @@ Producer/consumer: [worker/serve.py](../worker/serve.py):`serve.handle`, `worker
 
 ### `open`
 
-Request: `cmd: "open"`, `model: string`, `fresh?: boolean = false`, `seq?: integer` (the window always sends one). Success: `ok: true`, `cmd: "open"`, `model: string` (absolute), `seq` (echo or null), `rev: integer`, `ops: Op[]`, `undo_floor: integer`, `external: boolean`, `recovered?: {from: "new"|"prev", rev: integer, why: string}` (sent once, when opening found a save that stopped part way and put the newest whole file-and-journal pair in place, A32). `fresh` discards the cached/live document and starts empty; otherwise an existing cached session is reloaded if its disk signature changed. Opening does not export meshes or enqueue a save.
+Request: `cmd: "open"`, `model: string`, `fresh?: boolean = false`, `seq?: integer` (the window always sends one). Success: `ok: true`, `cmd: "open"`, `model: string` (absolute), `seq` (echo or null), `rev: integer`, `ops: Op[]`, `undo_floor: integer`, `external: boolean`, `reserved_ids: string[]` (protocol 7, T67: every ID the document has reserved, sorted; the window adds them to its own), `recovered?: {from: "new"|"prev", rev: integer, why: string}` (sent once, when opening found a save that stopped part way and put the newest whole file-and-journal pair in place, A32). `fresh` discards the cached/live document and starts empty; otherwise an existing cached session is reloaded if its disk signature changed. Opening does not export meshes or enqueue a save.
 
 ```json
 {"cmd":"open","model":"/tmp/chair.FCStd","fresh":false,"seq":7}
@@ -60,7 +60,7 @@ Producer/consumer: [worker/serve.py](../worker/serve.py):`serve.handle`, `sessio
 |---|---|
 | `cmd` | `"sync"` or `"replay"`; replay starts a fresh session every time |
 | `model?` | string; defaults to `<outdir>/model.FCStd` if omitted/empty; supplying neither usable model nor outdir fails |
-| `oplog` | `{ops: Op[], units?: "mm", format?: string, name?: string}`; `format`/nested `name` are not validated/used by `run_sync` |
+| `oplog` | `{ops: Op[], units?: "mm", format?: string, name?: string, reserved_ids?: string[]}`; `format`/nested `name` are not validated/used by `run_sync`; `reserved_ids` (protocol 7, T67) is the window's reservations, added to the session's registry before the ops are checked |
 | `ops` | alternate top-level Op array when `oplog` is absent |
 | `outdir?` | string; export folder, defaults to parent of resolved model path |
 | `seq?` | echoed correlation value; window sends integer; omitted becomes `null` |
@@ -184,7 +184,7 @@ Producer/consumer: [worker/serve.py](../worker/serve.py):`serve.handle`; [worker
 
 ## Operation payloads (`oplog/0.1`)
 
-All Ops have `id: string` and `type: string`; IDs are journal identities and should be stable/unique within the sequence. The worker canonicalizes numbers to 9 decimal places for prefix comparison (18 equals 18.0). Every accepted op creates one native transaction. This table describes fields read by current handlers, rather than promising complete upfront validation. Unknown fields are generally ignored. Source dispatch: [worker/model.py](../worker/model.py):`Model.HANDLERS`, `apply`.
+All Ops have `id: string` and `type: string`; IDs are journal identities and should be stable/unique within the sequence. New IDs (T67, protocol 7) are `<prefix><serial>_<32 lowercase hex>` (128 random bits), e.g. `b3_0123…cdef`; the worker refuses a sync whose new-style ID collides with another or changes owner (`ID collision` / `ID already reserved`), and old serial IDs (`b3`, `pp7`) are accepted as they always were. Displays show the serial part only (`Board 3`, `pp7`). The worker canonicalizes numbers to 9 decimal places for prefix comparison (18 equals 18.0). Every accepted op creates one native transaction. This table describes fields read by current handlers, rather than promising complete upfront validation. Unknown fields are generally ignored. Source dispatch: [worker/model.py](../worker/model.py):`Model.HANDLERS`, `apply`.
 
 FaceRef = `{body: string, normal: Vec3, point: Vec3}`: world face identified geometrically, never FreeCAD face number. Plane = `{normal: Vec3, origin: Vec3, xdir?: Vec3}` or `{on: FaceRef, xdir?: Vec3}`. Normal/direction inputs are normalized; plane xdir is projected into its plane. Without xdir, horizontal planes use world X, others use world Z cross normal; y = normal cross x. Source: [worker/model.py](../worker/model.py):`resolve_face`, `plane_from`.
 
@@ -309,6 +309,8 @@ Journal fields: `format: "shopsketch-journal/0.1"`, `rev: integer`, `file_sha256
 ```
 
 On reopen, revision/hash equality establishes that model matches journal. Only successful ops are adopted. Missing/wrong-format journal or a mismatched rev/hash marks external; the surviving history becomes an undo floor. Model and journal publication are separate atomic replacements; interruption between them can therefore be detected as an external/mismatched state. Sources: [worker/common.py](../worker/common.py):`JOURNAL_FORMAT`; [worker/session.py](../worker/session.py):`journal_path`, `Session.save`, `_open_existing`, `write_gui_document`.
+
+Journal fields added by T67 (H059): `reserved_ids` (sorted strings: every ID reserved, kept when ops are undone or dropped) and `id_owners` (`{id: owner}`, which op made each ID, stable across typed amendments); both optional, an older journal opens as before.
 
 Journal fields added by T64 (A36): `floor` (undo stops here: ops before it can't be taken back, A25; kept across saves and sessions), `dropped` (`[{op, after_rev, at}]`: actions an outside save didn't hold, for T65), `outside_sha256` (written the moment an outside save is seen; opening a file with that sha opens it external instead of recovering, A32).
 
