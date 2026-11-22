@@ -49,22 +49,23 @@ One subject per decision; the Decisions column is generated.
 
 ## Principles
 
-Each states one idea; Explains (generated) lists the decisions that name it. Tentative until William approves each.
+Each states one idea; Explains (generated) lists the decisions that name it. William reviewed and approved them 2026-11-22 (G04 split into G04 and G13).
 
 | ID | Principle | Status | Explains | Date |
 |---|---|---|---|---|
-| G01 | Feel first: a draft appears the moment you act, and input never waits on FreeCAD. | Tentative | A02, A06, A08, A23, A24, A27, A28, A29, I01, I11, I16, I17, I23, I43, I44, I45, P05, W01, W02, W03, W04, W07, W09 | 2026-11-22 |
-| G02 | The .FCStd file is the model: every action becomes ordinary, editable FreeCAD features, and Shop Sketch is a view of them. | Tentative | A05, A07, A09, A21, A23, A25, A26, D01, D02, I36, I37, I42, M01, M02, M03, P04, P06 | 2026-11-22 |
-| G03 | Work as SketchUp does, and as a Mac app does, unless there's a reason not to. | Tentative | A06, A30, I01, I02, I04b, I05, I09, I10, I14, I18, I22, I28, I30, I31, I37, I38, I49, I50, I51, I58, I59, P04 | 2026-11-22 |
-| G04 | Relationships stay live: copies, arrays, mirrors and fits follow later edits, and you see what an edit will change before it does. | Tentative | A10, A11b, A22c, A26, I21, I24, I25, I28, I32, I34, I40, I41, I46, I52, I53, P05 | 2026-11-22 |
-| G05 | One key per idea, meaning the same thing in every tool. | Tentative | I03b, I12c, I15, I20, I33, I48, I50, I56 | 2026-11-22 |
-| G06 | Typed values follow what you're doing: the direction you drag, the model's units, written as a woodworker writes them. | Tentative | I02, I13b, I14, I19, I35, I57, I59 | 2026-11-22 |
-| G07 | One meaning per colour. | Tentative | I07, I21, W05, W06, W08, W10 | 2026-11-22 |
-| G08 | Refer to geometry, never to FreeCAD's internal numbers. | Tentative | A03, I24, I40, I42 | 2026-11-22 |
-| G09 | Never lose work: always saved, atomically, and undo crosses sessions without hiding changes made in FreeCAD. | Tentative | A24, A25, A27, A28, A32, I54, I55, U01, U02, U03, W13 | 2026-11-22 |
-| G10 | A rejected action says why and leaves nothing behind. | Tentative | A23, I06, I08, W06 | 2026-11-22 |
-| G11 | Nothing rests on memory: every decision is logged, every behaviour has a named test, and every prediction of FreeCAD's answer is checked against FreeCAD. | Tentative | I51, P01, P02, P03, P07, P09, P18, P21, P23 | 2026-11-22 |
-| G12 | Work splits by files, and one integrator merges, numbers and keeps the records. | Tentative | A31, A33b, A34, A35, P10, P11, P14, P15, P16, P17, P18, P19, P20, P22, P24 | 2026-11-22 |
+| G01 | Feel first: a draft appears the moment you act and input never waits on FreeCAD; FreeCAD catches up and the wave confirms it. | Active | A02, A06, A08, A23, A24, A27, A28, A29, I01, I11, I16, I17, I23, I43, I44, I45, P05, W01, W02, W03, W04, W07, W09 | 2026-11-22 |
+| G02 | The .FCStd file is the model: every action becomes ordinary, editable FreeCAD features, and Shop Sketch is a view of them. | Active | A05, A07, A09, A21, A23, A25, A26, D01, D02, I36, I37, I42, M01, M02, M03, P04, P06 | 2026-11-22 |
+| G03 | Work as SketchUp does, and as a Mac app does, unless there's a reason not to; a decision that departs from SketchUp says why. | Active | A06, A30, I01, I02, I04b, I05, I09, I10, I14, I18, I22, I28, I30, I31, I37, I38, I49, I50, I51, I58, I59, P04 | 2026-11-22 |
+| G04 | Relationships stay live: copies, arrays, mirrors and fits follow later edits, and you can detach one on purpose. | Active | A10, A11b, A22c, A26, I21, I24, I25, I28, I32, I34, I40, I41, I46, I52, I53, P05 | 2026-11-22 |
+| G05 | One key per idea, meaning the same thing in every tool. | Active | I03b, I12c, I15, I20, I33, I48, I50, I56 | 2026-11-22 |
+| G06 | Typed values follow what you're doing: the direction you drag, and the model's units for a bare number; any unit you type, written however you write it, is understood. | Active | I02, I13b, I14, I19, I35, I57, I59 | 2026-11-22 |
+| G07 | One meaning per colour: violet cuts, red rejects, amber is new; nothing else uses them except the red/green/blue axis guides. | Active | I07, I21, W05, W06, W08, W10 | 2026-11-22 |
+| G08 | Refer to geometry, never to FreeCAD's internal numbers. | Active | A03, I24, I40, I42 | 2026-11-22 |
+| G09 | Never lose work: always saved, atomically, and undo crosses sessions without hiding changes made in FreeCAD. | Active | A24, A25, A27, A28, A32, I54, I55, U01, U02, U03, W13 | 2026-11-22 |
+| G10 | A rejected action says why and leaves nothing behind. | Active | A23, I06, I08, W06 | 2026-11-22 |
+| G11 | Nothing rests on memory: every decision is logged, every behaviour has a named test, and every prediction of FreeCAD's answer is checked against FreeCAD. | Active | I51, P01, P02, P03, P07, P09, P18, P21, P23 | 2026-11-22 |
+| G12 | Work splits by files, and one integrator merges, numbers and keeps the records. | Active | A31, A33b, A34, A35, P10, P11, P14, P15, P16, P17, P18, P19, P20, P22, P24 | 2026-11-22 |
+| G13 | Show what an edit will change before it does. | Active | I28 | 2026-11-22 |
 
 ## Decisions
 
@@ -161,7 +162,7 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | I20 | Tapping an arrow key cycles: lock to that axis → lock to the plane perpendicular to it → free. Another arrow switches straight to its axis. | Active |  | Your design (SketchUp toggles; Blender locks planes with Shift+axis). Tested: axis → plane → free; plane lock kept red at 0. | G05 | main.gd _unhandled_input() | 2026-11-20 |
 | I21 | Move on a hole's wall grabs the hole (violet): move it on its board, or Option-copy it into a row (spacing, then 8x or /8). In FreeCAD the row is one Draft OrthoArray of the cutter, cut once. (Details below.) | Active |  | Your call: arrays of cut-outs instead of many one-off holes. | G04, G07 | replay.py op_move_cut(), cuts_of(); main.gd _cut_at(), _commit_cut_move() | 2026-11-20 |
 | I25 | Arrays and mirrors stay relationships. Both fixed-spacing (8x) and distributed (/8) arrays keep working, and both behaviours are preserved. | Active | Conflict resolved 2026-11-21: board copies become linked (A22c). Decided 2026-11-21: a distributed (/N) array remembers its span and re-spreads when the span changes (in Shop Sketch or FreeCAD, e.g. an expression on the spacing); fixed-spacing (Nx) arrays keep their spacing. Build: part of Work list T12. | Your confirmed preference (Codex discussion). Built: hole arrays (I21), mirrors (A10, A11b), and board arrays as FreeCAD relationships, /N re-spreading when its span changes (T12, 2026-11-21). | G04 | replay.py copy_body(), op_move_cut() | 2026-11-21 |
-| I28 | Editing a linked component changes its siblings. Shop Sketch makes clear which instances an edit will change, and offers SketchUp-style Make unique to break the link. | Active | Agrees with I10's note and A11 (Tentative: a mirrored copy counts as linked). | Your confirmed preference (Codex discussion). Built 2026-11-21 (T12): linked copies get a soft tint and the tooltip counts them while you edit one (Q28); U / Edit > Make unique. | G03, G04 | Make unique: not built | 2026-11-21 |
+| I28 | Editing a linked component changes its siblings. Shop Sketch makes clear which instances an edit will change, and offers SketchUp-style Make unique to break the link. | Active | Agrees with I10's note and A11 (Tentative: a mirrored copy counts as linked). | Your confirmed preference (Codex discussion). Built 2026-11-21 (T12): linked copies get a soft tint and the tooltip counts them while you edit one (Q28); U / Edit > Make unique. | G03, G04, G13 | Make unique: not built | 2026-11-21 |
 | I32 | An array works like a component you enter: from outside a click picks the whole row; inside, moving one copy detaches it from the row (still linked in shape). Moving the original takes its copies along. (Details below.) | Active | Refines I25, Q29 | Your call, 2026-11-21. | G04 | replay.py op_move (arrays_of); inside: T20 | 2026-11-21 |
 | I46 | Inside an entered component or array, deleting a member preserves the others; if it was the original, promote a survivor to original. (Details below.) | Active | Extends I32 | William's answer while completing T34, 2026-11-21. | G04 | worker/deletion.py; viewport/selection.gd | 2026-11-21 |
 | I52 | Copying a whole assembly makes a new assembly of linked boards; 3x and /3 make rows of such assemblies with editable spacing. Editing a board's shape updates its counterparts across the row. | Active | Replaces I47; extends A22c | William confirmed linked assembly-row copies, 2026-11-22 (H044). | G04 | T58: worker/move.py, worker/assembly.py | 2026-11-22 |
