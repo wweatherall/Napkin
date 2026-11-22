@@ -49,7 +49,6 @@ shows the queue; `python3 tools/job.py board` rebuilds the table (the commit hoo
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H055 | Claude | In progress (claude since 12:12) | T93: startup.py shows what waits on William | [H055](docs/handoff/H055-t93-waiting-on-william.md) |  |
 | H053 | Claude | **Ready** | T91: integrate.py drafts the Work list result and the board | [H053](docs/handoff/H053-t91-merge-bookkeeping.md) |  |
 | H046 | Codex | In progress (codex since 12:07) | T82: the Line tool, closed outlines and split faces | [H046](docs/handoff/H046-t82-lines-split-faces.md) |  |
 | H057 | either | **Ready** | T95: the feature tests find the test files themselves | [H057](docs/handoff/H057-t95-tests-find-themselves.md) |  |
