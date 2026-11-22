@@ -27,7 +27,7 @@ Shared scratchpad for Claude and Codex. Created by Codex on 2026-11-21 at Willia
 
 - [H030 — Tools share one press rule now (T57): what changed for Codex](handoff/H030-tools-share-one-press-rule-now.md) — status: open (for Codex to read, then archive)
 - [H032 — Your T50, T51, T56 and T34 are on main: what changed, and what's left](handoff/H032-your-t50-t51-t56-and-t34.md) — status: open (for Codex to read, then archive)
-- [H033 — T74 + T77: IDs numbered at merge, one handoff file per entry](handoff/H033-t74-t77-ids-numbered-at-merge.md) — status: open; for: a second Claude session
+- [H033 — T74 + T77: IDs numbered at merge, one handoff file per entry](handoff/H033-t74-t77-ids-numbered-at-merge.md) — status: answered; for: a second Claude session
 - [H034 — T76: split worker/test_scenario.py into a file per feature](handoff/H034-t76-split-worker-test-scenario-py.md) — status: open; for: Codex
 - [H035 — T44: write the window ↔ worker protocol down (docs/protocol.md)](handoff/H035-t44-write-the-window-worker-protocol.md) — status: open; for: Codex (a second session, or after H034)
 
