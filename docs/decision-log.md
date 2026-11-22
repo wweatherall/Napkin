@@ -283,7 +283,7 @@ Kept for history (P01: never deleted). Each names the decision that replaced it.
 | T82 | Line tool and closed outlines: lines that close a loop make a face; push/pull it into a board or a cut. | Open | I49 | After T81. |
 | T83 | Arcs: arc gestures (and rounded corners on outlines), exact in FreeCAD. | Open | I49 | After T82. |
 | T84 | Polygons and rotated rectangles. | Open | I49 | After T81; can run beside T82/3 if files don't overlap. |
-| T85 | Quick test: `[hide] View > Hidden geometry shows it ghosted` fails on every run tonight, on main back to 8ff1f91 (before tonight's merges), though workers saw it pass earlier: b1's material is null, so the H press before it didn't hide b1 (likely the click-then-H timing in tests/quick/hide.gd). Also seen once: four `[selection_row]` checks. Find the cause; the quick test must pass to be a gate. | Open | P07, P16 | Found by Codex (H040) and the integrator, 2026-11-22. Merges tonight were gated on the full test, which passes. |
+| T85 | Quick test: `[hide] View > Hidden geometry shows it ghosted` fails on every run tonight, on main back to 8ff1f91 (before tonight's merges), though workers saw it pass earlier: b1's material is null, so the H press before it didn't hide b1 (likely the click-then-H timing in tests/quick/hide.gd). Also seen once: four `[selection_row]` checks. Find the cause; the quick test must pass to be a gate. | In progress | P07, P16 | Found by Codex (H040) and the integrator, 2026-11-22. Merges tonight were gated on the full test, which passes. Assigned 2026-11-22: H043 (Claude). |
 
 ## Tunables
 
