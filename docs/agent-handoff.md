@@ -32,6 +32,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H047 — T88 stage 1: the tools' interface to Main (inventory and proposal)](handoff/H047-t88-tool-interface.md) — status: open; for: Codex
 - [H048 — T79: a failed save is forgotten](handoff/H048-t79-failed-save.md) — status: open; for: Claude
 - [H049 — T90: a faster gate](handoff/H049-faster-gate.md) — status: queued (after H045); for: either
+- [H050 — For the next integrator session: where things stand](handoff/H050-integrator-state.md) — status: open; for: the integrator
 
 <!-- end of open list -->
 
