@@ -50,8 +50,29 @@ var test_delay_ms: int:       # test hook: ask the worker to sit on its answer
 var tool := "rect"
 var grid_snap := true
 var new_board := false       # a rectangle on a face joins that board when pushed out (I04b); B for a separate board
-var vcb := ""
-var typing := false                 # the measurements box has Delete/Backspace: since a click on it or a typed key, until a click in the view (I48)
+# The measurements box (typed values, `typing`, lengths FreeCAD is working out) lives in measure_box.gd (T75);
+# these names forward to it, so tools and tests keep writing m.vcb, m.apply_vcb().
+var measure = load("res://measure_box.gd").new()
+var vcb: String:
+	get: return measure.vcb
+	set(v): measure.vcb = v
+var typing: bool:                   # the measurements box has Delete/Backspace (I48)
+	get: return measure.typing
+	set(v): measure.typing = v
+var length_id: int:
+	get: return measure.length_id
+var length_pending: Dictionary:     # a length FreeCAD is working out
+	get: return measure.length_pending
+	set(v): measure.length_pending = v
+var ui_vcb: Label:
+	get: return measure.ui_value
+var ui_vcb_label: Label:
+	get: return measure.ui_label
+var ui_vcb_box: PanelContainer:
+	get: return measure.ui_box
+func _update_vcb() -> void: measure.update()
+func apply_vcb() -> void: measure.apply()
+func _on_length(resp: Dictionary) -> void: measure.on_length(resp)
 
 var oplog_path := ""
 var drawing_script := ""
@@ -163,7 +184,6 @@ var properties_seq := -1
 
 var ui_hint: Label
 var ui_sync: Label
-var ui_vcb: Label
 var ui_tip: Label
 
 signal confirmed(seq_no: int)
@@ -274,6 +294,7 @@ func _ready() -> void:
 	get_window().content_scale_factor = line_scale        # the interface at its proper size on a Retina screen
 	_make_materials()
 	_make_tools()
+	_make_keys()
 	_make_world()
 	_make_ui()
 	_make_menus()
@@ -433,7 +454,6 @@ var dark := false
 var accent := Color(0.0, 0.48, 1.0)
 var _tool_buttons := {}
 var _toggle_buttons := {}
-var ui_vcb_label: Label
 var ui_saved: Label                 # quiet 'Saving…' / 'Saved' (Q22): the wave means accepted, this means on disk
 
 
@@ -444,9 +464,6 @@ func _update_saved() -> void:
 	if ui_saved == null: return
 	ui_saved.text = "Saving…" if pending_rev > saved_rev else "Saved"
 	if test_mode and (saved_shown.is_empty() or saved_shown.back() != ui_saved.text): saved_shown.append(ui_saved.text)
-var ui_vcb_box: PanelContainer
-var _vcb_style: StyleBoxFlat
-var _vcb_style_typing: StyleBoxFlat
 
 
 func _c(light: Color, dark_c: Color) -> Color:
@@ -594,20 +611,11 @@ func _make_ui() -> void:
 	ui_sync = Label.new(); ui_sync.theme_type_variation = "Quiet"; ui_sync.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	ui_sync.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS; ui_sync.clip_text = true
 	ui_saved = Label.new(); ui_saved.theme_type_variation = "Quiet"
-	ui_vcb_label = Label.new(); ui_vcb_label.theme_type_variation = "Quiet"
-	ui_vcb_box = PanelContainer.new()
-	ui_vcb_box.custom_minimum_size = Vector2(150, 0)
-	_vcb_style = _box(_c(Color(1, 1, 1), Color(0.11, 0.11, 0.12)), 5, _c(Color(0.75, 0.75, 0.77), Color(0.33, 0.33, 0.35)), 1, Vector2(8, 2))
-	_vcb_style_typing = _vcb_style.duplicate()
-	_vcb_style_typing.border_color = accent; _vcb_style_typing.set_border_width_all(2)
-	ui_vcb_box.add_theme_stylebox_override("panel", _vcb_style)
-	ui_vcb_box.gui_input.connect(func(ev):
-		if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:
-			typing = true; _update_vcb())
-	ui_vcb = Label.new()
-	ui_vcb.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	ui_vcb_box.add_child(ui_vcb)
-	srow.add_child(ui_hint); srow.add_child(ui_sync); srow.add_child(ui_saved); srow.add_child(ui_vcb_label); srow.add_child(ui_vcb_box)
+	srow.add_child(ui_hint); srow.add_child(ui_sync); srow.add_child(ui_saved)
+	measure.name = "MeasureBox"
+	measure.m = self
+	add_child(measure)
+	measure.build(srow)
 	# tooltip by the cursor
 	ui_tip = Label.new()
 	ui_tip.add_theme_font_size_override("font_size", 11)
@@ -830,14 +838,6 @@ func set_tool(t: String) -> void:
 	_update_vcb()
 
 
-func _update_vcb() -> void:
-	var t = tools[tool]
-	var val: String = vcb if vcb != "" else t.vcb_value()
-	ui_vcb_label.text = t.vcb_label()
-	ui_vcb.text = (val + " mm") if val != "" else ""
-	ui_vcb_box.add_theme_stylebox_override("panel", _vcb_style_typing if vcb != "" or typing else _vcb_style)   # typing: accent ring
-
-
 func tool_move(screen: Vector2) -> void:
 	if not length_pending.is_empty(): return
 	tools[tool].mouse_moved(screen)
@@ -955,8 +955,7 @@ func _apply_context() -> void: pres.apply_context()
 func _on_selection_changed() -> void:
 	if properties_panel != null and properties_panel.visible: _request_properties()
 	pres.show_selection()
-	if typing and not sel.selection.is_empty():           # selecting boards again gives Delete back to them (I48)
-		typing = false; _update_vcb()
+	if not sel.selection.is_empty(): measure.stop_typing()   # selecting boards again gives Delete back to them (I48)
 
 
 func _request_properties() -> void:
@@ -1176,52 +1175,7 @@ static func _mirror_tris(tris: PackedVector3Array, ax: int, c: float) -> PackedV
 	return out
 
 
-# ---------------- typed input, undo ----------------
-var length_id := 0
-var length_pending := {}
-
-func apply_vcb() -> void:
-	var txt := vcb.strip_edges()
-	vcb = ""
-	if txt != "":
-		var counts := RegEx.new()
-		counts.compile("^(?:[0-9]+x|[x*][0-9]+|/[0-9]+)$")
-		if tool == "move" and counts.search(txt.to_lower()) != null:
-			length_pending = {}
-			tools[tool].typed(txt)
-		elif tool in ["rect", "push", "move"]:
-			var texts := txt.split(",") if tool == "rect" else PackedStringArray([txt])
-			# Worked out here, at once, the way FreeCAD would (units.gd evaluate_length: 150, 3/4", 1' 6 1/2",
-			# 5in + 23mm, 1'-6" = 6", I35): drafts never wait for FreeCAD. What it declines goes to FreeCAD (T32).
-			var here := Units.evaluate_pair(txt) if tool == "rect" else Units.evaluate_length(txt)
-			if here.ok:
-				length_pending = {}
-				tools[tool].typed("%.12f,%.12f" % [here.a_mm, here.b_mm] if tool == "rect" else "%.12f" % here.mm)
-			elif texts.size() != (2 if tool == "rect" else 1):
-				ui_sync.text = "Enter two lengths separated by a comma"
-			else:
-				length_id += 1
-				length_pending = {"id": length_id, "tool": tool, "model": model_path, "seq": seq,
-					"state": tools[tool].state.duplicate(true)}
-				client.send({"cmd": "length", "id": length_id, "texts": Array(texts), "default_unit": "mm"})
-				ui_sync.text = "Evaluating length…"
-	_update_vcb()
-
-func _on_length(resp: Dictionary) -> void:
-	if length_pending.is_empty() or resp.get("id") != length_pending.id: return
-	var pending := length_pending
-	length_pending = {}
-	if tool != pending.tool or model_path != pending.model or seq != pending.seq: return
-	if tools[tool].state != pending.state: return
-	if not resp.get("ok", false):
-		ui_sync.text = "Length: " + str(resp.get("error", "Invalid input"))
-		return
-	var values := PackedStringArray()
-	for value in resp.values: values.append("%.12f" % float(value))
-	tools[tool].typed(",".join(values))
-	_update_vcb()
-
-
+# ---------------- open, undo ----------------
 func _on_open(resp: Dictionary) -> void:
 	if resp.get("error", "") == "already_open":
 		if _model_before == "":
@@ -1955,11 +1909,18 @@ func _run_drawing_script() -> void:
 
 
 # ---------------- input ----------------
+# Keys go to keys.gd (`m.keys`, T75); the mouse, trackpad and camera stay here.
+var keys = load("res://keys.gd").new()
+
+
+func _make_keys() -> void:
+	keys.name = "Keys"
+	keys.m = self
+	add_child(keys)
+
+
 func _input(e: InputEvent) -> void:
-	# Push/Pull into a face (I40): Tab switches the face, Option the end condition. Before the GUI, which takes Tab.
-	if e is InputEventKey and e.pressed and not e.echo and e.keycode in [KEY_TAB, KEY_ALT] and tool == "push" \
-			and tools.has(tool) and tools[tool].key(e):
-		get_viewport().set_input_as_handled()
+	if keys.before_gui(e): get_viewport().set_input_as_handled()     # Tab / Option in Push/Pull (I40)
 
 
 var finish_reference_click := false  # the release of the click that picked a Properties reference is eaten too
@@ -1998,7 +1959,7 @@ func _unhandled_input(e: InputEvent) -> void:
 		elif e.button_index == MOUSE_BUTTON_LEFT and e.pressed and e.double_click:
 			tools[tool].double_click(e.position)
 		elif e.button_index == MOUSE_BUTTON_LEFT and e.pressed:
-			if typing: typing = false; _update_vcb()      # picking in the view again gives Delete back to the model (I48)
+			measure.stop_typing()      # picking in the view again gives Delete back to the model (I48)
 			tool_click(e.position)
 		elif e.button_index == MOUSE_BUTTON_LEFT:
 			tools[tool].release(e.position)
@@ -2028,46 +1989,7 @@ func _unhandled_input(e: InputEvent) -> void:
 		else:
 			tool_move(e.position)
 	elif e is InputEventKey and e.pressed and not e.echo:
-		if (e.ctrl_pressed or e.meta_pressed) and e.shift_pressed and e.keycode == KEY_Z: _menu("redo"); return    # Shift+Cmd+Z
-		if (e.ctrl_pressed or e.meta_pressed) and e.keycode == KEY_Z: _menu("undo"); return    # Cmd+Z on a Mac
-		if (e.ctrl_pressed or e.meta_pressed) and e.shift_pressed and e.keycode == KEY_N: _menu("newwindow"); return
-		if (e.ctrl_pressed or e.meta_pressed) and e.keycode == KEY_N: _menu("new"); return
-		if (e.ctrl_pressed or e.meta_pressed) and e.keycode == KEY_G: _menu("assemble"); return
-		if (e.ctrl_pressed or e.meta_pressed) and e.keycode == KEY_O: _menu("open"); return
-		match e.keycode:
-			KEY_ESCAPE:                        # the gesture first, then the selection, then the assembly you're in (T31)
-				if tools[tool].in_gesture() or vcb != "": set_tool(tool)
-				elif not selection.is_empty(): set_selection([])
-				elif context != "": leave_context()
-				else: set_tool(tool)
-				return
-			KEY_ENTER, KEY_KP_ENTER: apply_vcb(); return
-			KEY_DELETE, KEY_BACKSPACE:              # in the measurements box they edit it; otherwise they delete (I48)
-				if vcb != "": vcb = vcb.left(-1); _update_vcb()
-				elif typing: pass                         # emptied the box: the next press doesn't delete boards
-				elif tool == "move" and tools["move"].in_gesture():
-					var grabbed: Dictionary = tools["move"].state       # mid-move: what's being moved goes
-					if grabbed.get("cut", {}).is_empty():               # (a hole being moved: deleting holes isn't built)
-						var ids: Array = grabbed.get("unit", {}).get("bodies", [grabbed.get("body", "")])
-						set_tool("move"); set_selection(ids); sel.delete_selected()
-				else: _menu("delete")
-				return
-		var ch := char(e.unicode) if e.unicode > 0 else ""
-		var t = tools[tool]
-		if not (vcb != "" and e.keycode == KEY_SHIFT) and t.key(e): return   # the tool's own keys (Move: modifiers, axis locks); while typing, Shift is for " and '
-		if t.busy() and ch != "" and t.accepts(ch):
-			vcb += ch; typing = true; _update_vcb(); return
-		match e.keycode:
-			KEY_SPACE: set_tool("select")
-			KEY_R: set_tool("rect")
-			KEY_P: set_tool("push")
-			KEY_M: set_tool("move")
-			KEY_G: _menu("grid")
-			KEY_B: _menu("newboard")
-			KEY_D: export_drawing()
-			KEY_U: _menu("unique")
-			KEY_H: _menu("unhide_all" if e.shift_pressed else "hide")
-			KEY_T: _turn_grain()
+		keys.press(e)
 
 
 var _last_gesture := ""

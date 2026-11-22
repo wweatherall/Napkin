@@ -28,7 +28,9 @@ Shop Sketch is a local desktop application with one Godot process per window, a 
 ```mermaid
 flowchart LR
     U[User] --> T[Godot tools and inference]
-    T --> M[main.gd: UI, input, worker process]
+    T --> M[main.gd: UI, mouse and camera, worker process]
+    KB[keys.gd: keyboard] --> M
+    M <--> MB[measure_box.gd: typed values]
     M --> PR[presenter.gd: drafts, boards, states, waves, highlights]
     SC --> PR
     T --> DC[document.gd: operations, sync, save state]
@@ -55,10 +57,12 @@ TCP carries commands/status and output paths. Geometry is read from shared local
 | Location | Current responsibility | Useful entry points |
 |---|---|---|
 | `viewport/project.godot`, `main.tscn` | Godot configuration and startup scene | Main scene |
-| `viewport/main.gd` | Composition root: UI/input/camera, worker lifecycle, model switching, mesh helpers and rejection bookkeeping. Routes document/selection signals to presentation; forwards legacy `m.*` access to their owners. | `_ready`, `_make_tools`, `sync`, `_on_worker`, `_on_synced`, `_on_op_removed`, `_apply_confirmed`, `switch_model` |
+| `viewport/main.gd` | Composition root: UI, mouse/trackpad input and camera (key presses go to `keys.gd`), worker lifecycle, model switching, mesh helpers and rejection bookkeeping. Routes document/selection signals to presentation; forwards legacy `m.*` access to their owners. | `_ready`, `_make_tools`, `sync`, `_on_worker`, `_on_synced`, `_on_op_removed`, `_apply_confirmed`, `switch_model` |
 | `viewport/document.gd` | Owns desired ops, IDs, request sequencing/coalescing, confirmation, undo/redo, model path and save revisions. Reports by signals; no geometry or camera. | `sync`, `on_sync_reply`, `on_opened`, `on_saved`, `on_link_up`, `reset`, `open`, `remove_op(s)`, `undo`, `take_redo` |
 | `viewport/presenter.gd` | Owns drafts, confirmed board geometry and nodes, cached visible states, waves and highlights. Reads selection; draws through Main helpers. Emits board metadata and completed rejections. | `apply_confirmed`, `show_confirmed`, `show_state`, `forget_op`, `register_rect`, `begin_wave`, `attach_wave`, `step_waves`, `apply_context`, `show_selection`, `show_siblings`, `reset` |
 | `viewport/selection.gd` | Owns selection, entered context, confirmed board relationships, hidden state and predicted deleted IDs. Appends selection-related ops through the document; reports changes without drawing. | `set_boards`, `unit_of`, `in_context`, `edit_blocked`, `enter_context_of`, `leave_context`, `set_selection`, `refresh_hidden`, `is_hidden`, `delete_selected`, `hide_selected`, `unhide`, `make_assembly`, `linked_op` |
+| `viewport/keys.gd` | Keyboard (T75): shortcuts, tool keys, Esc, Enter, Delete/Backspace (I48), typed characters into the measurements box, Tab/⌥ for Push/Pull before the GUI (I40). Holds no state; main's `_input` / `_unhandled_input` stay the entry points and hand it key presses after the shared prefix (a press drops a pending length; Esc cancels a Properties pick). | `before_gui`, `press` |
+| `viewport/measure_box.gd` | Measurements box (VCB, T75): owns the typed text, `typing` (I48), the box's label/value/styles and pending `length` requests; routes count syntax to tools, evaluates lengths locally (`units.gd`), sends what it declines as `length` and drops stale replies. Main forwards `m.vcb`, `m.typing`, `m.apply_vcb()`, `m._update_vcb()`, `m.length_pending`, `m.ui_vcb_box`. | `build`, `update`, `apply`, `on_length`, `type_char`, `backspace`, `stop_typing` |
 | `viewport/tools/tool.gd` | Common tool interface, references to viewport/inference, and the shared press-and-drag / click-and-click rule (I43) | `setup`, `reset`, `click`, `double_click`, `release`, `mouse_moved`, `key`, `typed`; `press_started`, `press_moved`, `press_released` |
 | `viewport/tools/select_tool.gd` | Click/Shift-click and window/crossing selection of context units; entering editing contexts | Tool event methods, `box_ids` |
 | `viewport/tools/paint_tool.gd` | Paint selected wood onto the picked board/family | Tool event methods |
@@ -97,7 +101,7 @@ sections that continue from the preceding state. Helpers that await frames remai
 | Location | Responsibility | Entry points |
 |---|---|---|
 | `worker/length_input.py` | Normalize supported measurement notation; evaluate numeric lengths using FreeCAD in a temporary unsaved document; return finite millimetres | `evaluate`, `handle` |
-| `viewport/main.gd` length-input additions | Route count syntax to tools; evaluate supported lengths/arithmetic locally; send declined input as an asynchronous `length` request and reject stale results | `apply_vcb`, `_on_length`, `length_pending`, `length_id` |
+| `viewport/measure_box.gd` length input (moved from main.gd in T75) | Route count syntax to tools; evaluate supported lengths/arithmetic locally; send declined input as an asynchronous `length` request and reject stale results | `apply`, `on_length`, `length_pending`, `length_id` (main forwards `apply_vcb`, `_on_length`) |
 | `worker/object_properties.py` | Describe native property types, values, formulas and permissions; validate and apply a journalled property edit | `related`, `describe`, `inspect`, `apply` |
 | `viewport/property_panel.gd` | Selected-piece feature picker, property fields, Value/Expression modes, reference insertion and read-only details | `display`, `message`, `refresh_requested`, `edit_requested` |
 | `viewport/main.gd` property additions | Tie inspection to model/selection/sequence; append property edits to `ops`; refresh after confirmation | `_request_properties`, `_on_properties`, `_edit_property` |
@@ -267,7 +271,7 @@ Main picks/probes/starts the worker (`_pick_worker`), watches loss (`_watch_work
 | Component/array/assembly semantics | Model relationship helpers | Main editing context, previews, affected-instance highlighting |
 | Material pipeline | `worker/materials.py`, `op_set_material`, `set_tip`, `grain_world`, `write_glb` | Paint tool, wood.gdshader, material/grain cache keys and Blender extras consumer |
 | Worker failure/reconnect | `worker_client.gd`, Main lifecycle | `serve`, save acknowledgement and model switching |
-| Typed measurement syntax | `length_input.py` first, then its port `units.gd` `evaluate_length`, and `tools/length_cases.py` to rebuild the shared table; Main `apply_vcb` / `_on_length` | I35, count commands, request cancellation, parsing versus persistent expressions |
+| Typed measurement syntax | `length_input.py` first, then its port `units.gd` `evaluate_length`, and `tools/length_cases.py` to rebuild the shared table; `measure_box.gd` `apply` / `on_length` (Main forwards `apply_vcb` / `_on_length`) | I35, count commands, request cancellation, parsing versus persistent expressions |
 | Native property UI or edits | `property_panel.gd`, `object_properties.py` | Native permissions, shared definitions, units/frames, stale snapshots, transactions, undo/reopen |
 | New persistent history | Proposed history owner, not mesh cache | Session replay, IDs, journal schema, external edits, worker request identity |
 | Drawing layout | `drawing.py` | TechDraw generation and data schema |

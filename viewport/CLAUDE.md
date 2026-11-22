@@ -6,8 +6,14 @@ evaluator; this side predicts. The top-level CLAUDE.md has the overview; ARCHITE
 protocol (update it in the same commit when you change either). Tools have their own guide in `tools/CLAUDE.md`.
 
 ## Files
-- `main.gd` (~2,000 lines; split in T39 / T41): setup and UI, materials and mesh helpers (`_tri_mesh`, `_lines`),
-  worker process and lifecycle, rejection bookkeeping, typed input (`apply_vcb`), input dispatch, model switching.
+- `main.gd` (~2,000 lines; split in T39 / T41 / T75): setup and UI, materials and mesh helpers (`_tri_mesh`, `_lines`),
+  worker process and lifecycle, rejection bookkeeping, input dispatch (mouse, trackpad, camera), model switching.
+- `keys.gd` (T75): the keyboard, `m.keys`: shortcuts, tool keys, Esc, Enter, Delete / Backspace (I48), typed
+  characters, Tab / ⌥ for Push/Pull. main's `_input` / `_unhandled_input` stay the entry points (tests call
+  `m._unhandled_input`) and hand it key presses.
+- `measure_box.gd` (T75): the measurements box, `m.measure`: typed text (`vcb`), `typing`, the box itself, typed
+  values (`apply`) and `length` requests FreeCAD works out. main forwards the old names (`m.vcb`, `m.apply_vcb()`,
+  `m._update_vcb()`, ...).
 - `document.gd` (T39, A31): the document controller, `m.doc`. Owns the op list, counters, `seq` / `in_flight` /
   `dirty`, which reply counts, confirmed ids, undo floor, redo stack, open / reset, save revisions; reports by
   signals and knows nothing of meshes. main.gd forwards those names (`m.ops`, `m.seq`, ...) to it. Undo, redo and
@@ -43,7 +49,7 @@ protocol (update it in the same commit when you change either). Tools have their
   window has its own FreeCAD document; a model is open in one window at a time (`already_open`, the owner gets
   `focus`; a window launched on a taken model closes itself). Closing a window sends `bye`. If the worker dies,
   whichever window notices restarts it. File > New Window (⌘⇧N). Files beside the viewport: `_beside_project()`.
-- Typed values: `apply_vcb` keeps Move's count syntax (`3x`, `/3`) for the tool; a length is worked out by
+- Typed values (`measure_box.gd`): `apply_vcb` keeps Move's count syntax (`3x`, `/3`) for the tool; a length is worked out by
   `units.gd` at once and handed to the tool in mm; only what it declines waits for a `length` reply.
 - Context: from outside, a board stands for its assembly or array row (`unit_of`); double-click with Select enters
   one (`enter_context_of`, the rest greyed and unpickable), Esc leaves. Inside an entered array a moved copy leaves

@@ -27,7 +27,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 <!-- open list: built from docs/handoff/ by tools/handoff.py; don't edit by hand -->
 
-- [H036 — T75: move keyboard handling and the measurements box out of viewport/main.gd](handoff/H036-t75-keyboard-and-measurements-box.md) — status: open; for: a Claude session
+- [H036 — T75: move keyboard handling and the measurements box out of viewport/main.gd](handoff/H036-t75-keyboard-and-measurements-box.md) — status: answered; for: a Claude session
 - [H037 — T54: plane fits re-fit only the boards whose source or target changed](handoff/H037-t54-plane-fits-refit-only-changed.md) — status: open; for: Codex
 - [H038 — T78: a drawing request made while a sync is in flight is lost](handoff/H038-t78-drawing-request-lost-during-sync.md) — status: open; for: Codex
 
