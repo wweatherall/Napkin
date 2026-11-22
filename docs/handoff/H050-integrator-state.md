@@ -10,13 +10,18 @@ Taking over: William must have told you, in your session, that you're the integr
 `python3 tools/integrator.py take <your session name>`: refused while fretchup-73 holds it; if William says so, add
 `--william`. A plain /clear of fretchup-73 keeps the name, so `take fretchup-73` works. Then `python3 tools/startup.py`.
 
-In flight (2026-11-22 ~12:30; main pushed, gate passing, ~32 s): `python3 tools/startup.py` shows the live queue,
-what waits on William, and (once H060 lands) the follow-ups. At this moment: Codex on H046 (Lines; quiet since
-12:07, its deadline was near: if the watcher said stale, check codex/h046-t82-lines-split-faces and its worktree);
-Ready: H060 (T97, follow-ups, Claude) and H057 (T95, tests find themselves, either); H059 (T67, branch-safe IDs,
-William's pick for Codex) queued after H046; then T88 steps 1-4 (Paint first) as one job each once Lines lands
-(they share viewport/test_tools.gd with it); H052 (T66 units) after the tool moves.
+In flight (2026-11-22 ~16:25; main pushed, gate passing, ~42 s): `python3 tools/startup.py` and
+`python3 tools/job.py status` show the live queue. Ready: H059 (T67, branch-safe IDs, Codex). Queued behind it:
+H065 (T88 step 1, Paint to ToolContext, either; both edit tool_context.gd), H066 (T101, A37 recovery: the newest
+file wins, either; shares worker/session.py), then H052 (T66 units, after the tool moves). After H065: T88 steps
+2-4 (Select, Circle, Rectangle), one job each. Parked: T65 (waits for the branch view, T71). fretchup-e1 has done
+its 3 jobs (P27): it needs a /clear before taking more.
 
+How merges go (P28 since 2026-11-22): ARCHITECTURE.md and docs/protocol.md are the integrator's. A job with
+"Architecture:" lines stops after the gate with the merge staged: check the lines against the code, write them
+in, `git add` the two files, then `python3 tools/integrate.py --continue --as <name> --push --yes` (it stages only
+those two files and refuses if code changed while paused). Two jobs that each bump PROTOCOL_VERSION to the same
+number merge silently: bump the later one by one in the scratch merge (A35; H063 took 6 after H046's 5).
 How merges go: `python3 tools/job.py status` / the watcher says what's done. Review the diff against its handoff's
 Request and Touches. If the branch started from an older main and touches files main changed since, merge main
 into it in a scratch worktree first (as for H056, H058) and integrate that. Then `python3 tools/integrate.py
