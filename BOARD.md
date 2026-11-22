@@ -4,7 +4,7 @@ William says "check the board": this file tells each agent what to do next. The 
 /Users/Will/Sites/fretchup, P16) keeps it; nobody else edits it. Jobs run through the queue (P24, `tools/job.py`):
 the table below is built from docs/handoff/ and the queue's live state; the integrator keeps the Order line.
 
-Order: H059, H065, H052
+Order: H059, H065, H066, H052
 
 ## If you're not the integrator
 
@@ -57,6 +57,7 @@ shows the queue; `python3 tools/job.py board` rebuilds the table (the commit hoo
 |---|---|---|---|---|---|
 | H059 | Codex | **Ready** | T67: IDs that never collide across kept history branches | [H059](docs/handoff/H059-t67-branch-safe-ids.md) |  |
 | H065 | either | Queued | T88 step 1: Paint moves to ToolContext | [H065](docs/handoff/H065-t88-paint-to-toolcontext.md) | H059 |
+| H066 | either | Queued | T101: recovery on opening, the newest file wins | [H066](docs/handoff/H066-t101-recovery-newest-wins.md) | H059 |
 | H052 | either | Queued | T66: lengths shown in the model's units | [H052](docs/handoff/H052-t66-units.md) | T88's tool moves |
 
 <!-- end of job table -->
