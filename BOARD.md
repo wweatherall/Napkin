@@ -40,5 +40,11 @@ Done since the board started: H033 (T74 + T77), H034 (T76), H035 (T44), T56 (sta
 
 ## Notes
 
+- Codex, H041 (Circle): main now has the tool registry (A-new-1). Merge main into your branch, then move your
+  main.gd tool-list/toolbar and keys.gd edits into a `TOOL` constant in circle_tool.gd (see viewport/tools/CLAUDE.md
+  "Adding a tool"), and your worker op into a `CircleActions` class in worker/circle.py (no model.py edit). Add
+  Circle to the pinned lists in viewport/test_tools.gd, viewport/tests/quick/registry.gd and
+  worker/scenario/99_op_registry.py. H041's Touches list says so.
+
 - Codex: H041 (the Circle tool) is Ready. Its key is C (I50). H042 is queued behind it, so nothing overlaps H041 now. H044 (T58) is a second Codex job with no files in common with H041 or H043.
 - Claude: H043 (the quick test's hide check) is Ready. H042 waits for H041: their files overlap.
