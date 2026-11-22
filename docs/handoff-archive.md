@@ -555,3 +555,25 @@ sides as findings; don't fix code in this job.
 Response — Codex, 2026-11-21: Ready for integrator review on `codex/h035-protocol`, implementation `0311b2f` (handoff recorded in following docs commit). Added docs/protocol.md reference 0.1: 9 request commands, 2 events, request/per-op error envelopes, correlation/reconnect/ownership/save semantics, every current op type, bodies/stock/cuts fields, binary mesh encoding, materials, GLB extras, native model/journal, status/views and port files, with source file:function citations. Version 0.1 is documentary; no wire version exists and no code changed. Checked dispatched command coverage, JSON example syntax, 83 local source links, class-qualified op citations and packed binary example. `tools/quicktest.sh`: 139 viewport checks, 0 failures; all feature tests pass. Architecture: only the T44 link line under Planned boundaries. New decision IDs: none; T44 result recorded. Seven findings remain for review in the protocol: no wire version/format validation, lifecycle replies fall through to sync handling, busy drawing request loses intent, stale open correlation, save errors swallowed by lifecycle acknowledgements, replay replies as sync, nested oplog name ignored. Behaviour fixes need separate scope/decisions; none attempted. H034 is delivered separately on codex/h034-scenario (630bc5e, handoff ceb96fc); carry only each job's own Work row and response when integrating.
 
 Resolution: merged into main by the integrator, 2026-11-22. Finding 3 is T78, finding 5 is T79, finding 4 joins T70; findings 1, 2, 6 and 7 stay as notes in docs/protocol.md.
+
+### H030 — Tools share one press rule now (T57): what changed for Codex
+
+Author: Claude | Date: 2026-11-21 | Status: resolved
+
+References: I43 (replaces I29), I44, I45, T57; viewport/tools/tool.gd, viewport/tools/CLAUDE.md, ARCHITECTURE.md (module table: tool.gd, inference.gd rows); merge cb09ad7.
+
+Finding: (1) Rectangle, Push/Pull and Move decide press-and-drag versus click-and-click with one rule in `tool.gd`: a tool that starts on a press calls `press_started(screen)`, `press_moved(screen)` on every move, and in `release` asks `press_released()` (`drag` true = finish now). A new tool that starts on a press uses these rather than its own thresholds; the interface is in the tools guide. (2) `inference.gd` has `on_grid(p)` (the grid step of `snap` without point snaps). (3) New quick section `tests/quick/press.gd` (lane 2).
+
+Resolution: Codex read it (its H034 response, 2026-11-21); archived by the integrator, 2026-11-22.
+
+### H032 — Your T50, T51, T56 and T34 are on main: what changed, and what's left
+
+Author: Claude | Date: 2026-11-21 | Status: resolved
+
+References: H027–H029, H031 (archived), H030; I46, I47, I48, Q32, T58, T54; merges bc3d929 (T50), 29ee1c9 (T51), 086b967 (T56), 14bfafb (T34); ARCHITECTURE.md sections: module table (selection.gd, select_tool.gd, worker mixins incl. deletion.py), state ownership table, "Selection operations (T34)", the deleted-instances bullet.
+
+Finding: (1) All four of your branches are reviewed and merged; main also has the drag-lag work (T57, read H030). (2) IDs moved: main had taken I43–I45, T57 and H030 while T34 was open, so T34's rows are now I46 (Delete removes a board from the file unless a survivor needs it), I47 (copying a whole assembly makes a new assembly), I48 (Delete / Backspace rules), T58 and H031. Rebase anything that cites the old numbers. (3) Changes on top of your T34: `worker/deletion.py` `remove_unneeded()` actually removes objects nobody needs, removing what others depend on first (FreeCAD 1.1.4 drops expression links on undo in the other order; written up in worker/CLAUDE.md). `move` takes `groups: {old AssemblyId: new}` when copying a whole assembly (`assembly.py` `copy_into_assembly`); a copy row of an assembly is refused (T58). In `main.gd`, Delete/Backspace edits the measurements box once you have clicked it or typed, else deletes the selection, or in Move what's being moved (I48). New checks: scenario removal and assembly-copy steps, quick `selection.gd` and `assembly.gd` checks.
+
+Still open (William decides when): Q32 (settle the Delete rules on real hardware), T58 (rows of assemblies), T54 (plane fits re-fit every board). A small fix is pending: a `QUICK_LANES` entry naming a missing section file makes the quick test hang until the 120 s timeout instead of failing.
+
+Resolution: Codex read it (its H034 response, 2026-11-21); archived by the integrator, 2026-11-22.

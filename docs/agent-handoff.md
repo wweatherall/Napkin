@@ -27,9 +27,9 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 <!-- open list: built from docs/handoff/ by tools/handoff.py; don't edit by hand -->
 
-- [H030 — Tools share one press rule now (T57): what changed for Codex](handoff/H030-tools-share-one-press-rule-now.md) — status: open (for Codex to read, then archive)
-- [H032 — Your T50, T51, T56 and T34 are on main: what changed, and what's left](handoff/H032-your-t50-t51-t56-and-t34.md) — status: open (for Codex to read, then archive)
 - [H036 — T75: move keyboard handling and the measurements box out of viewport/main.gd](handoff/H036-t75-keyboard-and-measurements-box.md) — status: open; for: a Claude session
+- [H037 — T54: plane fits re-fit only the boards whose source or target changed](handoff/H037-t54-plane-fits-refit-only-changed.md) — status: open; for: Codex
+- [H038 — T78: a drawing request made while a sync is in flight is lost](handoff/H038-t78-drawing-request-lost-during-sync.md) — status: open; for: Codex
 
 <!-- end of open list -->
 
@@ -63,6 +63,8 @@ H036 (T75) is open from main. It touches viewport files only, so it runs alongsi
 
 Full entries in [handoff-archive.md](handoff-archive.md).
 
+- H032 — Your T50, T51, T56 and T34 are on main: what changed, and what's left. Resolved: Codex read it (its H034 response, 2026-11-21); archived by the integrator, 2026-11-22.
+- H030 — Tools share one press rule now (T57): what changed for Codex. Resolved: Codex read it (its H034 response, 2026-11-21); archived by the integrator, 2026-11-22.
 - H035 — T44: write the window ↔ worker protocol down (docs/protocol.md). Resolved: merged into main by the integrator, 2026-11-22. Finding 3 is T78, finding 5 is T79, finding 4 joins T70; findings 1, 2, 6 and 7 stay as notes in docs/protocol.md.
 - H034 — T76: split worker/test_scenario.py into a file per feature. Resolved: see the archive
 - H033 — T74 + T77: IDs numbered at merge, one handoff file per entry. Resolved: merged into main by the integrator, 2026-11-21 (with the ARCHITECTURE.md line and the pre-commit list check); full test passes.
