@@ -25,6 +25,7 @@ TESTS=(
   "document|$GD --headless --path viewport --script res://test_document.gd|DOCUMENT TESTS"
   "selection|$GD --headless --path viewport --script res://test_selection.gd|SELECTION TESTS"
   "logsort|python3 tools/test_sort_decision_log.py|LOG SORT TESTS"
+  "ids|python3 tools/test_number_ids.py|ID TESTS"
 )
 PIDS=()
 for t in "${TESTS[@]}"; do

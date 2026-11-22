@@ -35,8 +35,12 @@ marked Superseded (never deleted). Ask William before countermanding an Active d
 - Codex reads `AGENTS.md` (its instruction file) at the start of each session; keep it in step with this section.
 - Nothing notifies either agent of the other's changes. At the start of a session, read the handoff and check
   `git branch -a` for `codex/*` branches with new commits; when you leave Codex something, tell William.
-- `docs/agent-handoff.md` is the shared scratchpad: read it when picking up work (open entries only). Resolved
-  entries move whole to `docs/handoff-archive.md` with a one-line index left behind; read the archive only for history.
+- `docs/agent-handoff.md` is the shared scratchpad: its rules and an open list; each open entry is its own file in
+  `docs/handoff/` (T77). Read the ones you're picking up. `python3 tools/handoff.py archive H0NN` moves a resolved
+  entry whole to `docs/handoff-archive.md` with a one-line index left behind; read the archive only for history.
+- New IDs (decisions, Work list items, questions, handoff entries) are placeholders on a branch: I-new-N, T-new-N,
+  H-new-N (a new entry is `docs/handoff/H-new-N-slug.md`). The integrator merges with `--no-commit`, runs
+  `python3 tools/number_ids.py` (`--dry-run` to look first), then commits; it gives each the next free number (T74).
 - Save context: don't read the big shared documents whole. Grep `docs/decision-log.md` by ID (`grep "^| I34 "`),
   and read `Codex's suggestions.md`, `FREECAD_FEATURE_MAP.md` and `ARCHITECTURE.md` by section (grep the heading,
   then read that range).

@@ -8,6 +8,10 @@ longer text (measurements, tests, edge cases) goes in a `### <ID>` section under
 sorted by ID (the pre-commit hook runs tools/sort_decision_log.py; its --check also matches rows to sections). Before 2026-11-21 it was a claude.ai Sheet
 (revision 83 was the last); git history has every earlier export.
 
+New IDs (T74): a branch never takes a number. It writes a placeholder, the kind's letter, "-new-" and its own count
+(I-new-N, T-new-N, Q-new-N, H-new-N; examples in prose keep the letter N, a digit makes a placeholder), and the
+integrator runs tools/number_ids.py on main at merge, which gives each the next free number everywhere it's cited.
+
 Rule P01: a new decision that contradicts an old one gets a new row naming the old ID; the old row is marked Superseded and moves to Superseded decisions, never deleted. Ask William before countermanding an Active decision.
 
 ## Decisions
@@ -262,10 +266,10 @@ Kept for history (P01: never deleted). Each names the decision that replaced it.
 | T71 | History stage 2: keep abandoned futures in memory and show the history panel on the right (from T36). | Open | U01 | Needs T67–T69. Spec: docs/specs/U01-history.md. |
 | T72 | History stage 3: keep branches across restarts, with checkpoints for old states (from T36). | Open | U01, A31, A32 | After T71 and T40. |
 | T73 | History stage 4: naming branches, comparing them, navigation polish (from T36). | Open | U01 | After T72. |
-| T74 | Decision-log and handoff IDs given at merge: a branch writes placeholders (I-new-1, T-new-1, H-new-1) and a script numbers them on main when merging, so two branches never take the same number (the I43–I45 clash). | In progress | P09 | Multi-agent work, 2026-11-21. Round 1, 2026-11-21: H033 (a second Claude, with T77). |
+| T74 | Decision-log and handoff IDs given at merge: a branch writes placeholders (I-new-N, T-new-N, H-new-N) and a script numbers them on main when merging, so two branches never take the same number (the I43–I45 clash). | In progress | P09 | Multi-agent work, 2026-11-21. Round 1, 2026-11-21: H033 (a second Claude, with T77). Built on claude/t74, for review: tools/number_ids.py (--dry-run), rule in this file's header; tested by tools/test_number_ids.py (ID TESTS 29/29, in the feature tests). |
 | T75 | Move keyboard handling and the measurements box out of viewport/main.gd (2,100 lines) into their own files; same behaviour, behind the existing tests. | Open | A33b | Multi-agent work: main.gd is where branches collide most. |
 | T76 | Split worker/test_scenario.py into a file per feature, found by name, so two branches add scenario steps without editing the same file. | In progress | P07 | Multi-agent work. The quick test already finds its sections by name (small fix bfbfa67). Round 1, 2026-11-21: H034 (Codex). |
-| T77 | Handoff entries that don't conflict: one file per entry (docs/handoff/), with the open list built from them. | In progress | P09 | Multi-agent work; numbers from T74. Round 1, 2026-11-21: H033 (with T74). |
+| T77 | Handoff entries that don't conflict: one file per entry (docs/handoff/), with the open list built from them. | In progress | P09 | Multi-agent work; numbers from T74. Round 1, 2026-11-21: H033 (with T74). Built on claude/t74, for review: open entries in docs/handoff/, tools/handoff.py list / archive / split; H030, H032–H035 moved word for word; ID TESTS 29/29. |
 
 ## Tunables
 
