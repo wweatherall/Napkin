@@ -56,4 +56,4 @@ Order line, job table and Notes, all unchanged in form.
 Follow-up: startup.py's integrator reminder ("after a clear, re-arm the queue watch ... (H050)") could point to docs/integrator.md instead of the archived H050.
 For the integrator: add docs/integrator.md to ARCHITECTURE.md's Documentation ownership table (the integrator's work: lock, queue watch, review, merge, the map).
 
-Result: see branch claude/h070-trim-instructions; quick test passes but for the two H069 load flakes; CLAUDE.md 145→130, AGENTS.md 63→35, BOARD.md 69→59 lines, integrator-only rules moved to new docs/integrator.md
+Result: f76ba23; quick test passes but for the two H069 load flakes; CLAUDE.md 145→130, AGENTS.md 63→35, BOARD.md 69→59 lines, integrator-only rules moved to new docs/integrator.md
