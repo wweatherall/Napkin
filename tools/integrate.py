@@ -45,6 +45,59 @@ def has_markers(path):
     return bool(re.search(r"^(<<<<<<< |>>>>>>> )", text, re.M))
 
 
+VERSION_FILES = {"worker/serve.py": r"^PROTOCOL_VERSION = (\d+)$", "viewport/main.gd": r"^const PROTOCOL_VERSION := (\d+)$"}
+PROTOCOL_DOC = "docs/protocol.md"
+
+
+def protocol_version(text, pattern):
+    m = re.search(pattern, text or "", re.M)
+    return int(m.group(1)) if m else None
+
+
+def renumber_protocol(root, base, branch):
+    """A35: if the branch bumped the protocol version and main bumped it too since the branch left, the branch's
+    bump goes on top of main's (main 3 + a branch's 2 -> 3 becomes 4), in both constants and the protocol doc.
+    Returns (old, new) when it renumbered, else None."""
+    rel, pat = "worker/serve.py", VERSION_FILES["worker/serve.py"]
+    b = protocol_version(git("show", f"{base}:{rel}", root=root).stdout, pat)
+    t = protocol_version(git("show", f"{branch}:{rel}", root=root).stdout, pat)
+    m = protocol_version(git("show", f"HEAD:{rel}", root=root).stdout, pat)
+    if None in (b, t, m) or t == b or m == b:
+        return None
+    new = m + (t - b)
+    for f, p in VERSION_FILES.items():
+        path = os.path.join(root, f)
+        if os.path.isfile(path):
+            text = open(path, encoding="utf-8").read()
+            text = re.sub(p, lambda x: x.group(0).replace(x.group(1), str(new)), text, flags=re.M)
+            open(path, "w", encoding="utf-8").write(text)
+    doc = os.path.join(root, PROTOCOL_DOC)
+    if os.path.isfile(doc):
+        text = open(doc, encoding="utf-8").read()
+        text = re.sub(r"version is \*\*%d\*\*" % t, f"version is **{new}**", text)
+        text = re.sub(r"currently %d\b" % t, f"currently {new}", text)
+        open(doc, "w", encoding="utf-8").write(text)
+    return (t, new)
+
+
+IGNORED = ("docs/handoff/", "docs/agent-handoff.md", "docs/handoff-archive.md", "docs/decision-log.md")
+
+
+def outside_touches(root, branch, base):
+    """Files the branch changed that its job's Touches list doesn't name (P11). The job is the docs/handoff/ entry
+    the branch changed; coordination files (the handoff, the log) never count."""
+    changed = git("diff", "--name-only", base, branch, root=root).stdout.split()
+    jobs = [f for f in changed if f.startswith(handoff.FOLDER + "/")]
+    listed = set()
+    for rel in jobs:
+        text = git("show", f"{branch}:{rel}", root=root).stdout
+        listed |= handoff.touches(text)
+    if not jobs:
+        return None
+    return [f for f in changed if not f.startswith(IGNORED) and not f.endswith(".uid")
+            and not any(handoff._covers(t, f) or t == f for t in listed)]
+
+
 def rows(text):
     """{ID: (section heading, row)} for every ID-keyed table row."""
     out, section = {}, None
@@ -174,6 +227,12 @@ def main(argv):
         say(f"conflict markers still in: {', '.join(marked)} (the merge is left in progress)"); return 1
     git("add", "-A", root=root)
 
+    bumped = renumber_protocol(root, base, branch)
+    if bumped:
+        say(f"protocol version: the branch's {bumped[0]} is {bumped[1]} on main (main moved on since it left; A35)")
+    extra = outside_touches(root, branch, base)
+    if extra:
+        say("OUTSIDE ITS TOUCHES LIST: " + ", ".join(extra) + " (check the job's response says why)")
     for rel in answered_by(root, branch, base):
         say(f"resolved and archived {resolve(root, rel)}")
     for i, a in enumerate(argv):          # --status T33=Done: the integrator's verdict for the item the branch did
@@ -203,6 +262,10 @@ def main(argv):
         if gate.returncode != 0:
             print(gate.stdout[-2000:]); say("the merge is left uncommitted"); return 1
     msg = f"Merge {branch}: {subject}\n\nMerged by tools/integrate.py ({name})."
+    if bumped:
+        msg += f" Protocol version {bumped[0]} renumbered to {bumped[1]}."
+    if extra:
+        msg += "\nOutside its Touches list: " + ", ".join(extra) + "."
     if impact:
         msg += f"\n\nArchitecture-Impact: none - {impact}"
     msg += "\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"

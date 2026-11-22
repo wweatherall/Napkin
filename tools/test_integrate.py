@@ -99,4 +99,48 @@ check("no feature-test summary at all fails the gate", rc == 1 and "no feature-t
 check("the real known-failures list holds only failures with an open Work list item",
       all("# T" in l for l in open(os.path.join(HERE, "..", "tests", "known_failures.txt")) if l.strip() and not l.startswith("#")))
 
+
+# 4. The protocol version: a branch's bump goes on top of main's (A35), and files outside the Touches list are flagged.
+def write(root, rel, text):
+    os.makedirs(os.path.dirname(os.path.join(root, rel)) or root, exist_ok=True)
+    open(os.path.join(root, rel), "w").write(text)
+
+
+root = repo()
+write(root, "worker/serve.py", "PROTOCOL_VERSION = 2\n")
+write(root, "viewport/main.gd", "const PROTOCOL_VERSION := 2\n")
+write(root, "docs/protocol.md", "The wire protocol's own version is **2** (currently 2).\n")
+sh(root, "git", "add", "-A"); sh(root, "git", "commit", "-qm", "v2")
+sh(root, "git", "checkout", "-qb", "agent/y")
+write(root, "worker/serve.py", "PROTOCOL_VERSION = 3\n")
+write(root, "viewport/main.gd", "const PROTOCOL_VERSION := 3\n")
+write(root, "docs/protocol.md", "The wire protocol's own version is **3** (currently 3).\n")
+write(root, "worker/new_op.py", "x = 1\n")
+write(root, "viewport/other.gd", "# not in the job\n")
+write(root, "docs/handoff/H050-y.md", "### H050 — y\n\nAuthor: Claude | Date: 2026-11-22 | Status: answered\n\n"
+      "Touches: worker/serve.py, viewport/main.gd, worker/new_op.py, docs/protocol.md.\n")
+sh(root, "git", "add", "-A"); sh(root, "git", "commit", "-qm", "branch bumps to 3")
+sh(root, "git", "checkout", "-q", "main")
+write(root, "worker/serve.py", "PROTOCOL_VERSION = 3\n"); write(root, "viewport/main.gd", "const PROTOCOL_VERSION := 3\n")
+write(root, "docs/protocol.md", "The wire protocol's own version is **3** (currently 3).\n")
+sh(root, "git", "commit", "-qam", "main bumps to 3")
+integrator.take(integrator.lock_path(root), "tester", out=lambda *a: None)
+out = io.StringIO(); cwd = os.getcwd(); os.chdir(root)
+try:
+    with contextlib.redirect_stdout(out):
+        rc = integrate.main(["agent/y", "--as", "tester", "--no-gate"])
+finally:
+    os.chdir(cwd)
+said = out.getvalue()
+check("both bumped 2 -> 3: the branch's lands as 4, both constants and the doc",
+      open(os.path.join(root, "worker/serve.py")).read() == "PROTOCOL_VERSION = 4\n"
+      and open(os.path.join(root, "viewport/main.gd")).read() == "const PROTOCOL_VERSION := 4\n"
+      and "**4**" in open(os.path.join(root, "docs/protocol.md")).read() and "currently 4" in open(os.path.join(root, "docs/protocol.md")).read(), said)
+check("it says so", "renumbered" in said or "is 4 on main" in said, said)
+check("a file the job doesn't list is flagged, and only that one",
+      "OUTSIDE ITS TOUCHES LIST: viewport/other.gd" in said and "new_op.py (" not in said.split("OUTSIDE")[-1], said)
+check("the merge went in, and its message records both", rc == 0 and "renumbered to 4" in sh(root, "git", "log", "-1", "--format=%B").stdout
+      and "viewport/other.gd" in sh(root, "git", "log", "-1", "--format=%B").stdout, said)
+shutil.rmtree(root)
+
 print(f"INTEGRATE TESTS: {sum(RESULTS)} passed, {len(RESULTS) - sum(RESULTS)} failed")
