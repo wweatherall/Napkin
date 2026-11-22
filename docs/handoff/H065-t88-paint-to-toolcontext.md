@@ -1,6 +1,6 @@
 ### H065 — T88 step 1: Paint moves to ToolContext
 
-Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: open | For: either
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: answered | For: either
 
 References: T88, docs/specs/T88-tool-interface.md (§ paint_tool.gd, § Paint: ctx.paint, the delivery table's step 1),
 A34 (tool registry), H051 (ToolContext, merged 9581352), H046 (Line, the first context-only tool: follow its
@@ -53,3 +53,7 @@ test_tools.gd removes Paint from STILL_ON_MAIN. No message, protocol, or file-fo
 
 For the integrator: Update the viewport folder guides' module list and Paint migration marker to describe
 appearance.gd and five remaining legacy tools; architecture/protocol files were not edited.
+
+Commit: 8197861. No open behavior questions or follow-ups.
+
+Result: 8197861; quick test 240/240, ToolContext 82/82, registry 13/13, full gate passes; Paint uses only ToolContext and appearance owns the wood library, paint choice and paint command.
