@@ -29,19 +29,17 @@ so each agent has one Ready.
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H056 | Claude | **Ready** | T94: reshape the decision log (P23: live + archive, subjects, principles) | [H056](docs/handoff/H056-t94-log-reshape.md) | |
-| H053 | Claude | Queued | T91: integrate.py drafts the Work list result and the board | [H053](docs/handoff/H053-t91-merge-bookkeeping.md) | H056 (the log reshape) |
-| H054 | Claude | Queued | T92: tools/log.py add, for decision log rows | [H054](docs/handoff/H054-t92-log-add.md) | H056 (the log reshape) |
-| H055 | Claude | Queued | T93: startup.py shows what waits on William | [H055](docs/handoff/H055-t93-waiting-on-william.md) | H056 (the log reshape) |
-| H049 | Codex | **Ready** | T90: a faster gate (measure first) | [H049](docs/handoff/H049-faster-gate.md) | |
+| H053 | Claude | Queued | T91: integrate.py drafts the Work list result and the board | [H053](docs/handoff/H053-t91-merge-bookkeeping.md) | William: should the board's job table be generated from the handoffs (folded in here)? |
+| H054 | Claude | **Ready** | T92: tools/log.py add, for decision log rows | [H054](docs/handoff/H054-t92-log-add.md) | |
+| H055 | Claude | **Ready** | T93: startup.py shows what waits on William | [H055](docs/handoff/H055-t93-waiting-on-william.md) | |
 | H046 | Codex | **Ready** | T82: the Line tool, closed outlines and split faces (I51) | [H046](docs/handoff/H046-t82-lines-split-faces.md) | |
 | H052 | either | Queued | T66: lengths in the model's units (I57, I59) | [H052](docs/handoff/H052-t66-units.md) | T88's tool moves (every tool's vcb_value) |
-| H057 | either | Queued | T95: the feature tests find the test files themselves | [H057](docs/handoff/H057-t95-tests-find-themselves.md) | H049 (the test scripts) |
-| next | Claude | Queued | T88 steps 1-4: Paint, Select, Circle, Rectangle move to ToolContext (one job each, on files H046 doesn't touch) | written when ready | H056 (William's priority: the integrator's tools first) |
+| H057 | either | **Ready** | T95: the feature tests find the test files themselves | [H057](docs/handoff/H057-t95-tests-find-themselves.md) | |
+| next | Claude | Queued | T88 steps 1-4: Paint, Select, Circle, Rectangle move to ToolContext (one job each, on files H046 doesn't touch) | written when ready | H054, H055 (William's priority: the integrator's tools first) |
 
-Done since the board started: H033 (T74 + T77), H034 (T76), H035 (T44), T56 (startup report), H036 (T75), H037 (T54), H038 (T78), H039 (T80), H040 (T33), H043 (T85), H044 (T58), H042 (T70), H041 (T81, Circle), H045 (T86), H047 (T88 spec), H048 (T79), H051 (T88 step 0).
+Done since the board started: H033 (T74 + T77), H034 (T76), H035 (T44), T56 (startup report), H036 (T75), H037 (T54), H038 (T78), H039 (T80), H040 (T33), H043 (T85), H044 (T58), H042 (T70), H041 (T81, Circle), H045 (T86), H047 (T88 spec), H048 (T79), H051 (T88 step 0), H049 (T90), H056 (T94).
 
 ## Notes
 
-- Codex: H049 (a faster gate: measure first) is Ready; then H046 (Lines, I51 and I58), built on ToolContext.
-- Claude: William's priority (2026-11-22): the integrator's tools first, starting with H056 (the decision log reshape, P23); H053, H054, H055 follow on the new layout.
+- Codex: H046 (Lines, I51 and I58) is Ready, built on ToolContext; H057 (tests find themselves) is open to either agent.
+- Claude: William's priority (2026-11-22): the integrator's tools first. H054 and H055 are Ready (one session each; the log is now two files, P23: decision-log.md and decision-archive.md). H053 waits for William's answer on generating the board.

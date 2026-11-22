@@ -1,6 +1,6 @@
 ### H053 — T91: integrate.py drafts the Work list result and the board
 
-Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: queued (after H056) | For: Claude
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: queued (William: generate the board from the handoffs?) | For: Claude
 
 References: T91, P16, P17 (workers put their result in the handoff; the integrator copies it to the Work list), P20
 (integrate.py), P14 (BOARD.md), docs/agent-handoff.md (the response rules), AGENTS.md (Codex's copy of them).
