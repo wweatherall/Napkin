@@ -22,6 +22,8 @@ var ops: Array = []
 var counters := {"pr": 0, "r": 0, "b": 0, "pp": 0, "m": 0, "mv": 0, "mu": 0, "dt": 0, "as": 0, "a": 0, "sm": 0, "tg": 0, "hd": 0, "del": 0}
 var seq := 0                        # numbers each desired state; a reply counts only for the latest
 var in_flight := false
+var in_flight_seq := -1             # the seq of the sync in flight: only its answer clears in_flight (T70)
+var open_seq := -1                  # the seq of the latest open: an older open's answer is ignored (T70)
 var dirty := false                  # changed since the request in flight: send again when it returns
 var _drawing_pending := false       # include drawing=true in the next sync sent for this model
 var sent_at := {}                   # seq -> msec
@@ -38,6 +40,12 @@ var test_delay_ms := 0              # test hook (P02): ask the worker to sit on 
 # action list it left behind. Redo puts it back only while the list is still that one, so any new action (or an
 # amend, a rejection, another model) ends redo, as in SketchUp.
 var redo_stack: Array = []          # [{"op", "key": ops key right after its undo}], newest last
+
+
+static func seq_of(resp: Dictionary) -> int:
+	"""A reply's seq, or -1 when it has none (null or missing: it answers no request of ours)."""
+	var s = resp.get("seq")
+	return int(s) if typeof(s) in [TYPE_INT, TYPE_FLOAT] else -1
 
 
 static func ops_key(list: Array) -> String:
@@ -71,6 +79,7 @@ func _send() -> void:
 	var drawing := _drawing_pending
 	_drawing_pending = false
 	in_flight = true
+	in_flight_seq = seq
 	dirty = false
 	sent_at[seq] = Time.get_ticks_msec()
 	sent.emit(seq)
@@ -80,7 +89,9 @@ func _send() -> void:
 
 
 func on_sync_reply(resp: Dictionary) -> void:
-	"""The worker's answer to a sync. Only the answer for the latest state, with nothing newer waiting, counts."""
+	"""The worker's answer to a sync. Only the answer for the latest state, with nothing newer waiting, counts.
+	An answer to a request that isn't the one in flight (sent before a reconnect, T70) changes nothing."""
+	if not in_flight or seq_of(resp) != in_flight_seq: return
 	in_flight = false
 	if not resp.get("ok", false):
 		sync_failed.emit(str(resp.get("error", "?")))
@@ -108,6 +119,7 @@ func on_saved(resp: Dictionary) -> void:
 func on_link_up() -> void:
 	"""A new worker (or the same one back): whatever was in flight is gone, so send the model again."""
 	in_flight = false
+	in_flight_seq = -1
 	if not opened:
 		send_open()
 	else:
@@ -116,7 +128,16 @@ func on_link_up() -> void:
 
 # ---------------- opening and switching models ----------------
 func send_open(fresh := start_fresh and not opened) -> void:
-	client.send({"cmd": "open", "model": model_path, "fresh": fresh})
+	seq += 1                        # a sync answer still on its way is now out of date too
+	open_seq = seq
+	client.send({"cmd": "open", "model": model_path, "fresh": fresh, "seq": seq})
+
+
+func is_current_open(resp: Dictionary) -> bool:
+	"""An open reply answers the latest open, for the model this window has now (T70). A refusal or error for an
+	older open (a quick A -> B switch) is ignored as well, so it can't send the window back."""
+	if seq_of(resp) != open_seq: return false
+	return not resp.has("model") or String(resp["model"]) == model_path.simplify_path()
 
 
 func on_opened(resp: Dictionary, adopt: bool) -> void:

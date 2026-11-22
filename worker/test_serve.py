@@ -85,12 +85,15 @@ check("a worker started on port 0 binds a free port itself and reports it in SER
 try:
     m1, m2 = os.path.join(tmp, "one.FCStd"), os.path.join(tmp, "two.FCStd")
     a, b = Window(port), Window(port)
-    ha, hb = a.ask({"cmd": "hello"}, "hello"), b.ask({"cmd": "hello"}, "hello")
+    ha, hb = a.ask({"cmd": "hello", "seq": 11}, "hello"), b.ask({"cmd": "hello"}, "hello")
     check("both windows reach the same worker, which says who it is",
           ha and hb and ha["app"] == "shopsketch" and ha["pid"] == hb["pid"] and len(ha["worker"]) == 32, (ha, hb))
-    oa = a.ask({"cmd": "open", "model": m1, "fresh": True}, "open")
+    check("hello echoes its seq (T70)", ha and ha.get("seq") == 11 and "seq" in hb and hb["seq"] is None, (ha, hb))
+    oa = a.ask({"cmd": "open", "model": m1, "fresh": True, "seq": 12}, "open")
     ob = b.ask({"cmd": "open", "model": m2, "fresh": True}, "open")
     check("each window opens its own model", oa["ok"] and ob["ok"], (oa, ob))
+    check("an open reply echoes its seq and model, so a late one can be told apart (T70)",
+          oa.get("seq") == 12 and oa["model"] == os.path.abspath(m1), oa)
     sa, sb = sync(a, m1, board_ops(300), 1), sync(b, m2, board_ops(500), 1)
     vols = []
     for m in (m1, m2):
@@ -100,20 +103,22 @@ try:
           (sa.get("error"), sb.get("error"), vols))
     saved = a.wait("saved", timeout=10)
     check("the window that owns a model hears when it's saved", saved is not None and saved["model"] == m1, saved)
-    ob2 = b.ask({"cmd": "open", "model": m1}, "open")
+    ob2 = b.ask({"cmd": "open", "model": m1, "seq": 13}, "open")
     focus = a.wait("focus", timeout=5)
     check("opening a model another window has is refused (one window per model)",
-          ob2 and not ob2["ok"] and ob2["error"] == "already_open", ob2)
+          ob2 and not ob2["ok"] and ob2["error"] == "already_open" and ob2.get("seq") == 13, ob2)
+    fl = b.ask({"cmd": "flush", "seq": 14}, "flush")
+    check("flush echoes its seq (T70)", fl and fl.get("seq") == 14, fl)
     check("and the window that has it is asked to come forward", focus is not None and focus["model"] == m1, focus)
     sb2 = sync(b, m1, board_ops(50), 2)
     check("a sync on another window's model is refused too", not sb2["ok"] and "another window" in sb2["error"], sb2)
-    bye = a.ask({"cmd": "bye"}, "bye")
-    check("a window leaving says bye (its model saved and let go)", bye is not None and bye["ok"], bye)
+    bye = a.ask({"cmd": "bye", "seq": 15}, "bye")
+    check("a window leaving says bye (its model saved and let go)", bye is not None and bye["ok"] and bye.get("seq") == 15, bye)
     a.close()
     ob3 = b.ask({"cmd": "open", "model": m1}, "open")
     check("then the other window can open it, with its work", ob3["ok"] and len(ob3["ops"]) == 2, ob3)
-    q = b.ask({"cmd": "quit"}, "quit")
-    check("quit from the last window stops the worker", q["stopped"] and proc.wait(timeout=20) == 0, q)
+    q = b.ask({"cmd": "quit", "seq": 16}, "quit")
+    check("quit from the last window stops the worker", q["stopped"] and q.get("seq") == 16 and proc.wait(timeout=20) == 0, q)
     # idle exit: a fresh worker stops by itself after its last window disconnects
     proc, port = start_worker()
     c = Window(port)
