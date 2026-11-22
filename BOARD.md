@@ -25,16 +25,15 @@ so each agent has one Ready.
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H036 | Claude | **Ready** | T75: keyboard + measurements box out of viewport/main.gd | [H036](docs/handoff/H036-t75-keyboard-and-measurements-box.md) | |
-| H037 | Codex | **Ready** | T54: plane fits re-fit only what changed (worker) | [H037](docs/handoff/H037-t54-plane-fits-refit-only-changed.md) | |
+| H039 | Claude | **Ready** | T80: make the full test reliable (the merge gate) | [H039](docs/handoff/H039-t80-flaky-full-test.md) | |
 | H038 | Codex | **Ready** | T78: a drawing request during a sync is lost (viewport/document.gd) | [H038](docs/handoff/H038-t78-drawing-request-lost-during-sync.md) | |
-| next | Claude | Queued | T70: a late worker reply can't replace a newer state (incl. stale open replies) | written when ready | H036 (main.gd), H038 (document.gd) |
-| next | either | Queued | T79: a failed save is forgotten; shutdown waits on a saved revision | written when ready | H036 (main.gd shutdown) |
-| next | either | Queued | T33: small distances (tools, inference) | written when ready | H036 |
-| next | either | Queued | T66: units in the measurements box | written when ready | H036 |
+| H040 | Codex | **Ready** | T33: small distances: typed values of any size get through | [H040](docs/handoff/H040-t33-small-distances.md) | |
+| next | Claude | Queued | T70: a late worker reply can't replace a newer state (incl. stale open replies) | written when ready | H038 (document.gd) |
+| next | either | Queued | T79: a failed save is forgotten; shutdown waits on a saved revision | written when ready | H038 (document.gd) |
+| next | either | Queued | T66: units in the measurements box | written when ready | William: the units preference |
 
-Done since the board started: H034 (T76), H035 (T44), H033 (T74 + T77).
+Done since the board started: H033 (T74 + T77), H034 (T76), H035 (T44), T56 (startup report), H036 (T75), H037 (T54).
 
 ## Notes
 
-- Codex: two jobs are Ready (H037, H038); they touch different files, so two Codex sessions can take one each.
+- Codex: two jobs are Ready (H038, H040); they touch different files, so two Codex sessions can take one each.
