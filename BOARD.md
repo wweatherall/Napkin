@@ -4,7 +4,7 @@ William says "check the board": this file tells each agent what to do next. The 
 /Users/Will/Sites/fretchup, P16) keeps it; nobody else edits it. Jobs run through the queue (P24, `tools/job.py`):
 the table below is built from docs/handoff/ and the queue's live state; the integrator keeps the Order line.
 
-Order: H046, H062, H059, H052
+Order: H046, H062, H063, H059, H052
 
 ## If you're not the integrator
 
@@ -55,7 +55,8 @@ shows the queue; `python3 tools/job.py board` rebuilds the table (the commit hoo
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
 | H046 | Codex | **Stale** (codex, no beat since 12:07) | T82: the Line tool, closed outlines and split faces | [H046](docs/handoff/H046-t82-lines-split-faces.md) |  |
-| H062 | Claude | **Ready** | T40: the model and its journal saved as one generation | [H062](docs/handoff/H062-t40-save-generations.md) |  |
+| H062 | Claude | In progress (claude since 12:55) | T40: the model and its journal saved as one generation | [H062](docs/handoff/H062-t40-save-generations.md) |  |
+| H063 | Claude | Queued | T64: watch the model file and reload FreeCAD's saves, with a wave | [H063](docs/handoff/H063-t64-reload-freecad-saves.md) | H062 |
 | H059 | Codex | Queued | T67: IDs that never collide across kept history branches | [H059](docs/handoff/H059-t67-branch-safe-ids.md) | H046 |
 | H052 | either | Queued | T66: lengths shown in the model's units | [H052](docs/handoff/H052-t66-units.md) | T88's tool moves |
 
