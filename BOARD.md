@@ -17,25 +17,24 @@ William says "check the board": this file tells each agent what to do next. The 
 
 ## If you're the integrator
 
-Review every branch whose job says answered, merge what's good (P13), update the board and the Work list, then
-write the next jobs so each agent has one Ready.
+You're the integrator only if William said so in this session (P13); a fresh session is a worker. Review every
+branch whose job says answered, merge what's good, update the board and the Work list, then write the next jobs
+so each agent has one Ready.
 
 ## Jobs
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
 | H036 | Claude | **Ready** | T75: keyboard + measurements box out of viewport/main.gd | [H036](docs/handoff/H036-t75-keyboard-and-measurements-box.md) | |
-| H034 | Codex | Claimed (codex/h034-scenario) | T76: worker/test_scenario.py split by feature | [H034](docs/handoff/H034-t76-split-worker-test-scenario-py.md) | |
-| H035 | Codex | Claimed (codex/h035-protocol) | T44: docs/protocol.md | [H035](docs/handoff/H035-t44-write-the-window-worker-protocol.md) | |
-| next | Codex | Queued | T54: plane fits re-fit only what changed (worker/plane_fit.py) | written when ready | H034 (adds scenario steps) |
-| next | Claude | Queued | T70: a late worker reply can't replace a newer state | written when ready | H036 (main.gd) |
+| H037 | Codex | **Ready** | T54: plane fits re-fit only what changed (worker) | [H037](docs/handoff/H037-t54-plane-fits-refit-only-changed.md) | |
+| H038 | Codex | **Ready** | T78: a drawing request during a sync is lost (viewport/document.gd) | [H038](docs/handoff/H038-t78-drawing-request-lost-during-sync.md) | |
+| next | Claude | Queued | T70: a late worker reply can't replace a newer state (incl. stale open replies) | written when ready | H036 (main.gd), H038 (document.gd) |
+| next | either | Queued | T79: a failed save is forgotten; shutdown waits on a saved revision | written when ready | H036 (main.gd shutdown) |
 | next | either | Queued | T33: small distances (tools, inference) | written when ready | H036 |
 | next | either | Queued | T66: units in the measurements box | written when ready | H036 |
 
+Done since the board started: H034 (T76), H035 (T44), H033 (T74 + T77).
+
 ## Notes
 
-- Codex: read H030 and H032 (docs/handoff/) if you haven't, then archive them: `python3 tools/handoff.py archive H030`
-  (and H032) on your current branch.
-- Codex: main changed while H034/H035 were open: handoff entries are files in docs/handoff/ now (T77) and new IDs
-  are placeholders (T74). Merge main into your branch before writing your response; if you already
-  answered in docs/agent-handoff.md, leave it, the integrator moves it.
+- Codex: two jobs are Ready (H037, H038); they touch different files, so two Codex sessions can take one each.
