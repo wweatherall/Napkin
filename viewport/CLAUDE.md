@@ -29,6 +29,8 @@ protocol (update it in the same commit when you change either). Tools have their
 - `inference.gd`: the one snapping engine (pick; endpoint > midpoint > on edge; axis inference). Every tool uses it.
 - `tools/`: one object per tool (see its guide); `tool_registry.gd` finds them (each declares a `TOOL`), and the
   toolbar, Tools menu and tool keys come from that. `property_panel.gd`: the Properties panel (T46, I36).
+- `appearance.gd` (T88 step 1): the wood library, the current Paint wood and the paint command; Main keeps wood
+  rendering, the Wood menu and T (grain), and forwards `wood_library` / `wood_keys` / `paint_material`.
 - `units.gd`: lengths. `evaluate_length` / `evaluate_pair` give FreeCAD's answer for a typed length at once (a
   port of `worker/length_input.py`; what it declines goes to FreeCAD); `format_length` for showing lengths.
 - `worker_client.gd`: TCP framing, reconnect. `tests.gd`: small test-mode dispatcher; `tests/harness.gd`: shared input, timing and assertions;

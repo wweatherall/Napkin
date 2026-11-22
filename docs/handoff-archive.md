@@ -2311,7 +2311,7 @@ William's concerns from the 2026-11-22 review, still open: process work crowding
 changes for a while; H070 trims the instructions every session reads); flaky tests (H069; don't make re-running the
 gate a habit); decisions relayed by an agent ("William approved ..." in another agent's row) can't be verified:
 proposed rule, not yet decided: such a row says it was relayed and William glances at it; never write an example
-placeholder (P42 style) in prose: number_ids.py numbers it at merge; H059's viewport test edits were skimmed,
+placeholder (a P-placeholder as an example) in prose: number_ids.py numbers it at merge; H059's viewport test edits were skimmed,
 not read line by line; Q4 feel test on real hardware.
 
 How merges go (P28 since 2026-11-22): ARCHITECTURE.md and docs/protocol.md are the integrator's. A job with

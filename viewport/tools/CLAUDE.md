@@ -19,12 +19,12 @@ The viewport guide (`../CLAUDE.md`) covers drafts, waves and the rules for drawi
   plane_dest, ray, project, cursor, grid), `ctx.model` (boards' triangles, profiles, stock frames, cuts),
   `ctx.selection` (ids, context, unit_of, set_ids, enter, ...), `ctx.document` (next_id, op, append, remove, sync),
   `ctx.view` (preview, marker, guides, selection box, face highlight, register_profile), `ctx.ui` (typed text,
-  measurements, tooltip, rejection note, New board) and `ctx.paint`. Answers are copies; no adapter gives out
+  measurements, tooltip, rejection note, New board) and `ctx.paint` (`current_name`, `apply`; owned by `../appearance.gd`). Answers are copies; no adapter gives out
   Main, a node, a material or a cache map. Pure geometry is `Geo` (`../tool_geometry.gd`), preloaded in tool.gd.
 - Legacy, until each tool moves (T88 steps 1–6): `uses_main()` is the temporary marker. While it returns true
-  (the six legacy tools), main.gd also calls `setup(m)`, giving `m` (main.gd) and `infer` (inference.gd). A tool
+  (the five legacy tools: Select, Rectangle, Circle, Push/Pull, Move), main.gd also calls `setup(m)`, giving `m` (main.gd) and `infer` (inference.gd). A tool
   moved to the context overrides `uses_main()` to return false, uses only `ctx` and `Geo`, and leaves
-  `STILL_ON_MAIN` in `../test_tools.gd` in the same commit. A new tool (Line, H046) starts on the context.
+  `STILL_ON_MAIN` in `../test_tools.gd` in the same commit. A new tool (Line, H046) starts on the context; Paint (H065) is the worked example of a move.
   Snap only through inference (`ctx.pick`, or `infer` / `m.snap()` / `m.pick()` in a legacy tool): one snapping
   engine for every tool (I03b).
 - `mouse_moved`, `click`, `double_click`, `release` (a press-and-drag ends here), `key(e)` (keys the tool handles
@@ -64,7 +64,7 @@ geometry and Main's wrappers agreeing, and no main.gd reference in the context, 
 ## The tools
 - `select_tool.gd` (Space): click selects (from outside, an assembly or array row whole), Shift-click adds or
   removes, empty space clears; drag right selects enclosed units, left selects crossing units, Shift adds. Double-click enters an assembly or array (T20), Esc cancels a box before leaving. Delete acts on the reusable selection (T34).
-- `paint_tool.gd` (no key yet, Q14): paints the Wood menu's wood; a linked board paints its family. T turns grain.
+- `paint_tool.gd` (no key yet, Q14; context-only, H065): paints the Wood menu's wood; a linked board paints its family. T turns grain.
 - `rect_tool.gd` (R): click a face or the ground, then click or type `width, height` (or press-and-drag, I43). Its
   second corner ignores snaps that would leave a side at zero (I44).
 - `line_tool.gd` (L, T82): context-only click-click chains and single press-drag-release segments; typed lengths follow the cursor. Esc ends a chain, clicking its start closes a polygon profile. Each segment is a saved `line` op, with world-mm endpoint and plane; explicit snap flags distinguish edge snaps from free endpoints; the closing op also holds the ordered outline. Presenter registers drawings through `ctx.view.register_line`; polygon profiles share `target.rect` Push/Pull. `regions.gd` finds the cell under Push/Pull from the source face and coplanar saved lines, including holes; the op carries `target.region` with its outline and holes. Unsplit profiles retain their exact native path. Curved boundary cells are refined against native arcs by FreeCAD.
