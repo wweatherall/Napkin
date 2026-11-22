@@ -21,8 +21,9 @@ marked Superseded (never deleted). Ask William before countermanding an Active d
   good enough (review done, full test passes) and pushes main after merging (P16); other sessions never merge or push.
 - Quick test after every change; full test when it fails or before a merge. Add a quick-test step per feature.
 - New behaviour choices are his: ask (one question at a time, with a recommendation) and log the answer (P01).
-- One Work list item per session where possible: finish it (tests, commit, the result in your handoff, a handoff
-  note if Codex is affected), then start the next in a fresh session. The files carry the state, not the chat.
+- One Work list item at a time: finish it (tests, commit, the result in your handoff, a handoff note if Codex is
+  affected) before the next; a worker session takes at most 3 (P27), then a fresh session. The files carry the
+  state, not the chat.
 - Tests are the project's memory: every behaviour gets a named check, so nobody has to remember how it works.
 - Small fixes take the light path (P22, was P08): nothing William would notice changes (or the code is made to do what a
   logged decision says), no protocol, file format, module boundary or saving is touched, and it's ~30 lines or less.

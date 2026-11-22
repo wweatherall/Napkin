@@ -11,7 +11,8 @@ Order: H046, H061, H059, H052
 1. `python3 tools/job.py take --as claude` (or `--as codex`), run anywhere in the repository: it gives you the
    first Ready job for you whose files don't overlap a job in progress, makes its worktree (`../fretchup-<id>`)
    and branch from main, and prints the job's handoff. A returned job comes first and continues its branch, with
-   the integrator's notes. Nothing Ready for you? It says so: tell William and stop.
+   the integrator's notes. Nothing Ready for you? Run `python3 tools/job.py take --wait` in the background;
+   it takes the next job when one is Ready, or stops after 20 min (then tell William).
 2. Read "Notes" below for anything addressed to you, then do the job in its worktree.
 3. The dead man's switch: anything you do through the job pushes its deadline back (30 minutes): a commit, a
    quick test run from the worktree, any `job.py` command. Check in every 15-30 minutes with
@@ -28,8 +29,8 @@ Order: H046, H061, H059, H052
    set its Status to answered, commit, then
    `python3 tools/job.py done`. It refuses until the response, the Status and a quick-test pass on your latest
    commit are there (it runs the quick test if that commit has none; `python3 tools/job.py test` runs and
-   records it any time). It tells the integrator; tell William "ready for review: <ID>". Don't take the
-   integrator lock.
+   records it any time). It tells the integrator; tell William "ready for review: <ID>", then
+   `take --wait` for the next (at most 3 a session, P27). Don't take the integrator lock.
 
 ## If you're the integrator
 
