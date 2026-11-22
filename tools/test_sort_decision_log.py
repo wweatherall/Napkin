@@ -58,4 +58,10 @@ check("Done, In progress and 'Open (queued: H041)' are accepted", not any(p[:3] 
 check("the real decision log uses only allowed statuses",
       s.status_problems(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "docs", "decision-log.md"), encoding="utf-8").read()) == [])
 
+arch = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "docs", "decision-archive.md")
+check("docs/decision-log.md and docs/decision-archive.md are tidy as a pair, with no problems (P23)",
+      s.check_files(text, open(arch, encoding="utf-8").read()) == [])
+check("a live file with no archive beside it (before P23) is only sorted",
+      not any("not sorted" in p for p in s.check_files(s.sort_text(DOC))) and any("not sorted" in p for p in s.check_files(DOC)))
+
 print(f"LOG SORT TESTS: {sum(RESULTS)} passed, {len(RESULTS) - sum(RESULTS)} failed")

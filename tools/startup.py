@@ -125,8 +125,8 @@ def find_row(log, ident):
     return None
 
 
-def work_list_ids(log):
-    return {cells(l)[0] for l in section(log, "Work list") if l.startswith("| ") and not l.startswith("| #")}
+def work_list_ids(log, heading="Work list"):
+    return {cells(l)[0] for l in section(log, heading) if l.startswith("| ") and not l.startswith("| #")}
 
 
 def cited_ids(row):
@@ -144,21 +144,33 @@ def details_note(row):
     return "  (has a ### section under Details)" if "(Details below.)" in row else ""
 
 
-def report_ids(log, ids):
-    """Lines for each ID asked for; returns (lines, unknown IDs)."""
-    lines, unknown, wl = [], [], work_list_ids(log)
+ARCHIVE_NOTE = "  [in the archive]"
+
+
+def find_either(log, archive, ident):
+    """(row, note) from the live log, else the archive (P23), else (None, "")."""
+    row = find_row(log, ident)
+    if row is not None:
+        return row, ""
+    row = find_row(archive, ident)
+    return (row, ARCHIVE_NOTE) if row is not None else (None, "")
+
+
+def report_ids(log, ids, archive=""):
+    """Lines for each ID asked for, from docs/decision-log.md or docs/decision-archive.md; returns (lines, unknown IDs)."""
+    lines, unknown, wl = [], [], work_list_ids(log) | work_list_ids(archive, "Done work")
     for ident in ids:
-        row = find_row(log, ident)
+        row, note = find_either(log, archive, ident)
         if row is None:
             unknown.append(ident)
-            lines.append(f"{ident}: not found in docs/decision-log.md")
+            lines.append(f"{ident}: not found in docs/decision-log.md or docs/decision-archive.md")
             continue
-        lines.append(f"== {ident}")
+        lines.append(f"== {ident}" + note)
         lines.append(row.strip() + details_note(row))
         if ident in wl:
             for cid in cited_ids(row):
-                crow = find_row(log, cid)
-                lines.append(f"  {cid}: " + (shorten(crow) + details_note(crow) if crow else "not found"))
+                crow, cnote = find_either(log, archive, cid)
+                lines.append(f"  {cid}: " + (shorten(crow) + details_note(crow) + cnote if crow else "not found"))
     return lines, unknown
 
 
@@ -216,9 +228,10 @@ def main(argv):
 
     if argv:
         log = git("show", "main:docs/decision-log.md", cwd=root)
-        lines, unknown = report_ids(log, argv)
+        archive = git("show", "main:docs/decision-archive.md", cwd=root)
+        lines, unknown = report_ids(log, argv, archive)
         print()
-        print("Decision log (main:docs/decision-log.md):")
+        print("Decision log (main:docs/decision-log.md, then main:docs/decision-archive.md):")
         print("\n".join(lines))
         if unknown:
             return 1

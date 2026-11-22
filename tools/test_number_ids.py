@@ -250,4 +250,11 @@ check("a queued job doesn't count", handoff.overlaps_in({"a.md": A, "b.md": B.re
 check("a glob covers the files under it", dict(handoff.overlaps_in({"a.md": A, "d.md": entry("H045", "x",
       extra="Touches: viewport/tools/*.\n")})).get("viewport/tools/circle_tool.gd") == ["H041", "H045"])
 
+# P23: the decision archive's rows count as taken, so a new number never repeats an archived one
+root = tree({"docs/decision-archive.md": "# archive\n\n## Done work\n\n| # | Item | Status |\n|---|---|---|\n| T90 | old | Done |\n",
+             "notes.md": "next: T-new-1\n"})
+got, said = run(root)
+check("an archived T90 makes the next Work list number T91", got.get("T-new-1") == "T91")
+shutil.rmtree(root)
+
 print(f"ID TESTS: {sum(RESULTS)} passed, {len(RESULTS) - sum(RESULTS)} failed")
