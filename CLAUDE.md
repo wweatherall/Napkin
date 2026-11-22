@@ -13,8 +13,9 @@ marked Superseded (never deleted). Ask William before countermanding an Active d
 ## Working with William
 - He wants a partner working through the Work list one item at a time, so nothing gets missed. Say which item
   you're on; when it's done, record the result in the Work list (commit, tests).
-- Each item on its own branch; commit when its tests pass. Merge into main and push only when William says so
-  (an earlier "merge and push" doesn't carry over to later work).
+- Each item on its own branch; commit when its tests pass. The integrator merges into main when it judges a branch
+  good enough (review done, full test passes; P13); other sessions never merge. Push only when William says so
+  (an earlier "push" doesn't carry over to later work).
 - Quick test after every change; full test when it fails or before a merge. Add a quick-test step per feature.
 - New behaviour choices are his: ask (one question at a time, with a recommendation) and log the answer (P01).
 - One Work list item per session where possible: finish it (tests, commit, Work list result, a handoff
@@ -29,11 +30,18 @@ marked Superseded (never deleted). Ask William before countermanding an Active d
   for a working prototype.
 
 ## Working with Codex (ChatGPT)
+- One Claude session is the integrator (P13): it assigns jobs in the handoff's Jobs section, reviews and merges.
+  Any other session (Claude or Codex) takes the job it's given, works in its own worktree and delivers to the
+  integrator; it doesn't merge into main.
 - Codex reads `AGENTS.md` (its instruction file) at the start of each session; keep it in step with this section.
 - Nothing notifies either agent of the other's changes. At the start of a session, read the handoff and check
   `git branch -a` for `codex/*` branches with new commits; when you leave Codex something, tell William.
-- `docs/agent-handoff.md` is the shared scratchpad: read it when picking up work (open entries only). Resolved
-  entries move whole to `docs/handoff-archive.md` with a one-line index left behind; read the archive only for history.
+- `docs/agent-handoff.md` is the shared scratchpad: its rules and an open list; each open entry is its own file in
+  `docs/handoff/` (T77). Read the ones you're picking up. `python3 tools/handoff.py archive H0NN` moves a resolved
+  entry whole to `docs/handoff-archive.md` with a one-line index left behind; read the archive only for history.
+- New IDs (decisions, Work list items, questions, handoff entries) are placeholders on a branch: I-new-N, T-new-N,
+  H-new-N (a new entry is `docs/handoff/H-new-N-slug.md`). The integrator merges with `--no-commit`, runs
+  `python3 tools/number_ids.py` (`--dry-run` to look first), then commits; it gives each the next free number (T74).
 - Save context: don't read the big shared documents whole. Grep `docs/decision-log.md` by ID (`grep "^| I34 "`),
   and read `Codex's suggestions.md`, `FREECAD_FEATURE_MAP.md` and `ARCHITECTURE.md` by section (grep the heading,
   then read that range).

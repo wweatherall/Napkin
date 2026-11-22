@@ -4,13 +4,15 @@ Shared scratchpad for Claude and Codex. Created by Codex on 2026-11-21 at Willia
 
 ## How to use this file
 
-- Read this file when picking up work; append a dated, signed response when answering an entry. File changes do not automatically notify the other agent.
+- Each open entry is its own file in [handoff/](handoff/) (T77), listed under "Open exchanges" below. Read this file, then the entries you're picking up; append a dated, signed response at the end of an entry's file when answering it. File changes do not automatically notify the other agent.
 - Keep entries short: a stable ID, author, date, status (open, answered, resolved), relevant references, and a concrete request or finding.
-- Preserve the other agent's wording. Append responses under the relevant entry; update its status when appropriate. Re-read before writing and avoid simultaneous edits.
+- Preserve the other agent's wording. Append responses at the end of the entry's file; update its status when appropriate. Re-read before writing and avoid simultaneous edits.
 - Distinguish reported completion from independently verified behaviour. Include a commit or test result when available.
 - This file coordinates work; it does not approve new behaviour or override William's decisions. Do not treat an entry addressed to an agent as authorization to start unrelated implementation.
 - Move lasting specifications to the suggestions/design documents and approved decisions to the decision log. Keep a short resolution here linking to them.
-- Keep this file short (both agents read it at the start of each job). When an entry is resolved, move it whole to [handoff-archive.md](handoff-archive.md), at the bottom, and add one line for it under "Archived" below: ID, subject, outcome. Either agent may archive an entry the other resolved. Read the archive only when you need an entry's history.
+- A new entry is a new file, `docs/handoff/H-new-N-short-slug.md` (copy the template at the bottom; N = 1, 2 ... on your branch); the integrator numbers it at merge with `tools/number_ids.py` (T74). The open list is built from the folder by `python3 tools/handoff.py list`; don't edit it by hand (the merge step rebuilds it; on a conflict in it, run the command).
+- Keep this file short (both agents read it at the start of each job). When an entry is resolved, `python3 tools/handoff.py archive H0NN` moves it whole to [handoff-archive.md](handoff-archive.md), at the bottom, and adds one line for it under "Archived" below: ID, subject, outcome (its Resolution line). Either agent may archive an entry the other resolved. Read the archive only when you need an entry's history.
+- An entry written straight into this file by habit: `python3 tools/handoff.py split` moves it to its own file.
 
 ## References and authority
 
@@ -21,42 +23,47 @@ Shared scratchpad for Claude and Codex. Created by Codex on 2026-11-21 at Willia
 
 ## Open exchanges
 
-### H030 — Tools share one press rule now (T57): what changed for Codex
+<!-- open list: built from docs/handoff/ by tools/handoff.py; don't edit by hand -->
 
-Author: Claude | Date: 2026-11-21 | Status: open (for Codex to read, then archive)
+- [H030 — Tools share one press rule now (T57): what changed for Codex](handoff/H030-tools-share-one-press-rule-now.md) — status: open (for Codex to read, then archive)
+- [H032 — Your T50, T51, T56 and T34 are on main: what changed, and what's left](handoff/H032-your-t50-t51-t56-and-t34.md) — status: open (for Codex to read, then archive)
+- [H034 — T76: split worker/test_scenario.py into a file per feature](handoff/H034-t76-split-worker-test-scenario-py.md) — status: open; for: Codex
+- [H035 — T44: write the window ↔ worker protocol down (docs/protocol.md)](handoff/H035-t44-write-the-window-worker-protocol.md) — status: open; for: Codex (a second session, or after H034)
+- [H036 — T75: move keyboard handling and the measurements box out of viewport/main.gd](handoff/H036-t75-keyboard-and-measurements-box.md) — status: open; for: a Claude session
 
-References: I43 (replaces I29), I44, I45, T57; viewport/tools/tool.gd, viewport/tools/CLAUDE.md, ARCHITECTURE.md (module table: tool.gd, inference.gd rows); merge cb09ad7.
+<!-- end of open list -->
 
-Finding: (1) Rectangle, Push/Pull and Move decide press-and-drag versus click-and-click with one rule in `tool.gd`: a tool that starts on a press calls `press_started(screen)`, `press_moved(screen)` on every move, and in `release` asks `press_released()` (`drag` true = finish now). A new tool that starts on a press uses these rather than its own thresholds; the interface is in the tools guide. (2) `inference.gd` has `on_grid(p)` (the grid step of `snap` without point snaps). (3) New quick section `tests/quick/press.gd` (lane 2).
+## Jobs, round 1 (assigned by the integrator, approved by William, 2026-11-21)
 
-### H032 — Your T50, T51, T56 and T34 are on main: what changed, and what's left
+The integrator is a Claude session in /Users/Will/Sites/fretchup: it hands out jobs, reviews branches and merges
+them when William says. Round 1 clears the spots where parallel branches collide (T74–T77) and writes the
+protocol down (T44). The three jobs touch different files and can run at the same time.
 
-Author: Claude | Date: 2026-11-21 | Status: open (for Codex to read, then archive)
+Rules for every job (Claude or Codex):
 
-References: H027–H029, H031 (archived), H030; I46, I47, I48, Q32, T58, T54; merges bc3d929 (T50), 29ee1c9 (T51), 086b967 (T56), 14bfafb (T34); ARCHITECTURE.md sections: module table (selection.gd, select_tool.gd, worker mixins incl. deletion.py), state ownership table, "Selection operations (T34)", the deleted-instances bullet.
+- Your own worktree and branch from main, never a checkout in /Users/Will/Sites/fretchup (the integrator works
+  there). Claude: `git worktree add ../fretchup-claude-<item> -b claude/<item> main`. Codex: `codex/<item>`.
+- Touch only the files your job lists. If you need another file, say so in chat and in your response first:
+  another job may own it. Shared hot spots (your Work list row, your handoff response, a line in
+  ARCHITECTURE.md) are small edits made at the end, after merging main into your branch.
+- Use the IDs given here; if you need a new decision or Work list ID, take a placeholder (I-new-N, T-new-N with N = 1,
+  2 ...) and the integrator numbers it at merge (`tools/number_ids.py`, T74).
+- Before handing back: `tools/quicktest.sh` passes in your worktree (own ports; William's open app doesn't
+  matter). FreeCAD tests run with freecadcmd 1.1.4; it runs a script a second time when it raises: read the first error.
+- Commit with `git -c core.hooksPath=.githooks commit`. Don't merge into main or push.
+- When done, append a response under your job: branch, commit, what you verified (commands and results),
+  architecture sections changed, what's still open. Set Status to answered and tell William it's ready for review.
+  Behaviour choices are William's: ask in chat, one question at a time, with a recommendation.
 
-Finding: (1) All four of your branches are reviewed and merged; main also has the drag-lag work (T57, read H030). (2) IDs moved: main had taken I43–I45, T57 and H030 while T34 was open, so T34's rows are now I46 (Delete removes a board from the file unless a survivor needs it), I47 (copying a whole assembly makes a new assembly), I48 (Delete / Backspace rules), T58 and H031. Rebase anything that cites the old numbers. (3) Changes on top of your T34: `worker/deletion.py` `remove_unneeded()` actually removes objects nobody needs, removing what others depend on first (FreeCAD 1.1.4 drops expression links on undo in the other order; written up in worker/CLAUDE.md). `move` takes `groups: {old AssemblyId: new}` when copying a whole assembly (`assembly.py` `copy_into_assembly`); a copy row of an assembly is refused (T58). In `main.gd`, Delete/Backspace edits the measurements box once you have clicked it or typed, else deletes the selection, or in Move what's being moved (I48). New checks: scenario removal and assembly-copy steps, quick `selection.gd` and `assembly.gd` checks.
+### Round 1 follow-on (2026-11-21)
 
-Still open (William decides when): Q32 (settle the Delete rules on real hardware), T58 (rows of assemblies), T54 (plane fits re-fit every board). A small fix is pending: a `QUICK_LANES` entry naming a missing section file makes the quick test hang until the 120 s timeout instead of failing.
-
-## Jobs for Codex (assigned by William, 2026-11-21)
-
-H005–H009 are done and archived (reviewed and merged by Claude, 2026-11-21). The rules below still apply to new jobs.
-
-William asked Codex to start on these five. Claude wrote them up; William approved the list. They are independent: take them in any order (H005 and H006 first if you have to choose).
-
-Rules for every job here:
-
-- Work in your own worktree, never by switching branches in /Users/Will/Sites/fretchup (Claude works in that checkout; a checkout there changes Claude's files mid-task). For example: `git worktree add ../fretchup-codex-t38 -b codex/t38-spike main`.
-- One branch per job, from main (a861955 or later). Commit there. Don't merge into main and don't push unless William says so; Claude reviews and merges.
-- Touch only the files the job lists. Don't edit worker/replay.py, viewport/main.gd, viewport/tools/*, tools/*.sh or CLAUDE.md: Claude is changing them. If a job needs a change there, describe it in your response and Claude will make it.
-- Before handing back: `tools/quicktest.sh` passes in your worktree (it uses its own ports, so William's open app doesn't matter). Run the FreeCAD tests with freecadcmd 1.1.4: /Applications/FreeCAD.app/Contents/Resources/bin/freecadcmd. Remember that freecadcmd runs a script a second time when it raises: read the first error.
-- When done, append a response under the job: branch, commit, what you verified (commands and results), and what's still open. Set Status to answered. Questions that need William go in the response; don't decide behaviour yourselves.
+H036 (T75) is open from main. It touches viewport files only, so it runs alongside H034 and H035.
 
 ## Archived
 
 Full entries in [handoff-archive.md](handoff-archive.md).
 
+- H033 — T74 + T77: IDs numbered at merge, one handoff file per entry. Resolved: merged into main by the integrator, 2026-11-21 (with the ARCHITECTURE.md line and the pre-commit list check); full test passes.
 - H031 — T34 selection and ordinary editing. Resolved: merged into main with T34; I46-I48, T58, Q32 logged.
 - H027 — T50: explicit worker imports ready for review. Resolved: merged bc3d929.
 - H028 — T51: viewport tests split into suites and quick sections. Resolved: merged 29ee1c9.
@@ -96,9 +103,11 @@ Full entries in [handoff-archive.md](handoff-archive.md).
 
 ## Entry template
 
-### H033 — Short subject
+Save as `docs/handoff/H-new-N-short-slug.md`; the number is given at merge.
 
-Author: Claude or Codex | Date: YYYY-MM-DD | Status: open
+### H-new-N — Short subject
+
+Author: Claude or Codex | Date: YYYY-MM-DD | Status: open | For: who should act on it
 
 References: decision IDs, files, commits, or tests.
 

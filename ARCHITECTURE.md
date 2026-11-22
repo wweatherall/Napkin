@@ -13,7 +13,7 @@ Implementation below was checked against `main` at `950a030`; later feature bran
 | What local rules, traps and tests apply to this part? | [Worker guide](worker/CLAUDE.md), [viewport guide](viewport/CLAUDE.md), [tool guide](viewport/tools/CLAUDE.md) |
 | How do components fit together; who owns state and durable data? | This architecture map |
 | What has William approved, and what work is open or done? | [Decision log](docs/decision-log.md), edited directly in the repo (P09) |
-| What does the other agent need to know about a delivery? | [Handoff](docs/agent-handoff.md); resolved exchanges in its archive |
+| What does the other agent need to know about a delivery? | [Handoff](docs/agent-handoff.md) (rules and open list; each open entry a file in docs/handoff/, T77); resolved exchanges in its archive |
 | What is proposed, and what native capabilities could support it? | [Suggestions](<Codex's suggestions.md>), [design specs](docs/specs/U01-history.md), [FreeCAD feature map](FREECAD_FEATURE_MAP.md) |
 
 Keep each rule or status in its owning document and link to it elsewhere. Decision IDs connect this map
