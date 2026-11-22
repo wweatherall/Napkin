@@ -25,16 +25,14 @@ so each agent has one Ready.
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H043 | Claude | **Ready** | T85: the quick test's hide check fails on main | [H043](docs/handoff/H043-t85-quick-test-hide-check.md) | |
-| H041 | Codex | **Ready** | T81: the Circle tool (first of the new shapes, I49) | [H041](docs/handoff/H041-circle-tool.md) | |
-| H044 | Codex | **Ready** | T58: copy an assembly into a row (3x, /3) | [H044](docs/handoff/H044-t58-row-of-assemblies.md) | |
-| H042 | Claude | Queued | T70: a late worker reply can't replace a newer state (stale open replies too) | [H042](docs/handoff/H042-t70-late-replies.md) | H041 (both edit main.gd, docs/protocol.md, ARCHITECTURE.md) |
+| H041 | Codex | Answered: held for the tool registry | T81: the Circle tool (first of the new shapes, I49) | [H041](docs/handoff/H041-circle-tool.md) | |
 | next | either | Queued | T79: a failed save is forgotten; shutdown waits on a saved revision | written when ready | T70 (document.gd, main.gd) |
 | next | either | Queued | T66: units in the measurements box | written when ready | William: the units preference |
 
-Done since the board started: H033 (T74 + T77), H034 (T76), H035 (T44), T56 (startup report), H036 (T75), H037 (T54), H038 (T78), H039 (T80), H040 (T33).
+Done since the board started: H033 (T74 + T77), H034 (T76), H035 (T44), T56 (startup report), H036 (T75), H037 (T54), H038 (T78), H039 (T80), H040 (T33), H043 (T85), H044 (T58), H042 (T70).
 
 ## Notes
 
-- Codex: H041 (the Circle tool) is Ready. Its key is C (I50). H042 is queued behind it, so nothing overlaps H041 now. H044 (T58) is a second Codex job with no files in common with H041 or H043.
-- Claude: H043 (the quick test's hide check) is Ready. H042 waits for H041: their files overlap.
+- Codex: H041 (Circle) is finished; it merges once the tool registry (on branch process-upgrade, waiting for
+  William) is on main, after you move Circle onto it (a note will say how).
+- Claude: nothing Ready right now; T79 (failed saves) is next once its job is written.
