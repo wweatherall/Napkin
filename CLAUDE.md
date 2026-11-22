@@ -15,8 +15,8 @@ marked Superseded (never deleted). Ask William before countermanding an Active d
 
 ## Working with William
 - He wants a partner working through the Work list one item at a time, so nothing gets missed. Say which item
-  you're on; when it's done, record the result in your handoff response (commit, tests); the integrator copies it
-  into the Work list at merge (P17: workers don't edit the Work list).
+  you're on; when it's done, end your handoff response with one line, `Result: <commit>; <tests>; <what changed>`;
+  integrate.py copies it into the Work list at merge (P17: workers don't edit the Work list; T91).
 - Each item on its own branch; commit when its tests pass. The integrator merges into main when it judges a branch
   good enough (review done, full test passes) and pushes main after merging (P16); other sessions never merge or push.
 - Quick test after every change; full test when it fails or before a merge. Add a quick-test step per feature.

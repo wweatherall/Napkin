@@ -39,7 +39,9 @@ one line per event: a job done, a job stale (its deadline passed: check its bran
 waiting on William, a job returned, the queue empty for Claude or Codex (check in with William). Review every
 done job; merge what's good with `python3 tools/integrate.py <branch> --as <name> --push` (P20; it also removes
 the job's worktree and branch and marks it merged); put one that fails review or the gate back with
-`python3 tools/job.py return <id> "<notes>"`. Then update the Work list and write the next jobs (a handoff entry
+`python3 tools/job.py return <id> "<notes>"`. integrate.py commits each response's Result line
+to its Work list row (T91) and, with --push, stops before pushing for you to look (`--yes` goes on); a
+response without one is yours to record. Then write the next jobs (a handoff entry
 with Status open is Ready; "queued (after H0NN)" waits), and keep the Order line. `python3 tools/job.py status`
 shows the queue; `python3 tools/job.py board` rebuilds the table (the commit hook does it on main).
 
@@ -49,7 +51,6 @@ shows the queue; `python3 tools/job.py board` rebuilds the table (the commit hoo
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H053 | Claude | In progress (claude since 12:17) | T91: integrate.py drafts the Work list result and the board | [H053](docs/handoff/H053-t91-merge-bookkeeping.md) |  |
 | H059 | Codex | Queued | T67: IDs that never collide across kept history branches | [H059](docs/handoff/H059-t67-branch-safe-ids.md) | H046 |
 | H046 | Codex | In progress (codex since 12:07) | T82: the Line tool, closed outlines and split faces | [H046](docs/handoff/H046-t82-lines-split-faces.md) |  |
 | H057 | either | Queued | T95: the feature tests find the test files themselves | [H057](docs/handoff/H057-t95-tests-find-themselves.md) | H053 |
