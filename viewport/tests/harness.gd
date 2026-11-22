@@ -53,12 +53,23 @@ func _double_click_at(p_model: Vector3) -> void:
 	Input.parse_input_event(up)
 	await _frames(1)
 
+## main.gd's _menu drops a repeat of the same command within 150 ms (the menu and its key both fired). A person's
+## two presses are never that close, but a --fast run's can be (T85): wait the filter out before each press.
+func _menu_settle() -> void:
+	while m._menu_last.values().any(func(t): return Time.get_ticks_msec() - int(t) < 160):
+		await get_tree().process_frame
+
+func _menu(tag: String) -> void:
+	await _menu_settle()
+	m._menu(tag)
+
 func _key_state(k: Key, down: bool) -> void:
 	var ev := InputEventKey.new(); ev.keycode = k; ev.pressed = down
 	Input.parse_input_event(ev)
 	await _frames(1)
 
 func _key_cmd(k: Key) -> void:
+	await _menu_settle()
 	var ev := InputEventKey.new(); ev.keycode = k; ev.pressed = true; ev.meta_pressed = true
 	Input.parse_input_event(ev)
 	var up := ev.duplicate(); up.pressed = false
@@ -267,6 +278,7 @@ func _type(txt: String) -> void:
 		_ok("a typed length came back from FreeCAD within 10 s", false, txt)
 
 func _key_shift(k: Key) -> void:
+	await _menu_settle()
 	var ev := InputEventKey.new(); ev.keycode = k; ev.pressed = true; ev.shift_pressed = true
 	Input.parse_input_event(ev)
 	var up := ev.duplicate(); up.pressed = false
@@ -274,6 +286,7 @@ func _key_shift(k: Key) -> void:
 	await _frames(1)
 
 func _key_cmd_shift(k: Key) -> void:
+	await _menu_settle()
 	var ev := InputEventKey.new(); ev.keycode = k; ev.pressed = true; ev.meta_pressed = true; ev.shift_pressed = true
 	Input.parse_input_event(ev)
 	var up := ev.duplicate(); up.pressed = false
@@ -281,6 +294,7 @@ func _key_cmd_shift(k: Key) -> void:
 	await _frames(1)
 
 func _key(k: Key) -> void:
+	await _menu_settle()
 	var ev := InputEventKey.new(); ev.keycode = k; ev.pressed = true
 	Input.parse_input_event(ev)
 	var up := ev.duplicate(); up.pressed = false

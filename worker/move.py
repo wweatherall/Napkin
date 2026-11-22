@@ -88,6 +88,45 @@ class MoveActions:
         self.set_tip(c, snap)
         c.SSMaterial = getattr(self.definition(obj), "SSMaterial", "") or ""
 
+    def copy_assembly_mirror(self, obj, nid, step, arr=None, index=0):
+        """Copy a mirrored assembly member as live native mirrors of linked hidden sources.
+
+        The placed hidden source keeps its own frame, so editing either the original
+        or a copy reaches the same definition through the existing mirror edit frame.
+        """
+        origin = arr.Origin if arr is not None else V(0, 0, 0)
+
+        def follow(target, path, base):
+            if arr is None:
+                return
+            for c in "xyz":
+                offset = getattr(base - origin, c)
+                target.setExpression(f"{path}.{c}",
+                                     f"{arr.Name}.Origin.{c} + {arr.Name}.Step.{c} * {index} + ({offset:.17g})")
+
+        def clone(source, visible=False):
+            if self.is_mirror(source):
+                child = clone(self.mirror_source(source))
+                result = self.doc.addObject("Part::Mirroring", "Mirror")
+                result.Source = self.mirror_input(child, nid)
+                result.Base = source.Base + step
+                result.Normal = source.Normal
+                # A copied mirror owns its hidden source for movement, like a flip.
+                add_props(result, BodyId=nid if visible else "", SSRole="body" if visible else "source",
+                          Replaced=True, SSHidden=False, SSArray=arr.Name if arr is not None and visible else "",
+                          SSArrayIndex=index)
+                follow(result, "Base", source.Base)
+            else:
+                source = self.as_component(source)
+                result = self.new_link(self.definition(source), "", App.Placement(source.Placement.Base + step, source.Placement.Rotation))
+                result.SSRole = "source"
+                follow(result, "Placement.Base", source.Placement.Base)
+            result.Label = board_label(nid) if visible else f"{nid} (linked mirror source)"
+            result.Visibility = visible
+            return result
+
+        return clone(obj, True)
+
     def cutter_of(self, container, oid):
         """The Cut that holds the hole made by push/pull `oid`, and the tool that makes it there."""
         for o in container.Group:
@@ -153,8 +192,16 @@ class MoveActions:
         changed = []
         new_ids = list(op.get("new_ids", []))
         groups, made_groups = op.get("groups", {}), {}   # copying whole assemblies: old AssemblyId -> new one (I47)
-        if groups and (count > 1 or divide):
-            raise OpError("Copying an assembly into a row isn't built yet: copy it once")
+        # A group id per copy, in the same order as each board's generated ids. Keep the
+        # original string form readable for journals containing a single assembly copy.
+        destinations = set()
+        for home, ids in groups.items():
+            if not isinstance(ids, list):
+                ids = [ids]
+            if len(ids) != count or len(set(ids)) != count or destinations.intersection(ids):
+                raise OpError("each copied assembly needs its own assembly id")
+            destinations.update(ids)
+        assembly_arrays = {}
         for t in op["targets"]:
             if t in self.assemblies() and not copy:
                 changed += self.move_assembly(self.assemblies()[t], vecv)
@@ -191,13 +238,26 @@ class MoveActions:
                 continue
             home = getattr(self.assembly_of(obj), "AssemblyId", "")
             obj = self.as_component(obj)             # a plain board becomes a component first, once (A22c)
-            arr = self.new_array(obj, vecv, count, divide, op["id"]) if (count > 1 or divide) and not self.is_mirror(obj) else None
+            arr = self.new_array(obj, vecv, count, divide, op["id"]) if (count > 1 or divide) and (not self.is_mirror(obj) or home in groups) else None
+            if arr is not None and home in groups:
+                master = assembly_arrays.setdefault(home, arr)
+                if master is not arr:
+                    # Each board retains its own origin, but all boards of an assembly
+                    # share one editable spacing/span/count relationship.
+                    arr.setExpression("Count", f"{master.Name}.Count")
+                    for c in "xyz":
+                        arr.setExpression(f"Step.{c}", f"{master.Name}.Step.{c}")
+                        arr.setExpression(f"Span.{c}", f"{master.Name}.Span.{c}")
             for i in range(1, count + 1):
                 step = vecv * (i / count) if divide else vecv * i
                 nid = new_ids.pop(0) if new_ids else f"{t}_{i + 1}"
-                self.copy_body(obj, nid, step, arr, i)
+                if home in groups and self.is_mirror(obj):
+                    self.copy_assembly_mirror(obj, nid, step, arr, i)
+                else:
+                    self.copy_body(obj, nid, step, arr, i)
                 if groups.get(home):
-                    self.copy_into_assembly(nid, groups[home], made_groups)
+                    ids = groups[home]
+                    self.copy_into_assembly(nid, ids[i - 1] if isinstance(ids, list) else ids, made_groups)
                 changed.append(nid)
             if arr is not None:
                 changed.append(t)
@@ -209,8 +269,15 @@ class MoveActions:
             obj = self.body(t)
             if not getattr(obj, "SSArray", ""):
                 raise OpError(f"'{t}' isn't a copy in an array")
-            for c in "xyz":
-                obj.setExpression(f".Placement.Base.{c}", None)
+            if self.is_mirror(obj):
+                source = obj
+                while self.is_mirror(source):
+                    for c in "xyz": source.setExpression(f"Base.{c}", None)
+                    source = self.mirror_source(source)
+                for c in "xyz": source.setExpression(f"Placement.Base.{c}", None)
+            else:
+                for c in "xyz":
+                    obj.setExpression(f".Placement.Base.{c}", None)
             obj.SSArray = ""
         return list(op["targets"])
 

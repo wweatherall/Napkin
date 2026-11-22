@@ -1186,6 +1186,9 @@ static func _mirror_tris(tris: PackedVector3Array, ax: int, c: float) -> PackedV
 
 # ---------------- open, undo ----------------
 func _on_open(resp: Dictionary) -> void:
+	if not doc.is_current_open(resp):           # an answer to an older open (a model since left): ignored (T70)
+		print("SHOPSKETCH ignored a late open reply for %s" % resp.get("model", "?"))
+		return
 	if resp.get("error", "") == "already_open":
 		if _model_before == "":
 			# launched on a model another window has: that window came forward, this one isn't needed (W13)
@@ -1308,6 +1311,10 @@ func _on_worker(resp: Dictionary) -> void:
 		return
 	if resp.get("cmd", "") == "saved":
 		doc.on_saved(resp)
+		return
+	if not resp.get("cmd", "") in ["sync", "replay"]:   # flush, hello, bye, quit, or an error for some other request:
+		if not resp.get("ok", false):                    # never sync state (T70)
+			_say_worker("✗ worker error: %s" % resp.get("error", "?"))
 		return
 	if true_latency and resp.get("ok", false) and resp.has("wall_ms") and not resp.get("_released", false):
 		held_resp = resp

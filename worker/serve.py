@@ -139,20 +139,20 @@ def serve(port):
                 send(conn, length_input.handle(req))
                 return None
             if cmd == "hello":
-                send(conn, {"ok": True, "cmd": "hello", "app": "shopsketch", "protocol": PROTOCOL_VERSION,
+                send(conn, {"ok": True, "cmd": "hello", "seq": seq, "app": "shopsketch", "protocol": PROTOCOL_VERSION,
                             "worker": me, "pid": os.getpid()})
                 return None
             if cmd == "quit":
                 if len(clients) > 1:                # other windows still use this worker: only this one leaves
-                    send(conn, {"ok": True, "cmd": "quit", "stopped": False})
+                    send(conn, {"ok": True, "cmd": "quit", "seq": seq, "stopped": False})
                     release(conn)
                     return None
                 save_pending()
-                send(conn, {"ok": True, "cmd": "quit", "stopped": True})
+                send(conn, {"ok": True, "cmd": "quit", "seq": seq, "stopped": True})
                 return "stop"
             if cmd == "bye":
                 let_go(conn, list(clients[conn]["models"]))
-                send(conn, {"ok": True, "cmd": "bye"})
+                send(conn, {"ok": True, "cmd": "bye", "seq": seq})
                 release(conn)
                 return None
             if cmd == "flush":              # save now (tests, quitting the app)
@@ -166,12 +166,12 @@ def serve(port):
                 other = claim(conn, path)
                 if other is not None:
                     send(other, {"ok": True, "cmd": "focus", "model": path})
-                    resp = {"ok": False, "cmd": "open", "error": "already_open", "model": path}
+                    resp = {"ok": False, "cmd": "open", "error": "already_open", "model": path, "seq": seq}
                 else:
                     s = session_for(path, fresh=req.get("fresh", False), reload=True)
                     resp = {"ok": True, "cmd": "open", "model": s.path, "rev": s.rev,
                             "ops": [e["op"] for e in s.applied], "undo_floor": s.undo_floor,
-                            "external": s.external}
+                            "external": s.external, "seq": seq}
             elif cmd == "inspect_properties":         # the Properties panel's snapshot of one piece (T46)
                 model = os.path.abspath(req["model"])
                 if claim(conn, model) is not None:
