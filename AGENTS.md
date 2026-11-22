@@ -12,7 +12,7 @@ Its folder guides apply to Codex too. This file owns Codex-specific startup, iso
 2. Check `git log --oneline -15 main` and `git branch -a` for changes since the last session.
 3. Don't read the decision log whole: read its top, down to `## Decisions` (~7 KB: the subjects and the principles),
    then `python3 tools/log.py show <subject>` (or `show <ID>`); add rows with `python3 tools/log.py add <kind> "<text>"`
-   (its help is at the top of tools/log.py). Search it by ID in both its files (P23): [docs/decision-log.md](docs/decision-log.md) is live,
+   (run it with no arguments, or read the top of tools/log.py, for its usage). Search it by ID in both its files (P23): [docs/decision-log.md](docs/decision-log.md) is live,
    [docs/decision-archive.md](docs/decision-archive.md) the history, e.g. `rg '^\| I34 ' docs/decision-*.md`;
    a row marked "(Details below.)" has its full text at `### <ID>` in the same file. Active decisions govern.
 
