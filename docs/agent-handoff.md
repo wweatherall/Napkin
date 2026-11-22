@@ -28,7 +28,6 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 <!-- open list: built from docs/handoff/ by tools/handoff.py; don't edit by hand -->
 
 - [H041 — T81: the Circle tool](handoff/H041-circle-tool.md) — status: open; for: either
-- [H042 — T70: a late worker reply can't replace a newer state](handoff/H042-t70-late-replies.md) — status: queued (after H041); for: Claude
 
 <!-- end of open list -->
 
@@ -62,6 +61,7 @@ H036 (T75) is open from main. It touches viewport files only, so it runs alongsi
 
 Full entries in [handoff-archive.md](handoff-archive.md).
 
+- H042 — T70: a late worker reply can't replace a newer state. Resolved: merged into main by the integrator, 2026-11-22.
 - H044 — T58: copy an assembly into a row (3x, /3). Resolved: merged into main by the integrator, 2026-11-22.
 - H043 — T85: the quick test's hide check fails on main. Resolved: merged into main by the integrator, 2026-11-22.
 - H040 — T33: small distances: typed values of any size get through. Resolved: merged into main by the integrator, 2026-11-22. Quick test with H040: only the hide check fails, which fails on main back to 8ff1f91 too (now T85); the worker-restart check is H042. Full test passes.

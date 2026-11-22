@@ -134,10 +134,10 @@ An operation being confirmed does not mean it has been saved. A visible draft is
 5. The worker undoes the old tail and applies the new tail. If available FreeCAD undo cannot reach the required state, it rebuilds from operations when permitted by the external-edit floor.
 6. Each applied operation runs in a FreeCAD transaction. Failure aborts that operation and records a failure status.
 7. Export writes current metadata and changed board meshes. The worker responds with per-operation status and output directory.
-8. The document controller passes on only a response for the current `seq` with nothing newer waiting (`synced`); main then applies it, replaces drafts with confirmed board nodes, and runs acceptance/rejection feedback. Rejection handling also considers dependent operations; review `_on_rejected` when adding new operation kinds.
+8. The document controller passes on only a response for the current `seq` with nothing newer waiting (`synced`); only the reply to the request in flight clears `in_flight` (T70); main then applies it, replaces drafts with confirmed board nodes, and runs acceptance/rejection feedback. Rejection handling also considers dependent operations; review `_on_rejected` when adding new operation kinds.
 9. After approximately 0.25 seconds of socket inactivity, the worker saves pending documents and sends a separate `saved` notification. Flush/quit paths also drain pending saves.
 
-The current client gates sync results using sequence and dirty state. New asynchronous work must preserve this discipline. Future branching history should additionally identify the exact requested history state and model generation.
+The current client gates sync results using sequence and dirty state. Main routes replies by `cmd`: only `sync` replies reach `on_sync_reply`; lifecycle replies (flush, hello, bye, quit) never touch sync state. An `open` carries its own `seq`, and its reply (success or refusal) counts only if it echoes the latest open's `seq` and the current model (`document.gd:is_current_open`, T70). New asynchronous work must preserve this discipline. Future branching history should additionally identify the exact requested history state and model generation.
 
 ### Typed length evaluation
 
@@ -190,7 +190,7 @@ Transport: UTF-8 JSON objects separated by newlines over localhost TCP. Main pro
 | Command/event | Purpose |
 |---|---|
 | `hello` | Return app identity, worker script hash and process ID for compatibility probing |
-| `open` with `model`, optional `fresh` | Open/adopt a session; returns operations, revision, external-edit flag and undo floor |
+| `open` with `model`, `seq`, optional `fresh` | Open/adopt a session; returns operations, revision, external-edit flag and undo floor, echoing `seq` and the absolute `model` (refusals too) |
 | `sync` with `model`, `oplog`, `outdir`, `seq`, optional `drawing` | Materialize desired operation sequence and export metadata/meshes |
 | `replay` | Fresh-session replay path |
 | `flush` | Save pending work now |
@@ -198,6 +198,8 @@ Transport: UTF-8 JSON objects separated by newlines over localhost TCP. Main pro
 | `quit` | Save and stop only if no other client remains; otherwise release the requesting client (`stopped: false`) |
 | `focus` / `already_open` | Notify the owner to come forward; refuse the second opener. A newly launched duplicate window closes, while File > Open reports the refusal |
 | `saved` event with `model`, `rev` | Successful persistence acknowledgement |
+
+Every reply to a request echoes the request's `seq` (null if it had none), except `length`, which echoes its own `id`. Events (`saved`, `focus`) have no seq.
 
 Typed lengths and the Properties panel add:
 

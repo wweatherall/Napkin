@@ -271,7 +271,7 @@ Kept for history (P01: never deleted). Each names the decision that replaced it.
 | T67 | IDs that never collide across kept history branches (from T35). | Open | U02 |  |
 | T68 | One undo step per user action (from T35). | Open | U02, A23 |  |
 | T69 | Typed corrections that don't rewrite kept versions (from T35). | Open | U02 |  |
-| T70 | A late worker reply can't replace a newer state (from T35). | Open (queued: H042) | U02, W13 | Independent; can be done now. Includes docs/protocol.md finding 4: an open reply has no seq, so a stale open after a quick model switch is adopted. Assigned 2026-11-22: H042 (Claude). |
+| T70 | A late worker reply can't replace a newer state (from T35). | Done | U02, W13 | H042 (Claude), branch claude/h042-late-replies: every reply but length echoes seq; an open reply counts only for the latest open and current model; only sync replies reach sync state; in_flight follows its seq. Protocol reference 0.2; findings 2, 4 fixed. Tests: document (8 new checks), serve (5 new); quick passes but T85's hide check; full passes. |
 | T71 | History stage 2: keep abandoned futures in memory and show the history panel on the right (from T36). | Open | U01 | Needs T67–T69. Spec: docs/specs/U01-history.md. |
 | T72 | History stage 3: keep branches across restarts, with checkpoints for old states (from T36). | Open | U01, A31, A32 | After T71 and T40. |
 | T73 | History stage 4: naming branches, comparing them, navigation polish (from T36). | Open | U01 | After T72. |
