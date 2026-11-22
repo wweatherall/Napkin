@@ -1,6 +1,6 @@
 ### H059 — T67: IDs that never collide across kept history branches
 
-Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: queued (after H063) | For: Codex
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: open | For: Codex
 
 References: T67 (from T35), U02, U01, docs/specs/U01-history.md (its "T35 IDs and migration" section is the design:
 read it first), A21, A24, A25 (the journal), I42 (boards' names in FreeCAD's tree), A35 (protocol version), G09.

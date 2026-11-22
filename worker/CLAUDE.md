@@ -69,10 +69,13 @@ ARCHITECTURE.md the module map and protocol (update it in the same commit when y
 - `sync(ops)`: keep the common prefix, take back the rest with FreeCAD undo, apply new ops (A23). FreeCAD's
   command-line program keeps only 20 undo steps; further back, Session rebuilds from the journal (T10).
 - After each action: `bodies.json` plus `meshes/<board>-<key>.bin` for boards whose shape changed (A29).
-- Autosave is atomic, after 0.25 s idle; model.glb at autosave. The journal `<model>.shopsketch.json` sits beside
+- Autosave is atomic, after 0.25 s idle, one generation at a time (A32: `<model>.saving.FCStd` and its journal,
+  the previous pair kept as `.prev`, renamed into place; a broken save is recovered on opening, displaced files go to
+  `.unmatched`); model.glb at autosave. The journal `<model>.shopsketch.json` sits beside
   the file (A24). Each save adds FreeCAD's view part (`GuiDocument.xml`, `write_gui_document`): without it FreeCAD
   opens the model with everything hidden. A landed save sends `{"cmd": "saved", "rev"}` (Q22).
-- Opening a file adopts its journal. An outside edit sets an undo floor; merging is stage 2 (A25, Q19).
+- Opening a file adopts its journal. The worker watches the open model's file; FreeCAD's save is reloaded with the
+  wave, or kept beside ours (A36, T64); the journal keeps the undo floor and dropped actions.
 
 ## FreeCAD rules (learned the hard way)
 - New FreeCAD properties go on objects when they are created: adding them inside an undo transaction isn't

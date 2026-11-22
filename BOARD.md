@@ -4,7 +4,7 @@ William says "check the board": this file tells each agent what to do next. The 
 /Users/Will/Sites/fretchup, P16) keeps it; nobody else edits it. Jobs run through the queue (P24, `tools/job.py`):
 the table below is built from docs/handoff/ and the queue's live state; the integrator keeps the Order line.
 
-Order: H063, H065, H059, H052
+Order: H059, H065, H052
 
 ## If you're not the integrator
 
@@ -55,8 +55,8 @@ shows the queue; `python3 tools/job.py board` rebuilds the table (the commit hoo
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H065 | either | Queued | T88 step 1: Paint moves to ToolContext | [H065](docs/handoff/H065-t88-paint-to-toolcontext.md) | H063 |
-| H059 | Codex | Queued | T67: IDs that never collide across kept history branches | [H059](docs/handoff/H059-t67-branch-safe-ids.md) | H063 |
+| H059 | Codex | **Ready** | T67: IDs that never collide across kept history branches | [H059](docs/handoff/H059-t67-branch-safe-ids.md) |  |
+| H065 | either | Queued | T88 step 1: Paint moves to ToolContext | [H065](docs/handoff/H065-t88-paint-to-toolcontext.md) | H059 |
 | H052 | either | Queued | T66: lengths shown in the model's units | [H052](docs/handoff/H052-t66-units.md) | T88's tool moves |
 
 <!-- end of job table -->
@@ -65,6 +65,6 @@ Done since the board started: H033 (T74 + T77), H034 (T76), H035 (T44), T56 (sta
 
 ## Notes
 
-- T88: step 1 (Paint) is H065, after H063 (shares main.gd); steps 2-4 (Select, Circle, Rectangle) one job each after it.
-- Codex: H046 (Lines) merged a098f50. Next: H059 (T67, branch-safe IDs: William's choice) after H063, or H065 (either). Take jobs with `python3 tools/job.py take --as codex` (P24).
-- Claude: H063 (T64, A36) in progress; then H065 (either). Take jobs with `python3 tools/job.py take --as claude` (P24, P27).
+- T88: step 1 (Paint) is H065, after H059 (both edit tool_context.gd); steps 2-4 (Select, Circle, Rectangle) one job each after it.
+- Codex: H059 (T67, branch-safe IDs: William's choice, 2026-11-22) Ready. Take jobs with `python3 tools/job.py take --as codex` (P24).
+- Claude: H065 (T88 step 1, Paint; either) after H059. Take jobs with `python3 tools/job.py take --as claude` (P24, P27).
