@@ -174,12 +174,39 @@ func _init() -> void:
 	d.on_sync_reply(reply(d, ["r1"], old_seq))
 	check("the old model's answer, still on its way, is ignored", seen["synced"].is_empty() and d.confirmed_ids.is_empty())
 
-	# --- drawing request ---
+	# --- drawing requests are consumed by the next send, idle or busy ---
 	t = make(); d = t[0]; c = t[1]; seen = t[2]
 	d.request_drawing()
-	check("a drawing request asks for the drawing", c.last()["drawing"] == true)
+	check("idle drawing request sends immediately", c.syncs().size() == 1 and c.last()["drawing"] == true)
+	d.on_sync_reply(reply(d, [], d.seq))
+	d.sync()
+	check("sent drawing request clears before the next sync", c.syncs().size() == 2 and c.last()["drawing"] == false)
+
+	t = make(); d = t[0]; c = t[1]; seen = t[2]
+	d.sync()
 	d.request_drawing()
-	check("one in flight: it waits", c.syncs().size() == 1 and d.dirty)
+	check("drawing request during sync waits", c.syncs().size() == 1 and d.dirty and not c.last()["drawing"])
+	d.ops.append(op("r1")); d.sync()
+	d.request_drawing()
+	d.on_sync_reply(reply(d, [], 1))
+	check("busy drawing requests coalesce with latest edits into the follow-up", c.syncs().size() == 2
+		and c.last()["drawing"] == true and c.last()["seq"] == d.seq
+		and c.last()["oplog"]["ops"].size() == 1 and not d.dirty and d.in_flight)
+	d.on_sync_reply(reply(d, ["r1"], d.seq))
+	check("drawing reply settles without an extra request", c.syncs().size() == 2 and seen["idle"] == 1)
+	d.sync()
+	check("follow-up consumes drawing flag once", c.syncs().size() == 3 and c.last()["drawing"] == false)
+
+	# A queued drawing belongs to its model, not the model switched to afterwards.
+	t = make(); d = t[0]; c = t[1]; seen = t[2]
+	d.sync(); d.request_drawing()
+	var drawing_seq: int = d.seq
+	d.reset()
+	d.open("/tmp/doc-other.FCStd", false)
+	d.on_sync_reply(reply(d, [], drawing_seq))
+	d.sync()
+	check("switching models clears a queued drawing request", c.last()["model"] == "/tmp/doc-other.FCStd"
+		and c.last()["drawing"] == false)
 
 	# --- test hook: delay goes out once ---
 	t = make(); d = t[0]; c = t[1]; seen = t[2]
