@@ -5,8 +5,11 @@ extends Node3D
 const WorkerClient := preload("res://worker_client.gd")
 const Units := preload("res://units.gd")
 const LINE_SHADER := preload("res://line.gdshader")
-const GRID := 10.0            # mm, grid snap step
-const SNAP_PX := 14.0         # endpoint snap radius on screen
+const Geo := preload("res://tool_geometry.gd")
+const Inference := preload("res://inference.gd")
+const Presenter := preload("res://presenter.gd")
+const GRID := Inference.GRID          # the grid and snap settings are inference's (T88); old names for consumers
+const SNAP_PX := Inference.SNAP_PX
 
 # ---------------- state ----------------
 # The model's actions and their sync with FreeCAD live in the document controller (document.gd, A31, T39). These
@@ -95,7 +98,7 @@ var marker: MeshInstance3D
 
 # What's on screen (boards' triangles, corners, edges and cuts; drafts; confirmed boards; remembered states; waves)
 # lives in the presenter (presenter.gd, A33b, T41). These names forward to it, so tools and tests keep m.body_tris.
-var pres = load("res://presenter.gd").new()
+var pres = Presenter.new()
 var body_tris: Dictionary:          # body id -> PackedVector3Array (model mm, 3 per tri)
 	get: return pres.body_tris
 var body_verts: Dictionary:         # body id -> PackedVector3Array (unique corners)
@@ -201,41 +204,15 @@ var mat_draft_edge: StandardMaterial3D
 
 
 # ---------------- coordinates ----------------
-static func m2g(p: Vector3) -> Vector3:
-	return Vector3(p.x, p.z, -p.y) * 0.001
-
-static func g2m(p: Vector3) -> Vector3:
-	return Vector3(p.x, -p.z, p.y) * 1000.0
-
-static func n_g2m(n: Vector3) -> Vector3:
-	return Vector3(n.x, -n.z, n.y)
-
-static func r3(x: float) -> float:
-	return snappedf(x, 0.001)
-
-static func arr3(v: Vector3) -> Array:
-	return [r3(v.x), r3(v.y), r3(v.z)]
-
-static func clean_normal(n: Vector3) -> Vector3:
-	var c := [n.x, n.y, n.z]
-	for i in 3:
-		if absf(c[i]) < 1e-3:
-			c[i] = 0.0
-		elif absf(absf(c[i]) - 1.0) < 1e-3:
-			c[i] = signf(c[i])
-	var v := Vector3(c[0], c[1], c[2]).normalized()
-	return Vector3(snappedf(v.x, 1e-6), snappedf(v.y, 1e-6), snappedf(v.z, 1e-6))
-
-static func plane_basis(n: Vector3) -> Array:
-	# must match worker/replay.py plane_from()
-	var x: Vector3
-	if absf(n.z) > 0.9:
-		x = Vector3(1, 0, 0)
-	else:
-		x = Vector3(0, 0, 1).cross(n).normalized()
-	x = (x - n * x.dot(n)).normalized()
-	return [x, n.cross(x)]
-
+# The pure functions live in tool_geometry.gd (T88 step 0); these wrappers keep the old names for main.gd, the
+# presenter, panels and tests until each moves to Geo itself.
+static func m2g(p: Vector3) -> Vector3: return Geo.m2g(p)
+static func g2m(p: Vector3) -> Vector3: return Geo.g2m(p)
+static func n_g2m(n: Vector3) -> Vector3: return Geo.n_g2m(n)
+static func r3(x: float) -> float: return Geo.r3(x)
+static func arr3(v: Vector3) -> Array: return Geo.arr3(v)
+static func clean_normal(n: Vector3) -> Vector3: return Geo.clean_normal(n)
+static func plane_basis(n: Vector3) -> Array: return Geo.plane_basis(n)
 
 # ---------------- setup ----------------
 func _ready() -> void:
@@ -293,9 +270,9 @@ func _ready() -> void:
 	line_scale = maxf(1.0, DisplayServer.screen_get_scale())
 	get_window().content_scale_factor = line_scale        # the interface at its proper size on a Retina screen
 	_make_materials()
-	_make_tools()
-	_make_keys()
 	_make_world()
+	_make_tools()                 # after the world: inference and the tool context take the camera and overlays
+	_make_keys()
 	_make_ui()
 	_make_menus()
 	_set_title()
@@ -718,68 +695,11 @@ func _tri_mesh(tris_m: PackedVector3Array, mat: Material) -> ArrayMesh:
 	return m
 
 
-static func _ekey(p: Vector3, q: Vector3) -> String:
-	var a := "%.2f,%.2f,%.2f" % [p.x, p.y, p.z]
-	var b := "%.2f,%.2f,%.2f" % [q.x, q.y, q.z]
-	return a + "|" + b if a < b else b + "|" + a
-
-
-static func feature_edges(tris: PackedVector3Array) -> PackedVector3Array:
-	var edges := {}
-	for i in range(0, tris.size(), 3):
-		var a := tris[i]; var b := tris[i + 1]; var c := tris[i + 2]
-		var n := (b - a).cross(c - a).normalized()
-		for e in [[a, b], [b, c], [c, a]]:
-			var k := _ekey(e[0], e[1])
-			if not edges.has(k):
-				edges[k] = [e[0], e[1], []]
-			edges[k][2].append(n)
-	var out := PackedVector3Array()
-	for k in edges:
-		var ns: Array = edges[k][2]
-		var feat := ns.size() == 1
-		if not feat:
-			for j in range(1, ns.size()):
-				if absf(ns[0].dot(ns[j])) < 0.9998:
-					feat = true
-		if feat:
-			out.append_array([edges[k][0], edges[k][1]])
-	return out
-
-
-static func unique_verts(tris: PackedVector3Array) -> PackedVector3Array:
-	var seen := {}
-	var out := PackedVector3Array()
-	for p in tris:
-		var k := "%.1f,%.1f,%.1f" % [p.x, p.y, p.z]
-		if not seen.has(k):
-			seen[k] = true
-			out.append(p)
-	return out
-
-
-static func prism(tris: PackedVector3Array, n: Vector3, d: float) -> PackedVector3Array:
-	var o := n * d
-	return prism_by(tris, func(_p: Vector3) -> Vector3: return o)
-
-
-static func prism_by(tris: PackedVector3Array, offset: Callable) -> PackedVector3Array:
-	"""A face swept out: each corner moves by offset(corner) (the same for a square end, its own for a sloped one)."""
-	var out := PackedVector3Array()
-	var edges := {}
-	for i in range(0, tris.size(), 3):
-		var a := tris[i]; var b := tris[i + 1]; var c := tris[i + 2]
-		out.append_array([a, b, c, a + offset.call(a), b + offset.call(b), c + offset.call(c)])
-		for e in [[a, b], [b, c], [c, a]]:
-			var k := _ekey(e[0], e[1])
-			edges[k] = [e[0], e[1], edges.get(k, [0, 0, 0])[2] + 1]
-	for k in edges:
-		if edges[k][2] == 1:
-			var p: Vector3 = edges[k][0]; var q: Vector3 = edges[k][1]
-			var po: Vector3 = p + offset.call(p); var qo: Vector3 = q + offset.call(q)
-			out.append_array([p, q, qo, p, qo, po])
-	return out
-
+static func _ekey(p: Vector3, q: Vector3) -> String: return Geo.edge_key(p, q)
+static func feature_edges(tris: PackedVector3Array) -> PackedVector3Array: return Geo.feature_edges(tris)
+static func unique_verts(tris: PackedVector3Array) -> PackedVector3Array: return Geo.unique_verts(tris)
+static func prism(tris: PackedVector3Array, n: Vector3, d: float) -> PackedVector3Array: return Geo.prism(tris, n, d)
+static func prism_by(tris: PackedVector3Array, offset: Callable) -> PackedVector3Array: return Geo.prism_by(tris, offset)
 
 func _add_collision(mi: MeshInstance3D, meta_key: String, meta_val: String) -> void:
 	mi.create_trimesh_collision()
@@ -809,20 +729,45 @@ var tool_list: Array = []           # each tool's TOOL dictionary, in toolbar or
 var tool_info := {}                 # tool id -> its TOOL dictionary
 var tool_keys := {}                 # keycode -> tool id (keys.gd)
 var infer                           # inference.gd: the one snapping engine
+var tool_ctx                        # tool_context.gd: what every tool may use (T88)
 
 
 func _make_tools() -> void:
 	"""Every tool in tools/ that declares a TOOL (tool_registry.gd): adding a tool needs no edit here."""
-	infer = load("res://inference.gd").new()
-	infer.m = self
+	infer = Inference.new()
+	infer.cam = cam
+	infer.world = get_world_3d()
+	infer.pres = pres
+	infer.sel = sel
+	infer.grid_enabled = func() -> bool: return grid_snap
+	tool_ctx = _make_tool_context()
 	var registry = load("res://tool_registry.gd")
 	tool_list = registry.found()
 	for p in registry.problems(tool_list): push_error("tools: " + p)
 	for t in tool_list:
 		tools[t["id"]] = t["script"].new()
-		tools[t["id"]].setup(self)
+		tools[t["id"]].setup_context(tool_ctx)
+		if tools[t["id"]].uses_main(): tools[t["id"]].setup(self)   # T88: not yet moved to the context
 		tool_info[t["id"]] = t
 		if t["key"] != KEY_NONE: tool_keys[t["key"]] = t["id"]
+
+
+func _make_tool_context():
+	"""The owners each capability wraps, and the few main.gd helpers still bound in (T88 step 0: each moves to
+	its owner when its first tool migrates). Nothing here hands a tool main.gd itself."""
+	return load("res://tool_context.gd").new({
+		"infer": infer, "pres": pres, "sel": sel, "doc": doc, "measure": measure,
+		"cursor": _cursor_pos,
+		"tri_mesh": _tri_mesh, "lines": _lines, "overlay": overlay, "overlay_lines": overlay_lines,
+		"materials": {"hover": mat_hover, "profile": mat_rect, "draft": mat_draft, "cut": mat_cut, "cut_highlight": mat_cut_hl},
+		"show_marker": _show_marker, "hide_marker": func(): marker.visible = false,
+		"guides": _draw_guides, "clear_guides": func(): if guides: guides.mesh = null,
+		"add_node": add_child,
+		"refresh_tip": _update_tip, "clear_rejection": func(): reject_note = "",
+		"new_board": func() -> bool: return new_board,
+		"paint_name": func() -> String: return String(wood_library.get(paint_material, {}).get("name", "")),
+		"paint_apply": paint,
+	})
 
 
 # the tests reach these two by their old names
@@ -869,7 +814,7 @@ func tool_click(screen: Vector2) -> void:
 
 
 static func _rect_pts(origin: Vector3, x: Vector3, y: Vector3, du: float, dv: float) -> PackedVector3Array:
-	return PackedVector3Array([origin, origin + x * du, origin + x * du + y * dv, origin + y * dv])
+	return Geo.rect_points(origin, x, y, du, dv)
 
 
 func _update_tip(screen: Vector2) -> void:
@@ -1132,8 +1077,7 @@ func _say_status(txt: String) -> void:
 
 
 # ---------------- snapping visuals (the engine is inference.gd) ----------------
-const SNAP_COLORS := {"endpoint": Color(0.1, 0.65, 0.1), "midpoint": Color(0.1, 0.7, 0.8), "on edge": Color(0.85, 0.15, 0.15),
-					  "on face": Color(0.2, 0.35, 0.95), "back face": Color(0.2, 0.35, 0.95), "face behind": Color(0.2, 0.35, 0.95)}
+const SNAP_COLORS := Presenter.SNAP_COLORS   # the rendering constants are the presenter's (T88)
 var guides: MeshInstance3D
 
 
@@ -1165,32 +1109,12 @@ func _cursor_pos() -> Vector2:
 
 
 # ---------------- axes ----------------
-const AXIS_COLORS := [Color(0.85, 0.15, 0.15, 0.16), Color(0.15, 0.65, 0.2, 0.16), Color(0.2, 0.35, 0.95, 0.16)]
+const AXIS_COLORS := Presenter.AXIS_COLORS
 
-static func _axis_vec(ax: int) -> Vector3:
-	return [Vector3(1, 0, 0), Vector3(0, 1, 0), Vector3(0, 0, 1)][ax]
-
-
-static func reflect_point(q: Vector3, p: Vector3, n: Vector3) -> Vector3:
-	return q - n * (2.0 * (q - p).dot(n))
-
-
-static func reflect_tris(tris: PackedVector3Array, p: Vector3, n: Vector3) -> PackedVector3Array:
-	"""Mirror across any plane (T27). Each triangle's winding flips, so normals stay pointing out."""
-	var out := PackedVector3Array()
-	for i in range(0, tris.size(), 3):
-		out.append(reflect_point(tris[i], p, n)); out.append(reflect_point(tris[i + 2], p, n)); out.append(reflect_point(tris[i + 1], p, n))
-	return out
-
-
-static func _mirror_tris(tris: PackedVector3Array, ax: int, c: float) -> PackedVector3Array:
-	var out := PackedVector3Array()
-	for q in tris:
-		var m := q
-		m[ax] = 2.0 * c - q[ax]
-		out.append(m)
-	return out
-
+static func _axis_vec(ax: int) -> Vector3: return Geo.axis_vector(ax)
+static func reflect_point(q: Vector3, p: Vector3, n: Vector3) -> Vector3: return Geo.reflect_point(q, p, n)
+static func reflect_tris(tris: PackedVector3Array, p: Vector3, n: Vector3) -> PackedVector3Array: return Geo.reflect_tris(tris, p, n)
+static func _mirror_tris(tris: PackedVector3Array, ax: int, c: float) -> PackedVector3Array: return Geo.mirror_triangles(tris, ax, c)
 
 # ---------------- open, undo ----------------
 func _on_open(resp: Dictionary) -> void:
@@ -1391,7 +1315,7 @@ static func _ops_key(list: Array) -> String:
 
 
 # ---------------- the frame ----------------
-const DEFAULT_BASE := Color(0.82, 0.80, 0.76)   # a board's colour before FreeCAD says (tools start waves with it)
+const DEFAULT_BASE := Presenter.DEFAULT_BASE   # a board's colour before FreeCAD says (tools start waves with it)
 var reject_note := ""
 var force_reject_next := false
 

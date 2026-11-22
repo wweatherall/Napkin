@@ -239,6 +239,9 @@ C = entry("H043", "Hide check", extra="Touches: viewport/tests/quick/hide.gd. Re
 check("touches reads the paths a job lists, and leaves out its 'Not ...' sentence",
       handoff.touches(B) == {"viewport/document.gd", "viewport/main.gd", "worker/scenario", "docs/protocol.md"})
 check("touches leaves out 'Read-only on ...' files", handoff.touches(C) == {"viewport/tests/quick/hide.gd"})
+check("touches leaves out a bracketed aside that says what the job stays off",
+      handoff.touches("Touches: viewport/a.gd, viewport/b.gd (don't add it to tools/featuretest.sh: H049 owns it), "
+                      "viewport/c.gd (not viewport/d.gd).\n") == {"viewport/a.gd", "viewport/b.gd", "viewport/c.gd"})
 found = dict(handoff.overlaps_in({"a.md": A, "b.md": B, "c.md": C}))
 check("two open jobs that both list main.gd and protocol.md are flagged (the H041/H042 case)",
       found.get("viewport/main.gd") == ["H041", "H042"] and found.get("docs/protocol.md") == ["H041", "H042"])

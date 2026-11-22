@@ -21,11 +21,11 @@ marked Superseded (never deleted). Ask William before countermanding an Active d
 - One Work list item per session where possible: finish it (tests, commit, the result in your handoff, a handoff
   note if Codex is affected), then start the next in a fresh session. The files carry the state, not the chat.
 - Tests are the project's memory: every behaviour gets a named check, so nobody has to remember how it works.
-- Small fixes take the light path (P08): nothing William would notice changes (or the code is made to do what a
+- Small fixes take the light path (P22, was P08): nothing William would notice changes (or the code is made to do what a
   logged decision says), no protocol, file format, module boundary or saving is touched, and it's ~30 lines or less.
   Commit it on the standing `small-fixes` branch after the quick test (code: `Architecture-Impact: none - <reason>`);
-  no Work list row or handoff. List the fixes for William at the end of the session; he says when it
-  merges. If a fix grows past that, make it a Work list item.
+  no Work list row or handoff. The integrator merges and pushes it when the gate passes, without
+  asking (P22); list the fixes for William at the end of the session. If a fix grows past that, make it a Work list item.
 - FreeCAD 1.1.4 is installed; don't work around bugs that 1.1.4 no longer has. The AppKit rebuild (T25) waits
   for a working prototype.
 
@@ -96,7 +96,7 @@ confirmed meshes, the worker link, typed values, drawing rules, viewport tests) 
 
 ## Tests
 - Two kinds of test (P07): feature tests check Shop Sketch's answers against FreeCAD with no window
-  (`tools/featuretest.sh`, ~5 s, all side by side: every worker test, the T48 scenario, the units test, the document controller test, the selection test, the tool registry test, the log sort test); UI tests drive the viewport.
+  (`tools/featuretest.sh`, ~5 s, all side by side: every worker test, the T48 scenario, the units test, the document controller test, the selection test, the tool registry test, the tool interface test, the log sort test); UI tests drive the viewport.
   A new feature gets a numbered file in `worker/scenario/` first (run the feature tests while building it), then a
   quick-test step once its tool exists.
 - After every change: `tools/quicktest.sh` (~8 s): the feature tests beside every viewport feature once, in three

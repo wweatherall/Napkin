@@ -27,11 +27,15 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 <!-- open list: built from docs/handoff/ by tools/handoff.py; don't edit by hand -->
 
-- [H046 — T82: the Line tool, closed outlines and split faces](handoff/H046-t82-lines-split-faces.md) — status: queued (after H051, T88 step 0); for: Codex
+- [H046 — T82: the Line tool, closed outlines and split faces](handoff/H046-t82-lines-split-faces.md) — status: open; for: Codex
 - [H049 — T90: a faster gate](handoff/H049-faster-gate.md) — status: open; for: Codex
 - [H050 — For the next integrator session: where things stand](handoff/H050-integrator-state.md) — status: open; for: the integrator
-- [H051 — T88 step 0: the tools' interface, foundation](handoff/H051-t88-step0-foundation.md) — status: open; for: Claude
 - [H052 — T66: lengths shown in the model's units](handoff/H052-t66-units.md) — status: queued (after T88's tool moves); for: either
+- [H053 — T91: integrate.py drafts the Work list result and the board](handoff/H053-t91-merge-bookkeeping.md) — status: queued (after H056); for: Claude
+- [H054 — T92: tools/log.py add, for decision log rows](handoff/H054-t92-log-add.md) — status: queued (after H056); for: Claude
+- [H055 — T93: startup.py shows what waits on William](handoff/H055-t93-waiting-on-william.md) — status: queued (after H056); for: Claude
+- [H056 — T94: reshape the decision log (live file + archive, subjects, principles)](handoff/H056-t94-log-reshape.md) — status: open; for: Claude
+- [H057 — T95: the feature tests find the test files themselves](handoff/H057-t95-tests-find-themselves.md) — status: queued (after H049); for: either
 
 <!-- end of open list -->
 
@@ -66,6 +70,7 @@ H036 (T75) is open from main. It touches viewport files only, so it runs alongsi
 
 Full entries in [handoff-archive.md](handoff-archive.md).
 
+- H051 — T88 step 0: the tools' interface, foundation. Resolved: merged into main by the integrator, 2026-11-22.
 - H048 — T79: a failed save is forgotten. Resolved: merged into main by the integrator, 2026-11-22.
 - H047 — T88 stage 1: the tools' interface to Main (inventory and proposal). Resolved: merged into main by the integrator, 2026-11-22.
 - H045 — T86: a process outlives the quick test. Resolved: merged into main by the integrator, 2026-11-22.

@@ -3,6 +3,10 @@ extends SceneTree
 ## with their labels, tooltips, keys and menu names. Also run inside the built app's pack (tools/build_app.sh
 ## --check), where tools/ holds .gd.remap / .gdc files, to prove discovery works there too.
 const Registry = preload("res://tool_registry.gd")
+const ToolContext = preload("res://tool_context.gd")
+# T88's migration marker: the tools that still get main.gd (uses_main() true). A tool moved to ToolContext
+# leaves this list in the same commit; at step 6 the list is empty and the marker goes.
+const STILL_ON_MAIN := ["select", "paint", "rect", "circle", "push", "move"]
 var passed := 0
 var failed := 0
 
@@ -32,6 +36,16 @@ func _init() -> void:
 		check("%s: label, tooltip, key, menu name, linked tint" % want[i][0], got[i] == want[i], got[i])
 	check("no problems (fields, repeated ids or keys)", Registry.problems(found).is_empty(), Registry.problems(found))
 	check("the base tool.gd is not a tool", not found.any(func(t): return t["script"].resource_path.ends_with("/tool.gd")))
+	var ctx := ToolContext.new()
+	var on_main := []
+	var given := true
+	for t in found:
+		var tool = t["script"].new()
+		tool.setup_context(ctx)
+		given = given and tool.ctx == ctx and tool.m == null
+		if tool.uses_main(): on_main.append(t["id"])
+	check("every tool is made with a ToolContext (and no main.gd until its legacy setup)", given)
+	check("the tools still on main.gd (T88 marker): %s" % ", ".join(STILL_ON_MAIN), on_main == STILL_ON_MAIN, on_main)
 	var dup := [{"id": "a", "label": "A", "tip": "", "key": KEY_R, "order": 1, "script": found[0]["script"]},
 		{"id": "a", "label": "B", "tip": "", "key": KEY_R, "order": 2, "script": found[0]["script"]}]
 	check("a repeated id and a repeated key are reported", Registry.problems(dup).size() == 2, Registry.problems(dup))
