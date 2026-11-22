@@ -28,6 +28,8 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 <!-- open list: built from docs/handoff/ by tools/handoff.py; don't edit by hand -->
 
 - [H038 — T78: a drawing request made while a sync is in flight is lost](handoff/H038-t78-drawing-request-lost-during-sync.md) — status: open; for: Codex
+- [H039 — T80: make the full test reliable (suites that sometimes differ, a startup crash)](handoff/H039-t80-flaky-full-test.md) — status: open; for: Claude
+- [H040 — T33: small distances: typed values of any size get through](handoff/H040-t33-small-distances.md) — status: open; for: Codex
 
 <!-- end of open list -->
 
