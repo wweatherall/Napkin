@@ -22,6 +22,9 @@ Run in the main checkout, on main, clean, holding the integrator lock (tools/int
     (docs/agent-handoff.md's rules) is appended to its item's row as "Result (<commit>, merged <merge>): ...", in
     its own commit; the item is the --status T<n> (or the one the entry's heading names). The commit is shown and,
     with --push, it stops before the push until --yes is given. No Result line: left for the integrator, as before
+9. follow-ups (P26, T97): each answered entry's "Follow-up: <what>" lines are appended to docs/follow-ups.md as
+   "- <H0NN> (<date>): <what>" in the merge commit (one already there isn't added twice); its "For the integrator:
+   <what>" lines are printed after the merge, under "for you now:"
 BOARD.md's job table is generated (tools/job.py board): a conflict in it is settled by rebuilding it.
 What it leaves to the integrator: reviewing the branch first, and a Result line a response didn't give."""
 import os
@@ -336,6 +339,58 @@ def result_line(text):
     return (found[-1][0][:7], found[-1][1]) if found else None
 
 
+FOLLOW_UP = re.compile(r"(?m)^[-*]?\s*Follow-up:\s*(.+?)\s*$")
+FOR_INTEGRATOR = re.compile(r"(?m)^[-*]?\s*For the integrator:\s*(.+?)\s*$")
+FOLLOW_UPS = "docs/follow-ups.md"
+FOLLOW_UPS_HEADER = """# Follow-ups
+
+Leftovers from merged jobs (P26): a worker writes each one as its own `Follow-up: <what>` line in its handoff
+response, and tools/integrate.py copies it here at merge. The integrator removes a line in the commit that does it,
+or that turns it into a Work list item. `python3 tools/startup.py` lists the open ones.
+
+## Open
+
+"""
+FOLLOW_UP_ROW = re.compile(r"^- (\S+) \([^)]*\): (.+?)\s*$")
+
+
+def follow_ups(text):
+    """A response's "Follow-up: <what>" lines (a leading "- " allowed)."""
+    return FOLLOW_UP.findall(text or "")
+
+
+def for_integrator(text):
+    """A response's "For the integrator: <what>" lines."""
+    return FOR_INTEGRATOR.findall(text or "")
+
+
+def open_follow_ups(text):
+    """The open lines of docs/follow-ups.md ("- H0NN (<date>): <what>")."""
+    return [l.rstrip() for l in (text or "").split("\n") if FOLLOW_UP_ROW.match(l)]
+
+
+def add_follow_ups(root, items, date=None):
+    """Append each (hid, what) to docs/follow-ups.md, made with its header if missing; a line already there (same
+    entry and text, any date) isn't added twice. Returns the lines added."""
+    p = os.path.join(root, FOLLOW_UPS)
+    text = open(p, encoding="utf-8").read() if os.path.isfile(p) else FOLLOW_UPS_HEADER + "(none)\n"
+    have = {(m.group(1), m.group(2)) for m in map(FOLLOW_UP_ROW.match, text.split("\n")) if m}
+    date = date or time.strftime("%Y-%m-%d")
+    added = []
+    for hid, what in items:
+        what = " ".join(what.split())
+        if (hid, what) not in have:
+            have.add((hid, what)); added.append(f"- {hid} ({date}): {what}")
+    if not added:
+        return []
+    text = re.sub(r"(?m)^\(none\)\n?", "", text).rstrip("\n") + "\n"
+    if not open_follow_ups(text) and not text.endswith("\n\n"):
+        text += "\n"
+    os.makedirs(os.path.dirname(p), exist_ok=True)
+    open(p, "w", encoding="utf-8").write(text + "\n".join(added) + "\n")
+    return added
+
+
 def entry_item(text, statuses):
     """The Work list item an entry's result belongs to: the --status item its heading names, the only --status
     item, or the T<n> its heading names."""
@@ -441,14 +496,20 @@ def main(argv):
     statuses = [argv[i + 1].split("=", 1) for i, a in enumerate(argv)
                 if a == "--status" and i + 1 < len(argv) and "=" in argv[i + 1]]
     results, missing = [], []           # read before resolve() moves the entries to the archive
+    later, now = [], []                 # P26: its Follow-up lines (to docs/follow-ups.md) and For the integrator lines
     for rel in answered_by(root, branch, base):
         text = open(os.path.join(root, rel), encoding="utf-8").read()
         hid, got, tid = os.path.basename(rel).split("-")[0], result_line(text), entry_item(text, [t for t, _ in statuses])
+        later += [(hid, w) for w in follow_ups(text)]
+        now += [(hid, w) for w in for_integrator(text)]
         if got and tid:
             results.append((hid, tid) + got)
         else:
             missing.append(f"{hid} ({'no Result line in its response' if not got else 'no Work list item: give --status T<n>=...'})")
         say(f"resolved and archived {resolve(root, rel)}")
+    added = add_follow_ups(root, later)
+    if added:
+        say(f"follow-ups: {len(added)} added to {FOLLOW_UPS}")
     for tid, status in statuses:        # --status T33=Done: the integrator's verdict for the item the branch did
         say(set_status(root, tid, status))
     number_ids.apply(root, out=lambda s: say(s) if s != "no placeholders" else None)
@@ -486,6 +547,10 @@ def main(argv):
     say("committed " + git("log", "--oneline", "-1", root=root).stdout.strip())
     job.merged(root, branch, out=say)
     drafted = draft_results(root, results, name, say)
+    if now:
+        say("for you now:")
+        for hid, what in now:
+            print(f"  {hid}: {what}")
     if missing:
         say("left for you: the Work list result of " + ", ".join(missing))
     if "--push" in argv:

@@ -247,6 +247,12 @@ def waiting_on_william(log, entries, board, lock_held):
     return lines
 
 
+def follow_up_lines(text):
+    """The report's lines for docs/follow-ups.md (P26, T97): one per open follow-up, or "(none)"."""
+    rows = [l for l in (text or "").split("\n") if re.match(r"^- \S+ \([^)]*\): ", l)]
+    return ["  " + l.removeprefix("- ").rstrip() for l in rows] or ["  (none)"]
+
+
 def main(argv):
     root = git("rev-parse", "--show-toplevel").strip()
     if not root:
@@ -312,6 +318,8 @@ def main(argv):
     print("Waiting on William (from main):")
     lock_held = bool(integrator.read(integrator.lock_path(root)))
     print("\n".join(waiting_on_william(log, texts, board, lock_held)))
+    print("Follow-ups (docs/follow-ups.md, from main):")
+    print("\n".join(follow_up_lines(git("show", "main:docs/follow-ups.md", cwd=root))))
 
     if argv:
         archive = git("show", "main:docs/decision-archive.md", cwd=root)

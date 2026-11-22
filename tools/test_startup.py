@@ -114,11 +114,20 @@ check("the section has one line per source, with IDs, and the CronList reminder 
       and "CronList" in out[-1])
 check("nothing waiting says so; no lock, no reminder", s.waiting_on_william("", {}, "", False) == ["  (nothing)"])
 
+FU = ("# Follow-ups\n\nLeftovers (P26). A line like `- H0NN (<date>): <what>` in prose isn't one.\n\n## Open\n\n"
+      "- H060 (2026-11-22): say which key Paint takes\n- H061 (2026-11-23): retire the old flag\n")
+check("the follow-ups section lists each open line, without its dash",
+      s.follow_up_lines(FU) == ["  H060 (2026-11-22): say which key Paint takes", "  H061 (2026-11-23): retire the old flag"])
+check("no open follow-ups (or no file on main) says (none)",
+      s.follow_up_lines(FU.split("## Open")[0] + "## Open\n\n(none)\n") == ["  (none)"] and s.follow_up_lines("") == ["  (none)"])
+
 r = subprocess.run([sys.executable, os.path.join(HERE, "startup.py")], capture_output=True, text=True, timeout=10)
 check("smoke: the real report runs and has every section",
       r.returncode == 0 and all(h in r.stdout for h in ("This checkout:", "Worktrees", "Recent main:",
                                                          "Branches with commits", "Ready on the board",
-                                                         "Waiting on William")))
+                                                         "Waiting on William", "Follow-ups (docs/follow-ups.md")))
+check("smoke: Follow-ups comes after Waiting on William",
+      r.stdout.find("Follow-ups (docs/follow-ups.md") > r.stdout.find("Waiting on William"))
 r = subprocess.run([sys.executable, os.path.join(HERE, "startup.py"), "T1"], capture_output=True, text=True, timeout=10)
 check("smoke: asking for T1 prints its row", r.returncode == 0 and "| T1 |" in r.stdout)
 r = subprocess.run([sys.executable, os.path.join(HERE, "startup.py"), "T99999"], capture_output=True, text=True, timeout=10)

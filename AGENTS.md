@@ -32,7 +32,9 @@ Its folder guides apply to Codex too. This file owns Codex-specific startup, iso
   integrator is told. Run `python3 tools/job.py check` now and then on a long job (it lists your worktree's
   processes, flags hung ones, and beats). Waiting on William: `python3 tools/job.py wait "<question>"`.
 - When it's done: append your response, ending with one line `Result: <commit>; <tests>; <what changed>`
-  (integrate.py copies it into the Work list at merge, T91), set Status answered, commit, then
+  (integrate.py copies it into the Work list at merge, T91); write each leftover as its own line
+  `Follow-up: <what>` and each merge instruction as `For the integrator: <what>` (P26: integrate.py copies the
+  follow-ups into docs/follow-ups.md and prints the instructions); set Status answered, commit, then
   `python3 tools/job.py done` (it refuses without them or without a quick-test pass on your latest commit, which it runs if missing).
 - Record every choice William makes, including names, labels, keys, defaults and wording, as its own
   decision row. Follow P01/P09 in the log. Merge main into your branch before editing the log, then
