@@ -3,6 +3,8 @@
 
   python3 tools/integrate.py <branch> --as <name> [--status T33=Done ...] [--subject I-new-N=Snapping ...]
                              [--push [--yes]] [--no-gate] [--impact "<reason>"]
+  python3 tools/integrate.py --continue --as <name> [--push [--yes]] [--impact "<reason>"]
+                             after a merge stopped for the map (P28) or a refused commit
 
 Run in the main checkout, on main, clean, holding the integrator lock (tools/integrator.py). In order:
  1. git merge --no-ff --no-commit <branch>
@@ -25,8 +27,14 @@ Run in the main checkout, on main, clean, holding the integrator lock (tools/int
 9. follow-ups (P26, T97): each answered entry's "Follow-up: <what>" lines are appended to docs/follow-ups.md as
    "- <H0NN> (<date>): <what>" in the merge commit (one already there isn't added twice); its "For the integrator:
    <what>" lines are printed after the merge, under "for you now:"
+10. the map (P28, T100): workers don't edit ARCHITECTURE.md or docs/protocol.md; an answered entry's
+   "Architecture: <what>" lines say what the change does to them. With any (and no --impact), it stops before
+   step 6, the merge staged, and prints them under "for you now:" marked "map:": write them in (checked against
+   the code), then `integrate.py --continue --as <name> [--push [--yes]]` does steps 6-9. A refused merge commit
+   (the architecture hook) is left the same way: stage the map or give --impact, then --continue
 BOARD.md's job table is generated (tools/job.py board): a conflict in it is settled by rebuilding it.
 What it leaves to the integrator: reviewing the branch first, and a Result line a response didn't give."""
+import json
 import os
 import re
 import subprocess
@@ -341,6 +349,7 @@ def result_line(text):
 
 FOLLOW_UP = re.compile(r"(?m)^[-*]?\s*Follow-up:\s*(.+?)\s*$")
 FOR_INTEGRATOR = re.compile(r"(?m)^[-*]?\s*For the integrator:\s*(.+?)\s*$")
+ARCHITECTURE_LINE = re.compile(r"(?m)^[-*]?\s*Architecture:\s*(.+?)\s*$")
 FOLLOW_UPS = "docs/follow-ups.md"
 FOLLOW_UPS_HEADER = """# Follow-ups
 
@@ -362,6 +371,11 @@ def follow_ups(text):
 def for_integrator(text):
     """A response's "For the integrator: <what>" lines."""
     return FOR_INTEGRATOR.findall(text or "")
+
+
+def architecture(text):
+    """A response's "Architecture: <what>" lines (P28): what the change does to the map or the protocol."""
+    return ARCHITECTURE_LINE.findall(text or "")
 
 
 def open_follow_ups(text):
@@ -429,6 +443,8 @@ def record_result(root, tid, commit, rest, merge):
 
 
 def main(argv):
+    if argv and argv[0] == "--continue":
+        return resume(argv[1:])
     if not argv or argv[0].startswith("-") or "--as" not in argv:
         print(__doc__)
         return 2
@@ -497,11 +513,13 @@ def main(argv):
                 if a == "--status" and i + 1 < len(argv) and "=" in argv[i + 1]]
     results, missing = [], []           # read before resolve() moves the entries to the archive
     later, now = [], []                 # P26: its Follow-up lines (to docs/follow-ups.md) and For the integrator lines
+    maps = []                           # P28: its Architecture lines, for the integrator to write into the map
     for rel in answered_by(root, branch, base):
         text = open(os.path.join(root, rel), encoding="utf-8").read()
         hid, got, tid = os.path.basename(rel).split("-")[0], result_line(text), entry_item(text, [t for t, _ in statuses])
         later += [(hid, w) for w in follow_ups(text)]
         now += [(hid, w) for w in for_integrator(text)]
+        maps += [(hid, w) for w in architecture(text)]
         if got and tid:
             results.append((hid, tid) + got)
         else:
@@ -537,22 +555,91 @@ def main(argv):
         msg += f" Protocol version {bumped[0]} renumbered to {bumped[1]}."
     if extra:
         msg += "\nOutside its Touches list: " + ", ".join(extra) + "."
+    state = {"branch": branch, "msg": msg, "results": results, "missing": missing, "now": now, "maps": maps}
+    if maps and not impact and not map_staged(root):
+        save_state(root, state)         # P28: the map goes in the merge commit, written from the lines below
+        say("for you now:")
+        for hid, what in now:
+            print(f"  {hid}: {what}")
+        for hid, what in maps:
+            print(f"  {hid}: map: {what}")
+        say("the merge is staged, not committed (P28): write these into ARCHITECTURE.md / docs/protocol.md, checked "
+            "against the code, `git add` them, then: python3 tools/integrate.py --continue --as " + name
+            + (" --push" if "--push" in argv else ""))
+        return 0
+    return commit_and_finish(root, state, name, impact, argv, say)
+
+
+STATE = "shopsketch-integrate.json"     # a merge stopped for the map (P28), beside the job queue's state
+
+
+def state_file(root):
+    common = git("rev-parse", "--git-common-dir", root=root).stdout.strip()
+    return os.path.join(root, common, STATE) if not os.path.isabs(common) else os.path.join(common, STATE)
+
+
+def save_state(root, state):
+    with open(state_file(root), "w", encoding="utf-8") as f:
+        json.dump(state, f, indent=1)
+
+
+def map_staged(root):
+    """ARCHITECTURE.md or docs/protocol.md changed in the index (the merge in progress)."""
+    return bool(git("diff", "--cached", "--name-only", "HEAD", "--", "ARCHITECTURE.md", "docs/protocol.md",
+                    root=root).stdout.strip())
+
+
+def resume(argv):
+    """integrate.py --continue --as <name> [--push [--yes]] [--impact "<reason>"]: commit a merge that stopped for
+    the map (P28) or a refused commit, then do the rest (the job merged, the Result drafts, the push)."""
+    if "--as" not in argv:
+        print(__doc__)
+        return 2
+    name = argv[argv.index("--as") + 1]
+    impact = argv[argv.index("--impact") + 1] if "--impact" in argv else None
+    root = git("rev-parse", "--show-toplevel").stdout.strip()
+    say = lambda s: print("integrate: " + s)
+    if not integrator.touch(integrator.lock_path(root), name, out=say):
+        return 1
+    path = state_file(root)
+    if not os.path.isfile(path):
+        say("nothing to continue: no merge stopped for the map"); return 1
+    if git("rev-parse", "-q", "--verify", "MERGE_HEAD", root=root).returncode:
+        say(f"no merge in progress: nothing to commit (remove {path} if that merge was given up)"); return 1
+    state = json.load(open(path, encoding="utf-8"))
+    git("add", "-u", root=root)         # the map edits, if they weren't staged
+    if state.get("maps") and not impact and not map_staged(root):
+        say("ARCHITECTURE.md / docs/protocol.md aren't changed yet: write the Architecture lines in first (or give "
+            "--impact \"<why the map stays as it is>\")")
+        for hid, what in state["maps"]:
+            print(f"  {hid}: map: {what}")
+        return 1
+    return commit_and_finish(root, state, name, impact, argv, say)
+
+
+def commit_and_finish(root, state, name, impact, argv, say):
+    """Steps 6-10: the merge commit, then the job merged, the Result drafts, what's for the integrator, the push."""
+    branch, msg = state["branch"], state["msg"]
     if impact:
         msg += f"\n\nArchitecture-Impact: none - {impact}"
     msg += "\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
     r = subprocess.run(["git", "-c", "core.hooksPath=.githooks", "commit", "-q", "-F", "-"], input=msg, cwd=root,
                        capture_output=True, text=True)
     if r.returncode != 0:
-        say("commit refused:\n" + (r.stdout + r.stderr).strip() + "\n(the merge is left staged; add --impact if the hook asks)"); return 1
+        save_state(root, state)
+        say("commit refused:\n" + (r.stdout + r.stderr).strip() + "\n(the merge is left staged: stage the map, or "
+            "give --impact, then python3 tools/integrate.py --continue --as " + name + ")"); return 1
+    if os.path.isfile(state_file(root)):
+        os.remove(state_file(root))
     say("committed " + git("log", "--oneline", "-1", root=root).stdout.strip())
     job.merged(root, branch, out=say)
-    drafted = draft_results(root, results, name, say)
-    if now:
+    drafted = draft_results(root, [tuple(x) for x in state["results"]], name, say)
+    if state["now"]:
         say("for you now:")
-        for hid, what in now:
+        for hid, what in state["now"]:
             print(f"  {hid}: {what}")
-    if missing:
-        say("left for you: the Work list result of " + ", ".join(missing))
+    if state["missing"]:
+        say("left for you: the Work list result of " + ", ".join(state["missing"]))
     if "--push" in argv:
         if drafted and "--yes" not in argv:
             say("look the result over (above); fix it with `git commit --amend` if needed, then push: "

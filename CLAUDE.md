@@ -71,15 +71,16 @@ marked Superseded (never deleted). Ask William before countermanding an Active d
   stay small edits made once the work is done; T74–T77 take the rest of the clash out.
 - Codex records William's decisions in the log itself (P09, AGENTS.md). When integrating its branch, carry over
   only the rows it added or superseded: its copy of the rest may be older than main's.
-- Claude and Codex both own and may edit `ARCHITECTURE.md`; neither needs the other's permission. The agent
-  changing a module, protocol/file format, state ownership, or saving/recovery updates the map in the same
-  commit in its own worktree. Reread the shared map and instructions before committing. The reviewer checks
-  prose against code, and integration preserves both agents' unrelated edits and explicit integration status.
-  Say which architecture sections changed in the handoff. William's rule, 2026-11-21.
-- Use `git -c core.hooksPath=.githooks commit ...` to run the tracked architecture check. A genuinely
-  non-architectural code change may use `Architecture-Impact: none - <specific reason>` in its commit message;
-  the reviewer verifies it. Actual architecture changes still require a same-commit map update. The PR check
-  is an additional omission detector, not a replacement for review.
+- `ARCHITECTURE.md` and `docs/protocol.md` are the integrator's (P28, which replaced William's rule of 2026-11-21):
+  a worker doesn't edit them. A job that changes a module, a message or file format, state ownership, or
+  saving/recovery writes what it does to them as `Architecture: <what>` lines in its handoff entry; at merge
+  integrate.py stops with the merge staged and prints them, the integrator writes them in (the reviewer checks
+  prose against code), and `integrate.py --continue` commits and finishes.
+- Use `git -c core.hooksPath=.githooks commit ...` to run the tracked architecture check. On a branch, a commit
+  changing watched code names its entry, `Architecture-Impact: in the handoff - H0NN` (the entry's Architecture:
+  lines in the same commit or earlier); a genuinely non-architectural change uses `Architecture-Impact: none -
+  <specific reason>`, which the reviewer verifies. On main the map changes in the same commit. The PR check
+  (`--range`, read as a branch) is an additional omission detector, not a replacement for review.
 
 ## How it works
 Each part has its own guide, loaded when you work in that folder: `worker/CLAUDE.md` (the FreeCAD side: modules,

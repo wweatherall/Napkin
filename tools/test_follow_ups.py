@@ -86,6 +86,13 @@ check("For the integrator lines parse with and without '- '",
 check("a response with neither gives none of either",
       integrate.follow_ups(ENTRY) == [] and integrate.for_integrator(ENTRY) == [])
 
+text = ENTRY.format(n="060", status="answered") + ("\nResponse: done.\n\nArchitecture: session.py saves generations\n"
+                                                   "- Architecture: the open reply gains recovered  \n"
+                                                   "A mention mid-line, `Architecture: <what>`, isn't one.\n")
+check("Architecture lines (P28) parse with and without '- '; a mention mid-line isn't one",
+      integrate.architecture(text) == ["session.py saves generations", "the open reply gains recovered"],
+      integrate.architecture(text))
+
 # 2. add_follow_ups: the file made with its header, a line already there not added twice (whatever its date).
 tmp = tempfile.mkdtemp(prefix="follow-ups-add-")
 got = integrate.add_follow_ups(tmp, [("H060", "retire the old flag")], date="2026-11-22")
@@ -122,6 +129,58 @@ root = repo()
 rc, said = branch(root, "\nResponse: done, nothing left.\n")
 check("a response with neither: no docs/follow-ups.md, no 'for you now:'",
       rc == 0 and read(root, FU) is None and "for you now:" not in said and "follow-ups:" not in said, said)
+shutil.rmtree(root)
+
+# 4b. Architecture lines (P28): the merge stops staged, before its commit, with the lines and the reminder;
+#     --continue refuses until the map is changed, then commits and finishes (the job merged, the Result drafted).
+root = repo()
+head0 = sh(root, "git", "rev-parse", "HEAD").stdout.strip()
+rc, said = branch(root, "\nResponse: done.\n\nArchitecture: tools/x.py joins the map\n"
+                        "For the integrator: add the feature-test line\n")
+i = said.find("for you now:")
+check("Architecture lines: printed under 'for you now:', marked map:, with the instruction",
+      rc == 0 and i >= 0 and "  H060: map: tools/x.py joins the map" in said[i:]
+      and "  H060: add the feature-test line" in said[i:], said)
+check("... the merge is staged, not committed, with the reminder and how to continue",
+      sh(root, "git", "rev-parse", "HEAD").stdout.strip() == head0
+      and sh(root, "git", "rev-parse", "-q", "--verify", "MERGE_HEAD").returncode == 0
+      and "write these into ARCHITECTURE.md / docs/protocol.md" in said and "--continue --as tester" in said, said)
+
+
+def resume(*extra):
+    out = io.StringIO(); cwd = os.getcwd(); os.chdir(root)
+    try:
+        with contextlib.redirect_stdout(out):
+            rc = integrate.main(["--continue", "--as", "tester", *extra])
+    finally:
+        os.chdir(cwd)
+    return rc, out.getvalue()
+
+
+rc, said = resume()
+check("--continue refuses while the map is unchanged, and shows the lines again",
+      rc == 1 and "aren't changed yet" in said and "map: tools/x.py joins the map" in said
+      and sh(root, "git", "rev-parse", "HEAD").stdout.strip() == head0, said)
+write(root, "ARCHITECTURE.md", "# Map\n\ntools/x.py: the tool.\n")
+sh(root, "git", "add", "ARCHITECTURE.md")
+rc, said = resume()
+files = sh(root, "git", "show", "--name-only", "--format=", "HEAD^").stdout.split() + \
+    sh(root, "git", "show", "--name-only", "--format=", "HEAD").stdout.split()
+merge_msg = sh(root, "git", "log", "-1", "--format=%s", "--merges").stdout
+check("--continue commits the merge with the map in it",
+      rc == 0 and "committed " in said and merge_msg.startswith("Merge claude/h060")
+      and "ARCHITECTURE.md" in sh(root, "git", "show", "--name-only", "--format=", "--first-parent", "-m",
+                                  sh(root, "git", "log", "-1", "--format=%H", "--merges").stdout.strip()).stdout, said)
+check("... and finishes: the branch removed (job merged), the instruction printed, nothing left to continue",
+      "claude/h060-tool" not in sh(root, "git", "branch").stdout and "  H060: add the feature-test line" in said
+      and not os.path.exists(integrate.state_file(root)), said)
+rc, said = resume()
+check("--continue with nothing stopped says so", rc == 1 and "nothing to continue" in said, said)
+shutil.rmtree(root)
+root = repo()
+rc, said = branch(root, "\nResponse: done, nothing left.\n")
+check("no Architecture lines: no reminder", rc == 0 and "ARCHITECTURE.md / docs/protocol.md" not in said
+      and "map:" not in said, said)
 shutil.rmtree(root)
 
 # 5. A follow-up already on main (a returned job's earlier response) isn't copied twice.
