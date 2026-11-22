@@ -196,13 +196,14 @@ Transport: UTF-8 JSON objects separated by newlines over localhost TCP. Main pro
 | `open` with `model`, `seq`, optional `fresh` | Open/adopt a session; returns operations, revision, external-edit flag and undo floor, echoing `seq` and the absolute `model` (refusals too) |
 | `sync` with `model`, `oplog`, `outdir`, `seq`, optional `drawing` | Materialize desired operation sequence and export metadata/meshes |
 | `replay` | Fresh-session replay path |
-| `flush` | Save pending work now |
-| `bye` | Save and release this connection's model, then disconnect this window |
+| `flush`, optional `model` | Save pending work now (only that model's, when given); the reply lists what it saved and couldn't (`saved`, `failed`), ok only when nothing failed (T79) |
+| `bye` | Save and release this connection's model, then disconnect this window (same save lists) |
 | `quit` | Save and stop only if no other client remains; otherwise release the requesting client (`stopped: false`) |
 | `focus` / `already_open` | Notify the owner to come forward; refuse the second opener. A newly launched duplicate window closes, while File > Open reports the refusal |
 | `saved` event with `model`, `rev` | Successful persistence acknowledgement |
+| `save_failed` event with `model`, `rev`, `error` | A save failed; it stays pending and is retried on the next sync or flush (T79) |
 
-Every reply to a request echoes the request's `seq` (null if it had none), except `length`, which echoes its own `id`. Events (`saved`, `focus`) have no seq.
+Every reply to a request echoes the request's `seq` (null if it had none), except `length`, which echoes its own `id`. Events (`saved`, `save_failed`, `focus`) have no seq.
 
 Typed lengths and the Properties panel add:
 
@@ -252,7 +253,9 @@ Model coordinates are Z-up millimetres; Godot coordinates are Y-up metres. Use e
 
 Each file replacement is atomic; the FCStd and journal are not one atomic multi-file transaction. A crash between replacements can leave a detectable mismatch. Opening compares revision/hash and treats unmatched or externally modified documents conservatively, including an undo floor. For planned external-edit watching/merging and foreign-solid adoption, see Q19/T17 and Q17/T18 in the decision log.
 
-Save failures currently log an error in `save_pending`; there is no dedicated save-failure event in that path. Do not interpret confirmation or a missing error toast as proof of durability. Explicit save-error/retry behaviour is a useful future contract improvement.
+A failed save (T79) leaves the session's revision where it was (`Session.save` rolls it back and removes its temporary file) and stays in the worker's pending saves, marked failed: the timer's autosave skips it, the next sync of that model, a flush, bye or quit retries it. Each failure sends the owner `save_failed`; `document.gd` keeps the reason in `save_error` and the save indicator says "Couldn't save: <reason>" until a `saved` lands (I-new-1). A sync's confirmation is never proof of durability; only `saved` is.
+
+Closing a window (the close button or Cmd+Q: `NOTIFICATION_WM_CLOSE_REQUEST`, auto-accept off) goes through `main.gd:_request_close` and `document.gd:begin_close`: with nothing unsaved it closes at once; otherwise it waits for the sync in flight, sends `flush` with the model, and closes when that answers ok with the latest revision saved. A failed save, or no answer in `CLOSE_WAIT_S`, opens a dialog (native where the system has one): Retry, Close without saving (the journal keeps the actions), Cancel (I-new-2). Other quits (a duplicate window closing itself) still go straight to `_shutdown_worker`.
 
 Main picks/probes/starts the worker (`_pick_worker`), watches loss (`_watch_worker`), and reopens/resubmits after reconnection. With a shared worker, a window waits for the shared port to become free before attempting restart; closing one window sends bye rather than killing everyone's worker. Private app-started workers use quit; test connections are separate. `worker_client.gd` handles TCP reconnection and framing. Preserve ownership when changing recovery.
 

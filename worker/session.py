@@ -307,8 +307,30 @@ class Session:
         meta = self.doc.Meta
         meta["ShopSketchRev"] = str(self.rev)
         self.doc.Meta = meta
-        os.makedirs(os.path.dirname(self.path), exist_ok=True)
         tmp = self.path + ".saving.FCStd"
+        try:
+            self._write(tmp, outdir)
+        except Exception:
+            self.rev -= 1           # a failed save leaves the revision where it was: the retry saves this one (T79)
+            meta["ShopSketchRev"] = str(self.rev)
+            self.doc.Meta = meta
+            try:
+                os.remove(tmp)
+            except OSError:
+                pass
+            raise
+        self.dirty = False
+        self.file_sig = self.disk_sig()
+        self.external = False
+        self.undo_floor = 0     # the file is now exactly our journal again
+        return round((time.perf_counter() - t0) * 1000, 1)
+
+    def _write(self, tmp, outdir):
+        """save()'s writing: the copy, its drawing page, the swap, the journal. Raises if any of it fails."""
+        folder = os.path.dirname(self.path)
+        os.makedirs(folder, exist_ok=True)
+        if not os.access(folder, os.W_OK):          # FreeCAD would only say "Failed to open file" (T79)
+            raise PermissionError(f"the folder {os.path.basename(folder) or folder} is read-only")
         self.doc.saveCopy(tmp)
         if self.drawing:
             d2 = App.openDocument(tmp)
@@ -329,11 +351,6 @@ class Session:
             "model": os.path.basename(self.path), "name": os.path.splitext(os.path.basename(self.path))[0],
             "ops": [e["op"] for e in self.applied],
             "status": [{k: e[k] for k in ("status", "changed", "message", "ms") if k in e} for e in self.applied]})
-        self.dirty = False
-        self.file_sig = self.disk_sig()
-        self.external = False
-        self.undo_floor = 0     # the file is now exactly our journal again
-        return round((time.perf_counter() - t0) * 1000, 1)
 
     def close(self):
         if self.doc is not None:

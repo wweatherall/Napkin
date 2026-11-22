@@ -256,6 +256,50 @@ func _init() -> void:
 	d.on_sync_reply(reply(d, [], 1)); d.sync()
 	check("delay_ms is sent once", c.syncs()[0]["delay_ms"] == 300 and c.syncs()[1]["delay_ms"] == 0)
 
+	# --- a failed save (T79, I-new-1) and closing (I-new-2) ---
+	t = make(); d = t[0]; c = t[1]; seen = t[2]
+	var closes := {"ready": 0, "blocked": []}
+	d.close_ready.connect(func(): closes["ready"] += 1)
+	d.close_blocked.connect(func(r): closes["blocked"].append(r))
+	d.on_opened({"ok": true, "rev": 3}, false)
+	check("closing with everything saved can go at once, asking the worker nothing",
+		d.begin_close() and c.sent.is_empty() and not d.closing)
+	d.ops.append(op("r1")); d.sync()
+	d.on_sync_reply(reply(d, ["r1"], d.seq, {"rev": 4}))
+	d.on_save_failed({"cmd": "save_failed", "model": "/tmp/other.FCStd", "rev": 4, "error": "OSError: x"})
+	check("another model's failed save is ignored", d.save_error == "")
+	d.on_save_failed({"ok": false, "cmd": "save_failed", "model": d.model_path, "rev": 4,
+		"error": "PermissionError: the folder x is read-only"})
+	check("a failed save keeps its reason, without the exception's name", d.save_error == "the folder x is read-only"
+		and d.unsaved() and d.saved_rev == 3)
+	d.ops.append(op("r2")); d.sync()
+	check("closing while a sync is in flight waits for it before asking for a save",
+		not d.begin_close() and d.closing and c.last()["cmd"] == "sync")
+	d.on_sync_reply(reply(d, ["r1", "r2"], d.seq, {"rev": 4}))
+	var fl: Dictionary = c.last()
+	check("then it asks the worker to save this model", fl["cmd"] == "flush" and fl["model"] == d.model_path
+		and fl["seq"] == d.close_seq)
+	d.on_flush_reply({"ok": false, "cmd": "flush", "seq": fl["seq"], "saved": [],
+		"failed": [{"model": d.model_path, "rev": 4, "error": "PermissionError: the folder x is read-only"}],
+		"error": "couldn't save doc-test.FCStd: PermissionError: the folder x is read-only"})
+	check("a flush that couldn't save blocks closing, with the reason", closes["ready"] == 0 and not d.closing
+		and closes["blocked"] == ["the folder x is read-only"])
+	check("Retry asks again", not d.begin_close() and c.last()["cmd"] == "flush" and c.last()["seq"] == d.close_seq)
+	d.on_flush_reply({"ok": false, "cmd": "flush", "seq": d.close_seq - 1, "saved": [], "failed": []})
+	check("an answer to an older flush doesn't decide", closes["blocked"].size() == 1 and closes["ready"] == 0)
+	var retry_seq: int = d.close_seq
+	d.on_saved({"cmd": "saved", "model": d.model_path, "rev": 4})
+	check("a save landing clears the failure", d.save_error == "" and not d.unsaved())
+	d.on_flush_reply({"ok": true, "cmd": "flush", "seq": retry_seq, "saved": [{"model": d.model_path, "rev": 4}], "failed": []})
+	check("and the flush that saved it lets the window close", closes["ready"] == 1 and not d.closing)
+	d.ops.append(op("r3")); d.sync(); d.on_sync_reply(reply(d, ["r1", "r2", "r3"], d.seq, {"rev": 5}))
+	d.begin_close(); d.cancel_close()
+	d.on_flush_reply({"ok": true, "cmd": "flush", "seq": c.last()["seq"], "saved": [], "failed": []})
+	check("Cancel: the flush's answer no longer closes the window", closes["ready"] == 1 and not d.closing)
+	d.on_save_failed({"cmd": "save_failed", "model": d.model_path, "rev": 5, "error": "OSError: Failed to open file"})
+	d.reset()
+	check("switching models forgets the old model's failed save", d.save_error == "")
+
 	for n in made: n.free()
 	print("DOCUMENT TESTS: %d passed, %d failed" % [passed, failed])
 	quit(1 if failed > 0 else 0)

@@ -9,7 +9,7 @@ import length_input
 
 # The window <-> worker protocol's version (docs/protocol.md): bump it when a message or shared-file field changes.
 # Reported in hello; a window whose PROTOCOL_VERSION (viewport/main.gd) differs starts its own worker.
-PROTOCOL_VERSION = 2
+PROTOCOL_VERSION = 3
 
 
 def run_sync(session, req):
@@ -55,16 +55,22 @@ def serve(port):
       {"cmd": "sync", "model": "...", "oplog": {...}, "outdir": "...", "seq": n, "drawing": false}
           -> {"ok", "cmd": "sync", "result": {...status...}, "outdir" (bodies.json, meshes/), "seq", "wall_ms"}
       {"cmd": "replay", ...}  same as sync on a fresh document (one-shot rebuild)
-      {"cmd": "flush"}  save everything now;  {"cmd": "bye"}  save this window's model and let it go
+      {"cmd": "flush", "model"?}  save everything now (or only that model);  {"cmd": "bye"}  save this window's model and let it go
       {"cmd": "quit"}   save, and stop if no other window is connected (else just this window leaves)
+          flush / bye / quit answer with what they saved and what they couldn't (T79):
+          {"ok": <nothing failed>, "saved": [{"model", "rev"}], "failed": [{"model", "rev", "error"}], "error"?}
+          quit stops even when a save failed (the window has asked you first, I-new-2).
     The reply goes out first; the autosave waits until every window has been quiet for IDLE_SAVE_S, so quick
     successive actions never queue behind a save. When a save lands the window that owns the model is told:
           {"cmd": "saved", "model": "...", "rev": n}   (the viewport's quiet 'Saved' indicator, Q22)
+    and when one fails: {"cmd": "save_failed", "model", "rev" (the one it tried), "error"}. A failed save stays
+    pending: the autosave doesn't keep trying it, but the next sync, flush, bye or quit does (T79, I-new-1).
     SERVE_IDLE_EXIT=<s>: save and exit that long after the last window leaves (the shared worker windows start)."""
     import select
     import socket
     sessions = {}
     to_save = {}          # session path -> (session, outdir)
+    failed = set()        # paths in to_save whose last save failed: retried on the next sync or flush, not by the timer
     owners = {}           # model path -> the connection (window) that has it open
     clients = {}          # connection -> {"buf": bytes, "models": set of paths}
     IDLE_SAVE_S = 0.25
@@ -78,18 +84,40 @@ def serve(port):
         except OSError:
             pass
 
-    def save_pending(paths=None):
+    def save_pending(paths=None, retry=True):
+        """Save what's pending (only `paths`, if given). retry=False (the timer) skips saves that last failed.
+        Returns {"saved": [{model, rev}], "failed": [{model, rev, error}]}; a failure stays pending (T79)."""
+        out = {"saved": [], "failed": []}
         for path, (sess, od) in list(to_save.items()):
             if paths is not None and path not in paths:
                 continue
+            if not retry and path in failed:
+                continue
             try:
                 save_ms = sess.save(od)
-                print(f"WORKER saved rev {sess.rev} in {save_ms} ms", flush=True)
-                if owners.get(path) in clients:
-                    send(owners[path], {"ok": True, "cmd": "saved", "model": sess.path, "rev": sess.rev})
             except Exception as e:
-                print(f"WORKER save failed: {type(e).__name__}: {e}", flush=True)
+                err = f"{type(e).__name__}: {e}"
+                print(f"WORKER save failed: {err}", flush=True)
+                failed.add(path)
+                msg = {"model": sess.path, "rev": sess.rev + 1, "error": err}
+                out["failed"].append(msg)
+                if owners.get(path) in clients:
+                    send(owners[path], dict(msg, ok=False, cmd="save_failed"))
+                continue
+            print(f"WORKER saved rev {sess.rev} in {save_ms} ms", flush=True)
             to_save.pop(path, None)
+            failed.discard(path)
+            out["saved"].append({"model": sess.path, "rev": sess.rev})
+            if owners.get(path) in clients:
+                send(owners[path], {"ok": True, "cmd": "saved", "model": sess.path, "rev": sess.rev})
+        return out
+
+    def answer(conn, cmd, seq, saves, **extra):
+        """flush / bye / quit's reply: what was saved and what couldn't be (ok only when nothing failed)."""
+        resp = dict({"ok": not saves["failed"], "cmd": cmd, "seq": seq}, **saves, **extra)
+        if saves["failed"]:
+            resp["error"] = "; ".join(f"couldn't save {os.path.basename(f['model'])}: {f['error']}" for f in saves["failed"])
+        send(conn, resp)
 
     def session_for(path, fresh=False, reload=False):
         path = os.path.abspath(path)
@@ -100,11 +128,12 @@ def serve(port):
         return sessions[path]
 
     def let_go(conn, paths):
-        save_pending(set(paths))                    # whatever it changed is saved before anyone else can open it
+        saves = save_pending(set(paths))            # whatever it changed is saved before anyone else can open it
         for p in paths:
             clients[conn]["models"].discard(p)
             if owners.get(p) is conn:
                 owners.pop(p)
+        return saves
 
     def release(conn):
         if conn in clients:
@@ -144,20 +173,18 @@ def serve(port):
                 return None
             if cmd == "quit":
                 if len(clients) > 1:                # other windows still use this worker: only this one leaves
-                    send(conn, {"ok": True, "cmd": "quit", "seq": seq, "stopped": False})
+                    answer(conn, "quit", seq, let_go(conn, list(clients[conn]["models"])), stopped=False)
                     release(conn)
                     return None
-                save_pending()
-                send(conn, {"ok": True, "cmd": "quit", "seq": seq, "stopped": True})
+                answer(conn, "quit", seq, save_pending(), stopped=True)
                 return "stop"
             if cmd == "bye":
-                let_go(conn, list(clients[conn]["models"]))
-                send(conn, {"ok": True, "cmd": "bye", "seq": seq})
+                answer(conn, "bye", seq, let_go(conn, list(clients[conn]["models"])))
                 release(conn)
                 return None
-            if cmd == "flush":              # save now (tests, quitting the app)
-                save_pending()
-                send(conn, {"ok": True, "cmd": "flush", "seq": seq})
+            if cmd == "flush":              # save now (tests, closing a window: "model" saves just that one)
+                only = {os.path.abspath(req["model"])} if req.get("model") else None
+                answer(conn, "flush", seq, save_pending(only))
                 return None
             if req.get("delay_ms"):        # test hook: simulate a slow FreeCAD calculation
                 time.sleep(float(req["delay_ms"]) / 1000.0)
@@ -199,6 +226,7 @@ def serve(port):
         send(conn, resp)
         if after:
             to_save[after[0].path] = after
+            failed.discard(after[0].path)           # a new change: the timer tries its save again (T79)
         print(f"WORKER {cmd} seq={seq} {resp.get('wall_ms')} ms "
               f"{resp.get('result', {}).get('how', '') if resp.get('ok') else resp.get('error')}"
               f"  [{len(clients)} window{'s' if len(clients) != 1 else ''}]", flush=True)
@@ -221,7 +249,7 @@ def serve(port):
         now = time.monotonic()
         if not readable:
             if to_save and now - clock["active"] >= IDLE_SAVE_S:
-                save_pending()
+                save_pending(retry=False)
             if idle_exit and not clients and clock["alone"] is not None and now - clock["alone"] >= idle_exit:
                 save_pending()
                 print("WORKER no windows left: stopping", flush=True)

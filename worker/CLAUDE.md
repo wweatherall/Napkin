@@ -100,7 +100,7 @@ ARCHITECTURE.md the module map and protocol (update it in the same commit when y
   `tests/scenario_fixture.json`, each step checked and undone back to the fixture, then cumulative stories that
   must equal fresh builds and reopened files; T34 adds multi-target transforms, shared array/mirror sources,
   deletion/promotion, subsequent edits/moves and atomic rejection. A new worker behaviour: add a numbered `scenario/NN_feature.py` with `run(ctx)` first; the thin runner discovers these in lexical order. `scenario/context.py` owns the fixture/session and checks; shared story ops go in `ctx.actions`. Declare `requires = ("NN_earlier.py",)` when consuming earlier ops; missing or out-of-order prerequisites fail before the fixture opens. New files need no shared registration or featuretest.sh edit).
-  Plain python3, starting freecadcmd themselves: `test_serve.py` (13: one worker, two windows; hello carries the protocol version; a worker on port 0),
+  Plain python3, starting freecadcmd themselves: `test_serve.py` (20: one worker, two windows; hello carries the protocol version; a worker on port 0; a save failing in a read-only folder stays pending, is reported and retried, T79),
   `test_length_protocol.py` (3). Use `TESTDIR=<dir>` for outputs.
 - Tests import names explicitly from their owning modules after putting this folder on `sys.path`;
   `import test_load` configures the FreeCAD test runtime without re-exporting worker names.
