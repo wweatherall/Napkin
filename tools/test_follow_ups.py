@@ -161,7 +161,17 @@ rc, said = resume()
 check("--continue refuses while the map is unchanged, and shows the lines again",
       rc == 1 and "aren't changed yet" in said and "map: tools/x.py joins the map" in said
       and sh(root, "git", "rev-parse", "HEAD").stdout.strip() == head0, said)
+x_before = read(root, "tools/x.py")
+write(root, "tools/x.py", x_before + "# changed while paused\n")
+sh(root, "git", "add", "tools/x.py")
 write(root, "ARCHITECTURE.md", "# Map\n\ntools/x.py: the tool.\n")
+sh(root, "git", "add", "ARCHITECTURE.md")
+rc, said = resume()
+check("--continue refuses when code changed while paused (the gate passed on other code)",
+      rc == 1 and "changed outside the map since the gate passed (tools/x.py)" in said
+      and sh(root, "git", "rev-parse", "HEAD").stdout.strip() == head0, said)
+write(root, "tools/x.py", x_before)
+sh(root, "git", "add", "tools/x.py")
 sh(root, "git", "add", "ARCHITECTURE.md")
 rc, said = resume()
 files = sh(root, "git", "show", "--name-only", "--format=", "HEAD^").stdout.split() + \

@@ -578,7 +578,11 @@ def state_file(root):
     return os.path.join(root, common, STATE) if not os.path.isabs(common) else os.path.join(common, STATE)
 
 
+MAP_FILES = ("ARCHITECTURE.md", "docs/protocol.md")
+
+
 def save_state(root, state):
+    state.setdefault("tree", git("write-tree", root=root).stdout.strip())   # what the gate passed on
     with open(state_file(root), "w", encoding="utf-8") as f:
         json.dump(state, f, indent=1)
 
@@ -607,7 +611,13 @@ def resume(argv):
     if git("rev-parse", "-q", "--verify", "MERGE_HEAD", root=root).returncode:
         say(f"no merge in progress: nothing to commit (remove {path} if that merge was given up)"); return 1
     state = json.load(open(path, encoding="utf-8"))
-    git("add", "-u", root=root)         # the map edits, if they weren't staged
+    git("add", "-u", "--", *MAP_FILES, root=root)     # only the map edits: nothing else joins the merge unseen
+    moved = [p for p in git("diff", "--name-only", state.get("tree") or "HEAD", git("write-tree", root=root).stdout.strip(),
+                            root=root).stdout.split() if p not in MAP_FILES] if state.get("tree") else []
+    if moved:
+        say("refused: the merge changed outside the map since the gate passed (" + ", ".join(moved) + "): rerun "
+            "the gate (tools/gate.sh) and integrate again, or undo those changes")
+        return 1
     if state.get("maps") and not impact and not map_staged(root):
         say("ARCHITECTURE.md / docs/protocol.md aren't changed yet: write the Architecture lines in first (or give "
             "--impact \"<why the map stays as it is>\")")

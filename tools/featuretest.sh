@@ -45,6 +45,7 @@ for t in "${TESTS[@]}"; do
   ( TEST_START=$SECONDS
     TESTDIR="$OUT/$name" $cmd > "$OUT/$name.log" 2>&1; RC=$?
     echo "TIMING feature $name: $((SECONDS - TEST_START)) s" > "$OUT/$name.time"
+    echo $RC > "$OUT/$name.rc"
     exit $RC
   ) &
   PIDS+=($!)
@@ -58,6 +59,8 @@ for t in "${TESTS[@]}"; do
   s=$(grep -E "$TAG" "$OUT/$name.log" | head -1)
   LINE="$LINE${s:-$name did not finish} | "
   echo "$s" | grep -q " 0 failed" || OK=0
+  rc=$(cat "$OUT/$name.rc" 2>/dev/null || echo "?")   # a summary of 0 failed still fails on a non-zero exit
+  [ "$rc" = 0 ] || { OK=0; echo "[$name] exited $rc"; }
 done
 echo "features: ${LINE% | }  (logs: $OUT)"
 [ $OK = 1 ]

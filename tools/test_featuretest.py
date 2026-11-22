@@ -82,6 +82,11 @@ try:
         f.write('print("BROKEN TESTS: 1 passed, 1 failed")\n')
     rc, out = run(fake, outdir)
     check("a summary with failures fails the run", rc != 0 and "BROKEN TESTS: 1 passed, 1 failed" in out, out)
+    os.remove(os.path.join(tmp, "tools", "test_broken.py"))
+    with open(os.path.join(tmp, "tools", "test_exit.py"), "w") as f:
+        f.write('import sys\nprint("EXAMPLE TESTS: 1 passed, 0 failed")\nsys.exit(7)\n')
+    rc, out = run(fake, outdir)
+    check("a passing summary with a non-zero exit fails, by name", rc != 0 and "[exit] exited 7" in out, out)
 finally:
     shutil.rmtree(tmp, ignore_errors=True)
 
