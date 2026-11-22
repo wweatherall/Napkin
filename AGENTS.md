@@ -31,7 +31,8 @@ Its folder guides apply to Codex too. This file owns Codex-specific startup, iso
 - Follow CLAUDE.md for tests and architecture maintenance. Both agents own ARCHITECTURE.md; neither needs
   the other's permission to update it. Run commits with `git -c core.hooksPath=.githooks commit ...`.
   A specific `Architecture-Impact: none - <reason>` is only for genuinely non-architectural changes.
-- Use P08's light path for small fixes, with Codex's standing branch `codex/small-fixes`.
+- Use P22's light path for small fixes (was P08), with Codex's standing branch `codex/small-fixes`; the integrator
+  merges and pushes it when the gate passes.
   Otherwise append a dated, signed response in the handoff (don't edit the Work list: the integrator writes your
   result there at merge, P17):
   branch, commit, decision IDs, verification, architecture sections changed and anything open. Set the
