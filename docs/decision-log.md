@@ -263,7 +263,7 @@ Kept for history (P01: never deleted). Each names the decision that replaced it.
 | T73 | History stage 4: naming branches, comparing them, navigation polish (from T36). | Open | U01 | After T72. |
 | T74 | Decision-log and handoff IDs given at merge: a branch writes placeholders (I-new-1, T-new-1, H-new-1) and a script numbers them on main when merging, so two branches never take the same number (the I43–I45 clash). | Open | P09 | Multi-agent work, 2026-11-21. |
 | T75 | Move keyboard handling and the measurements box out of viewport/main.gd (2,100 lines) into their own files; same behaviour, behind the existing tests. | Open | A33b | Multi-agent work: main.gd is where branches collide most. |
-| T76 | Split worker/test_scenario.py into a file per feature, found by name, so two branches add scenario steps without editing the same file. | Open | P07 | Multi-agent work. The quick test already finds its sections by name (small fix bfbfa67). |
+| T76 | Split worker/test_scenario.py into a file per feature, found by name, so two branches add scenario steps without editing the same file. | Done | P07 | Done 2026-11-21, codex/h034-scenario (this commit; H034): thin runner discovers 15 numbered feature files; explicit earlier-file dependencies fail fast; context owns fixture/session/checks. Same 32 steps and 170 ordered checks. Feature tests 5.76 → 5.67 s; quick 139/0, full suites match. |
 | T77 | Handoff entries that don't conflict: one file per entry (docs/handoff/), with the open list built from them. | Open | P09 | Multi-agent work; numbers from T74. |
 
 ## Tunables
