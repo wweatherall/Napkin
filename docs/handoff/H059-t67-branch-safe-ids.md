@@ -1,6 +1,6 @@
 ### H059 — T67: IDs that never collide across kept history branches
 
-Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: queued (after H046) | For: Codex
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: queued (after H063) | For: Codex
 
 References: T67 (from T35), U02, U01, docs/specs/U01-history.md (its "T35 IDs and migration" section is the design:
 read it first), A21, A24, A25 (the journal), I42 (boards' names in FreeCAD's tree), A35 (protocol version), G09.
@@ -9,8 +9,8 @@ William chose this as Codex's next job, 2026-11-22. Take it after H046 (Lines); 
 Touches: viewport/document.gd and viewport/test_document.gd (ID allocation, the counters, restore_counters),
 viewport/tool_context.gd (document.next_id only) and viewport/test_tool_context.gd, worker/session.py (the journal:
 reading old IDs, writing new ones), worker files that parse an ID's numeric suffix (find them; list them in your
-response), worker/test_*.py and a new worker/scenario/NN_branch_ids.py, docs/protocol.md, ARCHITECTURE.md (the
-persistence section). Not viewport/tools/* (the T88 tool moves own them) or the test scripts in tools/.
+response), worker/test_*.py and a new worker/scenario/NN_branch_ids.py. Not docs/protocol.md or ARCHITECTURE.md (P28: the
+integrator's): write what your change does to them as "Architecture:" lines in your response. Not viewport/tools/* (the T88 tool moves own them) or the test scripts in tools/.
 
 Request: new board, rectangle, hole, assembly and op IDs never collide with an ID a kept branch uses (U02), using the
 spec's recommendation (type-prefixed IDs from OS-quality random bytes, checked against a document-wide registry;
