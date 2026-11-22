@@ -15,7 +15,6 @@ waiting: I56 (T38 key: Option), I57 + I59 (T66 units; job H052, queued after the
 plus drag), and approved the T88 spec with Line starting after step 0. Ready: H051 (T88 step 0, Claude; add its
 test_tool_context line to tools/featuretest.sh at merge), H049 (Codex). Next to write once H051 lands: H046 Ready
 (Codex) and T88 steps 1-4 one job each (Claude), not overlapping H046's Touches; steps 5-6 after Line.
-- claude/h043-hide-check has one extra commit (a263559) duplicating T86. Don't merge it; delete it once William agrees.
 
 How merges go: review the diff against its handoff and Touches; `python3 tools/integrate.py <branch> --as <name>
 --status T<n>=Done --push` (add `--impact "<reason>"` if the architecture hook asks). It settles handoff/log
