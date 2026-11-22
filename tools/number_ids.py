@@ -13,7 +13,8 @@ before the next: two branches merged together would share their I-new-N.
   python3 tools/number_ids.py              number them; prints each placeholder, its number and the files
   python3 tools/number_ids.py --dry-run    print what it would do, change nothing
 
-"Next free" counts the IDs that are taken: the decision log's table rows and ### sections, the ### headings of the
+"Next free" counts the IDs that are taken: the decision log's table rows and ### sections, in both its files
+(docs/decision-log.md and docs/decision-archive.md, P23), the ### headings of the
 handoff, its archive and docs/handoff/, and the handoff files' names. Numbers are padded like the kind's
 existing IDs (A01, T7, H036)."""
 import os
@@ -27,9 +28,10 @@ import sort_decision_log
 
 PLACEHOLDER = re.compile(r"\b([A-Z]+)-new-(\d+)([a-z]*)\b")
 TAKEN = re.compile(r"^([A-Z]+)(\d+)[a-z]*$")
-LOG = "docs/decision-log.md"
-ID_FILES = [LOG, "docs/agent-handoff.md", "docs/handoff-archive.md"]
-SKIP = {"tools/test_number_ids.py"}   # its checks are written with real placeholders
+LOG = sort_decision_log.LIVE
+ARCHIVE = sort_decision_log.ARCHIVE
+ID_FILES = [LOG, ARCHIVE, "docs/agent-handoff.md", "docs/handoff-archive.md"]
+SKIP = {"tools/test_number_ids.py", "tools/test_log_archive.py"}   # their checks are written with real placeholders
 
 
 def taken(root):
@@ -55,7 +57,7 @@ def taken(root):
         for line in open(path, encoding="utf-8"):
             if line.startswith("### "):
                 see(line[4:].split()[0] if line[4:].split() else "")
-            elif path.endswith(LOG) and line.startswith("| "):
+            elif path.endswith((LOG, ARCHIVE)) and line.startswith("| "):
                 see(line.split("|")[1].strip())
     return found
 
@@ -132,15 +134,27 @@ def apply(root, files=None, dry_run=False, out=print):
             raise SystemExit(f"can't rename {old}: {new} already exists")
         if subprocess.run(["git", "mv", old, new], cwd=root, capture_output=True).returncode != 0:
             os.rename(os.path.join(root, old), os.path.join(root, new))
-    log = os.path.join(root, LOG)
-    if os.path.isfile(log):
-        text = open(log, encoding="utf-8").read()
-        new = sort_decision_log.sort_text(text)
-        if new != text:
-            open(log, "w", encoding="utf-8").write(new)
+    tidy_log(root)
     if os.path.isfile(os.path.join(root, handoff.HANDOFF)):
         handoff.write_list(root)
     return {f"{k}-new-{n}": v for (k, n), v in numbers.items()}
+
+
+def tidy_log(root):
+    """Sort the decision log again (both files when the archive exists, which also moves archival rows)."""
+    log, arch = os.path.join(root, LOG), os.path.join(root, ARCHIVE)
+    if not os.path.isfile(log):
+        return
+    text = open(log, encoding="utf-8").read()
+    if os.path.isfile(arch):
+        old = open(arch, encoding="utf-8").read()
+        new, new_arch = sort_decision_log.tidy(text, old)
+        if new_arch != old:
+            open(arch, "w", encoding="utf-8").write(new_arch)
+    else:
+        new = sort_decision_log.sort_text(text)
+    if new != text:
+        open(log, "w", encoding="utf-8").write(new)
 
 
 def main():

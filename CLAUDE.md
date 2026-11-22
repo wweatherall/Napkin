@@ -5,9 +5,10 @@ while the model stays a real, editable FreeCAD file with FreeCAD's drawings. Ble
 Owner: William (teacher; shop and construction background). He thinks in systems and likes values he can tune.
 
 ## Before changing behaviour, read the decision log
-`docs/decision-log.md` (P09): Decisions, Superseded, Open questions, Work list, Tunables, Details. Grep it by ID
-(a row ending "(Details below.)" has its full text at `### <ID>`); edit it in the same commit as the change. Keep
-rows short (the file's header says how). Rule P01: a change that contradicts a logged decision gets a new row naming the old ID, and the old row is
+`docs/decision-log.md` (P09, P23) is what's live: a Subjects index, Principles, Decisions grouped by subject, Open
+questions, Work list, Tunables, Details; `docs/decision-archive.md` is its history (superseded, decided, done), same
+IDs. Grep both by ID (a row ending "(Details below.)" has its full text at `### <ID>` in the same file); edit the
+live file in the same commit as the change. Keep rows short (the file's header says how). Rule P01: a change that contradicts a logged decision gets a new row naming the old ID, and the old row is
 marked Superseded (never deleted). Ask William before countermanding an Active decision.
 
 ## Working with William
@@ -47,7 +48,7 @@ marked Superseded (never deleted). Ask William before countermanding an Active d
 - New IDs (decisions, Work list items, questions, handoff entries) are placeholders on a branch: I-new-N, T-new-N,
   H-new-N (a new entry is `docs/handoff/H-new-N-slug.md`). The integrator merges with `--no-commit`, runs
   `python3 tools/number_ids.py` (`--dry-run` to look first), then commits; it gives each the next free number (T74).
-- Save context: don't read the big shared documents whole. Grep `docs/decision-log.md` by ID (`grep "^| I34 "`),
+- Save context: don't read the big shared documents whole. Grep the decision log by ID (`grep "^| I34 " docs/decision-*.md`),
   and read `Codex's suggestions.md`, `FREECAD_FEATURE_MAP.md` and `ARCHITECTURE.md` by section (grep the heading,
   then read that range).
 - Codex works on `codex/*` branches in its own worktree, on the files its handoff job lists; review and merge them.

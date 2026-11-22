@@ -86,5 +86,12 @@ check("smoke: asking for T1 prints its row", r.returncode == 0 and "| T1 |" in r
 r = subprocess.run([sys.executable, os.path.join(HERE, "startup.py"), "T99999"], capture_output=True, text=True, timeout=10)
 check("smoke: an unknown ID exits 1", r.returncode == 1 and "T99999: not found" in r.stdout)
 
+ARCHIVED = "## Done work\n\n| # | Item | Status | Covers | Result |\n|---|---|---|---|---|\n| T50 | Old item | Done | A23 | ok |\n"
+lines, unknown = s.report_ids(LOG, ["T50"], ARCHIVED)
+check("an ID only in docs/decision-archive.md is found and marked (P23)", not unknown and lines[0] == "== T50" + s.ARCHIVE_NOTE)
+check("an archived Work list item's Covers IDs are looked up in the live file", any(l.startswith("  A23: | A23 |") for l in lines))
+lines, unknown = s.report_ids(LOG, ["T51"], ARCHIVED)
+check("an ID in neither file is unknown", unknown == ["T51"])
+
 print(f"STARTUP TESTS: {sum(RESULTS)} passed, {len(RESULTS) - sum(RESULTS)} failed")
 sys.exit(0 if all(RESULTS) else 1)
