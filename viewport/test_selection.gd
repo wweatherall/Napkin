@@ -12,7 +12,7 @@ var made: Array = []
 
 class FakeDoc:
 	var ops: Array = []
-	var counters := {"hd": 0, "as": 0, "a": 0, "mu": 0, "dt": 0}
+	var counters := {"hd": 0, "as": 0, "a": 0, "mu": 0, "dt": 0, "del": 0}
 	var syncs := 0
 	func sync() -> void: syncs += 1
 
@@ -161,6 +161,22 @@ func _init() -> void:
 
 	s.set_boards([{"id": "b1"}])
 	check("new boards from FreeCAD replace the tables", s.body_assembly == {"b1": ""} and s.body_mirror_plane.is_empty())
+
+	r = make(); s = r[0]; d = r[1]
+	s.set_selection(["b3", "b6"])
+	s.delete_selected()
+	check("Delete is one action for the selected boards", d.ops == [{"id": "del1", "type": "delete", "targets": ["b3", "b6"]}] and d.syncs == 1)
+	check("Delete clears selection and predicts removal", s.selection.is_empty() and s.is_hidden("b3"))
+	s.toggle_hidden_geometry()
+	check("Hidden geometry never reveals deleted boards", s.is_hidden("b3"))
+	d.ops.clear(); s.refresh_hidden()
+	check("Undo restores deleted boards immediately", not s.is_hidden("b3"))
+	s.set_selection(["b1", "b6"]); s.enter_context_of("b1"); s.set_selection(["b1", "b6"])
+	s.delete_selected()
+	check("Delete respects entered context", d.ops.back()["targets"] == ["b1"])
+	s.set_boards([{"id": "b4", "row": "b3"}, {"id": "b5", "row": "b3"}]); s.context = "row:b3"
+	s.set_boards([{"id": "b5", "row": "b5"}])
+	check("Entered row follows promoted original", s.context == "row:b5")
 
 	for n in made: n.free()
 	print("SELECTION TESTS: %d passed, %d failed" % [passed, failed])

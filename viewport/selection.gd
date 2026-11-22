@@ -27,6 +27,7 @@ var body_row := {}                  # board id -> the original its array row was
 var body_family := {}               # board id -> its family (shared definition), "" if it isn't linked
 var body_array := {}                # board id -> the array it's a copy in, "" if none
 var body_mirror_plane := {}         # mirrored board id -> [point, normal] of its plane (model mm)
+var body_deleted := {}             # board ids removed by delete ops (immediate prediction)
 var body_hidden := {}               # board id -> true while it's hidden (refresh_hidden() works it out from the ops)
 var show_hidden := false            # View > Hidden geometry: hidden boards ghosted and pickable
 var hover_body := ""                # the board under the cursor (Make unique / Detach / Hide act on it)
@@ -36,6 +37,7 @@ var hover_body := ""                # the board under the cursor (Make unique / 
 
 func set_boards(data: Array) -> void:
 	"""bodies.json entries: each board's family, array, assembly, row and mirror plane."""
+	var previous := body_row.duplicate()
 	body_family = {}; body_array = {}; body_assembly = {}; body_row = {}
 	for b in data:
 		var bid: String = b["id"]
@@ -44,6 +46,16 @@ func set_boards(data: Array) -> void:
 		var mp: Array = b.get("mirror_plane", [])
 		if mp.size() == 2: body_mirror_plane[bid] = [Vector3(mp[0][0], mp[0][1], mp[0][2]), Vector3(mp[1][0], mp[1][1], mp[1][2])]
 		else: body_mirror_plane.erase(bid)
+
+	if context.begins_with("row:"):
+		var source := context.substr(4)
+		if not body_row.values().has(source):
+			var next := ""
+			for b in body_row:
+				if previous.get(b, "") == source and body_row[b] != "": next = "row:" + body_row[b]; break
+			context = next
+			context_changed.emit()
+	selection = selection.filter(func(b): return body_family.has(b))
 
 
 # ---------------- queries ----------------
@@ -110,11 +122,15 @@ func hidden_boards() -> Dictionary:
 
 func refresh_hidden() -> void:
 	body_hidden = hidden_boards()
+	body_deleted = {}
+	for op in doc.ops:
+		if op["type"] == "delete":
+			for b in op["targets"]: body_deleted[b] = true
 
 
 func is_hidden(bid: String) -> bool:
 	"""Hidden and out of sight: not picked, not snapped to."""
-	return body_hidden.has(bid) and not show_hidden
+	return body_deleted.has(bid) or (body_hidden.has(bid) and not show_hidden)
 
 
 # ---------------- selection and context ----------------
@@ -218,3 +234,14 @@ func linked_op(kind: String) -> void:
 	links_changed.emit()
 	doc.sync()
 	say.emit(("%s is its own board now" if kind == "make_unique" else "%s no longer follows its array") % bid)
+
+
+func delete_selected() -> void:
+	var ids := selection.filter(func(b): return has_board.call(b) and in_context(b))
+	if ids.is_empty(): return
+	doc.counters["del"] += 1
+	doc.ops.append({"id": "del%d" % doc.counters["del"], "type": "delete", "targets": ids})
+	set_selection([])
+	refresh_hidden()
+	hidden_changed.emit(true)
+	doc.sync()

@@ -12,7 +12,7 @@ var m: Main:
 # with its own worker, so tools/quicktest.sh runs the lanes side by side (T49). A section starts from _fresh, so
 # any lane order works, except reject -> trackpad -> models -> worker, which carry on from each other.
 const QUICK_LANES := [
-	["hash", "rect", "push", "faces", "snap", "move", "hole"],
+	["hash", "rect", "push", "faces", "snap", "move", "hole", "selection"],
 	["linked", "assembly", "mirrorgroup", "faceplane", "wood", "hide"],
 	["undo", "reject", "trackpad", "models", "worker", "properties"],
 ]
