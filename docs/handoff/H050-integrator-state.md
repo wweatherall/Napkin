@@ -37,9 +37,10 @@ deleted small-fixes once).
 
 Waiting on William: `python3 tools/startup.py` lists it, from main (T93); it isn't kept here.
 
-Watching (session-only; re-arm after a clear or restart): a Monitor on `python3 -u tools/job.py watch` (30-minute
-expiry, so re-arm it at each check-in) and William's 20-minute check-in, a recurring CronCreate at :07/:27/:47
-whose prompt is the check-in steps above. Check CronList first; recreate what's missing.
+Watching (session-only; re-arm after a clear or restart): `python3 -u tools/job.py watch --next` with Bash
+run_in_background. It wakes you once, on the first new queue event (done, stale, waiting, returned, queue empty);
+deal with it, then start it again. No timed check-ins and no Monitor: William removed the 20-minute check-in on
+2026-11-22 (each wake re-reads the whole context and used up his usage), and a Monitor expires every 30 min.
 
 Housekeeping done 2026-11-22: old worktrees and /private/tmp scratch removed; job scratch now goes in scratch/ inside
 the worktree (P25), so merges clean it up.

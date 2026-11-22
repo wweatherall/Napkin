@@ -243,7 +243,7 @@ def waiting_on_william(log, entries, board, lock_held):
     if not lines:
         lines = ["  (nothing)"]
     if lock_held:
-        lines.append("  Integrator: after a clear, check CronList for the check-ins William asked for (H050)")
+        lines.append("  Integrator: after a clear, re-arm the queue watch: job.py watch --next in the background (H050); no timed check-ins")
     return lines
 
 

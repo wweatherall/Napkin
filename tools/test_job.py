@@ -228,6 +228,14 @@ check("watch reports a returned job", any("returned: H001" in l for l in lines3)
 k1 = set(job.conditions(root, state(root), jobs, order, time.time(), procs={"H005": []}))
 k2 = set(job.conditions(root, state(root), jobs, order, time.time(), procs={"H005": []}))
 check("nothing new, no new events (keys are stable between looks)", k1 == k2)
+_cond, _poll = job.conditions, job.WATCH_POLL
+looks = iter([{"a": "old event"}, {"a": "old event"}, {"a": "old event", "b": "new event"}])
+job.conditions, job.WATCH_POLL = (lambda *a, **k: next(looks)), 0
+lines4 = []
+job.watch(root, until_new=True, out=lines4.append)
+job.conditions, job.WATCH_POLL = _cond, _poll
+check("watch --next says nothing about what's already true, prints the first new event and stops (H050)",
+      len(lines4) == 1 and lines4[0].endswith("new event"), lines4)
 
 # --- returned resumes ---
 sh(root, "git", "worktree", "remove", "--force", wt1)
