@@ -8,6 +8,8 @@ Order: H066, H071, H052
 
 ## If you're not the integrator
 
+You're a worker: you take one job, deliver it to the integrator and stop. You don't merge into main or push.
+
 1. `python3 tools/job.py take --as claude` (or `--as codex`), run anywhere in the repository: it gives you the
    first Ready job for you whose files don't overlap a job in progress, makes its worktree (`../fretchup-<id>`)
    and branch from main, and prints the job's handoff. A returned job comes first and continues its branch, with
@@ -23,29 +25,19 @@ Order: H066, H071, H052
 4. Waiting on William? `python3 tools/job.py wait "<the question>"`, and ask him in chat: the switch pauses until
    your next beat.
 5. When it's done (tests pass, the goal is met): append your response to the handoff (branch, commit, tests,
-   anything open; your result goes there, not the Work list, P17), end it with a line `Result: <commit>; <tests>; <what changed>` (integrate.py copies it into the Work list),
+   anything open, `Follow-up:` and `For the integrator:` lines; your result goes there, not the Work list, P17),
+   end it with a line `Result: <commit>; <tests>; <what changed>` (integrate.py copies it into the Work list),
    set its Status to answered, commit, then
    `python3 tools/job.py done`. It refuses until the response, the Status and a quick-test pass on your latest
    commit are there (it runs the quick test if that commit has none; `python3 tools/job.py test` runs and
    records it any time). It tells the integrator; tell William "ready for review: <ID>", then
-   stop: one job a session (P37), then William starts a fresh one. Don't take the integrator lock.
+   stop: one job a session (P37: context grown over several jobs used up William's usage; `job.py` refuses a
+   2nd), then William starts a fresh one (a /clear gives a new session ID). Don't take the integrator lock.
 
 ## If you're the integrator
 
-You're the integrator only if William said so in this session (P16) and you hold the lock: `python3
-tools/integrator.py take <your session name>` (refused if another holds it: ask William; after a context clear
-he says so and you run it with `--william`, P19). Run `python3 tools/job.py watch` under your watcher (Monitor):
-one line per event: a job done, a job stale (its deadline passed: check its branch and worktree), a worker
-waiting on William, a job returned, the queue empty for Claude or Codex (check in with William). Review every
-done job; merge what's good with `python3 tools/integrate.py <branch> --as <name> --push` (a job with Architecture:
-lines stops with the merge staged: write the map, then `integrate.py --continue --as <name> --push`, P28) (P20; it also removes
-the job's worktree and branch and marks it merged); put one that fails review or the gate back with
-`python3 tools/job.py return <id> "<notes>"`. integrate.py commits each response's Result line
-to its Work list row (T91) and, with --push, stops before pushing for you to look (`--yes` goes on); a
-response without one is yours to record. It also copies Follow-up lines into docs/follow-ups.md and prints
-For the integrator lines under "for you now:" (P26); clear a follow-up in the commit that does it. Then write the next jobs (a handoff entry
-with Status open is Ready; "queued (after H0NN)" waits), and keep the Order line. `python3 tools/job.py status`
-shows the queue; `python3 tools/job.py board` rebuilds the table (the commit hook does it on main).
+You're the integrator only if William said so in this session (P16) and you hold the lock (P19): see
+[docs/integrator.md](docs/integrator.md) for the lock, the queue watch, review, merging and writing jobs.
 
 ## Jobs
 
@@ -65,5 +57,3 @@ Done since the board started: H033 (T74 + T77), H034 (T76), H035 (T44), T56 (sta
 ## Notes
 
 - T88: step 1 (Paint, H065) merged; step 2 (Select) is H071; steps 3-4 (Circle, Rectangle) one job each after it (they share tool_context.gd).
-- Codex: take jobs with `python3 tools/job.py take --as codex` (P24).
-- Claude: take jobs with `python3 tools/job.py take --as claude` (P24, P27).

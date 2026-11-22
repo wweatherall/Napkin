@@ -1,0 +1,52 @@
+# The integrator
+
+What only the integrator does. Workers (every other session, Claude or Codex) don't need this page: CLAUDE.md
+and BOARD.md are theirs. The shared rules (Touches, placeholder IDs, Architecture: lines, commit trailers) are
+in CLAUDE.md's "Working with Codex" section; this page says what the integrator does with them.
+
+## The role and the lock
+- One Claude session is the integrator (P16), and it holds the lock (`python3 tools/integrator.py status`, P19).
+  You're the integrator only if William said so in this session: `python3 tools/integrator.py take <your session
+  name>` (refused if another holds it: ask William; after a context clear he says so and you run it with
+  `--william`, P19).
+- It keeps BOARD.md (nobody else edits it), assigns jobs, reviews, merges into main when it judges a branch good
+  enough (review done, full test passes) and pushes main after merging (P16). Other sessions never merge or push.
+
+## The queue watch
+- No timed check-ins (P39): run `python3 tools/job.py watch --next` in the background (Monitor); it wakes you
+  once on the first new event (a job done, a job stale: its deadline passed, check its branch and worktree; a
+  worker waiting on William; a job returned; the queue empty for Claude or Codex: check in with William). Start
+  it again after each. After a context clear, re-arm it.
+- `python3 tools/job.py status` shows the queue; `python3 tools/job.py board` rebuilds the board's job table (the
+  commit hook does it on main).
+
+## Review and merge
+- Review every done job (Codex's `codex/*` branches too). Merge what's good with
+  `python3 tools/integrate.py <branch> --as <name> --push` (P20). It runs the gate, `tools/gate.sh` (P18); flags
+  files the branch changed outside its job's Touches list; renumbers a PROTOCOL_VERSION bump on top if main moved
+  on meanwhile (A35); removes the job's worktree and branch and marks it merged; with --push it stops before
+  pushing for you to look (`--yes` goes on).
+- Put one that fails review or the gate back with `python3 tools/job.py return <id> "<notes>"`.
+- Placeholder IDs (T74): merge with `--no-commit`, run `python3 tools/number_ids.py` (`--dry-run` to look first),
+  then commit; it gives each I-new-N, T-new-N, H-new-N the next free number.
+- Codex records William's decisions in the log itself (P09, AGENTS.md). When integrating its branch, carry over
+  only the rows it added or superseded: its copy of the rest may be older than main's.
+- Results (T91, P17): integrate.py commits each response's `Result:` line to its Work list row; a response without
+  one is yours to record. Follow-ups (P26): it copies `Follow-up:` lines into docs/follow-ups.md and prints
+  `For the integrator:` lines under "for you now:"; clear a follow-up in the commit that does it.
+- Small fixes (P22): merge and push the standing `small-fixes` (and `codex/small-fixes`) branch when the gate
+  passes, without asking; list the fixes for William at the end of the session.
+
+## The map (P28)
+- `ARCHITECTURE.md` and `docs/protocol.md` are yours. A job with `Architecture:` lines stops at merge with the
+  merge staged and prints them: write them in (the reviewer checks prose against code), then
+  `integrate.py --continue --as <name> --push`.
+- On main the map changes in the same commit as the code. The PR check (`tools/check_architecture.py --range`,
+  read as a branch) is an additional omission detector, not a replacement for review.
+
+## Writing jobs
+- Write the next jobs as handoff entries (a Status of open is Ready; "queued (after H0NN)" waits), each with its
+  Touches list, and keep the board's Order line. Before marking one Ready, compare its Touches with every Ready or
+  claimed job's: two whose lists overlap don't run at once (tell William before starting one that does).
+- The shared hot spots (the decision log's Work list, the handoff, viewport/main.gd, the map) stay small edits
+  made once the work is done.
