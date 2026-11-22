@@ -22,6 +22,11 @@ views = json.load(open(os.path.join(out, "views.json")))
 bodies = json.load(open(os.path.join(out, "bodies.json")))
 status = json.load(open(os.path.join(out, "status.json")))
 
+def short_id(identity):
+    """An ID as people read it: b3 for b3_<32 hex> (T67's random part is identity, never shown, H059)."""
+    return re.sub(r"^([a-z]+[0-9]+)_[0-9a-f]{32}$", r"\1", identity)
+
+
 W, H = 420, 297          # A3 landscape, mm
 SCALE = 0.1              # 1:10
 ISO_SCALE = 0.07
@@ -117,8 +122,8 @@ g.append(f'<text x="{iso_c[0]}" y="{iso_c[1] + 42}" class="vl" text-anchor="midd
 # cut list: group identical boards (component, size, material)
 groups = OrderedDict()
 for b in bodies:
-    key = (b["component"] or b["id"], tuple(b["size"]), b["material"])
-    groups.setdefault(key, []).append(b["id"])
+    key = (b["component"] or short_id(b["id"]), tuple(b["size"]), b["material"])
+    groups.setdefault(key, []).append(short_id(b["id"]))
 rows = []
 for (name, size, mat), ids in groups.items():
     t, w, ln = size
@@ -147,7 +152,7 @@ sy = ty + 12 + len(rows) * 5
 g.append(f'<text x="{tx}" y="{sy}" class="vl">REPLAY</text>')
 g.append(f'<text x="{tx}" y="{sy + 5}" class="td">{ok}/{len(ops)} ops ok, {status["total_ms"]} ms</text>')
 for i, o in enumerate([o for o in ops if o["status"] != "ok"][:3]):
-    g.append(f'<text x="{tx}" y="{sy + 10 + i * 4.5}" class="err">FAILED {o["id"]}: {o["message"][:70]}</text>')
+    g.append(f'<text x="{tx}" y="{sy + 10 + i * 4.5}" class="err">FAILED {short_id(o["id"])}: {o["message"][:70]}</text>')
 
 # title block
 title = oplog.get("name", "Untitled")
