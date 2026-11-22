@@ -3,18 +3,29 @@ extends RefCounted
 ## in SketchUp's order (endpoint > midpoint > on edge), axis inference with hysteresis, and moves along an axis
 ## or across a plane. Model space (Z-up mm) in and out.
 
-const Main := preload("res://main.gd")
+##
+## Its inputs are explicit (T88 step 0), wired once by main.gd: the camera, the physics world, the presenter's
+## geometry caches (read only: body_verts, body_edges, rects), selection's is_hidden and the grid toggle. It holds
+## no reference to main.gd. The grid and snap settings are its own constants (main.gd keeps the old names).
+
+const Geo := preload("res://tool_geometry.gd")
+const GRID := 10.0              # mm, grid snap step
+const SNAP_PX := 14.0           # endpoint and midpoint snap radius on screen, pixels
 const EDGE_PX := 8.0            # on-edge snap radius, pixels
 const INFER_DEG := 8.0          # drag within this angle of an axis's on-screen direction -> sticks to it
 const RELEASE_DEG := 12.0       # ...and lets go beyond this (hysteresis)
 const PLANE_TOL := 0.5          # mm: how far off a plane a point may sit and still count as on it
-var m: Main
+var cam: Camera3D
+var world: World3D                                  # the physics world the boards' collisions are in
+var pres                                            # presenter.gd: body_verts, body_edges, rects (read only)
+var sel                                             # selection.gd: is_hidden
+var grid_enabled: Callable = func() -> bool: return true    # the window's grid toggle
 
 
 func pick(screen: Vector2) -> Dictionary:
-	var o := m.cam.project_ray_origin(screen)
-	var d := m.cam.project_ray_normal(screen)
-	var space := m.get_world_3d().direct_space_state
+	var o := cam.project_ray_origin(screen)
+	var d := cam.project_ray_normal(screen)
+	var space := world.direct_space_state
 	var q := PhysicsRayQueryParameters3D.create(o, o + d * 100.0, 1)
 	q.hit_back_faces = true
 	var r := space.intersect_ray(q)
@@ -27,15 +38,15 @@ func pick(screen: Vector2) -> Dictionary:
 		var n: Vector3 = r["normal"]
 		if n.dot(d) > 0: n = -n                      # face toward the camera = outward
 		var col: Object = r["collider"]
-		var res := {"hit": true, "point": Main.g2m(r["position"]), "normal": Main.clean_normal(Main.n_g2m(n)),
+		var res := {"hit": true, "point": Geo.g2m(r["position"]), "normal": Geo.clean_normal(Geo.n_g2m(n)),
 					"body": String(col.get_meta("body_id", "")), "rect": String(col.get_meta("rect_id", ""))}
 		if res["rect"] != "":
-			res["normal"] = m.rects[res["rect"]]["n"]
+			res["normal"] = pres.rects[res["rect"]]["n"]
 		return res
 	if absf(d.y) > 1e-6:
 		var t := -o.y / d.y
 		if t > 0:
-			return {"hit": true, "point": Main.g2m(o + d * t), "normal": Vector3(0, 0, 1), "body": "", "rect": "", "ground": true}
+			return {"hit": true, "point": Geo.g2m(o + d * t), "normal": Vector3(0, 0, 1), "body": "", "rect": "", "ground": true}
 	return {"hit": false}
 
 
@@ -54,12 +65,12 @@ func snap(p: Dictionary, screen: Vector2) -> Dictionary:
 
 func on_grid(p: Dictionary) -> Dictionary:
 	"""A point on a plane put on the grid along that plane (when grid snap is on); no point snaps."""
-	if not m.grid_snap: return p
+	if not grid_enabled.call(): return p
 	var n: Vector3 = p["normal"]
 	var pt: Vector3 = p["point"]
 	for i in 3:
 		if absf(n[i]) < 0.5:
-			pt[i] = snappedf(pt[i], Main.GRID)
+			pt[i] = snappedf(pt[i], GRID)
 	p["point"] = pt; p["snap"] = "grid"
 	return p
 
@@ -73,9 +84,9 @@ static func _on_other(v: Vector3, plane: Dictionary) -> bool:
 
 
 func _screen_d(v: Vector3, screen: Vector2) -> float:
-	var gv := Main.m2g(v)
-	if m.cam.is_position_behind(gv): return INF
-	return m.cam.unproject_position(gv).distance_to(screen)
+	var gv := Geo.m2g(v)
+	if cam.is_position_behind(gv): return INF
+	return cam.unproject_position(gv).distance_to(screen)
 
 
 func point(screen: Vector2, exclude: String, plane := {}, with_rects := false, not_on := {}) -> Dictionary:
@@ -86,13 +97,13 @@ func point(screen: Vector2, exclude: String, plane := {}, with_rects := false, n
 	not_on: {"n", "p"}: ignore points on this plane (Push/Pull: the face being pushed)."""
 	var verts := {}
 	var edges := {}
-	for bid in m.body_verts:
-		if bid != exclude and not m.is_hidden(bid): verts[bid] = m.body_verts[bid]
-	for bid in m.body_edges:
-		if bid != exclude and not m.is_hidden(bid): edges[bid] = m.body_edges[bid]
+	for bid in pres.body_verts:
+		if bid != exclude and not sel.is_hidden(bid): verts[bid] = pres.body_verts[bid]
+	for bid in pres.body_edges:
+		if bid != exclude and not sel.is_hidden(bid): edges[bid] = pres.body_edges[bid]
 	if with_rects:
-		for rid in m.rects:
-			var pts: PackedVector3Array = PackedVector3Array(m.rects[rid]["pts"])
+		for rid in pres.rects:
+			var pts: PackedVector3Array = PackedVector3Array(pres.rects[rid]["pts"])
 			verts["rect " + rid] = pts
 			var perimeter := PackedVector3Array()
 			for i in pts.size():
@@ -104,7 +115,7 @@ func point(screen: Vector2, exclude: String, plane := {}, with_rects := false, n
 	for bid in verts:
 		for v in verts[bid]:
 			if keep.call(v): cands.append([v, bid])
-	var best := _nearest_visible(cands, screen, Main.SNAP_PX, "endpoint")
+	var best := _nearest_visible(cands, screen, SNAP_PX, "endpoint")
 	if not best.is_empty(): return best
 	# midpoints
 	cands = []
@@ -113,11 +124,11 @@ func point(screen: Vector2, exclude: String, plane := {}, with_rects := false, n
 		for i in range(0, segs.size(), 2):
 			var mid := (segs[i] + segs[i + 1]) * 0.5
 			if keep.call(mid): cands.append([mid, bid])
-	best = _nearest_visible(cands, screen, Main.SNAP_PX, "midpoint")
+	best = _nearest_visible(cands, screen, SNAP_PX, "midpoint")
 	if not best.is_empty(): return best
 	# on an edge
 	cands = []
-	var o := Main.g2m(m.cam.project_ray_origin(screen)); var d := Main.n_g2m(m.cam.project_ray_normal(screen))
+	var o := Geo.g2m(cam.project_ray_origin(screen)); var d := Geo.n_g2m(cam.project_ray_normal(screen))
 	for bid in edges:
 		var segs: PackedVector3Array = edges[bid]
 		for i in range(0, segs.size(), 2):
@@ -147,23 +158,23 @@ func _nearest_visible(cands: Array, screen: Vector2, radius: float, kind: String
 
 func _visible(v: Vector3) -> bool:
 	"""Nothing solid between the camera and this point (a point on a board's surface sees itself)."""
-	var o := m.cam.global_position
-	var g := Main.m2g(v)
+	var o := cam.global_position
+	var g := Geo.m2g(v)
 	var dist := o.distance_to(g)
 	var q := PhysicsRayQueryParameters3D.create(o, g, 1)       # boards only, not rectangles
 	q.hit_back_faces = true
-	var r := m.get_world_3d().direct_space_state.intersect_ray(q)
+	var r := world.direct_space_state.intersect_ray(q)
 	return r.is_empty() or o.distance_to(r["position"]) >= dist - (0.001 + dist * 0.003)
 
 
 func _grid_along(q: Vector3, a: Vector3, b: Vector3) -> Vector3:
 	"""With grid snap on, a point on a straight (axis-aligned) edge lands on the grid along it."""
-	if not m.grid_snap: return q
+	if not grid_enabled.call(): return q
 	var u := (b - a).normalized()
 	for i in 3:
 		if absf(absf(u[i]) - 1.0) < 1e-6:
 			var lo := minf(a[i], b[i]); var hi := maxf(a[i], b[i])
-			q[i] = clampf(snappedf(q[i], Main.GRID), lo, hi)
+			q[i] = clampf(snappedf(q[i], GRID), lo, hi)
 	return q
 
 
@@ -177,13 +188,13 @@ static func closest_on_segment_to_ray(p0: Vector3, p1: Vector3, o: Vector3, d: V
 
 
 func axis(screen: Vector2, anchor: Vector3, axes: Array, current: int) -> int:
-	var a2 := m.cam.unproject_position(Main.m2g(anchor))
+	var a2 := cam.unproject_position(Geo.m2g(anchor))
 	var dv := screen - a2
 	if dv.length() < 15.0: return -1
 	var best := -1
 	var best_ang := INF
 	for ax in axes:
-		var b2 := m.cam.unproject_position(Main.m2g(anchor + Main._axis_vec(ax) * 100.0))
+		var b2 := cam.unproject_position(Geo.m2g(anchor + Geo.axis_vector(ax) * 100.0))
 		var dir := b2 - a2
 		if dir.length() < 3.0: continue                 # axis points at the camera: nothing to follow on screen
 		var ang := rad_to_deg(dv.angle_to(dir))
@@ -195,9 +206,9 @@ func axis(screen: Vector2, anchor: Vector3, axes: Array, current: int) -> int:
 
 
 func axis_dest(screen: Vector2, ref: Vector3, ax: int, exclude := "") -> Variant:
-	var ax_v := Main._axis_vec(ax)
-	var a := Main.m2g(ref); var n := (Main.m2g(ref + ax_v) - a).normalized()
-	var o := m.cam.project_ray_origin(screen); var d := m.cam.project_ray_normal(screen)
+	var ax_v := Geo.axis_vector(ax)
+	var a := Geo.m2g(ref); var n := (Geo.m2g(ref + ax_v) - a).normalized()
+	var o := cam.project_ray_origin(screen); var d := cam.project_ray_normal(screen)
 	var bb := n.dot(d); var den := 1.0 - bb * bb
 	var t := 0.0
 	if den > 0.06:
@@ -208,17 +219,28 @@ func axis_dest(screen: Vector2, ref: Vector3, ax: int, exclude := "") -> Variant
 		var under := pick(screen)
 		if not under.get("hit", false) or under["body"] == exclude: return null
 		t = (under["point"] - ref).dot(ax_v)
-	return ref + ax_v * (snappedf(t, Main.GRID) if m.grid_snap else roundf(t))
+	return ref + ax_v * (snappedf(t, GRID) if grid_enabled.call() else roundf(t))
 
 
 func plane_dest(screen: Vector2, ref: Vector3, n: Vector3) -> Variant:
-	var o := Main.g2m(m.cam.project_ray_origin(screen)); var d := Main.n_g2m(m.cam.project_ray_normal(screen))
+	var o := Geo.g2m(cam.project_ray_origin(screen)); var d := Geo.n_g2m(cam.project_ray_normal(screen))
 	var den := d.dot(n)
 	if absf(den) < 1e-4: return null
 	var t := (ref - o).dot(n) / den
 	if t <= 0: return null
 	var vec := o + d * t - ref
-	if m.grid_snap:                                    # snap the distance travelled, not the position
+	if grid_enabled.call():                                    # snap the distance travelled, not the position
 		for i in 3:
-			if absf(n[i]) < 0.5: vec[i] = snappedf(vec[i], Main.GRID)
+			if absf(n[i]) < 0.5: vec[i] = snappedf(vec[i], GRID)
 	return ref + vec
+
+
+func ray(screen: Vector2) -> Dictionary:
+	"""The camera ray through a screen point, in model space: {origin (mm), direction (unit)}."""
+	return {"origin": Geo.g2m(cam.project_ray_origin(screen)), "direction": Geo.n_g2m(cam.project_ray_normal(screen))}
+
+
+func project(p: Vector3) -> Dictionary:
+	"""Where a model point lands on screen: {screen, behind} (behind: the point is behind the camera)."""
+	var g := Geo.m2g(p)
+	return {"screen": cam.unproject_position(g), "behind": cam.is_position_behind(g)}
