@@ -1,6 +1,6 @@
 ### H066 — T101: recovery on opening, the newest file wins
 
-Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: open | For: either
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: answered | For: either
 
 References: A37 (William's call, 2026-11-22), A32 / T40 (save generations, H062: `recover_generation`), A25 (outside
 edits and the undo floor), A36 / T64 (H063: `outside_sha256`, which already covers the case when a worker saw the save).
@@ -37,3 +37,12 @@ a readable main model is preserved unless its hash matches the .saving journal, 
 pair of that revision can finish the save without replacing a newer file. Other mismatches open external with
 A25's undo floor; .prev fallback is limited to missing or unreadable models. Archive readability checks parse
 Document.xml and verify ZIP entries. No protocol or file-format change.
+
+Verification: standalone `worker/test_generations.py` 34/34; required `tools/gate.sh` PASS (66 s),
+quick viewport 240/240, all feature tests including generations 34/34 and outside-save 25/25, full test passed.
+Gate logs: `scratch/shopsketch-gate.1o8Xbc/`. Initial quick run had outside-save's known H069 unsaved=False flake
+and test_startup.py's 10-second subprocess timeout under load; viewport 240/240 and generations 34/34 passed.
+No test was weakened or changed outside the generation suite. Latest main (5fd6cdf) merged before the gate.
+
+Follow-up: H066 initial quick test under load: tools/test_startup.py timed out at line 131 running startup.py T1 (10-second timeout); passed in the subsequent required gate. Inspect for a deterministic wait if it recurs.
+Result: 73c00b4; generation tests 34/34, gate PASS (quick 240/240 and full passed); preserves newer outside models and limits generation recovery to identifiable interrupted saves or missing/unreadable main files
