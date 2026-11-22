@@ -199,6 +199,7 @@ job.QUICKTEST = ["true"]
 r, out = run(job.done, wt1)
 j = state(root)["jobs"]["H001"]
 check("done marks the job done once all is in order", r and j["state"] == "done" and "ready for review: H001" in out, out)
+check("done notes a response with no Result line (T91)", "has no line \"Result:" in out, out)
 check("done tells the integrator (an event in the queue)", any(e["kind"] == "done" and e["job"] == "H001"
                                                               for e in state(root)["events"]))
 r, out = run(job.take, root, "claude", "s1")
