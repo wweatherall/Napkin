@@ -1,7 +1,7 @@
 # Work board
 
 William says "check the board": this file tells each agent what to do next. The integrator (a Claude session in
-/Users/Will/Sites/fretchup, P13) keeps it; nobody else edits it.
+/Users/Will/Sites/fretchup, P16) keeps it; nobody else edits it.
 
 ## If you're not the integrator
 
@@ -17,8 +17,8 @@ William says "check the board": this file tells each agent what to do next. The 
 
 ## If you're the integrator
 
-You're the integrator only if William said so in this session (P13); a fresh session is a worker. Review every
-branch whose job says answered, merge what's good, update the board and the Work list, then write the next jobs
+You're the integrator only if William said so in this session (P16); a fresh session is a worker. Review every
+branch whose job says answered, merge what's good and push main, update the board and the Work list, then write the next jobs
 so each agent has one Ready.
 
 ## Jobs
