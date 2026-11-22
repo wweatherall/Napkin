@@ -33,7 +33,7 @@ One subject per decision; the Decisions column is generated.
 
 | Subject | Covers | Decisions |
 |---|---|---|
-| Product | What Shop Sketch is for and the feel it aims at. | I01, P04, P05 |
+| Product | What Shop Sketch is for and the feel it aims at. | I01, P04 |
 | Architecture | The processes, the worker link, the app and the code's main boundaries. | A02, A03, A06, A08, A09, A27, A29, A30, A31, A33b, A34, A35, W13 |
 | Files, saving and undo | The .FCStd model and its journal, saving, opening, undo and redo. | A21, A23, A24, A25, A28, A32, I38, I42, I54, I55, U01, U02, U03 |
 | Drawing tools | Rectangle, Circle, Line: how a drawing gesture starts, follows and ends. | I02, I04b, I09, I11, I43, I44, I49, I50, I51, I58 |
@@ -42,7 +42,7 @@ One subject per decision; the Decisions column is generated.
 | Snapping | Points, edges, axes and the grid, shared by every tool. | I03b, I18, I19 |
 | Measurements | Typed values, units and the measurements box. | I35, I48, I57, I59 |
 | View and look | Camera and input devices, panels, the Mac look, lines, lighting, hiding. | I22, I30, I31, I36, I37, W10, W11, W12 |
-| Feedback | The confirmation wave and what colours mean. | I06, I07, W01, W02, W03, W04, W05, W06, W07, W08, W09 |
+| Feedback | The confirmation wave and what colours mean. | I06, W01, W02, W03, W04, W05, W06, W07, W08, W09 |
 | Materials | Wood cards, grain and painting. | A05, I33, M01, M02, M03, M04 |
 | Output | Drawings, cut lists and renders. | A07, D01, D02, P06 |
 | Process | How the agents work, test, merge and record decisions. | P01, P02, P03, P07, P09, P10, P11, P14, P15, P16, P17, P18, P19, P20, P21, P22, P23, P24 |
@@ -53,13 +53,13 @@ Each states one idea; Explains (generated) lists the decisions that name it. Wil
 
 | ID | Principle | Status | Explains | Date |
 |---|---|---|---|---|
-| G01 | Feel first: a draft appears the moment you act and input never waits on FreeCAD; FreeCAD catches up and the wave confirms it. | Active | A02, A06, A08, A23, A24, A27, A28, A29, I01, I11, I16, I17, I23, I43, I44, I45, P05, W01, W02, W03, W04, W07, W09 | 2026-11-22 |
+| G01 | Feel first: a draft appears the moment you act and input never waits on FreeCAD; FreeCAD catches up and the wave confirms it. | Active | A02, A06, A08, A23, A24, A27, A28, A29, I01, I11, I16, I17, I23, I43, I44, I45, W01, W02, W03, W04, W07, W09 | 2026-11-22 |
 | G02 | The .FCStd file is the model: every action becomes ordinary, editable FreeCAD features, and Shop Sketch is a view of them. | Active | A05, A07, A09, A21, A23, A25, A26, D01, D02, I36, I37, I42, M01, M02, M03, P04, P06 | 2026-11-22 |
 | G03 | Work as SketchUp does, and as a Mac app does, unless there's a reason not to; a decision that departs from SketchUp says why. | Active | A06, A30, I01, I02, I04b, I05, I09, I10, I14, I18, I22, I28, I30, I31, I37, I38, I49, I50, I51, I58, I59, P04 | 2026-11-22 |
-| G04 | Relationships stay live: copies, arrays, mirrors and fits follow later edits, and you can detach one on purpose. | Active | A10, A11b, A22c, A26, I21, I24, I25, I28, I32, I34, I40, I41, I46, I52, I53, P05 | 2026-11-22 |
+| G04 | Relationships stay live: copies, arrays, mirrors and fits follow later edits, and you can detach one on purpose. | Active | A10, A11b, A22c, A26, I21, I24, I25, I28, I32, I34, I40, I41, I46, I52, I53 | 2026-11-22 |
 | G05 | One key per idea, meaning the same thing in every tool. | Active | I03b, I12c, I15, I20, I33, I48, I50, I56 | 2026-11-22 |
 | G06 | Typed values follow what you're doing: the direction you drag, and the model's units for a bare number; any unit you type, written however you write it, is understood. | Active | I02, I13b, I14, I19, I35, I57, I59 | 2026-11-22 |
-| G07 | One meaning per colour: violet cuts, red rejects, amber is new; nothing else uses them except the red/green/blue axis guides. | Active | I07, I21, W05, W06, W08, W10 | 2026-11-22 |
+| G07 | One meaning per colour: violet cuts, red rejects, amber is new; nothing else uses them except the red/green/blue axis guides. | Active | I21, W05, W06, W08, W10 | 2026-11-22 |
 | G08 | Refer to geometry, never to FreeCAD's internal numbers. | Active | A03, I24, I40, I42 | 2026-11-22 |
 | G09 | Never lose work: always saved, atomically, and undo crosses sessions without hiding changes made in FreeCAD. | Active | A24, A25, A27, A28, A32, I54, I55, U01, U02, U03, W13 | 2026-11-22 |
 | G10 | A rejected action says why and leaves nothing behind. | Active | A23, I06, I08, W06 | 2026-11-22 |
@@ -77,7 +77,6 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 |---|---|---|---|---|---|---|---|
 | I01 | Tool-first, no modes. Tools live on one bar, not in workbenches. | Active |  | The SketchUp first-ten-minutes feel. | G01, G03 | main.gd set_tool() | 2026-11-20 |
 | P04 | Product direction: fast, direct, SketchUp-like modelling with a real, editable FreeCAD model underneath. You want to work directly in FreeCAD as little as possible. | Active |  | Your preference, from a design discussion with Codex. Fits A21: the FreeCAD file stays the model, but FreeCAD itself is a fallback, not a place you plan to work (lowers the urgency of Q19 merging). | G02, G03 |  | 2026-11-21 |
-| P05 | Interaction principles: immediate and predictable. Keep useful design relationships without making you manage CAD machinery. Always make the scope of an edit clear, and give a straightforward way to break a link. | Active |  | Your preference (Codex discussion). Applies across I25–I28. | G01, G04 |  | 2026-11-21 |
 
 ### Architecture
 
@@ -203,7 +202,6 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | ID | Decision | Status | Replaces / replaced by | Why | Principles | Where in the code | Date |
 |---|---|---|---|---|---|---|---|
 | I06 | A rejected operation is removed from the op log after its red wave; the reason stays in the status bar. | Active |  | Never leaves you stuck with an impossible op. | G10 | main.gd remove_op() | 2026-11-20 |
-| I07 | Cut previews are violet. Red is reserved for rejection. | Active | Replaces I07a | One colour, one meaning. | G07 | main.gd mat_cut | 2026-11-20 |
 | W01 | Every push/pull plays a colour wave that starts where the cursor finished the operation. | Active |  | Confirmation you can feel, tied to your hand. | G01 | main.gd commit_push() | 2026-11-20 |
 | W02 | Cuttlefish look: a noise-wobbled front with pigment cells blooming just ahead of it. | Active |  | The organic feel you asked for. | G01 | confirm_wave.gdshader | 2026-11-20 |
 | W03 | Softer: one smooth, noise-blurred front (~5 cm) and round blurry pigment cells at 40% strength. | Active | Replaces W03a | Subtler, fuzzier edges. | G01 | confirm_wave.gdshader softness, pigment_strength | 2026-11-20 |
