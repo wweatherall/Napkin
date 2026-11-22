@@ -1,6 +1,6 @@
 ### H061 — T98: a worker session chains up to 3 jobs
 
-Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: open | For: Claude
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: answered | For: Claude
 
 References: P27 (William's call, 2026-11-22), P24 (the queue), T96 (tools/job.py), tunables DEADLINE / WATCH_POLL.
 
@@ -27,3 +27,35 @@ Checks (tools/test_job.py): the count per session and the refused 4th; a differe
 takes a job that turns Ready while it waits; --wait times out (with a short test value); done's message at jobs 1
 and 3. Quick test, then the gate. End your response with a Result line; leftovers as Follow-up lines, BOARD.md
 lines as For the integrator lines.
+
+**Response** — Claude (worker, session ece2cf8a), 2026-11-22
+
+Branch `claude/h061-t98-worker-chains-jobs`, commit e956ca4. Quick test and gate pass (JOB TESTS 64/64, 11 new).
+
+1. Count: `take` records each distinct job a session takes in the state's `"sessions": {session: [ids]}`; a
+   take past MAX_JOBS (3) refuses "this session has done 3 jobs: tell William it's ready for a /clear". A returned
+   job resumed by the same session counts once. A session with no real ID (default_session's fallback, the
+   agent's name) isn't counted, since every such session would share it. take prints "job N of 3".
+   **/clear and the session ID, checked:** it does give a new CLAUDE_CODE_SESSION_ID. This session began with a
+   /clear: its env has `CLAUDE_CODE_SESSION_ID=ece2cf8a-…`, and its transcript's first record says
+   `derived-from … ee72376b-… via clear`; ee72376b is the session that took H057. (CLAUDE_CODE_BRIDGE_SESSION_ID,
+   the remote-control ID, stays the same across the clear; job.py doesn't read it.) So the count starts again
+   after a /clear with nothing else needed.
+2. `take --wait` (take_wait): when nothing is Ready it looks again every WATCH_POLL, quietly, until it takes a job
+   (prints take's full output, exit 0) or WORKER_WAIT (20 min) passes ("nothing came in 20 min: stopping", exit 1).
+   A refusal (holding a job, or at 3) ends it at once. It holds no job while it waits, so nothing beats, goes
+   stale, or shows in watch (watch's "queue empty for Claude" still fires, as it should).
+3. done ends with the next step: `take --wait` in the background (with "job N of 3"), or at the 3rd "tell
+   William you're ready for a /clear".
+4. AGENTS.md (a bullet after done) and CLAUDE.md (a bullet after the P24 one) carry the loop. P27's "Where in
+   the code" is filled in; Tunables: MAX_JOBS and WORKER_WAIT added, WATCH_POLL's row names take --wait (by hand:
+   log.py add has no tunable kind).
+
+Checks: the count and refused 4th; another session not refused; the fallback session not counted; --wait takes a
+job that turns Ready mid-wait; --wait times out; --wait gives up at once when refused; done's message at jobs 1 and 3.
+
+Follow-up: CLAUDE.md's "One Work list item per session where possible ... then start the next in a fresh session" (Working with William) now reads against P27's 3 jobs a session; not in this job's Touches, so left as is.
+Follow-up: Codex sessions are counted only if CODEX_SESSION_ID or CODEX_THREAD_ID is set; if Codex has neither, its count never applies (it falls back to "codex"). Worth checking from a Codex session.
+For the integrator: BOARD.md's worker steps: step 1's "Nothing Ready for you? It says so: tell William and stop" could become "run `python3 tools/job.py take --wait` in the background; it stops after 20 min", and step 5 could end "then take --wait for the next (at most 3 a session, P27)".
+
+Result: e956ca4; quick test and gate pass (JOB TESTS 64/64); job.py counts jobs per session (refuses a 4th), take --wait waits up to 20 min for a Ready job, done names the next step (P27)
