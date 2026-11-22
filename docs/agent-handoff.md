@@ -34,7 +34,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H050 — For the next integrator session: where things stand](handoff/H050-integrator-state.md) — status: open; for: the integrator
 - [H052 — T66: lengths shown in the model's units](handoff/H052-t66-units.md) — status: queued (after T88's tool moves); for: either
 - [H059 — T67: IDs that never collide across kept history branches](handoff/H059-t67-branch-safe-ids.md) — status: queued (after H046); for: Codex
-- [H062 — T40: the model and its journal saved as one generation](handoff/H062-t40-save-generations.md) — status: open; for: Claude
+- [H062 — T40: the model and its journal saved as one generation](handoff/H062-t40-save-generations.md) — status: answered; for: Claude
 
 <!-- end of open list -->
 
