@@ -4,7 +4,7 @@ William says "check the board": this file tells each agent what to do next. The 
 /Users/Will/Sites/fretchup, P16) keeps it; nobody else edits it. Jobs run through the queue (P24, `tools/job.py`):
 the table below is built from docs/handoff/ and the queue's live state; the integrator keeps the Order line.
 
-Order: H057, H059, H046, H057, H052
+Order: H057, H060, H059, H046, H057, H052
 
 ## If you're not the integrator
 
@@ -52,6 +52,7 @@ shows the queue; `python3 tools/job.py board` rebuilds the table (the commit hoo
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
+| H060 | Claude | **Ready** | T97: follow-ups land on the integrator's list | [H060](docs/handoff/H060-t97-follow-ups.md) |  |
 | H059 | Codex | Queued | T67: IDs that never collide across kept history branches | [H059](docs/handoff/H059-t67-branch-safe-ids.md) | H046 |
 | H046 | Codex | In progress (codex since 12:07) | T82: the Line tool, closed outlines and split faces | [H046](docs/handoff/H046-t82-lines-split-faces.md) |  |
 | H057 | either | **Ready** | T95: the feature tests find the test files themselves | [H057](docs/handoff/H057-t95-tests-find-themselves.md) |  |
@@ -65,4 +66,4 @@ Done since the board started: H033 (T74 + T77), H034 (T76), H035 (T44), T56 (sta
 
 - Later (no handoff yet): T88 steps 1-4, Paint, Select, Circle, Rectangle move to ToolContext (Claude; one job each, on files H046 doesn't touch), after H054 and H055 (William's priority: the integrator's tools first).
 - Codex: after H046 (Lines), H059 (T67, branch-safe IDs: William's choice, 2026-11-22);  Take jobs with `python3 tools/job.py take --as codex` (P24).
-- Claude: William's priority (2026-11-22): the integrator's tools first: H057 (tests find themselves) next. Take jobs with `python3 tools/job.py take --as claude` from now on (P24).
+- Claude: William's priority (2026-11-22): the integrator's tools first: H057 (tests find themselves) and H060 (follow-ups, P26); no shared files, so two sessions can take them side by side. Take jobs with `python3 tools/job.py take --as claude` from now on (P24).
