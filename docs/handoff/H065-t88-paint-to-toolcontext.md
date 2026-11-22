@@ -1,6 +1,6 @@
 ### H065 — T88 step 1: Paint moves to ToolContext
 
-Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: queued (after H059) | For: either
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: open | For: either
 
 References: T88, docs/specs/T88-tool-interface.md (§ paint_tool.gd, § Paint: ctx.paint, the delivery table's step 1),
 A34 (tool registry), H051 (ToolContext, merged 9581352), H046 (Line, the first context-only tool: follow its

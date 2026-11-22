@@ -1,6 +1,6 @@
 ### H066 — T101: recovery on opening, the newest file wins
 
-Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: queued (after H059) | For: either
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: open | For: either
 
 References: A37 (William's call, 2026-11-22), A32 / T40 (save generations, H062: `recover_generation`), A25 (outside
 edits and the undo floor), A36 / T64 (H063: `outside_sha256`, which already covers the case when a worker saw the save).
