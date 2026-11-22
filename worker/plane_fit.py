@@ -68,6 +68,60 @@ def mm(x):
     return (text[:-2] if text.endswith('.0') else text) + ' mm'
 
 
+def _inputs(board, tip, bodies):
+    """Comparable fit inputs, including values resolved by FreeCAD expressions.
+
+    Do not use handler `changed`: native property edits conservatively return every board,
+    and expressions can move stock outside the edited board. Shapes need no tessellation here.
+    """
+    def frame(obj, feature=None):
+        data = stock(obj, feature)
+        if not data:
+            return None
+        ext, origin, axes, sizes = data
+        return (obj.Label, ext.Name, tuple(origin), tuple(tuple(v) for v in axes), tuple(sizes),
+                getattr(getattr(obj, 'Tip', None), 'Name', None))
+    target = bodies.get(tip.SSTargetId)
+    return (tip.SSTargetId, tip.SSAxis, tip.SSFace, tip.SSMode, getattr(tip, 'SSReverse', False),
+            frame(board, tip), frame(target))
+
+
+def refit_inputs(model):
+    """Transient pre-op input values; nothing cached across undo, rebuild or reopen."""
+    bodies = model.bodies()
+    return {tip.Name: _inputs(owner, tip, bodies)
+            for tip in model.doc.Objects if hasattr(tip, 'SSFitResult')
+            for owner in [tip.getParentGeoFeatureGroup()]
+            if owner and getattr(owner, 'BodyId', '') and tip.SSTargetId}
+
+
+def refit_changed(model, before):
+    """Update affected fits, propagating to dependents even if they precede their target.
+
+    A fitted target still makes its reference unavailable, as before (I40). Updates read
+    stock frames rather than recomputed shapes, so the caller can recompute the batch once.
+    """
+    bodies = model.bodies()
+    pending = [(tip, tip.getParentGeoFeatureGroup()) for tip in model.doc.Objects
+               if hasattr(tip, 'SSFitResult') and tip.SSTargetId]
+    pending = [(tip, owner) for tip, owner in pending if owner and getattr(owner, 'BodyId', '')]
+    affected = set()
+    changed = []
+    while pending:
+        remaining = []
+        for tip, owner in pending:
+            if tip.SSTargetId in affected or before.get(tip.Name) != _inputs(owner, tip, bodies):
+                update(model, owner, tip)
+                affected.add(owner.BodyId)
+                changed.append(owner.BodyId)
+            else:
+                remaining.append((tip, owner))
+        if len(remaining) == len(pending):
+            break
+        pending = remaining
+    return changed
+
+
 def update(model, board, tip):
     if not tip.SSTargetId:          # detached (or its target is gone): the shape stays as it is
         return

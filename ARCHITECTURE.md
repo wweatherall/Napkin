@@ -152,8 +152,9 @@ The panel previews four corner rays intersecting the selected face's infinite su
 independently solves those intersections and builds a solid with a square or sloping end. A `property_edit`
 with mode `plane_fit` records the source and target BodyIds, local axis, semantic face and end condition.
 The board's new Part::Feature tip stores its source extrusion link and the relationship. Model.apply updates
-fitted solids inside the transaction after geometry changes. A `replace_fit` edit restores the native extrusion
-with the entered dimension. FreeCAD can open the saved solid directly. Updating the fit requires the Shop Sketch
+only fits whose source/target stock frame, label or fit settings changed (including native expressions),
+propagates to dependent fits, and recomputes the fit batch once inside the transaction (T54). A `replace_fit`
+edit restores the native extrusion with the entered dimension. FreeCAD can open the saved solid directly. Updating the fit requires the Shop Sketch
 worker. The prototype supports one fitted dimension per plain rectangular board and rectangular targets.
 
 Session.export includes the rectangular stock frame and current label in each
