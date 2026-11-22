@@ -307,16 +307,14 @@ class Model(PushActions, MoveActions, MirrorActions, AssemblyActions, PaintActio
     def apply(self, op):
         if op["type"] not in self.HANDLERS:
             raise OpError(f"unknown op type '{op['type']}'")
-        changed = getattr(self, "op_" + op["type"])(op)
-        self.doc.recompute()
         import plane_fit
-        for fit in self.doc.Objects:
-            if hasattr(fit, "SSFitResult"):
-                owner = fit.getParentGeoFeatureGroup()
-                if owner and getattr(owner, 'BodyId', ''):
-                    plane_fit.update(self, owner, fit)
-                    self.doc.recompute()
-                    changed = list(changed or []) + [owner.BodyId]
+        fit_inputs = plane_fit.refit_inputs(self)
+        changed = getattr(self, "op_" + op["type"])(op)
+        self.doc.recompute()  # Resolve native features and expressions before reading fit frames.
+        fitted = plane_fit.refit_changed(self, fit_inputs)
+        if fitted:
+            self.doc.recompute()  # One recompute for the entire affected fit batch.
+            changed = list(dict.fromkeys(list(changed or []) + fitted))
         bad = [o.Label for o in self.doc.Objects if "Invalid" in o.State or "Error" in o.State]
         if bad:
             raise OpError(f"FreeCAD couldn't recompute: {', '.join(bad[:3])}")
