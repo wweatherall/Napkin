@@ -35,6 +35,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
 - [H069 — Two timing-sensitive worker tests that fail under load](handoff/H069-flaky-timing-tests.md) — status: queued (after H066); for: either
 - [H070 — Trim CLAUDE.md and AGENTS.md to what a session needs](handoff/H070-trim-instructions.md) — status: open; for: Claude
+- [H071 — T88 step 2: Select moves to ToolContext](handoff/H071-t88-select-to-toolcontext.md) — status: open; for: either
 
 <!-- end of open list -->
 
