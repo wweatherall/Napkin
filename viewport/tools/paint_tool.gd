@@ -6,19 +6,23 @@ const TOOL := {"id": "paint", "label": "Paint", "tip": "Paint (pick the wood in 
 		"show_links": true}   # the toolbar, the Tools menu and the key (tool_registry.gd)
 
 
+func uses_main() -> bool:
+	return false
+
+
 func hint() -> String:
-	var e: Dictionary = m.wood_library.get(m.paint_material, {})
-	return "Paint with %s: click a board. Pick the wood in the Wood menu; T turns a board's grain" % e.get("name", "wood")
+	var name := ctx.paint.current_name()
+	return "Paint with %s: click a board. Pick the wood in the Wood menu; T turns a board's grain" % (name if name != "" else "wood")
 
 
 func mouse_moved(screen: Vector2) -> void:
-	var p := m.pick(screen)
-	m.overlay.mesh = null
+	var p := ctx.pick.hit(screen)
+	ctx.view.clear_preview()
 	if p.get("hit", false) and p.get("body", "") != "":
-		m.overlay.mesh = m._tri_mesh(m.unit_tris(m.unit_of(p["body"])), m.mat_hover)
+		ctx.view.preview(ctx.model.unit_triangles(ctx.selection.unit_of(p["body"])), "hover")
 
 
 func click(screen: Vector2) -> void:
-	var p := m.pick(screen)
+	var p := ctx.pick.hit(screen)
 	if not p.get("hit", false) or p.get("body", "") == "": return
-	m.paint(m.unit_of(p["body"])["bodies"])
+	ctx.paint.apply(ctx.selection.unit_of(p["body"])["bodies"])

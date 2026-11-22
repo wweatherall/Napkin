@@ -11,6 +11,7 @@ const Inference = preload("res://inference.gd")
 const Document = preload("res://document.gd")
 const Selection = preload("res://selection.gd")
 const Presenter = preload("res://presenter.gd")
+const Appearance = preload("res://appearance.gd")
 const Main = preload("res://main.gd")
 var passed := 0
 var failed := 0
@@ -22,6 +23,20 @@ class LinePresenter:
 	func register_line(o: Dictionary) -> void:
 		received = o.duplicate(true)
 		o.end[0] = 999
+
+
+class FakeAppearance:
+	var calls: Array
+	func _init(log: Array) -> void: calls = log
+	func current_name() -> String: return "White oak"
+	func apply(targets: Array) -> void:
+		calls.append(["paint", targets.duplicate()])
+		targets.append("x")
+
+
+class PaintInference:
+	var hit := {}
+	func pick(_screen: Vector2) -> Dictionary: return hit.duplicate(true)
 
 
 class FakeClient:
@@ -261,8 +276,7 @@ func _initialize() -> void:
 		"add_node": func(n): added.append(n),
 		"refresh_tip": func(s): calls.append(["tip", s]),
 		"new_board": func() -> bool: return true,
-		"paint_name": func() -> String: return "White oak",
-		"paint_apply": func(b): calls.append(["paint", b]); b.append("x")})
+		"appearance": FakeAppearance.new(calls)})
 	var v = ToolContext.new(vparts)
 	v.view.preview(tri, "profile", PackedVector3Array([Vector3.ZERO, Vector3.ONE]), Color(0.1, 0.2, 0.6))
 	check("view.preview draws tris in the style's material and the outline", overlay.mesh != null and overlay_lines.mesh != null
@@ -292,6 +306,63 @@ func _initialize() -> void:
 	check("ui.refresh_tip calls the bound tooltip", calls.back() == ["tip", Vector2(3, 4)])
 	check("a context with nothing bound answers quietly", ctx.paint.current_name() == "" and not ctx.ui.new_board())
 
+	# The real paint owner, through the same capability used by Paint.
+	var appearance := Appearance.new(doc)
+	appearance.wood_library = {"white-oak": {"name": "White oak"}, "black-walnut": {"name": "Black walnut"}}
+	appearance.wood_keys = ["white-oak", "black-walnut"]
+	var paint_ctx := ToolContext.new({"appearance": appearance})
+	var statuses := []
+	appearance.status.connect(func(text): statuses.append([text, doc.seq, client.sent.size()]))
+	check("paint defaults to white oak and rejects an unknown wood without changing it",
+		paint_ctx.paint.current_name() == "White oak" and not appearance.select_wood("missing")
+		and paint_ctx.paint.current_name() == "White oak")
+	check("selecting wood changes the capability's name", appearance.select_wood("black-walnut")
+		and paint_ctx.paint.current_name() == "Black walnut")
+	var count: int = doc.ops.size()
+	var before_seq: int = doc.seq
+	var before_sent: int = client.sent.size()
+	paint_ctx.paint.apply([])
+	appearance.paint_material = "missing"
+	paint_ctx.paint.apply(["b1"])
+	check("empty targets and an invalid wood append nothing, send nothing and say nothing",
+		doc.ops.size() == count and doc.seq == before_seq and client.sent.size() == before_sent and statuses.is_empty())
+	appearance.select_wood("black-walnut")
+	doc.in_flight = false
+	var boards := ["b1", "b2"]
+	paint_ctx.paint.apply(boards)
+	boards.append("b3")
+	var painted: Dictionary = doc.ops.back()
+	check("paint appends one set_material op with copied targets and a document ID",
+		doc.ops.size() == count + 1 and painted.type == "set_material" and painted.id.begins_with("sm1_")
+		and painted.targets == ["b1", "b2"] and painted.material == "black-walnut", painted)
+	check("paint syncs before emitting the unchanged readable status",
+		doc.seq == before_seq + 1 and client.sent.size() > before_sent
+		and statuses == [["Board 1, Board 2: Black walnut", doc.seq, client.sent.size()]], statuses)
+	appearance.wood_library.clear()
+	check("paint exposes an empty name when its library has no selection", paint_ctx.paint.current_name() == "")
+
+	# Paint's real tool never receives Main, including assembly hover/click and empty space.
+	appearance.wood_library = {"black-walnut": {"name": "Black walnut"}}
+	var paint_infer := PaintInference.new()
+	var paint_parts := vparts.duplicate()
+	paint_parts["infer"] = paint_infer
+	paint_parts["appearance"] = appearance
+	var paint_tool = load("res://tools/paint_tool.gd").new()
+	paint_tool.setup_context(ToolContext.new(paint_parts))
+	paint_infer.hit = {"hit": true, "body": "b1"}
+	paint_tool.mouse_moved(Vector2.ZERO)
+	check("context-only Paint previews the hovered assembly and names the chosen wood",
+		paint_tool.m == null and not paint_tool.uses_main() and overlay.mesh != null
+		and calls.back() == ["tri", 3, mats["hover"]] and paint_tool.hint().begins_with("Paint with Black walnut:"))
+	paint_tool.click(Vector2.ZERO)
+	check("Paint click targets the whole assembly through the context",
+		doc.ops.back().targets == ["b1", "b2"], doc.ops.back())
+	count = doc.ops.size()
+	paint_infer.hit = {"hit": false}
+	paint_tool.mouse_moved(Vector2.ZERO)
+	paint_tool.click(Vector2.ZERO)
+	check("Paint clears hover and ignores a click off the model", overlay.mesh == null and doc.ops.size() == count)
+
 	# --- geometry: the moved functions, and Main's wrappers give the same answers ---
 	var v3 := Vector3(1.23456, -7.0004, 2.5)
 	check("arr3 keeps its 0.001 rounding", Geo.arr3(v3) == [1.235, -7.0, 2.5] and Main.arr3(v3) == Geo.arr3(v3))
@@ -307,7 +378,7 @@ func _initialize() -> void:
 		and Main.AXIS_COLORS == Presenter.AXIS_COLORS)
 
 	# --- source: the context, geometry and inference never reach main.gd ---
-	for path in ["res://tool_context.gd", "res://tool_geometry.gd", "res://inference.gd"]:
+	for path in ["res://tool_context.gd", "res://tool_geometry.gd", "res://inference.gd", "res://appearance.gd", "res://tools/paint_tool.gd"]:
 		var code := code_only(FileAccess.get_file_as_string(path))
 		var bad := []
 		for needle in ['preload("res://main.gd")', 'load("res://main.gd")', "Main.", "Main)", ": Main", "infer.m", "\tm.", " m.", "(m."]:
