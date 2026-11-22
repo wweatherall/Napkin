@@ -29,7 +29,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 - [H046 — T82: the Line tool, closed outlines and split faces](handoff/H046-t82-lines-split-faces.md) — status: queued (after T88); for: Codex
 - [H048 — T79: a failed save is forgotten](handoff/H048-t79-failed-save.md) — status: open; for: Claude
-- [H049 — T90: a faster gate](handoff/H049-faster-gate.md) — status: queued (after H045); for: either
+- [H049 — T90: a faster gate](handoff/H049-faster-gate.md) — status: open; for: Codex
 - [H050 — For the next integrator session: where things stand](handoff/H050-integrator-state.md) — status: open; for: the integrator
 
 <!-- end of open list -->
