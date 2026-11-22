@@ -2,11 +2,15 @@
 """The job queue (P24): a worker takes a job and says done; a dead man's switch flags one gone quiet.
 
 Worker (run in your job's worktree unless it says otherwise):
-  python3 tools/job.py take [--as claude|codex] [--session <name>]
+  python3 tools/job.py take [--as claude|codex] [--session <name>] [--wait]
                                 the first Ready job for you (in the board's order) whose files don't overlap a job
                                 in progress: makes ../fretchup-<id> and <agent>/<id>-<slug> from main, marks it in
                                 progress and prints the handoff. A returned job comes first and resumes its branch.
-                                One job per session. Run it anywhere in the repository.
+                                One job at a time per session, at most MAX_JOBS per session (P27): then a /clear,
+                                which gives a Claude session a new CLAUDE_CODE_SESSION_ID. Run it anywhere in the
+                                repository. --wait: nothing Ready? look again every WATCH_POLL until a job is taken
+                                (exit 0) or WORKER_WAIT passes (exit 1); holds no job meanwhile. Run it in the
+                                background, so the session wakes when it exits.
   python3 tools/job.py beat     "still working": pushes the deadline back. Commits on the job's branch, a quick-test
                                 run in its worktree and every job.py command count as beats too.
   python3 tools/job.py check    the 15-30 minute check-in: lists the processes started from your worktree (Godot,
@@ -46,7 +50,9 @@ import handoff
 
 DEADLINE = 30 * 60          # seconds with no beat before a job in progress is stale (P24, tunable)
 HUNG_AFTER = 10 * 60        # a process from the worktree older than this looks hung (tunable)
-WATCH_POLL = 20             # seconds between watch's looks at the queue (tunable)
+WATCH_POLL = 20             # seconds between watch's looks at the queue, and take --wait's (tunable)
+MAX_JOBS = 3                # jobs one session takes before it asks William for a /clear (P27, tunable)
+WORKER_WAIT = 20 * 60       # seconds take --wait looks for a job before it stops (P27, tunable)
 QUICKTEST = ["tools/quicktest.sh"]
 AGENTS = ("claude", "codex")
 BOARD = "BOARD.md"
@@ -313,7 +319,21 @@ def worktree_for(root, jid):
     return os.path.join(os.path.dirname(root), f"{os.path.basename(root)}-{jid.lower()}")
 
 
+def counted(session):
+    """A session's jobs count toward MAX_JOBS only when it has a real ID: the fallback (the agent's name) is shared."""
+    return session and session not in AGENTS
+
+
+def jobs_taken(st, session):
+    return list(st.get("sessions", {}).get(session, [])) if counted(session) else []
+
+
 def take(cwd, agent, session, now=None, out=print):
+    return _take(cwd, agent, session, now, out)[0]
+
+
+def _take(cwd, agent, session, now=None, out=print):
+    """(job id, None) or (None, "refused" | "empty")."""
     now = now or time.time()
     root = main_root(cwd)
     jobs, order = main_view(root)
@@ -321,13 +341,17 @@ def take(cwd, agent, session, now=None, out=print):
         held = [jid for jid, s in st["jobs"].items() if s.get("session") == session and s.get("state") in WORKING]
         if held:
             out(f"refused: this session ({session}) already holds {held[0]}: finish it (job.py done) first")
-            return None
+            return None, "refused"
+        n = len(jobs_taken(st, session))
+        if n >= MAX_JOBS:
+            out(f"refused: this session has done {n} jobs: tell William it's ready for a /clear (P27)")
+            return None, "refused"
         job, why = takeable(root, st, agent, jobs, order)
         for w in why:
             out(f"passed over {w}")
         if not job:
             out(f"nothing Ready for {agent}: say so and stop (the integrator is told)")
-            return None
+            return None, "empty"
         prev = st["jobs"].get(job["id"], {})
         if prev.get("state") == "returned":
             branch, wt = prev["branch"], prev.get("worktree") or worktree_for(root, job["id"])
@@ -335,26 +359,56 @@ def take(cwd, agent, session, now=None, out=print):
                 r = git(root, "worktree", "add", wt, branch)
                 if r.returncode:
                     out(f"refused: couldn't make the worktree: {r.stderr.strip()}")
-                    return None
+                    return None, "refused"
         else:
             branch, wt = f"{agent}/{job['id'].lower()}-{job['slug']}", worktree_for(root, job["id"])
             r = git(root, "worktree", "add", wt, "-b", branch, "main")
             if r.returncode:
                 out(f"refused: couldn't make the worktree: {r.stderr.strip()}")
-                return None
+                return None, "refused"
         wt = os.path.realpath(wt)
         st["jobs"][job["id"]] = {**{k: prev[k] for k in ("notes", "returned") if k in prev},
                                  "state": "in progress", "agent": agent, "session": session, "branch": branch,
                                  "worktree": wt, "handoff": job["name"], "taken": now, "beat": now}
         event(st, "taken", job["id"], f"{agent} ({session}) took {job['id']}", now)
+        if counted(session):
+            mine = st.setdefault("sessions", {}).setdefault(session, [])
+            if job["id"] not in mine:          # a returned job resumed by the same session counts once
+                mine.append(job["id"])
+            n = len(mine)
     out(f"took {job['id']} ({'resumed, returned' if prev.get('state') == 'returned' else 'new'}): branch {branch}, "
         f"worktree {wt}")
     if prev.get("notes"):
         out(f"the integrator's notes: {prev['notes']}")
     out(f"work in {wt}; check in with `python3 tools/job.py check` every 15-30 minutes; when it's done, "
         f"`python3 tools/job.py done`\n")
+    if counted(session):
+        out(f"job {n} of {MAX_JOBS} for this session (P27)")
     out(open(os.path.join(wt, handoff.FOLDER, job["name"]), encoding="utf-8").read())
-    return job["id"]
+    return job["id"], None
+
+
+def take_wait(cwd, agent, session, wait=None, poll=None, out=print, sleep=time.sleep, clock=time.time):
+    """take, looking again every poll seconds while nothing is Ready, for up to wait seconds (P27). Holds no job
+    while it looks, so nothing beats or goes stale. Returns the job's id, or None (refused, or timed out)."""
+    wait = WORKER_WAIT if wait is None else wait
+    poll = WATCH_POLL if poll is None else poll
+    start, quiet = clock(), []
+    while True:
+        said = []
+        jid, why = _take(cwd, agent, session, out=out if not quiet else said.append)
+        if jid or why == "refused":
+            for line in said:                  # a later look says only what came of it, not "nothing Ready"
+                out(line)
+            return jid
+        if not quiet:
+            out(f"waiting up to {wait // 60} min for a job (looking every {poll} s)")
+            sys.stdout.flush()
+            quiet.append(1)
+        if clock() - start + poll > wait:
+            out(f"nothing came in {wait // 60} min: stopping. Tell William the queue is empty for {agent}.")
+            return None
+        sleep(poll)
 
 
 def find_job(st, cwd, jid=None):
@@ -483,7 +537,18 @@ def done(cwd, jid=None, now=None, out=print):
         return k
     with_job(cwd, k, out, go)
     out(f"{k} done: the integrator is told. Tell William \"ready for review: {k}\".")
+    out(next_step(read_state(state_path(cwd)), j.get("session")))
     return True
+
+
+def next_step(st, session):
+    """What done tells the worker to do next (P27)."""
+    n = len(jobs_taken(st, session))
+    if n >= MAX_JOBS:
+        return f"next: this session has done {n} jobs: tell William you're ready for a /clear"
+    return ("next: run `python3 tools/job.py take --wait` in the background (run_in_background): it takes the next "
+            f"job, or stops after {WORKER_WAIT // 60} min with nothing (then tell William)"
+            + (f"; job {n} of {MAX_JOBS} for this session" if counted(session) else ""))
 
 
 def return_job(cwd, jid, notes, now=None, out=print):
@@ -653,7 +718,10 @@ def main(argv):
         if agent not in AGENTS:
             print("say who you are: job.py take --as claude|codex")
             return 2
-        return 0 if take(cwd, agent, opt("--session") or default_session(agent)) else 1
+        session = opt("--session") or default_session(agent)
+        if "--wait" in argv:
+            return 0 if take_wait(cwd, agent, session) else 1
+        return 0 if take(cwd, agent, session) else 1
     if cmd == "beat":
         return 0 if beat(cwd, opt("--job")) else 1
     if cmd == "check":

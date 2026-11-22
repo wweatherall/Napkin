@@ -200,6 +200,8 @@ r, out = run(job.done, wt1)
 j = state(root)["jobs"]["H001"]
 check("done marks the job done once all is in order", r and j["state"] == "done" and "ready for review: H001" in out, out)
 check("done notes a response with no Result line (T91)", "has no line \"Result:" in out, out)
+check("done's closing message at a session's 1st job: take --wait in the background (P27)",
+      "job.py take --wait` in the background" in out and "job 1 of 3" in out, out)
 check("done tells the integrator (an event in the queue)", any(e["kind"] == "done" and e["job"] == "H001"
                                                               for e in state(root)["events"]))
 r, out = run(job.take, root, "claude", "s1")
@@ -279,6 +281,67 @@ check("merged() keeps a standing branch (small-fixes) and its worktree (P22)",
       os.path.isdir(sf) and "small-fixes" in sh(root, "git", "branch").stdout, out)
 sh(root, "git", "worktree", "remove", "--force", sf)
 for w in (wt3, job.worktree_for(root, "H005")):
+    sh(root, "git", "worktree", "remove", "--force", w)
+shutil.rmtree(base)
+
+# --- a session chains up to MAX_JOBS jobs (P27) ---
+base, root = repo()
+
+
+def finish(jid):
+    with job.locked(job.state_path(root)) as st:
+        st["jobs"][jid]["state"] = "merged"
+
+
+r1, _ = run(job.take, root, "claude", "w"); finish(r1)
+r2, _ = run(job.take, root, "claude", "w"); finish(r2)
+r3, out = run(job.take, root, "claude", "w")
+check("take counts a session's jobs", [r1, r2, r3] == ["H001", "H002", "H003"] and "job 3 of 3" in out
+      and state(root)["sessions"]["w"] == ["H001", "H002", "H003"], (r1, r2, r3, out))
+wt = os.path.realpath(job.worktree_for(root, "H003"))
+hp = os.path.join(wt, "docs", "handoff", "H003-third-job.md")
+body = open(hp).read()
+open(hp, "w").write(body.replace("Status: open", "Status: answered") + "\nResponse: done.\n")
+commit(wt, "answered")
+job.QUICKTEST = ["true"]
+r, out = run(job.done, wt)
+check("done's closing message at the 3rd job: tell William you're ready for a /clear",
+      r and "ready for a /clear" in out and "take --wait" not in out, out)
+r, out = run(job.take, root, "claude", "w")
+check("a 4th take by the same session is refused", r is None and "has done 3 jobs" in out, out)
+r, out = run(job.take, root, "claude", "w2")
+check("another session isn't refused", r == "H006", out)
+finish("H006")
+r, out = run(job.take, root, "claude", "claude")
+r2, out2 = run(job.take, root, "claude", "claude")
+check("the fallback session (no real ID) isn't counted", "sessions" not in state(root) or
+      "claude" not in state(root)["sessions"], state(root).get("sessions"))
+
+clock = [0.0]
+slept = []
+
+
+def fake_sleep(sec):
+    slept.append(sec)
+    clock[0] += sec
+    if len(slept) == 2:                          # a job turns Ready while it waits
+        open(os.path.join(root, "docs", "handoff", "H008-late-job.md"), "w").write(
+            entry("H008", "Codex", "open", "tools/z.py.", "T8: late"))
+        commit(root, "H008 Ready")
+
+
+run(job.take, root, "codex", "c1")                    # takes H005: nothing else Ready for Codex
+r, out = run(job.take_wait, root, "codex", "c2", wait=60, poll=5, sleep=fake_sleep, clock=lambda: clock[0])
+check("take --wait takes a job that turns Ready while it waits", r == "H008" and len(slept) == 2
+      and "waiting up to" in out and "took H008" in out, out)
+r, out = run(job.take_wait, root, "codex", "c3", wait=60, poll=5, sleep=fake_sleep, clock=lambda: clock[0])
+check("take --wait stops at WORKER_WAIT with nothing", r is None and "nothing came in 1 min: stopping" in out, out)
+check("... and holds no job while it waits", "c3" not in [j.get("session") for j in state(root)["jobs"].values()])
+r, out = run(job.take_wait, root, "claude", "w", wait=60, poll=5, sleep=fake_sleep, clock=lambda: clock[0])
+check("take --wait gives up at once when refused (the session's 3 jobs)", r is None and "has done 3" in out
+      and "waiting up to" not in out, out)
+for w in [l.split()[1] for l in sh(root, "git", "worktree", "list", "--porcelain").stdout.split("\n")
+          if l.startswith("worktree ")][1:]:
     sh(root, "git", "worktree", "remove", "--force", w)
 shutil.rmtree(base)
 print(f"JOB TESTS: {sum(RESULTS)} passed, {len(RESULTS) - sum(RESULTS)} failed")

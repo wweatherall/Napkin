@@ -58,6 +58,9 @@ marked Superseded (never deleted). Ask William before countermanding an Active d
   reviews each done job; integrate.py also removes a merged job's worktree and branch. Leftovers go in a response
   as `Follow-up:` lines and merge instructions as `For the integrator:` lines; integrate.py copies the first into
   docs/follow-ups.md and prints the second (P26).
+- A worker chains jobs (P27): take, work, done, then `job.py take --wait` with `run_in_background` (it wakes you with
+  the next job, or exits after 20 min); at most 3 a session (job.py refuses a 4th): after the 3rd, or a wait that
+  times out, stop and tell William you're ready for a /clear (a /clear gives a new CLAUDE_CODE_SESSION_ID).
 - A job's scratch files, logs and measurements go in `scratch/` inside its worktree (git ignores it), never in
   /private/tmp or elsewhere: removing the worktree at merge takes them too (P25).
 - Codex works on `codex/*` branches in its own worktree, on the files its handoff job lists; review and merge them.

@@ -54,7 +54,6 @@ shows the queue; `python3 tools/job.py board` rebuilds the table (the commit hoo
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
 | H046 | Codex | **Stale** (codex, no beat since 12:07) | T82: the Line tool, closed outlines and split faces | [H046](docs/handoff/H046-t82-lines-split-faces.md) |  |
-| H061 | Claude | **Ready** | T98: a worker session chains up to 3 jobs | [H061](docs/handoff/H061-t98-worker-chains-jobs.md) |  |
 | H059 | Codex | Queued | T67: IDs that never collide across kept history branches | [H059](docs/handoff/H059-t67-branch-safe-ids.md) | H046 |
 | H052 | either | Queued | T66: lengths shown in the model's units | [H052](docs/handoff/H052-t66-units.md) | T88's tool moves |
 
