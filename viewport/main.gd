@@ -561,7 +561,7 @@ func _make_ui() -> void:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
 	bar.add_child(row)
-	row.add_child(_segments([["Select", "select", "Select (Space)"], ["Paint", "paint", "Paint (pick the wood in the Wood menu)"], ["Rectangle", "rect", "Rectangle (R)"], ["Push/Pull", "push", "Push/Pull (P)"], ["Move", "move", "Move (M)"]], false))
+	row.add_child(_segments(tool_list.map(func(t): return [t["label"], t["id"], t["tip"]]), false))   # tool_registry.gd
 	for spec in [["Undo", "undo", "Undo (⌘Z)"], ["Redo", "redo", "Redo (⇧⌘Z)"], ["Drawing", "drawing", "Drawing and cut list (D)"]]:
 		var b := Button.new(); b.text = spec[0]; b.tooltip_text = spec[2]; b.focus_mode = Control.FOCUS_NONE
 		b.pressed.connect(_menu.bind(spec[1]))
@@ -797,15 +797,24 @@ func _show_marker(p: Dictionary) -> void:
 # Each tool is its own object in tools/ (T4); they all snap through inference.gd. This section only hands
 # them the cursor, clicks and typed values.
 var tools := {}                     # "rect" / "push" / "move" -> tool object
+var tool_list: Array = []           # each tool's TOOL dictionary, in toolbar order (tool_registry.gd)
+var tool_info := {}                 # tool id -> its TOOL dictionary
+var tool_keys := {}                 # keycode -> tool id (keys.gd)
 var infer                           # inference.gd: the one snapping engine
 
 
 func _make_tools() -> void:
+	"""Every tool in tools/ that declares a TOOL (tool_registry.gd): adding a tool needs no edit here."""
 	infer = load("res://inference.gd").new()
 	infer.m = self
-	for k in ["select", "rect", "push", "move", "paint"]:
-		tools[k] = load("res://tools/%s_tool.gd" % k).new()
-		tools[k].setup(self)
+	var registry = load("res://tool_registry.gd")
+	tool_list = registry.found()
+	for p in registry.problems(tool_list): push_error("tools: " + p)
+	for t in tool_list:
+		tools[t["id"]] = t["script"].new()
+		tools[t["id"]].setup(self)
+		tool_info[t["id"]] = t
+		if t["key"] != KEY_NONE: tool_keys[t["key"]] = t["id"]
 
 
 # the tests reach these two by their old names
@@ -1106,7 +1115,7 @@ func _turn_grain() -> void:
 
 func _show_siblings(bid: String) -> void:
 	hover_body = bid
-	pres.show_siblings(_siblings_of(bid) if tool in ["rect", "push", "move", "paint"] else [])
+	pres.show_siblings(_siblings_of(bid) if tool_info.get(tool, {}).get("show_links", false) else [])
 
 
 func _say_status(txt: String) -> void:
@@ -1552,17 +1561,38 @@ func _port_free(p: int) -> bool:
 	return true
 
 
+# The window <-> worker protocol's version (docs/protocol.md): bump it when a message or shared-file field changes.
+# The worker reports its own (worker/serve.py PROTOCOL_VERSION) in hello; a worker speaking another isn't shared.
+const PROTOCOL_VERSION := 1
+
+
 func _probe_worker(p: int) -> String:
-	"""Ask whatever listens on port p who it is: the worker's script hash, or "" if it isn't a Shop Sketch worker."""
+	"""Ask whatever listens on port p who it is: the worker's script hash, or "" if it isn't a Shop Sketch worker
+	this window can use (_worker_of)."""
+	return _worker_of(_hello(p), p)
+
+
+func _worker_of(r, p: int) -> String:
+	"""A hello reply's worker hash, or "": not a Shop Sketch worker, or one speaking another protocol version
+	(then it's treated like a different worker: this window starts its own, and says why)."""
+	if typeof(r) != TYPE_DICTIONARY or r.get("app", "") != "shopsketch": return ""
+	if int(r.get("protocol", 0)) != PROTOCOL_VERSION:
+		print("SHOPSKETCH the worker on port %d speaks protocol %s, this window %d: not sharing it" % [p, str(r.get("protocol", "none")), PROTOCOL_VERSION])
+		return ""
+	return String(r.get("worker", ""))
+
+
+func _hello(p: int):
+	"""The hello reply from whatever listens on port p (a separate short-lived connection), or null."""
 	var peer := StreamPeerTCP.new()
-	if peer.connect_to_host("127.0.0.1", p) != OK: return ""
+	if peer.connect_to_host("127.0.0.1", p) != OK: return null
 	var t0 := Time.get_ticks_msec()
 	var buf := ""
 	var sent := false
 	while Time.get_ticks_msec() - t0 < 3000:
 		peer.poll()
 		var st := peer.get_status()
-		if st == StreamPeerTCP.STATUS_ERROR or st == StreamPeerTCP.STATUS_NONE: return ""
+		if st == StreamPeerTCP.STATUS_ERROR or st == StreamPeerTCP.STATUS_NONE: return null
 		if st == StreamPeerTCP.STATUS_CONNECTED:
 			if not sent:
 				peer.put_data((JSON.stringify({"cmd": "hello"}) + "\n").to_utf8_buffer()); sent = true
@@ -1572,10 +1602,10 @@ func _probe_worker(p: int) -> String:
 				if buf.contains("\n"):
 					var r = JSON.parse_string(buf.get_slice("\n", 0))
 					peer.disconnect_from_host()
-					return String(r.get("worker", "")) if typeof(r) == TYPE_DICTIONARY and r.get("app", "") == "shopsketch" else ""
+					return r
 		OS.delay_msec(10)
 	peer.disconnect_from_host()
-	return ""
+	return null
 
 
 func _pick_worker() -> int:
@@ -1811,7 +1841,7 @@ func _make_menus() -> void:
 				  ["Delete (⌫)", "delete", 0], ["Make unique (U)", "unique", 0], ["Detach from array", "detach", 0], [],
 				  ["Hide (H)", "hide", 0], ["Unhide selected", "unhide_selected", 0], ["Unhide last", "unhide_last", 0],
 				  ["Unhide all (Shift+H)", "unhide_all", 0]]],
-		["Tools", [["Select (Space)", "select", 0], ["Paint", "paint", 0], ["Rectangle (R)", "rect", 0], ["Push/Pull (P)", "push", 0], ["Move (M)", "move", 0]]],
+		["Tools", tool_list.map(func(t): return [load("res://tool_registry.gd").menu_label(t), t["id"], 0])],
 		["View", [["Grid snap (G)", "grid", -1], ["New board on faces (B)", "newboard", -1], ["Hidden geometry", "hiddengeom", -1]]],
 	]
 	for m in spec:
@@ -1839,6 +1869,7 @@ func _menu(tag) -> void:
 	var now := Time.get_ticks_msec()
 	if now - int(_menu_last.get(tag, -1000)) < 150: return        # the menu and the key both fired
 	_menu_last[tag] = now
+	if tools.has(tag): set_tool(tag); return      # a tool's id (tool_registry.gd)
 	match tag:
 		"newwindow": new_window()
 		"new": _file_dialog(true)
@@ -1847,7 +1878,6 @@ func _menu(tag) -> void:
 		"drawing": export_drawing()
 		"undo": undo()
 		"redo": redo()
-		"select", "rect", "push", "move", "paint": set_tool(tag)
 		"assemble": make_assembly()
 		"unique": _linked_op("make_unique")
 		"detach": _linked_op("detach")

@@ -57,12 +57,13 @@ TCP carries commands/status and output paths. Geometry is read from shared local
 | Location | Current responsibility | Useful entry points |
 |---|---|---|
 | `viewport/project.godot`, `main.tscn` | Godot configuration and startup scene | Main scene |
-| `viewport/main.gd` | Composition root: UI, mouse/trackpad input and camera (key presses go to `keys.gd`), worker lifecycle, model switching, mesh helpers and rejection bookkeeping. Routes document/selection signals to presentation; forwards legacy `m.*` access to their owners. | `_ready`, `_make_tools`, `sync`, `_on_worker`, `_on_synced`, `_on_op_removed`, `_apply_confirmed`, `switch_model` |
+| `viewport/main.gd` | Composition root: UI (the toolbar's tool segments and the Tools menu built from the tool registry), mouse/trackpad input and camera (key presses go to `keys.gd`), worker lifecycle, model switching, mesh helpers and rejection bookkeeping. Routes document/selection signals to presentation; forwards legacy `m.*` access to their owners. | `_ready`, `_make_tools`, `sync`, `_on_worker`, `_on_synced`, `_on_op_removed`, `_apply_confirmed`, `switch_model` |
 | `viewport/document.gd` | Owns desired ops, IDs, request sequencing/coalescing, confirmation, undo/redo, model path and save revisions. Reports by signals; no geometry or camera. | `sync`, `on_sync_reply`, `on_opened`, `on_saved`, `on_link_up`, `reset`, `open`, `remove_op(s)`, `undo`, `take_redo` |
 | `viewport/presenter.gd` | Owns drafts, confirmed board geometry and nodes, cached visible states, waves and highlights. Reads selection; draws through Main helpers. Emits board metadata and completed rejections. | `apply_confirmed`, `show_confirmed`, `show_state`, `forget_op`, `register_rect`, `begin_wave`, `attach_wave`, `step_waves`, `apply_context`, `show_selection`, `show_siblings`, `reset` |
 | `viewport/selection.gd` | Owns selection, entered context, confirmed board relationships, hidden state and predicted deleted IDs. Appends selection-related ops through the document; reports changes without drawing. | `set_boards`, `unit_of`, `in_context`, `edit_blocked`, `enter_context_of`, `leave_context`, `set_selection`, `refresh_hidden`, `is_hidden`, `delete_selected`, `hide_selected`, `unhide`, `make_assembly`, `linked_op` |
-| `viewport/keys.gd` | Keyboard (T75): shortcuts, tool keys, Esc, Enter, Delete/Backspace (I48), typed characters into the measurements box, Tab/⌥ for Push/Pull before the GUI (I40). Holds no state; main's `_input` / `_unhandled_input` stay the entry points and hand it key presses after the shared prefix (a press drops a pending length; Esc cancels a Properties pick). | `before_gui`, `press` |
+| `viewport/keys.gd` | Keyboard (T75): shortcuts, tool keys (from each tool's `TOOL`, via `m.tool_keys`), Esc, Enter, Delete/Backspace (I48), typed characters into the measurements box, Tab/⌥ for Push/Pull before the GUI (I40). Holds no state; main's `_input` / `_unhandled_input` stay the entry points and hand it key presses after the shared prefix (a press drops a pending length; Esc cancels a Properties pick). | `before_gui`, `press` |
 | `viewport/measure_box.gd` | Measurements box (VCB, T75): owns the typed text, `typing` (I48), the box's label/value/styles and pending `length` requests; routes count syntax to tools, evaluates lengths locally (`units.gd`), sends what it declines as `length` and drops stale replies. Main forwards `m.vcb`, `m.typing`, `m.apply_vcb()`, `m._update_vcb()`, `m.length_pending`, `m.ui_vcb_box`. | `build`, `update`, `apply`, `on_length`, `type_char`, `backspace`, `stop_typing` |
+| `viewport/tool_registry.gd` | The tool registry: every `tools/*.gd` declaring a `TOOL` constant (id, label, tip, key, order, optional `show_links`) is a tool, listed with `ResourceLoader.list_directory` so the exported pack (`.gd.remap` / `.gdc`) lists the same; checks for repeated ids/keys. A new tool is one new file; nothing shared lists the tools | `found`, `menu_label`, `problems` |
 | `viewport/tools/tool.gd` | Common tool interface, references to viewport/inference, and the shared press-and-drag / click-and-click rule (I43) | `setup`, `reset`, `click`, `double_click`, `release`, `mouse_moved`, `key`, `typed`; `press_started`, `press_moved`, `press_released` |
 | `viewport/tools/select_tool.gd` | Click/Shift-click and window/crossing selection of context units; entering editing contexts | Tool event methods, `box_ids` |
 | `viewport/tools/paint_tool.gd` | Paint selected wood onto the picked board/family | Tool event methods |
@@ -73,8 +74,8 @@ TCP carries commands/status and output paths. Geometry is read from shared local
 | `viewport/worker_client.gd` | TCP framing, buffering, reconnect, pending sends and link signals | `send`, `_process`, `_drain` |
 | `worker/replay.py` | Entry point only: puts worker/ on sys.path and calls `serve.main()` (freecadcmd runs it by name) | `main` |
 | `worker/common.py` | Shared basics imported explicitly by name (T50): FreeCAD vector alias, tolerances, `OpError`, `vec`/`unit`, `add_props`, `Frame`, wood cards | `material_card`, `Frame` |
-| `worker/model.py: Model` | Reading the document and the building blocks (boards, planes, extrusions, booleans, Tip); combines the action mixins; validates each op | `apply`, `HANDLERS`, `resolve_face`, `edit_frame`, `boolean` |
-| `worker/push.py`, `move.py`, `mirror.py`, `assembly.py`, `paint.py`, `visibility.py`, `deletion.py` | One mixin per kind of action (`PushActions`, ...), working through `self` on the document: rect + push/pull + through-cuts; move, copies, links, arrays, detach, make unique; mirrors; assemblies; paint and grain; hide/unhide (T28); dependency-preserving deletion and original promotion (T34) | `op_*`, `show_as_hidden` |
+| `worker/model.py: Model` | Reading the document and the building blocks (boards, planes, extrusions, booleans, Tip); combines the action mixins (`action_mixins()`: every top-level `*Actions` class in a worker module, found by reading the sources with `ast` before importing; a name defined by two mixins is an error); validates each op (`HANDLERS` = the `op_<type>` methods) | `apply`, `HANDLERS`, `action_mixins`, `resolve_face`, `edit_frame`, `boolean` |
+| `worker/push.py`, `move.py`, `mirror.py`, `assembly.py`, `paint.py`, `visibility.py`, `deletion.py` | One mixin per kind of action (`PushActions`, ...; joins `Model` by being a top-level `*Actions` class), working through `self` on the document: rect + push/pull + through-cuts; move, copies, links, arrays, detach, make unique; mirrors; assemblies; paint and grain; hide/unhide (T28); dependency-preserving deletion and original promotion (T34) | `op_*` (one per op type; helpers aren't named `op_`), `show_as_hidden` |
 | `worker/export.py` | What the viewport and renders read: bodies.json entries, per-board mesh files and their caches, model.glb, the TechDraw page | `mesh_of`, `board_mesh_file`, `write_glb`, `cuts_of` |
 | `worker/session.py: Session` | Live document, applied operation sequence, undo/rebuild, external-edit detection, journal, saves (incl. GuiDocument.xml) | `sync`, `_apply`, `_open_existing`, `export`, `save` |
 | `worker/serve.py` | select-based multi-client loop; sessions and single-window ownership by absolute file path; delayed saves and focus notifications | `handle`, `claim`, `let_go`, `release`, `save_pending`, `session_for` |
@@ -83,7 +84,7 @@ TCP carries commands/status and output paths. Geometry is read from shared local
 | `viewport/*.gdshader`, `line.gdshaderinc` | Draft/confirmation appearance, depth-biased overlays and anti-aliased lines | Shader parameters |
 | `viewport/tests.gd`, `viewport/tests/`, `worker/test_*.py`, `worker/scenario/` | Test-mode dispatcher; shared UI harness, separate suites and quick sections; worker geometry/persistence tests | Suite entry points |
 | `tools/featuretest.sh`, `quicktest.sh`, `fulltest.sh`, `compare_suites.py` | Test orchestration and geometry comparisons (feature tests without a window; UI tests in the viewport, P07) | Shell entry points |
-| `tools/build_app.sh`, `export_presets.cfg` | macOS application packaging | App build |
+| `tools/build_app.sh`, `export_presets.cfg` | macOS application packaging; after signing it runs `test_tools.gd` inside the built pack (the registry finds every tool there) | App build |
 
 Tools currently depend directly on `main.gd`; the interface is a convention, not a strongly isolated service boundary. Main runtime-loads tools/tests while those scripts preload Main for typing, avoiding preload cycles.
 
@@ -106,7 +107,7 @@ sections that continue from the preceding state. Helpers that await frames remai
 | `viewport/property_panel.gd` | Selected-piece feature picker, property fields, Value/Expression modes, reference insertion and read-only details | `display`, `message`, `refresh_requested`, `edit_requested` |
 | `viewport/main.gd` property additions | Tie inspection to model/selection/sequence; append property edits to `ops`; refresh after confirmation | `_request_properties`, `_on_properties`, `_edit_property` |
 
-The `length` and `inspect_properties` requests are handled in `serve.py`; `property_edit` is in `Model.HANDLERS` and `op_property_edit` (delegating to `object_properties.apply`) in `model.py`. Both modules are covered by worker identity hashing and app packaging.
+The `length` and `inspect_properties` requests are handled in `serve.py`; `property_edit` is a `Model.HANDLERS` type through `op_property_edit` (delegating to `object_properties.apply`) in `model.py`. Both modules are covered by worker identity hashing and app packaging.
 
 ## State ownership and authority
 
@@ -185,7 +186,7 @@ Inspection waits for settled geometry. Main checks the request ID, model, select
 
 ## Protocol at a glance
 
-Transport: UTF-8 JSON objects separated by newlines over localhost TCP. Main probes port 7878 with hello and compares the worker identity: the MD5 of every worker `.py` except `test_*`, in name order (`serve.py worker_identity`; main.gd `_worker_identity` computes the same, and a quick-test step checks they agree). A matching worker is shared; a different version or occupied port gets a private worker. Test mode starts its own worker with `SERVE_PORT=0`: the worker binds a port the system picks and writes it to `SERVE_PORT_FILE` (written whole, via rename), which the window reads before connecting, so concurrent test runs can't take the same port (T47; `tools/fulltest.sh` and the socket tests start theirs the same way). `--port=N` selects an external worker.
+Transport: UTF-8 JSON objects separated by newlines over localhost TCP. Main probes port 7878 with hello and compares the protocol version (`protocol`, defined once per side: `serve.py PROTOCOL_VERSION`, `main.gd PROTOCOL_VERSION`; bumped when a message or file field changes, docs/protocol.md) and the worker identity: the MD5 of every worker `.py` except `test_*`, in name order (`serve.py worker_identity`; main.gd `_worker_identity` computes the same, and a quick-test step checks they agree). A worker matching both is shared; another protocol version (`_worker_of` logs it), a different identity or an occupied port gets a private worker. Test mode starts its own worker with `SERVE_PORT=0`: the worker binds a port the system picks and writes it to `SERVE_PORT_FILE` (written whole, via rename), which the window reads before connecting, so concurrent test runs can't take the same port (T47; `tools/fulltest.sh` and the socket tests start theirs the same way). `--port=N` selects an external worker.
 
 | Command/event | Purpose |
 |---|---|
@@ -213,7 +214,7 @@ Each described object includes native `name`, user-facing `label`, type and fiel
 
 The loop multiplexes sockets with `select` but executes geometry serially; it is not parallel FreeCAD evaluation. Autosave waits for all windows to be quiet for 0.25 s. `SERVE_IDLE_EXIT` controls exit after the last connection leaves (app startup supplies 10 s; direct worker default 0 disables it). File > New Window (⌘⇧N) opens a distinct Untitled model. Ownership is local to this worker and absolute path; it is not an OS-wide lock against external FreeCAD or another worker version.
 
-`oplog/0.1` uses millimetres; `run_sync` rejects other units. Errors can occur at request level or per operation. The journal format is currently `shopsketch-journal/0.1`. Check `Model.HANDLERS` and each `op_*` implementation for the authoritative operation schema; there is not a separate comprehensive typed protocol definition.
+`oplog/0.1` uses millimetres; `run_sync` rejects other units. Errors can occur at request level or per operation. The journal format is currently `shopsketch-journal/0.1`. Check `Model.HANDLERS` (the `op_*` methods) and each `op_*` implementation for the authoritative operation schema; there is not a separate comprehensive typed protocol definition.
 
 ### Selection operations (T34)
 
@@ -268,9 +269,9 @@ Main picks/probes/starts the worker (`_pick_worker`), watches loss (`_watch_work
 
 | Change | Start here | Also review |
 |---|---|---|
-| New drawing/manipulation tool | New script under `viewport/tools` | Main registration, inference, worker handler, rejection dependencies, tests |
+| New drawing/manipulation tool | New script under `viewport/tools` with a `TOOL` constant (toolbar, Tools menu and key come from it) | Inference, worker handler, rejection dependencies, `test_tools.gd` / quick `registry` expectations, tests |
 | Snap/axis/plane behaviour | `inference.gd` | Every tool and coordinate conversion |
-| New native geometric feature | An `op_*` in the matching action file (`push.py`, `move.py`, ...), or a new mixin added to `Model` in `model.py`; list the op in `HANDLERS` | Transaction behaviour, export/cache keys, persistence/reopen |
+| New native geometric feature | An `op_<type>` in the matching action file (`push.py`, `move.py`, ...), or a new file with a top-level `*Actions` class (it joins `Model` by itself); no list to edit | Transaction behaviour, export/cache keys, persistence/reopen |
 | Component/array/assembly semantics | Model relationship helpers | Main editing context, previews, affected-instance highlighting |
 | Material pipeline | `worker/materials.py`, `op_set_material`, `set_tip`, `grain_world`, `write_glb` | Paint tool, wood.gdshader, material/grain cache keys and Blender extras consumer |
 | Worker failure/reconnect | `worker_client.gd`, Main lifecycle | `serve`, save acknowledgement and model switching |

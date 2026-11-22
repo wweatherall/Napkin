@@ -229,4 +229,22 @@ text = read(real, handoff.HANDOFF)
 check("docs/agent-handoff.md: the open list matches docs/handoff/",
       handoff.START in text and handoff.with_list(text, real) == text)
 
+# P11 overlap check (handoff.touches / overlaps_in)
+A = entry("H041", "Circle", extra="Touches: viewport/tools/circle_tool.gd (new), viewport/main.gd (the tool list only),\n"
+          "docs/protocol.md, ARCHITECTURE.md (module rows). Not viewport/document.gd (H042).\n")
+B = entry("H042", "Late replies", extra="Touches: viewport/document.gd, viewport/main.gd (`_on_open` only), a new\n"
+          "worker/scenario file, docs/protocol.md. Not viewport/tools/* (H041).\n")
+C = entry("H043", "Hide check", extra="Touches: viewport/tests/quick/hide.gd. Read-only on presenter.gd and main.gd: H041\n"
+          "is changing them.\n")
+check("touches reads the paths a job lists, and leaves out its 'Not ...' sentence",
+      handoff.touches(B) == {"viewport/document.gd", "viewport/main.gd", "worker/scenario", "docs/protocol.md"})
+check("touches leaves out 'Read-only on ...' files", handoff.touches(C) == {"viewport/tests/quick/hide.gd"})
+found = dict(handoff.overlaps_in({"a.md": A, "b.md": B, "c.md": C}))
+check("two open jobs that both list main.gd and protocol.md are flagged (the H041/H042 case)",
+      found.get("viewport/main.gd") == ["H041", "H042"] and found.get("docs/protocol.md") == ["H041", "H042"])
+check("a test-only job beside them isn't flagged", not any("H043" in ids for ids in found.values()))
+check("a queued job doesn't count", handoff.overlaps_in({"a.md": A, "b.md": B.replace("Status: open", "Status: queued (after H041)")}) == [])
+check("a glob covers the files under it", dict(handoff.overlaps_in({"a.md": A, "d.md": entry("H045", "x",
+      extra="Touches: viewport/tools/*.\n")})).get("viewport/tools/circle_tool.gd") == ["H041", "H045"])
+
 print(f"ID TESTS: {sum(RESULTS)} passed, {len(RESULTS) - sum(RESULTS)} failed")

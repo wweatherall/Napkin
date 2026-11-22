@@ -2,6 +2,9 @@ extends "res://tools/tool.gd"
 ## Paint: click a board to give it the wood picked in the Wood menu (T15). From outside, an assembly or an array
 ## row is painted whole; a linked board paints its family (they share one definition). T turns the grain.
 
+const TOOL := {"id": "paint", "label": "Paint", "tip": "Paint (pick the wood in the Wood menu)", "key": KEY_NONE, "order": 20,
+		"show_links": true}   # the toolbar, the Tools menu and the key (tool_registry.gd)
+
 
 func hint() -> String:
 	var e: Dictionary = m.wood_library.get(m.paint_material, {})

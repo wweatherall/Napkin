@@ -47,4 +47,15 @@ text = open(log, encoding="utf-8").read()
 check("docs/decision-log.md is sorted", s.sort_text(text) == text)
 check("docs/decision-log.md: every (Details below.) row has its section", s.details_problems(text) == [])
 
+
+LOG = ("## Decisions\n\n| ID | D | Status |\n|---|---|---|\n| A1 | x | Active |\n| A2 | y | Maybe |\n\n"
+       "## Work list\n\n| # | Item | Status |\n|---|---|---|\n| T1 | a | Done |\n| T2 | b | Open (queued: H041) |\n"
+       "| T3 | c | Done (review pending) |\n| T4 | d | In progress |\n")
+probs = s.status_problems(LOG)
+check("a decision with a status outside Active/Tentative is reported", any(p.startswith("A2:") for p in probs))
+check("a Work list status a worker invented ('Done (review pending)') is reported", any(p.startswith("T3:") for p in probs))
+check("Done, In progress and 'Open (queued: H041)' are accepted", not any(p[:3] in ("T1:", "T2:", "T4:") for p in probs))
+check("the real decision log uses only allowed statuses",
+      s.status_problems(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "docs", "decision-log.md"), encoding="utf-8").read()) == [])
+
 print(f"LOG SORT TESTS: {sum(RESULTS)} passed, {len(RESULTS) - sum(RESULTS)} failed")

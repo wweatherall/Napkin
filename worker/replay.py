@@ -19,7 +19,7 @@ and into the output folder:
   model.glb at each autosave (views.json when a drawing is asked for)
 
 The code is split by job (T42): common.py (shared basics), model.py (the document and building blocks), one file
-per kind of action (push.py, move.py, mirror.py, assembly.py, paint.py), export.py (what the viewport reads),
+per kind of action (push.py, move.py, ...: found by model.action_mixins), export.py (what the viewport reads),
 session.py (sync, undo, journal, saves) and serve.py (the connection loop). This file only starts it.
 """
 import os

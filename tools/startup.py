@@ -7,8 +7,11 @@
 Read-only. Works from any worktree: the board and the decision log are read from main (`git show main:<path>`),
 since a worktree's copy can be stale."""
 import re
+import os
 import subprocess
 import sys
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
 ID_RE = re.compile(r"\b([A-Z]{1,2}\d+[a-z]?)\b")
 SHORT = 200
@@ -167,6 +170,9 @@ def main(argv):
     for p, b in shown:
         print(f"  {p}  [{b}]")
 
+    import integrator
+    print(integrator.status_line(integrator.lock_path(root)))
+
     print("Recent main:")
     for l in git("log", "--oneline", "-5", "main", cwd=root).splitlines():
         print("  " + l)
@@ -187,6 +193,13 @@ def main(argv):
         print("  (none)")
     for l in notes(board):
         print("  Note: " + l.strip().removeprefix("- "))
+
+    import handoff   # the open jobs' Touches lists, from main (P11): a file two open jobs both list
+    names = [l.split("/")[-1] for l in git("ls-tree", "--name-only", "main", "docs/handoff/", cwd=root).splitlines()
+             if l.endswith(".md")]
+    clash = handoff.overlaps_in({n: git("show", f"main:docs/handoff/{n}", cwd=root) for n in names})
+    for path, ids in clash:
+        print(f"  OVERLAP: {path} is in {' and '.join(ids)}: only one of them should be open (P11)")
 
     if argv:
         log = git("show", "main:docs/decision-log.md", cwd=root)

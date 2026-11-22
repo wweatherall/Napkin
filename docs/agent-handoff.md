@@ -42,7 +42,8 @@ Rules for every job (Claude or Codex):
 - Your own worktree and branch from main, never a checkout in /Users/Will/Sites/fretchup (the integrator works
   there). Name the branch after the job, as [BOARD.md](../BOARD.md) says (`claude/h036-keys`): that claims it.
 - Touch only the files your job lists. If you need another file, say so in chat and in your response first:
-  another job may own it. Shared hot spots (your Work list row, your handoff response, a line in
+  another job may own it. Don't edit the Work list: put your result in your handoff response and the integrator writes the row at
+  merge (P17). Shared hot spots (your handoff response, a line in
   ARCHITECTURE.md) are small edits made at the end, after merging main into your branch.
 - Use the IDs given here; if you need a new decision or Work list ID, take a placeholder (I-new-N, T-new-N with N = 1,
   2 ...) and the integrator numbers it at merge (`tools/number_ids.py`, T74).

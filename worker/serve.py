@@ -7,6 +7,10 @@ from common import HERE, OpError
 from session import Session, atomic_json
 import length_input
 
+# The window <-> worker protocol's version (docs/protocol.md): bump it when a message or shared-file field changes.
+# Reported in hello; a window whose PROTOCOL_VERSION (viewport/main.gd) differs starts its own worker.
+PROTOCOL_VERSION = 1
+
 
 def run_sync(session, req):
     ops = req["oplog"]["ops"] if "oplog" in req else req["ops"]
@@ -42,7 +46,8 @@ def worker_identity():
 def serve(port):
     """Long-running worker: newline-delimited JSON over localhost TCP. One worker serves every Shop Sketch window,
     each on its own FreeCAD document; a model belongs to one window at a time (W13).
-      {"cmd": "hello"} -> {"ok", "cmd": "hello", "app": "shopsketch", "worker": <md5 of this script>, "pid"}
+      {"cmd": "hello"} -> {"ok", "cmd": "hello", "app": "shopsketch", "protocol": PROTOCOL_VERSION,
+                           "worker": <md5 of the worker's scripts>, "pid"}
       {"cmd": "open", "model": ".../model.FCStd", "fresh": false}
           -> {"ok", "cmd": "open", "ops", "undo_floor", "external", "rev"}
           -> {"ok": false, "cmd": "open", "error": "already_open", "model"} when another window has it; that window
@@ -134,7 +139,8 @@ def serve(port):
                 send(conn, length_input.handle(req))
                 return None
             if cmd == "hello":
-                send(conn, {"ok": True, "cmd": "hello", "seq": seq, "app": "shopsketch", "worker": me, "pid": os.getpid()})
+                send(conn, {"ok": True, "cmd": "hello", "seq": seq, "app": "shopsketch", "protocol": PROTOCOL_VERSION,
+                            "worker": me, "pid": os.getpid()})
                 return None
             if cmd == "quit":
                 if len(clients) > 1:                # other windows still use this worker: only this one leaves

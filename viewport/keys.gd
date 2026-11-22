@@ -1,5 +1,5 @@
 extends Node
-## The keyboard (T75): tool keys, shortcuts, Esc, Enter, Delete / Backspace, typed values, Tab / ⌥ for Push/Pull.
+## The keyboard (T75): tool keys (each tool declares its own, tool_registry.gd), shortcuts, Esc, Enter, Delete / Backspace, typed values, Tab / ⌥ for Push/Pull.
 ## `m.keys`. main.gd's `_input` and `_unhandled_input` stay the entry points (tests call `m._unhandled_input`); they
 ## hand key presses here, after what comes first for every event (a press drops a length FreeCAD is still working
 ## out; Esc while Properties picks a face cancels the pick). The mouse stays in main.gd.
@@ -47,11 +47,8 @@ func press(e: InputEventKey) -> void:
 	if not (box.vcb != "" and e.keycode == KEY_SHIFT) and t.key(e): return   # the tool's own keys (Move: modifiers, axis locks); while typing, Shift is for " and '
 	if t.busy() and ch != "" and t.accepts(ch):
 		box.type_char(ch); return
+	if m.tool_keys.has(e.keycode): m.set_tool(m.tool_keys[e.keycode]); return   # each tool's own key (its TOOL)
 	match e.keycode:
-		KEY_SPACE: m.set_tool("select")
-		KEY_R: m.set_tool("rect")
-		KEY_P: m.set_tool("push")
-		KEY_M: m.set_tool("move")
 		KEY_G: m._menu("grid")
 		KEY_B: m._menu("newboard")
 		KEY_D: m.export_drawing()
