@@ -472,6 +472,9 @@ def done(cwd, jid=None, now=None, out=print):
         if not test(cwd, k, out):
             out("refused: the quick test failed on the latest commit")
             return False
+    if not re.search(r"(?m)^[-*]?\s*Result:\s*[0-9a-f]{7,40}\s*;", text):   # integrate.py copies it (T91)
+        out(f"note: {handoff.FOLDER}/{j['handoff']} has no line \"Result: <commit>; <tests>; <what changed>\": "
+            "the integrator will write the Work list result by hand (add one and commit to save them that)")
     now = now or time.time()
 
     def go(st, k, j):
