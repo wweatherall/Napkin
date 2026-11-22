@@ -1816,7 +1816,7 @@ func _make_menus() -> void:
 				  ["Open…", "open", KEY_MASK_META | KEY_O], [],
 				  ["Show in Finder", "reveal", 0], [], ["Drawing and cut list (D)", "drawing", 0]]],
 		["Edit", [["Undo", "undo", KEY_MASK_META | KEY_Z], ["Redo", "redo", KEY_MASK_META | KEY_MASK_SHIFT | KEY_Z], [], ["Make assembly", "assemble", KEY_MASK_META | KEY_G],
-				  ["Delete", "delete", KEY_DELETE], ["Make unique (U)", "unique", 0], ["Detach from array", "detach", 0], [],
+				  ["Delete (⌫ in Select)", "delete", 0], ["Make unique (U)", "unique", 0], ["Detach from array", "detach", 0], [],
 				  ["Hide (H)", "hide", 0], ["Unhide selected", "unhide_selected", 0], ["Unhide last", "unhide_last", 0],
 				  ["Unhide all (Shift+H)", "unhide_all", 0]]],
 		["Tools", [["Select (Space)", "select", 0], ["Paint", "paint", 0], ["Rectangle (R)", "rect", 0], ["Push/Pull (P)", "push", 0], ["Move (M)", "move", 0]]],
@@ -2010,12 +2010,9 @@ func _unhandled_input(e: InputEvent) -> void:
 				else: set_tool(tool)
 				return
 			KEY_ENTER, KEY_KP_ENTER: apply_vcb(); return
-			KEY_DELETE:
-				if vcb == "": _menu("delete")
-				return
-			KEY_BACKSPACE:
-				if vcb == "": _menu("delete")
-				else: vcb = vcb.left(-1); _update_vcb()
+			KEY_DELETE, KEY_BACKSPACE:              # in Select, with nothing typed, they delete the selection (I45)
+				if vcb != "": vcb = vcb.left(-1); _update_vcb()
+				elif tool == "select": _menu("delete")
 				return
 		var ch := char(e.unicode) if e.unicode > 0 else ""
 		var t = tools[tool]
