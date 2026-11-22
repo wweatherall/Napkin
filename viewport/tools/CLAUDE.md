@@ -44,7 +44,7 @@ The viewport guide (`../CLAUDE.md`) covers drafts, waves and the rules for drawi
   what was typed (units.gd, or FreeCAD for what it declines). Move also gets its count syntax raw (`3x`, `/3`).
 
 ## Making an action
-1. Build the op: an id from `m.counters` (e.g. `"pp%d"`), `type`, and targets by geometry (`{body, normal,
+1. Build the op: an id from `m.doc.next_id("pp")` (`ctx.document.next_id` in a ToolContext tool; never a counter by hand: IDs carry 128 random bits so they never collide across history branches, T67), `type`, and targets by geometry (`{body, normal,
    point}`, never face numbers, A03); a new board takes a new `b` id.
 2. `m.ops.append(op)`, draw the draft at once, start the wave (`m._begin_wave`, `m._attach_wave`), clear the
    tool's state and overlays, then `m.sync()`. FreeCAD confirms later; never wait for it.

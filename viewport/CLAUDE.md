@@ -14,7 +14,7 @@ protocol (update it in the same commit when you change either). Tools have their
 - `measure_box.gd` (T75): the measurements box, `m.measure`: typed text (`vcb`), `typing`, the box itself, typed
   values (`apply`) and `length` requests FreeCAD works out. main forwards the old names (`m.vcb`, `m.apply_vcb()`,
   `m._update_vcb()`, ...).
-- `document.gd` (T39, A31): the document controller, `m.doc`. Owns the op list, counters, `seq` / `in_flight` /
+- `document.gd` (T39, A31): the document controller, `m.doc`. Owns the op list, ID reservations and `next_id` (the only ID allocator, T67), `seq` / `in_flight` /
   `dirty`, which reply counts, confirmed ids, undo floor, redo stack, open / reset, save revisions; reports by
   signals and knows nothing of meshes. main.gd forwards those names (`m.ops`, `m.seq`, ...) to it. Undo, redo and
   removal go through it (`op_removed` tells main to take away what an op drew).
