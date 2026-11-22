@@ -8,10 +8,10 @@ A34 (a new tool is one file; no hard-coded tool lists in Main), viewport/tools/C
 Touches: viewport/tool_context.gd (new), viewport/tool_geometry.gd (new), viewport/tools/tool.gd (setup only),
 viewport/main.gd (wiring and the static wrappers that forward to tool_geometry.gd), viewport/inference.gd (explicit
 inputs), viewport/presenter.gd (the rendering constants only), viewport/tool_registry.gd and its test, a new
-headless viewport/test_tool_context.gd (don't add it to tools/featuretest.sh: H049 owns that file; give the
+headless viewport/test_tool_context.gd (don't add it to the feature-test script: H049 owns it; give the
 line in your response and the integrator adds it at merge), ARCHITECTURE.md (the viewport modules
 section), viewport/tools/CLAUDE.md. Not any tool other than tool.gd's setup: each tool moves in its own later job.
-Not tools/quicktest.sh, gate.sh, fulltest.sh (H049, Codex).
+Not the test scripts in tools/ (H049, Codex).
 
 Request: build the spec's step 0 ("Tests and incremental delivery", row 0; "Proposed surface"; "Static geometry"):
 ToolContext with its capability adapters (pick, model, selection, document, view, ui, paint), each holding its owner
