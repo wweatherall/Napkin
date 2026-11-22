@@ -496,8 +496,14 @@ def return_job(cwd, jid, notes, now=None, out=print):
     return True
 
 
+STANDING = {"main", "small-fixes", "codex/small-fixes"}   # never removed: the light path's branches (P22) stay
+
+
 def merged(root, branch, now=None, out=print):
-    """After integrate.py merged a branch: the job is merged; its worktree and branch go."""
+    """After integrate.py merged a branch: the job is merged; its worktree and branch go (not a standing branch's)."""
+    if branch in STANDING:
+        out(f"kept {branch} and its worktree: a standing branch (P22)")
+        return None
     now = now or time.time()
     path = state_path(root)
     with locked(path) as st:

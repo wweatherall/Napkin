@@ -271,6 +271,12 @@ board_now = sh(root, "git", "show", "HEAD:BOARD.md").stdout
 check("... and the merge commit's board is rebuilt (the merged job is gone from it)",
       "| H001 | Claude" not in board_now and "| H002 |" in board_now, board_now)
 
+sh(root, "git", "branch", "small-fixes")
+sf = os.path.join(base, "small-fixes-wt"); sh(root, "git", "worktree", "add", "-q", sf, "small-fixes")
+r, out = run(job.merged, root, "small-fixes")
+check("merged() keeps a standing branch (small-fixes) and its worktree (P22)",
+      os.path.isdir(sf) and "small-fixes" in sh(root, "git", "branch").stdout, out)
+sh(root, "git", "worktree", "remove", "--force", sf)
 for w in (wt3, job.worktree_for(root, "H005")):
     sh(root, "git", "worktree", "remove", "--force", w)
 shutil.rmtree(base)
