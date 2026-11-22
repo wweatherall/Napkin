@@ -27,7 +27,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 <!-- open list: built from docs/handoff/ by tools/handoff.py; don't edit by hand -->
 
-- [H040 — T33: small distances: typed values of any size get through](handoff/H040-t33-small-distances.md) — status: open; for: Codex
+- [H040 — T33: small distances: typed values of any size get through](handoff/H040-t33-small-distances.md) — status: answered; for: Codex
 - [H041 — T81: the Circle tool](handoff/H041-circle-tool.md) — status: queued (after H040); for: either
 - [H042 — T70: a late worker reply can't replace a newer state](handoff/H042-t70-late-replies.md) — status: open; for: Claude
 
