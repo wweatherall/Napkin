@@ -4,8 +4,25 @@ extends RefCounted
 
 const Main := preload("res://main.gd")
 const Inference := preload("res://inference.gd")
+# Independent policies (T33): pointer intent, native model resolution, and text only.
+const ACCIDENTAL_DRAG_MM := 0.5
+const GEOMETRY_TOLERANCE_MM := 0.001  # worker/common.py TOL; never the drag threshold
+const DISTANCE_DISPLAY_FORMAT := "%d"  # existing whole-mm display; never round an op with this
+const DIMENSIONS_DISPLAY_FORMAT := "%d, %d"
+
 var m: Main
 var infer: Inference
+
+
+static func pointer_distance_ok(distance: float, point_snap: bool) -> bool:
+	return absf(distance) >= ACCIDENTAL_DRAG_MM or point_snap
+
+
+static func clean_pointer_distance(distance: float) -> float:
+	# Float32 mesh/ray arithmetic can put an integer plane a few microns away.
+	# Only remove that noise near whole mm; retain fractional snaps and never touch typed values.
+	var whole := roundf(distance)
+	return whole if absf(distance - whole) < GEOMETRY_TOLERANCE_MM * 0.1 else distance
 
 
 func setup(viewport: Main) -> void:
