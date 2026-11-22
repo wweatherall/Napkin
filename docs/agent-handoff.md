@@ -35,6 +35,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H059 — T67: IDs that never collide across kept history branches](handoff/H059-t67-branch-safe-ids.md) — status: open; for: Codex
 - [H065 — T88 step 1: Paint moves to ToolContext](handoff/H065-t88-paint-to-toolcontext.md) — status: queued (after H059); for: either
 - [H066 — T101: recovery on opening, the newest file wins](handoff/H066-t101-recovery-newest-wins.md) — status: queued (after H059); for: either
+- [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
 
 <!-- end of open list -->
 
