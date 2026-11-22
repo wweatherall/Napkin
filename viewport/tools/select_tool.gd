@@ -2,6 +2,8 @@ extends "res://tools/tool.gd"
 ## Select (Space): click a board (from outside, its whole assembly or array row) to select it; Shift-click adds or
 ## removes; click empty space to clear. Double-click enters an assembly or an array (T20); Esc leaves.
 
+const TOOL := {"id": "select", "label": "Select", "tip": "Select (Space)", "key": KEY_SPACE, "order": 10}   # the toolbar, the Tools menu and the key (tool_registry.gd)
+
 
 func hint() -> String:
 	return "Select: click or drag a box (right = enclosed, left = crossing), Shift adds. Double-click an assembly or array to edit inside it. Cmd+G makes an assembly"

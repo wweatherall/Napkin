@@ -10,10 +10,14 @@ ARCHITECTURE.md the module map and protocol (update it in the same commit when y
   and doesn't put this folder on `sys.path`, so replay.py does). One-off: `OPLOG=ops.json OUTDIR=out`.
 - `common.py`: shared basics (FreeCAD imports, `TOL`, `OpError`, `vec`/`unit`, `add_props`, `Frame`, wood cards);
   modules import only the shared names they use, explicitly (T50).
-- `model.py`: `Model` (reads the document; building blocks: boards, planes, extrusions, booleans, `Tip`; `apply`
-  and `HANDLERS`). Each kind of action is a mixin in its own file: `push.py` (rect, push/pull, through-cuts),
+- `model.py`: `Model` (reads the document; building blocks: boards, planes, extrusions, booleans, `Tip`; `apply`;
+  `HANDLERS` is worked out from the `op_<type>` methods; `action_mixins()` finds the mixins). Each kind of action is a mixin in its own file: `push.py` (rect, push/pull, through-cuts),
   `move.py` (move, copies, links, arrays, detach, make unique), `mirror.py`, `assembly.py`, `paint.py` (paint,
-  grain), `visibility.py` (hide/unhide, T28), `deletion.py` (dependency-preserving delete and original promotion, T34/I46). A new op: an `op_<type>` in the right mixin (or a new mixin listed in `Model`), and its type in `HANDLERS`.
+  grain), `visibility.py` (hide/unhide, T28), `deletion.py` (dependency-preserving delete and original promotion, T34/I46). A new op: an `op_<type>` method in the right mixin; that is all (it is in `HANDLERS` by
+  its name, so name helpers anything but `op_`). A new kind of action: a new `worker/<name>.py` with a top-level
+  class `<Name>Actions` (its `op_*` methods); `action_mixins()` finds it by reading the sources (ast) and joins it
+  to `Model`, and the hash and app bundle take every non-test .py, so no other file changes. A method name two
+  mixins both define stops the worker at import. Add its scenario step (`scenario/NN_feature.py`).
 - `export.py`: bodies.json entries, per-board mesh files and their caches, model.glb, the TechDraw page.
 - `session.py`: `Session`, one live document per .FCStd: `sync`, undo, rebuild, journal, saves.
 - `serve.py`: the connection loop (`hello`, `open`, `sync`, `length`, `inspect_properties`, `bye`, `quit`; `saved`

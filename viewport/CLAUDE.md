@@ -8,7 +8,7 @@ protocol (update it in the same commit when you change either). Tools have their
 ## Files
 - `main.gd` (~2,000 lines; split in T39 / T41 / T75): setup and UI, materials and mesh helpers (`_tri_mesh`, `_lines`),
   worker process and lifecycle, rejection bookkeeping, input dispatch (mouse, trackpad, camera), model switching.
-- `keys.gd` (T75): the keyboard, `m.keys`: shortcuts, tool keys, Esc, Enter, Delete / Backspace (I48), typed
+- `keys.gd` (T75): the keyboard, `m.keys`: shortcuts, tool keys (`m.tool_keys`, from each tool's `TOOL`), Esc, Enter, Delete / Backspace (I48), typed
   characters, Tab / ⌥ for Push/Pull. main's `_input` / `_unhandled_input` stay the entry points (tests call
   `m._unhandled_input`) and hand it key presses.
 - `measure_box.gd` (T75): the measurements box, `m.measure`: typed text (`vcb`), `typing`, the box itself, typed
@@ -27,7 +27,8 @@ protocol (update it in the same commit when you change either). Tools have their
   selection / context highlights. Draws with main's helpers through `m` (like the tools); main forwards the old
   names (`m.body_tris`, `m.drafts`, `m._begin_wave`, ...). main routes the document's signals to it.
 - `inference.gd`: the one snapping engine (pick; endpoint > midpoint > on edge; axis inference). Every tool uses it.
-- `tools/`: one object per tool (see its guide). `property_panel.gd`: the Properties panel (T46, I36).
+- `tools/`: one object per tool (see its guide); `tool_registry.gd` finds them (each declares a `TOOL`), and the
+  toolbar, Tools menu and tool keys come from that. `property_panel.gd`: the Properties panel (T46, I36).
 - `units.gd`: lengths. `evaluate_length` / `evaluate_pair` give FreeCAD's answer for a typed length at once (a
   port of `worker/length_input.py`; what it declines goes to FreeCAD); `format_length` for showing lengths.
 - `worker_client.gd`: TCP framing, reconnect. `tests.gd`: small test-mode dispatcher; `tests/harness.gd`: shared input, timing and assertions;
@@ -91,6 +92,9 @@ protocol (update it in the same commit when you change either). Tools have their
   undo floor, redo.
 - `test_selection.gd` (headless, in the feature tests): selection.gd with a stand-in document: what a board stands for
   outside and inside, entering and leaving, the hidden/deleted sets following ops, hide / delete / assembly / unlink ops and context following original promotion. Quick-test `selection` covers boxes, Shift-click, multi-board move/copy/count amendments/mirror/delete, undo/redo, tool-first grabs after undo and deletion inside an entered array.
+- `test_tools.gd` (headless, in the feature tests, and run by `tools/build_app.sh` inside the built pack): the tool
+  registry finds exactly Select, Paint, Rectangle, Push/Pull, Move with their labels, tooltips, keys, menu names.
+  Quick-test `registry` checks the real toolbar, Tools menu names and that each tool key picks its tool.
 - `test_units.gd` (`Godot --headless --path viewport --script res://test_units.gd`, 114): the parser, and the local
   evaluator against FreeCAD's answers in `tests/length_cases.json`.
 - Tests use a private worker on a port it picks itself and reports in a file (T47); `--port=N` uses an outside

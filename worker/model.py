@@ -1,20 +1,45 @@
 """Model: Shop Sketch operations on a FreeCAD document. This file reads the document and has the building
-blocks (boards, extrusions, booleans); each kind of action is a mixin in its own file."""
+blocks (boards, extrusions, booleans); each kind of action is a mixin in its own file, found by action_mixins().
+The op types Model handles are its op_<type> methods (HANDLERS)."""
+import ast
+import importlib
+import os
+
 import FreeCAD as App
 import Part
 from common import (
     Frame, NORMAL_TOL, OpError, TOL, V, add_props, board_label, rotation_from, unit, vec,
 )
-from push import PushActions
-from move import MoveActions
-from mirror import MirrorActions
-from assembly import AssemblyActions
-from paint import PaintActions
-from visibility import VisibilityActions
-from deletion import DeleteActions
 
 
-class Model(PushActions, MoveActions, MirrorActions, AssemblyActions, PaintActions, VisibilityActions, DeleteActions):
+def action_mixins():
+    """The action mixins: every class named *Actions at the top level of a worker module (push.py: PushActions,
+    ...). A new kind of action joins Model by being a new file with such a class: nothing here lists them. Each
+    file's source is read (ast) before anything is imported, so modules without one (replay.py, drawing.py, ...)
+    are never imported. In file-name order; two mixins defining the same name is an error (so the order never
+    decides which one runs)."""
+    here = os.path.dirname(os.path.abspath(__file__))
+    found = []
+    for name in sorted(os.listdir(here)):
+        if not name.endswith(".py") or name.startswith("test_") or name == "model.py":
+            continue
+        with open(os.path.join(here, name), encoding="utf-8") as f:
+            tree = ast.parse(f.read(), name)
+        for node in tree.body:
+            if isinstance(node, ast.ClassDef) and node.name.endswith("Actions"):
+                found.append(getattr(importlib.import_module(name[:-3]), node.name))
+    owner = {}
+    for cls in found:
+        for attr in vars(cls):
+            if attr.startswith("__"):
+                continue
+            if attr in owner:
+                raise ImportError(f"{owner[attr]} and {cls.__name__} both define {attr}")
+            owner[attr] = cls.__name__
+    return found
+
+
+class Model(*action_mixins()):
     """Shop Sketch operations on a FreeCAD document. Holds no state of its own."""
 
     def __init__(self, doc):
@@ -290,9 +315,6 @@ class Model(PushActions, MoveActions, MirrorActions, AssemblyActions, PaintActio
         self.set_tip(container, b)
         return b
 
-    HANDLERS = ("rect", "push_pull", "mirror", "make_component", "move", "set_material", "detach", "make_unique",
-                "make_assembly", "turn_grain", "property_edit", "hide", "delete")
-
     def op_property_edit(self, op):
         """A native property changed in the Properties panel (T46): see object_properties.apply."""
         if op.get("mode") == "replace_fit":
@@ -319,3 +341,8 @@ class Model(PushActions, MoveActions, MirrorActions, AssemblyActions, PaintActio
         if bad:
             raise OpError(f"FreeCAD couldn't recompute: {', '.join(bad[:3])}")
         return changed
+
+
+# The op types: one per op_<type> method, in Model or a mixin (an op's handler is its op_ method; helpers aren't
+# named op_).
+Model.HANDLERS = frozenset(n[3:] for n in dir(Model) if n.startswith("op_"))

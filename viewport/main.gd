@@ -561,7 +561,7 @@ func _make_ui() -> void:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
 	bar.add_child(row)
-	row.add_child(_segments([["Select", "select", "Select (Space)"], ["Paint", "paint", "Paint (pick the wood in the Wood menu)"], ["Rectangle", "rect", "Rectangle (R)"], ["Push/Pull", "push", "Push/Pull (P)"], ["Move", "move", "Move (M)"]], false))
+	row.add_child(_segments(tool_list.map(func(t): return [t["label"], t["id"], t["tip"]]), false))   # tool_registry.gd
 	for spec in [["Undo", "undo", "Undo (⌘Z)"], ["Redo", "redo", "Redo (⇧⌘Z)"], ["Drawing", "drawing", "Drawing and cut list (D)"]]:
 		var b := Button.new(); b.text = spec[0]; b.tooltip_text = spec[2]; b.focus_mode = Control.FOCUS_NONE
 		b.pressed.connect(_menu.bind(spec[1]))
@@ -797,15 +797,24 @@ func _show_marker(p: Dictionary) -> void:
 # Each tool is its own object in tools/ (T4); they all snap through inference.gd. This section only hands
 # them the cursor, clicks and typed values.
 var tools := {}                     # "rect" / "push" / "move" -> tool object
+var tool_list: Array = []           # each tool's TOOL dictionary, in toolbar order (tool_registry.gd)
+var tool_info := {}                 # tool id -> its TOOL dictionary
+var tool_keys := {}                 # keycode -> tool id (keys.gd)
 var infer                           # inference.gd: the one snapping engine
 
 
 func _make_tools() -> void:
+	"""Every tool in tools/ that declares a TOOL (tool_registry.gd): adding a tool needs no edit here."""
 	infer = load("res://inference.gd").new()
 	infer.m = self
-	for k in ["select", "rect", "push", "move", "paint"]:
-		tools[k] = load("res://tools/%s_tool.gd" % k).new()
-		tools[k].setup(self)
+	var registry = load("res://tool_registry.gd")
+	tool_list = registry.found()
+	for p in registry.problems(tool_list): push_error("tools: " + p)
+	for t in tool_list:
+		tools[t["id"]] = t["script"].new()
+		tools[t["id"]].setup(self)
+		tool_info[t["id"]] = t
+		if t["key"] != KEY_NONE: tool_keys[t["key"]] = t["id"]
 
 
 # the tests reach these two by their old names
@@ -1106,7 +1115,7 @@ func _turn_grain() -> void:
 
 func _show_siblings(bid: String) -> void:
 	hover_body = bid
-	pres.show_siblings(_siblings_of(bid) if tool in ["rect", "push", "move", "paint"] else [])
+	pres.show_siblings(_siblings_of(bid) if tool_info.get(tool, {}).get("show_links", false) else [])
 
 
 func _say_status(txt: String) -> void:
@@ -1804,7 +1813,7 @@ func _make_menus() -> void:
 				  ["Delete (⌫)", "delete", 0], ["Make unique (U)", "unique", 0], ["Detach from array", "detach", 0], [],
 				  ["Hide (H)", "hide", 0], ["Unhide selected", "unhide_selected", 0], ["Unhide last", "unhide_last", 0],
 				  ["Unhide all (Shift+H)", "unhide_all", 0]]],
-		["Tools", [["Select (Space)", "select", 0], ["Paint", "paint", 0], ["Rectangle (R)", "rect", 0], ["Push/Pull (P)", "push", 0], ["Move (M)", "move", 0]]],
+		["Tools", tool_list.map(func(t): return [load("res://tool_registry.gd").menu_label(t), t["id"], 0])],
 		["View", [["Grid snap (G)", "grid", -1], ["New board on faces (B)", "newboard", -1], ["Hidden geometry", "hiddengeom", -1]]],
 	]
 	for m in spec:
@@ -1832,6 +1841,7 @@ func _menu(tag) -> void:
 	var now := Time.get_ticks_msec()
 	if now - int(_menu_last.get(tag, -1000)) < 150: return        # the menu and the key both fired
 	_menu_last[tag] = now
+	if tools.has(tag): set_tool(tag); return      # a tool's id (tool_registry.gd)
 	match tag:
 		"newwindow": new_window()
 		"new": _file_dialog(true)
@@ -1840,7 +1850,6 @@ func _menu(tag) -> void:
 		"drawing": export_drawing()
 		"undo": undo()
 		"redo": redo()
-		"select", "rect", "push", "move", "paint": set_tool(tag)
 		"assemble": make_assembly()
 		"unique": _linked_op("make_unique")
 		"detach": _linked_op("detach")

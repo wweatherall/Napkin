@@ -52,4 +52,8 @@ cat > "$C/Info.plist" <<PLIST
 PLIST
 
 codesign --force --deep -s - "$APP" > /dev/null 2>&1
+# The pack's tools/ holds .gd.remap / .gdc files: check the tool registry finds every tool there as it does from
+# source (viewport/test_tools.gd). After signing: macOS stops the half-built bundle's program.
+"$C/MacOS/Shop Sketch" --headless --script res://test_tools.gd > dist/tools-check.log 2>&1 \
+  || { grep -E "^FAIL|TOOL TESTS" dist/tools-check.log; echo "The built app doesn't find its tools."; exit 1; }
 echo "Built $APP ($(du -sh "$APP" | cut -f1)). Open it, or drag it to /Applications."

@@ -103,7 +103,7 @@ class MoveActions:
     def shift(obj, v):
         obj.Placement = App.Placement(obj.Placement.Base + v, obj.Placement.Rotation)
 
-    def op_move_cut(self, op):
+    def move_cut(self, op):
         """Move a hole (or a bump) on its board, or copy it: copies become a Draft OrthoArray of the
         cutter, so FreeCAD makes all the holes in one cut and you can change the count there."""
         ref = op["cut"]
@@ -143,7 +143,7 @@ class MoveActions:
 
     def op_move(self, op):
         if op.get("cut"):
-            return self.op_move_cut(op)
+            return self.move_cut(op)
         if op.get("selection") and not op.get("copy", False):
             return self.move_selection(op)
         vecv = vec(op["vector"])
