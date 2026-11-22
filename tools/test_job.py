@@ -3,6 +3,7 @@
 Summary line: JOB TESTS: N passed, M failed."""
 import contextlib
 import io
+import json
 import os
 import shutil
 import subprocess
@@ -374,6 +375,14 @@ check("run stops a command past its limit with every process it started, says HU
 msgs = []
 check("run says so when the command can't start", job.run(root, ["/no/such/program"], out=msgs.append) == 127
       and "can't start" in msgs[0], msgs)
+# --- --help only prints the help, whatever the command ---
+before = json.dumps(state(root), sort_keys=True)
+for args in (["take", "--help"], ["done", "-h"], ["return", "H001", "x", "--help"]):
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        rc = job.main(args)
+    check(f"job.py {' '.join(args)} prints the help and changes nothing",
+          rc == 0 and "The job queue" in buf.getvalue() and json.dumps(state(root), sort_keys=True) == before, rc)
 
 for w in [l.split()[1] for l in sh(root, "git", "worktree", "list", "--porcelain").stdout.split("\n")
           if l.startswith("worktree ")][1:]:
