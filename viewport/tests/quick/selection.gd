@@ -55,11 +55,7 @@ func run() -> void:
 	harness._ok("multi-copy redo restores all copies", harness._shown_ids().size() == 6)
 	m.set_selection(["b1", "b2", "b3"])
 	m.set_tool("move")
-	var n_ops := m.ops.size()
-	await harness._key(KEY_BACKSPACE); await harness._key(KEY_DELETE)
-	harness._ok("in Move, Backspace and Delete leave the selection alone (I45)", m.ops.size() == n_ops and m.selection.size() == 3, m.ops.back())
-	m.set_tool("select"); m.set_selection(["b1", "b2", "b3"])
-	await harness._key(KEY_DELETE)
+	await harness._key(KEY_DELETE)                # in Move, nothing typed: Delete removes the selection (I45)
 	harness._ok("Delete predicts removal immediately", m.selection.is_empty() and not m.bodies_root.get_node("b1").visible)
 	await harness._wait_wave()
 	harness._ok("Delete preserves unselected linked copies", harness._shown_ids().size() == 3 and not harness._shown_ids().has("b1"), harness._shown_ids())
@@ -79,6 +75,15 @@ func run() -> void:
 	harness._ok("tool-first grab after undo uses restored relationships", m.tools["move"].state.get("active", false) and m.body_assembly.get("b1", "") == "", [m.tools["move"].state, m.body_assembly])
 	await harness._key(KEY_RIGHT); await harness._drag_to(Vector3(130, 25, 18), 6); await harness._type("20\n"); await harness._wait_wave()
 	harness._ok("tool first moves only the pointed board", m.ops.back()["targets"] == ["b1"] and harness._bbox("b2")[0] == 240.0, m.ops.back())
+	await harness._grab(Vector3(240 + 50, 25, 18)); await harness._drag_to(Vector3(330, 25, 18), 6)
+	await harness._key(KEY_BACKSPACE); await harness._wait_wave()
+	harness._ok("mid-move, nothing typed: Backspace deletes the board being moved, and only it (I45)",
+		m.ops.back()["type"] == "delete" and m.ops.back()["targets"] == ["b2"] and not m.tools["move"].in_gesture()
+		and not harness._shown_ids().has("b2") and harness._shown_ids().has("b1"), [m.ops.back(), harness._shown_ids()])
+	m.set_selection(["b1"]); m.set_tool("push")
+	var n_ops := m.ops.size()
+	await harness._key(KEY_BACKSPACE)
+	harness._ok("in Push/Pull, Backspace leaves the selection alone (I45)", m.ops.size() == n_ops and harness._shown_ids().has("b1"), m.ops.back())
 
 	# Enter a real row and delete its original: context, identity and linked survivors follow promotion.
 	await harness._fresh("selection_row", harness._plank(1, Vector3.ZERO, Vector3(100, 50, 18)) + [{"id": "mv1", "type": "move", "targets": ["b1"], "vector": [150, 0, 0], "copy": true, "count": 3, "new_ids": ["b2", "b3", "b4"]}])

@@ -35,6 +35,15 @@ Architecture sections changed: Where responsibilities live, State ownership and 
 
 Response — Codex, 2026-11-21: Implementation committed as `79dacaf` on `codex/t34-selection`; decision I43. Verification and architecture sections are listed above; tracked pre-commit/architecture hooks passed. Worktree is ready for review/integration. No merge or push performed. William must pass this entry and branch to Claude; file edits send no notification.
 
+Response — Claude, 2026-11-21: Reviewed and ported onto main after T50/T51 (3392f83): the quick-test steps are now
+`tests/quick/selection.gd` (lane 1), `deletion.py` has no star import. Three changes with William: (1) Delete
+removes a board from the FreeCAD file with everything only it used; only one a survivor still builds from stays
+`SSRole=deleted` (I43 Details; `remove_unneeded`). FreeCAD 1.1.4 trap found doing it: remove what others depend on
+first, or undo restores objects without their expression links (worker/CLAUDE.md). (2) Copying a whole assembly
+makes a new assembly: move op `groups: {old: new}` (I44, ARCHITECTURE protocol); 3x / /3 of one refused, T57.
+(3) With nothing typed, Delete/Backspace delete in Select and Move only (mid-move: what's being moved); Edit > Delete has
+no menu key (I45). Scenario 170, quick 130.
+
 ## Jobs for Codex (assigned by William, 2026-11-21)
 
 H005–H009 are done and archived (reviewed and merged by Claude, 2026-11-21). The rules below still apply to new jobs.
