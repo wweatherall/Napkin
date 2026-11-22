@@ -222,32 +222,48 @@ def link_or_copy(src, dst):
 
 
 def recover_generation(model_path):
-    """Opening (A32): when the file and journal don't match because a save stopped part way, put the newest whole
-    pair (a journal naming its file's sha256) in place and say so. Returns {"from", "rev", "why"} or None.
-    A file FreeCAD changed (its ShopSketchRev is the journal's) isn't a broken save: None, and it opens external
-    (A25). Nothing of either pair is deleted: a displaced file goes to the .unmatched names unless the same bytes
-    are kept elsewhere."""
+    """Opening (A37): finish an identifiable interrupted save, preserving newer outside work.
+    Only a missing or unreadable main file permits fallback to .prev. Displaced bytes are kept aside.
+    Returns {"from", "rev", "why"} or None (an ordinary open, including outside edits).
+    """
+    import xml.etree.ElementTree as ET
+
+    def readable(path):
+        try:
+            with zipfile.ZipFile(path) as z:
+                ET.fromstring(z.read("Document.xml"))
+                return z.testzip() is None
+        except (OSError, KeyError, zipfile.BadZipFile, ET.ParseError):
+            return False
+
     g = generation(model_path)
     have_file = os.path.exists(g["file"])
+    main_readable = readable(g["file"])
     j = read_journal(g["journal"])
-    if have_file and j and j["file_sha256"] == sha256(g["file"]):
-        return None                                     # the usual case: they match
-    if have_file and j and j.get("outside_sha256") == sha256(g["file"]):
-        return None                                     # FreeCAD's save, seen before it was reloaded (A36): external
-    if have_file and j:
-        rev = file_rev(g["file"])
-        if rev is None or not (rev == int(j.get("rev", -1)) + 1 or int(j.get("rev", -1)) > rev):
-            return None                                 # an outside edit (or a file Shop Sketch didn't write)
-    files = [k for k in ("file", "saving_file", "prev_file") if os.path.exists(g[k])]
+    if main_readable and j:
+        main_hash = sha256(g["file"])
+        if main_hash in (j["file_sha256"], j.get("outside_sha256")):
+            return None                                 # our whole save, or a known outside edit
+    files = [k for k in ("file", "saving_file", "prev_file") if readable(g[k])]
     journals = [(k, read_journal(g[k])) for k in ("journal", "saving_journal", "prev_journal")]
     hashes = {k: sha256(g[k]) for k in files}
     pairs = [(int(jj.get("rev", 0)), fk == "file", jk == "journal", fk, jk)
              for fk in files for jk, jj in journals if jj and jj["file_sha256"] == hashes[fk]]
+    if main_readable:
+        # Contents identify our interrupted save; dates only veto replacing newer work.
+        next_rev = j and file_rev(g["file"]) == int(j.get("rev", -1)) + 1
+        pairs = [pair for pair in pairs
+                 if (pair[3] == "file" and pair[4] == "saving_journal")
+                 or (next_rev and pair[3] == "saving_file" and pair[4] == "saving_journal"
+                     and pair[0] == file_rev(g["file"])
+                     and os.stat(g["saving_file"]).st_mtime_ns >= os.stat(g["file"]).st_mtime_ns)]
     if not pairs:
         return None
     rev, _, _, fk, jk = max(pairs)
     if not have_file:
         why = "the file was missing"
+    elif not main_readable:
+        why = "the file was unreadable"
     elif not j:
         why = "the journal was missing"
     else:

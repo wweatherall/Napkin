@@ -22,3 +22,18 @@ revision made while closed opens as an outside edit (no .unmatched, FreeCAD's wo
 cases still recover; a missing or unreadable file still opens .prev; H062's and H063's tests still pass. Quick test,
 then the gate. End your response with a Result line; leftovers as Follow-up lines; anything for the merge as For the
 integrator lines.
+
+Response — Codex, 2026-11-22:
+
+Branch: `codex/h066-t101-recovery-newest-wins`. Implements existing A37; no new decisions or placeholders.
+`recover_generation` validates the model archive, preserves readable outside edits regardless of revision or
+missing journal, and restricts staged recovery to the matching .saving journal or a whole staged pair at rev+1.
+A staged model cannot replace a newer main file. Missing/unreadable main files still recover a whole pair,
+keeping displaced bytes aside. Regression coverage includes FreeCAD saving an older revision while closed,
+lost journals, corrupt/missing models, and both accepted and vetoed staged saves.
+
+Architecture: In ARCHITECTURE.md's save-generation recovery paragraph, replace the journal-newer trigger with A37:
+a readable main model is preserved unless its hash matches the .saving journal, or it is rev+1 and a whole staged
+pair of that revision can finish the save without replacing a newer file. Other mismatches open external with
+A25's undo floor; .prev fallback is limited to missing or unreadable models. Archive readability checks parse
+Document.xml and verify ZIP entries. No protocol or file-format change.
