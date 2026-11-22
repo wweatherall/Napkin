@@ -18,6 +18,8 @@ appearance.gd owns the wood library, the paint selection, `current_name()` and `
 their layout in Main and ask appearance to select a wood; selecting still activates Paint. `_turn_grain` stays a
 keyboard/menu action. No behaviour change: the same status text, the same empty/invalid target checks, the same
 paint/family/assembly and wood/grain results. Checks: test_tool_context.gd for the paint capability (no library map
-or material resources escape), the existing paint quick checks unchanged, test_tools.gd's registry. Quick test, then
+or material resources escape), the existing paint quick checks unchanged, test_tools.gd's registry. Paint is the first worked example for the other tool moves (Codex's suggestion, 2026-11-22): in your response,
+say whether ctx told you enough to change painting and its hover highlight without reading main.gd, and what was
+missing. Quick test, then
 the gate. End your response with a Result line; leftovers as Follow-up lines; anything for the merge as For the
 integrator lines.
