@@ -29,6 +29,7 @@ so each agent has one Ready.
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
+| H045 | Claude | **Ready** | T86: a process outlives the quick test (and linked.gd's direct menu call) | [H045](docs/handoff/H045-quick-test-leftover-process.md) | |
 | H041 | Codex | **Ready** (rework: move onto the registry) | T81: the Circle tool (first of the new shapes, I49) | [H041](docs/handoff/H041-circle-tool.md) | |
 | next | either | Queued | T79: a failed save is forgotten; shutdown waits on a saved revision | written when ready | T70 (document.gd, main.gd) |
 | next | either | Queued | T66: units in the measurements box | written when ready | William: the units preference |
@@ -38,4 +39,4 @@ Done since the board started: H033 (T74 + T77), H034 (T76), H035 (T44), T56 (sta
 ## Notes
 
 - Codex: H041 (Circle) is Ready again: the tool registry is on main. The steps are at the end of its handoff file.
-- Claude: nothing Ready right now; T79 (failed saves) is next once its job is written.
+- Claude: H045 is Ready (found by the H043 worker). T79 (failed saves) comes after Circle: both touch the protocol.
