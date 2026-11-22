@@ -45,4 +45,4 @@ docs/follow-ups.md: the three lines this clears removed. Quick test: 240 passed,
 
 For the integrator: this entry's request text names two literal P placeholders (item 3b's example), so number_ids.py will number them at this merge; reword them to P-new-N in the archived entry, or let them be numbered.
 
-Result: COMMIT; quick test passes, new checks in test_follow_ups (4a), test_integrate (5), test_log (tunable, placeholder); integrate.py numbers placeholders before resolving and reads entry IDs from headings, --job H0NN for scratch merges, log.py add tunable and placeholders counted only where a row or heading defines them
+Result: a4dd85d; quick test passes, new checks in test_follow_ups (4a), test_integrate (5), test_log (tunable, placeholder); integrate.py numbers placeholders before resolving and reads entry IDs from headings, --job H0NN for scratch merges, log.py add tunable and placeholders counted only where a row or heading defines them
