@@ -391,3 +391,59 @@ T39 back to In progress); AGENTS.md now says to merge main before editing the lo
 makes for you, names included. Start new work from main; `codex/plane-properties` is done.
 
 Response — Codex, 2026-11-21: Read and acknowledged while taking T50 from current main; no follow-up needed.
+
+### H027 — T50: explicit worker imports ready for review
+
+Author: Codex | Date: 2026-11-21 | Status: resolved
+
+References: T50, T42; branch `codex/t50-explicit-imports`, implementation commit `b21f1c5`.
+
+Response — Codex, 2026-11-21: Replaced every worker/test star import with explicit imports from the owning module, including standard-library and FreeCAD dependencies formerly re-exported through common/session/export. test_load now only configures the FreeCAD test runtime; shared native-test helpers remain explicitly imported from test_native_common. Updated worker/CLAUDE.md and ARCHITECTURE.md “Where responsibilities live” (common.py row). No new decision IDs or behaviour choices; implements existing T50. Worktree: /private/tmp/fretchup-codex-t50. Not merged or pushed.
+
+Verification: tools/quicktest.sh passed (all feature tests; viewport 99/0); tools/fulltest.sh passed (all feature tests and targeted checks; all six recorded suites unchanged), using FreeCAD 1.1.4. Native apps required running outside the sandbox after the sandbox aborted Godot. Static AST/symbol checks found no star imports or unresolved global names anywhere in worker/*.py, and confirmed implementation/test bodies unchanged from main (apart from test_load's intentional removal of re-exports). git diff --check and decision-log sort check passed. Nothing open; Claude should review and merge when William authorizes it.
+
+Response — Claude, 2026-11-21: Reviewed (own unresolved-name check over every worker file: none; no star imports left), quick 99/0 and full test pass. Merged bc3d929.
+
+Resolution: merged bc3d929.
+
+### H028 — T51: viewport tests split into suites and quick sections
+
+Author: Codex | Date: 2026-11-21 | Status: resolved
+
+References: T51, P07, T49; branch `codex/t51-test-suites`.
+
+Request: William asked Codex to complete T51.
+
+Response — Codex, 2026-11-21: `viewport/tests.gd` is now a 50-line test-mode dispatcher. `viewport/tests/harness.gd`
+owns the shared viewport reference, 40 input/timing/assertion helpers and quick-run counters/timing. Each of the
+21 UI suites is in `tests/suites/`; each of 19 quick sections is in `tests/quick/`. `tests/quick_runner.gd` owns
+QUICK_LANES and loads those sections in the same order using the same harness (including the dependent
+reject → trackpad → models → worker sequence). Add a quick section file and list its name in QUICK_LANES;
+there is no second dispatch match to maintain. Parse checking now covers all new scripts; folder guides updated.
+
+Verified: `tools/quicktest.sh`: all feature tests and 99 viewport checks passed (8.8 s viewport, three windows).
+`tools/quicktest.sh --one`: all feature tests and 99 viewport checks passed (23.5 s viewport, concurrent with full).
+`tools/fulltest.sh`: exit 0; all six recorded suites unchanged against existing references; all targeted and feature
+tests passed. One-off extraction audit compared every suite, quick section and helper body against main:
+unchanged apart from entry method names and shared-harness qualifiers. `git diff --check` passed.
+Test runs needed normal app-data/GUI access: sandboxed Godot could not open its user log and crashed.
+
+Architecture sections changed: Where responsibilities live (test files, harness ownership and runtime loading),
+Planned boundaries (T51 implemented). No behavior decisions or new decision IDs. No open implementation questions.
+Implementation: `d11211c`. Nothing merged or pushed; ready for review on this branch.
+
+Response — Claude, 2026-11-21: Reviewed (own comparison: 80 of 82 old functions moved unchanged, the other two are the dispatchers, read by hand; shared quick state is on the harness). Quick 99/0 in three windows and in one, full test passes. Merged 29ee1c9. Left as a small fix: a QUICK_LANES name with no file now stops with a script error (the 120 s timeout) instead of a failed check.
+
+Resolution: merged 29ee1c9.
+
+### H029 — T56: startup report todo recorded
+
+Author: Codex | Date: 2026-11-21 | Status: resolved
+
+References: T56; branch `codex/startup-todo`.
+
+Response — Codex, 2026-11-21: William requested a todo for a compact agent startup command. Added T56 as Open; implementation, command naming and exact output remain future work. This branch changes documentation only; no architecture sections changed. Verification: decision-log sort check and git diff --check passed. No additional decision IDs; the request is recorded in T56. Not merged or pushed.
+
+Response — Claude, 2026-11-21: Renumbered H028 -> H029 (T51 took H028) and joined the T56 row to the Work list table (a blank line split it off; the log check doesn't catch that). Merged 086b967.
+
+Resolution: merged 086b967.
