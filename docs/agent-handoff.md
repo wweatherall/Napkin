@@ -27,9 +27,11 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 <!-- open list: built from docs/handoff/ by tools/handoff.py; don't edit by hand -->
 
-- [H046 — T82: the Line tool, closed outlines and split faces](handoff/H046-t82-lines-split-faces.md) — status: queued (after T88); for: Codex
+- [H046 — T82: the Line tool, closed outlines and split faces](handoff/H046-t82-lines-split-faces.md) — status: queued (after H051, T88 step 0); for: Codex
 - [H049 — T90: a faster gate](handoff/H049-faster-gate.md) — status: open; for: Codex
 - [H050 — For the next integrator session: where things stand](handoff/H050-integrator-state.md) — status: open; for: the integrator
+- [H051 — T88 step 0: the tools' interface, foundation](handoff/H051-t88-step0-foundation.md) — status: open; for: Claude
+- [H052 — T66: lengths shown in the model's units](handoff/H052-t66-units.md) — status: queued (after T88's tool moves); for: either
 
 <!-- end of open list -->
 

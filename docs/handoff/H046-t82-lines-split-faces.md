@@ -1,6 +1,6 @@
 ### H046 — T82: the Line tool, closed outlines and split faces
 
-Author: Claude (integrator) | Date: 2026-11-22 | Status: queued (after T88) | For: Codex
+Author: Claude (integrator) | Date: 2026-11-22 | Status: queued (after H051, T88 step 0) | For: Codex
 
 References: T82, I51 (lines split faces; Push/Pull acts on the region under the cursor; one op to FreeCAD), I49,
 A34 (a new tool is one file), A35 (bump the protocol version for a new op), P21 (the viewport's region must be
@@ -24,6 +24,8 @@ Request, in two stages (a commit and a gate run each):
    that region's closed outline. Test the awkward cases in test_regions.gd: crossing lines, a line ending partway
    (it doesn't split), a line ending exactly on an edge or a corner, two lines meeting on an edge, near-overlaps.
    P21: compare the predicted region with the face FreeCAD made (area and bounds) in the scenario.
-Ask William before building, one question at a time with a recommendation, and log each answer: the key (L, as
-SketchUp, recommended) and the gesture (recommended: click, click, ... each click ends a line and starts the next;
-Esc or clicking the start point ends the chain; a typed length sets the current line's length).
+William's answers (2026-11-22, logged as I58): the key is L; the gesture is the click-click chain (each click
+ends a line and starts the next; Esc or clicking the start point ends it; a typed length sets the current line) plus
+press-drag-release for a single line (I43's rule). Build on ToolContext (H051, docs/specs/T88-tool-interface.md) from
+the first file: no m.* in line_tool.gd. Push/Pull hasn't moved to the context yet when you start (it moves after
+Line): change push_tool.gd as little as the region push needs.

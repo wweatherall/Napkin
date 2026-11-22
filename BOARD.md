@@ -29,14 +29,15 @@ so each agent has one Ready.
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
+| H051 | Claude | **Ready** | T88 step 0: the tools' interface, foundation | [H051](docs/handoff/H051-t88-step0-foundation.md) | |
 | H049 | Codex | **Ready** | T90: a faster gate (measure first) | [H049](docs/handoff/H049-faster-gate.md) | |
-| H046 | Codex | Queued | T82: the Line tool, closed outlines and split faces (I51) | [H046](docs/handoff/H046-t82-lines-split-faces.md) | T88: William reviews docs/specs/T88-tool-interface.md, then the tool moves |
-| next | either | Queued | T66: units in the measurements box | written when ready | William: the units preference |
+| H046 | Codex | Queued | T82: the Line tool, closed outlines and split faces (I51) | [H046](docs/handoff/H046-t82-lines-split-faces.md) | H051 (T88 step 0) |
+| H052 | either | Queued | T66: lengths in the model's units (I57, I59) | [H052](docs/handoff/H052-t66-units.md) | T88's tool moves (every tool's vcb_value) |
+| next | either | Queued | T88 steps 1-4: Paint, Select, Circle, Rectangle move to ToolContext (one job each) | written when ready | H051 |
 
 Done since the board started: H033 (T74 + T77), H034 (T76), H035 (T44), T56 (startup report), H036 (T75), H037 (T54), H038 (T78), H039 (T80), H040 (T33), H043 (T85), H044 (T58), H042 (T70), H041 (T81, Circle), H045 (T86), H047 (T88 spec), H048 (T79).
 
 ## Notes
 
 - Codex: H049 (a faster gate: measure first) is Ready.
-- Claude: nothing Ready until William reviews the T88 spec (or answers T66 / T38).
-- William: the T88 spec is in docs/specs/T88-tool-interface.md; the tool moves wait for your review.
+- Claude: H051 (T88 step 0) is Ready. William approved the spec; Line (H046) starts after it.
