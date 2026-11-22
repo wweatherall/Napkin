@@ -5,6 +5,7 @@ Summary line: FOLLOW-UP TESTS: N passed, M failed."""
 import contextlib
 import io
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -129,6 +130,21 @@ root = repo()
 rc, said = branch(root, "\nResponse: done, nothing left.\n")
 check("a response with neither: no docs/follow-ups.md, no 'for you now:'",
       rc == 0 and read(root, FU) is None and "for you now:" not in said and "follow-ups:" not in said, said)
+shutil.rmtree(root)
+
+# 4a. An entry still named H-new-N at merge (H060): numbered first, so its follow-ups and Result carry its number.
+NEW = "-" + "new-"      # in two halves, so number_ids.py never numbers this file's own example
+root = repo(n=NEW + "1")
+rc, said = branch(root, "\nResponse: done.\n\nFollow-up: a leftover\n\nResult: abc1234; quick test passes; the tool.\n",
+                  n=NEW + "1")
+fu = integrate.open_follow_ups(read(root, FU) or "")
+check("a placeholder entry's follow-up is recorded under its number, not 'H'",
+      rc == 0 and len(fu) == 1 and re.match(r"- H\d+ \(", fu[0]) and fu[0].endswith(": a leftover"), (read(root, FU) or "") + said)
+num = fu[0].split()[1] if fu else "?"
+check("... its Result goes into its item's row, committed under that number",
+      "Result (abc1234" in read(root, "docs/decision-log.md") and f"T7 ({num})" in sh(root, "git", "log", "-1", "--format=%s").stdout, said)
+check("... and it is archived under that number", f"### {num} — T7" in read(root, "docs/handoff-archive.md")
+      and not os.listdir(os.path.join(root, "docs/handoff")), said)
 shutil.rmtree(root)
 
 # 4b. Architecture lines (P28): the merge stops staged, before its commit, with the lines and the reminder;

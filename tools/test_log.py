@@ -167,6 +167,51 @@ def note_checks():
     shutil.rmtree(root)
 
 
+def tunable_checks():
+    root = repo()
+    row = log.add(root, "tunable", "PROBE_S", {"value": "0.5 s", "does": "How often it looks.",
+                                               "where": "tools/x.py", "decision": "P24, P27"})
+    lines = text(root).split("\n")
+    tun = [t for t in s.tables(lines) if t[3] == "## Tunables"][0]
+    check("tunable: the row has the Tunables columns, in order",
+          row == "| PROBE_S | 0.5 s | How often it looks. | tools/x.py | P24, P27 |")
+    check("tunable: it goes at the end of the Tunables table", lines[tun[2][-1]] == row)
+    check("tunable: the log still checks out", tidy_ok(root))
+    check("tunable: a name already in the table is refused",
+          fails(log.add, root, "tunable", "PROBE_S", {"value": "1", "does": "x", "where": "y", "decision": "P24"},
+                has="already"))
+    check("tunable: a missing column is refused",
+          fails(log.add, root, "tunable", "OTHER", {"value": "1", "does": "x", "where": "y"}, has="--decision"))
+    check("tunable: a decision's option is refused",
+          fails(log.add, root, "tunable", "OTHER", {"value": "1", "does": "x", "where": "y", "decision": "P24",
+                                                     "why": "z"}, has="--why"))
+    r = subprocess.run([sys.executable, os.path.join(HERE, "log.py"), "add", "tunable", "CLI_S", "--value", "2",
+                        "--does", "From the command line.", "--where", "tools/y.py", "--decision", "P24"],
+                       cwd=root, capture_output=True, text=True)
+    check("tunable: from the command line", r.returncode == 0 and r.stdout.strip() ==
+          "| CLI_S | 2 | From the command line. | tools/y.py | P24 |")
+    shutil.rmtree(root)
+
+
+def placeholder_checks():
+    root = repo("claude/ph")
+    open(os.path.join(root, "CLAUDE.md"), "w").write(f"Rule P{NEW}1 says so (written before its row exists).\n")
+    live = text(root).replace("\n## Work list", f"\nSee T{NEW}4 in prose.\n\n## Work list", 1)
+    open(os.path.join(root, s.LIVE), "w").write(live)
+    git(root, "add", "."); git(root, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "mentions")
+    row = log.add(root, "P", "A process rule.", {"subject": "Process", "principles": "—"}, today=TODAY)
+    check("placeholder: one only mentioned in another file doesn't count (P{NEW}1 comes first)".replace("{NEW}", NEW),
+          row.startswith(f"| P{NEW}1 |"))
+    row = log.add(root, "T", "An item.", {"covers": "T9"})
+    check("placeholder: one only mentioned in the log's prose doesn't count either", row.startswith(f"| T{NEW}1 |"))
+    row = log.add(root, "T", "Another.", {"covers": "T9"})
+    check("placeholder: a row that defines one does count", row.startswith(f"| T{NEW}2 |"))
+    live = text(root).replace("\n## Details\n", f"\n## Details\n\n### T{NEW}7\n\nLong text.\n", 1)
+    open(os.path.join(root, s.LIVE), "w").write(live)
+    check("placeholder: so does a ### Details heading", log.next_id(root, "T", False) == f"T{NEW}8")
+    shutil.rmtree(root)
+
+
 def cli_checks():
     root = repo("claude/cli")
     run = lambda *a: subprocess.run([sys.executable, os.path.join(HERE, "log.py"), *a], cwd=root,
@@ -186,6 +231,8 @@ def main():
     add_checks(False)
     error_checks()
     note_checks()
+    tunable_checks()
+    placeholder_checks()
     cli_checks()
     passed = sum(RESULTS)
     print(f"LOG TESTS: {passed} passed, {len(RESULTS) - passed} failed")

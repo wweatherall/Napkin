@@ -157,4 +157,53 @@ check("the merge went in, and its message records both", rc == 0 and "renumbered
       and "viewport/other.gd" in sh(root, "git", "log", "-1", "--format=%B").stdout, said)
 shutil.rmtree(root)
 
+# 5. --job: a scratch branch (main merged into the job's branch first) delivers the job: it is marked merged, and
+#    its worktree and its own branch go too; a job not in the queue, or one whose branch isn't in it, is refused.
+import json
+import job
+root = repo()
+sh(root, "git", "checkout", "-qb", "claude/h070-x")
+write(root, "x.py", "x = 70\n"); sh(root, "git", "add", "-A"); sh(root, "git", "commit", "-qm", "H070: x")
+sh(root, "git", "checkout", "-q", "main")
+write(root, "notes.md", "main moved on\n"); sh(root, "git", "commit", "-qam", "main moves")
+wt = root + "-h070"
+sh(root, "git", "worktree", "add", "-q", wt, "claude/h070-x")
+sh(root, "git", "branch", "scratch/h070", "claude/h070-x")
+sh(root, "git", "checkout", "-q", "scratch/h070"); sh(root, "git", "merge", "-q", "--no-edit", "main")
+sh(root, "git", "checkout", "-q", "main")
+open(job.state_path(root), "w").write(json.dumps({"jobs": {
+    "H070": {"branch": "claude/h070-x", "worktree": wt, "state": "done"},
+    "H071": {"branch": "other-job", "state": "done"}}, "events": []}))
+integrator.take(integrator.lock_path(root), "tester", out=lambda *a: None)
+
+
+def run_integrate(*args):
+    out = io.StringIO(); cwd = os.getcwd(); os.chdir(root)
+    try:
+        with contextlib.redirect_stdout(out):
+            rc = integrate.main(list(args))
+    finally:
+        os.chdir(cwd)
+    return rc, out.getvalue()
+
+
+head0 = sh(root, "git", "rev-parse", "HEAD").stdout
+rc, said = run_integrate("scratch/h070", "--as", "tester", "--no-gate", "--job", "H099")
+check("--job: a job not in the queue is refused, nothing merged",
+      rc == 1 and "no such job" in said and sh(root, "git", "rev-parse", "HEAD").stdout == head0, said)
+sh(root, "git", "branch", "other-job", "main")
+write(root, "y.py", "y\n"); sh(root, "git", "add", "-A"); sh(root, "git", "commit", "-qm", "main again")
+sh(root, "git", "branch", "-f", "other-job", "HEAD"); sh(root, "git", "reset", "-q", "--hard", "HEAD~1")
+head0 = sh(root, "git", "rev-parse", "HEAD").stdout
+rc, said = run_integrate("scratch/h070", "--as", "tester", "--no-gate", "--job", "H071")
+check("--job: a job whose branch isn't all in the scratch branch is refused, nothing merged",
+      rc == 1 and "isn't all in" in said and sh(root, "git", "rev-parse", "HEAD").stdout == head0, said)
+rc, said = run_integrate("scratch/h070", "--as", "tester", "--no-gate", "--job", "H070")
+branches = sh(root, "git", "branch").stdout
+check("--job: the scratch branch merges and the job is marked merged",
+      rc == 0 and job.read_state(job.state_path(root))["jobs"]["H070"]["state"] == "merged", said)
+check("--job: the job's worktree and its own branch are removed, and the scratch branch",
+      not os.path.isdir(wt) and "claude/h070-x" not in branches and "scratch/h070" not in branches, said + branches)
+shutil.rmtree(root)
+
 print(f"INTEGRATE TESTS: {sum(RESULTS)} passed, {len(RESULTS) - sum(RESULTS)} failed")

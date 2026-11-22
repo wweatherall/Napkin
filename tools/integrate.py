@@ -2,7 +2,7 @@
 """Merge one agent branch into main (P20): the integrator's steps, in one command.
 
   python3 tools/integrate.py <branch> --as <name> [--status T33=Done ...] [--subject I-new-N=Snapping ...]
-                             [--push [--yes]] [--no-gate] [--impact "<reason>"]
+                             [--push [--yes]] [--no-gate] [--impact "<reason>"] [--job H0NN]
   python3 tools/integrate.py --continue --as <name> [--push [--yes]] [--impact "<reason>"]
                              after a merge stopped for the map (P28) or a refused commit
 
@@ -14,12 +14,15 @@ Run in the main checkout, on main, clean, holding the integrator lock (tools/int
     always settled this way, each new decision placed under its subject: from its Area when that names one
     subject, else from --subject, and when neither does it stops before merging and asks); any other conflict
     stops here, the merge left as it is
- 3. the handoff entries the branch answered: Status resolved, a Resolution line, moved to the archive;
-    --status sets a Work list item's status (Done moves it to docs/decision-archive.md)
- 4. tools/number_ids.py (placeholders get numbers), then the decision-log and handoff checks
+ 3. tools/number_ids.py (placeholders get numbers, so an H-new-N entry is H0NN from here on: H060)
+ 4. the handoff entries the branch answered (each known by the ID its ### heading gives): Status resolved, a
+    Resolution line, moved to the archive; --status sets a Work list item's status (Done moves it to
+    docs/decision-archive.md); then number_ids.py again and the decision-log and handoff checks
  5. tools/gate.sh (the quick and full tests, tests/known_failures.txt); a failing gate stops here, uncommitted
  6. commit ("Merge <branch>: <its subject>"; --impact adds an Architecture-Impact line), then --push pushes main
- 7. the job queue (P24, tools/job.py): the job is marked merged, its worktree removed and its branch deleted
+ 7. the job queue (P24, tools/job.py): the job is marked merged, its worktree removed and its branch deleted;
+    --job H0NN names the job a scratch branch delivers (main merged into the job's branch first, then that
+    scratch branch integrated), so that job, its worktree and its own branch go too
  8. the Work list result (T91): each answered entry's newest "Result: <commit>; <tests>; <what changed>" line
     (docs/agent-handoff.md's rules) is appended to its item's row as "Result (<commit>, merged <merge>): ...", in
     its own commit; the item is the --status T<n> (or the one the entry's heading names). The commit is shown and,
@@ -333,9 +336,26 @@ def resolve(root, rel):
     text = re.sub(r"\| Status: answered\b[^|\n]*", "| Status: resolved ", text, count=1)
     text = text.rstrip("\n") + f"\n\nResolution: merged into main by the integrator, {time.strftime('%Y-%m-%d')}.\n"
     open(p, "w", encoding="utf-8").write(text)
-    hid = os.path.basename(rel).split("-")[0]
+    hid = entry_id(text, rel)
     handoff.archive(root, hid)
     return hid
+
+
+def entry_id(text, rel):
+    """An entry's ID from its ### heading ("### H037 — ..."), else from its file name (before the first dash)."""
+    head = re.search(r"(?m)^### ([A-Z]+\d+[a-z]*|[A-Z]+-new-\d+[a-z]*)\b", text or "")
+    return head.group(1) if head else os.path.basename(rel).split("-")[0]
+
+
+def numbered(text, numbers):
+    """text with each placeholder that number_ids.apply() numbered ({"H-new-N": "H069"}) given its number."""
+    return number_ids.PLACEHOLDER.sub(
+        lambda m: numbers.get(f"{m.group(1)}-new-{m.group(2)}", m.group(1) + "-new-" + m.group(2)) + m.group(3), text)
+
+
+def job_branch(root, jid):
+    """The branch the job queue gave job jid, or None."""
+    return (job.read_state(job.state_path(root))["jobs"].get(jid) or {}).get("branch")
 
 
 RESULT = re.compile(r"(?m)^[-*]?\s*Result:\s*([0-9a-f]{7,40})\s*;\s*(.+?)\s*$")
@@ -449,6 +469,7 @@ def main(argv):
         print(__doc__)
         return 2
     branch, name = argv[0], argv[argv.index("--as") + 1]
+    jid = argv[argv.index("--job") + 1] if "--job" in argv and argv.index("--job") + 1 < len(argv) else None
     impact = argv[argv.index("--impact") + 1] if "--impact" in argv else None
     root = git("rev-parse", "--show-toplevel").stdout.strip()
     say = lambda s: print("integrate: " + s)
@@ -458,6 +479,13 @@ def main(argv):
         say("run this in the checkout that has main"); return 1
     if git("status", "--porcelain", "--untracked-files=no", root=root).stdout.strip():
         say("main has uncommitted changes: commit or put them away first"); return 1
+    delivers = None
+    if jid:
+        delivers = job_branch(root, jid)
+        if not delivers:
+            say(f"--job {jid}: no such job in the queue (nothing merged)"); return 1
+        if delivers != branch and git("merge-base", "--is-ancestor", delivers, branch, root=root).returncode:
+            say(f"--job {jid}: its branch {delivers} isn't all in {branch} (nothing merged)"); return 1
     base = git("merge-base", "main", branch, check=True, root=root).stdout.strip()
     subject = git("log", "-1", "--format=%s", branch, root=root).stdout.strip()
     subjects = dict(argv[i + 1].split("=", 1) for i, a in enumerate(argv) if a == "--subject" and i + 1 < len(argv))
@@ -514,9 +542,14 @@ def main(argv):
     results, missing = [], []           # read before resolve() moves the entries to the archive
     later, now = [], []                 # P26: its Follow-up lines (to docs/follow-ups.md) and For the integrator lines
     maps = []                           # P28: its Architecture lines, for the integrator to write into the map
-    for rel in answered_by(root, branch, base):
+    answered = answered_by(root, branch, base)
+    # Number first (H060): an entry named H-new-N-slug.md is H0NN by the time its Result and follow-ups are recorded.
+    numbers = number_ids.apply(root, out=lambda s: say(s) if s != "no placeholders" else None)
+    answered = [numbered(rel, numbers) for rel in answered]
+    statuses = [[numbered(t, numbers), s] for t, s in statuses]
+    for rel in answered:
         text = open(os.path.join(root, rel), encoding="utf-8").read()
-        hid, got, tid = os.path.basename(rel).split("-")[0], result_line(text), entry_item(text, [t for t, _ in statuses])
+        hid, got, tid = entry_id(text, rel), result_line(text), entry_item(text, [t for t, _ in statuses])
         later += [(hid, w) for w in follow_ups(text)]
         now += [(hid, w) for w in for_integrator(text)]
         maps += [(hid, w) for w in architecture(text)]
@@ -555,7 +588,7 @@ def main(argv):
         msg += f" Protocol version {bumped[0]} renumbered to {bumped[1]}."
     if extra:
         msg += "\nOutside its Touches list: " + ", ".join(extra) + "."
-    state = {"branch": branch, "msg": msg, "results": results, "missing": missing, "now": now, "maps": maps}
+    state = {"branch": branch, "job_branch": delivers if delivers != branch else None, "msg": msg, "results": results, "missing": missing, "now": now, "maps": maps}
     if maps and not impact and not map_staged(root):
         save_state(root, state)         # P28: the map goes in the merge commit, written from the lines below
         say("for you now:")
@@ -643,6 +676,8 @@ def commit_and_finish(root, state, name, impact, argv, say):
         os.remove(state_file(root))
     say("committed " + git("log", "--oneline", "-1", root=root).stdout.strip())
     job.merged(root, branch, out=say)
+    if state.get("job_branch"):         # --job: the scratch branch delivered this job's branch (all of it is in main)
+        job.merged(root, state["job_branch"], out=say)
     drafted = draft_results(root, [tuple(x) for x in state["results"]], name, say)
     if state["now"]:
         say("for you now:")

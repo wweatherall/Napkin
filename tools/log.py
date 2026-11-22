@@ -2,6 +2,8 @@
 """Add to and read the decision log (T92, P09, P23) without editing its tables by hand.
 
   python3 tools/log.py add <kind> "<text>" [options]   add a row; prints the row it wrote
+  python3 tools/log.py add tunable <NAME> --value V --does "..." --where <file> --decision <IDs>
+                                                       add a Tunables row (a setting has a name, not an ID)
   python3 tools/log.py note <ID> "<text>"              append text to a Work list row's last column
   python3 tools/log.py show <subject|ID> [--top]       print only what you need to read
   python3 tools/log.py show --top                      the log's top: header, Subjects, Principles
@@ -16,9 +18,13 @@ add's kind is an ID letter: G (a principle), Q (an open question), T (a Work lis
   --covers "..."    Covers (a Work list item; same as --rel)
   --result "..."    Result / next step (a Work list item)
   --status S        default Active (decisions, principles) or Open (questions, Work list items)
+A Tunables row (kind "tunable") takes --value, --does (what it does), --where (its file) and --decision (the
+decisions it belongs to, "P24, P27"), all required; it goes at the end of the table, and a name already there
+is refused.
 The row gets the next free number of its kind when run on main (the integrator, counting both files and the
 handoff as tools/number_ids.py does), else the kind's next placeholder (I-new-N, T74), which number_ids.py
-numbers at merge. Decisions and principles are dated today. The log is tidied with tools/sort_decision_log.py
+numbers at merge: one past the highest placeholder of the kind that a row or a ### Details heading of the log
+defines (a placeholder only mentioned somewhere, as CLAUDE.md might before the row exists, doesn't count). Decisions and principles are dated today. The log is tidied with tools/sort_decision_log.py
 afterwards, so the row lands in ID order.
 
 show <subject> prints that subject's ### group under ## Decisions (a unique start of the name is enough; case
@@ -42,6 +48,7 @@ COLUMNS = {
     "T": ("## Work list", ["status", "covers", "result"]),
 }
 DECISION = ["status", "rel", "why", "principles", "where", "date"]
+TUNABLE = ["value", "does", "where", "decision"]     # the Tunables table's columns after Setting
 KIND = re.compile(r"^[A-Z]$")
 
 
@@ -95,9 +102,46 @@ def next_id(root, kind, on_main):
     if on_main:
         hi, width = number_ids.taken(root).get(kind, (0, 2))
         return f"{kind}{hi + 1:0{width}d}"
-    cited = number_ids.plan(root)[1]
-    n = max([m for k, m in cited if k == kind], default=0)
-    return f"{kind}-new-{n + 1}"
+    return f"{kind}-new-{max(defined_placeholders(root, kind), default=0) + 1}"
+
+
+def defined_placeholders(root, kind):
+    """The N of each kind-new-N that a table row or a ### heading of the log's two files defines."""
+    out = set()
+    for rel in (LIVE, ARCHIVE):
+        for line in (read(root, rel) or "").split("\n"):
+            first = line.split("|")[1].strip() if line.startswith("| ") else line[4:].split()[0] if line.startswith("### ") and line[4:].split() else ""
+            m = number_ids.PLACEHOLDER.fullmatch(first)
+            if m and m.group(1) == kind:
+                out.add(int(m.group(2)))
+    return out
+
+
+def add_tunable(root, name, opts):
+    """Add a row to the Tunables table (Setting, Value, What it does, File, Decision); returns it."""
+    live = read(root, LIVE)
+    if live is None:
+        raise LogError(f"no {LIVE} under {root}")
+    name = clean(name, "the name")
+    if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_.]*", name):
+        raise LogError(f"a setting's name is one word, as the code spells it (got '{name}')")
+    o = {k: clean(v, "--" + k) for k, v in opts.items() if v is not None}
+    stray = sorted(set(o) - set(TUNABLE))
+    if stray:
+        raise LogError(f"tunable rows don't take --{', --'.join(stray)} (they take: --{', --'.join(TUNABLE)})")
+    missing = [k for k in TUNABLE if not o.get(k)]
+    if missing:
+        raise LogError(f"a tunable needs --{', --'.join(missing)}")
+    lines = live.split("\n")
+    for h, hc, rs, sec, g in s.tables(lines):
+        if sec == "## Tunables":
+            if any(s.cells(lines[r])[0] == name for r in rs):
+                raise LogError(f"{name} is already in the Tunables table")
+            row = s.make_row([name] + [o[k] for k in TUNABLE])
+            lines.insert((rs[-1] if rs else h + 1) + 1, row)
+            write(root, LIVE, "\n".join(lines))
+            return row
+    raise LogError(f"no ## Tunables table in {LIVE}")
 
 
 def clean(text, what):
@@ -109,6 +153,8 @@ def clean(text, what):
 
 def add(root, kind, text, opts, on_main=None, today=None):
     """Add a row; returns it as written (after tidying)."""
+    if kind == "tunable":
+        return add_tunable(root, text, opts)
     if not KIND.match(kind or "") or kind == "H":
         raise LogError(f"kind must be one ID letter (G, Q, T or a decision's letter, not H): got '{kind}'")
     live, archive = read(root, LIVE), read(root, ARCHIVE)
@@ -275,7 +321,8 @@ def parse(argv):
             else:
                 raise LogError(f"{a} needs a value")
             name = "subject" if name == "area" else name
-            if name not in {"subject", "principles", "rel", "why", "where", "covers", "result", "notes", "status"}:
+            if name not in {"subject", "principles", "rel", "why", "where", "covers", "result", "notes", "status", "value", "does",
+                            "decision"}:
                 raise LogError(f"unknown option {a}")
             opts[name] = val
         else:
