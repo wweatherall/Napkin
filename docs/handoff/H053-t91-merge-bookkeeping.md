@@ -1,6 +1,6 @@
 ### H053 — T91: integrate.py drafts the Work list result and the board
 
-Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: queued (William: generate the board from the handoffs?) | For: Claude
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: queued (after H058) | For: Claude
 
 References: T91, P16, P17 (workers put their result in the handoff; the integrator copies it to the Work list), P20
 (integrate.py), P14 (BOARD.md), docs/agent-handoff.md (the response rules), AGENTS.md (Codex's copy of them).
@@ -9,7 +9,8 @@ Touches: tools/integrate.py, a new tools/test_bookkeeping.py (don't add it to th
 it; give the line in your response), docs/agent-handoff.md (the rules section only: one line on the Result line),
 AGENTS.md and CLAUDE.md (the same line, kept in step), BOARD.md's integrator section (one line).
 
-Request: today integrate.py finishes with "left for you: the Work list result and BOARD.md". Instead: (1) define one
+Changed 2026-11-22: the board's job table and moving a job to Done are now H058's (the job queue, P24); this job
+keeps the Work list result. Request: today integrate.py finishes with "left for you: the Work list result and BOARD.md". Instead: (1) define one
 line a response must carry, e.g. "Result: <commit>; <tests>; <what changed>", and add it to the handoff rules; (2) at
 merge, append "Result (<commit>, merged <merge>): ..." to the item's Work list row (the T<n> from --status), and move
 the job's board row to "Done since ..." (remove the row, add "H0NN (T<n>)" to the list, drop Notes lines naming

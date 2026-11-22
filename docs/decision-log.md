@@ -45,7 +45,7 @@ One subject per decision; the Decisions column is generated.
 | Feedback | The confirmation wave and what colours mean. | I06, I07, W01, W02, W03, W04, W05, W06, W07, W08, W09 |
 | Materials | Wood cards, grain and painting. | A05, I33, M01, M02, M03, M04 |
 | Output | Drawings, cut lists and renders. | A07, D01, D02, P06 |
-| Process | How the agents work, test, merge and record decisions. | P01, P02, P03, P07, P09, P10, P11, P14, P15, P16, P17, P18, P19, P20, P21, P22, P23 |
+| Process | How the agents work, test, merge and record decisions. | P01, P02, P03, P07, P09, P10, P11, P14, P15, P16, P17, P18, P19, P20, P21, P22, P23, P24 |
 
 ## Principles
 
@@ -64,7 +64,7 @@ Each states one idea; Explains (generated) lists the decisions that name it. Ten
 | G09 | Never lose work: always saved, atomically, and undo crosses sessions without hiding changes made in FreeCAD. | Tentative | A24, A25, A27, A28, A32, I54, I55, U01, U02, U03, W13 | 2026-11-22 |
 | G10 | A rejected action says why and leaves nothing behind. | Tentative | A23, I06, I08, W06 | 2026-11-22 |
 | G11 | Nothing rests on memory: every decision is logged, every behaviour has a named test, and every prediction of FreeCAD's answer is checked against FreeCAD. | Tentative | I51, P01, P02, P03, P07, P09, P18, P21, P23 | 2026-11-22 |
-| G12 | Work splits by files, and one integrator merges, numbers and keeps the records. | Tentative | A31, A33b, A34, A35, P10, P11, P14, P15, P16, P17, P18, P19, P20, P22 | 2026-11-22 |
+| G12 | Work splits by files, and one integrator merges, numbers and keeps the records. | Tentative | A31, A33b, A34, A35, P10, P11, P14, P15, P16, P17, P18, P19, P20, P22, P24 | 2026-11-22 |
 
 ## Decisions
 
@@ -254,6 +254,7 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | P21 | Every place the viewport predicts what FreeCAD will compute (lengths today; circles, split-face regions next) gets a test comparing the two answers, like tests/length_cases.json. | Active |  | Your approval, 2026-11-22: a prediction without one drifts from FreeCAD quietly. | G11 | CLAUDE.md (Conventions); worker/scenario | 2026-11-22 |
 | P22 | Small fixes take P08's light path (nothing you'd notice, no protocol / format / boundary / saving change, ~30 lines; the small-fixes branch, the quick test, one commit, no Work list row or handoff), and the integrator merges and pushes them when the gate passes, without asking. The fixes are still listed for you at the end of the session. | Active | Replaces P08 (you said when small-fixes merged) | Your call, 2026-11-22: "you should feel free to merge and push small fixes". | G12 | CLAUDE.md, AGENTS.md (Working with William) | 2026-11-22 |
 | P23 | The decision log is two files with the same IDs: docs/decision-log.md is what's live (an index of subjects at the top, then principles, decisions grouped under ~12 subject headings, open questions, the open Work list, tunables, their details) and docs/decision-archive.md is history (superseded decisions, answered questions, done Work list items, their details; a done item moves there at merge). Principles each state one idea and list the decisions they explain; each decision names its principle. A group of decisions is folded into its principle only with your OK, one group at a time (P01). | Active | Refines P09 | Your call, 2026-11-22: easier for both of us to work in; the live file roughly halves, and subjects replace the 'Interaction' catch-all. The reshape comes before T91-T93. | G11 | tools/sort_decision_log.py tidy(), check_files(); integrate.py settle_log(), set_status(); number_ids.py; startup.py report_ids() | 2026-11-22 |
+| P24 | Jobs run through a queue with two buttons: a worker takes a job (its own worktree, branch and instructions) and says done (its report goes to the integrator, who is told at once); a dead man's switch flags a worker gone quiet; the integrator reviews every done job before merging, then deletes the branch and worktree; an empty queue means the integrator checks in with you. (Details below.) | Active | Refines P14, P16; replaces the board's hand-kept job state (T91's board part) | Your design, 2026-11-22 (notebook sketch, then your answers). | G12 | Not built: T96 | 2026-11-22 |
 
 ## Open questions
 
@@ -305,6 +306,7 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | T92 | Decision log rows are added by hand (five on 2026-11-22). A tools/log.py add command: next free ID on main (a placeholder on a branch, T74), the row in ID order with the date and columns filled, Why left to write; it reuses sort_decision_log.py's parsing. | Open | P09, P01, T74 | Integrator's review, 2026-11-22. After T94 (William, 2026-11-22). Assigned: H054 (Claude). |
 | T93 | What waits on William is kept by hand in the integrator's note (H050) and goes stale. startup.py prints it: Work list rows whose note says "your call" with no decision ID yet, open handoffs with an "Ask William" line and no logged answer, and the board's notes for William; plus a reminder to reschedule check-ins after a clear. | Open | P16, P19 | Integrator's review, 2026-11-22. After T94 (William, 2026-11-22). Assigned: H055 (Claude). |
 | T95 | Tests find themselves: every new test file today adds a line to tools/featuretest.sh and to CLAUDE.md's test list, a shared hot spot (it clashed twice on 2026-11-22). The feature tests discover worker/test_*.py, tools/test_*.py and viewport/test_*.gd and read each one's "... TESTS: N passed, M failed" line; a file says how it runs (freecadcmd, python3, Godot) where that isn't obvious from its folder. The guides name the kinds of test, not a list or counts. | Open | P07, P11 | Integrator's review, 2026-11-22; William agreed. After H049 (which owns the test scripts). Assigned: H057. |
+| T96 | The job queue (P24): tools/job.py take / beat / wait / done / watch / status, its state beside the integrator lock, the board's job table generated from it, integrate.py deleting a merged job's branch and worktree, and the integrator watching for done, stale and empty. | Open | P24, P14, P16, P19 | William's design, 2026-11-22. Replaces T91's board part (T91 keeps the Work list result). Assigned: H058 (Claude). |
 
 ## Tunables
 
@@ -347,8 +349,6 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | CLOSE_WAIT_S | 10.0 | Closing a window waits this long (seconds) for FreeCAD to save the latest revision before asking Retry / Close without saving / Cancel. | viewport/main.gd | I55 |
 
 ## Details
-
-The full text of long decisions; the table row is the summary. Sorted by ID.
 
 ### A11b
 
@@ -509,6 +509,28 @@ Why: Built with T15, 2026-11-21.
 Decision: Two kinds of test. Feature tests check Shop Sketch's answers against FreeCAD with no window (tools/featuretest.sh: the worker tests, the scenario test on one busy fixture model, the units parser); UI tests drive the viewport (the quick test's windows, the recorded and targeted suites). A new feature gets scenario steps first and is run against the feature tests while it's built; it gets a quick-test step once its tool exists. The quick test (~8 s, three windows side by side) runs after every change; the full test (~15 s, suites at the quick test's pace in four lanes) is the fallback: when the quick test fails, or before a merge.
 
 Why: Your idea, 2026-11-21: test a feature against FreeCAD before it becomes a UI thing, and keep the full test as a fallback. Measured (T48): the quick test went 31 → 20 s and the full test 2 min → 50 s with the same results; then (T49, tests side by side) quick 20 → 8 s, full 50 → 15 s. Times updated at your request, 2026-11-21.
+
+### P24
+
+Decision (William's design, 2026-11-22): a worker runs `tools/job.py take` (the button): it gets the first Ready job for its
+agent whose files don't overlap a job in progress, its own worktree and branch, and the job's instructions; the queue marks
+it in progress. It works until the tests pass and the goal is met, then runs `tools/job.py done`, which submits its report
+(the handoff response) and refuses unless the quick test passed on its latest commit. The integrator is told at once (it
+watches the queue) and reviews, merges and pushes, then deletes the branch and worktree; a job that fails review or the
+gate goes back on the queue as returned, with the integrator's notes, and the next worker continues its branch. Dead
+man's switch: anything the worker does through the job (a beat, a commit, a test run) pushes the deadline back; a
+timer checks in with the worker every 15-30 minutes, and at each check-in it looks at the commands it started for
+hung processes and beats. `tools/job.py wait "<question>"` pauses the switch while it waits for you. If the deadline
+passes (30 minutes with no beat), the integrator is told and checks the branch. When the queue holds nothing Ready for
+Claude or for Codex, the integrator checks in with you. The integrator always reviews before merging (no automatic merge
+on done). The queue's live state (claims, beats, done) is kept beside the integrator lock in git's common folder,
+shared by every worktree and never committed; the jobs themselves stay in docs/handoff/.
+
+Why: your design. It makes claiming one step, keeps a job's state in one place, catches a stuck worker, tells the
+integrator when work is done without you relaying it, and leaves nothing to clean up. Review stays because it
+catches what tests don't (2026-11-22: a branch built on an old main).
+
+The full text of long decisions; the table row is the summary. Sorted by ID.
 
 ### U01
 

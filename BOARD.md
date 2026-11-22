@@ -29,7 +29,8 @@ so each agent has one Ready.
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H053 | Claude | Queued | T91: integrate.py drafts the Work list result and the board | [H053](docs/handoff/H053-t91-merge-bookkeeping.md) | William: should the board's job table be generated from the handoffs (folded in here)? |
+| H053 | Claude | Queued | T91: integrate.py drafts the Work list result and the board | [H053](docs/handoff/H053-t91-merge-bookkeeping.md) | H058 (the job queue does the board part) |
+| H058 | Claude | **Ready** | T96: the job queue (P24: take, done, the dead man's switch) | [H058](docs/handoff/H058-t96-job-queue.md) | |
 | H054 | Claude | **Ready** | T92: tools/log.py add, for decision log rows | [H054](docs/handoff/H054-t92-log-add.md) | |
 | H055 | Claude | **Ready** | T93: startup.py shows what waits on William | [H055](docs/handoff/H055-t93-waiting-on-william.md) | |
 | H046 | Codex | **Ready** | T82: the Line tool, closed outlines and split faces (I51) | [H046](docs/handoff/H046-t82-lines-split-faces.md) | |
@@ -42,4 +43,4 @@ Done since the board started: H033 (T74 + T77), H034 (T76), H035 (T44), T56 (sta
 ## Notes
 
 - Codex: H046 (Lines, I51 and I58) is Ready, built on ToolContext; H057 (tests find themselves) is open to either agent.
-- Claude: William's priority (2026-11-22): the integrator's tools first. H054 and H055 are Ready (one session each; the log is now two files, P23: decision-log.md and decision-archive.md). H053 waits for William's answer on generating the board.
+- Claude: William's priority (2026-11-22): the integrator's tools first. Ready: H058 (the job queue, P24, William's design), H054, H055; one session each, no shared files. H053 follows H058.
