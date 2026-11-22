@@ -1816,7 +1816,7 @@ func _make_menus() -> void:
 				  ["Open…", "open", KEY_MASK_META | KEY_O], [],
 				  ["Show in Finder", "reveal", 0], [], ["Drawing and cut list (D)", "drawing", 0]]],
 		["Edit", [["Undo", "undo", KEY_MASK_META | KEY_Z], ["Redo", "redo", KEY_MASK_META | KEY_MASK_SHIFT | KEY_Z], [], ["Make assembly", "assemble", KEY_MASK_META | KEY_G],
-				  ["Delete (⌫ in Select or Move)", "delete", 0], ["Make unique (U)", "unique", 0], ["Detach from array", "detach", 0], [],
+				  ["Delete (⌫)", "delete", 0], ["Make unique (U)", "unique", 0], ["Detach from array", "detach", 0], [],
 				  ["Hide (H)", "hide", 0], ["Unhide selected", "unhide_selected", 0], ["Unhide last", "unhide_last", 0],
 				  ["Unhide all (Shift+H)", "unhide_all", 0]]],
 		["Tools", [["Select (Space)", "select", 0], ["Paint", "paint", 0], ["Rectangle (R)", "rect", 0], ["Push/Pull (P)", "push", 0], ["Move (M)", "move", 0]]],
@@ -2010,14 +2010,14 @@ func _unhandled_input(e: InputEvent) -> void:
 				else: set_tool(tool)
 				return
 			KEY_ENTER, KEY_KP_ENTER: apply_vcb(); return
-			KEY_DELETE, KEY_BACKSPACE:              # with nothing typed, in Select or Move, they delete (I45)
+			KEY_DELETE, KEY_BACKSPACE:              # text typed: they edit it; nothing typed: they delete (I45)
 				if vcb != "": vcb = vcb.left(-1); _update_vcb()
 				elif tool == "move" and tools["move"].in_gesture():
 					var grabbed: Dictionary = tools["move"].state       # mid-move: what's being moved goes
 					if grabbed.get("cut", {}).is_empty():               # (a hole being moved: deleting holes isn't built)
 						var ids: Array = grabbed.get("unit", {}).get("bodies", [grabbed.get("body", "")])
 						set_tool("move"); set_selection(ids); sel.delete_selected()
-				elif tool in ["select", "move"]: _menu("delete")
+				else: _menu("delete")
 				return
 		var ch := char(e.unicode) if e.unicode > 0 else ""
 		var t = tools[tool]

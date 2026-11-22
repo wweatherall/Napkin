@@ -41,8 +41,8 @@ removes a board from the FreeCAD file with everything only it used; only one a s
 `SSRole=deleted` (I43 Details; `remove_unneeded`). FreeCAD 1.1.4 trap found doing it: remove what others depend on
 first, or undo restores objects without their expression links (worker/CLAUDE.md). (2) Copying a whole assembly
 makes a new assembly: move op `groups: {old: new}` (I44, ARCHITECTURE protocol); 3x / /3 of one refused, T57.
-(3) With nothing typed, Delete/Backspace delete in Select and Move only (mid-move: what's being moved); Edit > Delete has
-no menu key (I45). Scenario 170, quick 130.
+(3) Delete/Backspace edit typed text if there is any, otherwise delete (mid-move: what's being moved); Edit > Delete has
+no menu key (I45). Scenario 170, quick 131.
 
 ## Jobs for Codex (assigned by William, 2026-11-21)
 

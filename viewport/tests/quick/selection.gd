@@ -80,10 +80,16 @@ func run() -> void:
 	harness._ok("mid-move, nothing typed: Backspace deletes the board being moved, and only it (I45)",
 		m.ops.back()["type"] == "delete" and m.ops.back()["targets"] == ["b2"] and not m.tools["move"].in_gesture()
 		and not harness._shown_ids().has("b2") and harness._shown_ids().has("b1"), [m.ops.back(), harness._shown_ids()])
-	m.set_selection(["b1"]); m.set_tool("push")
+	m.set_selection(["b1"]); m.set_tool("move")
 	var n_ops := m.ops.size()
-	await harness._key(KEY_BACKSPACE)
-	harness._ok("in Push/Pull, Backspace leaves the selection alone (I45)", m.ops.size() == n_ops and harness._shown_ids().has("b1"), m.ops.back())
+	var x1: float = harness._bbox("b1")[0] + 50
+	await harness._grab(Vector3(x1, 25, 18)); await harness._drag_to(Vector3(x1 + 40, 25, 18), 6); await harness._type("12"); await harness._key(KEY_BACKSPACE)
+	harness._ok("with text typed, Backspace only edits the text (I45)", m.ops.size() == n_ops and m.vcb == "1" and m.tools["move"].in_gesture(), [m.ops.back(), m.vcb])
+	await harness._key(KEY_ESCAPE)
+	m.set_selection(["b1"]); m.set_tool("push")
+	await harness._key(KEY_BACKSPACE); await harness._wait_wave()
+	harness._ok("in any tool (Push/Pull here), nothing typed: Backspace deletes the selection (I45)",
+		m.ops.size() == n_ops + 1 and m.ops.back()["targets"] == ["b1"] and not harness._shown_ids().has("b1"), m.ops.back())
 
 	# Enter a real row and delete its original: context, identity and linked survivors follow promotion.
 	await harness._fresh("selection_row", harness._plank(1, Vector3.ZERO, Vector3(100, 50, 18)) + [{"id": "mv1", "type": "move", "targets": ["b1"], "vector": [150, 0, 0], "copy": true, "count": 3, "new_ids": ["b2", "b3", "b4"]}])
