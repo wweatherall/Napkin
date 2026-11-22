@@ -10,7 +10,10 @@ Touches: viewport/document.gd and viewport/test_document.gd (ID allocation, the 
 viewport/tool_context.gd (document.next_id only) and viewport/test_tool_context.gd, worker/session.py (the journal:
 reading old IDs, writing new ones), worker files that parse an ID's numeric suffix (find them; list them in your
 response), worker/test_*.py and a new worker/scenario/NN_branch_ids.py. Not docs/protocol.md or ARCHITECTURE.md (P28: the
-integrator's): write what your change does to them as "Architecture:" lines in your response. Not viewport/tools/* (the T88 tool moves own them) or the test scripts in tools/.
+integrator's): write what your change does to them as "Architecture:" lines in your response. Not the test scripts in tools/.
+Widened by William, 2026-11-22 (Codex's scope question): also viewport/tools/*.gd, viewport/selection.gd and
+viewport/main.gd, only replacing their own ID allocation with the document allocator, and the tests that change
+with it (viewport/test_*.gd); no other changes there (the T88 tool moves still own those files).
 
 Request: new board, rectangle, hole, assembly and op IDs never collide with an ID a kept branch uses (U02), using the
 spec's recommendation (type-prefixed IDs from OS-quality random bytes, checked against a document-wide registry;
