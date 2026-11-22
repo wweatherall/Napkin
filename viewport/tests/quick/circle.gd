@@ -1,0 +1,82 @@
+extends RefCounted
+## T81: real Circle gestures, length syntax, exact Push/Pull, and profile undo/redo.
+const Main := preload("res://main.gd")
+const Harness := preload("res://tests/harness.gd")
+var harness: Harness
+var m: Main:
+	get: return harness.m
+
+
+func _circle(at: Vector3, toward: Vector3, radius: String) -> void:
+	await harness._key(KEY_C)
+	await harness._click_at(at)
+	await harness._drag_to(toward, 4)
+	await harness._type(radius + "\n")
+	await harness.get_tree().physics_frame
+
+
+func run() -> void:
+	await harness._fresh("circle")
+	await harness._view(Vector3(200, 100, 0), -30, -50, 1.2)
+	await harness._key(KEY_C)
+	harness._ok("C selects Circle and labels the measurement Radius", m.tool == "circle" and m.tools.circle.vcb_label() == "Radius", m.tool)
+	await harness._drag_to(Vector3.ZERO, 4)
+	await harness._button(true)
+	await harness._drag_to(Vector3(40, 0, 0), 6)
+	await harness._button(false)
+	harness._ok("press-drag-release makes a circle of radius 40", m.ops.size() == 1 and m.ops.back().type == "circle" and is_equal_approx(m.ops.back().radius, 40.0), m.ops)
+	m.undo()
+	await harness._wait_confirm()
+	harness._ok("undo removes the loose circle", m.rects.is_empty(), m.rects.keys())
+	m.redo()
+	await harness._wait_confirm()
+	harness._ok("redo restores the loose circle and its picking draft", m.rects.has("r1") and m.drafts.has("r1"), m.rects.keys())
+	await harness.get_tree().physics_frame
+	var center_pick := m.pick(m.cam.unproject_position(Main.m2g(Vector3.ZERO)))
+	harness._ok("the loose circle is pickable at its centre", center_pick.get("rect", "") == "r1", center_pick)
+	await harness._push(Vector3(0, 0, 0), Vector3(0, 0, 60), "100")
+	await harness._wait_wave()
+	var bodies := harness._bodies()
+	harness._ok("Push/Pull makes an exact dowel", bodies.has("b1") and absf(bodies.get("b1", {}).get("volume_mm3", 0.0) - PI * 1600 * 100) < 0.1, bodies)
+	await harness._shot("circle_dowel")
+	m.undo()
+	await harness._wait_wave()
+	harness._ok("undo push restores the loose circle", m.drafts.has("r1") and not m.body_tris.has("b1"), m.drafts.keys())
+	m.redo()
+	await harness._wait_wave()
+	harness._ok("redo push consumes the loose circle again", not m.drafts.has("r1") and m.body_tris.has("b1"), m.drafts.keys())
+	await _circle(Vector3(180, 0, 0), Vector3(210, 0, 0), "3/4\"")
+	harness._ok("typed fractional inches become an unrounded radius", m.ops.back().type == "circle" and absf(m.ops.back().get("radius", 0.0) - 19.05) < 1e-9, m.ops.back())
+	# A completed click starts the circle; only the second click ends it.
+	await harness._click_at(Vector3(320, 0, 0))
+	await harness._drag_to(Vector3(350, 0, 0), 4)
+	var count := m.ops.size()
+	harness._ok("click and move leaves the circle active", m.tools.circle.busy(), m.tools.circle.state)
+	await harness._press()
+	harness._ok("second click finishes a radius 30 circle", m.ops.size() == count + 1 and is_equal_approx(m.ops.back().get("radius", 0.0), 30.0), m.ops.back())
+	await _circle(Vector3(450, 0, 0), Vector3(470, 0, 0), "0.2")
+	harness._ok("a typed sub-millimetre radius bypasses the accidental-drag filter", is_equal_approx(m.ops.back().get("radius", 0.0), 0.2), m.ops.back())
+	await harness._key(KEY_C)
+	await harness._click_at(Vector3(450, 100, 0))
+	await harness._key(KEY_ESCAPE)
+	harness._ok("Escape cancels the circle gesture", not m.tools.circle.busy(), m.tools.circle.state)
+	# On-face profiles use the same join/cut/New board rules as rectangles.
+	await harness._fresh("circle_face", harness._plank(1, Vector3.ZERO, Vector3(300, 200, 18)))
+	await harness._view(Vector3(150, 100, 18), -30, -50, 1.0)
+	await _circle(Vector3(60, 60, 18), Vector3(80, 60, 18), "20")
+	await harness._push(Vector3(60, 60, 18), Vector3(60, 60, 0), "-18")
+	await harness._wait_wave()
+	bodies = harness._bodies()
+	harness._ok("a circle on a face cuts an exact round through hole", bodies.has("b1") and absf(bodies.b1.volume_mm3 - (300.0 * 200 * 18 - PI * 400 * 18)) < 0.1 and m.ops.back().get("through", false), bodies)
+	await _circle(Vector3(150, 60, 18), Vector3(170, 60, 18), "20")
+	await harness._push(Vector3(150, 60, 18), Vector3(150, 60, 38), "20")
+	await harness._wait_wave()
+	bodies = harness._bodies()
+	harness._ok("a positive circle push joins as a boss", not m.ops.back().has("body") and absf(bodies.b1.volume_mm3 - (300.0 * 200 * 18 + PI * 400 * 2)) < 0.1, bodies)
+	await harness._key(KEY_B)
+	await _circle(Vector3(240, 60, 18), Vector3(255, 60, 18), "15")
+	await harness._push(Vector3(240, 60, 18), Vector3(240, 60, 48), "30")
+	await harness._wait_wave()
+	bodies = harness._bodies()
+	harness._ok("B makes a separate exact round board", bodies.has("b2") and absf(bodies.get("b2", {}).get("volume_mm3", 0.0) - PI * 225 * 30) < 0.1, bodies)
+	await harness._shot("circle_hole_boss_board")

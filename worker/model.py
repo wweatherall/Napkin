@@ -6,6 +6,7 @@ from common import (
     Frame, NORMAL_TOL, OpError, TOL, V, add_props, board_label, rotation_from, unit, vec,
 )
 from push import PushActions
+from circle import CircleActions
 from move import MoveActions
 from mirror import MirrorActions
 from assembly import AssemblyActions
@@ -14,7 +15,7 @@ from visibility import VisibilityActions
 from deletion import DeleteActions
 
 
-class Model(PushActions, MoveActions, MirrorActions, AssemblyActions, PaintActions, VisibilityActions, DeleteActions):
+class Model(CircleActions, PushActions, MoveActions, MirrorActions, AssemblyActions, PaintActions, VisibilityActions, DeleteActions):
     """Shop Sketch operations on a FreeCAD document. Holds no state of its own."""
 
     def __init__(self, doc):
@@ -290,7 +291,7 @@ class Model(PushActions, MoveActions, MirrorActions, AssemblyActions, PaintActio
         self.set_tip(container, b)
         return b
 
-    HANDLERS = ("rect", "push_pull", "mirror", "make_component", "move", "set_material", "detach", "make_unique",
+    HANDLERS = ("circle", "rect", "push_pull", "mirror", "make_component", "move", "set_material", "detach", "make_unique",
                 "make_assembly", "turn_grain", "property_edit", "hide", "delete")
 
     def op_property_edit(self, op):

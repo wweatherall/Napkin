@@ -11,6 +11,11 @@ draft), viewport/main.gd (the tool list and toolbar segment only), viewport/keys
 viewport/tests/quick/circle.gd and worker/scenario/NN_circle.py (new), docs/protocol.md (the new op),
 ARCHITECTURE.md (module table rows).
 
+Touches clarification — Codex, 2026-11-22: also viewport/measure_box.gd (route typed circle radii through
+the length evaluator), viewport/inference.gd (iterate the actual loose-profile perimeter instead of four corners); main.gd includes the small redo, menu selection and sibling-highlight tool lists.
+Circle profiles reuse the existing r counter / rect target key, so document.gd needs no change. H042 is queued
+behind H041; H043 and H044 do not own these files.
+
 Request: centre click, then radius by drag or typed value (any length syntax the measurements box takes), on the
 ground or on a face, snapping like Rectangle. In FreeCAD an exact circle (sketch or Part circle), never a polygon;
 the viewport draws facets. Push/Pull turns it into a round board (on the ground, or with New board on) or a round

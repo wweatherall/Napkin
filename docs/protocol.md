@@ -1,6 +1,6 @@
 # Window ↔ worker protocol
 
-Protocol reference **0.1**, describing main `8ff1f91` (2026-11-21). This is a documentation version: the TCP protocol has no version field or negotiation. Existing embedded format identifiers are `oplog/0.1` and `shopsketch-journal/0.1`; binary meshes use Godot's Variant array encoding. This document records implemented behaviour; it does not introduce fields or change code (T44).
+Protocol reference **0.2**, including T81 circle profiles (2026-11-22; base main `4aec99f`). This is a documentation version: the TCP protocol has no version field or negotiation. Existing embedded format identifiers are `oplog/0.1` and `shopsketch-journal/0.1`; binary meshes use Godot's Variant array encoding. This document records implemented behaviour (T44); reference 0.2 adds the `circle` operation.
 
 ## Transport, identity and lifetime
 
@@ -179,7 +179,8 @@ FaceRef = `{body: string, normal: Vec3, point: Vec3}`: world face identified geo
 | Type | Fields beyond id/type | Source |
 |---|---|---|
 | `rect` | `plane: Plane`, `size: [number,number]` positive mm, `corner?: [number,number] = [0,0]` plane-local mm | [push.py](../worker/push.py):`PushActions.op_rect` |
-| `push_pull` | `target: {rect: string}` or `{face: FaceRef}`, `distance: number` nonzero signed mm along normal; `body?: string` requests new/separate BodyId (otherwise free rectangle defaults to `<id>_body`); `assembly?: string` new board's assembly; `through?: boolean = false` for negative cuts; `resize_stock?: boolean`; `edge_fit?: {target_body: string, face: integer, fit_mode?: integer = 0}` | [push.py](../worker/push.py):`PushActions.op_push_pull` |
+| `circle` | `plane: Plane`, `radius: number` finite, at least 0.001 mm; `center?: [number,number] = [0,0]` plane-local mm. Native fully constrained sketch circle; shares the profile namespace (`RectId`) with rectangles. Viewport allocates `r` IDs for both. | [circle.py](../worker/circle.py):`CircleActions.op_circle` |
+| `push_pull` | `target: {rect: string}` (rectangle or circle profile ID) or `{face: FaceRef}`, `distance: number` nonzero signed mm along normal; `body?: string` requests new/separate BodyId (otherwise a free profile defaults to `<id>_body`); `assembly?: string` new board's assembly; `through?: boolean = false` for negative cuts; `resize_stock?: boolean`; `edge_fit?: {target_body: string, face: integer, fit_mode?: integer = 0}` | [push.py](../worker/push.py):`PushActions.op_push_pull` |
 | `move` | `targets: string[]`, `vector: Vec3`; `copy?: boolean = false`, `count?: integer = 1` copies excluding original, `divide?: boolean = false` distributes copies across vector instead of repeating vector; `new_ids?: string[]` consumed target-by-target, then copy-by-copy (fallback `<target>_<i+1>` for i starting 1); `selection?: boolean`, `detach?: boolean`; `groups?: {old AssemblyId: new AssemblyId}` for copying whole assemblies once | [move.py](../worker/move.py):`MoveActions.op_move`, `move_selection` |
 | `move` with cut | additionally `cut: {body: string, op: string}` selects a rectangular cutter/row; same vector/copy/count/divide fields; targets may be empty; new_ids unused for cutter arrays | [move.py](../worker/move.py):`MoveActions.op_move_cut` |
 | `mirror` | `targets: string[]`, `plane: {point: Vec3, normal: Vec3}`, `replace?: boolean = false`, `new_ids?: string[]` (fallback `<target>_m`), `group?: string` mirror assembly ID if originals ungrouped; replacement retains original BodyId | [mirror.py](../worker/mirror.py):`MirrorActions.op_mirror` |

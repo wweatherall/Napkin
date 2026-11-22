@@ -79,10 +79,15 @@ class PushActions:
             pl = self.rect_obj(tgt["rect"])
             if pl is None:
                 raise OpError(f"unknown rect '{tgt['rect']}'")
-            p0, ex, ey, n = self.rect_world(pl)
+            circular = pl.TypeId == "Sketcher::SketchObject"
+            if circular:
+                p0, ex, ey, n, radius = self.circle_world(pl)
+                world_face = Part.Face(Part.Wire([Part.makeCircle(radius, p0, n)]))
+            else:
+                p0, ex, ey, n = self.rect_world(pl)
+                world_face = Part.Face(Part.makePolygon([p0, p0 + ex, p0 + ex + ey, p0 + ey, p0]))
             on = pl.OnBody
             loose = any(g.TypeId == "App::DocumentObjectGroup" for g in pl.InList)
-            world_face = Part.Face(Part.makePolygon([p0, p0 + ex, p0 + ex + ey, p0 + ey, p0]))
         else:
             _, world_face, n = self.resolve_face(tgt["face"])
             on = tgt["face"]["body"]
@@ -93,9 +98,12 @@ class PushActions:
             bid = op.get("body") or f"{oid}_body"
             c = self.new_board(bid)
             if pl is not None:
-                base = pl if loose else self.plane_feature(p0, ex, ey, f"{tgt['rect']} again")
-                if loose:
-                    self.plane_feature(p0, ex, ey, "", existing=pl)
+                if circular:
+                    base = self.circle_feature(p0, ex, ey, radius, f"{tgt['rect']} again", existing=pl if loose else None)
+                else:
+                    base = pl if loose else self.plane_feature(p0, ex, ey, f"{tgt['rect']} again")
+                    if loose:
+                        self.plane_feature(p0, ex, ey, "", existing=pl)
             else:
                 base = self.face_feature(world_face, f"{oid} face")
             self.put_in(c, base)
@@ -122,7 +130,9 @@ class PushActions:
             raise OpError(f"'{on}' has no solid yet")
         if pl is not None:
             lp0, lex, ley = fr.pt(p0), fr.dir(ex), fr.dir(ey)
-            if loose:
+            if circular:
+                base = self.circle_feature(lp0, lex, ley, radius, f"{tgt['rect']} again", existing=pl if loose else None)
+            elif loose:
                 base = self.plane_feature(lp0, lex, ley, "", existing=pl)
             else:
                 base = self.plane_feature(lp0, lex, ley, f"{tgt['rect']} again")

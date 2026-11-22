@@ -94,7 +94,10 @@ func point(screen: Vector2, exclude: String, plane := {}, with_rects := false, n
 		for rid in m.rects:
 			var pts: PackedVector3Array = PackedVector3Array(m.rects[rid]["pts"])
 			verts["rect " + rid] = pts
-			edges["rect " + rid] = PackedVector3Array([pts[0], pts[1], pts[1], pts[2], pts[2], pts[3], pts[3], pts[0]])
+			var perimeter := PackedVector3Array()
+			for i in pts.size():
+				perimeter.append_array(PackedVector3Array([pts[i], pts[(i + 1) % pts.size()]]))
+			edges["rect " + rid] = perimeter
 	var keep := func(v: Vector3) -> bool: return _on_plane(v, plane) and not _on_other(v, not_on)
 	# endpoints
 	var cands := []

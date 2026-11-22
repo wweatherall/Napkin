@@ -50,6 +50,7 @@ func press(e: InputEventKey) -> void:
 	match e.keycode:
 		KEY_SPACE: m.set_tool("select")
 		KEY_R: m.set_tool("rect")
+		KEY_C: m.set_tool("circle")
 		KEY_P: m.set_tool("push")
 		KEY_M: m.set_tool("move")
 		KEY_G: m._menu("grid")

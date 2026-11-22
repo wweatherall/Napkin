@@ -561,14 +561,14 @@ func _make_ui() -> void:
 	var row := HBoxContainer.new()
 	row.add_theme_constant_override("separation", 10)
 	bar.add_child(row)
-	row.add_child(_segments([["Select", "select", "Select (Space)"], ["Paint", "paint", "Paint (pick the wood in the Wood menu)"], ["Rectangle", "rect", "Rectangle (R)"], ["Push/Pull", "push", "Push/Pull (P)"], ["Move", "move", "Move (M)"]], false))
+	row.add_child(_segments([["Select", "select", "Select (Space)"], ["Paint", "paint", "Paint (pick the wood in the Wood menu)"], ["Rectangle", "rect", "Rectangle (R)"], ["Circle", "circle", "Circle (C)"], ["Push/Pull", "push", "Push/Pull (P)"], ["Move", "move", "Move (M)"]], false))
 	for spec in [["Undo", "undo", "Undo (⌘Z)"], ["Redo", "redo", "Redo (⇧⌘Z)"], ["Drawing", "drawing", "Drawing and cut list (D)"]]:
 		var b := Button.new(); b.text = spec[0]; b.tooltip_text = spec[2]; b.focus_mode = Control.FOCUS_NONE
 		b.pressed.connect(_menu.bind(spec[1]))
 		row.add_child(b)
 	var gap := Control.new(); gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL; gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(gap)
-	row.add_child(_segments([["Grid snap", "grid", "Snap to a 10 mm grid (G)"], ["New board", "newboard", "Pushing a rectangle drawn on a face makes a separate board (B)"]], true))
+	row.add_child(_segments([["Grid snap", "grid", "Snap to a 10 mm grid (G)"], ["New board", "newboard", "Pushing a profile drawn on a face makes a separate board (B)"]], true))
 	var properties_button := Button.new()
 	properties_button.text = "Properties"
 	properties_button.focus_mode = Control.FOCUS_NONE
@@ -803,7 +803,7 @@ var infer                           # inference.gd: the one snapping engine
 func _make_tools() -> void:
 	infer = load("res://inference.gd").new()
 	infer.m = self
-	for k in ["select", "rect", "push", "move", "paint"]:
+	for k in ["select", "rect", "circle", "push", "move", "paint"]:
 		tools[k] = load("res://tools/%s_tool.gd" % k).new()
 		tools[k].setup(self)
 
@@ -1106,7 +1106,7 @@ func _turn_grain() -> void:
 
 func _show_siblings(bid: String) -> void:
 	hover_body = bid
-	pres.show_siblings(_siblings_of(bid) if tool in ["rect", "push", "move", "paint"] else [])
+	pres.show_siblings(_siblings_of(bid) if tool in ["rect", "circle", "push", "move", "paint"] else [])
 
 
 func _say_status(txt: String) -> void:
@@ -1222,7 +1222,7 @@ func redo() -> void:
 	if op.is_empty():
 		_say_status("Nothing to redo")
 		return
-	if op["type"] == "rect":
+	if op["type"] in ["rect", "circle"]:
 		if not rects.has(op["id"]): _register_rect(op)
 	elif op["type"] == "push_pull":
 		var rid: String = op["target"].get("rect", "")
@@ -1804,7 +1804,7 @@ func _make_menus() -> void:
 				  ["Delete (⌫)", "delete", 0], ["Make unique (U)", "unique", 0], ["Detach from array", "detach", 0], [],
 				  ["Hide (H)", "hide", 0], ["Unhide selected", "unhide_selected", 0], ["Unhide last", "unhide_last", 0],
 				  ["Unhide all (Shift+H)", "unhide_all", 0]]],
-		["Tools", [["Select (Space)", "select", 0], ["Paint", "paint", 0], ["Rectangle (R)", "rect", 0], ["Push/Pull (P)", "push", 0], ["Move (M)", "move", 0]]],
+		["Tools", [["Select (Space)", "select", 0], ["Paint", "paint", 0], ["Rectangle (R)", "rect", 0], ["Circle (C)", "circle", 0], ["Push/Pull (P)", "push", 0], ["Move (M)", "move", 0]]],
 		["View", [["Grid snap (G)", "grid", -1], ["New board on faces (B)", "newboard", -1], ["Hidden geometry", "hiddengeom", -1]]],
 	]
 	for m in spec:
@@ -1840,7 +1840,7 @@ func _menu(tag) -> void:
 		"drawing": export_drawing()
 		"undo": undo()
 		"redo": redo()
-		"select", "rect", "push", "move", "paint": set_tool(tag)
+		"select", "rect", "circle", "push", "move", "paint": set_tool(tag)
 		"assemble": make_assembly()
 		"unique": _linked_op("make_unique")
 		"detach": _linked_op("detach")

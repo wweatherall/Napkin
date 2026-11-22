@@ -21,7 +21,7 @@ var body_tris := {}                 # body id -> PackedVector3Array (model mm, 3
 var body_verts := {}                # body id -> PackedVector3Array (unique corners)
 var body_edges := {}                # body id -> feature edge segments (model mm)
 var body_cuts := {}                 # body id -> [{op, kind, lo, hi}] from FreeCAD: holes and added pieces
-var rects := {}                     # rect id -> {"tris","n","on","pts"}
+var rects := {}                     # profile id (rectangle or circle) -> {"tris","n","on","pts"}
 var drafts := {}                    # op id -> Node3D
 var stock_frames := {}              # body id -> rectangular stock frame from bodies.json (plane fits, I40)
 
@@ -45,17 +45,45 @@ func register_rect(op: Dictionary) -> void:
 	var origin := Vector3(src["point"][0], src["point"][1], src["point"][2]) if pl.has("on") else Vector3(src["origin"][0], src["origin"][1], src["origin"][2])
 	var n := Vector3(src["normal"][0], src["normal"][1], src["normal"][2])
 	var b: Array = m.plane_basis(n)
-	var corner: Array = op.get("corner", [0, 0])     # optional, as in the worker
-	var o2: Vector3 = origin + b[0] * float(corner[0]) + b[1] * float(corner[1])
-	var pts: PackedVector3Array = m._rect_pts(o2, b[0], b[1], op["size"][0], op["size"][1])
-	var tris := PackedVector3Array([pts[0], pts[1], pts[2], pts[0], pts[2], pts[3]])
-	rects[op["id"]] = {"tris": tris, "n": n, "on": src.get("body", "") if pl.has("on") else "", "pts": pts}
+	var pts: PackedVector3Array
+	var tris: PackedVector3Array
+	var lines := PackedVector3Array()
+	if op["type"] == "circle":
+		var center: Array = op.get("center", [0, 0])
+		var shape := circle_geometry(origin + b[0] * float(center[0]) + b[1] * float(center[1]), n, op["radius"])
+		pts = shape.pts; tris = shape.tris; lines = shape.lines
+	else:
+		var corner: Array = op.get("corner", [0, 0])
+		var o2: Vector3 = origin + b[0] * float(corner[0]) + b[1] * float(corner[1])
+		pts = m._rect_pts(o2, b[0], b[1], op["size"][0], op["size"][1])
+		tris = PackedVector3Array([pts[0], pts[1], pts[2], pts[0], pts[2], pts[3]])
+		lines = PackedVector3Array([pts[0], pts[1], pts[1], pts[2], pts[2], pts[3], pts[3], pts[0]])
+	rects[op["id"]] = {"tris": tris, "n": n, "on": src.get("body", "") if pl.has("on") else "", "pts": pts, "kind": op["type"]}
 	var mi := MeshInstance3D.new()
 	mi.mesh = m._tri_mesh(tris, m.mat_rect)
-	mi.add_child(m._lines(PackedVector3Array([pts[0], pts[1], pts[1], pts[2], pts[2], pts[3], pts[3], pts[0]]), Color(0.1, 0.2, 0.6)))
+	mi.add_child(m._lines(lines, Color(0.1, 0.2, 0.6)))
 	m.drafts_root.add_child(mi)
 	m._add_collision(mi, "rect_id", op["id"])
 	drafts[op["id"]] = mi
+
+
+# A viewport approximation only. The op contains the radius; FreeCAD keeps an exact sketch circle.
+const CIRCLE_SEGMENTS := 64
+
+func circle_geometry(center: Vector3, normal: Vector3, radius: float) -> Dictionary:
+	var basis: Array = m.plane_basis(normal)
+	var pts := PackedVector3Array()
+	var tris := PackedVector3Array()
+	var lines := PackedVector3Array()
+	for i in CIRCLE_SEGMENTS:
+		var angle := 2.0 * PI * i / CIRCLE_SEGMENTS
+		pts.append(center + radius * (basis[0] * cos(angle) + basis[1] * sin(angle)))
+	for i in CIRCLE_SEGMENTS:
+		var a := pts[i]; var b := pts[(i + 1) % CIRCLE_SEGMENTS]
+		lines.append_array(PackedVector3Array([a, b]))
+	for i in range(1, CIRCLE_SEGMENTS - 1):
+		tris.append_array(PackedVector3Array([pts[0], pts[i], pts[i + 1]]))
+	return {"pts": pts, "tris": tris, "lines": lines}
 
 
 func drop_draft(oid: String) -> void:
@@ -66,7 +94,7 @@ func drop_draft(oid: String) -> void:
 func rebuild_rect_drafts(ops: Array, used: Dictionary) -> void:
 	"""After an open: every rectangle's data, and a draft for those not yet pushed out."""
 	for op in ops:
-		if op["type"] == "rect":
+		if op["type"] in ["rect", "circle"]:
 			if used.has(op["id"]):
 				register_rect(op); drop_draft(op["id"])
 			elif not drafts.has(op["id"]):
@@ -78,7 +106,7 @@ func forget_op(op: Dictionary, ops: Array, used: Dictionary) -> void:
 	var oid: String = op["id"]
 	end_wave(oid)
 	drop_draft(oid)
-	if op["type"] == "rect":
+	if op["type"] in ["rect", "circle"]:
 		rects.erase(oid)
 	elif op["type"] in ["mirror", "move"]:
 		for nid in op.get("new_ids", []):
