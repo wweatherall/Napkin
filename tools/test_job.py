@@ -200,8 +200,8 @@ r, out = run(job.done, wt1)
 j = state(root)["jobs"]["H001"]
 check("done marks the job done once all is in order", r and j["state"] == "done" and "ready for review: H001" in out, out)
 check("done notes a response with no Result line (T91)", "has no line \"Result:" in out, out)
-check("done's closing message at a session's 1st job: take --wait in the background (P27)",
-      "job.py take --wait` in the background" in out and "job 1 of 3" in out, out)
+check("done's closing message after a session's one job: ready for a /clear (P37)",
+      "ready for a /clear" in out and "take --wait" not in out, out)
 check("done tells the integrator (an event in the queue)", any(e["kind"] == "done" and e["job"] == "H001"
                                                               for e in state(root)["events"]))
 r, out = run(job.take, root, "claude", "s1")
@@ -284,7 +284,10 @@ for w in (wt3, job.worktree_for(root, "H005")):
     sh(root, "git", "worktree", "remove", "--force", w)
 shutil.rmtree(base)
 
-# --- a session chains up to MAX_JOBS jobs (P27) ---
+# --- one job a session by default (P37); the count still works for any MAX_JOBS (P27's chaining) ---
+check("a session takes one job by default (P37)", job.MAX_JOBS == 1, job.MAX_JOBS)
+_max_jobs = job.MAX_JOBS
+job.MAX_JOBS = 3
 base, root = repo()
 
 
@@ -316,6 +319,10 @@ r, out = run(job.take, root, "claude", "claude")
 r2, out2 = run(job.take, root, "claude", "claude")
 check("the fallback session (no real ID) isn't counted", "sessions" not in state(root) or
       "claude" not in state(root)["sessions"], state(root).get("sessions"))
+job.MAX_JOBS = _max_jobs
+out1 = job.next_step({"sessions": {"w": ["H001"]}}, "w")
+check("at the default, done after the first job says ready for a /clear (P37)",
+      "ready for a /clear" in out1 and "take --wait" not in out1, out1)
 
 clock = [0.0]
 slept = []

@@ -6,7 +6,7 @@ Worker (run in your job's worktree unless it says otherwise):
                                 the first Ready job for you (in the board's order) whose files don't overlap a job
                                 in progress: makes ../fretchup-<id> and <agent>/<id>-<slug> from main, marks it in
                                 progress and prints the handoff. A returned job comes first and resumes its branch.
-                                One job at a time per session, at most MAX_JOBS per session (P27): then a /clear,
+                                One job at a time per session, at most MAX_JOBS per session (P37): then a /clear,
                                 which gives a Claude session a new CLAUDE_CODE_SESSION_ID. Run it anywhere in the
                                 repository. --wait: nothing Ready? look again every WATCH_POLL until a job is taken
                                 (exit 0) or WORKER_WAIT passes (exit 1); holds no job meanwhile. Run it in the
@@ -51,7 +51,7 @@ import handoff
 DEADLINE = 30 * 60          # seconds with no beat before a job in progress is stale (P24, tunable)
 HUNG_AFTER = 10 * 60        # a process from the worktree older than this looks hung (tunable)
 WATCH_POLL = 20             # seconds between watch's looks at the queue, and take --wait's (tunable)
-MAX_JOBS = 3                # jobs one session takes before it asks William for a /clear (P27, tunable)
+MAX_JOBS = 1                # jobs one session takes before it asks William for a /clear (P37, was 3 under P27; tunable)
 WORKER_WAIT = 20 * 60       # seconds take --wait looks for a job before it stops (P27, tunable)
 QUICKTEST = ["tools/quicktest.sh"]
 AGENTS = ("claude", "codex")
