@@ -28,6 +28,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 <!-- open list: built from docs/handoff/ by tools/handoff.py; don't edit by hand -->
 
 - [H045 — T86: a process outlives the quick test](handoff/H045-quick-test-leftover-process.md) — status: open; for: Claude
+- [H046 — T82: the Line tool, closed outlines and split faces](handoff/H046-t82-lines-split-faces.md) — status: open; for: Codex
 
 <!-- end of open list -->
 
