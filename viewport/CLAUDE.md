@@ -72,7 +72,7 @@ protocol (update it in the same commit when you change either). Tools have their
   each step checking its own answer. Each section is `tests/quick/<name>.gd` with a `run()` method;
   `QUICK_LANES` in quick_runner.gd deals them into the three windows the script runs side by side
   (`--quick-lane=N`, T49; keep the lanes about equal in time). A new feature: a step in a
-  section, or a new section file listed in a lane. Its sections share one model (`_fresh` clears
+  section, or a new section file (it joins the shortest lane by itself; list it in a lane to pin it). Its sections share one model (`_fresh` clears
   the window and syncs the section's ops; `own_file` for model switching); in quick mode drags take 2 frames, waves
   get 2 frames' pad and frames skip the physics tick (T48: 26 → 14 s). It prints where its time goes (`QUICK timing`).
   `--fast` gives any suite that pace but keeps the physics tick (picking a draft drawn a moment ago needs one: the

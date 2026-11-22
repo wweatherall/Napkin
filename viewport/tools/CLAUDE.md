@@ -23,7 +23,7 @@ The viewport guide (`../CLAUDE.md`) covers drafts, waves and the rules for drawi
    point}`, never face numbers, A03); a new board takes a new `b` id.
 2. `m.ops.append(op)`, draw the draft at once, start the wave (`m._begin_wave`, `m._attach_wave`), clear the
    tool's state and overlays, then `m.sync()`. FreeCAD confirms later; never wait for it.
-3. The worker needs a matching `op_<type>` (worker/CLAUDE.md). Add a quick-test step in `tests/quick/<section>.gd` (register a new section in `tests/quick_runner.gd` QUICK_LANES).
+3. The worker needs a matching `op_<type>` (worker/CLAUDE.md). Add a quick-test step in `tests/quick/<section>.gd` (a new section file is picked up by itself; list it in `tests/quick_runner.gd` QUICK_LANES only to pin its lane).
 Tools talk to the worker only through `ops` and `m.sync()`.
 
 ## The tools
