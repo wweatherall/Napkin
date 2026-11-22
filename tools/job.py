@@ -13,8 +13,13 @@ Worker (run in your job's worktree unless it says otherwise):
                                 background, so the session wakes when it exits.
   python3 tools/job.py beat     "still working": pushes the deadline back. Commits on the job's branch, a quick-test
                                 run in its worktree and every job.py command count as beats too.
-  python3 tools/job.py check    the 15-30 minute check-in: lists the processes started from your worktree (Godot,
-                                freecadcmd, the test scripts) with their age, flags any that look hung, and beats
+  python3 tools/job.py run [--limit S] -- <command ...>
+                                run a long command (a test) so it can't hang unseen: past HUNG_AFTER (10 min) or
+                                --limit seconds it's stopped with every process it started, and it says so (exit 124);
+                                else its own exit code. Run it in the background: it always ends, so you're always
+                                woken, and a hung test is yours to deal with, not the integrator's (P-new-1)
+  python3 tools/job.py check    lists the processes started from your worktree (Godot, freecadcmd, the test
+                                scripts) with their age, flags any that look hung, and beats
   python3 tools/job.py test     runs tools/quicktest.sh and records the result for the latest commit
   python3 tools/job.py wait "<question>"
                                 you're waiting on William: pauses the switch until your next beat
@@ -41,6 +46,7 @@ import fcntl
 import json
 import os
 import re
+import signal
 import subprocess
 import sys
 import time
@@ -381,7 +387,7 @@ def _take(cwd, agent, session, now=None, out=print):
         f"worktree {wt}")
     if prev.get("notes"):
         out(f"the integrator's notes: {prev['notes']}")
-    out(f"work in {wt}; check in with `python3 tools/job.py check` every 15-30 minutes; when it's done, "
+    out(f"work in {wt}; run tests and other long commands through `python3 tools/job.py run -- <command>` (in the background: it stops a hung one after 10 min and wakes you; deal with it yourself); when it's done, "
         f"`python3 tools/job.py done`\n")
     if counted(session):
         out(f"job {n} of {MAX_JOBS} for this session (P27)")
@@ -444,6 +450,36 @@ def beat(cwd, jid=None, now=None, out=print):
         out(f"{k}: beat; deadline {hhmm(now + DEADLINE)}")
         return k
     return with_job(cwd, jid, out, go)
+
+
+def run(cwd, cmd, limit=None, out=print):
+    """Run cmd in its own process group; past limit (HUNG_AFTER) stop the group: the worker is woken either way."""
+    limit = limit or HUNG_AFTER
+    quiet = lambda s: None
+    beat(cwd, None, out=quiet)
+    try:
+        p = subprocess.Popen(cmd, start_new_session=True)
+    except OSError as e:
+        out(f"run: can't start {cmd[0]}: {e}")
+        return 127
+    try:
+        rc = p.wait(timeout=limit)
+    except subprocess.TimeoutExpired:
+        for sig, grace in ((signal.SIGTERM, 5), (signal.SIGKILL, 5)):
+            try:
+                os.killpg(p.pid, sig)
+            except ProcessLookupError:
+                break
+            try:
+                p.wait(timeout=grace)
+                break
+            except subprocess.TimeoutExpired:
+                continue
+        out(f"HUNG: `{' '.join(cmd)[:120]}` ran past {limit // 60} min {limit % 60} s; stopped it and every process "
+            "it started. Look at its output or log, fix it, run it again (job.py check lists anything left)")
+        rc = 124
+    beat(cwd, None, out=quiet)
+    return rc
 
 
 def check(cwd, jid=None, now=None, out=print):
@@ -515,6 +551,10 @@ def done(cwd, jid=None, now=None, out=print):
         problems.append(f"{handoff.FOLDER}/{j['handoff']}: set its Status to answered")
     if git(top, "status", "--porcelain").stdout.strip():
         problems.append("uncommitted changes: commit them (the quick test must pass on the latest commit)")
+    for pid, age, cmd in processes(top):
+        if age >= HUNG_AFTER:
+            problems.append(f"pid {pid} has run {age // 60} min from this worktree and looks hung: {cmd[:100]} "
+                            "(kill it, or let it finish)")
     if problems:
         for p in problems:
             out("refused: " + p)
@@ -730,6 +770,9 @@ def main(argv):
     if cmd == "check":
         check(cwd, opt("--job"))
         return 0
+    if cmd == "run" and "--" in argv and argv.index("--") + 1 < len(argv):
+        lim = opt("--limit")
+        return run(cwd, argv[argv.index("--") + 1:], int(lim) if lim else None)
     if cmd == "test":
         return 0 if test(cwd, opt("--job")) else 1
     if cmd == "wait" and len(argv) >= 2:

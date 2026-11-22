@@ -14,14 +14,12 @@ Order: H059, H065, H066, H052
    the integrator's notes. Nothing Ready for you? Run `python3 tools/job.py take --wait` in the background;
    it takes the next job when one is Ready, or stops after 20 min (then tell William).
 2. Read "Notes" below for anything addressed to you, then do the job in its worktree.
-3. The dead man's switch: anything you do through the job pushes its deadline back (30 minutes): a commit, a
-   quick test run from the worktree, any `job.py` command. Check in every 15-30 minutes with
-   `python3 tools/job.py check`: it lists the processes you started from the worktree (Godot, freecadcmd, the
-   test scripts) with their age, flags any that look hung (kill what's stuck), and beats.
-   A Claude worker sets a timer for it right after taking the job: CronCreate, recurring every 20 minutes, with the
-   prompt "check-in for <id>: run python3 tools/job.py check in <worktree>, deal with anything hung, then go on";
-   CronDelete it after done. A Codex worker without a timer still has the switch: its commits and test runs beat,
-   and if it goes quiet the integrator is told.
+3. Hung tests are yours (P-new-1): run tests and other long commands through
+   `python3 tools/job.py run -- <command>`, in the background (run_in_background). It always ends: past 10 minutes
+   it stops the command and every process it started, prints HUNG and exits 124, so you're woken and fix it
+   yourself (look at the log, fix, run again). `python3 tools/job.py check` lists your worktree's processes any
+   time; `done` refuses while one looks hung. No timer: commits, test runs and `job.py` commands push the job's
+   30-minute deadline back (the dead man's switch); only a worker that has gone quiet reaches the integrator.
 4. Waiting on William? `python3 tools/job.py wait "<the question>"`, and ask him in chat: the switch pauses until
    your next beat.
 5. When it's done (tests pass, the goal is met): append your response to the handoff (branch, commit, tests,
