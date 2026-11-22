@@ -1,3 +1,4 @@
+# runner: none (shared by test_native.py and test_runs.py, not a test)
 """Shared by worker/test_native.py and worker/test_runs.py (T49 split them to run side by side): check() and its
 counts, the op builders, the reference op log OPS, and ways to read a session's boards. Named test_* so it stays
 out of the worker's hash and the app bundle."""

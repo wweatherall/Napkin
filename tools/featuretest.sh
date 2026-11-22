@@ -1,45 +1,46 @@
 #!/bin/bash
-# Feature tests (~10 s): everything that checks Shop Sketch's answers against FreeCAD, with no window: the worker
-# tests (native, runs, arrays, combos, properties, length input, the T48 scenario), the serve and length-protocol tests
-# (plain python3, they start freecadcmd themselves), the units parser, the document controller's
-# sequencing (test_document.gd), selection and context (test_selection.gd), the tool registry (test_tools.gd), the tools' interface (test_tool_context.gd) and the decision log's sort script. Run them
-# while building a feature, before its tool exists; tools/quicktest.sh runs them too, beside the viewport session.
+# Feature tests (~10 s): everything that checks Shop Sketch's answers with no window, all side by side. The script
+# finds them itself (T95): every worker/test_*.py, tools/test_*.py and viewport/test_*.gd, run the way its folder
+# says (worker: freecadcmd; tools: python3; viewport: Godot headless) unless one of the file's first five lines says
+# `runner: freecadcmd|python3|godot|none` (none: a helper, or a test run elsewhere). Each prints one summary line,
+# "<NAME> TESTS: N passed, M failed"; a file that prints none fails, by name. Run them while building a feature,
+# before its tool exists; tools/quicktest.sh runs them too, beside the viewport session.
 #   tools/featuretest.sh [outdir]      exit status 0 = all passed; prints one summary line
+#   tools/featuretest.sh --list        what it found and how it runs each, without running them
 cd "$(dirname "$0")/.."
 FC=/Applications/FreeCAD.app/Contents/Resources/bin/freecadcmd
 GD=/Applications/Godot.app/Contents/MacOS/Godot
+TAG='^[A-Z][A-Z -]* TESTS: [0-9]+ passed, [0-9]+ failed'
+
+# name | command, one per test file found
+TESTS=()
+for f in worker/test_*.py tools/test_*.py viewport/test_*.gd; do
+  [ -f "$f" ] || continue
+  runner=$(head -5 "$f" | grep -oE 'runner: *[a-z0-9]+' | head -1 | sed 's/runner: *//')
+  if [ -z "$runner" ]; then
+    case "$f" in worker/*) runner=freecadcmd;; tools/*) runner=python3;; viewport/*) runner=godot;; esac
+  fi
+  name=$(basename "$f"); name=${name#test_}; name=${name%.*}
+  case "$runner" in
+    none) continue;;
+    freecadcmd) cmd="$FC $f";;
+    python3) cmd="python3 $f";;
+    godot) cmd="$GD --headless --path viewport --script res://${f#viewport/}";;
+    *) cmd="false unknown-runner-$runner";;
+  esac
+  TESTS+=("$name|$cmd")
+done
+
+if [ "$1" = "--list" ]; then
+  for t in "${TESTS[@]}"; do IFS='|' read -r name cmd <<< "$t"; printf '%-20s %s\n' "$name" "$cmd"; done
+  exit 0
+fi
+
 OUT=${1:-$(mktemp -d -t shopsketch-feature)}
 mkdir -p "$OUT"
-# name | command | summary line it prints
-TESTS=(
-  "native|$FC worker/test_native.py|NATIVE TESTS"
-  "runs|$FC worker/test_runs.py|RUN TESTS"
-  "arrays|$FC worker/test_arrays.py|ARRAY TESTS"
-  "combos|$FC worker/test_combos.py|COMBO TESTS"
-  "properties|$FC worker/test_properties.py|PROPERTY TESTS"
-  "scenario|$FC worker/test_scenario.py|SCENARIO TESTS"
-  "length|$FC worker/test_length_input.py|LENGTH TESTS"
-  "lengthproto|python3 worker/test_length_protocol.py|LENGTH PROTOCOL"
-  "serve|python3 worker/test_serve.py|SERVE TESTS"
-  "units|$GD --headless --path viewport --script res://test_units.gd|UNITS TESTS"
-  "document|$GD --headless --path viewport --script res://test_document.gd|DOCUMENT TESTS"
-  "selection|$GD --headless --path viewport --script res://test_selection.gd|SELECTION TESTS"
-  "tools|$GD --headless --path viewport --script res://test_tools.gd|TOOL TESTS"
-  "toolctx|$GD --headless --path viewport --script res://test_tool_context.gd|TOOL CONTEXT TESTS"
-  "logsort|python3 tools/test_sort_decision_log.py|LOG SORT TESTS"
-  "logarchive|python3 tools/test_log_archive.py|LOG ARCHIVE TESTS"
-  "job|python3 tools/test_job.py|JOB TESTS"
-  "log|python3 tools/test_log.py|LOG TESTS"
-  "bookkeeping|python3 tools/test_bookkeeping.py|BOOKKEEPING TESTS"
-  "ids|python3 tools/test_number_ids.py|ID TESTS"
-  "startup|python3 tools/test_startup.py|STARTUP TESTS"
-  "lock|python3 tools/test_integrator.py|LOCK TESTS"
-  "integrate|python3 tools/test_integrate.py|INTEGRATE TESTS"
-  "followups|python3 tools/test_follow_ups.py|FOLLOW-UP TESTS"
-)
 PIDS=()
 for t in "${TESTS[@]}"; do
-  IFS='|' read -r name cmd _ <<< "$t"
+  IFS='|' read -r name cmd <<< "$t"
   mkdir -p "$OUT/$name"
   ( TEST_START=$SECONDS
     TESTDIR="$OUT/$name" $cmd > "$OUT/$name.log" 2>&1; RC=$?
@@ -51,10 +52,10 @@ done
 wait "${PIDS[@]}"
 OK=1; LINE=""
 for t in "${TESTS[@]}"; do
-  IFS='|' read -r name _ tag <<< "$t"
+  IFS='|' read -r name _ <<< "$t"
   cat "$OUT/$name.time"
   grep -E "^FAIL" "$OUT/$name.log" | sed "s/^/[$name] /"
-  s=$(grep -E "^$tag" "$OUT/$name.log" | head -1)
+  s=$(grep -E "$TAG" "$OUT/$name.log" | head -1)
   LINE="$LINE${s:-$name did not finish} | "
   echo "$s" | grep -q " 0 failed" || OK=0
 done

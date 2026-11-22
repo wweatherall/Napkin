@@ -1,3 +1,4 @@
+# runner: none (unittest, run by .github/workflows/architecture.yml)
 """Regression tests for the architecture omission guard, including actual Git staging."""
 import os
 from pathlib import Path
