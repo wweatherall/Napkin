@@ -36,6 +36,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H059 — T67: IDs that never collide across kept history branches](handoff/H059-t67-branch-safe-ids.md) — status: queued (after H046); for: Codex
 - [H062 — T40: the model and its journal saved as one generation](handoff/H062-t40-save-generations.md) — status: open; for: Claude
 - [H063 — T64: watch the model file and reload FreeCAD's saves, with a wave](handoff/H063-t64-reload-freecad-saves.md) — status: queued (after H062); for: Claude
+- [H064 — T100: ARCHITECTURE.md and docs/protocol.md are the integrator's](handoff/H064-t100-map-is-the-integrators.md) — status: open; for: Claude
 
 <!-- end of open list -->
 

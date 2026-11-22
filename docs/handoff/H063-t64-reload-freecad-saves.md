@@ -11,8 +11,8 @@ A35 (PROTOCOL_VERSION).
 Touches: worker/session.py, worker/serve.py, a new worker/test_outside_save.py (and a worker/scenario step if it
 fits), viewport/document.gd, viewport/main.gd (small: the dialog and the reload's wave), viewport/test_document.gd,
 a quick-test step (viewport/tests/quick/, a new file), docs/decision-log.md (A36's and T64's "Where in the code",
-a Tunables row with `log.py add`). Not docs/protocol.md or ARCHITECTURE.md unless no open job has them; otherwise
-give their text as "For the integrator:" lines.
+a Tunables row with `log.py add`). Not docs/protocol.md or ARCHITECTURE.md (P28: the integrator's):
+write what your change does to them as "Architecture:" lines in your response.
 
 Request: build T64 as A36 says.
 1. Watch: the worker notices when the model's file changes on disk and the change isn't its own save (not its rev,
