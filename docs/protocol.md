@@ -1,6 +1,6 @@
 # Window ↔ worker protocol
 
-Protocol reference **0.3** (T81, H041: exact circle profiles; includes T70/H042 reply matching), describing main plus H041 (2026-11-22); 0.1 described `8ff1f91` (2026-11-21). This is a documentation version. The wire protocol's own version is **5** (5: T82's `line` op and Push/Pull's `target.region`; 4: T40's optional `recovered` in the open reply; 3: T79's `save_failed` event and the saved/failed lists in flush, bye and quit): the worker reports it in `hello` (`protocol`), defined once per side (`worker/serve.py` `PROTOCOL_VERSION`, `viewport/main.gd` `PROTOCOL_VERSION`). **Rule: bump it on both sides when a message or a shared-file field changes** (added, removed, renamed or its meaning changed), and update this document. There is no negotiation: a window shares a worker only when the version matches. Existing embedded format identifiers are `oplog/0.1` and `shopsketch-journal/0.1`; binary meshes use Godot's Variant array encoding.
+Protocol reference **0.3** (T81, H041: exact circle profiles; includes T70/H042 reply matching), describing main plus H041 (2026-11-22); 0.1 described `8ff1f91` (2026-11-21). This is a documentation version. The wire protocol's own version is **6** (6: T64's `outside_save` event, `reload` and `keep_mine`, the journal's `floor`, `dropped` and `outside_sha256`; 5: T82's `line` op and Push/Pull's `target.region`; 4: T40's optional `recovered` in the open reply; 3: T79's `save_failed` event and the saved/failed lists in flush, bye and quit): the worker reports it in `hello` (`protocol`), defined once per side (`worker/serve.py` `PROTOCOL_VERSION`, `viewport/main.gd` `PROTOCOL_VERSION`). **Rule: bump it on both sides when a message or a shared-file field changes** (added, removed, renamed or its meaning changed), and update this document. There is no negotiation: a window shares a worker only when the version matches. Existing embedded format identifiers are `oplog/0.1` and `shopsketch-journal/0.1`; binary meshes use Godot's Variant array encoding.
 
 ## Transport, identity and lifetime
 
@@ -32,7 +32,7 @@ Examples are illustrative JSON lines; timing values, paths, IDs and hashes vary.
 
 ### `hello`
 
-Request: `cmd: "hello"`, `seq?`. Success: `ok: true`, `cmd: "hello"`, `seq` (echo or null), `app: "shopsketch"`, `protocol: integer` (the protocol version, currently 5), `worker: string` (32 lowercase hex MD5), `pid: integer`. The window uses the worker only if `protocol` equals its own version and `worker` its own identity.
+Request: `cmd: "hello"`, `seq?`. Success: `ok: true`, `cmd: "hello"`, `seq` (echo or null), `app: "shopsketch"`, `protocol: integer` (the protocol version, currently 6), `worker: string` (32 lowercase hex MD5), `pid: integer`. The window uses the worker only if `protocol` equals its own version and `worker` its own identity.
 
 ```json
 {"cmd":"hello"}
@@ -124,6 +124,10 @@ Example field: `{"name":"Length","path":"Length","value":"400.0 mm","kind":"leng
 
 Producer/consumer: [worker/serve.py](../worker/serve.py):`serve.handle`; [worker/object_properties.py](../worker/object_properties.py):`inspect`, `related`, `describe`, `field`; [viewport/main.gd](../viewport/main.gd):`_request_properties`, `_on_properties`; [viewport/property_panel.gd](../viewport/property_panel.gd):`display`.
 
+### `reload` and `keep_mine` (A36, T64)
+
+After an `outside_save` event (below), the window answers with one of these. `reload`: request `cmd: "reload"`, `model`, `outdir`, `seq`; reply: the `open` reply's fields with `cmd: "reload"`, plus `changed` / `removed` (BodyIds whose box, volume, area, wood or hiding differ; BodyIds gone), `dropped` (ops the file's revision didn't hold) and `outdir` (bodies.json written there). `keep_mine`: request `cmd: "keep_mine"`, `model`, `outdir?`, `seq`; reply `ok`, `cmd: "keep_mine"`, `model`, `aside` (FreeCAD's file, copied to `<model>.freecad-<YYYYmmdd-HHMMSS>.FCStd`, `-2`... if taken), `rev` (ours, saved over it). A `flush`, `bye` or `quit` of a held model with unsaved actions does the same as `keep_mine`; its `saved` entries carry `aside`.
+
 ### `flush`, `bye`, `quit`
 
 | Command | Request fields | Success reply | Effects |
@@ -149,7 +153,10 @@ Each row is an independent request/reply example, not one stream after bye. Save
 
 Producer: [worker/serve.py](../worker/serve.py):`serve.handle`, `save_pending`, `let_go`, `release`. Consumer: closing a window (`main.gd:_request_close`, `document.gd:begin_close`) waits for the sync in flight, sends `flush` with its `model`, and closes on an ok answer with the latest revision saved; otherwise it asks Retry / Close without saving / Cancel (I55; no answer in `CLOSE_WAIT_S` asks too). Then [viewport/main.gd](../viewport/main.gd):`_shutdown_worker` sends bye for a shared worker (waits up to 4 s) or quit for a private worker (then kills if still running); `document.gd:on_flush_reply` takes flush's answers; [worker/test_serve.py](../worker/test_serve.py) uses flush and checks lifecycle behaviour. `main.gd:_on_worker` sends flush replies to `document.gd:on_flush_reply` and drops bye and quit (an error one is shown in the status line); none reach sync state.
 
-### `saved`, `save_failed` and `focus` events
+### `saved`, `save_failed`, `outside_save` and `focus` events
+
+`outside_save` (A36): `cmd: "outside_save"`, `model`, `rev` (the file's ShopSketchRev), `unsaved: boolean` (actions not yet on disk). FreeCAD saved the open model; the worker holds it (no autosave writes over the file) until the window sends `reload` or `keep_mine`.
+
 
 Both are unsolicited, worker → window only; there is no matching request or seq.
 
@@ -302,6 +309,8 @@ Journal fields: `format: "shopsketch-journal/0.1"`, `rev: integer`, `file_sha256
 ```
 
 On reopen, revision/hash equality establishes that model matches journal. Only successful ops are adopted. Missing/wrong-format journal or a mismatched rev/hash marks external; the surviving history becomes an undo floor. Model and journal publication are separate atomic replacements; interruption between them can therefore be detected as an external/mismatched state. Sources: [worker/common.py](../worker/common.py):`JOURNAL_FORMAT`; [worker/session.py](../worker/session.py):`journal_path`, `Session.save`, `_open_existing`, `write_gui_document`.
+
+Journal fields added by T64 (A36): `floor` (undo stops here: ops before it can't be taken back, A25; kept across saves and sessions), `dropped` (`[{op, after_rev, at}]`: actions an outside save didn't hold, for T65), `outside_sha256` (written the moment an outside save is seen; opening a file with that sha opens it external instead of recovering, A32).
 
 ### `status.json`, `views.json`, startup port file
 

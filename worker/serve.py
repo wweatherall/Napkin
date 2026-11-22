@@ -4,12 +4,12 @@ import json
 import os
 import time
 from common import HERE, OpError
-from session import Session, atomic_json
+from session import Session, atomic_json, file_rev
 import length_input
 
 # The window <-> worker protocol's version (docs/protocol.md): bump it when a message or shared-file field changes.
 # Reported in hello; a window whose PROTOCOL_VERSION (viewport/main.gd) differs starts its own worker.
-PROTOCOL_VERSION = 5
+PROTOCOL_VERSION = 6
 
 
 def run_sync(session, req):
@@ -76,6 +76,17 @@ def serve(port):
           {"cmd": "saved", "model": "...", "rev": n}   (the viewport's quiet 'Saved' indicator, Q22)
     and when one fails: {"cmd": "save_failed", "model", "rev" (the one it tried), "error"}. A failed save stays
     pending: the autosave doesn't keep trying it, but the next sync, flush, bye or quit does (T79, I54).
+    Outside saves (A36, T64): every WATCH_S the worker stats each open model's file; a change that holds still for
+    one look and isn't our own bytes is FreeCAD's save. The model is held at once (no autosave writes over it;
+    each save also looks just before writing) and its window is told:
+          {"cmd": "outside_save", "model", "rev" (the file's ShopSketchRev), "unsaved": <actions not on disk>}
+    The window answers, once its actions have landed or it has asked:
+      {"cmd": "reload", "model", "outdir", "seq"} -> the open reply's fields with "cmd": "reload", plus "changed"
+          (boards whose shape, place, wood or hiding differ), "removed", "dropped" (ops the file didn't hold: they
+          leave the list and stay in the journal as dropped, T65), "outdir" (bodies.json written)
+      {"cmd": "keep_mine", "model", "outdir"?, "seq"} -> FreeCAD's file is copied to <model>.freecad-<time>.FCStd,
+          then ours is saved over it: {"ok", "cmd": "keep_mine", "model", "aside", "rev"}
+    A held model that has to be saved anyway (flush, bye, quit, a window gone) keeps both the same way.
     SERVE_IDLE_EXIT=<s>: save and exit that long after the last window leaves (the shared worker windows start)."""
     import select
     import socket
@@ -85,6 +96,9 @@ def serve(port):
     owners = {}           # model path -> the connection (window) that has it open
     clients = {}          # connection -> {"buf": bytes, "models": set of paths}
     IDLE_SAVE_S = 0.25
+    WATCH_S = 0.25        # how often each open model's file is looked at for an outside save (A36)
+    held = {}             # model path -> the outside save it waits on: {"rev", "since"} (nothing saves over it)
+    settling = {}         # model path -> the changed file's (mtime, size) last look: it must hold still one look
     idle_exit = float(os.environ.get("SERVE_IDLE_EXIT", "0") or 0)
     me = worker_identity()
     clock = {"active": time.monotonic(), "alone": None}
@@ -95,15 +109,64 @@ def serve(port):
         except OSError:
             pass
 
+    def hold(path, sess):
+        """FreeCAD saved this model: nothing saves over it until its window says what to do (A36)."""
+        held[path] = {"rev": file_rev(path), "since": time.monotonic()}
+        settling.pop(path, None)
+        sess.mark_outside()
+        print(f"WORKER outside save of {os.path.basename(path)} (rev {held[path]['rev']}): held, "
+              f"{'with' if path in to_save else 'no'} unsaved actions", flush=True)
+        if owners.get(path) in clients:
+            send(owners[path], {"ok": True, "cmd": "outside_save", "model": path, "rev": held[path]["rev"],
+                                "unsaved": path in to_save})
+
+    def outside(path, sess, settle=True):
+        """Has FreeCAD saved this model? settle: only once the file has held still for one look (the timer);
+        without, at once (just before a save of ours)."""
+        if path in held:
+            return True
+        sig = sess.outside_sig()
+        if sig is None:
+            settling.pop(path, None)
+            return False
+        if settle and settling.get(path) != sig:
+            settling[path] = sig
+            return False
+        if sess.same_bytes(sig):
+            settling.pop(path, None)
+            return False
+        hold(path, sess)
+        return True
+
+    def watch():
+        for path in list(owners):
+            if path in sessions and owners[path] in clients:
+                outside(path, sessions[path])
+
+    def keep_both(path, sess):
+        """'Keep Shop Sketch's' (A36): FreeCAD's file aside first, then ours may go over it."""
+        aside = sess.copy_outside_aside()
+        held.pop(path, None)
+        sess.file_sig = sess.disk_sig()             # seen: the save that follows writes over it, once
+        print(f"WORKER kept both: FreeCAD's save of {os.path.basename(path)} copied aside as "
+              f"{os.path.basename(aside)}", flush=True)
+        return aside
+
     def save_pending(paths=None, retry=True):
-        """Save what's pending (only `paths`, if given). retry=False (the timer) skips saves that last failed.
-        Returns {"saved": [{model, rev}], "failed": [{model, rev, error}]}; a failure stays pending (T79)."""
+        """Save what's pending (only `paths`, if given). retry=False (the timer) skips saves that last failed, and
+        held models (A36); an explicit save (flush, bye, quit) of a held model keeps both (keep_both).
+        Returns {"saved": [{model, rev, aside?}], "failed": [{model, rev, error}]}; a failure stays pending (T79)."""
         out = {"saved": [], "failed": []}
         for path, (sess, od) in list(to_save.items()):
             if paths is not None and path not in paths:
                 continue
             if not retry and path in failed:
                 continue
+            aside = None
+            if outside(path, sess, settle=False):
+                if not retry:
+                    continue
+                aside = keep_both(path, sess)
             try:
                 save_ms = sess.save(od)
             except Exception as e:
@@ -118,7 +181,7 @@ def serve(port):
             print(f"WORKER saved rev {sess.rev} in {save_ms} ms", flush=True)
             to_save.pop(path, None)
             failed.discard(path)
-            out["saved"].append({"model": sess.path, "rev": sess.rev})
+            out["saved"].append(dict({"model": sess.path, "rev": sess.rev}, **({"aside": aside} if aside else {})))
             if owners.get(path) in clients:
                 send(owners[path], {"ok": True, "cmd": "saved", "model": sess.path, "rev": sess.rev})
         return out
@@ -134,6 +197,8 @@ def serve(port):
         path = os.path.abspath(path)
         if path in sessions and (fresh or (reload and sessions[path].changed_on_disk())):
             sessions.pop(path).close()
+            held.pop(path, None)                    # opened afresh from the file on disk: nothing left to wait on
+            settling.pop(path, None)
         if path not in sessions:
             sessions[path] = Session(path, fresh=fresh)
         return sessions[path]
@@ -141,6 +206,7 @@ def serve(port):
     def let_go(conn, paths):
         saves = save_pending(set(paths))            # whatever it changed is saved before anyone else can open it
         for p in paths:
+            held.pop(p, None)                       # nothing of ours unsaved: FreeCAD's file stays, opened as external
             clients[conn]["models"].discard(p)
             if owners.get(p) is conn:
                 owners.pop(p)
@@ -208,6 +274,34 @@ def serve(port):
                 else:
                     s = session_for(path, fresh=req.get("fresh", False), reload=True)
                     resp = open_reply(s, seq)
+            elif cmd == "reload":                   # take FreeCAD's save as the model (A36)
+                path = os.path.abspath(req["model"])
+                if claim(conn, path) is not None:
+                    raise OpError(f"{os.path.basename(path)} is open in another window")
+                s = session_for(path)
+                info = s.reload_outside()
+                held.pop(path, None)
+                settling.pop(path, None)
+                to_save.pop(path, None)             # what wasn't saved is in the journal's dropped list now
+                failed.discard(path)
+                outdir = req.get("outdir") or os.path.dirname(path)
+                s.export(outdir)
+                resp = dict(open_reply(s, seq), cmd="reload", outdir=outdir, **info)
+                print(f"WORKER reloaded {os.path.basename(path)}: changed {info['changed']}, removed "
+                      f"{info['removed']}, dropped {len(info['dropped'])} actions", flush=True)
+            elif cmd == "keep_mine":                # keep Shop Sketch's version over FreeCAD's save (A36)
+                path = os.path.abspath(req["model"])
+                if claim(conn, path) is not None:
+                    raise OpError(f"{os.path.basename(path)} is open in another window")
+                s = session_for(path)
+                outside(path, s, settle=False)
+                aside = keep_both(path, s) if os.path.exists(path) else None    # always: a new worker may not know
+                od = to_save.get(path, (s, req.get("outdir")))[1]
+                to_save[path] = (s, od)             # ours goes over it now, even with nothing new to save
+                saves = save_pending({path})
+                if saves["failed"]:
+                    raise OpError(saves["failed"][0]["error"])
+                resp = {"ok": True, "cmd": "keep_mine", "model": path, "aside": aside, "rev": s.rev, "seq": seq}
             elif cmd == "inspect_properties":         # the Properties panel's snapshot of one piece (T46)
                 model = os.path.abspath(req["model"])
                 if claim(conn, model) is not None:
@@ -253,9 +347,13 @@ def serve(port):
         with open(tmp, "w") as f:
             f.write(f"{port}\n")
         os.replace(tmp, os.environ["SERVE_PORT_FILE"])
+    clock["watch"] = 0.0
     while True:
         readable, _, _ = select.select([srv] + list(clients), [], [], IDLE_SAVE_S)
         now = time.monotonic()
+        if now - clock["watch"] >= WATCH_S:          # a stat per open model: has FreeCAD saved one? (A36)
+            clock["watch"] = now
+            watch()
         if not readable:
             if to_save and now - clock["active"] >= IDLE_SAVE_S:
                 save_pending(retry=False)

@@ -169,6 +169,8 @@ def recover_generation(model_path):
     j = read_journal(g["journal"])
     if have_file and j and j["file_sha256"] == sha256(g["file"]):
         return None                                     # the usual case: they match
+    if have_file and j and j.get("outside_sha256") == sha256(g["file"]):
+        return None                                     # FreeCAD's save, seen before it was reloaded (A36): external
     if have_file and j:
         rev = file_rev(g["file"])
         if rev is None or not (rev == int(j.get("rev", -1)) + 1 or int(j.get("rev", -1)) > rev):
@@ -196,6 +198,16 @@ def recover_generation(model_path):
     new = fk.startswith("saving") or jk.startswith("saving") or (fk == "file" and jk == "journal")
     return {"from": "new" if new else "prev", "rev": rev,
             "why": why + ("; finished the save that stopped part way" if new else "; opened the save before it")}
+
+
+def aside_name(model_path, when=None):
+    """Where 'Keep Shop Sketch's' puts FreeCAD's save first (A36): <model>.freecad-<time>.FCStd, never an existing file."""
+    base, ext = os.path.splitext(model_path)
+    stamp = time.strftime("%Y%m%d-%H%M%S", time.localtime(when))
+    name, n = f"{base}.freecad-{stamp}{ext}", 2
+    while os.path.exists(name):
+        name, n = f"{base}.freecad-{stamp}-{n}{ext}", n + 1
+    return name
 
 
 def _norm(v):
@@ -236,6 +248,9 @@ class Session:
         self.session_base = 0
         self.doc = None
         self.file_sig = None
+        self.file_sha = None       # the sha256 of the file as we last read or wrote it: an outside save differs (A36)
+        self.rev_ops = {}          # rev -> the applied entries that revision of the file holds (what a reload keeps)
+        self.dropped = []          # actions an outside save didn't have, taken out by a reload (A36; T65 offers them)
         self.recovered = None      # {"from", "rev", "why"}: opening fell back to the newest whole save (A32)
         if self.path and not fresh:
             self.recovered = recover_generation(self.path)
@@ -252,14 +267,19 @@ class Session:
         self.doc.UndoMode = 1
         self.model = Model(self.doc)
 
-    def _open_existing(self):
+    def _load_file(self):
+        """Open the file as the live document (opening, and reloading an outside save)."""
         self.doc = App.openDocument(self.path)
         self.doc.UndoMode = 1
-        self.drawing = remove_drawing_pages(self.doc)
+        self.drawing = remove_drawing_pages(self.doc) or self.drawing
         self.doc.recompute()
         self.model = Model(self.doc)
         self.model.add_hidden_props()           # boards saved before hiding existed (T28)
+
+    def _open_existing(self):
+        self._load_file()
         self.rev = int(self.doc.Meta.get("ShopSketchRev", "0") or 0)
+        self.file_sha = sha256(self.path)
         jp = journal_path(self.path)
         j = None
         if os.path.exists(jp):
@@ -270,11 +290,15 @@ class Session:
                 if st.get("status") == "ok":           # failed ops left nothing in the file
                     self.applied.append({"op": op, "key": canon(op), "id": op.get("id"), "type": op.get("type"), **st})
             same_rev = int(j.get("rev", -1)) == self.rev
-            self.external = not (same_rev and j.get("file_sha256") == sha256(self.path))
+            self.external = not (same_rev and j.get("file_sha256") == self.file_sha)
+            self.dropped = list(j.get("dropped", []))
         else:
             self.external = True     # not written by Shop Sketch (stage 3 will adopt foreign solids)
-        self.undo_floor = len(self.applied) if self.external else 0
+        # undo stops at a FreeCAD change: one since the journal, or one a reload took in earlier (the journal's floor)
+        floor = min(int((j or {}).get("floor", 0) or 0), len(self.applied))
+        self.undo_floor = len(self.applied) if self.external else floor
         self.session_base = len(self.applied)
+        self.rev_ops = {self.rev: list(self.applied)}
         self.doc.clearUndos()
         self.file_sig = self.disk_sig()
 
@@ -286,9 +310,103 @@ class Session:
             return None
 
     def changed_on_disk(self):
-        """True when someone else wrote the file since we last read or saved it (stage 2 will merge;
-        for now an open simply reloads it)."""
+        """True when someone else wrote the file since we last read or saved it (an open reloads it)."""
         return self.path is not None and self.file_sig is not None and self.disk_sig() != self.file_sig
+
+    # ----- outside saves (A36, T64) -----
+    def outside_sig(self):
+        """The file's (mtime, size) when it isn't what we last read or wrote, else None (a cheap stat)."""
+        sig = self.disk_sig() if self.path and self.file_sig is not None else None
+        return sig if sig is not None and sig != self.file_sig else None
+
+    def same_bytes(self, sig):
+        """The file was touched but holds the bytes we last read or wrote (a copy back, a touch): not an outside
+        save. Then sig is ours from now on."""
+        if self.file_sha is not None and sha256(self.path) == self.file_sha:
+            self.file_sig = sig
+            return True
+        return False
+
+    def mark_outside(self):
+        """Note FreeCAD's save in the journal at once (A36), so if the worker stops before the reload, opening the
+        file doesn't take it for a save of ours that stopped part way (recover_generation)."""
+        jp = journal_path(self.path)
+        try:
+            with open(jp) as f:
+                j = json.load(f)
+            j["outside_sha256"] = sha256(self.path)
+            atomic_json(jp, j)
+        except (OSError, ValueError):
+            pass
+
+    def copy_outside_aside(self):
+        """'Keep Shop Sketch's' (A36): FreeCAD's file is copied to <model>.freecad-<time>.FCStd before ours goes
+        over it. Returns the copy's path."""
+        aside = aside_name(self.path)
+        shutil.copy2(self.path, aside)
+        return aside
+
+    def board_marks(self):
+        """What each board looks like, to tell which boards a reload changed: its box, volume, area, wood, hidden."""
+        m = self.model
+        out = {}
+        for bid, obj in m.bodies().items():
+            ws = m.world_shape(obj)
+            bb = ws.BoundBox
+            out[bid] = (tuple(round(v, 3) for v in (bb.XMin, bb.YMin, bb.ZMin, bb.XMax, bb.YMax, bb.ZMax)),
+                        round(ws.Volume, 1), round(ws.Area, 1), material_of(m, obj),
+                        bool(getattr(obj, "SSHidden", False)))
+        return out
+
+    def _file_ops(self, frev):
+        """The ops the file's revision frev holds: known for revisions this session opened or saved; else the .prev
+        journal's, if it is that revision; else none (every action counts as dropped)."""
+        if frev in self.rev_ops:
+            return list(self.rev_ops[frev])
+        pj = read_journal(generation(self.path)["prev_journal"])
+        if frev is not None and pj and int(pj.get("rev", -1)) == frev:
+            return [{"op": o, "key": canon(o), "id": o.get("id"), "type": o.get("type"), **st}
+                    for o, st in zip(pj["ops"], pj["status"]) if st.get("status") == "ok"]
+        return []
+
+    def reload_outside(self):
+        """FreeCAD saved the file (A36): it becomes the live document. Actions the file doesn't hold (made since
+        the revision FreeCAD opened) leave the list and are kept in the journal as dropped (T65); undo stops at the
+        FreeCAD change, in this session and the next (the journal's floor). Returns {changed, removed, dropped}."""
+        before = self.board_marks()
+        frev = file_rev(self.path)
+        kept = self._file_ops(frev)
+        held = {e["key"] for e in kept}
+        when = time.strftime("%Y-%m-%dT%H:%M:%S")
+        gone = [{"op": e["op"], "after_rev": frev, "at": when} for e in self.applied
+                if e["status"] == "ok" and e["key"] not in held]
+        if self.doc is not None:
+            App.closeDocument(self.doc.Name)
+        self._load_file()
+        self.applied = kept
+        self.undo_floor = self.session_base = len(kept)
+        self.external = False                   # the journal written below names this file
+        self.dirty = False
+        self.dropped += gone
+        file_meta_rev = int(self.doc.Meta.get("ShopSketchRev", "0") or 0)
+        self.rev = max(self.rev, file_meta_rev)       # our next save goes on counting up
+        self.file_sha = sha256(self.path)
+        self.rev_ops = {file_meta_rev: list(kept)}
+        self.doc.clearUndos()
+        atomic_json(journal_path(self.path), self._journal(file_meta_rev, self.file_sha))
+        self.file_sig = self.disk_sig()
+        self.model.show_as_hidden()
+        after = self.board_marks()
+        changed = sorted(b for b in after if before.get(b) != after[b])
+        return {"changed": changed, "removed": sorted(b for b in before if b not in after),
+                "dropped": [d["op"] for d in gone], "rev": frev}
+
+    def _journal(self, rev, file_sha):
+        return {"format": JOURNAL_FORMAT, "rev": rev, "file_sha256": file_sha,
+                "model": os.path.basename(self.path), "name": os.path.splitext(os.path.basename(self.path))[0],
+                "ops": [e["op"] for e in self.applied],
+                "status": [{k: e[k] for k in ("status", "changed", "message", "ms") if k in e} for e in self.applied],
+                "floor": self.undo_floor, "dropped": self.dropped}
 
     # ----- applying ops -----
     def _apply(self, op):
@@ -426,8 +544,10 @@ class Session:
             raise
         self.dirty = False
         self.file_sig = self.disk_sig()
-        self.external = False
-        self.undo_floor = 0     # the file is now exactly our journal again
+        self.rev_ops[self.rev] = list(self.applied)
+        for old in sorted(self.rev_ops)[:-50]:        # the last 50 revisions are plenty for FreeCAD's open copy
+            del self.rev_ops[old]
+        self.external = False   # the file is exactly our journal again; the undo floor stays (the journal keeps it)
         return round((time.perf_counter() - t0) * 1000, 1)
 
     def _write(self, g, outdir):
@@ -453,15 +573,13 @@ class Session:
             finally:
                 App.closeDocument(d2.Name)
         write_gui_document(tmp, self.path)          # what FreeCAD's window shows (T29)
-        atomic_json(g["saving_journal"], {
-            "format": JOURNAL_FORMAT, "rev": self.rev, "file_sha256": sha256(tmp),
-            "model": os.path.basename(self.path), "name": os.path.splitext(os.path.basename(self.path))[0],
-            "ops": [e["op"] for e in self.applied],
-            "status": [{k: e[k] for k in ("status", "changed", "message", "ms") if k in e} for e in self.applied]})
+        new_sha = sha256(tmp)
+        atomic_json(g["saving_journal"], self._journal(self.rev, new_sha))
         if os.path.exists(g["file"]) and os.path.exists(g["journal"]):
             link_or_copy(g["journal"], g["prev_journal"])
             link_or_copy(g["file"], g["prev_file"])
         os.replace(tmp, g["file"])
+        self.file_sha = new_sha
         os.replace(g["saving_journal"], g["journal"])
 
     def close(self):

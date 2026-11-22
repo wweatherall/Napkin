@@ -55,7 +55,6 @@ shows the queue; `python3 tools/job.py board` rebuilds the table (the commit hoo
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H063 | Claude | In progress (claude since 13:08) | T64: watch the model file and reload FreeCAD's saves, with a wave | [H063](docs/handoff/H063-t64-reload-freecad-saves.md) |  |
 | H065 | either | Queued | T88 step 1: Paint moves to ToolContext | [H065](docs/handoff/H065-t88-paint-to-toolcontext.md) | H063 |
 | H059 | Codex | Queued | T67: IDs that never collide across kept history branches | [H059](docs/handoff/H059-t67-branch-safe-ids.md) | H063 |
 | H052 | either | Queued | T66: lengths shown in the model's units | [H052](docs/handoff/H052-t66-units.md) | T88's tool moves |

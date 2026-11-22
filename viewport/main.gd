@@ -294,6 +294,9 @@ func _ready() -> void:
 	doc.op_removed.connect(_on_op_removed)
 	doc.removed.connect(_on_removed)
 	doc.idle.connect(_request_properties)
+	doc.outside_waiting.connect(_on_outside_waiting)
+	doc.reloaded.connect(_on_reloaded)
+	doc.kept_mine.connect(_on_kept_mine)
 	_make_selection()
 	client.replied.connect(_on_worker)
 	client.link_up.connect(_on_link_up)
@@ -1255,6 +1258,15 @@ func _on_worker(resp: Dictionary) -> void:
 	if resp.get("cmd", "") == "flush":               # what it saved and couldn't (T79); closing waits on it
 		doc.on_flush_reply(resp)
 		return
+	if resp.get("cmd", "") == "outside_save":        # FreeCAD saved this model (A36, T64)
+		doc.on_outside_save(resp)
+		return
+	if resp.get("cmd", "") == "reload":
+		doc.on_reload_reply(resp)
+		return
+	if resp.get("cmd", "") == "keep_mine":
+		doc.on_keep_mine_reply(resp)
+		return
 	if not resp.get("cmd", "") in ["sync", "replay"]:   # flush, hello, bye, quit, or an error for some other request:
 		if not resp.get("ok", false):                    # never sync state (T70)
 			_say_worker("✗ worker error: %s" % resp.get("error", "?"))
@@ -1507,7 +1519,7 @@ func _port_free(p: int) -> bool:
 
 # The window <-> worker protocol's version (docs/protocol.md): bump it when a message or shared-file field changes.
 # The worker reports its own (worker/serve.py PROTOCOL_VERSION) in hello; a worker speaking another isn't shared.
-const PROTOCOL_VERSION := 5
+const PROTOCOL_VERSION := 6
 
 
 func _probe_worker(p: int) -> String:
@@ -1770,6 +1782,100 @@ func _close_now() -> void:
 	if test_mode: return                # tests check close_done; the run goes on
 	_shutdown_worker()
 	get_tree().quit()
+
+
+# ---------------- outside saves (A36, T64) ----------------
+# FreeCAD saved the open model. The document reloads it once nothing is on its way; if actions haven't landed in
+# OUTSIDE_SAVE_WAIT, a dialog asks: Use FreeCAD's version (reload; the unfinished actions stay in the journal) or
+# Keep Shop Sketch's (FreeCAD's file copied aside first). The worker writes nothing over FreeCAD's save meanwhile.
+const OUTSIDE_SAVE_WAIT := 10.0     # seconds actions pending at an outside save get to land before asking (tunable)
+var _outside_try := 0               # numbers each wait, so an old wait's timer can't ask
+var outside_asked: Array = []       # tests: the reasons the dialog would have given (it isn't shown in test mode)
+var reload_waves: Array = []        # tests: the boards the last reload's wave ran on
+
+
+func _on_outside_waiting() -> void:
+	_say_worker("FreeCAD saved %s - waiting for Shop Sketch's last actions to land" % model_path.get_file())
+	_outside_try += 1
+	var try_then := _outside_try
+	get_tree().create_timer(OUTSIDE_SAVE_WAIT).timeout.connect(func() -> void:
+		if _outside_try == try_then and not doc.outside.is_empty() and doc.outside_seq < 0:
+			_ask_outside())
+
+
+func _ask_outside() -> void:
+	var reason := "they hadn't landed after %d s" % int(OUTSIDE_SAVE_WAIT)
+	if not client.connected or (worker_pid > 0 and not OS.is_process_running(worker_pid)):
+		reason = "the FreeCAD worker stopped"
+	elif doc.in_flight:
+		reason = "the FreeCAD worker hasn't answered for %d s (it may be stuck)" % int(OUTSIDE_SAVE_WAIT)
+	_log_worker("outside save of %s with actions pending: %s; asking" % [model_path, reason])
+	var text := ("%s was saved in FreeCAD while Shop Sketch still had actions on their way: %s.\n\n"
+		+ "Use FreeCAD's version: its file becomes the model; Shop Sketch's unfinished actions stay in the journal.\n"
+		+ "Keep Shop Sketch's: FreeCAD's file is first copied aside as %s.freecad-<time>.FCStd.") % [
+		model_path.get_file(), reason, model_path.get_file().get_basename()]
+	if test_mode:
+		outside_asked.append(reason)
+		return
+	var title := "FreeCAD saved this model while Shop Sketch was busy"
+	if DisplayServer.has_feature(DisplayServer.FEATURE_NATIVE_DIALOG):
+		DisplayServer.dialog_show(title, text, PackedStringArray(["Use FreeCAD's version", "Keep Shop Sketch's"]),
+			func(i: int) -> void: _outside_choice("mine" if i == 1 else "freecad"))
+		return
+	var dlg := ConfirmationDialog.new()
+	dlg.title = title
+	dlg.dialog_text = text
+	dlg.ok_button_text = "Use FreeCAD's version"
+	dlg.cancel_button_text = "Keep Shop Sketch's"
+	dlg.confirmed.connect(func() -> void: dlg.queue_free(); _outside_choice("freecad"))
+	dlg.canceled.connect(func() -> void: dlg.queue_free(); _outside_choice("mine"))
+	add_child(dlg)
+	dlg.popup_centered()
+
+
+func _outside_choice(choice: String) -> void:
+	if doc.outside.is_empty(): return       # settled meanwhile (the actions landed and it reloaded)
+	if choice == "mine": doc.send_keep_mine()
+	else: doc.send_reload()
+
+
+func _log_worker(line: String) -> void:
+	"""A line in worker.log from this window (A36: a stuck or stopped worker at an outside save)."""
+	print("SHOPSKETCH " + line)
+	if worker_log == "": return
+	var f := FileAccess.open(worker_log, FileAccess.READ_WRITE) if FileAccess.file_exists(worker_log) else FileAccess.open(worker_log, FileAccess.WRITE)
+	if f == null: return
+	f.seek_end()
+	f.store_line("SHOPSKETCH %s %s" % [Time.get_datetime_string_from_system(), line])
+
+
+func _on_reloaded(resp: Dictionary) -> void:
+	"""FreeCAD's save is on screen, with the wave over the boards it changed."""
+	pres._states.clear(); pres._state_lru.clear()     # remembered states are of the file before FreeCAD's save
+	var data = JSON.parse_string(FileAccess.get_file_as_string(String(resp.get("outdir", out_dir)).path_join("bodies.json")))
+	reload_waves = []
+	if typeof(data) == TYPE_ARRAY:
+		for b in data:
+			if not b["id"] in resp.get("changed", []): continue
+			var bb: Array = b["world_bbox"]
+			var lo := Vector3(bb[0], bb[1], bb[2]); var hi := Vector3(bb[3], bb[4], bb[5])
+			_begin_wave("reload:" + b["id"], (lo + hi) * 0.5, PackedVector3Array([lo, hi]), false, b["id"])
+			pres.op_waves["reload:" + b["id"]]["state"] = "ok"
+			reload_waves.append(b["id"])
+	pres.apply_confirmed(String(resp.get("outdir", out_dir)), _ops_key(resp.get("ops", [])))
+	_rebuild_rect_drafts()
+	_apply_context()
+	var n: int = resp.get("changed", []).size()
+	var dropped: int = resp.get("dropped", []).size()
+	ui_sync.text = "↻ took FreeCAD's save of %s: %d board%s changed%s" % [model_path.get_file(), n, "" if n == 1 else "s",
+		"" if dropped == 0 else "; %d Shop Sketch action%s it didn't have kept in the journal" % [dropped, "" if dropped == 1 else "s"]]
+	ui_sync.add_theme_color_override("font_color", Color(0.1, 0.5, 0.15))
+
+
+func _on_kept_mine(resp: Dictionary) -> void:
+	ui_sync.text = "kept Shop Sketch's %s; FreeCAD's save is beside it as %s" % [model_path.get_file(),
+		String(resp.get("aside", "")).get_file()]
+	ui_sync.add_theme_color_override("font_color", Color(0.1, 0.5, 0.15))
 
 
 # ---------------- documents, menus, dialogs (T8) ----------------
