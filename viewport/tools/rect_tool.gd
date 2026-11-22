@@ -106,8 +106,7 @@ func _finish_rect() -> void:
 
 func commit_rect(du: float, dv: float) -> void:
 	if absf(du) < GEOMETRY_TOLERANCE_MM or absf(dv) < GEOMETRY_TOLERANCE_MM: return
-	m.counters["r"] += 1
-	var rid := "r%d" % m.counters["r"]
+	var rid := m.doc.next_id("r")
 	var n: Vector3 = state["n"]
 	var plane := {}
 	if state["on"] != "":

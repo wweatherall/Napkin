@@ -26,6 +26,69 @@ from model import Model
 from plane_fit import snapshot as stock_snapshot
 
 
+def id_strings(value):
+    """Conservative migration: legacy identifiers can be arbitrary strings, including map keys."""
+    if isinstance(value, str):
+        return {value} if value else set()
+    if isinstance(value, dict):
+        return set().union(set(value), *(id_strings(v) for v in value.values()))
+    if isinstance(value, (list, tuple)):
+        return set().union(*(id_strings(v) for v in value))
+    return set()
+
+
+def creations(op):
+    """Stable ownership across typed amendments: payload changes do not create another entity."""
+    oid = op.get("id", "")
+    yield oid, "op:" + str(op.get("type", ""))
+    if op.get("type") == "push_pull" and op.get("body"):
+        yield op["body"], "body:" + oid
+    for i, bid in enumerate(op.get("new_ids", [])):
+        yield bid, f"body:{oid}:{i}"
+    if op.get("type") == "make_assembly":
+        yield op.get("new_id", ""), "assembly:" + oid
+    if op.get("group"):
+        yield op["group"], "group:" + oid
+    for source, groups in op.get("groups", {}).items():
+        for i, aid in enumerate(groups if isinstance(groups, list) else [groups]):
+            yield aid, f"group:{oid}:{source}:{i}"
+
+
+class IdRegistry:
+    """Document-wide reservations, independent of the selected op path and FreeCAD's undo stack."""
+    def __init__(self):
+        self.reserved = set()
+        self.owners = {}
+
+    def accept(self, ops, reserved=(), legacy=False):
+        owners = dict(self.owners)
+        seen = set()
+        for op in ops:
+            for identity, owner in creations(op):
+                if not identity:
+                    continue
+                # Historic fixtures/clients used serial IDs as mutable slots. Preserve their semantics;
+                # all new allocations have 128 random bits and are checked strictly.
+                modern = bool(re.fullmatch(r"[a-z]+[0-9]+_[0-9a-f]{32}", identity))
+                if modern and not legacy:
+                    if identity in seen or (identity in owners and owners[identity] != owner):
+                        raise OpError(f"ID collision: {identity}")
+                    if identity in self.reserved and identity not in owners:
+                        raise OpError(f"ID already reserved: {identity}")
+                seen.add(identity)
+                owners[identity] = owner
+        self.owners = owners
+        self.reserved.update(id_strings(ops))
+        self.reserved.update(reserved)
+
+    def seed_native(self, doc):
+        for obj in doc.Objects:
+            for prop in ("BodyId", "RectId", "SSOp", "AssemblyId", "SSLineId"):
+                value = getattr(obj, prop, "")
+                if value:
+                    self.reserved.add(str(value))
+
+
 _HIDDEN_IN_FREECAD = {"App::Origin", "App::Line", "App::Plane", "App::Point", "TechDraw::DrawPage"}
 
 
@@ -240,6 +303,7 @@ class Session:
     def __init__(self, model_path, fresh=False):
         self.path = os.path.abspath(model_path) if model_path else None
         self.applied = []
+        self.ids = IdRegistry()
         self.undo_floor = 0
         self.external = False
         self.rev = 0
@@ -292,8 +356,11 @@ class Session:
             same_rev = int(j.get("rev", -1)) == self.rev
             self.external = not (same_rev and j.get("file_sha256") == self.file_sha)
             self.dropped = list(j.get("dropped", []))
+            self.ids.owners.update(j.get("id_owners", {}))
+            self.ids.accept(j["ops"] + self.dropped, j.get("reserved_ids", []), legacy=True)
         else:
             self.external = True     # not written by Shop Sketch (stage 3 will adopt foreign solids)
+        self.ids.seed_native(self.doc)
         # undo stops at a FreeCAD change: one since the journal, or one a reload took in earlier (the journal's floor)
         floor = min(int((j or {}).get("floor", 0) or 0), len(self.applied))
         self.undo_floor = len(self.applied) if self.external else floor
@@ -383,6 +450,7 @@ class Session:
         if self.doc is not None:
             App.closeDocument(self.doc.Name)
         self._load_file()
+        self.ids.seed_native(self.doc)
         self.applied = kept
         self.undo_floor = self.session_base = len(kept)
         self.external = False                   # the journal written below names this file
@@ -406,7 +474,8 @@ class Session:
                 "model": os.path.basename(self.path), "name": os.path.splitext(os.path.basename(self.path))[0],
                 "ops": [e["op"] for e in self.applied],
                 "status": [{k: e[k] for k in ("status", "changed", "message", "ms") if k in e} for e in self.applied],
-                "floor": self.undo_floor, "dropped": self.dropped}
+                "floor": self.undo_floor, "dropped": self.dropped,
+                "reserved_ids": sorted(self.ids.reserved), "id_owners": self.ids.owners}
 
     # ----- applying ops -----
     def _apply(self, op):
@@ -434,10 +503,14 @@ class Session:
         for op in ops:
             self._apply(op)
 
-    def sync(self, ops):
+    def sync(self, ops, reserved_ids=()):
         """Make the document match `ops`: keep the common prefix, take back the rest with FreeCAD's
         undo, apply the new ops as transactions. Returns how it got there."""
         t0 = time.perf_counter()
+        old_reserved = len(self.ids.reserved)
+        self.ids.accept(ops, reserved_ids)
+        if len(self.ids.reserved) != old_reserved:
+            self.dirty = True
         keys = [canon(o) for o in ops]
         k = 0
         while k < len(self.applied) and k < len(keys) and self.applied[k]["key"] == keys[k]:
@@ -461,6 +534,8 @@ class Session:
                 self._apply(op)
             if tail or len(ops) > k:
                 how = f"undid {n_undo}, applied {len(ops) - k}"
+        if how == "nothing" and len(self.ids.reserved) != old_reserved:
+            how = "reserved IDs"
         if how != "nothing":
             self.dirty = True
             self.model.show_as_hidden()         # FreeCAD's undo doesn't take Visibility back (T28)

@@ -177,11 +177,11 @@ func _initialize() -> void:
 
 	# --- the document: ids, append, snapshots, sync, remove ---
 	var client = t["client"]
-	check("document.next_id counts up per prefix", ctx.document.next_id("r") == "r1" and ctx.document.next_id("r") == "r2"
-		and ctx.document.next_id("b") == "b1" and ctx.document.next_id("pp") == "pp1")
+	check("document.next_id counts up per prefix", ctx.document.next_id("r").begins_with("r1_") and ctx.document.next_id("r").begins_with("r2_")
+		and ctx.document.next_id("b").begins_with("b1_") and ctx.document.next_id("pp").begins_with("pp1_"))
 	doc.ops = [{"id": "pp7", "type": "push_pull", "target": {"rect": "r1"}}]
 	doc.restore_counters()
-	check("document.next_id continues after restored counters", ctx.document.next_id("pp") == "pp8")
+	check("document.next_id continues after restored counters", ctx.document.next_id("pp").begins_with("pp8_"))
 	print("  (an unknown prefix: one ERROR line is expected next)")
 	check("document.next_id: an unknown prefix gives \"\"", ctx.document.next_id("zz") == "")
 	doc.ops = []

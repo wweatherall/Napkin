@@ -235,19 +235,16 @@ func commit_mirror(pp: Vector3, n: Vector3) -> void:
 	"""Mirror the grabbed board across the plane through pp with normal n (any angle)."""
 	m.reject_note = ""
 	var body: String = state["body"]
-	m.counters["m"] += 1
-	var oid := "m%d" % m.counters["m"]
+	var oid := m.doc.next_id("m")
 	var targets: Array = state["unit"]["bodies"].duplicate() if state.get("unit", {}).get("kind", "") == "selection" else [body]
 	var op := {"id": oid, "type": "mirror", "targets": targets, "plane": {"point": Main.arr3(pp), "normal": Main.arr3(n)}}
 	var made: Array = []
 	if copy:
 		for b in targets:
-			m.counters["b"] += 1
-			made.append("b%d" % m.counters["b"])
+			made.append(m.doc.next_id("b"))
 		op["new_ids"] = made
 		if m.context == "" and targets.all(func(b): return m.body_assembly.get(b, "") == ""):
-			m.counters["a"] += 1
-			op["group"] = "a%d" % m.counters["a"]
+			op["group"] = m.doc.next_id("a")
 	else:
 		op["replace"] = true
 		made = targets.duplicate()
@@ -443,8 +440,7 @@ func commit_move(vec: Vector3, count := 1, divide := false, reuse_oid := "") -> 
 	var whole := _whole_assemblies(targets) if copy else []
 	var oid := reuse_oid
 	if oid == "":
-		m.counters["mv"] += 1
-		oid = "mv%d" % m.counters["mv"]
+		oid = m.doc.next_id("mv")
 	var op := {"id": oid, "type": "move", "targets": targets, "selection": unit["kind"] in ["selection", "assembly"] or assembly_row,
 			   "vector": [vec.x, vec.y, vec.z], "copy": copy}
 	if not whole.is_empty():                     # each wholly copied assembly comes out as a new one (I47)
@@ -452,8 +448,7 @@ func commit_move(vec: Vector3, count := 1, divide := false, reuse_oid := "") -> 
 		for aid in whole:
 			var ids := []
 			for i in count:
-				m.counters["a"] += 1
-				ids.append("a%d" % m.counters["a"])
+				ids.append(m.doc.next_id("a"))
 			groups[aid] = ids if count > 1 else ids[0]
 		op["groups"] = groups
 	if not copy and m.context.begins_with("row:"):
@@ -465,8 +460,7 @@ func commit_move(vec: Vector3, count := 1, divide := false, reuse_oid := "") -> 
 		op["divide"] = divide
 		for b in targets:
 			for i in offsets.size():
-				m.counters["b"] += 1
-				made.append("b%d" % m.counters["b"])
+				made.append(m.doc.next_id("b"))
 		op["new_ids"] = made
 	m.ops.append(op)
 	var root := Node3D.new()
@@ -532,8 +526,7 @@ func _commit_cut_move(vec: Vector3, count: int, divide: bool, reuse_oid: String)
 	var body: String = cut["body"]
 	var oid := reuse_oid
 	if oid == "":
-		m.counters["mv"] += 1
-		oid = "mv%d" % m.counters["mv"]
+		oid = m.doc.next_id("mv")
 	var op := {"id": oid, "type": "move", "targets": [], "cut": {"body": body, "op": cut["op"]},
 		"vector": [vec.x, vec.y, vec.z], "copy": copy}
 	if copy:

@@ -89,8 +89,7 @@ func _finish_circle() -> void:
 
 func commit_circle(radius: float) -> void:
 	if not is_finite(radius) or radius < GEOMETRY_TOLERANCE_MM: return
-	m.counters["r"] += 1
-	var rid := "r%d" % m.counters["r"]
+	var rid := m.doc.next_id("r")
 	var plane := {}
 	if state["on"] != "":
 		plane = {"on": {"body": state["on"], "normal": Main.arr3(state["n"]), "point": Main.arr3(state["origin"])}}

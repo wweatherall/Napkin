@@ -24,6 +24,6 @@ func run() -> void:
 	await harness._rect(Vector3(300, 50, 2), Vector3(300, 100, 12), "50,10")
 	await harness._push(Vector3(300, 75, 7), Vector3(330, 75, 7), "30")
 	await harness._wait_wave()
-	var v: float = harness._bodies().get("b1", {}).get("volume_mm3", -1)
+	var v: float = harness._bodies().get(harness.id("b1"), {}).get("volume_mm3", -1)
 	harness._ok("pocket, through-hole and bump add up", is_equal_approx(v, 300.0 * 200 * 18 - 100 * 80 * 10 - 20 * 10 * 200 + 50 * 10 * 30), v)
-	harness._ok("still one board", harness._shown_ids() == ["b1"], harness._shown_ids())
+	harness._ok("still one board", harness._shown_ids() == [harness.id("b1")], harness._shown_ids())

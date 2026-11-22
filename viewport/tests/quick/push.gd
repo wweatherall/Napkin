@@ -16,8 +16,8 @@ func run() -> void:
 	m.saved_shown.clear()
 	await harness._push(Vector3(125, 75, 18), Vector3(125, 75, 30), "20")
 	await harness._wait_wave()
-	harness._ok("pushed out from a face, it joins that board", harness._shown_ids() == ["b1"] and not m.ops.back().has("body"), [harness._shown_ids(), m.ops.back()])
-	harness._ok("the joined bump adds 50 x 50 x 20", is_equal_approx(harness._bodies()["b1"]["volume_mm3"], 300.0 * 200 * 18 + 50 * 50 * 20), harness._bodies()["b1"]["volume_mm3"])
+	harness._ok("pushed out from a face, it joins that board", harness._shown_ids() == [harness.id("b1")] and not m.ops.back().has("body"), [harness._shown_ids(), m.ops.back()])
+	harness._ok("the joined bump adds 50 x 50 x 20", is_equal_approx(harness._bodies()[harness.id("b1")]["volume_mm3"], 300.0 * 200 * 18 + 50 * 50 * 20), harness._bodies()[harness.id("b1")]["volume_mm3"])
 	var t0 := Time.get_ticks_msec()
 	while m.ui_saved.text != "Saved" and Time.get_ticks_msec() - t0 < 3000: await harness._frames(1)
 	harness._ok("the save indicator says Saving..., then Saved (T45: however quickly the save lands)",
@@ -26,4 +26,4 @@ func run() -> void:
 	await harness._rect(Vector3(200, 50, 18), Vector3(250, 100, 18), "40,40")
 	await harness._push(Vector3(220, 70, 18), Vector3(220, 70, 30), "10")
 	await harness._wait_wave()
-	harness._ok("with B, a separate board", harness._shown_ids() == ["b1", "b2"], harness._shown_ids())
+	harness._ok("with B, a separate board", harness._shown_ids() == [harness.id("b1"), harness.id("b2")], harness._shown_ids())

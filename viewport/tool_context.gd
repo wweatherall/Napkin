@@ -203,13 +203,8 @@ class DocumentCapability extends _Capability:
 		_doc = parts.get("doc")
 
 	func next_id(prefix: String) -> String:
-		"""The next id for this prefix ("r", "pp", "b", "mv", "m", "a", "sm", ...): counts up and never goes back,
-		even if FreeCAD rejects the op. "" (and an error) for a prefix the document doesn't count."""
-		if not _doc.counters.has(prefix):
-			push_error("ToolContext.document.next_id: no counter \"%s\"" % prefix)
-			return ""
-		_doc.counters[prefix] += 1
-		return "%s%d" % [prefix, _doc.counters[prefix]]
+		"""Allocate through the document's permanent reservation registry."""
+		return _doc.next_id(prefix)
 
 	func op(id: String) -> Dictionary:
 		"""A copy of the op with this id; {} if there's none."""

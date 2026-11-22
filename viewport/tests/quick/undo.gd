@@ -46,13 +46,13 @@ func run() -> void:
 		[m.ops.size(), n_ops, m.ui_sync.text])
 	await harness._wait_confirm()
 	# Esc (T31): the gesture first, then the selection
-	m.set_selection(["b1"])
+	m.set_selection([harness.id("b1")])
 	await harness._key(KEY_R)
 	await harness._drag_to(Vector3(500, 0, 0), 4); await harness._press()
 	await harness._drag_to(Vector3(540, 30, 0), 4)
 	var drawing: bool = m.tools["rect"].busy()
 	await harness._key(KEY_ESCAPE)
-	harness._ok("Esc cancels the gesture and keeps the selection", drawing and not m.tools["rect"].busy() and m.selection == ["b1"],
+	harness._ok("Esc cancels the gesture and keeps the selection", drawing and not m.tools["rect"].busy() and m.selection == [harness.id("b1")],
 		[drawing, m.selection])
 	await harness._key(KEY_ESCAPE)
 	harness._ok("a second Esc clears the selection", m.selection.is_empty(), m.selection)

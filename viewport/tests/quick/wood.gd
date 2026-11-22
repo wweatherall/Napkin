@@ -17,8 +17,8 @@ func run() -> void:
 	await harness._click_at(Vector3(300, 45, 19))
 	await harness._wait_wave()
 	await harness._frames(30)
-	var wb: Dictionary = harness._bodies().get("b1", {})
-	var node: MeshInstance3D = m.bodies_root.get_node_or_null("b1")
+	var wb: Dictionary = harness._bodies().get(harness.id("b1"), {})
+	var node: MeshInstance3D = m.bodies_root.get_node_or_null(harness.id("b1"))
 	var smat = node.mesh.surface_get_material(0) if node != null else null
 	harness._ok("painted walnut: FreeCAD has it, the board shows the wood shader", wb.get("material", "") == "black-walnut"
 		and smat is ShaderMaterial and smat.shader == m.WOOD, [wb.get("material", ""), smat])
@@ -31,7 +31,7 @@ func run() -> void:
 	await harness._drag_to(Vector3(500, 45, 19), 3)
 	await harness._key(KEY_T)
 	await harness._wait_wave()
-	harness._ok("T turns the grain across the board", harness._bodies()["b1"].get("grain", []) == [0.0, 1.0, 0.0], harness._bodies()["b1"].get("grain", []))
+	harness._ok("T turns the grain across the board", harness._bodies()[harness.id("b1")].get("grain", []) == [0.0, 1.0, 0.0], harness._bodies()[harness.id("b1")].get("grain", []))
 	await harness._drag_to(Vector3(700, 300, 0), 2)
 	await harness._frames(20)
 	await harness._shot("wood_walnut_turned")

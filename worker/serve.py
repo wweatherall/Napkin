@@ -9,7 +9,7 @@ import length_input
 
 # The window <-> worker protocol's version (docs/protocol.md): bump it when a message or shared-file field changes.
 # Reported in hello; a window whose PROTOCOL_VERSION (viewport/main.gd) differs starts its own worker.
-PROTOCOL_VERSION = 6
+PROTOCOL_VERSION = 7
 
 
 def run_sync(session, req):
@@ -18,7 +18,7 @@ def run_sync(session, req):
         raise OpError("only mm supported")
     if req.get("drawing"):
         session.drawing = True
-    how, ms = session.sync(ops)
+    how, ms = session.sync(ops, req.get("oplog", {}).get("reserved_ids", []))
     outdir = req.get("outdir") or os.path.dirname(session.path)
     export_ms = session.export(outdir)
     status = session.status()
@@ -46,7 +46,8 @@ def worker_identity():
 def open_reply(s, seq):
     """The open reply for a session. A recovery (A32) is reported once: a later open of the same session doesn't."""
     resp = {"ok": True, "cmd": "open", "model": s.path, "rev": s.rev, "ops": [e["op"] for e in s.applied],
-            "undo_floor": s.undo_floor, "external": s.external, "seq": seq}
+            "undo_floor": s.undo_floor, "external": s.external, "seq": seq,
+            "reserved_ids": sorted(s.ids.reserved)}
     if s.recovered:
         resp["recovered"], s.recovered = s.recovered, None
     return resp

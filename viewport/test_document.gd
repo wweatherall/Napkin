@@ -56,6 +56,39 @@ func op(id: String) -> Dictionary:
 
 
 func _init() -> void:
+	# --- identities survive undo, abandoned futures and a journal round trip ---
+	var ids_doc = make()[0]
+	var allocated := {}
+	for prefix in ids_doc.counters:
+		var before: String = ids_doc.next_id(prefix)
+		ids_doc.ops.append(op(before))
+		ids_doc.undo()
+		var after: String = ids_doc.next_id(prefix)
+		check("undo never reuses a %s identity" % prefix, before != after and before.length() > 32
+			and ids_doc.reserved_ids.has(before) and ids_doc.reserved_ids.has(after))
+		allocated[before] = true
+		allocated[after] = true
+	var restored = make()[0]
+	restored.on_opened({"ops": [], "reserved_ids": ids_doc.oplog().reserved_ids}, true)
+	for prefix in restored.counters:
+		var fresh: String = restored.next_id(prefix)
+		check("reopening reserves abandoned %s identities and friendly numbers" % prefix,
+			not allocated.has(fresh) and fresh.begins_with(prefix + "3_"))
+	var nested := {"id": "mv8", "type": "move", "new_ids": ["b42"],
+		"groups": {"a7": ["a9", "a10"]}, "target": {"face": {"body": "native-old"}}}
+	restored.ops = [nested]
+	restored.restore_counters()
+	check("legacy references and nested assembly lists seed reservations verbatim",
+		restored.ops == [nested] and restored.reserved_ids.has("native-old")
+		and restored.counters.b == 42 and restored.counters.a == 10)
+
+	var board_id: String = ids_doc.next_id("b")
+	var action_id: String = ids_doc.next_id("pp")
+	check("random board IDs keep readable tree and status names", Document.board_name(board_id) == "Board 3"
+		and Document.board_name("b7") == "Board 7" and Document.board_name("bottom") == "bottom")
+	check("random tokens stay out of displayed board, tooltip and rejection messages",
+		Document.readable_ids("%s: unknown board '%s'" % [action_id, board_id]) == "pp3: unknown board 'Board 3'")
+
 	# --- one edit, answered ---
 	var t := make(); var d = t[0]; var c = t[1]; var seen = t[2]
 	d.ops.append(op("r1")); d.sync()

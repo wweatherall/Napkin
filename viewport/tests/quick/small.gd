@@ -15,10 +15,10 @@ func run() -> void:
 	await harness._push(Vector3(25, 15, 10), Vector3(25, 15, 30), "0.2mm")
 	await harness._wait_wave()
 	harness._ok("typed 0.2 mm push reaches FreeCAD", m.ops.size() == initial + 1
-		and absf(float(harness._bodies()["b1"]["world_bbox"][5]) - 10.2) < 0.00001, m.ops.back())
+		and absf(float(harness._bodies()[harness.id("b1")]["world_bbox"][5]) - 10.2) < 0.00001, m.ops.back())
 	m.undo(); await harness._wait_wave()
 	harness._ok("small push undoes in one step", m.ops.size() == initial
-		and absf(float(harness._bodies()["b1"]["world_bbox"][5]) - 10) < 0.00001)
+		and absf(float(harness._bodies()[harness.id("b1")]["world_bbox"][5]) - 10) < 0.00001)
 
 	await harness._grab(Vector3(0, 15, 10))
 	await harness._key(KEY_RIGHT)
@@ -26,16 +26,16 @@ func run() -> void:
 	await harness._type("0.2mm\n")
 	await harness._wait_wave()
 	harness._ok("typed 0.2 mm move reaches FreeCAD", m.ops.size() == initial + 1
-		and absf(float(harness._bodies()["b1"]["world_bbox"][0]) - 0.2) < 0.00001, m.ops.back())
+		and absf(float(harness._bodies()[harness.id("b1")]["world_bbox"][0]) - 0.2) < 0.00001, m.ops.back())
 	await harness._type("1/64\"\n")
 	await harness._wait_wave()
 	var fraction := 25.4 / 64.0
 	harness._ok("typed fractional amendment retains full distance", m.ops.size() == initial + 1
 		and absf(float(m.ops.back()["vector"][0]) - fraction) < 0.000001
-		and absf(float(harness._bodies()["b1"]["world_bbox"][0]) - fraction) < 0.000001, m.ops.back())
+		and absf(float(harness._bodies()[harness.id("b1")]["world_bbox"][0]) - fraction) < 0.000001, m.ops.back())
 	m.undo(); await harness._wait_wave()
 	harness._ok("small amended move undoes in one step", m.ops.size() == initial
-		and absf(float(harness._bodies()["b1"]["world_bbox"][0])) < 0.00001)
+		and absf(float(harness._bodies()[harness.id("b1")]["world_bbox"][0])) < 0.00001)
 
 	# Start with a real picked face; inject the final distance to test the exact threshold,
 	# independently of pixel size, camera angle and the inference engine's existing snap radii.
@@ -53,7 +53,7 @@ func run() -> void:
 	move.state["vec"] = Vector3(0.2, 0, 0); move.state["point_snap"] = true
 	move._finish(); await harness._wait_wave()
 	harness._ok("point snap commits a 0.2 mm move", m.ops.size() == initial + 1
-		and absf(float(harness._bodies()["b1"]["world_bbox"][0]) - 0.2) < 0.00001)
+		and absf(float(harness._bodies()[harness.id("b1")]["world_bbox"][0]) - 0.2) < 0.00001)
 	m.undo(); await harness._wait_wave()
 
 	m.set_tool("push")
@@ -65,12 +65,12 @@ func run() -> void:
 	push.state["dist"] = 0.2; push.state["snap"] = "endpoint"
 	push._finish_push(); await harness._wait_wave()
 	harness._ok("point snap commits a 0.2 mm push", m.ops.size() == initial + 1
-		and absf(float(harness._bodies()["b1"]["world_bbox"][5]) - 10.2) < 0.00001)
+		and absf(float(harness._bodies()[harness.id("b1")]["world_bbox"][5]) - 10.2) < 0.00001)
 	m.undo(); await harness._wait_wave()
 	await harness._push(Vector3(25, 15, 10), Vector3(25, 15, 30), "1/64\"")
 	await harness._wait_wave()
 	harness._ok("typed fractional push retains full distance", absf(float(m.ops.back()["distance"]) - fraction) < 0.000001
-		and absf(float(harness._bodies()["b1"]["world_bbox"][5]) - 10 - fraction) < 0.000001, m.ops.back())
+		and absf(float(harness._bodies()[harness.id("b1")]["world_bbox"][5]) - 10 - fraction) < 0.000001, m.ops.back())
 	m.undo(); await harness._wait_wave()
 
 	await harness._rect(Vector3(100, 0, 0), Vector3(120, 20, 0), "0.2mm,20mm")

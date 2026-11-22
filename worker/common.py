@@ -2,6 +2,7 @@
 
 Worker modules import the shared names they use explicitly."""
 import os
+import re
 
 import sys
 
@@ -68,8 +69,9 @@ def rotation_from(x, y, z):
 
 
 def board_label(bid):
-    """The name FreeCAD's tree shows for a board: 'Board 3' for b3 (William's call, I41); other ids as they are."""
-    return f"Board {bid[1:]}" if bid.startswith("b") and bid[1:].isdigit() else bid
+    """Readable per-document Board numbers (I42); the random suffix is internal identity, never a name."""
+    match = re.fullmatch(r"b([0-9]+)(?:_[0-9a-f]{32})?", bid)
+    return f"Board {match[1]}" if match else bid
 
 
 def add_props(obj, **props):

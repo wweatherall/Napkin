@@ -34,7 +34,7 @@ func run() -> void:
 	m.sync()
 	await harness._wait_confirm()
 	await _until(func(): return m.saved_rev >= m.pending_rev)
-	harness._ok("the delete is saved before FreeCAD's save comes in", not m.body_tris.has("b2") and m.saved_rev >= 2,
+	harness._ok("the delete is saved before FreeCAD's save comes in", not m.body_tris.has(harness.id("b2")) and m.saved_rev >= 2,
 		[m.body_tris.keys(), m.saved_rev])
 
 	var reloads := [0]
@@ -43,10 +43,10 @@ func run() -> void:
 	await _until(func(): return reloads[0] > 0, 5000)
 	harness._ok("an outside save is reloaded with no action from Shop Sketch's side", reloads[0] == 1, reloads)
 	harness._ok("the board FreeCAD's save has is back, and the wave runs over it",
-		m.body_tris.has("b2") and m.reload_waves == ["b2"] and m.pres.op_waves.has("reload:b2"),
+		m.body_tris.has(harness.id("b2")) and m.reload_waves == [harness.id("b2")] and m.pres.op_waves.has("reload:b2"),
 		[m.body_tris.keys(), m.reload_waves, m.pres.op_waves.keys()])
 	harness._ok("the delete it didn't have leaves the list and is kept as dropped",
-		_ids() == ["r1", "pp1", "r2", "pp2"] and m.doc.dropped.map(func(o): return o["id"]) == ["del1"], [_ids(), m.doc.dropped])
+		_ids() == [harness.id("r1"), harness.id("pp1"), harness.id("r2"), harness.id("pp2")] and m.doc.dropped.map(func(o): return o["id"]) == [harness.id("del1")], [_ids(), m.doc.dropped])
 	harness._ok("the status line says what came in", m.ui_sync.text.begins_with("↻ took FreeCAD's save"), m.ui_sync.text)
 	m.undo()
 	harness._ok("undo stops at the FreeCAD change", _ids().size() == 4 and m.doc.at_undo_floor(), _ids())
