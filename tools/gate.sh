@@ -17,6 +17,10 @@ while IFS= read -r line; do
     NEW=$((NEW + 1)); echo "NEW FAILURE: $line"
   fi
 done < <(grep -hE "^QUICK FAIL" "$OUT/quick.log")
+# The feature tests (no window) must pass on their own: a known UI failure never excuses one of them.
+FEAT=$(grep -E "^features:" "$OUT/quick.log" | tail -1 | sed "s/ | viewport:.*//")
+if [ -z "$FEAT" ]; then NEW=$((NEW + 1)); echo "NEW FAILURE: the quick test printed no feature-test summary (see $OUT/quick.log)"
+elif echo "$FEAT" | grep -qE " [1-9][0-9]* failed"; then NEW=$((NEW + 1)); echo "NEW FAILURE: feature tests: $(echo "$FEAT" | grep -oE "[A-Z ]+TESTS: [0-9]+ passed, [1-9][0-9]* failed" | tr '\n' ';')"; fi
 grep -qE "SCRIPT ERROR|did not finish" "$OUT/quick.log" && { NEW=$((NEW + 1)); echo "NEW FAILURE: the quick test didn't finish cleanly (see $OUT/quick.log)"; }
 [ $QRC -ne 0 ] && [ $NEW -eq 0 ] && [ $KNOWN_SEEN -eq 0 ] && { NEW=1; echo "NEW FAILURE: the quick test failed without a QUICK FAIL line (see $OUT/quick.log)"; }
 [ $FRC -ne 0 ] && grep -vE "^(SHOT|JOINTEST|REJECTTEST|SHELLTEST)" "$OUT/full.log" | tail -5

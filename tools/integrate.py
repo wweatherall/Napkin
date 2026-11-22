@@ -36,6 +36,15 @@ def git(*args, check=False, root=None):
     return r
 
 
+def has_markers(path):
+    """A file still holding git conflict markers."""
+    try:
+        text = open(path, encoding="utf-8").read()
+    except (OSError, UnicodeDecodeError):
+        return False
+    return bool(re.search(r"^(<<<<<<< |>>>>>>> )", text, re.M))
+
+
 def rows(text):
     """{ID: (section heading, row)} for every ID-keyed table row."""
     out, section = {}, None
@@ -156,11 +165,14 @@ def main(argv):
         merged = carry_rows(ours, git("show", f"{base}:{LOG}", root=root).stdout, git("show", f"{branch}:{LOG}", root=root).stdout)
         open(os.path.join(root, LOG), "w", encoding="utf-8").write(merged)
         say("settled docs/decision-log.md (main's, plus the branch's own rows and Details sections)")
-    git("add", "-A", root=root)
-    left = git("diff", "--name-only", "--diff-filter=U", root=root).stdout.split()
-    left = [f for f in left if f not in (handoff.HANDOFF, LOG)]
+    # Before staging anything: staging clears git's "unmerged" mark even with conflict markers still in a file.
+    left = [f for f in conflicts if f not in (handoff.HANDOFF, LOG)]
     if left:
         say(f"conflicts to settle by hand: {', '.join(left)} (the merge is left in progress)"); return 1
+    marked = [f for f in conflicts if has_markers(os.path.join(root, f))]
+    if marked:
+        say(f"conflict markers still in: {', '.join(marked)} (the merge is left in progress)"); return 1
+    git("add", "-A", root=root)
 
     for rel in answered_by(root, branch, base):
         say(f"resolved and archived {resolve(root, rel)}")
