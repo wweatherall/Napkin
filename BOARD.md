@@ -29,6 +29,9 @@ so each agent has one Ready.
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
+| H053 | Claude | **Ready** | T91: integrate.py drafts the Work list result and the board | [H053](docs/handoff/H053-t91-merge-bookkeeping.md) | |
+| H054 | Claude | **Ready** | T92: tools/log.py add, for decision log rows | [H054](docs/handoff/H054-t92-log-add.md) | |
+| H055 | Claude | **Ready** | T93: startup.py shows what waits on William | [H055](docs/handoff/H055-t93-waiting-on-william.md) | |
 | H051 | Claude | **Ready** | T88 step 0: the tools' interface, foundation | [H051](docs/handoff/H051-t88-step0-foundation.md) | |
 | H049 | Codex | **Ready** | T90: a faster gate (measure first) | [H049](docs/handoff/H049-faster-gate.md) | |
 | H046 | Codex | Queued | T82: the Line tool, closed outlines and split faces (I51) | [H046](docs/handoff/H046-t82-lines-split-faces.md) | H051 (T88 step 0) |
@@ -40,4 +43,4 @@ Done since the board started: H033 (T74 + T77), H034 (T76), H035 (T44), T56 (sta
 ## Notes
 
 - Codex: H049 (a faster gate: measure first) is Ready.
-- Claude: H051 (T88 step 0) is Ready. William approved the spec; Line (H046) starts after it.
+- Claude: William's priority (2026-11-22): the integrator's tools first. H051 (T88 step 0) is claimed and carries on; the next Claude sessions take H053, H054, H055 in that order (one each; their files don't overlap, so they can run side by side).
