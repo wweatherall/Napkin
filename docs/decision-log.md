@@ -22,6 +22,10 @@ New IDs (T74): a branch never takes a number. It writes a placeholder, the kind'
 and the integrator runs tools/number_ids.py on main at merge, which gives each the next free number across both
 files and everywhere it's cited.
 
+tools/log.py (T92) does this bookkeeping: `add <kind> "<text>" --subject S --principles G01` writes a row with the
+right number or placeholder, dated and sorted; `note T66 "<text>"` appends to a Work list row's last column;
+`show <subject|ID>` prints only that subject's group, or an ID's row, Details and principles (`--top`: this top).
+
 Rule P01: a new decision that contradicts an old one gets a new row naming the old ID; the old row is marked
 Superseded and moves to the archive, never deleted. Ask William before countermanding an Active decision.
 Principles follow the same rule, and a group of decisions is folded into its principle only with William's OK,
