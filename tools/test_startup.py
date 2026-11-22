@@ -108,10 +108,10 @@ WBOARD = "## Notes\n\n- William: say whether to clear the old worktrees.\n- For 
 check("board notes addressed to William are listed; others aren't",
       s.william_notes(WBOARD) == ["William: say whether to clear the old worktrees.", "For William: T38's key."])
 out = s.waiting_on_william(WLOG, HO, WBOARD, True)
-check("the section has one line per source, with IDs, and the CronList reminder when the lock is held",
+check("the section has one line per source, with IDs, and the watch reminder when the lock is held",
       any(l.startswith("  T65 (Work list):") for l in out) and any(l.startswith("  G14 (principle") for l in out)
       and any(l.startswith("  H060 (handoff):") for l in out) and sum("Board note:" in l for l in out) == 2
-      and "CronList" in out[-1])
+      and "watch --next" in out[-1])
 check("nothing waiting says so; no lock, no reminder", s.waiting_on_william("", {}, "", False) == ["  (nothing)"])
 
 FU = ("# Follow-ups\n\nLeftovers (P26). A line like `- H0NN (<date>): <what>` in prose isn't one.\n\n## Open\n\n"

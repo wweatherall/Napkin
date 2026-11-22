@@ -25,9 +25,10 @@ Integrator:
   python3 tools/job.py status   the queue as text: jobs in progress, waiting, done, returned; what's Ready
   python3 tools/job.py board    rewrite BOARD.md's job table from docs/handoff/ (in the board's Order line) plus the
                                 live state (the commit hook does this on main)
-  python3 tools/job.py watch [--once]
+  python3 tools/job.py watch [--once | --next]
                                 one line per event (done, stale, waiting, returned, queue empty for Claude or Codex),
-                                and keeps running: run it under your watcher (Monitor)
+                                and keeps running: run it under your watcher (Monitor). --next: stays quiet about
+                                what's true now and stops after the first new event (one wake; run it in the background)
   python3 tools/job.py return <id> "<notes>"
                                 put a reviewed job back on the queue; the next worker continues its branch
 tools/integrate.py marks a merged job merged and deletes its worktree and branch.
@@ -635,20 +636,22 @@ def conditions(root, st, jobs, order, now, procs=None):
     return out
 
 
-def watch(cwd, once=False, out=print, now=None):
+def watch(cwd, once=False, out=print, now=None, until_new=False):
+    """until_new: say nothing about what's true now, wait for the first new event, print it and stop: one wake for
+    a watcher run in the background (Bash run_in_background), no timer (H050)."""
     root = main_root(cwd)
-    seen = set()
+    seen = None if until_new else set()
     while True:
         t = now or time.time()
         jobs, order = main_view(root)
         with locked(state_path(cwd)) as st:
             cur = conditions(root, st, jobs, order, t)
-        for key, line in cur.items():
-            if key not in seen:
-                out(f"{hhmm(t)} {line}")
+        new = [line for key, line in cur.items() if seen is not None and key not in seen]
+        for line in new:
+            out(f"{hhmm(t)} {line}")
         sys.stdout.flush()
         seen = set(cur)
-        if once:
+        if once or (until_new and new):
             return cur
         time.sleep(WATCH_POLL)
 
@@ -740,7 +743,7 @@ def main(argv):
         board(cwd)
         return 0
     if cmd == "watch":
-        watch(cwd, once="--once" in argv)
+        watch(cwd, once="--once" in argv, until_new="--next" in argv)
         return 0
     if cmd == "return" and len(argv) >= 3:
         return 0 if return_job(cwd, argv[1].upper(), argv[2]) else 1
