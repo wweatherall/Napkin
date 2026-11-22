@@ -67,7 +67,7 @@ marked Superseded (never deleted). Ask William before countermanding an Active d
 - Codex works on `codex/*` branches in its own worktree, on the files its handoff job lists; review and merge them.
 - Work in parallel by files, not topics: every job (Claude's or Codex's) lists in its handoff entry the files it
   expects to touch ("Touches: ..."). Two jobs whose lists overlap don't run at once; tell William before starting
-  one. The shared hot spots (the decision log's Work list, the handoff, ARCHITECTURE.md tables, viewport/main.gd)
+  one. The shared hot spots (the decision log's Work list, the handoff, viewport/main.gd; ARCHITECTURE.md and docs/protocol.md are the integrator's, P28)
   stay small edits made once the work is done; T74–T77 take the rest of the clash out.
 - Codex records William's decisions in the log itself (P09, AGENTS.md). When integrating its branch, carry over
   only the rows it added or superseded: its copy of the rest may be older than main's.

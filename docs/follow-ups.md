@@ -12,4 +12,3 @@ or that turns it into a Work list item. `python3 tools/startup.py` lists the ope
 - H061 (2026-11-22): Codex sessions are counted only if CODEX_SESSION_ID or CODEX_THREAD_ID is set; if Codex has neither, its count never applies (it falls back to "codex"). Worth checking from a Codex session.
 - H062 (2026-11-22): worker/CLAUDE.md's "Autosave is atomic" bullet could name the generation files (.saving, .prev, .unmatched); outside this job's Touches.
 - H062 (2026-11-22): the .unmatched files are never cleaned up (overwritten by the next recovery); fine while recoveries are rare.
-- H064 (2026-11-22): CLAUDE.md's "Shared hot spots (the decision log's Work list, the handoff, ARCHITECTURE.md tables, viewport/main.gd)" line still names ARCHITECTURE.md tables as a hot spot; outside the bullets this job was given.

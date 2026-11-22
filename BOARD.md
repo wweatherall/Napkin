@@ -39,7 +39,8 @@ tools/integrator.py take <your session name>` (refused if another holds it: ask 
 he says so and you run it with `--william`, P19). Run `python3 tools/job.py watch` under your watcher (Monitor):
 one line per event: a job done, a job stale (its deadline passed: check its branch and worktree), a worker
 waiting on William, a job returned, the queue empty for Claude or Codex (check in with William). Review every
-done job; merge what's good with `python3 tools/integrate.py <branch> --as <name> --push` (P20; it also removes
+done job; merge what's good with `python3 tools/integrate.py <branch> --as <name> --push` (a job with Architecture:
+lines stops with the merge staged: write the map, then `integrate.py --continue --as <name> --push`, P28) (P20; it also removes
 the job's worktree and branch and marks it merged); put one that fails review or the gate back with
 `python3 tools/job.py return <id> "<notes>"`. integrate.py commits each response's Result line
 to its Work list row (T91) and, with --push, stops before pushing for you to look (`--yes` goes on); a
