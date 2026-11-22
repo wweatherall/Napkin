@@ -897,10 +897,7 @@ func _siblings_of(bid: String) -> Array: return sel.siblings_of(bid)
 func _linked_op(kind: String) -> void: sel.linked_op(kind)
 
 
-func unit_tris(unit: Dictionary) -> PackedVector3Array:
-	var t := PackedVector3Array()
-	for b in unit.get("bodies", []): t.append_array(body_tris.get(b, PackedVector3Array()))
-	return t
+func unit_tris(unit: Dictionary) -> PackedVector3Array: return pres.unit_tris(unit)
 
 
 func _on_context_changed() -> void:

@@ -34,7 +34,6 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
 - [H069 — Three timing-sensitive tests that fail under load](handoff/H069-flaky-timing-tests.md) — status: open; for: either
 - [H070 — Trim CLAUDE.md and AGENTS.md to what a session needs](handoff/H070-trim-instructions.md) — status: open; for: Claude
-- [H071 — T88 step 2: Select moves to ToolContext](handoff/H071-t88-select-to-toolcontext.md) — status: open; for: either
 
 <!-- end of open list -->
 
@@ -69,6 +68,7 @@ H036 (T75) is open from main. It touches viewport files only, so it runs alongsi
 
 Full entries in [handoff-archive.md](handoff-archive.md).
 
+- H071 — T88 step 2: Select moves to ToolContext. Resolved: merged into main by the integrator, 2026-11-22.
 - H066 — T101: recovery on opening, the newest file wins. Resolved: merged into main by the integrator, 2026-11-22.
 - H065 — T88 step 1: Paint moves to ToolContext. Resolved: merged into main by the integrator, 2026-11-22.
 - H050 — For the next integrator session: where things stand. Resolved: see the archive
