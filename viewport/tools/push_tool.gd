@@ -1,12 +1,12 @@
 extends "res://tools/tool.gd"
-## Push/Pull (P): click a face or rectangle, move, then click or type a distance + Return (minus = cut).
+## Push/Pull (P): click a face, rectangle or circle, move, then click or type a distance + Return (minus = cut).
 
 const TOOL := {"id": "push", "label": "Push/Pull", "tip": "Push/Pull (P)", "key": KEY_P, "order": 40, "show_links": true}   # the toolbar, the Tools menu and the key (tool_registry.gd)
 
 var state := {}
 var face_highlight: MeshInstance3D
 const FIT_MODES := ["Butt to plane", "Slice at plane", "Fully reach plane"]   # I41: ⌥ Option cycles them
-var hover := {}          # the face or rectangle under the cursor
+var hover := {}          # the face, rectangle or circle under the cursor
 
 
 func reset() -> void:
@@ -16,7 +16,7 @@ func reset() -> void:
 
 
 func hint() -> String:
-	return "Push/Pull: click a face or rectangle, move, then click or type a distance + Enter (minus = cut)"
+	return "Push/Pull: click a face, rectangle or circle, move, then click or type a distance + Enter (minus = cut)"
 
 
 func busy() -> bool:
@@ -213,6 +213,8 @@ func _edge_inference(pt: Dictionary, screen: Vector2) -> void:
 	if body == state.body or not m.stock_frames.has(body) or m.stock_frames[body].fitted: return
 	var source_size := 0.0
 	if state.rect != "":
+		# Plane-fit stock dimensions describe rectangles. Circle pushes still use point/back-face inference.
+		if m.rects[state.rect].get("kind", "rect") == "circle": return
 		if m.rects[state.rect].on != "" and not (m.new_board and state.dist > 0): return
 	else:
 		if not m.stock_frames.has(state.body) or m.stock_frames[state.body].fitted: return

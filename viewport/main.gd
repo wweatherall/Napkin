@@ -568,7 +568,7 @@ func _make_ui() -> void:
 		row.add_child(b)
 	var gap := Control.new(); gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL; gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(gap)
-	row.add_child(_segments([["Grid snap", "grid", "Snap to a 10 mm grid (G)"], ["New board", "newboard", "Pushing a rectangle drawn on a face makes a separate board (B)"]], true))
+	row.add_child(_segments([["Grid snap", "grid", "Snap to a 10 mm grid (G)"], ["New board", "newboard", "Pushing a profile drawn on a face makes a separate board (B)"]], true))
 	var properties_button := Button.new()
 	properties_button.text = "Properties"
 	properties_button.focus_mode = Control.FOCUS_NONE
@@ -1234,7 +1234,7 @@ func redo() -> void:
 	if op.is_empty():
 		_say_status("Nothing to redo")
 		return
-	if op["type"] == "rect":
+	if op["type"] in ["rect", "circle"]:
 		if not rects.has(op["id"]): _register_rect(op)
 	elif op["type"] == "push_pull":
 		var rid: String = op["target"].get("rect", "")
@@ -1563,7 +1563,7 @@ func _port_free(p: int) -> bool:
 
 # The window <-> worker protocol's version (docs/protocol.md): bump it when a message or shared-file field changes.
 # The worker reports its own (worker/serve.py PROTOCOL_VERSION) in hello; a worker speaking another isn't shared.
-const PROTOCOL_VERSION := 1
+const PROTOCOL_VERSION := 2
 
 
 func _probe_worker(p: int) -> String:

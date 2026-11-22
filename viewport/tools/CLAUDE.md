@@ -46,9 +46,14 @@ Tools talk to the worker only through `ops` and `m.sync()`.
 - `paint_tool.gd` (no key yet, Q14): paints the Wood menu's wood; a linked board paints its family. T turns grain.
 - `rect_tool.gd` (R): click a face or the ground, then click or type `width, height` (or press-and-drag, I43). Its
   second corner ignores snaps that would leave a side at zero (I44).
-- `push_tool.gd` (P): click a face or rectangle, move, click or type a distance (minus = cut), or press-and-drag
+- `circle_tool.gd` (C, T81): click a face or the ground for the centre, then click or type a radius (or
+  press-and-drag, I43). Uses Rectangle's snapping and distance policies; the measurements box accepts the same
+  length syntax. Makes a `circle` op with an exact radius. Loose profiles share the existing `rects` presentation,
+  `r` IDs and `target.rect` Push/Pull path; FreeCAD stores an exact fully constrained sketch circle.
+- `push_tool.gd` (P): click a face, rectangle or circle, move, click or type a distance (minus = cut), or press-and-drag
   (I43). Snaps to faces behind (I23, I45; to the back face = a through-cut, `"through": true`, I24); on a face it
-  joins that board, B for a new board (I04b).
+  joins that board, B for a new board (I04b). Circle profiles use point/back-face depth snaps;
+  rectangular-stock plane-fit end conditions remain limited to rectangular profiles.
 - `move_tool.gd` (M), SketchUp style: grabbing a selected board transforms the whole selection (T34; move/copy/mirror
   are each one op); otherwise grab a point on a board (or a hole's wall: the hole), move, click or type a distance,
   or press-and-drag (I43). Ctrl/Option toggles copy; Shift toggles mirror (I12c); arrows cycle axis lock → plane
