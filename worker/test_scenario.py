@@ -273,7 +273,7 @@ step("assemble bottom and shelf, lift 10", FIX + ASM, lambda st, a, b: [
     ("the group exists", b["groups"].get("a1") == ["bottom", "shelf"], b["groups"]),
     ("the sides didn't move", all(b["boards"][k] == a["boards"][k] for k in ("left", "right")), "")])
 
-# 11b. I44 (William, 2026-11-21): copying a whole assembly makes a new assembly of linked copies; the original
+# 11b. I47 (William, 2026-11-21): copying a whole assembly makes a new assembly of linked copies; the original
 # keeps its members. A row of assemblies (3x, /3) isn't built yet: refused, nothing changes.
 ASM_COPY = FIX + ASM[:1] + [{"id": "s11c", "type": "move", "targets": ["bottom", "shelf"], "vector": [0, 600, 0],
                              "copy": True, "selection": True, "groups": {"a1": "a2"}, "new_ids": ["c1", "c2"]}]
@@ -451,7 +451,7 @@ try:
           and next(o for o in a.doc.Objects if getattr(o, "SSRole", "") == "array").SSSource == "row2")
     deleted = [o for o in a.doc.Objects if getattr(o, "SSRole", "") == "deleted"]
     a.sync(removed)
-    check("delete: nothing it needed is left behind in the file after reopen (I43)", not deleted, [o.Name for o in deleted])
+    check("delete: nothing it needed is left behind in the file after reopen (I46)", not deleted, [o.Name for o in deleted])
     a.sync(base)
     check("delete: undo after reopen restores original and all members", snap(a) == original)
     a.sync(removed)
@@ -465,7 +465,7 @@ try:
 except Exception:
     check("selection story: ran without an error", False, traceback.format_exc(limit=4))
 
-# I43 (William, 2026-11-21): Delete takes a board out of the FreeCAD file, features and all, unless a surviving
+# I46 (William, 2026-11-21): Delete takes a board out of the FreeCAD file, features and all, unless a surviving
 # link, mirror or array still builds from it; then it stays, hidden, until that goes too.
 try:
     a = Session(os.path.join(TESTDIR, "delete-native.FCStd"), fresh=True)

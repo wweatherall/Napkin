@@ -13,7 +13,7 @@ ARCHITECTURE.md the module map and protocol (update it in the same commit when y
 - `model.py`: `Model` (reads the document; building blocks: boards, planes, extrusions, booleans, `Tip`; `apply`
   and `HANDLERS`). Each kind of action is a mixin in its own file: `push.py` (rect, push/pull, through-cuts),
   `move.py` (move, copies, links, arrays, detach, make unique), `mirror.py`, `assembly.py`, `paint.py` (paint,
-  grain), `visibility.py` (hide/unhide, T28), `deletion.py` (dependency-preserving delete and original promotion, T34/I43). A new op: an `op_<type>` in the right mixin (or a new mixin listed in `Model`), and its type in `HANDLERS`.
+  grain), `visibility.py` (hide/unhide, T28), `deletion.py` (dependency-preserving delete and original promotion, T34/I46). A new op: an `op_<type>` in the right mixin (or a new mixin listed in `Model`), and its type in `HANDLERS`.
 - `export.py`: bodies.json entries, per-board mesh files and their caches, model.glb, the TechDraw page.
 - `session.py`: `Session`, one live document per .FCStd: `sync`, undo, rebuild, journal, saves.
 - `serve.py`: the connection loop (`hello`, `open`, `sync`, `length`, `inspect_properties`, `bye`, `quit`; `saved`
@@ -52,7 +52,7 @@ ARCHITECTURE.md the module map and protocol (update it in the same commit when y
   `SSHidden`).
 - Hidden boards (T28, I37): op `hide` sets `SSHidden`. FreeCAD's undo doesn't take `Visibility` back (it isn't in
   FreeCAD's transactions), so no op sets a board's Visibility: `show_as_hidden()` works it out after every sync.
-- Delete (T34/I43): one `delete` op for all selected BodyIds. A deleted board leaves the document with every object only it used (`remove_unneeded`: features, an unused definition, a mirror's placed input, an emptied array); one a surviving link, mirror or array still builds from stays as an invisible `SSRole=deleted` object (excluded by `bodies()`) until that goes too. Shared definitions keep editable native features; their BodyId follows a survivor. Deleting an array source promotes a surviving member, updating holders' SSSource without moving or redistributing the others. Selection moves use `move_members` to resolve shared array/mirror sources once per transaction; selected copies detach first inside an entered row.
+- Delete (T34/I46): one `delete` op for all selected BodyIds. A deleted board leaves the document with every object only it used (`remove_unneeded`: features, an unused definition, a mirror's placed input, an emptied array); one a surviving link, mirror or array still builds from stays as an invisible `SSRole=deleted` object (excluded by `bodies()`) until that goes too. Shared definitions keep editable native features; their BodyId follows a survivor. Deleting an array source promotes a surviving member, updating holders' SSSource without moving or redistributing the others. Selection moves use `move_members` to resolve shared array/mirror sources once per transaction; selected copies detach first inside an entered row.
 - Wood: `materials.py` has Wood Handbook numbers and ambientCG CC0 textures (`materials/textures`, `<key>_end.jpg`
   end grain). The worker installs it as FreeCAD cards in
   `~/Library/Application Support/FreeCAD/v1-1/Material/Shop Sketch/` on first use and puts the card on the board's

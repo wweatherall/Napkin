@@ -13,7 +13,7 @@ protocol (update it in the same commit when you change either). Tools have their
   signals and knows nothing of meshes. main.gd forwards those names (`m.ops`, `m.seq`, ...) to it. Undo, redo and
   removal go through it (`op_removed` tells main to take away what an op drew).
 - `selection.gd` (T41, A33b): selection and context, `m.sel`. Owns `selection`, `context`, each board's assembly /
-  row / family / array / mirror plane, the hidden/deleted sets, `show_hidden`, `hover_body`; deletion (T34, I43); the queries (`unit_of`,
+  row / family / array / mirror plane, the hidden/deleted sets, `show_hidden`, `hover_body`; deletion (T34, I46); the queries (`unit_of`,
   `in_context`, `is_hidden`, ...) and the actions that add hide / assembly / unlink ops. Draws nothing: main.gd
   and the presenter draw on its signals; main forwards the old names.
 - `presenter.gd` (T41, A33b): geometry on screen, `m.pres`. Owns `body_tris` / `body_verts` / `body_edges` /
@@ -49,7 +49,7 @@ protocol (update it in the same commit when you change either). Tools have their
   one (`enter_context_of`, the rest greyed and unpickable), Esc leaves. Inside an entered array a moved copy leaves
   the row (op `"detach": true`, I32); a board pushed out inside an assembly joins it (op `"assembly"`). Inside a
   mirror group the plane shows and moving the copy moves the original reflected.
-- Selection (T34): Select drags right for enclosed units, left for crossing units; Shift adds. Move on a selected board uses the whole selection (copy/mirror too); a copy of every board of an assembly makes a new assembly (I44, `_whole_assemblies`), 3x / /3 of one is refused (T57). Delete / Backspace (I45): once the measurements box is clicked or typed in (`typing`), they edit it, even emptied, until a click in the view or a new selection; otherwise they delete in one op, in any tool: mid-move what's being moved, else the selection (Edit > Delete has no menu key). Deleted IDs follow ops immediately, suppressing confirmed and draft collisions even with Hidden geometry on. Deleting an entered row's original promotes a survivor and keeps the entered context with it (I43). Cached undo/redo states restore relationship metadata as well as geometry.
+- Selection (T34): Select drags right for enclosed units, left for crossing units; Shift adds. Move on a selected board uses the whole selection (copy/mirror too); a copy of every board of an assembly makes a new assembly (I47, `_whole_assemblies`), 3x / /3 of one is refused (T58). Delete / Backspace (I48): once the measurements box is clicked or typed in (`typing`), they edit it, even emptied, until a click in the view or a new selection; otherwise they delete in one op, in any tool: mid-move what's being moved, else the selection (Edit > Delete has no menu key). Deleted IDs follow ops immediately, suppressing confirmed and draft collisions even with Hidden geometry on. Deleting an entered row's original promotes a survivor and keeps the entered context with it (I46). Cached undo/redo states restore relationship metadata as well as geometry.
 - Hide (T28, I37): H hides the selection (else the board under the cursor), Shift+H unhides all; Edit > Unhide
   selected / last; View > Hidden geometry ghosts hidden boards (pickable, to unhide one). The hidden set comes
   from `ops` (`hidden_boards()`, applied in the presenter's `apply_context`), so hide and its undo show at once; `is_hidden`

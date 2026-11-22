@@ -1,4 +1,4 @@
-"""T34, I43: Delete. A board leaves the FreeCAD file with everything only it used, unless a surviving link, mirror or
+"""T34, I46: Delete. A board leaves the FreeCAD file with everything only it used, unless a surviving link, mirror or
 array still builds from it: then it stays, hidden (SSRole 'deleted'), until that goes too."""
 
 

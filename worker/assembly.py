@@ -34,7 +34,7 @@ class AssemblyActions:
         return list(op["targets"])
 
     def copy_into_assembly(self, bid, aid, made):
-        """A copy of a board in a wholly copied assembly goes into that copy's new assembly (I44), not the old one."""
+        """A copy of a board in a wholly copied assembly goes into that copy's new assembly (I47), not the old one."""
         g = made.get(aid)
         if g is None:
             if aid in self.assemblies():

@@ -152,7 +152,7 @@ class MoveActions:
         divide = op.get("divide", False)
         changed = []
         new_ids = list(op.get("new_ids", []))
-        groups, made_groups = op.get("groups", {}), {}   # copying whole assemblies: old AssemblyId -> new one (I44)
+        groups, made_groups = op.get("groups", {}), {}   # copying whole assemblies: old AssemblyId -> new one (I47)
         if groups and (count > 1 or divide):
             raise OpError("Copying an assembly into a row isn't built yet: copy it once")
         for t in op["targets"]:

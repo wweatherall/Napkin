@@ -49,7 +49,7 @@ func run() -> void:
 	await harness._key(KEY_ESCAPE)
 	await harness._key(KEY_ESCAPE)
 	harness._ok("Esc leaves", m.context == "", m.context)
-	# Copying a whole assembly (I44): the copy is a new assembly of linked copies; 3x after it is refused for now
+	# Copying a whole assembly (I47): the copy is a new assembly of linked copies; 3x after it is refused for now
 	m.set_tool("move")
 	var before := m.ops.size()
 	await harness._grab(Vector3(50, 25, 118))

@@ -51,7 +51,7 @@ var tool := "rect"
 var grid_snap := true
 var new_board := false       # a rectangle on a face joins that board when pushed out (I04b); B for a separate board
 var vcb := ""
-var typing := false                 # the measurements box has Delete/Backspace: since a click on it or a typed key, until a click in the view (I45)
+var typing := false                 # the measurements box has Delete/Backspace: since a click on it or a typed key, until a click in the view (I48)
 
 var oplog_path := ""
 var drawing_script := ""
@@ -930,7 +930,7 @@ func _apply_context() -> void: pres.apply_context()
 func _on_selection_changed() -> void:
 	if properties_panel != null and properties_panel.visible: _request_properties()
 	pres.show_selection()
-	if typing and not sel.selection.is_empty():           # selecting boards again gives Delete back to them (I45)
+	if typing and not sel.selection.is_empty():           # selecting boards again gives Delete back to them (I48)
 		typing = false; _update_vcb()
 
 
@@ -1973,7 +1973,7 @@ func _unhandled_input(e: InputEvent) -> void:
 		elif e.button_index == MOUSE_BUTTON_LEFT and e.pressed and e.double_click:
 			tools[tool].double_click(e.position)
 		elif e.button_index == MOUSE_BUTTON_LEFT and e.pressed:
-			if typing: typing = false; _update_vcb()      # picking in the view again gives Delete back to the model (I45)
+			if typing: typing = false; _update_vcb()      # picking in the view again gives Delete back to the model (I48)
 			tool_click(e.position)
 		elif e.button_index == MOUSE_BUTTON_LEFT:
 			tools[tool].release(e.position)
@@ -2017,7 +2017,7 @@ func _unhandled_input(e: InputEvent) -> void:
 				else: set_tool(tool)
 				return
 			KEY_ENTER, KEY_KP_ENTER: apply_vcb(); return
-			KEY_DELETE, KEY_BACKSPACE:              # in the measurements box they edit it; otherwise they delete (I45)
+			KEY_DELETE, KEY_BACKSPACE:              # in the measurements box they edit it; otherwise they delete (I48)
 				if vcb != "": vcb = vcb.left(-1); _update_vcb()
 				elif typing: pass                         # emptied the box: the next press doesn't delete boards
 				elif tool == "move" and tools["move"].in_gesture():
