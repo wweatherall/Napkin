@@ -14,8 +14,8 @@ extends RefCounted
 ## checks each adapter's public members against an allowlist). Owners are passed in once, in `_init`; a part left
 ## out is null (the headless tests build contexts with stand-ins).
 ##
-## Step 0 (H051): the adapters exist and are tested; no tool uses them yet, so nothing on screen changes. Where a
-## body still lives in main.gd (the mesh and line helpers, the marker, guides, the tooltip, painting) the adapter
+## The adapters arrived in step 0 (H051); Line and Paint now use only the context. Where a
+## body still lives in main.gd (the mesh and line helpers, the marker, guides, the tooltip) the adapter
 ## calls it through one narrowly bound Callable; each body moves to its owner when its first tool migrates.
 ## Not yet here: view.present_draft (Push/Pull, step 5), view.mirror_preview (Move, step 6) and the Push/Pull
 ## test rejection filter (step 5): each arrives with the tool that first needs it.
@@ -31,7 +31,7 @@ var paint: PaintCapability
 
 func _init(parts := {}) -> void:
 	"""parts: infer, pres, sel, doc, measure (owner objects); cursor, show_marker, hide_marker, guides, clear_guides,
-	tri_mesh, lines, add_node, refresh_tip, clear_rejection, new_board, paint_name, paint_apply (Callables);
+	tri_mesh, lines, add_node, refresh_tip, clear_rejection, new_board (Callables); appearance (wood/paint owner);
 	overlay, overlay_lines (nodes); materials (style -> Material). Anything missing is null / a no-op."""
 	pick = PickCapability.new(parts)
 	model = ModelCapability.new(parts)
@@ -347,17 +347,15 @@ class UiCapability extends _Capability:
 
 # ---------------------------------------------------------------- paint
 class PaintCapability extends _Capability:
-	var _name
-	var _apply
+	var _appearance
 
 	func _init(parts: Dictionary) -> void:
-		_name = parts.get("paint_name"); _apply = parts.get("paint_apply")
+		_appearance = parts.get("appearance")
 
 	func current_name() -> String:
 		"""The name of the wood the Paint tool puts on ("" if none is picked)."""
-		var n = _call(_name)
-		return n if n is String else ""
+		return _appearance.current_name() if _appearance != null else ""
 
 	func apply(targets: Array) -> void:
 		"""Paint these boards with the current wood (one set_material op; nothing for an empty list)."""
-		_call(_apply, [targets.duplicate()])
+		if _appearance != null: _appearance.apply(targets.duplicate())

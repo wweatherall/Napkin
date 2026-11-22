@@ -31,7 +31,6 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 <!-- open list: built from docs/handoff/ by tools/handoff.py; don't edit by hand -->
 
 - [H052 — T66: lengths shown in the model's units](handoff/H052-t66-units.md) — status: queued (after T88's tool moves); for: either
-- [H065 — T88 step 1: Paint moves to ToolContext](handoff/H065-t88-paint-to-toolcontext.md) — status: open; for: either
 - [H066 — T101: recovery on opening, the newest file wins](handoff/H066-t101-recovery-newest-wins.md) — status: open; for: either
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
 - [H069 — Two timing-sensitive worker tests that fail under load](handoff/H069-flaky-timing-tests.md) — status: queued (after H066); for: either
@@ -70,6 +69,7 @@ H036 (T75) is open from main. It touches viewport files only, so it runs alongsi
 
 Full entries in [handoff-archive.md](handoff-archive.md).
 
+- H065 — T88 step 1: Paint moves to ToolContext. Resolved: merged into main by the integrator, 2026-11-22.
 - H050 — For the next integrator session: where things stand. Resolved: see the archive
 - H059 — T67: IDs that never collide across kept history branches. Resolved: merged into main by the integrator, 2026-11-22.
 - H068 — Integrator tooling: three follow-ups from docs/follow-ups.md. Resolved: merged into main by the integrator, 2026-11-22.

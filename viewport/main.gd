@@ -16,6 +16,7 @@ const SNAP_PX := Inference.SNAP_PX
 # names forward to it, so tools and tests can keep writing m.ops, m.counters, m.seq.
 const Document := preload("res://document.gd")
 var doc: Document = Document.new()
+var appearance = preload("res://appearance.gd").new(doc)
 var ops: Array:
 	get: return doc.ops
 	set(v): doc.ops = v
@@ -216,6 +217,7 @@ static func plane_basis(n: Vector3) -> Array: return Geo.plane_basis(n)
 
 # ---------------- setup ----------------
 func _ready() -> void:
+	appearance.status.connect(_say_status)
 	_make_presenter()
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--oplog="): oplog_path = a.substr(8)
@@ -771,8 +773,7 @@ func _make_tool_context():
 		"add_node": add_child,
 		"refresh_tip": _update_tip, "clear_rejection": func(): reject_note = "",
 		"new_board": func() -> bool: return new_board,
-		"paint_name": func() -> String: return String(wood_library.get(paint_material, {}).get("name", "")),
-		"paint_apply": paint,
+		"appearance": appearance,
 	})
 
 
@@ -968,20 +969,20 @@ func _edit_property(change: Dictionary) -> void:
 # The worker writes materials.json (the library) beside bodies.json; each board's material, grain and across
 # directions come in bodies.json. Textures live in materials/textures beside the project (or in the app bundle).
 const WOOD := preload("res://wood.gdshader")
-var wood_library := {}              # key -> library entry
-var wood_keys: Array = []           # in library order, for the menu
+# Compatibility aliases for remaining render/menu consumers.
+var wood_library: Dictionary:
+	get: return appearance.wood_library
+var wood_keys: Array:
+	get: return appearance.wood_keys
 var body_material := {}             # board id -> material key
-var paint_material := "white-oak"   # what the Paint tool puts on
+var paint_material: String:
+	get: return appearance.paint_material
+	set(v): appearance.paint_material = v
 var _wood_tex := {}                 # texture file -> ImageTexture
 
 
 func _load_wood_library(dir: String) -> void:
-	var data = JSON.parse_string(FileAccess.get_file_as_string(dir.path_join("materials.json")))
-	if typeof(data) != TYPE_ARRAY: return
-	wood_keys = []
-	for e in data:
-		wood_library[e["key"]] = e; wood_keys.append(e["key"])
-	_build_materials_menu()
+	if appearance.load_library(dir): _build_materials_menu()
 
 
 func _wood_texture(file: String) -> Texture2D:
@@ -1039,19 +1040,11 @@ func _on_wood_menu(tag) -> void:
 
 
 func set_paint_material(k: String) -> void:
-	if not wood_library.has(k): return
-	paint_material = k
+	if not appearance.select_wood(k): return
 	if _wood_menu_rid.is_valid():
 		for i in NativeMenu.get_item_count(_wood_menu_rid):
 			NativeMenu.set_item_checked(_wood_menu_rid, i, NativeMenu.get_item_tag(_wood_menu_rid, i) == k)
 	set_tool("paint")
-
-
-func paint(bodies: Array) -> void:
-	if bodies.is_empty() or not wood_library.has(paint_material): return
-	ops.append({"id": doc.next_id("sm"), "type": "set_material", "targets": bodies, "material": paint_material})
-	sync()
-	_say_status("%s: %s" % [", ".join(bodies.map(func(b): return doc.board_name(b))), wood_library[paint_material]["name"]])
 
 
 func _turn_grain() -> void:
