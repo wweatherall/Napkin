@@ -33,15 +33,14 @@ so each agent has one Ready.
 | H053 | Claude | Queued | T91: integrate.py drafts the Work list result and the board | [H053](docs/handoff/H053-t91-merge-bookkeeping.md) | H056 (the log reshape) |
 | H054 | Claude | Queued | T92: tools/log.py add, for decision log rows | [H054](docs/handoff/H054-t92-log-add.md) | H056 (the log reshape) |
 | H055 | Claude | Queued | T93: startup.py shows what waits on William | [H055](docs/handoff/H055-t93-waiting-on-william.md) | H056 (the log reshape) |
-| H051 | Claude | **Ready** | T88 step 0: the tools' interface, foundation | [H051](docs/handoff/H051-t88-step0-foundation.md) | |
 | H049 | Codex | **Ready** | T90: a faster gate (measure first) | [H049](docs/handoff/H049-faster-gate.md) | |
-| H046 | Codex | Queued | T82: the Line tool, closed outlines and split faces (I51) | [H046](docs/handoff/H046-t82-lines-split-faces.md) | H051 (T88 step 0) |
+| H046 | Codex | **Ready** | T82: the Line tool, closed outlines and split faces (I51) | [H046](docs/handoff/H046-t82-lines-split-faces.md) | |
 | H052 | either | Queued | T66: lengths in the model's units (I57, I59) | [H052](docs/handoff/H052-t66-units.md) | T88's tool moves (every tool's vcb_value) |
-| next | either | Queued | T88 steps 1-4: Paint, Select, Circle, Rectangle move to ToolContext (one job each) | written when ready | H051 |
+| next | Claude | Queued | T88 steps 1-4: Paint, Select, Circle, Rectangle move to ToolContext (one job each, on files H046 doesn't touch) | written when ready | H056 (William's priority: the integrator's tools first) |
 
-Done since the board started: H033 (T74 + T77), H034 (T76), H035 (T44), T56 (startup report), H036 (T75), H037 (T54), H038 (T78), H039 (T80), H040 (T33), H043 (T85), H044 (T58), H042 (T70), H041 (T81, Circle), H045 (T86), H047 (T88 spec), H048 (T79).
+Done since the board started: H033 (T74 + T77), H034 (T76), H035 (T44), T56 (startup report), H036 (T75), H037 (T54), H038 (T78), H039 (T80), H040 (T33), H043 (T85), H044 (T58), H042 (T70), H041 (T81, Circle), H045 (T86), H047 (T88 spec), H048 (T79), H051 (T88 step 0).
 
 ## Notes
 
-- Codex: H049 (a faster gate: measure first) is Ready.
-- Claude: William's priority (2026-11-22): the integrator's tools first, starting with H056 (the decision log reshape, P23); H053, H054, H055 follow on the new layout. H051 (T88 step 0) is claimed and carries on.
+- Codex: H049 (a faster gate: measure first) is Ready; then H046 (Lines, I51 and I58), built on ToolContext.
+- Claude: William's priority (2026-11-22): the integrator's tools first, starting with H056 (the decision log reshape, P23); H053, H054, H055 follow on the new layout.
