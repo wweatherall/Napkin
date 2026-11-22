@@ -1,15 +1,14 @@
 extends "res://tools/tool.gd"
 ## Rectangle (R): click a face or the ground, then click or type  width, height  + Return.
 ## Started with a click, it ends with a click; started with a press-and-drag (or a press held down), it ends
-## when you let go.
+## when you let go (tool.gd, I43).
 
-const DRAG_PX := 6.0          # the cursor moved this far with the button down: it's a drag
-const HOLD_MS := 300          # ...or the button stayed down this long
 var state := {}
 
 
 func reset() -> void:
 	state = {}
+	press_reset()
 
 
 func hint() -> String:
@@ -21,8 +20,7 @@ func busy() -> bool:
 
 
 func mouse_moved(screen: Vector2) -> void:
-	if state.get("held", false) and screen.distance_to(state["press"]) > DRAG_PX:
-		state["drag"] = true
+	press_moved(screen)
 	if state.get("active", false):
 		_rect_drag(screen)
 	else:
@@ -38,17 +36,15 @@ func click(screen: Vector2) -> void:
 		var b := Main.plane_basis(n)
 		var on: String = p["body"]
 		if p["rect"] != "": on = m.rects[p["rect"]]["on"]
-		state = {"active": true, "origin": p["point"], "n": n, "x": b[0], "y": b[1], "on": on, "du": 0.0, "dv": 0.0,
-				 "press": screen, "held": true, "t0": Time.get_ticks_msec(), "drag": false}
+		state = {"active": true, "origin": p["point"], "n": n, "x": b[0], "y": b[1], "on": on, "du": 0.0, "dv": 0.0}
+		press_started(screen)
 	else:
 		commit_rect(state["du"], state["dv"])
 
 
 func release(screen: Vector2) -> void:
-	if not state.get("held", false): return
-	state["held"] = false
-	if not state["drag"] and Time.get_ticks_msec() - int(state["t0"]) < HOLD_MS:
-		return                                   # a click: the rectangle ends with the next click
+	if not press_released().get("drag", false): return   # a click: the rectangle ends with the next click
+	if not state.get("active", false): return
 	_rect_drag(screen)
 	if absf(state["du"]) >= 0.5 and absf(state["dv"]) >= 0.5:
 		commit_rect(state["du"], state["dv"])     # a drag: it ends here
@@ -81,8 +77,13 @@ func _rect_drag(screen: Vector2) -> void:
 	var t: float = (state["origin"] - o).dot(n) / den
 	var q: Vector3 = o + d * t
 	var p := m.snap({"hit": true, "point": q, "normal": n, "body": state["on"], "rect": ""}, screen)
-	m._show_marker(p)
 	var v: Vector3 = p["point"] - state["origin"]
+	if p.get("snap", "grid") != "grid" and (absf(v.dot(state["x"])) < 0.5 or absf(v.dot(state["y"])) < 0.5):
+		# a point snap that leaves a side at zero (the start corner, the edge you started on) can't make a
+		# rectangle: ignore it and follow the cursor (I44)
+		p = infer.on_grid({"hit": true, "point": q, "normal": n, "body": state["on"], "rect": ""})
+		v = p["point"] - state["origin"]
+	m._show_marker(p)
 	state["du"] = Main.r3(v.dot(state["x"]))
 	state["dv"] = Main.r3(v.dot(state["y"]))
 	_preview_rect(state["du"], state["dv"])

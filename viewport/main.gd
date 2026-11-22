@@ -301,6 +301,7 @@ func _ready() -> void:
 		worker_port = port
 	client.start(port)
 	_update_camera()
+	_warm_up_previews()
 	set_tool("rect")
 	# open the model file; the worker answers with its history, which we adopt (tests start clean)
 	_send_open()
@@ -310,6 +311,30 @@ func _ready() -> void:
 		t.m = self
 		add_child(t)
 		t.run.call_deferred()
+
+
+func _warm_up_previews() -> void:
+	"""Draw every preview material once, too small to see, so the first drag with each tool doesn't stall
+	~100 ms while the renderer prepares it (measured on the first Rectangle and Push/Pull drags)."""
+	var tri := PackedVector3Array([Vector3(0, 0, 0), Vector3(0.001, 0, 0), Vector3(0, 0.001, 0)])
+	var holder := Node3D.new()
+	holder.position = Vector3(0, 0, -0.5)          # in front of the camera, a speck far below a pixel
+	cam.add_child(holder)
+	var mats: Array = [mat_draft, mat_cut, mat_plane, mat_rect, mat_hover, mat_cut_hl, mat_sibling, mat_selected]
+	for mat in mats:
+		var mi := MeshInstance3D.new()
+		var am := ArrayMesh.new()
+		var arr := []; arr.resize(Mesh.ARRAY_MAX); arr[Mesh.ARRAY_VERTEX] = tri
+		arr[Mesh.ARRAY_NORMAL] = PackedVector3Array([Vector3.BACK, Vector3.BACK, Vector3.BACK])
+		am.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+		am.surface_set_material(0, mat)
+		mi.mesh = am
+		holder.add_child(mi)
+	var ahead := g2m(cam.global_position - cam.global_transform.basis.z * 0.5)
+	var lines := _lines(PackedVector3Array([ahead, ahead + Vector3(0.001, 0, 0)]), Color(0.6, 0.35, 0.0))
+	add_child(lines)
+	for i in 3: await get_tree().process_frame
+	holder.queue_free(); lines.queue_free()
 
 
 func _overlay_mat(col: Color) -> ShaderMaterial:

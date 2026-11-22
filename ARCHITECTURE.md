@@ -59,13 +59,13 @@ TCP carries commands/status and output paths. Geometry is read from shared local
 | `viewport/document.gd` | Owns desired ops, IDs, request sequencing/coalescing, confirmation, undo/redo, model path and save revisions. Reports by signals; no geometry or camera. | `sync`, `on_sync_reply`, `on_opened`, `on_saved`, `on_link_up`, `reset`, `open`, `remove_op(s)`, `undo`, `take_redo` |
 | `viewport/presenter.gd` | Owns drafts, confirmed board geometry and nodes, cached visible states, waves and highlights. Reads selection; draws through Main helpers. Emits board metadata and completed rejections. | `apply_confirmed`, `show_confirmed`, `show_state`, `forget_op`, `register_rect`, `begin_wave`, `attach_wave`, `step_waves`, `apply_context`, `show_selection`, `show_siblings`, `reset` |
 | `viewport/selection.gd` | Owns selection, entered context, confirmed board relationships and hidden state. Appends selection-related ops through the document; reports changes without drawing. | `set_boards`, `unit_of`, `in_context`, `edit_blocked`, `enter_context_of`, `leave_context`, `set_selection`, `refresh_hidden`, `is_hidden`, `hide_selected`, `unhide`, `make_assembly`, `linked_op` |
-| `viewport/tools/tool.gd` | Common tool interface and references to viewport/inference | `setup`, `reset`, `click`, `double_click`, `release`, `mouse_moved`, `key`, `typed` |
+| `viewport/tools/tool.gd` | Common tool interface, references to viewport/inference, and the shared press-and-drag / click-and-click rule (I43) | `setup`, `reset`, `click`, `double_click`, `release`, `mouse_moved`, `key`, `typed`; `press_started`, `press_moved`, `press_released` |
 | `viewport/tools/select_tool.gd` | Selection and entering editing contexts | Tool event methods |
 | `viewport/tools/paint_tool.gd` | Paint selected wood onto the picked board/family | Tool event methods |
 | `viewport/tools/rect_tool.gd` | Rectangle interaction, preview and operation creation | `commit_rect` |
 | `viewport/tools/push_tool.gd` | Push/Pull picking, depth inference, preview, through-cut intent | `commit_push` |
 | `viewport/tools/move_tool.gd` | Move/copy/mirror gestures, arrays and operation amendments | `commit_move`, `commit_mirror_move` |
-| `viewport/inference.gd` | Shared picking and snapping, visibility checks, axis/plane destinations | `pick`, `snap`, `point`, `axis`, `axis_dest`, `plane_dest` |
+| `viewport/inference.gd` | Shared picking and snapping, visibility checks, axis/plane destinations | `pick`, `snap`, `on_grid`, `point`, `axis`, `axis_dest`, `plane_dest` |
 | `viewport/worker_client.gd` | TCP framing, buffering, reconnect, pending sends and link signals | `send`, `_process`, `_drain` |
 | `worker/replay.py` | Entry point only: puts worker/ on sys.path and calls `serve.main()` (freecadcmd runs it by name) | `main` |
 | `worker/common.py` | Shared basics imported explicitly by name (T50): FreeCAD vector alias, tolerances, `OpError`, `vec`/`unit`, `add_props`, `Frame`, wood cards | `material_card`, `Frame` |
