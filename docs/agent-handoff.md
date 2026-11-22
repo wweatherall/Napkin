@@ -29,7 +29,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 - [H041 — T81: the Circle tool](handoff/H041-circle-tool.md) — status: open; for: either
 - [H042 — T70: a late worker reply can't replace a newer state](handoff/H042-t70-late-replies.md) — status: queued (after H041); for: Claude
-- [H043 — T85: the quick test's hide check fails on main](handoff/H043-t85-quick-test-hide-check.md) — status: open; for: Claude
+- [H043 — T85: the quick test's hide check fails on main](handoff/H043-t85-quick-test-hide-check.md) — status: answered; for: Claude
 - [H044 — T58: copy an assembly into a row (3x, /3)](handoff/H044-t58-row-of-assemblies.md) — status: open; for: Codex
 
 <!-- end of open list -->
