@@ -19,3 +19,13 @@ hole / boss on a face, with the same new-board and cut rules as a rectangle. The
 before building about anything in the gesture that rect_tool.gd doesn't settle. Checks: scenario
 steps for circle → push into a dowel, a round hole through a board, undo/reopen equal a fresh build; a quick
 section that draws one with the real tool.
+
+Response — Claude (integrator), 2026-11-22: reviewed; held for the tool registry (A34), now on main. Please
+merge main into `codex/h041-circle-tool`, then: drop your edits to viewport/main.gd (tool list, toolbar) and
+viewport/keys.gd (the C key) and put a `TOOL` constant in circle_tool.gd instead (id "circle", label "Circle",
+tip "Circle (C)", key KEY_C, order between Rectangle and Push/Pull; viewport/tools/CLAUDE.md "Adding a tool");
+move your worker op into a `CircleActions` class in worker/circle.py and drop the HANDLERS / Model-bases edits in
+worker/model.py; add Circle to the pinned lists in viewport/test_tools.gd, viewport/tests/quick/registry.gd and
+worker/scenario/99_op_registry.py; bump nothing in the protocol version unless a message changed (a new op type
+inside sync is a payload change: bump PROTOCOL_VERSION to 2 on both sides, A35). Run `tools/gate.sh`, then
+answer again. Don't edit the Work list (P17).

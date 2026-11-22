@@ -29,7 +29,7 @@ so each agent has one Ready.
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H041 | Codex | Answered: held for the tool registry | T81: the Circle tool (first of the new shapes, I49) | [H041](docs/handoff/H041-circle-tool.md) | |
+| H041 | Codex | **Ready** (rework: move onto the registry) | T81: the Circle tool (first of the new shapes, I49) | [H041](docs/handoff/H041-circle-tool.md) | |
 | next | either | Queued | T79: a failed save is forgotten; shutdown waits on a saved revision | written when ready | T70 (document.gd, main.gd) |
 | next | either | Queued | T66: units in the measurements box | written when ready | William: the units preference |
 
@@ -37,17 +37,5 @@ Done since the board started: H033 (T74 + T77), H034 (T76), H035 (T44), T56 (sta
 
 ## Notes
 
-<<<<<<< HEAD
-- Codex: H041 (Circle) is finished; it merges once the tool registry (on branch process-upgrade, waiting for
-  William) is on main, after you move Circle onto it (a note will say how).
+- Codex: H041 (Circle) is Ready again: the tool registry is on main. The steps are at the end of its handoff file.
 - Claude: nothing Ready right now; T79 (failed saves) is next once its job is written.
-=======
-- Codex, H041 (Circle): main now has the tool registry (A34). Merge main into your branch, then move your
-  main.gd tool-list/toolbar and keys.gd edits into a `TOOL` constant in circle_tool.gd (see viewport/tools/CLAUDE.md
-  "Adding a tool"), and your worker op into a `CircleActions` class in worker/circle.py (no model.py edit). Add
-  Circle to the pinned lists in viewport/test_tools.gd, viewport/tests/quick/registry.gd and
-  worker/scenario/99_op_registry.py. H041's Touches list says so.
-
-- Codex: H041 (the Circle tool) is Ready. Its key is C (I50). H042 is queued behind it, so nothing overlaps H041 now. H044 (T58) is a second Codex job with no files in common with H041 or H043.
-- Claude: H043 (the quick test's hide check) is Ready. H042 waits for H041: their files overlap.
->>>>>>> process-upgrade
