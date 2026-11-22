@@ -9,6 +9,7 @@ var hover := {}          # the face or rectangle under the cursor
 
 func reset() -> void:
 	state = {}
+	press_reset()
 	if is_instance_valid(face_highlight): face_highlight.mesh = null
 
 
@@ -21,6 +22,7 @@ func busy() -> bool:
 
 
 func mouse_moved(screen: Vector2) -> void:
+	press_moved(screen)
 	if state.get("active", false):
 		_push_drag(screen)
 	else:
@@ -36,7 +38,15 @@ func click(screen: Vector2) -> void:
 		state["active"] = true
 		state["dist"] = 0.0
 		state["depths"] = _depths_behind()
+		press_started(screen)
 	else:
+		commit_push(state["dist"], state.get("edge_fit", {}))
+
+
+func release(screen: Vector2) -> void:
+	# a press-and-drag ends here; a click goes on until the next click (I43)
+	if press_released().get("drag", false) and state.get("active", false):
+		_push_drag(screen)
 		commit_push(state["dist"], state.get("edge_fit", {}))
 
 
@@ -78,14 +88,22 @@ func _depths_behind() -> Array:
 
 
 func _snap_to_face_behind(screen: Vector2) -> void:
-	"""Pushing in: within a few pixels of a face behind (the back face for a through-hole), go exactly there."""
+	"""Pushing in: within a few pixels of a face behind (the back face for a through-hole), go exactly there.
+	Only nearer to it than to the start or the next face along (I45): on a thin board the snap doesn't swallow
+	the whole thickness, so the first part of a push in follows the cursor."""
 	var depths: Array = state.get("depths", [])
 	if depths.is_empty() or state["dist"] >= 0.0: return
-	var here := m.cam.unproject_position(Main.m2g(state["anchor"] + state["n"] * state["dist"]))
+	var screen_at := func(d: float) -> Vector2: return m.cam.unproject_position(Main.m2g(state["anchor"] + state["n"] * d))
+	var here: Vector2 = screen_at.call(state["dist"])
+	var stops := [0.0] + depths                  # the start, then the faces behind, nearest first
 	for k in depths.size():
 		var c: float = depths[k]
 		var at: Vector3 = state["anchor"] + state["n"] * c
-		if m.cam.unproject_position(Main.m2g(at)).distance_to(here) < Main.SNAP_PX:
+		var p: Vector2 = screen_at.call(c)
+		var radius := Main.SNAP_PX
+		radius = minf(radius, 0.5 * p.distance_to(screen_at.call(stops[k])))
+		if k + 1 < depths.size(): radius = minf(radius, 0.5 * p.distance_to(screen_at.call(depths[k + 1])))
+		if p.distance_to(here) < radius:
 			state["dist"] = c
 			state["snap"] = "back face" if k == depths.size() - 1 else "face behind"
 			m._show_marker({"hit": true, "point": at, "snap": state["snap"]})

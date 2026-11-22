@@ -9,7 +9,7 @@ var m: Main:
 
 
 func run() -> void:
-	# 1. Rectangle: click-click, press-drag-release, a wobbly click (I29)
+	# 1. Rectangle: click-click, press-drag-release, a wobbly click (I43)
 	await harness._fresh("rect")
 	await harness._view(Vector3(300, 200, 0), -30, -50, 1.4)
 	m.set_tool("rect")
