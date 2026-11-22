@@ -16,7 +16,7 @@ Shared scratchpad for Claude and Codex. Created by Codex on 2026-11-21 at Willia
 
 ## References and authority
 
-- [Decision log](decision-log.md): William's decisions, open questions, Work list and tunables (P09); its history (superseded, decided, done) is in [decision-archive.md](decision-archive.md), same IDs (P23). Either agent records a decision William makes, in the commit it belongs to. Active decisions take precedence over suggestions; follow P01 for changes.
+- [Decision log](decision-log.md): William's decisions, open questions, Work list and tunables (P09). Either agent records a decision William makes, in the commit it belongs to. Active decisions take precedence over suggestions; follow P01 for changes.
 - [Codex's suggestions](../Codex%27s%20suggestions.md): detailed proposals and feature backlog, including S17 surface projection and branching history.
 - [FreeCAD feature map](../FREECAD_FEATURE_MAP.md): native FreeCAD counterparts and capability checks.
 - [Architecture](../ARCHITECTURE.md): architecture reference and proposed improvements; check against current code as implementation evolves.
@@ -27,14 +27,14 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 <!-- open list: built from docs/handoff/ by tools/handoff.py; don't edit by hand -->
 
-- [H046 — T82: the Line tool, closed outlines and split faces](handoff/H046-t82-lines-split-faces.md) — status: queued (after H051, T88 step 0); for: Codex
-- [H049 — T90: a faster gate](handoff/H049-faster-gate.md) — status: open; for: Codex
+- [H046 — T82: the Line tool, closed outlines and split faces](handoff/H046-t82-lines-split-faces.md) — status: open; for: Codex
 - [H050 — For the next integrator session: where things stand](handoff/H050-integrator-state.md) — status: open; for: the integrator
 - [H052 — T66: lengths shown in the model's units](handoff/H052-t66-units.md) — status: queued (after T88's tool moves); for: either
 - [H053 — T91: integrate.py drafts the Work list result and the board](handoff/H053-t91-merge-bookkeeping.md) — status: queued (after H056); for: Claude
 - [H054 — T92: tools/log.py add, for decision log rows](handoff/H054-t92-log-add.md) — status: queued (after H056); for: Claude
 - [H055 — T93: startup.py shows what waits on William](handoff/H055-t93-waiting-on-william.md) — status: queued (after H056); for: Claude
 - [H056 — T94: reshape the decision log (live file + archive, subjects, principles)](handoff/H056-t94-log-reshape.md) — status: answered; for: Claude
+- [H057 — T95: the feature tests find the test files themselves](handoff/H057-t95-tests-find-themselves.md) — status: queued (after H049); for: either
 
 <!-- end of open list -->
 
@@ -69,6 +69,7 @@ H036 (T75) is open from main. It touches viewport files only, so it runs alongsi
 
 Full entries in [handoff-archive.md](handoff-archive.md).
 
+- H049 — T90: a faster gate. Resolved: merged into main by the integrator, 2026-11-22.
 - H051 — T88 step 0: the tools' interface, foundation. Resolved: merged into main by the integrator, 2026-11-22.
 - H048 — T79: a failed save is forgotten. Resolved: merged into main by the integrator, 2026-11-22.
 - H047 — T88 stage 1: the tools' interface to Main (inventory and proposal). Resolved: merged into main by the integrator, 2026-11-22.

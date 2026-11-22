@@ -12,7 +12,7 @@ Implementation below was checked against `main` at `950a030`; later feature bran
 | What development workflow and test commands apply? | [CLAUDE.md](CLAUDE.md); Codex-specific instructions in [AGENTS.md](AGENTS.md) |
 | What local rules, traps and tests apply to this part? | [Worker guide](worker/CLAUDE.md), [viewport guide](viewport/CLAUDE.md), [tool guide](viewport/tools/CLAUDE.md) |
 | How do components fit together; who owns state and durable data? | This architecture map |
-| What has William approved, and what work is open or done? | [Decision log](docs/decision-log.md), edited directly in the repo (P09) |
+| What has William approved, and what work is open or done? | [Decision log](docs/decision-log.md) (live) and [its archive](docs/decision-archive.md) (history), edited directly in the repo (P09, P23) |
 | What does the other agent need to know about a delivery? | [Handoff](docs/agent-handoff.md) (rules and open list; each open entry a file in docs/handoff/, T77); resolved exchanges in its archive |
 | What is proposed, and what native capabilities could support it? | [Suggestions](<Codex's suggestions.md>), [design specs](docs/specs/U01-history.md), [FreeCAD feature map](FREECAD_FEATURE_MAP.md) |
 
@@ -314,6 +314,12 @@ Use [CLAUDE.md#tests](CLAUDE.md#tests) for commands and when to run them; folder
 and feature-test extension instructions. Native structure/undo/reopen tests, controller tests and scripted
 viewport comparisons validate different boundaries. Visual feel still needs real-hardware checks.
 Record actual commands/results against the delivered commit in the Work list or handoff.
+
+`tools/gate.sh` runs quick then full, with one verdict (P18). When quick succeeds and prints its feature/UI
+summary, the gate invokes full with `--gate-ui-only`: the quick run owns parsing and feature checks, and
+full still owns every recorded comparison and targeted UI suite. After any quick failure, full performs
+its own parsing and feature checks as well. Standalone quick/full commands always include those checks.
+Timing lines in their logs identify parsing, quick lanes, full lanes/suites, and individual feature tests.
 
 Architecture ownership and the same-commit update rule are defined in CLAUDE.md / AGENTS.md.
 Update the affected sections when a boundary, protocol/file format, state owner, persistent relationship,
