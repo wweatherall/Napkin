@@ -9,7 +9,9 @@ signal sync_started                 # a new desired state is on its way to FreeC
 signal sent(seq_no: int)            # a sync request left, with this seq
 signal synced(resp: Dictionary)     # FreeCAD's answer for the current state (nothing newer waiting)
 signal sync_failed(error: String)   # the worker couldn't run the sync
-signal save_changed                 # pending_rev or saved_rev moved
+signal save_changed                 # pending_rev, saved_rev or save_error moved
+signal close_ready                  # closing (begin_close): the latest revision is on disk, the window may go
+signal close_blocked(reason: String)   # closing: the latest revision couldn't be saved (I55: ask what to do)
 signal op_removed(op: Dictionary)   # one op left the list (undo, rejection): drop what it drew
 signal removed                      # done removing (one or several): show the state before resyncing
 signal idle                         # nothing in flight and nothing waiting
@@ -34,6 +36,9 @@ var opened := false                 # the worker has answered our "open"
 var start_fresh := false            # tests: the first open starts the file empty
 var pending_rev := 0                # the model revision the last confirmed change will be saved as
 var saved_rev := 0                  # the revision the worker last said it saved
+var save_error := ""                # why the last save failed ("" once a save lands): the indicator says so (I54)
+var closing := false                # begin_close(): waiting for the latest revision to be saved (I55)
+var close_seq := -1                 # the seq of closing's flush: only its answer counts
 var test_delay_ms := 0              # test hook (P02): ask the worker to sit on its next answer
 
 # Linear redo (T31), until branch history (U01) keeps the paths you leave: each undo puts its action here with the
@@ -108,12 +113,67 @@ func on_sync_reply(resp: Dictionary) -> void:
 		_send()
 	elif not in_flight:
 		idle.emit()
+		if closing and close_seq < 0: _send_close_flush()
 
 
 func on_saved(resp: Dictionary) -> void:
 	if resp.get("model", "") == model_path.simplify_path():
 		saved_rev = maxi(saved_rev, int(resp.get("rev", 0)))
+		save_error = ""
 		save_changed.emit()
+
+
+func on_save_failed(resp: Dictionary) -> void:
+	"""The worker couldn't save this model (T79): it keeps the save and tries again on the next change or flush."""
+	if resp.get("model", "") != model_path.simplify_path(): return
+	save_error = short_reason(str(resp.get("error", "?")))
+	save_changed.emit()
+
+
+static func short_reason(error: String) -> String:
+	"""'PermissionError: the folder x is read-only' -> 'the folder x is read-only' (the exception's name is for the log)."""
+	var m := RegEx.create_from_string("^[A-Za-z_.]*(Error|Exception): ").search(error)
+	return error.substr(m.get_end()) if m else error
+
+
+func unsaved() -> bool:
+	"""Something confirmed isn't on disk yet, or its save failed."""
+	return opened and (pending_rev > saved_rev or save_error != "")
+
+
+# ---------------- closing the window (I55) ----------------
+func begin_close() -> bool:
+	"""Closing: true if the window can go now. Otherwise wait for what's in flight, ask the worker to save this
+	model, and answer with close_ready or close_blocked. Calling it again (Retry) asks again."""
+	if not unsaved() and not in_flight: return true
+	closing = true
+	close_seq = -1
+	if not in_flight: _send_close_flush()
+	return false
+
+
+func cancel_close() -> void:
+	closing = false
+	close_seq = -1
+
+
+func _send_close_flush() -> void:
+	close_seq = seq                 # numbers the flush without making the latest sync's answer out of date
+	client.send({"cmd": "flush", "model": model_path, "seq": close_seq})
+
+
+func on_flush_reply(resp: Dictionary) -> void:
+	"""flush's answer: saved and failed lists (T79). While closing, it decides whether the window may go."""
+	for f in resp.get("failed", []):
+		on_save_failed(f)
+	if not closing or seq_of(resp) != close_seq: return
+	close_seq = -1
+	if resp.get("ok", false) and pending_rev <= saved_rev:
+		closing = false
+		close_ready.emit()
+	else:
+		closing = false             # asking now: Retry calls begin_close again
+		close_blocked.emit(save_error if save_error != "" else short_reason(str(resp.get("error", "it isn't saved yet"))))
 
 
 func on_link_up() -> void:
@@ -144,6 +204,7 @@ func on_opened(resp: Dictionary, adopt: bool) -> void:
 	"""The worker opened the model. adopt: take its history as ours (tests start clean instead)."""
 	opened = true
 	saved_rev = int(resp.get("rev", 0)); pending_rev = saved_rev
+	save_error = ""
 	save_changed.emit()
 	if not adopt: return
 	ops = resp.get("ops", [])
@@ -157,6 +218,7 @@ func reset() -> void:
 	seq += 1
 	dirty = false
 	_drawing_pending = false
+	save_error = ""
 	confirmed_ids.clear()
 	ops.clear()
 	redo_stack.clear()

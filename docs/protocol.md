@@ -1,6 +1,6 @@
 # Window ↔ worker protocol
 
-Protocol reference **0.3** (T81, H041: exact circle profiles; includes T70/H042 reply matching), describing main plus H041 (2026-11-22); 0.1 described `8ff1f91` (2026-11-21). This is a documentation version. The wire protocol's own version is **2**: the worker reports it in `hello` (`protocol`), defined once per side (`worker/serve.py` `PROTOCOL_VERSION`, `viewport/main.gd` `PROTOCOL_VERSION`). **Rule: bump it on both sides when a message or a shared-file field changes** (added, removed, renamed or its meaning changed), and update this document. There is no negotiation: a window shares a worker only when the version matches. Existing embedded format identifiers are `oplog/0.1` and `shopsketch-journal/0.1`; binary meshes use Godot's Variant array encoding.
+Protocol reference **0.3** (T81, H041: exact circle profiles; includes T70/H042 reply matching), describing main plus H041 (2026-11-22); 0.1 described `8ff1f91` (2026-11-21). This is a documentation version. The wire protocol's own version is **3** (3: T79's `save_failed` event and the saved/failed lists in flush, bye and quit): the worker reports it in `hello` (`protocol`), defined once per side (`worker/serve.py` `PROTOCOL_VERSION`, `viewport/main.gd` `PROTOCOL_VERSION`). **Rule: bump it on both sides when a message or a shared-file field changes** (added, removed, renamed or its meaning changed), and update this document. There is no negotiation: a window shares a worker only when the version matches. Existing embedded format identifiers are `oplog/0.1` and `shopsketch-journal/0.1`; binary meshes use Godot's Variant array encoding.
 
 ## Transport, identity and lifetime
 
@@ -32,11 +32,11 @@ Examples are illustrative JSON lines; timing values, paths, IDs and hashes vary.
 
 ### `hello`
 
-Request: `cmd: "hello"`, `seq?`. Success: `ok: true`, `cmd: "hello"`, `seq` (echo or null), `app: "shopsketch"`, `protocol: integer` (the protocol version, currently 2), `worker: string` (32 lowercase hex MD5), `pid: integer`. The window uses the worker only if `protocol` equals its own version and `worker` its own identity.
+Request: `cmd: "hello"`, `seq?`. Success: `ok: true`, `cmd: "hello"`, `seq` (echo or null), `app: "shopsketch"`, `protocol: integer` (the protocol version, currently 3), `worker: string` (32 lowercase hex MD5), `pid: integer`. The window uses the worker only if `protocol` equals its own version and `worker` its own identity.
 
 ```json
 {"cmd":"hello"}
-{"ok":true,"cmd":"hello","seq":null,"app":"shopsketch","protocol":2,"worker":"0123456789abcdef0123456789abcdef","pid":1234}
+{"ok":true,"cmd":"hello","seq":null,"app":"shopsketch","protocol":3,"worker":"0123456789abcdef0123456789abcdef","pid":1234}
 ```
 
 Producer/consumer: [worker/serve.py](../worker/serve.py):`serve.handle`, `worker_identity`; [viewport/main.gd](../viewport/main.gd):`_probe_worker` (`_hello`, `_worker_of`). Probing uses a separate short-lived connection.
@@ -128,36 +128,41 @@ Producer/consumer: [worker/serve.py](../worker/serve.py):`serve.handle`; [worker
 
 | Command | Request fields | Success reply | Effects |
 |---|---|---|---|
-| `flush` | `cmd`, `seq?` | `ok: true`, `cmd: "flush"`, `seq` (or null) | Attempts all pending saves across all clients; connection stays open |
-| `bye` | `cmd`, `seq?` | `ok: true`, `cmd: "bye"`, `seq` (or null) | Attempts this connection's pending saves, releases ownership, closes socket |
-| `quit` | `cmd`, `seq?` | `ok: true`, `cmd: "quit"`, `seq` (or null), `stopped: boolean` | With another connected client: false, release this connection only; otherwise save all pending and exit serve loop |
+| `flush` | `cmd`, `seq?`, `model?` | `cmd: "flush"`, `seq` (or null), the save lists | Attempts all pending saves across all clients (only `model`'s, when given: closing a window); connection stays open |
+| `bye` | `cmd`, `seq?` | `cmd: "bye"`, `seq` (or null), the save lists | Attempts this connection's pending saves, releases ownership, closes socket |
+| `quit` | `cmd`, `seq?` | `cmd: "quit"`, `seq` (or null), `stopped: boolean`, the save lists | With another connected client: false, save and release this connection only; otherwise save all pending and exit serve loop (even when a save failed: the window asked first, I55) |
+
+The save lists (T79): `saved: [{model, rev}]` (the saves this request landed), `failed: [{model, rev, error}]` (the ones it couldn't; `rev` is the revision it tried). `ok` is true only when `failed` is empty; otherwise `error` names each model that couldn't be saved and why.
 
 ```json
 {"cmd":"flush","seq":5}
-{"ok":true,"cmd":"flush","seq":5}
+{"ok":true,"cmd":"flush","seq":5,"saved":[{"model":"/tmp/chair.FCStd","rev":4}],"failed":[]}
+{"cmd":"flush","seq":6,"model":"/tmp/chair.FCStd"}
+{"ok":false,"cmd":"flush","seq":6,"saved":[],"failed":[{"model":"/tmp/chair.FCStd","rev":5,"error":"PermissionError: the folder tmp is read-only"}],"error":"couldn't save chair.FCStd: PermissionError: the folder tmp is read-only"}
 {"cmd":"bye"}
-{"ok":true,"cmd":"bye","seq":null}
+{"ok":true,"cmd":"bye","seq":null,"saved":[],"failed":[]}
 {"cmd":"quit"}
-{"ok":true,"cmd":"quit","seq":null,"stopped":true}
+{"ok":true,"cmd":"quit","seq":null,"saved":[],"failed":[],"stopped":true}
 ```
 
-Each row is an independent request/reply example, not one stream after bye. Save events may precede lifecycle acknowledgements. Saving errors are logged and swallowed by `save_pending`; these acknowledgements report completion of the attempt, not guaranteed persistence. `quit.stopped` depends on **connections**, including probes, not just owned documents.
+Each row is an independent request/reply example, not one stream after bye. Save events may precede lifecycle acknowledgements. A save that fails stays pending (T79): the timer's autosave doesn't keep retrying it, but the next sync of that model, flush, bye or quit does, and each failed attempt sends `save_failed`. `quit.stopped` depends on **connections**, including probes, not just owned documents.
 
-Producer: [worker/serve.py](../worker/serve.py):`serve.handle`, `save_pending`, `let_go`, `release`. Consumer: [viewport/main.gd](../viewport/main.gd):`_shutdown_worker` sends bye for a shared worker (waits up to 4 s) or quit for a private worker (then kills if still running); [worker/test_serve.py](../worker/test_serve.py) uses flush and checks lifecycle behaviour. `main.gd:_on_worker` drops lifecycle replies (an error one is shown in the status line); they never reach sync state.
+Producer: [worker/serve.py](../worker/serve.py):`serve.handle`, `save_pending`, `let_go`, `release`. Consumer: closing a window (`main.gd:_request_close`, `document.gd:begin_close`) waits for the sync in flight, sends `flush` with its `model`, and closes on an ok answer with the latest revision saved; otherwise it asks Retry / Close without saving / Cancel (I55; no answer in `CLOSE_WAIT_S` asks too). Then [viewport/main.gd](../viewport/main.gd):`_shutdown_worker` sends bye for a shared worker (waits up to 4 s) or quit for a private worker (then kills if still running); `document.gd:on_flush_reply` takes flush's answers; [worker/test_serve.py](../worker/test_serve.py) uses flush and checks lifecycle behaviour. `main.gd:_on_worker` sends flush replies to `document.gd:on_flush_reply` and drops bye and quit (an error one is shown in the status line); none reach sync state.
 
-### `saved` and `focus` events
+### `saved`, `save_failed` and `focus` events
 
 Both are unsolicited, worker → window only; there is no matching request or seq.
 
 ```json
 {"ok":true,"cmd":"saved","model":"/tmp/chair.FCStd","rev":4}
+{"ok":false,"cmd":"save_failed","model":"/tmp/chair.FCStd","rev":5,"error":"PermissionError: the folder tmp is read-only"}
 {"ok":true,"cmd":"focus","model":"/tmp/chair.FCStd"}
 {"ok":false,"cmd":"open","error":"already_open","model":"/tmp/chair.FCStd","seq":7}
 ```
 
-`saved` includes `model: absolute string`, `rev: integer`, sent only to the owner after successful pending save. `focus` includes `model: absolute string`, sent to the existing owner when another connection's **open** is refused. Sync/inspection ownership errors do not send focus. The owner foregrounds its window; the refusing reply goes to the second connection.
+`saved` includes `model: absolute string`, `rev: integer`, sent only to the owner after successful pending save. `save_failed` (T79) includes `model`, `rev` (the revision it tried; the session's own revision doesn't move, so the retry saves that one) and `error` (`ExceptionType: message`; a read-only folder says so), sent to the owner after each failed attempt; the window shows "Couldn't save: <message>" until a `saved` (I54). `focus` includes `model: absolute string`, sent to the existing owner when another connection's **open** is refused. Sync/inspection ownership errors do not send focus. The owner foregrounds its window; the refusing reply goes to the second connection.
 
-Producer/consumer: [worker/serve.py](../worker/serve.py):`save_pending`, `serve.handle`; [viewport/main.gd](../viewport/main.gd):`_on_worker`, `_on_open`; [viewport/document.gd](../viewport/document.gd):`on_saved` (matches normalized model path; monotonically advances saved revision).
+Producer/consumer: [worker/serve.py](../worker/serve.py):`save_pending`, `serve.handle`; [viewport/main.gd](../viewport/main.gd):`_on_worker`, `_on_open`; [viewport/document.gd](../viewport/document.gd):`on_saved` (matches normalized model path; monotonically advances saved revision; clears `save_error`), `on_save_failed` (sets `save_error`, the message without the exception's name).
 
 ### Generic request errors
 
@@ -313,7 +318,7 @@ These are observed code limitations/mismatches, not changes made by the original
 2. **Fixed (T70 / H042): lifecycle replies are routed by cmd.** `main.gd:_on_worker` passes only `sync` replies to `on_sync_reply`; lifecycle replies are dropped (errors shown), and `on_sync_reply` itself ignores any reply whose seq isn't the request in flight. Original finding: **Lifecycle replies are not routed in the general client.** `main.gd:_on_worker` handles open/length/inspect/focus/saved, then forwards every other dictionary to `document.gd:on_sync_reply`. A normal `flush`/hello/bye/quit success has no result and can reach sync-only logic (null/missing seq or missing result). Current app hello uses its own probe; shared shutdown reads raw bytes; flush is used by socket tests. The issue concerns using these commands through the ordinary reply signal. Sources: `serve.handle`; `main.gd:_on_worker`, `_probe_worker`, `_shutdown_worker`; `document.gd:on_sync_reply`.
 3. **Fixed (T78 / H038): drawing intent while busy.** `document.gd:request_drawing` retains a per-model pending flag while a sync is in flight. The next `_send` carries `drawing: true` alongside the latest ops and consumes the flag; later ordinary syncs send false. `reset` clears queued intent when switching models. Once enabled, the worker's session drawing flag stays true. Sources: `document.gd:request_drawing`, `_send`, `on_sync_reply`, `reset`; `serve.run_sync`.
 4. **Fixed (T70 / H042): open replies are correlated.** The window sends `seq` with every open and the worker echoes it (with the absolute model) on success, refusal and error; `document.gd:is_current_open` drops a reply that isn't for the latest open and the current model. Original finding: **Open replies lack freshness correlation.** `open` success/refusal does not echo seq, and `main.gd:_on_open` does not compare returned model against current model before adopting ops. Unlike sync/inspection, rapid switches cannot distinguish a stale open response by request identity. Sources: `serve.handle`; `document.gd:send_open`, `on_opened`; `main.gd:_on_open`.
-5. **Save failure does not fail lifecycle acknowledgements or retain the pending save.** `save_pending` logs exceptions, removes the pending entry, and flush/bye/quit can still reply ok; only `saved` positively acknowledges a landed revision. The window's shutdown wait is bounded rather than a guaranteed saved-revision handshake. Sources: `serve.save_pending`, `serve.handle`; `main.gd:_shutdown_worker`; `document.gd:on_saved`.
+5. **Fixed (T79, H048): a failed save stays pending and is reported.** `save_pending` keeps a failed save (retried on the next sync, flush, bye or quit, not by the timer), sends `save_failed`, and flush / bye / quit answer with `saved` / `failed` lists, `ok` only when nothing failed; closing a window waits for its latest revision (I54, I55). Checks: `worker/test_serve.py` (a read-only folder), `viewport/test_document.gd`, quick section `save_failure`. Was: `save_pending` logs exceptions, removes the pending entry, and flush/bye/quit can still reply ok; only `saved` positively acknowledges a landed revision. The window's shutdown wait is bounded rather than a guaranteed saved-revision handshake. Sources: `serve.save_pending`, `serve.handle`; `main.gd:_shutdown_worker`; `document.gd:on_saved`.
 6. **Replay's reply command is sync.** This is the implemented alias, so a consumer correlating reply cmd strictly to replay would fail. Current window sends sync, not replay. Sources: `serve.handle`; `document.gd:_send`.
 7. **Nested oplog name is ignored for status naming.** The window sends `oplog.name`; `run_sync` uses top-level `name`, so its normal status says `oplog: "live"`. Sources: `document.gd:oplog`, `_send`; `serve.run_sync`.
 

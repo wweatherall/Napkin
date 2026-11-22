@@ -28,7 +28,6 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 <!-- open list: built from docs/handoff/ by tools/handoff.py; don't edit by hand -->
 
 - [H046 — T82: the Line tool, closed outlines and split faces](handoff/H046-t82-lines-split-faces.md) — status: queued (after T88); for: Codex
-- [H048 — T79: a failed save is forgotten](handoff/H048-t79-failed-save.md) — status: open; for: Claude
 - [H049 — T90: a faster gate](handoff/H049-faster-gate.md) — status: open; for: Codex
 - [H050 — For the next integrator session: where things stand](handoff/H050-integrator-state.md) — status: open; for: the integrator
 
@@ -65,6 +64,7 @@ H036 (T75) is open from main. It touches viewport files only, so it runs alongsi
 
 Full entries in [handoff-archive.md](handoff-archive.md).
 
+- H048 — T79: a failed save is forgotten. Resolved: merged into main by the integrator, 2026-11-22.
 - H047 — T88 stage 1: the tools' interface to Main (inventory and proposal). Resolved: merged into main by the integrator, 2026-11-22.
 - H045 — T86: a process outlives the quick test. Resolved: merged into main by the integrator, 2026-11-22.
 - H041 — T81: the Circle tool. Resolved: merged into main by the integrator, 2026-11-22.

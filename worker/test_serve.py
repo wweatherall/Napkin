@@ -125,6 +125,39 @@ try:
     a.close()
     ob3 = b.ask({"cmd": "open", "model": m1}, "open")
     check("then the other window can open it, with its work", ob3["ok"] and len(ob3["ops"]) == 2, ob3)
+    # T79: a save that fails (a read-only folder) stays pending, the window is told, flush answers not ok
+    ro = os.path.join(tmp, "readonly")
+    os.makedirs(ro, exist_ok=True)
+    m3 = os.path.join(ro, "three.FCStd")
+    b.ask({"cmd": "open", "model": m3, "fresh": True}, "open")
+    sync(b, m3, board_ops(200), 3)
+    first = b.wait("saved", timeout=10)
+    os.chmod(ro, 0o555)
+    try:
+        sync(b, m3, board_ops(250), 4)
+        bad = b.wait("save_failed", timeout=10)
+        check("a save that fails tells the window that owns the model (save_failed: model, rev, error)",
+              bad is not None and bad["model"] == m3 and first and bad["rev"] == first["rev"] + 1
+              and bad.get("error") == "PermissionError: the folder readonly is read-only",
+              (first, bad))
+        time.sleep(1.0)                         # the timer doesn't keep retrying a failed save
+        fl2 = b.ask({"cmd": "flush", "seq": 17}, "flush")
+        tries = [m for m in b.extra if m.get("cmd") == "save_failed"]     # only flush's own retry (sent before its reply)
+        check("the timer doesn't retry a failed save; flush does, and answers not ok with what failed",
+              len(tries) == 1 and fl2 and not fl2["ok"] and fl2.get("seq") == 17 and fl2["saved"] == []
+              and [f["rev"] for f in fl2["failed"]] == [bad["rev"]] and "three.FCStd" in fl2.get("error", ""),
+              (len(tries), fl2))
+    finally:
+        os.chmod(ro, 0o755)
+    fl3 = b.ask({"cmd": "flush", "seq": 18}, "flush")
+    landed = next((m for m in reversed(b.extra) if m.get("cmd") == "saved"), None)    # sent before flush's reply
+    jr = json.load(open(os.path.join(ro, "three.shopsketch.json")))
+    check("once the folder is writable again the retry saves the same revision, and flush answers ok",
+          fl3 and fl3["ok"] and fl3["saved"] == [{"model": m3, "rev": bad["rev"]}] and fl3["failed"] == []
+          and landed and landed["rev"] == bad["rev"] and jr["rev"] == bad["rev"] and len(jr["ops"]) == 2,
+          (fl3, landed, jr.get("rev")))
+    fl4 = b.ask({"cmd": "flush", "seq": 19}, "flush")
+    check("a flush with nothing pending saves nothing and answers ok", fl4["ok"] and fl4["saved"] == [], fl4)
     q = b.ask({"cmd": "quit", "seq": 16}, "quit")
     check("quit from the last window stops the worker", q["stopped"] and q.get("seq") == 16 and proc.wait(timeout=20) == 0, q)
     # idle exit: a fresh worker stops by itself after its last window disconnects

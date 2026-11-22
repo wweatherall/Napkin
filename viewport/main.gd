@@ -311,6 +311,9 @@ func _ready() -> void:
 	doc.synced.connect(_on_synced)
 	doc.sync_failed.connect(_on_sync_failed)
 	doc.save_changed.connect(_update_saved)
+	doc.close_ready.connect(_close_now)
+	doc.close_blocked.connect(_ask_close)
+	get_tree().set_auto_accept_quit(false)       # closing waits for the latest save first (I55, _request_close)
 	doc.op_removed.connect(_on_op_removed)
 	doc.removed.connect(_on_removed)
 	doc.idle.connect(_request_properties)
@@ -462,7 +465,12 @@ var saved_shown: Array = []         # tests: what the indicator has said, in ord
 
 func _update_saved() -> void:
 	if ui_saved == null: return
-	ui_saved.text = "Saving…" if pending_rev > saved_rev else "Saved"
+	if doc.save_error != "":            # stays until a save lands (I54); the worker retries on the next change
+		ui_saved.text = "Couldn't save: %s" % doc.save_error
+		ui_saved.add_theme_color_override("font_color", Color(0.75, 0.1, 0.1))
+	else:
+		ui_saved.text = "Saving…" if pending_rev > saved_rev else "Saved"
+		ui_saved.remove_theme_color_override("font_color")
 	if test_mode and (saved_shown.is_empty() or saved_shown.back() != ui_saved.text): saved_shown.append(ui_saved.text)
 
 
@@ -1312,6 +1320,12 @@ func _on_worker(resp: Dictionary) -> void:
 	if resp.get("cmd", "") == "saved":
 		doc.on_saved(resp)
 		return
+	if resp.get("cmd", "") == "save_failed":         # T79: the indicator says why (I54)
+		doc.on_save_failed(resp)
+		return
+	if resp.get("cmd", "") == "flush":               # what it saved and couldn't (T79); closing waits on it
+		doc.on_flush_reply(resp)
+		return
 	if not resp.get("cmd", "") in ["sync", "replay"]:   # flush, hello, bye, quit, or an error for some other request:
 		if not resp.get("ok", false):                    # never sync state (T70)
 			_say_worker("✗ worker error: %s" % resp.get("error", "?"))
@@ -1563,7 +1577,7 @@ func _port_free(p: int) -> bool:
 
 # The window <-> worker protocol's version (docs/protocol.md): bump it when a message or shared-file field changes.
 # The worker reports its own (worker/serve.py PROTOCOL_VERSION) in hello; a worker speaking another isn't shared.
-const PROTOCOL_VERSION := 2
+const PROTOCOL_VERSION := 3
 
 
 func _probe_worker(p: int) -> String:
@@ -1724,7 +1738,12 @@ func _on_link_up(first: bool) -> void:
 	doc.on_link_up()
 
 
+var _worker_shut := false
+
+
 func _shutdown_worker() -> void:
+	if _worker_shut: return
+	_worker_shut = true
 	if shared_worker:
 		# other windows may be using it: hand back this window's model (saved first) and leave it running;
 		# it stops by itself a few seconds after the last window has gone
@@ -1750,6 +1769,77 @@ func _shutdown_worker() -> void:
 
 func _exit_tree() -> void:
 	_shutdown_worker()
+
+
+# ---------------- closing the window (I55, T79) ----------------
+# Closing (the window's close button, Cmd+Q) waits until the latest revision is on disk. If it can't be saved, a
+# dialog says why: Retry, Close without saving (the journal still has the actions), or Cancel.
+const CLOSE_WAIT_S := 10.0          # FreeCAD hasn't answered closing's save in this long: ask (tunable)
+var _close_asking := false          # the dialog is up
+var _close_try := 0                 # numbers each try, so an old try's timer can't ask during a newer one
+var close_asked: Array = []         # tests: the reasons the dialog would have given (it isn't shown in test mode)
+var close_done := false             # tests: _close_now ran (the window would have gone)
+
+
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_WM_CLOSE_REQUEST:
+		_request_close()
+
+
+func _request_close() -> void:
+	if _close_asking or doc.closing: return      # already waiting, or asking
+	if doc.begin_close():
+		_close_now()
+		return
+	_say_worker("saving %s before closing…" % model_path.get_file())
+	_close_try += 1
+	var try_then := _close_try
+	get_tree().create_timer(CLOSE_WAIT_S).timeout.connect(func() -> void:
+		if doc.closing and not _close_asking and _close_try == try_then:
+			doc.cancel_close()
+			_ask_close("FreeCAD hasn't answered"))
+
+
+func _ask_close(reason: String) -> void:
+	_close_asking = true
+	var text := "%s couldn't be saved: %s.\nIts actions are kept in its journal beside the file." % [model_path.get_file(), reason]
+	if test_mode:
+		close_asked.append(reason)
+		return
+	if DisplayServer.has_feature(DisplayServer.FEATURE_NATIVE_DIALOG):
+		DisplayServer.dialog_show("Couldn't save", text, PackedStringArray(["Retry", "Close without saving", "Cancel"]),
+			func(i: int) -> void: _close_choice(["retry", "discard", "cancel"][clampi(i, 0, 2)]))
+		return
+	var dlg := ConfirmationDialog.new()
+	dlg.title = "Couldn't save"
+	dlg.dialog_text = text
+	dlg.ok_button_text = "Retry"
+	dlg.add_button("Close without saving", true, "discard")
+	dlg.confirmed.connect(func() -> void: dlg.queue_free(); _close_choice("retry"))
+	dlg.canceled.connect(func() -> void: dlg.queue_free(); _close_choice("cancel"))
+	dlg.custom_action.connect(func(_a: StringName) -> void: dlg.queue_free(); _close_choice("discard"))
+	add_child(dlg)
+	dlg.popup_centered()
+
+
+func _close_choice(choice: String) -> void:
+	_close_asking = false
+	match choice:
+		"retry": _request_close()
+		"discard":
+			print("SHOPSKETCH closing without saving %s (rev %d not saved: %s)" % [model_path, pending_rev, doc.save_error])
+			_close_now()
+		_:
+			doc.cancel_close()
+			_update_saved()
+			ui_sync.text = ""
+
+
+func _close_now() -> void:
+	close_done = true
+	if test_mode: return                # tests check close_done; the run goes on
+	_shutdown_worker()
+	get_tree().quit()
 
 
 # ---------------- documents, menus, dialogs (T8) ----------------
