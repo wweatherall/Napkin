@@ -28,6 +28,7 @@ so each agent has one Ready.
 | H039 | Claude | **Ready** | T80: make the full test reliable (the merge gate) | [H039](docs/handoff/H039-t80-flaky-full-test.md) | |
 | H038 | Codex | **Ready** | T78: a drawing request during a sync is lost (viewport/document.gd) | [H038](docs/handoff/H038-t78-drawing-request-lost-during-sync.md) | |
 | H040 | Codex | **Ready** | T33: small distances: typed values of any size get through | [H040](docs/handoff/H040-t33-small-distances.md) | |
+| H041 | either | Queued | T81: the Circle tool (first of the new shapes, I49) | [H041](docs/handoff/H041-circle-tool.md) | H040 (push_tool.gd, worker/push.py) |
 | next | Claude | Queued | T70: a late worker reply can't replace a newer state (incl. stale open replies) | written when ready | H038 (document.gd) |
 | next | either | Queued | T79: a failed save is forgotten; shutdown waits on a saved revision | written when ready | H038 (document.gd) |
 | next | either | Queued | T66: units in the measurements box | written when ready | William: the units preference |
