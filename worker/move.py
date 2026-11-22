@@ -152,6 +152,9 @@ class MoveActions:
         divide = op.get("divide", False)
         changed = []
         new_ids = list(op.get("new_ids", []))
+        groups, made_groups = op.get("groups", {}), {}   # copying whole assemblies: old AssemblyId -> new one (I44)
+        if groups and (count > 1 or divide):
+            raise OpError("Copying an assembly into a row isn't built yet: copy it once")
         for t in op["targets"]:
             if t in self.assemblies() and not copy:
                 changed += self.move_assembly(self.assemblies()[t], vecv)
@@ -186,12 +189,15 @@ class MoveActions:
                 obj.Placement = App.Placement(obj.Placement.Base + vecv, obj.Placement.Rotation)
                 changed.append(t)
                 continue
+            home = getattr(self.assembly_of(obj), "AssemblyId", "")
             obj = self.as_component(obj)             # a plain board becomes a component first, once (A22c)
             arr = self.new_array(obj, vecv, count, divide, op["id"]) if (count > 1 or divide) and not self.is_mirror(obj) else None
             for i in range(1, count + 1):
                 step = vecv * (i / count) if divide else vecv * i
                 nid = new_ids.pop(0) if new_ids else f"{t}_{i + 1}"
                 self.copy_body(obj, nid, step, arr, i)
+                if groups.get(home):
+                    self.copy_into_assembly(nid, groups[home], made_groups)
                 changed.append(nid)
             if arr is not None:
                 changed.append(t)

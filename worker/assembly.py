@@ -33,6 +33,21 @@ class AssemblyActions:
             g.addObject(obj)
         return list(op["targets"])
 
+    def copy_into_assembly(self, bid, aid, made):
+        """A copy of a board in a wholly copied assembly goes into that copy's new assembly (I44), not the old one."""
+        g = made.get(aid)
+        if g is None:
+            if aid in self.assemblies():
+                raise OpError(f"assembly '{aid}' already exists")
+            g = made[aid] = self.doc.addObject("App::DocumentObjectGroup", "Assembly")
+            g.Label = aid
+            add_props(g, SSRole="assembly", AssemblyId=aid)
+        obj = self.body(bid)
+        for other in obj.InList:
+            if other.TypeId == "App::DocumentObjectGroup" and getattr(other, "SSRole", "") == "assembly":
+                other.removeObject(obj)
+        g.addObject(obj)
+
     def move_assembly(self, g, vecv):
         """Move everything in an assembly by vecv. Each real board moves once (a flipped board's hidden original
         moves by the reflected vector); each mirror's plane shifts by what keeps its image moving with the rest."""

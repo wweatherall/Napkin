@@ -203,9 +203,11 @@ func restore_counters() -> void:
 			if id.begins_with(k) and id.substr(k.length()).is_valid_int():
 				counters[k] = maxi(counters[k], int(id.substr(k.length())))
 				break
-		var aid := String(op.get("new_id", "")) if op["type"] == "make_assembly" else String(op.get("group", ""))
-		if aid.begins_with("a") and aid.substr(1).is_valid_int():
-			counters["a"] = maxi(counters["a"], int(aid.substr(1)))
+		var aids: Array = op.get("groups", {}).values()
+		aids.append(String(op.get("new_id", "")) if op["type"] == "make_assembly" else String(op.get("group", "")))
+		for aid in aids:
+			if String(aid).begins_with("a") and String(aid).substr(1).is_valid_int():
+				counters["a"] = maxi(counters["a"], int(String(aid).substr(1)))
 		var made: Array = op.get("new_ids", [])
 		if op.has("body"): made = [op["body"]]
 		for bid in made:
