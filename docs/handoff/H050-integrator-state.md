@@ -26,5 +26,6 @@ Waiting on William: `python3 tools/startup.py` lists it, from main (T93); it isn
 Check-ins: William asked for one every ~45 min (a one-shot CronCreate that schedules the next). They live only in
 the session that made them: after a clear, check CronList and schedule one if he still wants them.
 
-Housekeeping, ask William first: ~25 old worktrees in /private/tmp, ~/.codex/worktrees and ../fretchup-* are on
-merged branches (startup.py hides them); `git worktree list` shows them.
+
+Housekeeping done 2026-11-22: old worktrees and /private/tmp scratch removed; job scratch now goes in scratch/ inside
+the worktree (P25), so merges clean it up.
