@@ -69,17 +69,20 @@ shutil.rmtree(tmp)
 
 
 # 3. The gate: a known UI failure never excuses a feature-test failure.
-def gate(quick_out, quick_rc, known):
+def gate(quick_out, quick_rc, known, full_rc=0, expected_full_args=""):
     root = tempfile.mkdtemp(prefix="gate-test-")
     sh(root, "git", "init", "-q")
     os.makedirs(os.path.join(root, "tools")); os.makedirs(os.path.join(root, "tests"))
     shutil.copy(os.path.join(HERE, "gate.sh"), os.path.join(root, "tools", "gate.sh"))
     open(os.path.join(root, "tools", "quicktest.sh"), "w").write(f"#!/bin/bash\ncat <<'X'\n{quick_out}\nX\nexit {quick_rc}\n")
-    open(os.path.join(root, "tools", "fulltest.sh"), "w").write("#!/bin/bash\nexit 0\n")
+    open(os.path.join(root, "tools", "fulltest.sh"), "w").write(
+        '#!/bin/bash\nprintf "%s" "$*" > full-args\n' + f"exit {full_rc}\n")
     for f in ("quicktest.sh", "fulltest.sh"):
         os.chmod(os.path.join(root, "tools", f), 0o755)
     open(os.path.join(root, "tests", "known_failures.txt"), "w").write(known)
     r = sh(root, "bash", "tools/gate.sh")
+    args = open(os.path.join(root, "full-args")).read()
+    check("gate full-test mode: " + (expected_full_args or "standalone"), args == expected_full_args, args)
     shutil.rmtree(root)
     return r.returncode, r.stdout
 
@@ -94,8 +97,19 @@ rc, out = gate(HIDE + "\n" + BAD_FEAT, 1, KNOWN)
 check("a listed UI failure plus a feature-test failure fails the gate (Codex's case)", rc == 1 and "SCENARIO TESTS" in out, out)
 rc, out = gate(HIDE + "\n" + OK_FEAT, 1, "")
 check("an unlisted UI failure fails the gate", rc == 1 and "NEW FAILURE" in out, out)
-rc, out = gate("QUICK 153 passed, 0 failed", 0, "")
+rc, out = gate("QUICK 153 passed, 0 failed", 0, "", expected_full_args="")
 check("no feature-test summary at all fails the gate", rc == 1 and "no feature-test summary" in out, out)
+ALL_OK = OK_FEAT.replace("QUICK 152 passed, 1 failed", "QUICK 153 passed, 0 failed")
+rc, out = gate(ALL_OK, 0, "", expected_full_args="--gate-ui-only")
+check("a successful quick run reuses its parse and feature checks", rc == 0 and "GATE PASS" in out, out)
+rc, out = gate(ALL_OK, 0, "", full_rc=1, expected_full_args="--gate-ui-only")
+check("a full-test failure still fails the gate after reuse", rc == 1 and "full test FAILS" in out, out)
+rc, out = gate(HIDE + "\n" + OK_FEAT.replace("NATIVE TESTS: 83 passed, 0 failed", "native did not finish"), 1, KNOWN)
+check("a listed UI failure cannot excuse an unfinished feature test", rc == 1 and "didn't finish cleanly" in out, out)
+rc, out = gate("SCRIPT ERROR: broken\n" + OK_FEAT, 0, "", expected_full_args="")
+check("script errors fail the gate and keep full parsing enabled", rc == 1 and "didn't finish cleanly" in out, out)
+rc, out = gate(ALL_OK, 1, "")
+check("an unexplained quick exit still fails the gate", rc == 1 and "without a QUICK FAIL" in out, out)
 check("the real known-failures list holds only failures with an open Work list item",
       all("# T" in l for l in open(os.path.join(HERE, "..", "tests", "known_failures.txt")) if l.strip() and not l.startswith("#")))
 

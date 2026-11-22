@@ -7,10 +7,12 @@
 #   tools/quicktest.sh --one      every section in one window, one after another (as before T49)
 # If anything fails, run tools/fulltest.sh. Exit status 0 = all passed.
 cd "$(dirname "$0")/.."
+START=$SECONDS
 GD=/Applications/Godot.app/Contents/MacOS/Godot
 LANES=3
 [ "$1" = "--one" ] && LANES=0
 tools/parsecheck.sh || { echo "quick test not run: a viewport script doesn't parse"; exit 1; }
+echo "TIMING parse: $((SECONDS - START)) s"
 OUT=$(mktemp -d -t shopsketch-quick)
 tools/featuretest.sh "$OUT/feature" > "$OUT/feature.log" 2>&1 &
 FEATURES=$!
@@ -32,6 +34,9 @@ VP=0
 for p in "${PIDS[@]}"; do wait $p || VP=1; done
 kill $WATCH 2>/dev/null; wait $WATCH 2>/dev/null
 wait $FEATURES; FT=$?
+for i in "${!PIDS[@]}"; do
+  sed -n "s/^QUICK .* in \(.*\)$/TIMING quick lane $((i + 1)): \1/p" "$OUT/vp$((i + 1)).log"
+done
 cat "$OUT"/stopped.log 2>/dev/null
 grep -hE "QUICK FAIL|SCRIPT ERROR" "$OUT"/vp*.log
 grep -vE "^features:" "$OUT/feature.log"

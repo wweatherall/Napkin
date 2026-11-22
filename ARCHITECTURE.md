@@ -313,6 +313,12 @@ and feature-test extension instructions. Native structure/undo/reopen tests, con
 viewport comparisons validate different boundaries. Visual feel still needs real-hardware checks.
 Record actual commands/results against the delivered commit in the Work list or handoff.
 
+`tools/gate.sh` runs quick then full, with one verdict (P18). When quick succeeds and prints its feature/UI
+summary, the gate invokes full with `--gate-ui-only`: the quick run owns parsing and feature checks, and
+full still owns every recorded comparison and targeted UI suite. After any quick failure, full performs
+its own parsing and feature checks as well. Standalone quick/full commands always include those checks.
+Timing lines in their logs identify parsing, quick lanes, full lanes/suites, and individual feature tests.
+
 Architecture ownership and the same-commit update rule are defined in CLAUDE.md / AGENTS.md.
 Update the affected sections when a boundary, protocol/file format, state owner, persistent relationship,
 or save/recovery path changes. Keep this map about the resulting system rather than the delivery history.

@@ -6,7 +6,7 @@ References: T90, P18 (the gate), T49 (lanes side by side), T47 (own ports), T80 
 under load), H045 (the leftover test process, which changes quicktest.sh first).
 
 Touches: tools/gate.sh, tools/quicktest.sh, tools/fulltest.sh, tools/featuretest.sh, tools/test_integrate.py (the
-gate's checks). Not the suites or quick sections themselves unless a timing fix needs one (say so first).
+gate's checks), ARCHITECTURE.md (validation orchestration), and this handoff entry. Not the suites or quick sections themselves unless a timing fix needs one (say so first).
 
 Request: the gate runs the quick test, then the full test: ~3-4 minutes, and merges wait on it. Measure where the
 time goes (each lane, each suite, the feature tests, which run twice: once in each). Try: the two side by side;
