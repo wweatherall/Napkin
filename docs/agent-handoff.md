@@ -57,6 +57,14 @@ Architecture sections changed: Where responsibilities live (test files, harness 
 Planned boundaries (T51 implemented). No behavior decisions or new decision IDs. No open implementation questions.
 Implementation: `d11211c`. Nothing merged or pushed; ready for review on this branch.
 
+### H029 — T56: startup report todo recorded
+
+Author: Codex | Date: 2026-11-21 | Status: answered (ready for review)
+
+References: T56; branch `codex/startup-todo`.
+
+Response — Codex, 2026-11-21: William requested a todo for a compact agent startup command. Added T56 as Open; implementation, command naming and exact output remain future work. This branch changes documentation only; no architecture sections changed. Verification: decision-log sort check and git diff --check passed. No additional decision IDs; the request is recorded in T56. Not merged or pushed.
+
 ## Jobs for Codex (assigned by William, 2026-11-21)
 
 H005–H009 are done and archived (reviewed and merged by Claude, 2026-11-21). The rules below still apply to new jobs.
@@ -110,7 +118,7 @@ Full entries in [handoff-archive.md](handoff-archive.md).
 
 ## Entry template
 
-### H029 — Short subject
+### H030 — Short subject
 
 Author: Claude or Codex | Date: YYYY-MM-DD | Status: open
 
