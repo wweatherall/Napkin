@@ -15,6 +15,8 @@ Request: every worker reply the window acts on can be matched to the request it 
 an older request is ignored. (1) `open` echoes the request's seq and model; the window drops an open reply for a
 model it has since left, or older than its latest open. (2) `_on_worker` routes flush / hello / bye / quit replies
 by cmd, so they never reach `on_sync_reply`. (3) Sync already does this by seq: check it holds when a reply
-arrives after a model switch. This is a protocol change: bump the reference version in docs/protocol.md. Checks:
+arrives after a model switch. This is a protocol change: bump the reference version in docs/protocol.md. (4) Also seen by H039 (1 in 11 quick tests under load): `[worker] a new worker took over and confirmed the next
+board` failed: after a worker restart a reply from before it (or the re-sent request) cleared `in_flight`
+(`on_sync_reply` clears it for any seq), so the next sync was never sent. Make `in_flight` follow the seq. Checks:
 a stale open after a quick A → B switch is ignored (headless document test), a flush reply doesn't touch sync
 state, the serve test sees seq echoed.
