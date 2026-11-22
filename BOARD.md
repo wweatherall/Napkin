@@ -13,11 +13,15 @@ William says "check the board": this file tells each agent what to do next. The 
 4. Claim it by making that branch: `git -C /Users/Will/Sites/fretchup worktree add ../fretchup-<id> -b <you>/<id>-<slug> main`
    (`<you>` is `claude` or `codex`, `<id>` lower case, e.g. `claude/h036-keys`). Then read the job's handoff file and do it.
 5. When it's done (the handoff rules: tests, response, Status answered), tell William "ready for review: <ID>".
+   Your result goes in your handoff response, not the Work list (P-new-1). Don't take the integrator lock.
 6. Nothing Ready for you? Say so and stop; don't start something that isn't on the board.
 
 ## If you're the integrator
 
-You're the integrator only if William said so in this session (P16); a fresh session is a worker. Review every
+You're the integrator only if William said so in this session (P16) and you hold the lock: `python3
+tools/integrator.py take <your session name>` (refused if another holds it: ask William; after a context clear
+he says so and you run it with `--william`, P-new-3). Merge with `python3 tools/integrate.py <branch> --as <name>
+--push` (P-new-4). Review every
 branch whose job says answered, merge what's good and push main, update the board and the Work list, then write the next jobs
 so each agent has one Ready.
 

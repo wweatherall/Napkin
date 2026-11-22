@@ -32,7 +32,8 @@ Its folder guides apply to Codex too. This file owns Codex-specific startup, iso
   the other's permission to update it. Run commits with `git -c core.hooksPath=.githooks commit ...`.
   A specific `Architecture-Impact: none - <reason>` is only for genuinely non-architectural changes.
 - Use P08's light path for small fixes, with Codex's standing branch `codex/small-fixes`.
-  Otherwise record the result in the Work list and append a dated, signed response in the handoff:
+  Otherwise append a dated, signed response in the handoff (don't edit the Work list: the integrator writes your
+  result there at merge, P-new-1):
   branch, commit, decision IDs, verification, architecture sections changed and anything open. Set the
   entry's Status; archive resolved exchanges with `python3 tools/handoff.py archive H0NN`.
 - Behaviour choices are William's. Put unresolved questions in the handoff and mention them in chat.

@@ -170,6 +170,9 @@ def main(argv):
     for p, b in shown:
         print(f"  {p}  [{b}]")
 
+    import integrator
+    print(integrator.status_line(integrator.lock_path(root)))
+
     print("Recent main:")
     for l in git("log", "--oneline", "-5", "main", cwd=root).splitlines():
         print("  " + l)

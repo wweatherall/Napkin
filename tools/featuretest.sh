@@ -27,6 +27,7 @@ TESTS=(
   "logsort|python3 tools/test_sort_decision_log.py|LOG SORT TESTS"
   "ids|python3 tools/test_number_ids.py|ID TESTS"
   "startup|python3 tools/test_startup.py|STARTUP TESTS"
+  "lock|python3 tools/test_integrator.py|LOCK TESTS"
 )
 PIDS=()
 for t in "${TESTS[@]}"; do

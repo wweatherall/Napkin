@@ -12,12 +12,13 @@ marked Superseded (never deleted). Ask William before countermanding an Active d
 
 ## Working with William
 - He wants a partner working through the Work list one item at a time, so nothing gets missed. Say which item
-  you're on; when it's done, record the result in the Work list (commit, tests).
+  you're on; when it's done, record the result in your handoff response (commit, tests); the integrator copies it
+  into the Work list at merge (P-new-1: workers don't edit the Work list).
 - Each item on its own branch; commit when its tests pass. The integrator merges into main when it judges a branch
   good enough (review done, full test passes) and pushes main after merging (P16); other sessions never merge or push.
 - Quick test after every change; full test when it fails or before a merge. Add a quick-test step per feature.
 - New behaviour choices are his: ask (one question at a time, with a recommendation) and log the answer (P01).
-- One Work list item per session where possible: finish it (tests, commit, Work list result, a handoff
+- One Work list item per session where possible: finish it (tests, commit, the result in your handoff, a handoff
   note if Codex is affected), then start the next in a fresh session. The files carry the state, not the chat.
 - Tests are the project's memory: every behaviour gets a named check, so nobody has to remember how it works.
 - Small fixes take the light path (P08): nothing William would notice changes (or the code is made to do what a
@@ -29,7 +30,9 @@ marked Superseded (never deleted). Ask William before countermanding an Active d
   for a working prototype.
 
 ## Working with Codex (ChatGPT)
-- One Claude session is the integrator (P16): it assigns jobs in the handoff's Jobs section, reviews and merges.
+- One Claude session is the integrator (P16), and it holds the lock (`python3 tools/integrator.py status`, P-new-3):
+  only a session William has named takes it. It assigns jobs on the board, reviews, and merges with
+  `python3 tools/integrate.py <branch> --as <name>` (P-new-4), which runs the gate, `tools/gate.sh` (P-new-2).
   Any other session (Claude or Codex) takes the job it's given, works in its own worktree and delivers to the
   integrator; it doesn't merge into main. "Check the board" means: follow `BOARD.md` (P14).
 - Codex reads `AGENTS.md` (its instruction file) at the start of each session; keep it in step with this section.
@@ -98,7 +101,9 @@ confirmed meshes, the worker link, typed values, drawing rules, viewport tests) 
   Godot windows side by side (`--quicktest --quick-lane=N`, T49; `--one` for a single window), each step checking its
   own answer. Each window starts its own worker on a port it owns, so test runs never touch a running Shop Sketch
   or each other.
-- When the quick test fails, or before a merge: `tools/fulltest.sh` (~15 s): the six recorded suites compared
+- Before a merge: `tools/gate.sh` (the quick test, then the full test, one verdict; failures listed in
+  `tests/known_failures.txt` with their Work list item pass, nothing else, P-new-2).
+- When the quick test fails: `tools/fulltest.sh` (~15 s): the six recorded suites compared
   with `tests/reference/` (`tools/compare_suites.py`), the targeted suites, and the feature tests; the suites run in
   four lanes side by side, each with its own worker (T49). Suites run at the
   quick test's pace (`--fast`, same results); `--full-pace` as recorded. After an intended change in behaviour:
@@ -115,6 +120,8 @@ confirmed meshes, the worker link, typed values, drawing rules, viewport tests) 
 - Q4: feel test on real hardware. Earlier tuning was judged from software-rendered recordings.
 
 ## Conventions
+- Where the viewport predicts what FreeCAD will compute (lengths, circles, split-face regions), a test compares the
+  two answers, like `tests/length_cases.json` (P-new-5).
 - Keep the user-facing feel first: drafts appear instantly. Never block input on FreeCAD.
 - Rules for one part live in its guide: drawing and test-mode rules in `viewport/CLAUDE.md`, FreeCAD's traps in
   `worker/CLAUDE.md`, the tool interface in `viewport/tools/CLAUDE.md`. Change them there.
