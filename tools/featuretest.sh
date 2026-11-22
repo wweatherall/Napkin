@@ -35,6 +35,7 @@ TESTS=(
   "startup|python3 tools/test_startup.py|STARTUP TESTS"
   "lock|python3 tools/test_integrator.py|LOCK TESTS"
   "integrate|python3 tools/test_integrate.py|INTEGRATE TESTS"
+  "followups|python3 tools/test_follow_ups.py|FOLLOW-UP TESTS"
 )
 PIDS=()
 for t in "${TESTS[@]}"; do

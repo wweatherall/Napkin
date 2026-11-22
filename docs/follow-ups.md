@@ -6,4 +6,4 @@ or that turns it into a Work list item. `python3 tools/startup.py` lists the ope
 
 ## Open
 
-(none)
+- H060 (2026-11-22): integrate.py takes an entry's ID from its file name's first dash, so an entry still named H-new-N at merge records its Result and follow-ups as "H" (number_ids runs after); seen in reading, not hit yet.

@@ -55,7 +55,9 @@ marked Superseded (never deleted). Ask William before countermanding an Active d
   then read that range).
 - Jobs run through the queue (P24): a worker runs `python3 tools/job.py take`, works in the worktree it gets, and
   finishes with `python3 tools/job.py done`; the integrator runs `python3 tools/job.py watch` under its watcher and
-  reviews each done job; integrate.py also removes a merged job's worktree and branch.
+  reviews each done job; integrate.py also removes a merged job's worktree and branch. Leftovers go in a response
+  as `Follow-up:` lines and merge instructions as `For the integrator:` lines; integrate.py copies the first into
+  docs/follow-ups.md and prints the second (P26).
 - A job's scratch files, logs and measurements go in `scratch/` inside its worktree (git ignores it), never in
   /private/tmp or elsewhere: removing the worktree at merge takes them too (P25).
 - Codex works on `codex/*` branches in its own worktree, on the files its handoff job lists; review and merge them.
