@@ -21,7 +21,7 @@ How merges go: review the diff against its handoff and Touches; `python3 tools/i
 conflicts, stops on any other conflict, renumbers placeholders and the protocol version, flags files outside the
 Touches list, runs the gate. Then update BOARD.md (startup.py must show no OVERLAP) and push.
 
-Waiting on William: nothing (2026-11-22 ~11:00).
+Waiting on William: `python3 tools/startup.py` lists it, from main (T93); it isn't kept here.
 
 Check-ins: William asked for one every ~45 min (a one-shot CronCreate that schedules the next). They live only in
 the session that made them: after a clear, check CronList and schedule one if he still wants them.

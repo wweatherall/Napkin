@@ -77,10 +77,48 @@ check("a decision row is printed without following citations", len(lines) == 2)
 lines, unknown = s.report_ids(LOG, ["T54", "T999"])
 check("an unknown ID asked for is reported", unknown == ["T999"] and any("T999: not found" in l for l in lines))
 
+WLOG = ("## Principles\n\n| ID | Principle | Status | Covers | Date |\n|---|---|---|---|---|\n"
+        "| G01 | Feel first. | Active | A02 | 2026-11-22 |\n| G14 | Measure twice. | Tentative | I01 | 2026-11-22 |\n\n"
+        "## Work list\n\n| # | Item | Status | Covers | Result / next step |\n|---|---|---|---|---|\n"
+        "| T65 | Ask on a dropped save | Open | Q19 | After T64; the question's wording is your call. |\n"
+        "| T66 | Units | Open | T32 | Units preference: your call. Decided 2026-11-22: I57. |\n"
+        "| T25 | AppKit | Parked | I31 | Your call, 2026-11-21: wait for a prototype. |\n"
+        "| T67 | Paint key | Open | Q14 | Your call, 2026-11-21: P. |\n"
+        "| T68 | Done one | Done | Q1 | your call |\n"
+        "| T69 | Plain | Open | Q2 | After T68. |\n")
+rows = s.waiting_rows(WLOG)
+check("an Open Work list row left as 'your call' is waiting, with its sentence",
+      rows[:1] == [("T65", "After T64; the question's wording is your call.")])
+check("a 'your call' row with a decision ID after it was answered and isn't listed", "T66" not in [r[0] for r in rows])
+check("'Your call, <date>:' records an answer; Parked and Done rows aren't listed", [r[0] for r in rows] == ["T65"])
+check("a Tentative principle is waiting; an Active one isn't", s.tentative_principles(WLOG) == [("G14", "Measure twice.")])
+
+HO = {"H060-a.md": "### H060\n\nAuthor: x | Date: d | Status: open | For: Claude\n\nAsk William which key. Then build.\n",
+      "H061-b.md": "### H061\n\nAuthor: x | Date: d | Status: open | For: Claude\n\nAsk William which key.\n\n"
+                   "Response — Claude: logged as I70 (Option).\n",
+      "H062-c.md": "### H062\n\nAuthor: x | Date: d | Status: queued (after H060) | For: Codex\n\nFirst, ask William two"
+                   " things.\n\n- William's answers, logged: yes.\n",
+      "H063-d.md": "### H063\n\nAuthor: x | Date: d | Status: answered | For: Codex\n\nAsk William.\n",
+      "H064-e.md": "### H064\n\nAuthor: x | Date: d | Status: queued (after H060) | For: Codex\n\nNo question.\n"}
+check("an open handoff with an unanswered 'Ask William' is waiting, with its sentence",
+      s.waiting_handoffs(HO) == [("H060", "Ask William which key.")])
+check("a Response naming a logged decision, or a 'William's answers' line, answers it; an answered entry isn't open",
+      [h for h, _ in s.waiting_handoffs(HO)] == ["H060"])
+WBOARD = "## Notes\n\n- William: say whether to clear the old worktrees.\n- For William: T38's key.\n- Codex: take H046.\n"
+check("board notes addressed to William are listed; others aren't",
+      s.william_notes(WBOARD) == ["William: say whether to clear the old worktrees.", "For William: T38's key."])
+out = s.waiting_on_william(WLOG, HO, WBOARD, True)
+check("the section has one line per source, with IDs, and the CronList reminder when the lock is held",
+      any(l.startswith("  T65 (Work list):") for l in out) and any(l.startswith("  G14 (principle") for l in out)
+      and any(l.startswith("  H060 (handoff):") for l in out) and sum("Board note:" in l for l in out) == 2
+      and "CronList" in out[-1])
+check("nothing waiting says so; no lock, no reminder", s.waiting_on_william("", {}, "", False) == ["  (nothing)"])
+
 r = subprocess.run([sys.executable, os.path.join(HERE, "startup.py")], capture_output=True, text=True, timeout=10)
 check("smoke: the real report runs and has every section",
       r.returncode == 0 and all(h in r.stdout for h in ("This checkout:", "Worktrees", "Recent main:",
-                                                         "Branches with commits", "Ready on the board")))
+                                                         "Branches with commits", "Ready on the board",
+                                                         "Waiting on William")))
 r = subprocess.run([sys.executable, os.path.join(HERE, "startup.py"), "T1"], capture_output=True, text=True, timeout=10)
 check("smoke: asking for T1 prints its row", r.returncode == 0 and "| T1 |" in r.stdout)
 r = subprocess.run([sys.executable, os.path.join(HERE, "startup.py"), "T99999"], capture_output=True, text=True, timeout=10)

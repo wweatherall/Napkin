@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Session startup report (T56): run this instead of reading the big documents.
 
-  python3 tools/startup.py            checkout, worktrees, recent main, unmerged agent branches, Ready board jobs
+  python3 tools/startup.py            checkout, worktrees, recent main, unmerged agent branches, Ready board jobs,
+                                      and what waits on William (T93)
   python3 tools/startup.py T54 [...]  also each Work list row asked for, with the rows its Covers column cites
 
 Read-only. Works from any worktree: the board and the decision log are read from main (`git show main:<path>`),
@@ -174,6 +175,78 @@ def report_ids(log, ids, archive=""):
     return lines, unknown
 
 
+# --- Waiting on William (T93): read from main's log, handoffs and board, so nobody keeps the list by hand.
+DECISION_ID = re.compile(r"\b[IAUDMWPG]\d+[a-z]?\b")   # a logged decision (not a Q question or T item)
+YOUR_CALL = re.compile(r"your call(?!, \d{4}-)", re.I)    # "Your call, 2026-11-21: ..." records an answer
+ASK = re.compile(r"\bask William\b", re.I)
+ANSWERED = re.compile(r"William's answer", re.I)
+
+
+def sentence_at(text, i, n=90):
+    """The sentence around position i, on one line, shortened to n characters."""
+    cuts = [j + 2 for j in (text.rfind(". ", 0, i), text.rfind("\n\n", 0, i)) if j >= 0]
+    start = max(cuts, default=0)
+    end = text.find(". ", i)
+    out = " ".join(text[start:end + 1 if end >= 0 else len(text)].split())
+    return out if len(out) <= n else out[: n - 3] + "..."
+
+
+def waiting_rows(log):
+    """Open Work list rows whose last column leaves something as "your call" with no decision ID after it."""
+    out = []
+    for line in section(log, "Work list"):
+        if not line.startswith("| ") or line.startswith("| #"):
+            continue
+        c = cells(line)
+        if len(c) < 5 or c[2] != "Open":
+            continue
+        marks = list(YOUR_CALL.finditer(c[-1]))
+        if marks and not DECISION_ID.search(c[-1], marks[-1].end()):
+            out.append((c[0], sentence_at(c[-1], marks[-1].start())))
+    return out
+
+
+def tentative_principles(log):
+    return [(c[0], shorten(c[1], 90)) for c in (cells(l) for l in section(log, "Principles") if l.startswith("| G"))
+            if len(c) > 2 and c[2] == "Tentative"]
+
+
+def waiting_handoffs(entries):
+    """Open or queued handoffs with an "Ask William" sentence and no answer after it: a "William's answers" line, or
+    a Response line that names a logged decision."""
+    out = []
+    for name, text in sorted(entries.items()):
+        status = re.search(r"\| Status: ([^|\n]*)", text)
+        if not status or not status.group(1).strip().startswith(("open", "queued")):
+            continue
+        ask = ASK.search(text)
+        if not ask:
+            continue
+        rest = text[ask.end():]
+        if ANSWERED.search(rest) or any(l.startswith("Response") and DECISION_ID.search(l) for l in rest.splitlines()):
+            continue
+        out.append((name.split("-")[0], sentence_at(text, ask.start())))
+    return out
+
+
+def william_notes(board):
+    return [l.strip().removeprefix("- ") for l in section(board, "Notes")
+            if re.match(r"-?\s*(for )?William\b", l.strip().removeprefix("- "), re.I)]
+
+
+def waiting_on_william(log, entries, board, lock_held):
+    """The report's lines: one per thing that waits on William, with its ID and a short reason."""
+    lines = [f"  {i} (Work list): {why}" for i, why in waiting_rows(log)]
+    lines += [f"  {i} (principle, Tentative): {text}" for i, text in tentative_principles(log)]
+    lines += [f"  {i} (handoff): {why}" for i, why in waiting_handoffs(entries)]
+    lines += [f"  Board note: {shorten(n, 150)}" for n in william_notes(board)]
+    if not lines:
+        lines = ["  (nothing)"]
+    if lock_held:
+        lines.append("  Integrator: after a clear, check CronList for the check-ins William asked for (H050)")
+    return lines
+
+
 def main(argv):
     root = git("rev-parse", "--show-toplevel").strip()
     if not root:
@@ -226,8 +299,12 @@ def main(argv):
     for f, b in gone_branches(texts, [r[0] for r in refs]):
         print(f"  GONE: {f} names {b}, which no longer exists: update the note")
 
+    log = git("show", "main:docs/decision-log.md", cwd=root)
+    print("Waiting on William (from main):")
+    lock_held = bool(integrator.read(integrator.lock_path(root)))
+    print("\n".join(waiting_on_william(log, texts, board, lock_held)))
+
     if argv:
-        log = git("show", "main:docs/decision-log.md", cwd=root)
         archive = git("show", "main:docs/decision-archive.md", cwd=root)
         lines, unknown = report_ids(log, argv, archive)
         print()
