@@ -14,7 +14,7 @@ extends RefCounted
 ## checks each adapter's public members against an allowlist). Owners are passed in once, in `_init`; a part left
 ## out is null (the headless tests build contexts with stand-ins).
 ##
-## The adapters arrived in step 0 (H051); Line and Paint now use only the context. Where a
+## The adapters arrived in step 0 (H051); Line, Paint and Select now use only the context. Where a
 ## body still lives in main.gd (the mesh and line helpers, the marker, guides, the tooltip) the adapter
 ## calls it through one narrowly bound Callable; each body moves to its owner when its first tool migrates.
 ## Not yet here: view.present_draft (Push/Pull, step 5), view.mirror_preview (Move, step 6) and the Push/Pull
@@ -137,9 +137,7 @@ class ModelCapability extends _Capability:
 
 	func unit_triangles(unit: Dictionary) -> PackedVector3Array:
 		"""Every triangle of what a click stands for (selection.unit_of's bodies)."""
-		var t := PackedVector3Array()
-		for b in unit.get("bodies", []): t.append_array(_pres.body_tris.get(b, PackedVector3Array()))
-		return t
+		return _pres.unit_tris(unit)
 
 	func cut_at(body: String, p: Vector3) -> Dictionary:
 		return _pres.cut_at(body, p).duplicate(true)
@@ -236,7 +234,6 @@ class ViewCapability extends _Capability:
 	var _clear_guides
 	var _add_node
 	var _pres
-	var _box: Panel
 	var _face: MeshInstance3D
 
 	func _init(parts: Dictionary) -> void:
@@ -278,22 +275,10 @@ class ViewCapability extends _Capability:
 
 	func selection_box(start: Vector2, finish: Vector2) -> void:
 		"""Select's drag box: blue dragging right (enclosed), green dragging left (crossing)."""
-		if not is_instance_valid(_box):
-			_box = Panel.new()
-			_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-			_call(_add_node, [_box])
-		var style := StyleBoxFlat.new()
-		var color := Color(0.2, 0.45, 0.95) if finish.x >= start.x else Color(0.1, 0.65, 0.4)
-		style.bg_color = Color(color, 0.12)
-		style.border_color = color
-		style.set_border_width_all(1)
-		_box.add_theme_stylebox_override("panel", style)
-		var rect := Rect2(start, finish - start).abs()
-		_box.position = rect.position; _box.size = rect.size
+		_pres.selection_box(start, finish)
 
 	func clear_selection_box() -> void:
-		if is_instance_valid(_box): _box.queue_free()
-		_box = null
+		_pres.clear_selection_box()
 
 	func face_highlight(tris: PackedVector3Array) -> void:
 		"""Push/Pull's highlight of the face an edge offers, in the hover style."""

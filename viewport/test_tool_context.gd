@@ -36,6 +36,8 @@ class FakeAppearance:
 
 class PaintInference:
 	var hit := {}
+	var projection
+	func project(p: Vector3) -> Dictionary: return projection.project(p)
 	func pick(_screen: Vector2) -> Dictionary: return hit.duplicate(true)
 
 
@@ -173,7 +175,11 @@ func _initialize() -> void:
 	var ids: Array = ctx.model.body_ids(); ids.append("bx")
 	check("model.body_ids is a copy", pres.body_tris.size() == 1)
 	check("model.triangles of a missing board is empty", ctx.model.triangles("b9").is_empty())
-	check("model.unit_triangles joins the unit's boards", ctx.model.unit_triangles({"bodies": ["b1", "b9", "b1"]}).size() == 6)
+	var joined: PackedVector3Array = ctx.model.unit_triangles({"bodies": ["b1", "b9", "b1"]})
+	check("model.unit_triangles joins the unit's boards", joined.size() == 6)
+	joined[0] = Vector3.ONE
+	check("model.unit_triangles is a snapshot from its presenter owner", pres.body_tris.b1[0] == Vector3.ZERO
+		and pres.unit_tris({"bodies": ["b1"]}) == tri)
 	sel.set_boards([{"id": "b1", "assembly": "a1"}, {"id": "b2", "assembly": "a1"}, {"id": "b3"}])
 	sel.selection = ["b3"]
 	var sids: Array = ctx.selection.ids(); sids.append("b1")
@@ -289,15 +295,24 @@ func _initialize() -> void:
 	v.view.marker(hit)
 	check("view.marker passes a copy of the hit", hit["point"] == Vector3(5, 5, 0) and calls.back()[0] == "marker")
 	v.view.selection_box(Vector2(10, 10), Vector2(50, 40)); v.view.selection_box(Vector2(10, 10), Vector2(60, 70))
-	check("view.selection_box makes one box and follows the drag", added.size() == 1 and added[0] is Panel
-		and added[0].size == Vector2(50, 60) and added[0].mouse_filter == Control.MOUSE_FILTER_IGNORE)
+	var panels: Array = pres.get_children().filter(func(n): return n is Panel)
+	check("view.selection_box reuses a presenter-owned box and follows the drag", added.is_empty() and panels.size() == 1
+		and panels[0].size == Vector2(50, 60) and panels[0].mouse_filter == Control.MOUSE_FILTER_IGNORE)
+	var panel: Panel = panels[0]
+	var style: StyleBoxFlat = panel.get_theme_stylebox("panel")
+	check("window box keeps blue fill and one-pixel border", style.border_color == Color(0.2, 0.45, 0.95)
+		and style.bg_color == Color(Color(0.2, 0.45, 0.95), 0.12) and style.border_width_left == 1)
+	v.view.selection_box(Vector2(60, 70), Vector2(10, 10))
+	check("crossing box keeps green and normalized bounds", panel.position == Vector2(10, 10) and panel.size == Vector2(50, 60)
+		and panel.get_theme_stylebox("panel").border_color == Color(0.1, 0.65, 0.4))
 	v.view.clear_selection_box()
+	check("view.clear_selection_box releases the presenter's Panel", panel.is_queued_for_deletion())
 	v.view.face_highlight(tri)
-	check("view.face_highlight makes its own node in the hover style", added.size() == 2 and added[1] is MeshInstance3D
-		and added[1].mesh != null and calls.back() == ["tri", 3, mats["hover"]])
+	check("view.face_highlight makes its own node in the hover style", added.size() == 1 and added[0] is MeshInstance3D
+		and added[0].mesh != null and calls.back() == ["tri", 3, mats["hover"]])
 	v.view.clear_face_highlight()
-	check("view.clear_face_highlight clears it", added[1].mesh == null)
-	made.append(added[1])
+	check("view.clear_face_highlight clears it", added[0].mesh == null)
+	made.append(added[0])
 	check("ui.new_board / paint.current_name read the bound options", v.ui.new_board() and v.paint.current_name() == "White oak")
 	var targets := ["b1"]
 	v.paint.apply(targets)
@@ -363,6 +378,56 @@ func _initialize() -> void:
 	paint_tool.click(Vector2.ZERO)
 	check("Paint clears hover and ignores a click off the model", overlay.mesh == null and doc.ops.size() == count)
 
+	# Select also runs without Main: real selection/presenter and real camera projection.
+	paint_infer.projection = infer
+	var select = load("res://tools/select_tool.gd").new()
+	select.setup_context(ToolContext.new(paint_parts))
+	paint_infer.hit = {"hit": true, "body": "b1"}
+	select.mouse_moved(Vector2.ZERO)
+	select.click(Vector2.ZERO)
+	select.release(Vector2.ZERO)
+	check("context-only Select previews and selects the assembly", select.m == null and not select.uses_main()
+		and overlay.mesh != null and sel.selection == ["b1", "b2"])
+	select.double_click(Vector2.ZERO)
+	check("Select double-click enters the assembly through the context", sel.context == "assembly:a1")
+	sel.context = ""
+	paint_infer.hit = {"hit": false}
+	select.mouse_moved(Vector2.ZERO)
+	select.click(Vector2.ZERO); select.release(Vector2.ZERO)
+	check("Select clears hover and selection off the model", overlay.mesh == null and sel.selection.is_empty())
+	var screen_tri := PackedVector3Array()
+	for pixel in [Vector2(100, 100), Vector2(200, 100), Vector2(150, 200)]:
+		var ray: Dictionary = ctx.pick.ray(pixel)
+		screen_tri.append(ray.origin + ray.direction * 500.0)
+	pres.body_tris = {"b1": screen_tri, "b2": screen_tri, "b3": screen_tri}
+	var start := Vector2(90, 90); var finish := Vector2(210, 210)
+	check("Select window contains the whole assembly and independent board", select.box_ids(start, finish) == ["b1", "b2", "b3"])
+	check("Select small window excludes partial triangles", select.box_ids(Vector2(145, 135), Vector2(155, 145)).is_empty())
+	check("Select crossing includes triangle interiors without vertices", select.box_ids(Vector2(155, 135), Vector2(145, 145)) == ["b1", "b2", "b3"])
+	sel.context = "assembly:a1"
+	sel.set_selection(["b3"])
+	select.click(start); select.mouse_moved(finish)
+	check("Select drag shows the box through the presenter", select.in_gesture()
+		and pres.get_children().any(func(n): return n is Panel and not n.is_queued_for_deletion()))
+	select.reset()
+	check("Select reset restores the pre-drag selection", sel.selection == ["b3"] and not select.in_gesture())
+	select.click(start); select.additive = true; select.mouse_moved(finish); select.release(finish)
+	check("Select additive box retains an earlier board outside the box units", sel.selection == ["b1", "b2", "b3"])
+	sel.context = "assembly:a1"
+	check("Select box excludes boards outside the entered context", select.box_ids(start, finish) == ["b1", "b2"])
+	sel.body_hidden = {"b2": true}
+	check("Select box excludes hidden assembly members", select.box_ids(start, finish) == ["b1"])
+	sel.show_hidden = true; sel.body_deleted = {"b2": true}
+	check("Select box excludes deleted members even with hidden geometry on", select.box_ids(start, finish) == ["b1"])
+	sel.context = ""; sel.body_hidden = {}; sel.body_deleted = {}; sel.show_hidden = false
+	pres.body_tris = {"b3": screen_tri.duplicate()}
+	pres.body_tris.b3[0] = behind_pt
+	check("Select skips triangles with a vertex behind the camera in either box direction",
+		select.box_ids(start, finish).is_empty() and select.box_ids(finish, start).is_empty())
+	pres.body_tris.b3.append_array(screen_tri)
+	check("behind-camera vertices reject enclosure but allow a separate visible crossing triangle",
+		select.box_ids(start, finish).is_empty() and select.box_ids(finish, start) == ["b3"])
+
 	# --- geometry: the moved functions, and Main's wrappers give the same answers ---
 	var v3 := Vector3(1.23456, -7.0004, 2.5)
 	check("arr3 keeps its 0.001 rounding", Geo.arr3(v3) == [1.235, -7.0, 2.5] and Main.arr3(v3) == Geo.arr3(v3))
@@ -378,7 +443,7 @@ func _initialize() -> void:
 		and Main.AXIS_COLORS == Presenter.AXIS_COLORS)
 
 	# --- source: the context, geometry and inference never reach main.gd ---
-	for path in ["res://tool_context.gd", "res://tool_geometry.gd", "res://inference.gd", "res://appearance.gd", "res://tools/paint_tool.gd"]:
+	for path in ["res://tool_context.gd", "res://tool_geometry.gd", "res://inference.gd", "res://appearance.gd", "res://tools/paint_tool.gd", "res://tools/select_tool.gd"]:
 		var code := code_only(FileAccess.get_file_as_string(path))
 		var bad := []
 		for needle in ['preload("res://main.gd")', 'load("res://main.gd")', "Main.", "Main)", ": Main", "infer.m", "\tm.", " m.", "(m."]:

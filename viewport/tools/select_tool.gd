@@ -5,6 +5,9 @@ extends "res://tools/tool.gd"
 const TOOL := {"id": "select", "label": "Select", "tip": "Select (Space)", "key": KEY_SPACE, "order": 10}   # the toolbar, the Tools menu and the key (tool_registry.gd)
 
 
+func uses_main() -> bool: return false
+
+
 func hint() -> String:
 	return "Select: click or drag a box (right = enclosed, left = crossing), Shift adds. Double-click an assembly or array to edit inside it. Cmd+G makes an assembly"
 
@@ -14,23 +17,23 @@ func mouse_moved(screen: Vector2) -> void:
 		dragging = true
 		_show_box(screen)
 		return
-	var p := m.pick(screen)
-	m.overlay.mesh = null
+	var p := ctx.pick.hit(screen)
+	ctx.view.clear_preview()
 	if p.get("hit", false) and p.get("body", "") != "":
-		m.overlay.mesh = m._tri_mesh(m.unit_tris(m.unit_of(p["body"])), m.mat_hover)
+		ctx.view.preview(ctx.model.unit_triangles(ctx.selection.unit_of(p["body"])), "hover")
 
 
 func click(screen: Vector2) -> void:
 	anchor = screen; pressed = true; dragging = false
-	before = m.selection.duplicate()
+	before = ctx.selection.ids()
 	additive = Input.is_key_pressed(KEY_SHIFT)
-	var p := m.pick(screen)
-	var unit := m.unit_of(p.get("body", "")) if p.get("hit", false) else {}
+	var p := ctx.pick.hit(screen)
+	var unit := ctx.selection.unit_of(p.get("body", "")) if p.get("hit", false) else {}
 	if unit.is_empty():
-		if not additive: m.set_selection([])
+		if not additive: ctx.selection.set_ids([])
 		return
 	var ids: Array = unit["bodies"]
-	var sel: Array = m.selection.duplicate()
+	var sel: Array = ctx.selection.ids()
 	if additive:
 		var all_in := ids.all(func(b): return sel.has(b))
 		for b in ids:
@@ -38,13 +41,13 @@ func click(screen: Vector2) -> void:
 			elif not sel.has(b): sel.append(b)
 	else:
 		sel = ids.duplicate()
-	m.set_selection(sel)
+	ctx.selection.set_ids(sel)
 
 
 func double_click(screen: Vector2) -> void:
 	reset()
-	var p := m.pick(screen)
-	if p.get("hit", false): m.enter_context_of(p.get("body", ""))
+	var p := ctx.pick.hit(screen)
+	if p.get("hit", false): ctx.selection.enter(p.get("body", ""))
 
 
 var anchor := Vector2.ZERO
@@ -52,7 +55,6 @@ var pressed := false
 var dragging := false
 var additive := false
 var before: Array = []
-var box: Panel
 
 
 func in_gesture() -> bool:
@@ -60,25 +62,13 @@ func in_gesture() -> bool:
 
 
 func reset() -> void:
-	if dragging: m.set_selection(before)
+	if dragging: ctx.selection.set_ids(before)
 	pressed = false; dragging = false
-	if is_instance_valid(box): box.queue_free()
-	box = null
+	ctx.view.clear_selection_box()
 
 
 func _show_box(screen: Vector2) -> void:
-	if not is_instance_valid(box):
-		box = Panel.new()
-		box.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		m.add_child(box)
-	var style := StyleBoxFlat.new()
-	var color := Color(0.2, 0.45, 0.95) if screen.x >= anchor.x else Color(0.1, 0.65, 0.4)
-	style.bg_color = Color(color, 0.12)
-	style.border_color = color
-	style.set_border_width_all(1)
-	box.add_theme_stylebox_override("panel", style)
-	var rect := Rect2(anchor, screen - anchor).abs()
-	box.position = rect.position; box.size = rect.size
+	ctx.view.selection_box(anchor, screen)
 
 
 func release(screen: Vector2) -> void:
@@ -89,19 +79,18 @@ func release(screen: Vector2) -> void:
 		if additive:
 			for b in before:
 				if not ids.has(b): ids.append(b)
-		m.set_selection(ids)
+		ctx.selection.set_ids(ids)
 	pressed = false; dragging = false
-	if is_instance_valid(box): box.queue_free()
-	box = null
+	ctx.view.clear_selection_box()
 
 
 func box_ids(start: Vector2, finish: Vector2) -> Array:
 	var rect := Rect2(start, finish - start).abs()
 	var crossing := finish.x < start.x
 	var units := {}
-	for b in m.body_tris:
-		if not m.in_context(b) or m.is_hidden(b): continue
-		var unit := m.unit_of(b)
+	for b in ctx.model.body_ids():
+		if not ctx.selection.in_context(b) or ctx.selection.is_hidden(b): continue
+		var unit := ctx.selection.unit_of(b)
 		var key: String = str(unit["bodies"])
 		units[key] = unit
 	var ids: Array = []
@@ -110,16 +99,16 @@ func box_ids(start: Vector2, finish: Vector2) -> Array:
 		var intersects := false
 		var any := false
 		for b in unit["bodies"]:
-			if m.is_hidden(b): continue
-			var tris: PackedVector3Array = m.body_tris.get(b, PackedVector3Array())
+			if ctx.selection.is_hidden(b): continue
+			var tris: PackedVector3Array = ctx.model.triangles(b)
 			for i in range(0, tris.size(), 3):
 				var triangle := PackedVector2Array()
 				for j in 3:
-					var point := Main.m2g(tris[i + j])
-					if m.cam.is_position_behind(point):
+					var point := ctx.pick.project(tris[i + j])
+					if point["behind"]:
 						contained = false
 						continue
-					triangle.append(m.cam.unproject_position(point))
+					triangle.append(point["screen"])
 				if triangle.size() != 3: continue
 				any = true
 				for v in triangle:
@@ -127,7 +116,7 @@ func box_ids(start: Vector2, finish: Vector2) -> Array:
 				if _triangle_crosses(rect, triangle): intersects = true
 		if any and (intersects if crossing else contained):
 			for b in unit["bodies"]:
-				if not m.is_hidden(b) and not ids.has(b): ids.append(b)
+				if not ctx.selection.is_hidden(b) and not ids.has(b): ids.append(b)
 	return ids
 
 

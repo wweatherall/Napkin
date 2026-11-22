@@ -22,3 +22,28 @@ capability grows (snapshots only, the allowlist kept), a context-only Select che
 source check list gains select_tool.gd, the existing selection quick checks unchanged, test_tools.gd's registry.
 Quick test, then the gate. End your response with a Result line; leftovers as Follow-up lines; anything for the
 merge as For the integrator lines.
+
+
+Response — Codex, 2026-11-22:
+
+Branch: `codex/h071-t88-select-to-toolcontext`. T88 step 2 is implemented. Select receives only ToolContext
+(`uses_main()` false), reads snapshots through model/selection/pick, and draws hover and its drag box through
+view. `box_ids(start, finish)` keeps its signature and triangle/rectangle algorithm. The presenter owns the box
+Panel and unit-triangle implementation; Main keeps the `unit_tris` wrapper for legacy callers.
+
+Verification: ToolContext 101/101 (including the unchanged public allowlist, unit-triangle snapshot, presenter
+Panel reuse/style/cleanup, context-only Select hover/click/double-click, box direction/interior crossing,
+additive selection, Esc restoration, context/hidden/deleted boards and real tilted-camera projection with
+behind-camera vertices); tool registry 13/13; existing selection quick checks unchanged; quick test 240/240 and
+all feature suites pass. Gate passes: full test passes, quick 240/240, zero known failures (68 s). Main merged
+before delivery (9cfc929). No new decisions or placeholders; no open questions or leftovers.
+
+Architecture: Select is context-only alongside Line and Paint; four tools remain on Main (Rectangle, Circle,
+Push/Pull and Move). Select's camera projection goes through pick.project and all model/selection reads through
+snapshot adapters; its public box_ids signature and selection behavior are preserved.
+Architecture: presenter.gd owns Select's drag-box Panel lifetime and styling (selection_box / clear_selection_box),
+called privately by ToolContext.view. presenter.unit_tris now implements joined unit geometry; ToolContext.model
+uses it for unit_triangles and Main.unit_tris remains a forwarding wrapper. No protocol or persistence changes.
+For the integrator: Update ARCHITECTURE.md's presenter/ToolContext entries and tool-dependency paragraph with the
+ownership and migration above; update viewport/CLAUDE.md and viewport/tools/CLAUDE.md to name Select context-only,
+four legacy tools, and the presenter's selection-box and unit-triangle ownership.

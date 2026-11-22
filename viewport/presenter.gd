@@ -33,6 +33,35 @@ var drafts := {}                    # op id -> Node3D
 var stock_frames := {}              # body id -> rectangular stock frame from bodies.json (plane fits, I40)
 
 
+var _selection_box: Panel
+
+
+func unit_tris(unit: Dictionary) -> PackedVector3Array:
+	var t := PackedVector3Array()
+	for b in unit.get("bodies", []): t.append_array(body_tris.get(b, PackedVector3Array()))
+	return t
+
+
+func selection_box(start: Vector2, finish: Vector2) -> void:
+	if not is_instance_valid(_selection_box):
+		_selection_box = Panel.new()
+		_selection_box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(_selection_box)
+	var style := StyleBoxFlat.new()
+	var color := Color(0.2, 0.45, 0.95) if finish.x >= start.x else Color(0.1, 0.65, 0.4)
+	style.bg_color = Color(color, 0.12)
+	style.border_color = color
+	style.set_border_width_all(1)
+	_selection_box.add_theme_stylebox_override("panel", style)
+	var rect := Rect2(start, finish - start).abs()
+	_selection_box.position = rect.position; _selection_box.size = rect.size
+
+
+func clear_selection_box() -> void:
+	if is_instance_valid(_selection_box): _selection_box.queue_free()
+	_selection_box = null
+
+
 func reset() -> void:
 	"""Another model: nothing of the old one stays on screen or in the caches."""
 	for oid in op_waves.keys(): end_wave(oid)
