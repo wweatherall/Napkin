@@ -755,6 +755,9 @@ def board(cwd, now=None, out=print):
 def main(argv):
     cwd = os.getcwd()
     cmd = argv[0] if argv else "status"
+    if "-h" in argv or "--help" in argv:                 # help only: never take, finish or return a job by accident
+        print(__doc__)
+        return 0
     opt = lambda name: argv[argv.index(name) + 1] if name in argv and argv.index(name) + 1 < len(argv) else None
     if cmd == "take":
         agent = (opt("--as") or default_agent() or "").lower()
