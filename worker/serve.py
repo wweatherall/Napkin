@@ -294,7 +294,8 @@ def serve(port):
                 if claim(conn, path) is not None:
                     raise OpError(f"{os.path.basename(path)} is open in another window")
                 s = session_for(path)
-                aside = keep_both(path, s) if outside(path, s, settle=False) else None
+                outside(path, s, settle=False)
+                aside = keep_both(path, s) if os.path.exists(path) else None    # always: a new worker may not know
                 od = to_save.get(path, (s, req.get("outdir")))[1]
                 to_save[path] = (s, od)             # ours goes over it now, even with nothing new to save
                 saves = save_pending({path})

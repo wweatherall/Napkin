@@ -249,7 +249,7 @@ class Session:
         self.doc = None
         self.file_sig = None
         self.file_sha = None       # the sha256 of the file as we last read or wrote it: an outside save differs (A36)
-        self.rev_counts = {}       # rev -> how many of applied that revision of the file holds (what a reload keeps)
+        self.rev_ops = {}          # rev -> the applied entries that revision of the file holds (what a reload keeps)
         self.dropped = []          # actions an outside save didn't have, taken out by a reload (A36; T65 offers them)
         self.recovered = None      # {"from", "rev", "why"}: opening fell back to the newest whole save (A32)
         if self.path and not fresh:
@@ -298,7 +298,7 @@ class Session:
         floor = min(int((j or {}).get("floor", 0) or 0), len(self.applied))
         self.undo_floor = len(self.applied) if self.external else floor
         self.session_base = len(self.applied)
-        self.rev_counts = {self.rev: len(self.applied)}
+        self.rev_ops = {self.rev: list(self.applied)}
         self.doc.clearUndos()
         self.file_sig = self.disk_sig()
 
@@ -358,19 +358,16 @@ class Session:
                         bool(getattr(obj, "SSHidden", False)))
         return out
 
-    def _ops_in(self, frev):
-        """How many of applied the file's revision frev holds: known for revisions this session opened or saved;
-        else the .prev journal's, if it is that revision; else none of them (all count as dropped)."""
-        if frev in self.rev_counts:
-            return min(self.rev_counts[frev], len(self.applied))
+    def _file_ops(self, frev):
+        """The ops the file's revision frev holds: known for revisions this session opened or saved; else the .prev
+        journal's, if it is that revision; else none (every action counts as dropped)."""
+        if frev in self.rev_ops:
+            return list(self.rev_ops[frev])
         pj = read_journal(generation(self.path)["prev_journal"])
         if frev is not None and pj and int(pj.get("rev", -1)) == frev:
-            have = {canon(o) for o, st in zip(pj["ops"], pj["status"]) if st.get("status") == "ok"}
-            n = 0
-            while n < len(self.applied) and self.applied[n]["key"] in have:
-                n += 1
-            return n
-        return 0
+            return [{"op": o, "key": canon(o), "id": o.get("id"), "type": o.get("type"), **st}
+                    for o, st in zip(pj["ops"], pj["status"]) if st.get("status") == "ok"]
+        return []
 
     def reload_outside(self):
         """FreeCAD saved the file (A36): it becomes the live document. Actions the file doesn't hold (made since
@@ -378,10 +375,11 @@ class Session:
         FreeCAD change, in this session and the next (the journal's floor). Returns {changed, removed, dropped}."""
         before = self.board_marks()
         frev = file_rev(self.path)
-        base = self._ops_in(frev)
+        kept = self._file_ops(frev)
+        held = {e["key"] for e in kept}
         when = time.strftime("%Y-%m-%dT%H:%M:%S")
-        gone = [{"op": e["op"], "after_rev": frev, "at": when} for e in self.applied[base:] if e["status"] == "ok"]
-        kept = self.applied[:base]
+        gone = [{"op": e["op"], "after_rev": frev, "at": when} for e in self.applied
+                if e["status"] == "ok" and e["key"] not in held]
         if self.doc is not None:
             App.closeDocument(self.doc.Name)
         self._load_file()
@@ -393,7 +391,7 @@ class Session:
         file_meta_rev = int(self.doc.Meta.get("ShopSketchRev", "0") or 0)
         self.rev = max(self.rev, file_meta_rev)       # our next save goes on counting up
         self.file_sha = sha256(self.path)
-        self.rev_counts = {file_meta_rev: len(kept)}
+        self.rev_ops = {file_meta_rev: list(kept)}
         self.doc.clearUndos()
         atomic_json(journal_path(self.path), self._journal(file_meta_rev, self.file_sha))
         self.file_sig = self.disk_sig()
@@ -546,7 +544,9 @@ class Session:
             raise
         self.dirty = False
         self.file_sig = self.disk_sig()
-        self.rev_counts[self.rev] = len(self.applied)
+        self.rev_ops[self.rev] = list(self.applied)
+        for old in sorted(self.rev_ops)[:-50]:        # the last 50 revisions are plenty for FreeCAD's open copy
+            del self.rev_ops[old]
         self.external = False   # the file is exactly our journal again; the undo floor stays (the journal keeps it)
         return round((time.perf_counter() - t0) * 1000, 1)
 

@@ -301,6 +301,25 @@ wait_outside(m6)
 r = ask({"cmd": "reload", "model": m6, "outdir": m6 + "-out"}, "reload")
 check("the actions saved after the revision FreeCAD opened are dropped",
       r and [o["id"] for o in r["ops"]] == ["r1", "pp1"] and [o["id"] for o in r["dropped"]] == ["r2", "pp2"], r)
+
+# 7. An undo since the revision FreeCAD opened: the reload keeps that revision's ops (the undone one is back), and
+#    only what's new since counts as dropped.
+m7 = fresh_model("undone")
+opened(m7)
+sync(w, m7, board_ops(300) + second(200), 1)
+ask({"cmd": "flush", "model": m7}, "flush")
+rev1 = m7 + ".rev1"
+shutil.copy2(m7, rev1)
+third = [{"id": "r3", "type": "rect", "plane": {"normal": [0, 0, 1], "origin": [0, 600, 0]}, "size": [150, 100]},
+         {"id": "pp3", "type": "push_pull", "target": {"rect": "r3"}, "distance": 18, "body": "b3"}]
+sync(w, m7, board_ops(300) + third, 2)             # b2 undone, b3 made
+ask({"cmd": "flush", "model": m7}, "flush")
+os.replace(rev1, m7)
+wait_outside(m7)
+r = ask({"cmd": "reload", "model": m7, "outdir": m7 + "-out"}, "reload")
+check("after an undo the reload keeps the revision's own ops and drops only the newer ones",
+      r and [o["id"] for o in r["ops"]] == ["r1", "pp1", "r2", "pp2"] and [o["id"] for o in r["dropped"]] == ["r3", "pp3"]
+      and r["changed"] == ["b2"] and r["removed"] == ["b3"], r)
 w.ask({"cmd": "quit"}, "quit")
 proc.wait(30)
 
