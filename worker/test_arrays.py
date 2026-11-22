@@ -3,7 +3,9 @@ import os, json, time
 import sys
 sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from test_load import *  # noqa: E402,F403  (the worker's modules, T42)
+import test_load  # Configure the FreeCAD test runtime before loading worker modules.
+import FreeCAD as App
+from session import Session
 ok=[0,0]
 def check(n,c,d=""):
     ok[0 if c else 1]+=1; print(("PASS " if c else "FAIL ")+n+("" if c else f"  {d}"), flush=True)

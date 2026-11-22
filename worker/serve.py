@@ -1,6 +1,10 @@
 """The connection loop: one worker serving every window (W13), and the one-off replay (main)."""
-from common import *
-from session import *
+import hashlib
+import json
+import os
+import time
+from common import HERE, OpError
+from session import Session, atomic_json
 import length_input
 
 

@@ -9,7 +9,12 @@ import sys
 
 sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from test_native_common import *  # noqa: E402,F403
+import Part
+from common import V
+from session import Session
+from test_native_common import (
+    HOPS, R, V1, bodies_of, check, diff, fresh, hole, kinds, push, statuses, vol,
+)
 
 tmp = os.environ.get("TESTDIR", "/tmp/runs_test")
 os.makedirs(tmp, exist_ok=True)

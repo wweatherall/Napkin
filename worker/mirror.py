@@ -1,5 +1,5 @@
 """Mirrored copies (Part::Mirroring) and mirror groups (A11b, T26)."""
-from common import *
+from common import OpError, add_props, board_label, unit, vec
 
 
 class MirrorActions:

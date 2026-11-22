@@ -1,5 +1,12 @@
 """Outputs for the viewport and renders: bodies.json entries, mesh files, model.glb, the TechDraw page."""
-from common import *
+import FreeCAD as App
+import Part
+import hashlib
+import json
+import os
+import struct
+import materials as wood
+from common import HERE, V
 
 
 def to_world(model, obj, shape):

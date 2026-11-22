@@ -328,3 +328,66 @@ Response — Codex, 2026-11-21: Architecture owns component boundaries, state, d
 Verified: quick test — every feature suite passed and viewport 99 passed, 0 failed (9.6 s); decision-log checks 12/12; architecture guard tests 5/5; local links/heading anchors and `git diff --check` pass. Architecture sections changed: introduction/Documentation ownership, component summaries, typed lengths, property additions wording, persistence/export wording, constraints, Planned boundaries, Validation/maintenance and feature-map reference. This is documentation only; no runtime changes. Open: Claude review/integration. No CLAUDE.md edits are requested by this delivery.
 
 Resolution — Codex, 2026-11-21: William explicitly requested merge and push. Full test passed before integration: all six recorded suites match references; targeted suites and every feature suite passed. Implementation: d3b7aee; branch codex/docs-dry. No CLAUDE.md changes.
+
+
+### H015 — Tests now run side by side (T49): what changed for Codex
+
+Author: Claude | Date: 2026-11-21 | Status: resolved
+
+References: T49, T47, T45; branch t49-parallel-tests (9da1697, 3f4915c, eb23b02). ARCHITECTURE.md sections changed: Worker link (transport: test workers on port 0) and Tests.
+
+Finding: (1) `SERVE_PORT=0 SERVE_PORT_FILE=<f>` makes the worker bind a free port and write it to f; every test starts its worker that way, so your runs and Claude's no longer collide. (2) `tools/quicktest.sh` opens three Godot windows (`--quick-lane=N`; `--one` for a single window); each quick-test section is a `_q_<name>()` in tests.gd, listed in `QUICK_LANES` and the `match` in `_run_quick_test`. A new section goes in both. (3) `worker/test_native.py` section H (runs of cuts and merges) is now `worker/test_runs.py`; their shared helpers, `OPS` and `HOPS` are in `worker/test_native_common.py`. (4) In a freecadcmd test that ends with `sys.exit`, print the summary line with `flush=True`, or it is lost. Quick test ~8 s, full test ~15 s.
+
+Response — Codex, 2026-11-21: Read and acknowledged while taking T50 from current main; no follow-up needed.
+
+
+### H016 — The decision log is now a file you can edit; small fixes have a light path
+
+Author: Claude | Date: 2026-11-21 | Status: resolved
+
+References: P08, P09, T52; branches log-todos-light-path, t52-log-structure (6236efa, 11ea593, 36c6dd5). ARCHITECTURE.md sections changed: none (one pointer line in the intro).
+
+Finding: (1) P09: the claude.ai Sheet is retired; `docs/decision-log.md` is the log. Record a decision William makes in your chat there, in the commit it belongs to, following P01. (2) T52: Superseded rows have their own table; a row ending "(Details below.)" has its full text at `### <ID>` under Details. Keep new rows short; long text goes in a Details section. The pre-commit hook sorts tables and Details; `python3 tools/sort_decision_log.py --check` also matches marked rows to sections. (3) P08: small fixes (nothing William would notice, no protocol / format / boundary / saving change, ~30 lines) go on `codex/small-fixes` after the quick test, with no handoff entry; list them for William.
+
+Response — Codex, 2026-11-21: Read and acknowledged while taking T50 from current main; no follow-up needed.
+
+
+### H018 — The op list and sync now live in viewport/document.gd (T39)
+
+Author: Claude | Date: 2026-11-21 | Status: resolved
+
+References: T39, A31; branch t39-document-controller (a15b1d7). ARCHITECTURE.md sections changed: System overview (diagram), Where responsibilities live, State ownership, Lifecycle of an edit, Proposed evolution, Validation.
+
+Finding: (1) `viewport/document.gd` (the document controller, `m.doc`) owns `ops`, `counters`, `seq` / `in_flight` / `dirty`, which sync reply counts, `confirmed_ids`, the undo floor, the redo stack, open / reset and the save revisions; it reports by signals and knows nothing of meshes. main.gd forwards the old names, so `m.ops.append(op); m.sync()` still works. (2) Removal goes through it: `op_removed(op)` is where main takes away what an op drew; a new op kind that draws something extra cleans it up in main.gd `_on_op_removed`. (3) New feature test: `viewport/test_document.gd` (headless, 38 checks; `DOCUMENT TESTS`). (4) T41 (presentation and selection/context out of main.gd) is next; main.gd will move again.
+
+Response — Codex, 2026-11-21: Read and acknowledged while taking T50 from current main; no follow-up needed.
+
+
+### H019 — Selection and drawing now live in viewport/selection.gd and viewport/presenter.gd (T41)
+
+Author: Claude | Date: 2026-11-21 | Status: resolved
+
+References: T41, A33b; branch t41-split-main (b718d00, 1fd8afe). ARCHITECTURE.md sections changed: System overview (diagram), Where responsibilities live (main, presenter, selection rows), State ownership, Proposed evolution, Validation.
+
+Finding: (1) `viewport/selection.gd` (`m.sel`) owns the selection, the entered context, each board's assembly / row / family / array / mirror plane, the hidden set and `hover_body`, and adds the hide / assembly / make unique / detach ops. It draws nothing and reports by signals. (2) `viewport/presenter.gd` (`m.pres`) owns `body_tris` / `body_verts` / `body_edges` / `body_cuts`, drafts and rects, confirmed board nodes, remembered states, waves and the selection/context highlights. It draws with main's helpers through `m`, as tools do. (3) main.gd forwards every old name, so `m.selection`, `m.body_tris`, `m._begin_wave(...)` still work; code on a codex/* branch that edits these parts of main.gd will need re-basing onto the new files. (4) New feature test: `viewport/test_selection.gd` (41 checks; `SELECTION TESTS`).
+
+Response — Codex, 2026-11-21: Read and acknowledged while taking T50 from current main; no follow-up needed.
+
+
+### H025 — Your plane-properties work is on main (T53): what changed
+
+Author: Claude | Date: 2026-11-21 | Status: resolved
+
+References: T53, I40, I41, I42, T54; your H015-H019 (archived as H020-H024: main had already used H015-H019).
+
+Ported onto main after T41, so the viewport side moved: board frames are `presenter.gd` `stock_frames` (main
+forwards `m.stock_frames`), the selection tint and idle-hover refresh are in presenter `_show_boards`, the Tab and
+Properties-pick input stays in main.gd. Review fixes: pushing a tied end again now detaches it (I26b said so; it
+used to add a union while the fit kept following), and fit result lengths are written to 0.1 mm (`plane_fit.mm`;
+`%.3g` gave 1.05e+03). New with William: the three end conditions in Push/Pull, ⌥ Option cycles them (I41;
+`edge_fit.fit_mode`). Board names "Board N" now cover copies, mirrors and made-unique boards too (I42,
+`common.board_label`). To do: T54. The decision log: your branch's copy was older than main's (it would have put
+T39 back to In progress); AGENTS.md now says to merge main before editing the log and to log every choice William
+makes for you, names included. Start new work from main; `codex/plane-properties` is done.
+
+Response — Codex, 2026-11-21: Read and acknowledged while taking T50 from current main; no follow-up needed.

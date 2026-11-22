@@ -6,7 +6,9 @@ import sys
 
 sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from test_load import *  # noqa: E402,F401,F403  (the worker's modules, T42)
+import test_load  # Configure the FreeCAD test runtime before loading worker modules.
+from export import component_of, material_of
+from session import Session
 
 R = [0, 0]
 

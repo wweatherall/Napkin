@@ -16,7 +16,9 @@ import traceback
 sys.dont_write_bytecode = True
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
-from test_load import *  # noqa: E402,F403  (the worker's modules, T42)
+import test_load  # Configure the FreeCAD test runtime before loading worker modules.
+from export import material_of, write_glb
+from session import Session
 
 T0 = time.perf_counter()
 TESTDIR = os.environ.get("TESTDIR", "/tmp/shopsketch-scenario")

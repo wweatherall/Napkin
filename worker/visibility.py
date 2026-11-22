@@ -1,5 +1,5 @@
 """Hide and unhide (T28, I37): SketchUp-style hiding, kept as a board property so it is undoable and saved."""
-from common import *
+from common import OpError, add_props
 
 
 class VisibilityActions:

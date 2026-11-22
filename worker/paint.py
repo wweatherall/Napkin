@@ -1,5 +1,7 @@
 """Paint and grain (T15, M03): materials on a board definition, grain directions."""
-from common import *
+import FreeCAD as App
+import Part
+from common import OpError, material_card, unit
 from export import PALETTE
 
 

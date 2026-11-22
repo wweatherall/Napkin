@@ -9,7 +9,7 @@ ARCHITECTURE.md the module map and protocol (update it in the same commit when y
 - `replay.py` only starts the worker (`freecadcmd` runs it by name; it names the module `replay`, not `__main__`,
   and doesn't put this folder on `sys.path`, so replay.py does). One-off: `OPLOG=ops.json OUTDIR=out`.
 - `common.py`: shared basics (FreeCAD imports, `TOL`, `OpError`, `vec`/`unit`, `add_props`, `Frame`, wood cards);
-  every module starts with `from common import *`.
+  modules import only the shared names they use, explicitly (T50).
 - `model.py`: `Model` (reads the document; building blocks: boards, planes, extrusions, booleans, `Tip`; `apply`
   and `HANDLERS`). Each kind of action is a mixin in its own file: `push.py` (rect, push/pull, through-cuts),
   `move.py` (move, copies, links, arrays, detach, make unique), `mirror.py`, `assembly.py`, `paint.py` (paint,
@@ -93,4 +93,5 @@ ARCHITECTURE.md the module map and protocol (update it in the same commit when y
   must equal a fresh build and a reopen; ~1 s. A new worker behaviour: add a step there first).
   Plain python3, starting freecadcmd themselves: `test_serve.py` (12: one worker, two windows; a worker on port 0),
   `test_length_protocol.py` (3). Use `TESTDIR=<dir>` for outputs.
-- Tests load the modules with `from test_load import *` (after putting this folder on `sys.path`).
+- Tests import names explicitly from their owning modules after putting this folder on `sys.path`;
+  `import test_load` configures the FreeCAD test runtime without re-exporting worker names.

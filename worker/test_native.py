@@ -13,7 +13,27 @@ import sys
 
 sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-from test_native_common import *  # noqa: E402,F403  (check, op builders, OPS; the worker's modules)
+import FreeCAD as App
+import struct
+from common import OpError, V
+from export import write_glb
+from session import Session, journal_path
+from test_native_common import (
+    HOPS,
+    OPS,
+    R,
+    V1,
+    bodies_of,
+    check,
+    diff,
+    face_rect,
+    fresh,
+    ground_rect,
+    hole,
+    push,
+    statuses,
+    vol,
+)
 
 tmp = os.environ.get("TESTDIR", "/tmp/native_test")
 os.makedirs(tmp, exist_ok=True)

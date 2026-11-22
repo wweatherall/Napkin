@@ -4,7 +4,9 @@ from pathlib import Path
 HERE = Path(__file__).resolve().parent
 sys.dont_write_bytecode = True
 sys.path.insert(0, str(HERE))
-from test_load import *  # noqa: E402,F403  (the worker's modules, T42)
+import test_load  # Configure the FreeCAD test runtime before loading worker modules.
+import FreeCAD as App
+from session import Session
 from object_properties import inspect  # noqa: E402
 passed = 0
 

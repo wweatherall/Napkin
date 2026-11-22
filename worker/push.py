@@ -1,5 +1,6 @@
 """Rectangles and Push/Pull: new boards, cuts and joins, through-cuts (I24)."""
-from common import *
+import Part
+from common import OpError, TOL, add_props, unit, vec
 
 
 class PushActions:

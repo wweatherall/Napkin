@@ -1,7 +1,23 @@
 """Session: one live document bound to one .FCStd file; sync, undo, journal, saving (A23, A24)."""
-from common import *
+import FreeCAD as App
+import hashlib
+import json
+import os
+import time
+import materials as wood
+from common import JOURNAL_FORMAT, OpError, unit
+from export import (
+    add_drawing_page,
+    board_mesh_file,
+    component_of,
+    cuts_of,
+    material_color,
+    material_of,
+    remove_drawing_pages,
+    shape_key,
+    write_glb,
+)
 from common import _MATERIALS
-from export import *
 from export import _ENTRY_CACHE
 from model import Model
 from plane_fit import snapshot as stock_snapshot
