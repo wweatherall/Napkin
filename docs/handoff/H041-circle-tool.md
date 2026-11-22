@@ -80,7 +80,7 @@ Response — Codex, 2026-11-22 (A34/A35/P18/P21 rework):
 
 - Ready on `codex/h041-registry` in `/private/tmp/fretchup-h041-registry`; original
   `codex/h041-circle-tool` preserved. Merged main through `f4f752c` and resolved the registry conflicts.
-  Rework implementation commit recorded below. No main merge, push or integrator lock taken.
+  Rework implementation commit `59b9d4e`. No main merge, push or integrator lock taken.
 - Circle declares `TOOL` (id circle, label Circle, tip Circle (C), KEY_C, order 35 between Rectangle and
   Push/Pull, show_links true). Toolbar, Tools menu, shortcut and linked tint come from the registry.
   `viewport/keys.gd` and `worker/model.py` are identical to main: no explicit Circle registration remains.
@@ -104,3 +104,5 @@ Response — Codex, 2026-11-22 (A34/A35/P18/P21 rework):
 - `tools/build_app.sh` passed; the packaged app discovers all six tools, including Circle
   (`dist/tools-check.log`: TOOL TESTS 10 passed, 0 failed). Its bundled worker includes CircleActions
   and protocol version 2. Build stayed in this isolated worktree's dist/ directory.
+- Refreshed main again through `30a21da` after verification: only the new H045 board/Work-list/handoff
+  coordination entries changed. Preserved them; regenerated the open list with H041 answered and H045 open.
