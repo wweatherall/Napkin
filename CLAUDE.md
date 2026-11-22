@@ -34,8 +34,9 @@ marked Superseded (never deleted). Ask William before countermanding an Active d
   Any other session (Claude or Codex) takes the job it's given, works in its own worktree and delivers to the
   integrator; it doesn't merge into main. "Check the board" means: follow `BOARD.md` (P14).
 - Codex reads `AGENTS.md` (its instruction file) at the start of each session; keep it in step with this section.
-- Nothing notifies either agent of the other's changes. At the start of a session, read the handoff and check
-  `git branch -a` for `codex/*` branches with new commits; when you leave Codex something, tell William.
+- Nothing notifies either agent of the other's changes. At the start of a session, run `python3 tools/startup.py`
+  first, read the handoff and check `git branch -a` for `codex/*` branches with new commits; when you leave Codex
+  something, tell William.
 - `docs/agent-handoff.md` is the shared scratchpad: its rules and an open list; each open entry is its own file in
   `docs/handoff/` (T77). Read the ones you're picking up. `python3 tools/handoff.py archive H0NN` moves a resolved
   entry whole to `docs/handoff-archive.md` with a one-line index left behind; read the archive only for history.
