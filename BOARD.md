@@ -52,7 +52,7 @@ shows the queue; `python3 tools/job.py board` rebuilds the table (the commit hoo
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H060 | Claude | **Ready** | T97: follow-ups land on the integrator's list | [H060](docs/handoff/H060-t97-follow-ups.md) |  |
+| H060 | Claude | In progress (claude since 12:29) | T97: follow-ups land on the integrator's list | [H060](docs/handoff/H060-t97-follow-ups.md) |  |
 | H059 | Codex | Queued | T67: IDs that never collide across kept history branches | [H059](docs/handoff/H059-t67-branch-safe-ids.md) | H046 |
 | H046 | Codex | In progress (codex since 12:07) | T82: the Line tool, closed outlines and split faces | [H046](docs/handoff/H046-t82-lines-split-faces.md) |  |
 | H057 | either | **Ready** | T95: the feature tests find the test files themselves | [H057](docs/handoff/H057-t95-tests-find-themselves.md) |  |
