@@ -35,6 +35,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H052 — T66: lengths shown in the model's units](handoff/H052-t66-units.md) — status: queued (after T88's tool moves); for: either
 - [H059 — T67: IDs that never collide across kept history branches](handoff/H059-t67-branch-safe-ids.md) — status: queued (after H046); for: Codex
 - [H063 — T64: watch the model file and reload FreeCAD's saves, with a wave](handoff/H063-t64-reload-freecad-saves.md) — status: open; for: Claude
+- [H-new-1 — Agent roles: direction from William and request for a transition plan](handoff/H-new-1-agent-role-system.md) — status: open; for: the integrator
 
 <!-- end of open list -->
 
