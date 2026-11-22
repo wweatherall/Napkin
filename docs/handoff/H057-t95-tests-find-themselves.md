@@ -42,4 +42,4 @@ Response — Claude (worker fretchup-e1, 2026-11-22): built T95 on branch claude
 
 Follow-up: worker/test_serve.py fails 4 of 20 (the saved/focus/save_failed replies arrive in another order) when featuretest.sh is given an output folder inside the repo (e.g. scratch/feat) under full load; passes alone, and with the default /var/folders output (what quicktest and the gate use). Timing-sensitive, seen in this job, not caused by it.
 
-Result: <commit>; tools/test_featuretest.py 32/32, test_integrate 28/28, quick test and gate passed; featuretest.sh finds worker/, tools/ and viewport/ test files itself (runner: lines, --list), guides carry no test list
+Result: d25d761; tools/test_featuretest.py 32/32, test_integrate 28/28, quick test and gate passed; featuretest.sh finds worker/, tools/ and viewport/ test files itself (runner: lines, --list), guides carry no test list
