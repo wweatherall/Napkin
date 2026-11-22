@@ -1,0 +1,77 @@
+extends RefCounted
+## UI scenario; shared input, timing and assertions live in harness.gd.
+
+const Main := preload("res://main.gd")
+const Harness := preload("res://tests/harness.gd")
+var harness: Harness
+var m: Main:
+	get: return harness.m
+
+
+func run() -> void:
+	m.target = Main.m2g(Vector3(230, 150, 200)); m.dist = 1.6
+	m._update_camera()
+	await harness._frames(5)
+	# 1. side panel: rectangle on the ground, push up
+	await harness._key(KEY_R)
+	await harness._click(Vector3(0, 0, 0))
+	await harness._mouse_to(Vector3(15, 200, 0))
+	await harness._shot("01_rect_dragging")
+	await harness._type("20,300\n")
+	await harness._key(KEY_P)
+	await harness._click(Vector3(10, 150, 0))
+	await harness._mouse_to(Vector3(10, 150, 250))
+	await harness._shot("02_push_preview")
+	await harness._type("400\n")
+	await harness._shot("03_panel_draft_before_freecad")
+	await harness._wait_confirm()
+	await harness._shot("04_panel_confirmed")
+	# 2. second panel
+	await harness._key(KEY_R)
+	await harness._click(Vector3(440, 0, 0))
+	await harness._mouse_to(Vector3(455, 200, 0))
+	await harness._type("20,300\n")
+	await harness._key(KEY_P)
+	await harness._click(Vector3(450, 150, 0))
+	await harness._mouse_to(Vector3(450, 150, 200))
+	await harness._type("400\n")
+	# 3. top board, starting from the panel's corner (endpoint snap from a few mm away)
+	await harness._key(KEY_R)
+	await harness._click(Vector3(3, 4, 400))
+	await harness._mouse_to(Vector3(200, 150, 400))
+	await harness._shot("05_top_rect_snapped")
+	await harness._type("460,300\n")
+	await harness._key(KEY_P)
+	await harness._click(Vector3(230, 150, 400))
+	await harness._mouse_to(Vector3(230, 150, 420))
+	await harness._type("20\n")
+	await harness._shot("06_three_boards_some_draft")
+	await harness._wait_confirm()
+	await harness._shot("07_three_boards_confirmed")
+	# 4. hand slot: rectangle on the top board, push -20 to cut through
+	await harness._key(KEY_R)
+	await harness._click(Vector3(170, 140, 420))
+	await harness._mouse_to(Vector3(200, 150, 420))
+	await harness._type("120,20\n")
+	await harness._key(KEY_P)
+	await harness._click(Vector3(230, 150, 420))
+	await harness._mouse_to(Vector3(230, 150, 410))
+	await harness._shot("08_cut_preview")
+	await harness._type("-20\n")
+	await harness._wait_confirm()
+	# 5. push an existing confirmed face: pull the front edge of the top board out 40 mm
+	await harness._key(KEY_P)
+	await harness._click(Vector3(300, 0, 410))
+	await harness._mouse_to(Vector3(300, -30, 410))
+	await harness._shot("09_face_push_preview")
+	await harness._type("40\n")
+	await harness._wait_confirm()
+	m.yaw = deg_to_rad(-60); m.pitch = deg_to_rad(-32); m.dist = 1.5; m._update_camera()
+	await harness._frames(3)
+	await harness._shot("10_final_confirmed")
+	await harness._key(KEY_D)
+	await harness._wait_confirm()
+	await harness._frames(5)
+	print("TEST oplog ops: ", m.ops.size(), "  last round trip ms: ", m.last_sync_ms)
+	print("TEST status: ", m.ui_sync.text)
+	harness.get_tree().quit()

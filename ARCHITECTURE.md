@@ -77,11 +77,18 @@ TCP carries commands/status and output paths. Geometry is read from shared local
 | `worker/materials.py` | Twelve-species wood library, FreeCAD card installation, texture metadata | `install`, `write_library`, `SPECIES` |
 | `worker/drawing.py` | Compose shop drawings and cut list from exported data | Script entry point |
 | `viewport/*.gdshader`, `line.gdshaderinc` | Draft/confirmation appearance, depth-biased overlays and anti-aliased lines | Shader parameters |
-| `viewport/tests.gd`, `worker/test_*.py` | Scripted UI and geometry/persistence tests | Suite entry points |
+| `viewport/tests.gd`, `viewport/tests/`, `worker/test_*.py` | Test-mode dispatcher; shared UI harness, separate suites and quick sections; worker geometry/persistence tests | Suite entry points |
 | `tools/featuretest.sh`, `quicktest.sh`, `fulltest.sh`, `compare_suites.py` | Test orchestration and geometry comparisons (feature tests without a window; UI tests in the viewport, P07) | Shell entry points |
 | `tools/build_app.sh`, `export_presets.cfg` | macOS application packaging | App build |
 
 Tools currently depend directly on `main.gd`; the interface is a convention, not a strongly isolated service boundary. Main runtime-loads tools/tests while those scripts preload Main for typing, avoiding preload cycles.
+
+`viewport/tests.gd` selects a UI suite by the existing command-line flags and loads it at runtime.
+Each suite in `viewport/tests/suites/` and each section in `viewport/tests/quick/` is a RefCounted scenario
+using one shared `tests/harness.gd` Node per window. The harness owns simulated input, pacing, assertions,
+quick-test totals and section timing; it references the same Main throughout the run. `tests/quick_runner.gd`
+owns `QUICK_LANES`, loads sections in their original order and passes that harness to each, preserving
+sections that continue from the preceding state. Helpers that await frames remain on the harness in the scene tree.
 
 ### Typed lengths and the Properties panel (T32, T46)
 
@@ -271,8 +278,8 @@ For FreeCAD transaction/Draft/boolean traps and viewport drawing rules, use the 
 
 Current owners are in the component and state tables above. The remaining proposals live in the
 [decision log Work list](docs/decision-log.md#work-list): T35–T36 for durable branching history,
-T44 for the comprehensive protocol reference, T50 for explicit worker imports, and T51 for test-suite
-separation. T39/T41/T42/T43 are represented by the existing controllers, worker modules and folder guides.
+T44 for the comprehensive protocol reference and T50 for explicit worker imports.
+T39/T41/T42/T43/T51 are represented by the existing controllers, worker modules, folder guides and test suites.
 See [U01](docs/specs/U01-history.md) for the history design; proposals do not describe implemented behaviour.
 
 ## Validation and maintenance

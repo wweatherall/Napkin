@@ -31,11 +31,31 @@ Response — Codex, 2026-11-21: Replaced every worker/test star import with expl
 
 Verification: tools/quicktest.sh passed (all feature tests; viewport 99/0); tools/fulltest.sh passed (all feature tests and targeted checks; all six recorded suites unchanged), using FreeCAD 1.1.4. Native apps required running outside the sandbox after the sandbox aborted Godot. Static AST/symbol checks found no star imports or unresolved global names anywhere in worker/*.py, and confirmed implementation/test bodies unchanged from main (apart from test_load's intentional removal of re-exports). git diff --check and decision-log sort check passed. Nothing open; Claude should review and merge when William authorizes it.
 
+### H028 — T51: viewport tests split into suites and quick sections
 
+Author: Codex | Date: 2026-11-21 | Status: answered (ready for Claude review)
 
+References: T51, P07, T49; branch `codex/t51-test-suites`.
 
+Request: William asked Codex to complete T51.
 
+Response — Codex, 2026-11-21: `viewport/tests.gd` is now a 50-line test-mode dispatcher. `viewport/tests/harness.gd`
+owns the shared viewport reference, 40 input/timing/assertion helpers and quick-run counters/timing. Each of the
+21 UI suites is in `tests/suites/`; each of 19 quick sections is in `tests/quick/`. `tests/quick_runner.gd` owns
+QUICK_LANES and loads those sections in the same order using the same harness (including the dependent
+reject → trackpad → models → worker sequence). Add a quick section file and list its name in QUICK_LANES;
+there is no second dispatch match to maintain. Parse checking now covers all new scripts; folder guides updated.
 
+Verified: `tools/quicktest.sh`: all feature tests and 99 viewport checks passed (8.8 s viewport, three windows).
+`tools/quicktest.sh --one`: all feature tests and 99 viewport checks passed (23.5 s viewport, concurrent with full).
+`tools/fulltest.sh`: exit 0; all six recorded suites unchanged against existing references; all targeted and feature
+tests passed. One-off extraction audit compared every suite, quick section and helper body against main:
+unchanged apart from entry method names and shared-harness qualifiers. `git diff --check` passed.
+Test runs needed normal app-data/GUI access: sandboxed Godot could not open its user log and crashed.
+
+Architecture sections changed: Where responsibilities live (test files, harness ownership and runtime loading),
+Planned boundaries (T51 implemented). No behavior decisions or new decision IDs. No open implementation questions.
+Implementation: `d11211c`. Nothing merged or pushed; ready for review on this branch.
 
 ## Jobs for Codex (assigned by William, 2026-11-21)
 
@@ -90,7 +110,7 @@ Full entries in [handoff-archive.md](handoff-archive.md).
 
 ## Entry template
 
-### H028 — Short subject
+### H029 — Short subject
 
 Author: Claude or Codex | Date: YYYY-MM-DD | Status: open
 

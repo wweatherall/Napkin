@@ -1,7 +1,7 @@
 #!/bin/bash
 # Quick check, after every change (~12 s): the feature tests (tools/featuretest.sh: every FreeCAD-side test and the
 # units parser, no window) beside the UI test, every viewport feature once (--quicktest). The UI test runs in
-# LANES windows side by side (T49), each with its own worker and a share of the sections (tests.gd QUICK_LANES),
+# LANES windows side by side (T49), each with its own worker and a share of the sections (viewport/tests/quick_runner.gd QUICK_LANES),
 # so it never touches a running Shop Sketch. Each step checks its own answer.
 #   tools/quicktest.sh            the lanes side by side
 #   tools/quicktest.sh --one      every section in one window, one after another (as before T49)
