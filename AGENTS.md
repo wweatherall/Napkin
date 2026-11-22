@@ -17,14 +17,20 @@ Its folder guides apply to Codex too. This file owns Codex-specific startup, iso
 
 ## Codex work and delivery
 
-- A Claude session is the integrator (P16): take the job it assigned you in the handoff's Jobs section and
-  deliver your branch to it for review. "Check the board" means: follow [BOARD.md](BOARD.md) (P14).
-- Work on `codex/*` in your own worktree, never by switching branches in `/Users/Will/Sites/fretchup`:
-  Claude uses that checkout. Start new jobs from main; touch the job's assigned files. William's direct
-  instructions can authorize a wider scope. Merge into main or push only when William asks.
-- Before starting, list the files you expect to touch in the job's handoff entry ("Touches: ...") and check
-  the other open jobs' lists; if one overlaps, say so in chat before starting. Keep a job to one session;
-  merge main into your branch at least once a day while it's open.
+- A Claude session is the integrator (P16). "Check the board" means: follow [BOARD.md](BOARD.md) (P14). Jobs run
+  through the queue (P24): `python3 tools/job.py take --as codex` gives you the next Ready Codex job whose files
+  don't overlap one in progress, its worktree (`../fretchup-<id>`) and `codex/<id>-<slug>` branch from main, and
+  prints its handoff (a returned job continues its branch, with the integrator's notes). Nothing Ready: say so
+  and stop.
+- Work only in that worktree, never by switching branches in `/Users/Will/Sites/fretchup`: Claude uses that
+  checkout. Touch the job's Touches files; William's direct instructions can authorize a wider scope. Merge into
+  main or push only when William asks. Keep a job to one session; merge main into your branch at least once a
+  day while it's open.
+- The dead man's switch: commits, quick-test runs and `job.py` commands beat; with no beat for 30 minutes the
+  integrator is told. Run `python3 tools/job.py check` now and then on a long job (it lists your worktree's
+  processes, flags hung ones, and beats). Waiting on William: `python3 tools/job.py wait "<question>"`.
+- When it's done: append your response, set Status answered, commit, then `python3 tools/job.py done` (it refuses
+  without them or without a quick-test pass on your latest commit, which it runs if missing).
 - Record every choice William makes, including names, labels, keys, defaults and wording, as its own
   decision row. Follow P01/P09 in the log. Merge main into your branch before editing the log, then
   change only rows your job adds or supersedes. New IDs are placeholders (I-new-N, T-new-N, H-new-N; a new

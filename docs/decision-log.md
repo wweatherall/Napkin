@@ -305,7 +305,6 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | T92 | Decision log rows are added by hand (five on 2026-11-22). A tools/log.py add command: next free ID on main (a placeholder on a branch, T74), the row in ID order with the date and columns filled, Why left to write; it reuses sort_decision_log.py's parsing. | Open | P09, P01, T74 | Integrator's review, 2026-11-22. After T94 (William, 2026-11-22). Assigned: H054 (Claude). |
 | T93 | What waits on William is kept by hand in the integrator's note (H050) and goes stale. startup.py prints it: Work list rows whose note says "your call" with no decision ID yet, open handoffs with an "Ask William" line and no logged answer, and the board's notes for William; plus a reminder to reschedule check-ins after a clear. | Open | P16, P19 | Integrator's review, 2026-11-22. After T94 (William, 2026-11-22). Assigned: H055 (Claude). |
 | T95 | Tests find themselves: every new test file today adds a line to tools/featuretest.sh and to CLAUDE.md's test list, a shared hot spot (it clashed twice on 2026-11-22). The feature tests discover worker/test_*.py, tools/test_*.py and viewport/test_*.gd and read each one's "... TESTS: N passed, M failed" line; a file says how it runs (freecadcmd, python3, Godot) where that isn't obvious from its folder. The guides name the kinds of test, not a list or counts. | Open | P07, P11 | Integrator's review, 2026-11-22; William agreed. After H049 (which owns the test scripts). Assigned: H057. |
-| T96 | The job queue (P24): tools/job.py take / beat / wait / done / watch / status, its state beside the integrator lock, the board's job table generated from it, integrate.py deleting a merged job's branch and worktree, and the integrator watching for done, stale and empty. | Open | P24, P14, P16, P19 | William's design, 2026-11-22. Replaces T91's board part (T91 keeps the Work list result). Assigned: H058 (Claude). |
 
 ## Tunables
 
@@ -346,6 +345,9 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | ZOOM_STEP | 0.88 | Zoom per notch of a plain mouse wheel (0.88 = 12% closer); smooth-scrolling mice add up to the same per notch. | viewport/main.gd | I30 |
 | ZOOM_MAX_STEPS | 3 | One scroll event never zooms more than this many notches. | viewport/main.gd | I30 |
 | CLOSE_WAIT_S | 10.0 | Closing a window waits this long (seconds) for FreeCAD to save the latest revision before asking Retry / Close without saving / Cancel. | viewport/main.gd | I55 |
+| DEADLINE | 1800 s | The job queue's dead man's switch: a job in progress with no beat (job.py command, commit, test run) for this long is reported stale to the integrator. | tools/job.py | P24 |
+| HUNG_AFTER | 600 s | job.py check flags a process from the job's worktree older than this as looking hung (and it no longer counts as a beat). | tools/job.py | P24 |
+| WATCH_POLL | 20 s | How often job.py watch looks at the queue. | tools/job.py | P24 |
 
 ## Details
 

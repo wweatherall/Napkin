@@ -52,6 +52,9 @@ marked Superseded (never deleted). Ask William before countermanding an Active d
 - Save context: don't read the big shared documents whole. Grep the decision log by ID (`grep "^| I34 " docs/decision-*.md`),
   and read `Codex's suggestions.md`, `FREECAD_FEATURE_MAP.md` and `ARCHITECTURE.md` by section (grep the heading,
   then read that range).
+- Jobs run through the queue (P24): a worker runs `python3 tools/job.py take`, works in the worktree it gets, and
+  finishes with `python3 tools/job.py done`; the integrator runs `python3 tools/job.py watch` under its watcher and
+  reviews each done job; integrate.py also removes a merged job's worktree and branch.
 - Codex works on `codex/*` branches in its own worktree, on the files its handoff job lists; review and merge them.
 - Work in parallel by files, not topics: every job (Claude's or Codex's) lists in its handoff entry the files it
   expects to touch ("Touches: ..."). Two jobs whose lists overlap don't run at once; tell William before starting
