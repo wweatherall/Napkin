@@ -1554,17 +1554,38 @@ func _port_free(p: int) -> bool:
 	return true
 
 
+# The window <-> worker protocol's version (docs/protocol.md): bump it when a message or shared-file field changes.
+# The worker reports its own (worker/serve.py PROTOCOL_VERSION) in hello; a worker speaking another isn't shared.
+const PROTOCOL_VERSION := 1
+
+
 func _probe_worker(p: int) -> String:
-	"""Ask whatever listens on port p who it is: the worker's script hash, or "" if it isn't a Shop Sketch worker."""
+	"""Ask whatever listens on port p who it is: the worker's script hash, or "" if it isn't a Shop Sketch worker
+	this window can use (_worker_of)."""
+	return _worker_of(_hello(p), p)
+
+
+func _worker_of(r, p: int) -> String:
+	"""A hello reply's worker hash, or "": not a Shop Sketch worker, or one speaking another protocol version
+	(then it's treated like a different worker: this window starts its own, and says why)."""
+	if typeof(r) != TYPE_DICTIONARY or r.get("app", "") != "shopsketch": return ""
+	if int(r.get("protocol", 0)) != PROTOCOL_VERSION:
+		print("SHOPSKETCH the worker on port %d speaks protocol %s, this window %d: not sharing it" % [p, str(r.get("protocol", "none")), PROTOCOL_VERSION])
+		return ""
+	return String(r.get("worker", ""))
+
+
+func _hello(p: int):
+	"""The hello reply from whatever listens on port p (a separate short-lived connection), or null."""
 	var peer := StreamPeerTCP.new()
-	if peer.connect_to_host("127.0.0.1", p) != OK: return ""
+	if peer.connect_to_host("127.0.0.1", p) != OK: return null
 	var t0 := Time.get_ticks_msec()
 	var buf := ""
 	var sent := false
 	while Time.get_ticks_msec() - t0 < 3000:
 		peer.poll()
 		var st := peer.get_status()
-		if st == StreamPeerTCP.STATUS_ERROR or st == StreamPeerTCP.STATUS_NONE: return ""
+		if st == StreamPeerTCP.STATUS_ERROR or st == StreamPeerTCP.STATUS_NONE: return null
 		if st == StreamPeerTCP.STATUS_CONNECTED:
 			if not sent:
 				peer.put_data((JSON.stringify({"cmd": "hello"}) + "\n").to_utf8_buffer()); sent = true
@@ -1574,10 +1595,10 @@ func _probe_worker(p: int) -> String:
 				if buf.contains("\n"):
 					var r = JSON.parse_string(buf.get_slice("\n", 0))
 					peer.disconnect_from_host()
-					return String(r.get("worker", "")) if typeof(r) == TYPE_DICTIONARY and r.get("app", "") == "shopsketch" else ""
+					return r
 		OS.delay_msec(10)
 	peer.disconnect_from_host()
-	return ""
+	return null
 
 
 func _pick_worker() -> int:

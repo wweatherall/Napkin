@@ -45,8 +45,8 @@ protocol (update it in the same commit when you change either). Tools have their
 - Redo (T31, ⇧⌘Z): `undo()` puts the action on `redo_stack` with the ops key it left; `redo()` puts it back only
   while `ops` still has that key, so any new action, amend or rejection ends redo (linear until U01). Esc cancels
   the tool's gesture (`in_gesture()`) first, then the selection, then the assembly you're in.
-- Worker (W13): a window uses the worker on port 7878 if `hello` reports the same hash (`_worker_identity()`: every
-  worker .py except tests), else starts one there (a different version gets a private worker on a free port). Each
+- Worker (W13): a window uses the worker on port 7878 if `hello` reports the same protocol version (`PROTOCOL_VERSION`,
+  docs/protocol.md; `_worker_of`) and the same hash (`_worker_identity()`: every worker .py except tests), else starts one there (a different version gets a private worker on a free port). Each
   window has its own FreeCAD document; a model is open in one window at a time (`already_open`, the owner gets
   `focus`; a window launched on a taken model closes itself). Closing a window sends `bye`. If the worker dies,
   whichever window notices restarts it. File > New Window (⌘⇧N). Files beside the viewport: `_beside_project()`.
