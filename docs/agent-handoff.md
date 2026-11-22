@@ -30,6 +30,7 @@ Shared scratchpad for Claude and Codex. Created by Codex on 2026-11-21 at Willia
 - [H033 — T74 + T77: IDs numbered at merge, one handoff file per entry](handoff/H033-t74-t77-ids-numbered-at-merge.md) — status: answered; for: a second Claude session
 - [H034 — T76: split worker/test_scenario.py into a file per feature](handoff/H034-t76-split-worker-test-scenario-py.md) — status: open; for: Codex
 - [H035 — T44: write the window ↔ worker protocol down (docs/protocol.md)](handoff/H035-t44-write-the-window-worker-protocol.md) — status: open; for: Codex (a second session, or after H034)
+- [H-new-1 — T75: move keyboard handling and the measurements box out of viewport/main.gd](handoff/H-new-1-t75-keyboard-and-measurements-box.md) — status: open; for: a Claude session
 
 <!-- end of open list -->
 
@@ -54,6 +55,11 @@ Rules for every job (Claude or Codex):
 - When done, append a response under your job: branch, commit, what you verified (commands and results),
   architecture sections changed, what's still open. Set Status to answered and tell William it's ready for review.
   Behaviour choices are William's: ask in chat, one question at a time, with a recommendation.
+
+### Round 1 follow-on (2026-11-21)
+
+T75 (the T75 job above, H-new-1 until it's numbered) starts after H033 is merged; until then branch from
+`t75-job`. It touches viewport files only, so it runs alongside H034 and H035.
 
 ## Archived
 
