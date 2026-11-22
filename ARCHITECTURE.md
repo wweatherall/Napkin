@@ -58,9 +58,9 @@ TCP carries commands/status and output paths. Geometry is read from shared local
 | `viewport/main.gd` | Composition root: UI/input/camera, worker lifecycle, model switching, mesh helpers and rejection bookkeeping. Routes document/selection signals to presentation; forwards legacy `m.*` access to their owners. | `_ready`, `_make_tools`, `sync`, `_on_worker`, `_on_synced`, `_on_op_removed`, `_apply_confirmed`, `switch_model` |
 | `viewport/document.gd` | Owns desired ops, IDs, request sequencing/coalescing, confirmation, undo/redo, model path and save revisions. Reports by signals; no geometry or camera. | `sync`, `on_sync_reply`, `on_opened`, `on_saved`, `on_link_up`, `reset`, `open`, `remove_op(s)`, `undo`, `take_redo` |
 | `viewport/presenter.gd` | Owns drafts, confirmed board geometry and nodes, cached visible states, waves and highlights. Reads selection; draws through Main helpers. Emits board metadata and completed rejections. | `apply_confirmed`, `show_confirmed`, `show_state`, `forget_op`, `register_rect`, `begin_wave`, `attach_wave`, `step_waves`, `apply_context`, `show_selection`, `show_siblings`, `reset` |
-| `viewport/selection.gd` | Owns selection, entered context, confirmed board relationships and hidden state. Appends selection-related ops through the document; reports changes without drawing. | `set_boards`, `unit_of`, `in_context`, `edit_blocked`, `enter_context_of`, `leave_context`, `set_selection`, `refresh_hidden`, `is_hidden`, `hide_selected`, `unhide`, `make_assembly`, `linked_op` |
+| `viewport/selection.gd` | Owns selection, entered context, confirmed board relationships, hidden state and predicted deleted IDs. Appends selection-related ops through the document; reports changes without drawing. | `set_boards`, `unit_of`, `in_context`, `edit_blocked`, `enter_context_of`, `leave_context`, `set_selection`, `refresh_hidden`, `is_hidden`, `delete_selected`, `hide_selected`, `unhide`, `make_assembly`, `linked_op` |
 | `viewport/tools/tool.gd` | Common tool interface and references to viewport/inference | `setup`, `reset`, `click`, `double_click`, `release`, `mouse_moved`, `key`, `typed` |
-| `viewport/tools/select_tool.gd` | Selection and entering editing contexts | Tool event methods |
+| `viewport/tools/select_tool.gd` | Click/Shift-click and window/crossing selection of context units; entering editing contexts | Tool event methods, `box_ids` |
 | `viewport/tools/paint_tool.gd` | Paint selected wood onto the picked board/family | Tool event methods |
 | `viewport/tools/rect_tool.gd` | Rectangle interaction, preview and operation creation | `commit_rect` |
 | `viewport/tools/push_tool.gd` | Push/Pull picking, depth inference, preview, through-cut intent | `commit_push` |
@@ -70,7 +70,7 @@ TCP carries commands/status and output paths. Geometry is read from shared local
 | `worker/replay.py` | Entry point only: puts worker/ on sys.path and calls `serve.main()` (freecadcmd runs it by name) | `main` |
 | `worker/common.py` | Shared basics every module takes with `from common import *`: FreeCAD imports, tolerances, `OpError`, `vec`/`unit`, `add_props`, `Frame`, wood cards | `material_card`, `Frame` |
 | `worker/model.py: Model` | Reading the document and the building blocks (boards, planes, extrusions, booleans, Tip); combines the action mixins; validates each op | `apply`, `HANDLERS`, `resolve_face`, `edit_frame`, `boolean` |
-| `worker/push.py`, `move.py`, `mirror.py`, `assembly.py`, `paint.py`, `visibility.py` | One mixin per kind of action (`PushActions`, ...), working through `self` on the document: rect + push/pull + through-cuts; move, copies, links, arrays, detach, make unique; mirrors; assemblies; paint and grain; hide/unhide (T28) | `op_*`, `show_as_hidden` |
+| `worker/push.py`, `move.py`, `mirror.py`, `assembly.py`, `paint.py`, `visibility.py`, `deletion.py` | One mixin per kind of action (`PushActions`, ...), working through `self` on the document: rect + push/pull + through-cuts; move, copies, links, arrays, detach, make unique; mirrors; assemblies; paint and grain; hide/unhide (T28); dependency-preserving deletion and original promotion (T34) | `op_*`, `show_as_hidden` |
 | `worker/export.py` | What the viewport and renders read: bodies.json entries, per-board mesh files and their caches, model.glb, the TechDraw page | `mesh_of`, `board_mesh_file`, `write_glb`, `cuts_of` |
 | `worker/session.py: Session` | Live document, applied operation sequence, undo/rebuild, external-edit detection, journal, saves (incl. GuiDocument.xml) | `sync`, `_apply`, `_open_existing`, `export`, `save` |
 | `worker/serve.py` | select-based multi-client loop; sessions and single-window ownership by absolute file path; delayed saves and focus notifications | `handle`, `claim`, `let_go`, `release`, `save_pending`, `session_for` |
@@ -101,12 +101,12 @@ The `length` and `inspect_properties` requests are handled in `serve.py`; `prope
 |---|---|---|
 | Pointer gesture, typed input, hover, preview | Godot tool / main | Provisional user interaction |
 | Desired operation sequence | Godot `document.gd` `ops` | What the client wants the worker to materialize |
-| Selection, entered context, hidden set, board relationships as last confirmed | Godot `selection.gd` | What a click stands for; the hidden set follows `ops` at once, the relationships follow `bodies.json` |
+| Selection, entered context, hidden set, board relationships as last confirmed | Godot `selection.gd` | What a click stands for; the hidden set follows `ops` at once, deleted IDs follow `delete` ops at once; the relationships follow `bodies.json` and its cached snapshots on undo/redo |
 | Accepted geometry and model relationships | Live FreeCAD document | Authoritative computed model |
 | Saved model | `.FCStd` | Durable native model, including Shop Sketch properties |
 | Replay/provenance information | Adjacent `.shopsketch.json` | Operations, statuses, revision and FCStd hash |
 | Meshes, bounds, metadata, GLB, drawing outputs | Derived export files | Rebuildable presentation/export products |
-| Recently confirmed visible states | Godot `presenter.gd` `_states` / `_boards` | Fast visual restoration; not durable model history |
+| Recently confirmed visible states | Godot `presenter.gd` `_states` / `_boards` | Fast geometry and relationship-metadata restoration together; not durable model history |
 | Undone actions available to redo | Godot `document.gd` `redo_stack` (T31) | Linear and in memory only: valid while `ops` still has the key recorded at the undo; any other change ends it. Branch history (U01) will replace it |
 | Last project preference | Godot `user://settings.cfg` | Application preference |
 
@@ -199,6 +199,14 @@ The loop multiplexes sockets with `select` but executes geometry serially; it is
 
 `oplog/0.1` uses millimetres; `run_sync` rejects other units. Errors can occur at request level or per operation. The journal format is currently `shopsketch-journal/0.1`. Check `Model.HANDLERS` and each `op_*` implementation for the authoritative operation schema; there is not a separate comprehensive typed protocol definition.
 
+### Selection operations (T34)
+
+Select resolves whole context units. Left-to-right boxes require all projected triangles of the unit to be contained; right-to-left boxes test triangle/rectangle intersection. Hidden/deleted boards and boards outside the entered context are excluded. Shift adds box results; click/Shift-click keep their existing replace/toggle behavior. Move consumes a selection when its grab point belongs to it; otherwise it resolves the pointed unit as before.
+
+`move` with `selection: true`, `targets: [BodyId, ...]`, `vector`, optional `copy`, `count`, `divide`, `new_ids` and `detach` is one native transaction. A move resolves shared array/mirror sources once through the assembly motion algebra; inside an array, selected copies detach before motion. Copy uses source-major new IDs, one per source per offset. `mirror` uses several BodyIds and the existing plane/replace/new_ids schema. Drafts and confirmation waves contain each affected board. Retyping a multi-copy count/span retains its full target set.
+
+`delete` with `id` and `targets: [BodyId, ...]` removes the selected instances and promotes surviving originals (I43), in one transaction. `selection.gd` appends this op through the document controller and predicts deleted IDs from desired ops; the presenter suppresses their confirmed nodes and pending draft collisions immediately, independently of Hidden geometry. Undo/redo follows the existing document/worker path. Remembered confirmed states now include the board metadata alongside meshes, stock frames and cuts, so restoring geometry also restores selection relationships and entered-row identity; FreeCAD remains authoritative.
+
 ## Native model and identity
 
 - A board is an `App::Part` containing native features and a `Tip` pointing at its current result.
@@ -212,6 +220,7 @@ The loop multiplexes sockets with `select` but executes geometry serially; it is
 - Mirror groups are those organizational assemblies with `SSKind=mirror`: outside, movement moves the group; inside, movement reflects between the source and mirrored member and the plane is displayed. Moving the plane itself is not implemented.
 - Viewport `unit_of`, `context`, `in_context`, `edit_blocked` and `is_hidden` control whether a picked board represents a part, assembly, or array. Context entry affects picking and appearance.
 - Hidden boards (T28, I37) carry `SSHidden=True` on the board object (op `hide` with `targets` and `hidden`; one op per Hide/Unhide command). FreeCAD's undo restores `SSHidden` but not `Visibility`, so ops never set a board's Visibility: `Session.sync` calls `show_as_hidden()` after every change, and the saved GuiDocument.xml follows it. Boards from files older than T28 get `SSHidden` on opening (`add_hidden_props`, outside any transaction). A flip in place and Make unique keep the board's hidden state; new copies start shown. bodies.json carries `hidden`; the viewport works out the hidden set from `ops` itself (`hidden_boards()`), so hide and its undo show at once. Hidden boards are left out of model.glb (renders; unhide to include them) but stay in drawings and the cut list.
+- Deleted instances (T34, I43) retain native dependency objects with `SSRole=deleted`, excluded by `Model.bodies()` from picking metadata, GLB, drawings and cut lists. `show_as_hidden()` keeps them invisible in FreeCAD after sync/undo/reopen. For a deleted row source, a surviving member is detached as the new original and all its holders change `SSSource`; origins/indices stay fixed to preserve survivor positions and Nx or /N spacing. Shared definitions retain editable native features, with their `BodyId` promoted to a surviving instance. No new property or journal version is required.
 - Identity/metadata include `BodyId`, `RectId`, `SSRole`, `SSOp`, `SSMaterial`, `SSGrain`, `SSHidden`, `AssemblyId`, `SSArray`, and `SSArrayIndex`. Labels are presentation; do not substitute labels for stable identity.
 
 Face references are geometric `{body, normal, point}` descriptions rather than face indices. `resolve_face` finds a planar face matching normal and point containment and rejects missing/ambiguous matches. This avoids reliance on face numbering but does not guarantee persistence through topology changes.

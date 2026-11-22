@@ -143,6 +143,8 @@ class MoveActions:
     def op_move(self, op):
         if op.get("cut"):
             return self.op_move_cut(op)
+        if op.get("selection") and not op.get("copy", False):
+            return self.move_selection(op)
         vecv = vec(op["vector"])
         copy = op.get("copy", False)
         count = int(op.get("count", 1))
@@ -235,3 +237,14 @@ class MoveActions:
             self.doc.removeObject(link.Name)
             changed.append(t)
         return changed
+
+    def move_selection(self, op):
+        members = {t: self.body(t) for t in op["targets"]}
+        for obj in list(members.values()):
+            if op.get("detach") and getattr(obj, "SSArray", ""):
+                self.op_detach({"targets": [obj.BodyId]})
+            for arr in self.arrays_of(obj):
+                members[arr.SSSource] = self.body(arr.SSSource)
+                members.update({b: o for b, o in self.bodies().items()
+                                if getattr(o, "SSArray", "") == arr.Name})
+        return self.move_members(list(members.values()), vec(op["vector"]), allow_external=True)

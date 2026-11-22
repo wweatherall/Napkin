@@ -7,9 +7,10 @@ from mirror import MirrorActions
 from assembly import AssemblyActions
 from paint import PaintActions
 from visibility import VisibilityActions
+from deletion import DeleteActions
 
 
-class Model(PushActions, MoveActions, MirrorActions, AssemblyActions, PaintActions, VisibilityActions):
+class Model(PushActions, MoveActions, MirrorActions, AssemblyActions, PaintActions, VisibilityActions, DeleteActions):
     """Shop Sketch operations on a FreeCAD document. Holds no state of its own."""
 
     def __init__(self, doc):
@@ -286,7 +287,7 @@ class Model(PushActions, MoveActions, MirrorActions, AssemblyActions, PaintActio
         return b
 
     HANDLERS = ("rect", "push_pull", "mirror", "make_component", "move", "set_material", "detach", "make_unique",
-                "make_assembly", "turn_grain", "property_edit", "hide")
+                "make_assembly", "turn_grain", "property_edit", "hide", "delete")
 
     def op_property_edit(self, op):
         """A native property changed in the Properties panel (T46): see object_properties.apply."""

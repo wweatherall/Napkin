@@ -35,22 +35,28 @@ class AssemblyActions:
     def move_assembly(self, g, vecv):
         """Move everything in an assembly by vecv. Each real board moves once (a flipped board's hidden original
         moves by the reflected vector); each mirror's plane shifts by what keeps its image moving with the rest."""
-        members = [o for o in g.Group if getattr(o, "SSRole", None) == "body"]
+        return self.move_members([o for o in g.Group if getattr(o, "SSRole", None) == "body"], vecv)
+
+    def move_members(self, members, vecv, allow_external=False):
         mirrors = [o for o in members if self.is_mirror(o)]
         refl = lambda v, n: v - n * (2 * v.dot(n))
         moves = {o.Name: vecv for o in members}          # how far each object's own shape moves
         hidden = []
         for o in mirrors:
             src = self.mirror_source(o)
-            if getattr(o, "Replaced", False) and src.Name not in moves:
-                moves[src.Name] = refl(vecv, unit(o.Normal))
+            if (allow_external or getattr(o, "Replaced", False)) and src.Name not in moves:
+                moves[src.Name] = refl(moves[o.Name], unit(o.Normal))
                 hidden.append(src)
+                if self.is_mirror(src):
+                    mirrors.append(src)  # resolve a nested mirror's root exactly once
+                elif getattr(src, "SSArray", ""):
+                    self.op_detach({"targets": [src.BodyId]})
         for o in mirrors:
             src = self.mirror_source(o)
             if src.Name not in moves:
                 raise OpError(f"'{o.BodyId}' mirrors a board outside its assembly: move them separately")
             n = unit(o.Normal)
-            rest = vecv - refl(moves[src.Name], n)        # what the plane has to supply; it can only push along n
+            rest = moves[o.Name] - refl(moves[src.Name], n)        # what the plane has to supply; it can only push along n
             along = rest.dot(n)
             if (rest - n * along).Length > 1e-6:
                 raise OpError(f"'{o.BodyId}' can't move with the rest: its original moves another way")
@@ -67,5 +73,7 @@ class AssemblyActions:
                 continue                              # placed by its array, which just moved
             o.Placement = App.Placement(o.Placement.Base + vecv, o.Placement.Rotation)
         for o in hidden:
+            if self.is_mirror(o):
+                continue  # its plane was adjusted above
             o.Placement = App.Placement(o.Placement.Base + moves[o.Name], o.Placement.Rotation)
-        return [o.BodyId for o in members]
+        return list(dict.fromkeys(o.BodyId for o in members + hidden if getattr(o, "SSRole", "") == "body"))

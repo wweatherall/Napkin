@@ -223,39 +223,45 @@ func commit_mirror(pp: Vector3, n: Vector3) -> void:
 	var body: String = state["body"]
 	m.counters["m"] += 1
 	var oid := "m%d" % m.counters["m"]
-	var op := {"id": oid, "type": "mirror", "targets": [body], "plane": {"point": Main.arr3(pp), "normal": Main.arr3(n)}}
-	var bid := body
+	var targets: Array = state["unit"]["bodies"].duplicate() if state.get("unit", {}).get("kind", "") == "selection" else [body]
+	var op := {"id": oid, "type": "mirror", "targets": targets, "plane": {"point": Main.arr3(pp), "normal": Main.arr3(n)}}
+	var made: Array = []
 	if copy:
-		m.counters["b"] += 1
-		bid = "b%d" % m.counters["b"]
-		op["new_ids"] = [bid]
-		if m.context == "" and m.body_assembly.get(body, "") == "":
+		for b in targets:
+			m.counters["b"] += 1
+			made.append("b%d" % m.counters["b"])
+		op["new_ids"] = made
+		if m.context == "" and targets.all(func(b): return m.body_assembly.get(b, "") == ""):
 			m.counters["a"] += 1
-			op["group"] = "a%d" % m.counters["a"]   # the pair is a mirror group you enter (A11b, T26)
+			op["group"] = "a%d" % m.counters["a"]
 	else:
-		op["replace"] = true                 # flip the board itself
+		op["replace"] = true
+		made = targets.duplicate()
 	m.ops.append(op)
-	var ghost := Main.reflect_tris(state["tris"], pp, n)
-	var mi := MeshInstance3D.new()
-	mi.mesh = m._tri_mesh(ghost, m.mat_draft)
-	var edges := m._lines(Main.feature_edges(ghost), Color(0.6, 0.35, 0.0))
-	mi.add_child(edges)
-	m.drafts_root.add_child(mi)
-	m.drafts[oid] = mi
-	m._add_collision(mi, "body_id", bid)
-	m.body_tris[bid] = ghost
-	m.body_verts[bid] = Main.unique_verts(ghost)
-	m.body_edges[bid] = Main.feature_edges(ghost)
-	if not copy:
-		for node in m.bodies_root.find_children(body, "MeshInstance3D", true, false):
-			node.visible = false
-	if m.test_mode:
-		var blo := Vector3(INF, INF, INF); var bhi := -blo
-		for q in ghost: blo = blo.min(q); bhi = bhi.max(q)
-		m.draft_bboxes[bid] = [Main.arr3(blo), Main.arr3(bhi)]
+	var root := Node3D.new()
+	m.drafts_root.add_child(root); m.drafts[oid] = root
+	var all := PackedVector3Array()
+	for i in targets.size():
+		var ghost := Main.reflect_tris(m.body_tris[targets[i]], pp, n)
+		all.append_array(ghost)
+		var mi := MeshInstance3D.new()
+		mi.mesh = m._tri_mesh(ghost, m.mat_draft)
+		mi.add_child(m._lines(Main.feature_edges(ghost), Color(0.6, 0.35, 0.0)))
+		root.add_child(mi)
+		var bid: String = made[i]
+		m._add_collision(mi, "body_id", bid)
+		m.body_tris[bid] = ghost
+		m.body_verts[bid] = Main.unique_verts(ghost)
+		m.body_edges[bid] = Main.feature_edges(ghost)
+		if not copy:
+			for node in m.bodies_root.find_children(targets[i], "MeshInstance3D", true, false): node.visible = false
+		if m.test_mode:
+			var blo := Vector3(INF, INF, INF); var bhi := -blo
+			for q in ghost: blo = blo.min(q); bhi = bhi.max(q)
+			m.draft_bboxes[bid] = [Main.arr3(blo), Main.arr3(bhi)]
 	var landed := Main.reflect_point(state["ref"], pp, n)
-	m._begin_wave(oid, landed, ghost, copy, bid)
-	m._attach_wave(oid, mi, edges, Main.DEFAULT_BASE)
+	m._begin_wave(oid, landed, all, copy, made)
+	for mi in root.get_children(): m._attach_wave(oid, mi, mi.get_child(0), Main.DEFAULT_BASE)
 	last_oid = ""
 	state["active"] = false
 	if m.guides: m.guides.mesh = null
@@ -272,7 +278,9 @@ func _move_click(screen: Vector2) -> void:
 		last_oid = ""
 		var tris: PackedVector3Array = m.body_tris[p["body"]]
 		var unit := m.unit_of(p["body"])             # from outside: the whole assembly, or the array's row (I32)
-		var cut := m._cut_at(p["body"], p["point"]) if unit["kind"] != "assembly" else {}
+		if m.selection.has(p["body"]) and m.selection.size() > 1:
+			unit = {"id": p["body"], "kind": "selection", "bodies": m.selection.duplicate()}
+		var cut := m._cut_at(p["body"], p["point"]) if unit["kind"] == "board" and not m.selection.has(p["body"]) else {}
 		var cut_ref := {}
 		if unit["kind"] != "board":
 			tris = m.unit_tris(unit)
@@ -399,25 +407,24 @@ func commit_move(vec: Vector3, count := 1, divide := false, reuse_oid := "") -> 
 		return
 	var body: String = state.get("body", "")
 	var unit: Dictionary = state.get("unit", {"kind": "board", "bodies": [body]})
-	if copy and unit["kind"] == "assembly":
-		m._say_status("Copying an assembly isn't built yet: enter it and copy its boards")
-		return
 	var oid := reuse_oid
 	if oid == "":
 		m.counters["mv"] += 1
 		oid = "mv%d" % m.counters["mv"]
-	var op := {"id": oid, "type": "move", "targets": [unit["id"] if unit["kind"] == "assembly" else body],
+	var targets: Array = unit["bodies"].duplicate() if unit["kind"] in ["selection", "assembly"] else [body]
+	var op := {"id": oid, "type": "move", "targets": targets, "selection": unit["kind"] in ["selection", "assembly"],
 			   "vector": Main.arr3(vec), "copy": copy}
-	if not copy and m.context.begins_with("row:") and m.body_array.get(body, "") != "":
+	if not copy and m.context.begins_with("row:"):
 		op["detach"] = true                          # inside an entered array a copy moves alone (I32)
 	var offsets := _move_offsets(vec, count, divide, copy)
 	var made := []
 	if copy:
 		op["count"] = count
 		op["divide"] = divide
-		for i in offsets.size():
-			m.counters["b"] += 1
-			made.append("b%d" % m.counters["b"])
+		for b in targets:
+			for i in offsets.size():
+				m.counters["b"] += 1
+				made.append("b%d" % m.counters["b"])
 		op["new_ids"] = made
 	m.ops.append(op)
 	var root := Node3D.new()
@@ -425,10 +432,16 @@ func commit_move(vec: Vector3, count := 1, divide := false, reuse_oid := "") -> 
 	m.drafts[oid] = root
 	var all := PackedVector3Array()
 	var src: PackedVector3Array = state["tris"]
-	memo[oid] = {"tris": src, "ref": state["ref"]}
+	memo[oid] = {"tris": src, "ref": state["ref"], "unit": unit.duplicate(true)}
 	var wave_bodies := made if copy else [body]
 	var srcs := []
 	for i in offsets.size(): srcs.append(m.body_tris[body] if copy and unit["kind"] != "board" else src)
+	if copy and targets.size() > 1:
+		var steps := offsets.duplicate()
+		srcs = []; offsets = []
+		for b in targets:
+			for step in steps:
+				srcs.append(m.body_tris[b]); offsets.append(step)
 	if not copy and unit["kind"] != "board":       # the whole assembly / row moves: one draft per board
 		wave_bodies = unit["bodies"]
 		srcs = []; offsets = []
@@ -541,6 +554,6 @@ func _amend_last_move(txt: String) -> bool:
 	copy = was_copy
 	var memo: Dictionary = memo.get(op["id"], {})
 	if memo.is_empty(): return true
-	state = {"active": false, "body": body, "tris": memo["tris"], "ref": memo["ref"], "cut": memo.get("cut", {})}
+	state = {"active": false, "body": body, "tris": memo["tris"], "ref": memo["ref"], "cut": memo.get("cut", {}), "unit": memo.get("unit", {"id": body, "kind": "board", "bodies": [body]})}
 	commit_move(vec, count, divide, op["id"])
 	return true

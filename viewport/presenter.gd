@@ -130,7 +130,7 @@ func apply_confirmed(dir: String, key: String) -> void:
 			_boards[vkey] = _build_board(dir, b)
 	_load_cuts(dir)
 	_show_boards(files)
-	_remember_state(key, files)
+	_remember_state(key, files, data, dir)
 
 
 func _build_board(dir: String, b: Dictionary) -> Dictionary:
@@ -208,8 +208,8 @@ var shown_key := ""           # the confirmed state on screen
 var predicted_undo := false   # the model on screen is a remembered state; FreeCAD is still catching up
 
 
-func _remember_state(key: String, files: Dictionary) -> void:
-	_states[key] = {"files": files, "cuts": body_cuts.duplicate(), "stock_frames": stock_frames.duplicate()}
+func _remember_state(key: String, files: Dictionary, data: Array, dir: String) -> void:
+	_states[key] = {"files": files, "cuts": body_cuts.duplicate(), "stock_frames": stock_frames.duplicate(), "boards": data.duplicate(true), "dir": dir}
 	_state_lru.erase(key); _state_lru.append(key)
 	shown_key = key
 	var evicted := false
@@ -234,6 +234,7 @@ func show_state(key: String) -> bool:
 	if not _states.has(key): return false
 	if key == shown_key: return true
 	var st: Dictionary = _states[key]
+	boards_read.emit(st["boards"], st["dir"])
 	body_cuts = st["cuts"].duplicate()
 	stock_frames = st["stock_frames"].duplicate()
 	_show_boards(st["files"])
@@ -443,16 +444,26 @@ func apply_context() -> void:
 		if not node.has_meta("body_mesh"): continue
 		var bid := String(node.name)
 		var hidden: bool = sel.body_hidden.has(bid)
-		if hidden and not sel.show_hidden:
+		if sel.body_deleted.has(bid) or (hidden and not sel.show_hidden):
 			node.visible = false; node.set_meta("ss_hidden", true)
 		elif node.get_meta("ss_hidden", false):
 			node.visible = true; node.set_meta("ss_hidden", false)
-		var inside: bool = sel.in_context(bid) and (not hidden or sel.show_hidden)
+		var inside: bool = not sel.body_deleted.has(bid) and sel.in_context(bid) and (not hidden or sel.show_hidden)
 		node.material_override = (mat_hidden_ghost if hidden else null) if inside else mat_ghost
 		var edges: MeshInstance3D = node.get_meta("edges")
 		edges.visible = inside
 		for c in node.get_children():
 			if c is StaticBody3D: c.collision_layer = 1 if inside else 0
+	for collider in m.drafts_root.find_children("*", "StaticBody3D", true, false):
+		var bid := String(collider.get_meta("body_id", ""))
+		if sel.body_deleted.has(bid):
+			collider.set_meta("ss_deleted", true)
+			collider.collision_layer = 0
+			collider.get_parent().visible = false
+		elif collider.get_meta("ss_deleted", false):
+			collider.remove_meta("ss_deleted")
+			collider.collision_layer = 1
+			collider.get_parent().visible = true
 	show_mirror_plane()
 
 

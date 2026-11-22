@@ -40,7 +40,7 @@ Existing undo preview caching remembers recent confirmed meshes; this is useful 
 
 #### S01 — Selection and ordinary editing
 
-**Partly built:** Select (Space) supports click, Shift-click toggling, clear selection and context entry. Remaining S01/T34 work includes window/crossing selection, Delete and complete multi-part transformations. Support both selecting first and activating a tool first.
+**Built (T34 on codex/t34-selection, awaiting integration):** Select (Space) supports click, Shift-click toggling, window/crossing boxes, clear selection and context entry. Delete and multi-board move/copy/mirror are single undoable actions. Select first or activate Move first; deleting an entered original promotes a survivor (I43).
 
 SketchUp provides a reusable selection set: dragging one direction selects contained entities; the other selects crossing entities. Adapt this to Shop Sketch's part and feature ownership model rather than blindly selecting arbitrary mesh triangles.
 

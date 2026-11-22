@@ -1099,7 +1099,7 @@ func _plank(i: int, origin: Vector3, size: Vector3) -> Array:
 # with its own worker, so tools/quicktest.sh runs the lanes side by side (T49). A section starts from _fresh, so
 # any lane order works, except reject -> trackpad -> models -> worker, which carry on from each other.
 const QUICK_LANES := [
-	["hash", "rect", "push", "faces", "snap", "move", "hole"],
+	["hash", "rect", "push", "faces", "snap", "move", "hole", "selection"],
 	["linked", "assembly", "mirrorgroup", "faceplane", "wood", "hide"],
 	["undo", "reject", "trackpad", "models", "worker", "properties"],
 ]
@@ -1124,6 +1124,7 @@ func _run_quick_test() -> void:
 			"push": await _q_push()
 			"faces": await _q_faces()
 			"snap": await _q_snap()
+			"selection": await _q_selection()
 			"move": await _q_move()
 			"hole": await _q_hole()
 			"linked": await _q_linked()
@@ -1970,3 +1971,85 @@ func _run_test() -> void:
 	print("TEST oplog ops: ", m.ops.size(), "  last round trip ms: ", m.last_sync_ms)
 	print("TEST status: ", m.ui_sync.text)
 	get_tree().quit()
+
+
+func _q_selection() -> void:
+	await _fresh("selection", _plank(1, Vector3.ZERO, Vector3(100, 50, 18)) + _plank(2, Vector3(200, 0, 0), Vector3(100, 50, 18)) + _plank(3, Vector3(400, 0, 0), Vector3(100, 50, 18)))
+	await _view(Vector3(250, 25, 0), -15, -55, 1.8)
+	m.set_tool("select")
+	var select = m.tools["select"]
+	var lo := Vector2(INF, INF); var hi := -lo
+	for b in ["b1", "b2", "b3"]:
+		for v in m.body_verts[b]:
+			var point: Vector2 = m.cam.unproject_position(Main.m2g(v))
+			lo = lo.min(point); hi = hi.max(point)
+	lo -= Vector2(8, 8); hi += Vector2(8, 8)
+	select.click(lo); select.mouse_moved(hi); select.release(hi)
+	_ok("window drag selects three enclosed boards", m.selection.size() == 3, m.selection)
+	var center: Vector2 = m.cam.unproject_position(Main.m2g(Vector3(250, 25, 18)))
+	_ok("tiny enclosing window misses partial board", select.box_ids(center - Vector2(2, 2), center + Vector2(2, 2)).is_empty())
+	_ok("crossing drag selects triangle interior without an enclosed vertex", select.box_ids(center + Vector2(2, -2), center + Vector2(-2, 2)) == ["b2"])
+	select.click(lo); select.mouse_moved(hi); select.reset()
+	_ok("Esc cancels drag and restores selection", m.selection.size() == 3 and not select.in_gesture())
+	m.set_selection([])
+	await _click_at(Vector3(50, 25, 18))
+	_ok("Select click picks a board", m.selection == ["b1"], m.selection)
+	await _key_state(KEY_SHIFT, true); await _click_at(Vector3(250, 25, 18)); await _key_state(KEY_SHIFT, false)
+	_ok("Shift-click adds to the reusable selection", m.selection.size() == 2 and m.selection.has("b2"), m.selection)
+	await _key_state(KEY_SHIFT, true); await _click_at(Vector3(250, 25, 18)); await _key_state(KEY_SHIFT, false)
+	_ok("Shift-click toggles a selected board off", m.selection == ["b1"], m.selection)
+	select.click(lo); select.mouse_moved(hi); select.release(hi)
+	var before := m.ops.size()
+	await _grab(Vector3(50, 25, 18)); await _key(KEY_RIGHT); await _drag_to(Vector3(100, 25, 18), 6); await _type("40\n"); await _wait_wave()
+	_ok("select first: one move moves all three boards", m.ops.size() == before + 1 and _bbox("b1")[0] == 40.0 and _bbox("b2")[0] == 240.0 and _bbox("b3")[0] == 440.0, m.ops.back())
+	m.undo(); await _wait_wave()
+	_ok("multi-move undoes as one action", _bbox("b1")[0] == 0.0 and _bbox("b3")[0] == 400.0)
+	m.redo(); await _wait_wave()
+	_ok("multi-move redoes as one action", _bbox("b1")[0] == 40.0 and _bbox("b3")[0] == 440.0)
+	m.set_selection(["b1", "b2", "b3"])
+	await _grab(Vector3(90, 25, 18)); await _key(KEY_ALT); await _key(KEY_LEFT); await _drag_to(Vector3(90, 80, 18), 6); await _type("100\n"); await _wait_wave()
+	_ok("three selected boards copy in one action", m.ops.back().get("new_ids", []).size() == 3 and _shown_ids().size() == 6, m.ops.back())
+	await _type("2x\n"); await _wait_wave()
+	_ok("multi-copy count amendment retains every target", _shown_ids().size() == 9 and m.ops.back()["targets"].size() == 3 and m.ops.back()["new_ids"].size() == 6, m.ops.back())
+	await _type("/2\n"); await _wait_wave()
+	_ok("multi-copy distribution amendment retains every target", _shown_ids().size() == 9 and m.ops.back()["divide"] and m.ops.back()["targets"].size() == 3, m.ops.back())
+	await _type("1x\n"); await _wait_wave()
+	m.undo(); await _wait_wave()
+	_ok("multi-copy undo removes all copies", _shown_ids().size() == 3, _shown_ids())
+	m.redo(); await _wait_wave()
+	_ok("multi-copy redo restores all copies", _shown_ids().size() == 6)
+	m.set_selection(["b1", "b2", "b3"])
+	await _key(KEY_DELETE)
+	_ok("Delete predicts removal immediately", m.selection.is_empty() and not m.bodies_root.get_node("b1").visible)
+	await _wait_wave()
+	_ok("Delete preserves unselected linked copies", _shown_ids().size() == 3 and not _shown_ids().has("b1"), _shown_ids())
+	m.undo(); await _wait_wave()
+	_ok("multi-delete undoes as one action", _shown_ids().size() == 6)
+	m.redo(); await _wait_wave()
+	_ok("multi-delete redoes as one action", _shown_ids().size() == 3)
+	m.undo(); await _wait_wave()
+	m.set_selection(["b1", "b2", "b3"])
+	await _grab(Vector3(90, 25, 18)); await _key(KEY_ALT); await _key(KEY_SHIFT); await _key(KEY_RIGHT); await _type("300\n"); await _wait_wave()
+	_ok("three selected boards mirror in one action", m.ops.back()["type"] == "mirror" and m.ops.back()["targets"].size() == 3 and _shown_ids().size() == 9, m.ops.back())
+	m.undo(); await _wait_wave()
+	_ok("multi-mirror undoes as one action", _shown_ids().size() == 6)
+	# Tool first, with no prior selection, still picks just the pointed board.
+	m.set_selection([])
+	await _grab(Vector3(90, 25, 18))
+	_ok("tool-first grab after undo uses restored relationships", m.tools["move"].state.get("active", false) and m.body_assembly.get("b1", "") == "", [m.tools["move"].state, m.body_assembly])
+	await _key(KEY_RIGHT); await _drag_to(Vector3(130, 25, 18), 6); await _type("20\n"); await _wait_wave()
+	_ok("tool first moves only the pointed board", m.ops.back()["targets"] == ["b1"] and _bbox("b2")[0] == 240.0, m.ops.back())
+
+	# Enter a real row and delete its original: context, identity and linked survivors follow promotion.
+	await _fresh("selection_row", _plank(1, Vector3.ZERO, Vector3(100, 50, 18)) + [{"id": "mv1", "type": "move", "targets": ["b1"], "vector": [150, 0, 0], "copy": true, "count": 3, "new_ids": ["b2", "b3", "b4"]}])
+	await _view(Vector3(250, 25, 0), -15, -55, 1.8)
+	m.set_tool("select"); m.enter_context_of("b1"); m.set_selection(["b1"])
+	await _key(KEY_BACKSPACE); await _wait_wave()
+	_ok("entered row Delete preserves siblings and promotes a new original", _shown_ids().size() == 3 and m.context == "row:b2" and m.body_row.get("b3", "") == "b2" and m.body_array.get("b2", "") == "", [m.context, m.body_row, m.body_array])
+	_ok("window selection excludes out-of-context and deleted boards", not m.tools["select"].box_ids(Vector2.ZERO, get_viewport().get_visible_rect().size).has("b1"))
+	m.undo(); await _wait_wave()
+	_ok("undo restores the row's original and entered context", _shown_ids().size() == 4 and m.context == "row:b1", m.context)
+	m.set_selection(["b2"]); m.hide_selected(); await _wait_wave()
+	var window: Array = m.tools["select"].box_ids(Vector2.ZERO, get_viewport().get_visible_rect().size)
+	_ok("window selection leaves hidden boards out", not window.has("b2") and window.has("b3"), window)
+	m.leave_context(); m.set_selection([])

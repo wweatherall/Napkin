@@ -25,14 +25,14 @@ Tools talk to the worker only through `ops` and `m.sync()`.
 
 ## The tools
 - `select_tool.gd` (Space): click selects (from outside, an assembly or array row whole), Shift-click adds or
-  removes, empty space clears; double-click enters an assembly or array (T20), Esc leaves.
+  removes, empty space clears; drag right selects enclosed units, left selects crossing units, Shift adds. Double-click enters an assembly or array (T20), Esc cancels a box before leaving. Delete acts on the reusable selection (T34).
 - `paint_tool.gd` (no key yet, Q14): paints the Wood menu's wood; a linked board paints its family. T turns grain.
 - `rect_tool.gd` (R): click a face or the ground, then click or type `width, height`. Started with a click it ends
   with a click; started with a press-and-drag it ends on release (a wobbly click still counts as a click, I29).
 - `push_tool.gd` (P): click a face or rectangle, move, click or type a distance (minus = cut). Snaps to faces
   behind (to the back face = a through-cut, `"through": true`, I24); on a face it joins that board, B for a new
   board (I04b).
-- `move_tool.gd` (M), SketchUp style: grab a point on a board (or a hole's wall: the hole), move, click or type a
+- `move_tool.gd` (M), SketchUp style: grabbing a selected board transforms the whole selection (T34; move/copy/mirror are each one op); otherwise grab a point on a board (or a hole's wall: the hole), move, click or type a
   distance. Ctrl/Option toggles copy; Shift toggles mirror (I12c); arrows cycle axis lock → plane lock → free.
   After a copy: `5x` / `*5` for an array, `/5` to spread copies; a plain number right after a move changes its
   distance (`_amend_last_move`). Mirroring can use any face's plane (T27).

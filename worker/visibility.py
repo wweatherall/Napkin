@@ -26,7 +26,9 @@ class VisibilityActions:
 
     def show_as_hidden(self):
         """Each board's Visibility from SSHidden (a board without it is shown)."""
-        for obj in self.bodies().values():
-            want = not bool(getattr(obj, "SSHidden", False))
+        for obj in self.doc.Objects:
+            if getattr(obj, "SSRole", "") not in ("body", "deleted"):
+                continue
+            want = obj.SSRole == "body" and not bool(getattr(obj, "SSHidden", False))
             if obj.Visibility != want:
                 obj.Visibility = want

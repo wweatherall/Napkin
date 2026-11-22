@@ -127,6 +127,52 @@ def only(before, after, ids):
 
 STEP_MS = []
 
+# T34: one meaningful action, several native boards, and deletion preserving linked siblings.
+MULTI = {"id": "multi", "type": "move", "targets": ["bottom", "shelf", "shelf2"],
+         "selection": True, "vector": [35, 0, 0]}
+step("multi-board move", FIX + [MULTI], lambda st, a, b: [
+    ok(st, 1), only(a, b, {"bottom", "shelf", "shelf2"}),
+    ("each selected board moved once", all(b["boards"][k]["box"][0] == a["boards"][k]["box"][0] + 35
+        for k in MULTI["targets"]), diff(a, b))])
+step("multi-board copy", FIX + [dict(MULTI, copy=True, new_ids=["c1", "c2", "c3"])], lambda st, a, b: [
+    ok(st, 1), only(a, b, {"c1", "c2", "c3"}),
+    ("three new boards, same shape and offset", all(b["boards"][c]["vol"] == a["boards"][k]["vol"]
+        and b["boards"][c]["box"][0] == a["boards"][k]["box"][0] + 35
+        for k, c in zip(MULTI["targets"], ["c1", "c2", "c3"])), diff(a, b))])
+step("multi-board mirror", FIX + [{"id": "multi_mirror", "type": "mirror", "targets": ["bottom", "shelf"],
+    "new_ids": ["m1", "m2"], "plane": {"point": [1000, 0, 0], "normal": [1, 0, 0]}}], lambda st, a, b: [
+    ok(st, 1), only(a, b, {"m1", "m2"}),
+    ("both copies reflected at the same plane", all(b["boards"][c]["box"][0] == 2000 - a["boards"][k]["box"][3]
+        for k, c in [("bottom", "m1"), ("shelf", "m2")]), diff(a, b))])
+step("delete original linked shelf", FIX + [{"id": "delete_original", "type": "delete", "targets": ["shelf"]}], lambda st, a, b: [
+    ok(st, 1), only(a, b, {"shelf"}),
+    ("original gone, linked sibling unchanged", "shelf" not in b["boards"] and b["boards"]["shelf2"] == a["boards"]["shelf2"], diff(a, b))])
+step("delete several boards", FIX + [{"id": "delete_many", "type": "delete", "targets": ["bottom", "shelf2"]}], lambda st, a, b: [
+    ok(st, 1), only(a, b, {"bottom", "shelf2"}),
+    ("only selected boards gone", set(b["boards"]) == set(a["boards"]) - {"bottom", "shelf2"}, sorted(b["boards"]))])
+step("delete mirror source", FIX + [{"id": "delete_source", "type": "delete", "targets": ["left"]}], lambda st, a, b: [
+    ok(st, 1),
+    ("source gone, mirrored sibling unchanged", "left" not in b["boards"] and b["boards"]["right"] == a["boards"]["right"], diff(a, b))])
+
+ROW = {"id": "multi_row", "type": "move", "targets": ["shelf"], "vector": [0, 100, 0],
+       "copy": True, "count": 3, "new_ids": ["row1", "row2", "row3"]}
+step("select row original and copies", FIX + [ROW, dict(MULTI, targets=["shelf", "row1", "row2", "row3", "bottom"])], lambda st, a, b: [
+    ok(st, 2),
+    ("row members and unrelated board move once", all(b["boards"][k]["box"][0] == a["boards"]["shelf"]["box"][0] + 35
+        for k in ("shelf", "row1", "row2", "row3")) and b["boards"]["bottom"]["box"][0] == a["boards"]["bottom"]["box"][0] + 35, diff(a, b))])
+step("inside row move selected copies", FIX + [ROW, dict(MULTI, targets=["row1", "row2"], detach=True)], lambda st, a, b: [
+    ok(st, 2),
+    ("selected copies move, original and other copy stay", b["boards"]["shelf"] == a["boards"]["shelf"]
+        and b["boards"]["row3"]["box"][0] == a["boards"]["shelf"]["box"][0]
+        and all(b["boards"][k]["box"][0] == a["boards"]["shelf"]["box"][0] + 35 for k in ("row1", "row2")), diff(a, b))])
+EXTRA_MIRROR = {"id": "another_mirror", "type": "mirror", "targets": ["left"], "new_ids": ["right2"],
+                "plane": {"point": [400, 0, 0], "normal": [1, 0, 0]}}
+step("move two mirrors sharing a source", FIX + [EXTRA_MIRROR, dict(MULTI, targets=["right", "right2"])], lambda st, a, b: [
+    ok(st, 2),
+    ("shared original moves once", b["boards"]["left"]["box"][0] == a["boards"]["left"]["box"][0] - 35
+        and b["boards"]["right"]["box"][0] == a["boards"]["right"]["box"][0] + 35
+        and b["boards"]["right2"]["box"][0] == 800 - a["boards"]["left"]["box"][3] + 35, diff(a, b))])
+
 # 1. push a face of a plain board
 FRONT = {"id": "s1", "type": "push_pull", "target": {"face": face("bottom", [0, -1, 0], [300, 0, 9])}, "distance": 20}
 step("push the bottom's front edge out 20", FIX + [FRONT], lambda st, a, b: [
@@ -346,6 +392,62 @@ try:
     old.close()
 except Exception:
     check("old file: ran without an error", False, traceback.format_exc(limit=3))
+
+# T34 array source promotion: preserve the native definition and all survivor positions/spacing.
+try:
+    path = os.path.join(TESTDIR, "selection.FCStd")
+    a = Session(path, fresh=True)
+    base = FIX + [{"id": "row", "type": "move", "targets": ["shelf"], "copy": True,
+                   "vector": [0, 120, 0], "count": 3, "new_ids": ["row1", "row2", "row3"]}]
+    a.sync(base)
+    original = snap(a)
+    removed = base + [{"id": "del1", "type": "delete", "targets": ["shelf", "row1"]}]
+    a.sync(removed)
+    check("delete row original: accepted", a.status()[-1]["status"] == "ok", a.status()[-1])
+    after = snap(a)
+    check("delete linked original: shared definition names a surviving original",
+          a.model.definition(a.model.body("shelf2")).BodyId in {"shelf2", "row2", "row3"})
+    check("delete row original: unselected boards preserved exactly", all(v == after["boards"][k]
+          for k, v in original["boards"].items() if k not in {"shelf", "row1"}), diff(original, after))
+    arr = next(o for o in a.doc.Objects if getattr(o, "SSRole", "") == "array")
+    check("delete row original: first surviving member promoted", arr.SSSource == "row2"
+          and not a.model.body("row2").SSArray and bool(a.model.body("row3").SSArray), arr.SSSource)
+    moved = removed + [{"id": "after_delete", "type": "move", "targets": ["row3"], "vector": [10, 0, 0]}]
+    a.sync(moved)
+    check("promoted row: moving survivor moves the row once", all(snap(a)["boards"][k]["box"][0] == after["boards"][k]["box"][0] + 10
+          for k in ("row2", "row3")), a.status()[-1])
+    a.sync(removed)
+    a.export(os.path.join(TESTDIR, "selection-out"))
+    entries = json.load(open(os.path.join(TESTDIR, "selection-out", "bodies.json")))
+    check("promoted row: exported identity follows the new original", all(e["row"] == "row2" for e in entries if e["id"] in ("row2", "row3")), entries)
+    # The deleted linked instance is absent from scene/render outputs, its definition still editable.
+    dfn = a.model.definition(a.model.body("row2"))
+    plane = next(o for o in dfn.Group if o.TypeId == "Part::Plane")
+    edited = removed + [{"id": "edit_survivor", "type": "property_edit", "body": "row2", "object": plane.Name,
+                        "property": "Length", "value": "450mm", "mode": "value"}]
+    a.sync(edited)
+    check("promoted original: native dimensions still edit linked survivors", a.status()[-1]["status"] == "ok"
+          and snap(a)["boards"]["row2"]["vol"] == snap(a)["boards"]["row3"]["vol"]
+          and snap(a)["boards"]["row2"]["vol"] != after["boards"]["row2"]["vol"], a.status()[-1])
+    a.sync(removed)
+    a.save(); a.close(); a = Session(path)
+    check("delete: saved/reopened model preserves survivors and promoted source", snap(a) == after
+          and next(o for o in a.doc.Objects if getattr(o, "SSRole", "") == "array").SSSource == "row2")
+    deleted = [o for o in a.doc.Objects if getattr(o, "SSRole", "") == "deleted"]
+    a.sync(removed)
+    check("delete: native source dependencies remain invisible after reopen", deleted and all(not o.Visibility for o in deleted))
+    a.sync(base)
+    check("delete: undo after reopen restores original and all members", snap(a) == original)
+    a.sync(removed)
+    check("delete: redo after reopen removes the same selection", snap(a) == after)
+    rebuilt = Session(None); rebuilt.sync(removed)
+    check("delete: rebuilt model matches live", snap(rebuilt) == after)
+    rebuilt.close()
+    a.sync(removed + [{"id": "bad_delete", "type": "delete", "targets": ["row2", "missing"]}])
+    check("delete: invalid target aborts the whole action", a.status()[-1]["status"] == "failed" and snap(a) == after, a.status()[-1])
+    a.close()
+except Exception:
+    check("selection story: ran without an error", False, traceback.format_exc(limit=4))
 
 total = time.perf_counter() - T0
 slow = sorted(STEP_MS, key=lambda x: -x[1])[:3]

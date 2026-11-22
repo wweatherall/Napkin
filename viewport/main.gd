@@ -1816,7 +1816,7 @@ func _make_menus() -> void:
 				  ["Open…", "open", KEY_MASK_META | KEY_O], [],
 				  ["Show in Finder", "reveal", 0], [], ["Drawing and cut list (D)", "drawing", 0]]],
 		["Edit", [["Undo", "undo", KEY_MASK_META | KEY_Z], ["Redo", "redo", KEY_MASK_META | KEY_MASK_SHIFT | KEY_Z], [], ["Make assembly", "assemble", KEY_MASK_META | KEY_G],
-				  ["Make unique (U)", "unique", 0], ["Detach from array", "detach", 0], [],
+				  ["Delete", "delete", KEY_DELETE], ["Make unique (U)", "unique", 0], ["Detach from array", "detach", 0], [],
 				  ["Hide (H)", "hide", 0], ["Unhide selected", "unhide_selected", 0], ["Unhide last", "unhide_last", 0],
 				  ["Unhide all (Shift+H)", "unhide_all", 0]]],
 		["Tools", [["Select (Space)", "select", 0], ["Paint", "paint", 0], ["Rectangle (R)", "rect", 0], ["Push/Pull (P)", "push", 0], ["Move (M)", "move", 0]]],
@@ -1859,6 +1859,7 @@ func _menu(tag) -> void:
 		"assemble": make_assembly()
 		"unique": _linked_op("make_unique")
 		"detach": _linked_op("detach")
+		"delete": tools[tool].reset(); sel.delete_selected()
 		"hide": hide_selected()
 		"unhide_selected": unhide("selected")
 		"unhide_last": unhide("last")
@@ -2009,7 +2010,13 @@ func _unhandled_input(e: InputEvent) -> void:
 				else: set_tool(tool)
 				return
 			KEY_ENTER, KEY_KP_ENTER: apply_vcb(); return
-			KEY_BACKSPACE: vcb = vcb.left(-1); _update_vcb(); return
+			KEY_DELETE:
+				if vcb == "": _menu("delete")
+				return
+			KEY_BACKSPACE:
+				if vcb == "": _menu("delete")
+				else: vcb = vcb.left(-1); _update_vcb()
+				return
 		var ch := char(e.unicode) if e.unicode > 0 else ""
 		var t = tools[tool]
 		if not (vcb != "" and e.keycode == KEY_SHIFT) and t.key(e): return   # the tool's own keys (Move: modifiers, axis locks); while typing, Shift is for " and '

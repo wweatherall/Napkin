@@ -19,7 +19,7 @@ var model_path := ""                # the FreeCAD file: the model itself (A21)
 var out_dir := ""                   # where the worker writes this model's meshes and exports
 
 var ops: Array = []
-var counters := {"pr": 0, "r": 0, "b": 0, "pp": 0, "m": 0, "mv": 0, "mu": 0, "dt": 0, "as": 0, "a": 0, "sm": 0, "tg": 0, "hd": 0}
+var counters := {"pr": 0, "r": 0, "b": 0, "pp": 0, "m": 0, "mv": 0, "mu": 0, "dt": 0, "as": 0, "a": 0, "sm": 0, "tg": 0, "hd": 0, "del": 0}
 var seq := 0                        # numbers each desired state; a reply counts only for the latest
 var in_flight := false
 var dirty := false                  # changed since the request in flight: send again when it returns
@@ -199,7 +199,7 @@ func take_redo() -> Dictionary:
 func restore_counters() -> void:
 	for op in ops:
 		var id: String = op["id"]
-		for k in ["pr", "pp", "mv", "mu", "dt", "as", "sm", "tg", "hd", "r", "m"]:
+		for k in ["del", "pr", "pp", "mv", "mu", "dt", "as", "sm", "tg", "hd", "r", "m"]:
 			if id.begins_with(k) and id.substr(k.length()).is_valid_int():
 				counters[k] = maxi(counters[k], int(id.substr(k.length())))
 				break

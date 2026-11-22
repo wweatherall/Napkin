@@ -13,7 +13,7 @@ protocol (update it in the same commit when you change either). Tools have their
   signals and knows nothing of meshes. main.gd forwards those names (`m.ops`, `m.seq`, ...) to it. Undo, redo and
   removal go through it (`op_removed` tells main to take away what an op drew).
 - `selection.gd` (T41, A33b): selection and context, `m.sel`. Owns `selection`, `context`, each board's assembly /
-  row / family / array / mirror plane, the hidden set, `show_hidden`, `hover_body`; the queries (`unit_of`,
+  row / family / array / mirror plane, the hidden/deleted sets, `show_hidden`, `hover_body`; deletion (T34, I43); the queries (`unit_of`,
   `in_context`, `is_hidden`, ...) and the actions that add hide / assembly / unlink ops. Draws nothing: main.gd
   and the presenter draw on its signals; main forwards the old names.
 - `presenter.gd` (T41, A33b): geometry on screen, `m.pres`. Owns `body_tris` / `body_verts` / `body_edges` /
@@ -48,6 +48,7 @@ protocol (update it in the same commit when you change either). Tools have their
   one (`enter_context_of`, the rest greyed and unpickable), Esc leaves. Inside an entered array a moved copy leaves
   the row (op `"detach": true`, I32); a board pushed out inside an assembly joins it (op `"assembly"`). Inside a
   mirror group the plane shows and moving the copy moves the original reflected.
+- Selection (T34): Select drags right for enclosed units, left for crossing units; Shift adds. Move on a selected board uses the whole selection (copy/mirror too). Delete or an empty measurements field's Backspace removes the selection in one op. Deleted IDs follow ops immediately, suppressing confirmed and draft collisions even with Hidden geometry on. Deleting an entered row's original promotes a survivor and keeps the entered context with it (I43). Cached undo/redo states restore relationship metadata as well as geometry.
 - Hide (T28, I37): H hides the selection (else the board under the cursor), Shift+H unhides all; Edit > Unhide
   selected / last; View > Hidden geometry ghosts hidden boards (pickable, to unhide one). The hidden set comes
   from `ops` (`hidden_boards()`, applied in the presenter's `apply_context`), so hide and its undo show at once; `is_hidden`
@@ -81,7 +82,7 @@ protocol (update it in the same commit when you change either). Tools have their
   edits coalesce, stale and dirty replies are ignored, reconnect resends, a switched model ignores the old reply,
   undo floor, redo.
 - `test_selection.gd` (headless, in the feature tests): selection.gd with a stand-in document: what a board stands for
-  outside and inside, entering and leaving, the hidden set following the ops, hide / assembly / unlink ops.
+  outside and inside, entering and leaving, the hidden/deleted sets following ops, hide / delete / assembly / unlink ops and context following original promotion. Quick-test `selection` covers boxes, Shift-click, multi-board move/copy/count amendments/mirror/delete, undo/redo, tool-first grabs after undo and deletion inside an entered array.
 - `test_units.gd` (`Godot --headless --path viewport --script res://test_units.gd`, 114): the parser, and the local
   evaluator against FreeCAD's answers in `tests/length_cases.json`.
 - Tests use a private worker on a port it picks itself and reports in a file (T47); `--port=N` uses an outside
