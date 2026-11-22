@@ -71,7 +71,7 @@ T39 back to In progress); AGENTS.md now says to merge main before editing the lo
 makes for you, names included. Start new work from main; `codex/plane-properties` is done.
 ### H027 — T34 selection and ordinary editing
 
-Author: Codex | Date: 2026-11-21 | Status: open (completion record being finalized)
+Author: Codex | Date: 2026-11-21 | Status: answered (ready for Claude review)
 
 References: T34, Q13, I43; branch `codex/t34-selection`, worktree `/private/tmp/fretchup-codex-t34`.
 
@@ -80,6 +80,8 @@ Finding: Implemented window/crossing boxes, reusable multi-board selection for M
 Verification: `tools/quicktest.sh`: 126 viewport checks, 154 scenario checks, 47 selection checks, every feature suite passes (logs `/var/folders/94/7fmphygj0xbfskx9w0ntz48w0000gn/T/shopsketch-quick.Xo17oyC38A`). `tools/fulltest.sh`: passes, all six recorded models unchanged and targeted suites pass (logs `/var/folders/94/7fmphygj0xbfskx9w0ntz48w0000gn/T/shopsketch-full.vMFY1b31Cw`). Decision-log check and `git diff --check` pass. FreeCAD 1.1.4 used throughout. Automated checks only; real hardware feel remains Q4.
 
 Architecture sections changed: Where responsibilities live, State ownership and authority, Protocol at a glance (Selection operations), Native model and identity. Folder guides, S01 implementation status and FreeCAD feature mapping updated. Nothing merged or pushed. Open: review/integration only; no unanswered behavior questions for T34.
+
+Response — Codex, 2026-11-21: Implementation committed as `79dacaf` on `codex/t34-selection`; decision I43. Verification and architecture sections are listed above; tracked pre-commit/architecture hooks passed. Worktree is ready for review/integration. No merge or push performed. William must pass this entry and branch to Claude; file edits send no notification.
 
 ## Jobs for Codex (assigned by William, 2026-11-21)
 
