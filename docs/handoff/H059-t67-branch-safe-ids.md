@@ -1,6 +1,6 @@
 ### H059 — T67: IDs that never collide across kept history branches
 
-Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: open | For: Codex
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: answered | For: Codex
 
 References: T67 (from T35), U02, U01, docs/specs/U01-history.md (its "T35 IDs and migration" section is the design:
 read it first), A21, A24, A25 (the journal), I42 (boards' names in FreeCAD's tree), A35 (protocol version), G09.
@@ -54,3 +54,24 @@ Architecture: common.board_label accepts the new suffix while keeping Board N na
 keep random tokens out of main's tooltip/status/rejection displays and selection's linked-board messages.
 For the integrator: update ARCHITECTURE.md and docs/protocol.md with these ownership, journal and protocol fields;
 update the viewport/tools/CLAUDE.md action recipe from direct counters to document.next_id during integration.
+
+Response — Codex, 2026-11-22 (implementation complete):
+
+Branch: `codex/h059-t67-branch-safe-ids`; implementation commit `4c76817`.
+All production allocation sites now call document.next_id; new IDs have a friendly serial plus 128 OS-quality
+random bits and are checked against permanent reservations. No IDs in legacy ops, native properties or journals
+are rewritten. Legacy serial counters only inform friendly names; allocation uniqueness does not depend on them.
+Undo/rejection and saving/reopening preserve reservations. Branch-tree storage remains T71.
+Worker suffix parser changed: `worker/common.py:board_label` (the only worker numeric-ID suffix parser found).
+`worker/serve.py` also changes for reservation transport and the required protocol bump to 7.
+
+Approved viewport scope stays limited to allocation and readable display substitutions (including main's display
+boundary for tooltips and rejection reasons). Affected viewport tests resolve opaque identities by friendly
+serials on the current path; the recorded-suite comparator checks the same geometry and op statuses against the
+existing references without expecting identical random tokens. No tool migration or test runner changes.
+Placeholders: P-new-1, W-new-1.
+Verification: final tools/gate.sh PASS (240 quick UI checks, 0 failures; full tests pass; 0 known failures used),
+document 120/120, worker collision registry 9/9, scenario 535/535; git diff --check passes.
+Follow-up: tools/test_log.py assumes its copied real log has no I/G/Q/T/A placeholders when testing branch allocation; adding an I-new decision on a worker branch caused four false failures. Its temporary test edit was reverted to avoid overlap with H068; H059 uses a W-new View decision. H068 owns this test, so carry any fix there.
+For the integrator: scope additions authorized by William include tools/compare_suites.py and the affected viewport tests. No tools/test_log.py change remains; do not take H068's file from this branch.
+Result: 4c76817; gate PASS, quick UI 240/240, document 120/120, registry 9/9, scenario 535/535; permanent random ID reservations preserve legacy IDs and readable board names across undo and reopen.
