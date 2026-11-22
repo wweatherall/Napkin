@@ -71,6 +71,16 @@ def agent_branches(refs):
     return shown, hidden
 
 
+BRANCH = re.compile(r"(?<![\w/.-])((?:claude|codex)/[\w.-]*[\w])")
+
+
+def gone_branches(entries, names):
+    """[(handoff file, branch)] for each claude/* or codex/* branch an open handoff names that no longer exists (local
+    or origin/): a note that still points at it is out of date."""
+    have = set(names) | {n.removeprefix("origin/") for n in names}
+    return [(f, b) for f, text in sorted(entries.items()) for b in sorted(set(BRANCH.findall(text))) if b not in have]
+
+
 def section(text, heading):
     """Lines under '## heading' up to the next '## '."""
     lines, inside = [], False
@@ -200,6 +210,9 @@ def main(argv):
     clash = handoff.overlaps_in({n: git("show", f"main:docs/handoff/{n}", cwd=root) for n in names})
     for path, ids in clash:
         print(f"  OVERLAP: {path} is in {' and '.join(ids)}: only one of them should be open (P11)")
+    texts = {n: git("show", f"main:docs/handoff/{n}", cwd=root) for n in names}
+    for f, b in gone_branches(texts, [r[0] for r in refs]):
+        print(f"  GONE: {f} names {b}, which no longer exists: update the note")
 
     if argv:
         log = git("show", "main:docs/decision-log.md", cwd=root)

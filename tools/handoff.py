@@ -154,6 +154,7 @@ def archive(root, hid):
 PATH = re.compile(r"(?<![\w/.-])((?:[\w.-]+/)+(?:[\w.*-]+)?|[\w-]+\.(?:md|py|gd|sh|json|cfg|gdshader))(?![\w/])")
 TOP = {"ARCHITECTURE.md", "CLAUDE.md", "AGENTS.md", "BOARD.md", "README.txt", "FREECAD_FEATURE_MAP.md"}
 SKIP = re.compile(r"^(not |read-only|if |nothing |no )", re.I)
+NOT_ASIDE = re.compile(r"\((?:not|don't|do not|never)\b[^()]*\)", re.I)
 
 
 def touches(body):
@@ -169,6 +170,7 @@ def touches(body):
             break
         para.append(l)
     text = " ".join(para)[len("Touches:"):]
+    text = NOT_ASIDE.sub("", text)      # "(don't add it to tools/x.sh: ...)" names a file the job stays off
     out = set()
     for sentence in re.split(r"(?<=[.;])\s+(?=[A-Z(])", text):
         if SKIP.match(sentence.strip()):
