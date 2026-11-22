@@ -1,6 +1,6 @@
 """The model and its journal saved as one generation (A32, T40): the new pair under the .saving names, the current
-one kept as .prev, then renamed into place; opening finds the newest whole pair after a save that stopped part
-way, and says so. A file FreeCAD changed is still external (A25), with no recovery.
+one kept as .prev, then renamed into place. Opening finishes identifiable interrupted saves (A37), falling back
+to .prev only for missing/unreadable models. Newer FreeCAD work stays external (A25), with no recovery.
 
   freecadcmd worker/test_generations.py        (TESTDIR=<folder> for its files)"""
 import json
@@ -118,7 +118,7 @@ check("the open reply carries recovered {from, rev, why}", r.get("recovered", {}
 check("... once: the next open of the same session doesn't", "recovered" not in open_reply(s, 8))
 s.close()
 
-# ---------- the same crash with the new journal lost: the .prev pair is opened ----------
+# ---------- the same crash with the new journal lost: preserve the newest model ----------
 p = model("prev")
 s, ops = saved_three(p)
 ops += board(4)
@@ -128,11 +128,11 @@ s.close()
 g = generation(p)
 os.remove(g["saving_journal"])
 s = Session(p)
-check("crash after the file's rename, new journal lost: the last whole pair (rev 3) opens, reported",
-      s.recovered is not None and s.recovered["from"] == "prev" and s.recovered["rev"] == 3 and s.rev == 3
-      and len(s.applied) == 6 and not s.external, s.recovered)
-check("... the unmatched rev 4 file is kept aside, not deleted", os.path.exists(g["unmatched_file"])
-      and S.file_rev(g["unmatched_file"]) == 4)
+check("crash after the file's rename, new journal lost: rev 4 opens external with the undo floor",
+      s.recovered is None and s.external and s.rev == 4 and s.undo_floor == 6
+      and len(s.model.bodies()) == 4, (s.recovered, s.rev, s.undo_floor))
+check("... the newest model is left in place, nothing set aside", not os.path.exists(g["unmatched_file"])
+      and S.file_rev(p) == 4)
 check("... and the .prev pair is still there", whole(g, "prev_file", "prev_journal"))
 s.close()
 
@@ -171,10 +171,9 @@ s.close()
 g = generation(p)
 os.remove(g["journal"])
 s = Session(p)
-check("a missing journal with a whole .prev pair: the .prev pair (rev 2) opens, reported",
-      s.recovered is not None and s.recovered["from"] == "prev" and s.recovered["rev"] == 2 and s.rev == 2
-      and len(s.applied) == 4 and "journal was missing" in s.recovered["why"], s.recovered)
-check("... the rev 3 file is kept aside", os.path.exists(g["unmatched_file"]) and S.file_rev(g["unmatched_file"]) == 3)
+check("a missing journal never replaces a readable model with .prev", s.recovered is None and s.external
+      and s.rev == 3 and len(s.model.bodies()) == 3, (s.recovered, s.rev))
+check("... the rev 3 file stays in place", not os.path.exists(g["unmatched_file"]) and S.file_rev(p) == 3)
 s.close()
 p = model("no-journal-at-all")
 s = Session(p)
@@ -206,6 +205,73 @@ check("... and the file is left as FreeCAD saved it, nothing set aside", sha256(
 check("... and FreeCAD's save didn't change the .prev pair (it's a hard link to the old file: FreeCAD must not "
       "write in place)", whole(g, "prev_file", "prev_journal"))
 s.close()
+
+# ---------- FreeCAD saved the revision it opened while Shop Sketch was closed ----------
+p = model("freecad-older-rev")
+s, ops = saved_three(p)
+s.close()
+g = generation(p)
+# The previous file represents the revision FreeCAD had opened before our last save.
+d = App.openDocument(g["prev_file"])
+d.addObject("Part::Box", "FromFreeCAD")
+d.recompute()
+d.saveAs(p)
+App.closeDocument(d.Name)
+before = sha256(p)
+s = Session(p)
+check("FreeCAD's newer save with an older revision opens as outside work", s.external and s.recovered is None
+      and s.rev == 2 and s.undo_floor == 6 and s.doc.getObject("FromFreeCAD") is not None)
+check("... no newer work is moved aside or replaced", sha256(p) == before
+      and not os.path.exists(g["unmatched_file"]))
+s.close()
+
+# ---------- missing or corrupt main file, with only the .prev pair available ----------
+for broken in ("missing", "unreadable"):
+    p = model("fallback-" + broken)
+    s, ops = saved_three(p)
+    s.close()
+    g = generation(p)
+    os.remove(p)
+    if broken == "unreadable":
+        with open(p, "wb") as f:
+            f.write(b"interrupted zip")
+    s = Session(p)
+    check(broken + " main file restores .prev", s.recovered is not None
+          and s.recovered["from"] == "prev" and s.rev == 2 and not s.external
+          and whole(g, "file", "journal") and broken in s.recovered["why"], s.recovered)
+    check(broken + " main file preserves displaced bytes", broken == "missing"
+          or open(g["unmatched_file"], "rb").read() == b"interrupted zip")
+    s.close()
+
+# ---------- a whole staged pair can finish a one-revision interrupted save ----------
+for newer_main in (False, True):
+    p = model("staged-" + str(newer_main))
+    s, ops = saved_three(p)
+    s.sync(ops + board(4))
+    saved_until(s, "journal")
+    s.close()
+    g = generation(p)
+    shutil.copy2(p, g["saving_file"])
+    main_time = os.stat(p).st_mtime_ns
+    staged_time = main_time - 1000000000 if newer_main else main_time + 1000000000
+    os.utime(g["saving_file"], ns=(staged_time, staged_time))
+    # Same revision, different bytes: only a whole staged pair plus rev+1 identifies this save.
+    d = App.openDocument(p)
+    d.addObject("Part::Box", "OtherBytes")
+    d.recompute()
+    d.save()
+    App.closeDocument(d.Name)
+    os.utime(p, ns=(main_time, main_time))
+    before = sha256(p)
+    s = Session(p)
+    if newer_main:
+        check("an older staged pair never replaces a newer main file", s.recovered is None and s.external
+              and sha256(p) == before and s.doc.getObject("OtherBytes") is not None)
+    else:
+        check("rev+1 with a newer whole staged pair finishes our save", s.recovered is not None
+              and s.recovered["from"] == "new" and s.rev == 4 and not s.external
+              and whole(g, "file", "journal"), s.recovered)
+    s.close()
 
 # ---------- a failed save keeps today's behaviour (T79) ----------
 p = model("failed")

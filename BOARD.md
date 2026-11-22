@@ -53,7 +53,6 @@ shows the queue; `python3 tools/job.py board` rebuilds the table (the commit hoo
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H066 | either | In progress (codex since 17:34) | T101: recovery on opening, the newest file wins | [H066](docs/handoff/H066-t101-recovery-newest-wins.md) |  |
 | H071 | either | **Ready** | T88 step 2: Select moves to ToolContext | [H071](docs/handoff/H071-t88-select-to-toolcontext.md) |  |
 | H052 | either | Queued | T66: lengths shown in the model's units | [H052](docs/handoff/H052-t66-units.md) | T88's tool moves |
 | H069 | either | Queued | Two timing-sensitive worker tests that fail under load | [H069](docs/handoff/H069-flaky-timing-tests.md) | H066 |
