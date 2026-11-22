@@ -433,7 +433,7 @@ Decision: Inside an entered component or array, Delete removes the selected memb
 
 Why: William: "If you delete them once you have punched into the component it should preserve the others and dedicate a new one as the original."
 
-Implementation: a surviving array member becomes its holder's SSSource without changing survivor positions or spacing; a linked definition's BodyId follows a surviving instance. Native objects still referenced by links, mirrors or feature relationships remain as invisible dependencies (SSRole=deleted), excluded from boards and exports. One delete op is one transaction, including promotion; undo/redo restores it all.
+Implementation: a surviving array member becomes its holder's SSSource without changing survivor positions or spacing; a linked definition's BodyId follows a surviving instance. A deleted board leaves the FreeCAD file with everything only it used; one that a surviving link, mirror or array still builds from stays as an invisible dependency (SSRole=deleted), excluded from boards and exports, and goes when its last dependent goes (William, 2026-11-21, T34 review: keep the file a clean FreeCAD model, A21). One delete op is one transaction, including promotion; undo/redo restores it all.
 
 ### M03
 

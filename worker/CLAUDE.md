@@ -52,7 +52,7 @@ ARCHITECTURE.md the module map and protocol (update it in the same commit when y
   `SSHidden`).
 - Hidden boards (T28, I37): op `hide` sets `SSHidden`. FreeCAD's undo doesn't take `Visibility` back (it isn't in
   FreeCAD's transactions), so no op sets a board's Visibility: `show_as_hidden()` works it out after every sync.
-- Delete (T34/I43): one `delete` op for all selected BodyIds. The deleted instances become invisible `SSRole=deleted` dependencies, excluded by `bodies()` from all model exports. Shared definitions keep editable native features; their BodyId follows a survivor. Deleting an array source promotes a surviving member, updating holders' SSSource without moving or redistributing the others. Selection moves use `move_members` to resolve shared array/mirror sources once per transaction; selected copies detach first inside an entered row.
+- Delete (T34/I43): one `delete` op for all selected BodyIds. A deleted board leaves the document with every object only it used (`remove_unneeded`: features, an unused definition, a mirror's placed input, an emptied array); one a surviving link, mirror or array still builds from stays as an invisible `SSRole=deleted` object (excluded by `bodies()`) until that goes too. Shared definitions keep editable native features; their BodyId follows a survivor. Deleting an array source promotes a surviving member, updating holders' SSSource without moving or redistributing the others. Selection moves use `move_members` to resolve shared array/mirror sources once per transaction; selected copies detach first inside an entered row.
 - Wood: `materials.py` has Wood Handbook numbers and ambientCG CC0 textures (`materials/textures`, `<key>_end.jpg`
   end grain). The worker installs it as FreeCAD cards in
   `~/Library/Application Support/FreeCAD/v1-1/Material/Shop Sketch/` on first use and puts the card on the board's
@@ -72,6 +72,8 @@ ARCHITECTURE.md the module map and protocol (update it in the same commit when y
 ## FreeCAD rules (learned the hard way)
 - New FreeCAD properties go on objects when they are created: adding them inside an undo transaction isn't
   reliably undone.
+- Removing objects inside a transaction: remove what others depend on first, its dependents after. The other way
+  round, undo brings them back without their expression links (`deletion.py remove_unneeded`, 1.1.4).
 - `freecadcmd` passes the script itself as `sys.argv[1]`: pass paths through environment variables.
 - When a script raises, `freecadcmd` runs it a second time: a crashed test shows every check twice, and the second
   pass trips over the first one's files. Read the first error.
