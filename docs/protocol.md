@@ -1,6 +1,6 @@
 # Window ↔ worker protocol
 
-Protocol reference **0.3** (T81, H041: exact circle profiles; includes T70/H042 reply matching), describing main plus H041 (2026-11-22); 0.1 described `8ff1f91` (2026-11-21). This is a documentation version. The wire protocol's own version is **3** (3: T79's `save_failed` event and the saved/failed lists in flush, bye and quit): the worker reports it in `hello` (`protocol`), defined once per side (`worker/serve.py` `PROTOCOL_VERSION`, `viewport/main.gd` `PROTOCOL_VERSION`). **Rule: bump it on both sides when a message or a shared-file field changes** (added, removed, renamed or its meaning changed), and update this document. There is no negotiation: a window shares a worker only when the version matches. Existing embedded format identifiers are `oplog/0.1` and `shopsketch-journal/0.1`; binary meshes use Godot's Variant array encoding.
+Protocol reference **0.3** (T81, H041: exact circle profiles; includes T70/H042 reply matching), describing main plus H041 (2026-11-22); 0.1 described `8ff1f91` (2026-11-21). This is a documentation version. The wire protocol's own version is **4** (4: T40's optional `recovered` in the open reply; 3: T79's `save_failed` event and the saved/failed lists in flush, bye and quit): the worker reports it in `hello` (`protocol`), defined once per side (`worker/serve.py` `PROTOCOL_VERSION`, `viewport/main.gd` `PROTOCOL_VERSION`). **Rule: bump it on both sides when a message or a shared-file field changes** (added, removed, renamed or its meaning changed), and update this document. There is no negotiation: a window shares a worker only when the version matches. Existing embedded format identifiers are `oplog/0.1` and `shopsketch-journal/0.1`; binary meshes use Godot's Variant array encoding.
 
 ## Transport, identity and lifetime
 
@@ -32,7 +32,7 @@ Examples are illustrative JSON lines; timing values, paths, IDs and hashes vary.
 
 ### `hello`
 
-Request: `cmd: "hello"`, `seq?`. Success: `ok: true`, `cmd: "hello"`, `seq` (echo or null), `app: "shopsketch"`, `protocol: integer` (the protocol version, currently 3), `worker: string` (32 lowercase hex MD5), `pid: integer`. The window uses the worker only if `protocol` equals its own version and `worker` its own identity.
+Request: `cmd: "hello"`, `seq?`. Success: `ok: true`, `cmd: "hello"`, `seq` (echo or null), `app: "shopsketch"`, `protocol: integer` (the protocol version, currently 4), `worker: string` (32 lowercase hex MD5), `pid: integer`. The window uses the worker only if `protocol` equals its own version and `worker` its own identity.
 
 ```json
 {"cmd":"hello"}
@@ -43,7 +43,7 @@ Producer/consumer: [worker/serve.py](../worker/serve.py):`serve.handle`, `worker
 
 ### `open`
 
-Request: `cmd: "open"`, `model: string`, `fresh?: boolean = false`, `seq?: integer` (the window always sends one). Success: `ok: true`, `cmd: "open"`, `model: string` (absolute), `seq` (echo or null), `rev: integer`, `ops: Op[]`, `undo_floor: integer`, `external: boolean`. `fresh` discards the cached/live document and starts empty; otherwise an existing cached session is reloaded if its disk signature changed. Opening does not export meshes or enqueue a save.
+Request: `cmd: "open"`, `model: string`, `fresh?: boolean = false`, `seq?: integer` (the window always sends one). Success: `ok: true`, `cmd: "open"`, `model: string` (absolute), `seq` (echo or null), `rev: integer`, `ops: Op[]`, `undo_floor: integer`, `external: boolean`, `recovered?: {from: "new"|"prev", rev: integer, why: string}` (sent once, when opening found a save that stopped part way and put the newest whole file-and-journal pair in place, A32). `fresh` discards the cached/live document and starts empty; otherwise an existing cached session is reloaded if its disk signature changed. Opening does not export meshes or enqueue a save.
 
 ```json
 {"cmd":"open","model":"/tmp/chair.FCStd","fresh":false,"seq":7}

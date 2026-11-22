@@ -3,6 +3,9 @@ import FreeCAD as App
 import hashlib
 import json
 import os
+import re
+import shutil
+import zipfile
 import time
 import materials as wood
 from common import JOURNAL_FORMAT, OpError, unit
@@ -97,6 +100,104 @@ def journal_path(model_path):
     return base + ".shopsketch.json"
 
 
+def generation(model_path):
+    """The files of one model's save generations (A32): the current pair, the one being written, the one before."""
+    base, ext = os.path.splitext(model_path)
+    return {"file": model_path, "journal": base + ".shopsketch.json",
+            "saving_file": base + ".saving" + ext, "saving_journal": base + ".shopsketch.saving.json",
+            "prev_file": base + ".prev" + ext, "prev_journal": base + ".shopsketch.prev.json",
+            "unmatched_file": base + ".unmatched" + ext, "unmatched_journal": base + ".shopsketch.unmatched.json"}
+
+
+def read_journal(path):
+    try:
+        with open(path) as f:
+            j = json.load(f)
+    except (OSError, ValueError):
+        return None
+    return j if isinstance(j, dict) and j.get("format") == JOURNAL_FORMAT and j.get("file_sha256") else None
+
+
+def file_rev(path):
+    """The ShopSketchRev a .FCStd carries, read from its Document.xml without opening it (None if it has none)."""
+    try:
+        with zipfile.ZipFile(path) as z:
+            xml = z.read("Document.xml").decode("utf-8", "replace")
+    except (OSError, KeyError, zipfile.BadZipFile):
+        return None
+    m = re.search(r'<Item key="ShopSketchRev" value="(\d+)"', xml)
+    return int(m.group(1)) if m else None
+
+
+def keep_aside(path, aside, kept):
+    """Move path out of the way to aside, unless a file with the same bytes is among kept (then it's no loss)."""
+    if not os.path.exists(path):
+        return
+    h = sha256(path)
+    if any(os.path.exists(k) and sha256(k) == h for k in kept):
+        os.remove(path)
+    else:
+        os.replace(path, aside)
+
+
+def copy_into_place(src, dst):
+    tmp = dst + ".tmp"
+    shutil.copy2(src, tmp)
+    os.replace(tmp, dst)
+
+
+def link_or_copy(src, dst):
+    """dst becomes the same bytes as src, atomically: a hard link (instant) where the disk allows, else a copy."""
+    tmp = dst + ".tmp"
+    if os.path.exists(tmp):
+        os.remove(tmp)
+    try:
+        os.link(src, tmp)
+    except OSError:
+        shutil.copy2(src, tmp)
+    os.replace(tmp, dst)
+
+
+def recover_generation(model_path):
+    """Opening (A32): when the file and journal don't match because a save stopped part way, put the newest whole
+    pair (a journal naming its file's sha256) in place and say so. Returns {"from", "rev", "why"} or None.
+    A file FreeCAD changed (its ShopSketchRev is the journal's) isn't a broken save: None, and it opens external
+    (A25). Nothing of either pair is deleted: a displaced file goes to the .unmatched names unless the same bytes
+    are kept elsewhere."""
+    g = generation(model_path)
+    have_file = os.path.exists(g["file"])
+    j = read_journal(g["journal"])
+    if have_file and j and j["file_sha256"] == sha256(g["file"]):
+        return None                                     # the usual case: they match
+    if have_file and j:
+        rev = file_rev(g["file"])
+        if rev is None or not (rev == int(j.get("rev", -1)) + 1 or int(j.get("rev", -1)) > rev):
+            return None                                 # an outside edit (or a file Shop Sketch didn't write)
+    files = [k for k in ("file", "saving_file", "prev_file") if os.path.exists(g[k])]
+    journals = [(k, read_journal(g[k])) for k in ("journal", "saving_journal", "prev_journal")]
+    hashes = {k: sha256(g[k]) for k in files}
+    pairs = [(int(jj.get("rev", 0)), fk == "file", jk == "journal", fk, jk)
+             for fk in files for jk, jj in journals if jj and jj["file_sha256"] == hashes[fk]]
+    if not pairs:
+        return None
+    rev, _, _, fk, jk = max(pairs)
+    if not have_file:
+        why = "the file was missing"
+    elif not j:
+        why = "the journal was missing"
+    else:
+        why = f"the file (rev {file_rev(g['file'])}) and its journal (rev {j.get('rev')}) didn't match"
+    if fk != "file":
+        keep_aside(g["file"], g["unmatched_file"], [g["saving_file"], g["prev_file"]])
+        copy_into_place(g[fk], g["file"])
+    if jk != "journal":
+        keep_aside(g["journal"], g["unmatched_journal"], [g["saving_journal"], g["prev_journal"]])
+        copy_into_place(g[jk], g["journal"])
+    new = fk.startswith("saving") or jk.startswith("saving") or (fk == "file" and jk == "journal")
+    return {"from": "new" if new else "prev", "rev": rev,
+            "why": why + ("; finished the save that stopped part way" if new else "; opened the save before it")}
+
+
 def _norm(v):
     """Numbers compare by value: Godot hands 18 back as 18.0, and float noise isn't a different op."""
     if isinstance(v, bool) or v is None or isinstance(v, str):
@@ -135,6 +236,9 @@ class Session:
         self.session_base = 0
         self.doc = None
         self.file_sig = None
+        self.recovered = None      # {"from", "rev", "why"}: opening fell back to the newest whole save (A32)
+        if self.path and not fresh:
+            self.recovered = recover_generation(self.path)
         if self.path and os.path.exists(self.path) and not fresh:
             self._open_existing()
         else:
@@ -307,17 +411,18 @@ class Session:
         meta = self.doc.Meta
         meta["ShopSketchRev"] = str(self.rev)
         self.doc.Meta = meta
-        tmp = self.path + ".saving.FCStd"
+        g = generation(self.path)
         try:
-            self._write(tmp, outdir)
+            self._write(g, outdir)
         except Exception:
             self.rev -= 1           # a failed save leaves the revision where it was: the retry saves this one (T79)
             meta["ShopSketchRev"] = str(self.rev)
             self.doc.Meta = meta
-            try:
-                os.remove(tmp)
-            except OSError:
-                pass
+            for k in ("saving_file", "saving_journal"):
+                try:
+                    os.remove(g[k])
+                except OSError:
+                    pass
             raise
         self.dirty = False
         self.file_sig = self.disk_sig()
@@ -325,8 +430,11 @@ class Session:
         self.undo_floor = 0     # the file is now exactly our journal again
         return round((time.perf_counter() - t0) * 1000, 1)
 
-    def _write(self, tmp, outdir):
-        """save()'s writing: the copy, its drawing page, the swap, the journal. Raises if any of it fails."""
+    def _write(self, g, outdir):
+        """save()'s writing, one generation (A32): the new file and its journal under the .saving names; the current
+        pair kept as .prev; then the new pair renamed into place. A whole pair is on disk at every step (opening
+        finds it: recover_generation). Raises if any of it fails."""
+        tmp = g["saving_file"]
         folder = os.path.dirname(self.path)
         os.makedirs(folder, exist_ok=True)
         if not os.access(folder, os.W_OK):          # FreeCAD would only say "Failed to open file" (T79)
@@ -345,12 +453,16 @@ class Session:
             finally:
                 App.closeDocument(d2.Name)
         write_gui_document(tmp, self.path)          # what FreeCAD's window shows (T29)
-        os.replace(tmp, self.path)
-        atomic_json(journal_path(self.path), {
-            "format": JOURNAL_FORMAT, "rev": self.rev, "file_sha256": sha256(self.path),
+        atomic_json(g["saving_journal"], {
+            "format": JOURNAL_FORMAT, "rev": self.rev, "file_sha256": sha256(tmp),
             "model": os.path.basename(self.path), "name": os.path.splitext(os.path.basename(self.path))[0],
             "ops": [e["op"] for e in self.applied],
             "status": [{k: e[k] for k in ("status", "changed", "message", "ms") if k in e} for e in self.applied]})
+        if os.path.exists(g["file"]) and os.path.exists(g["journal"]):
+            link_or_copy(g["journal"], g["prev_journal"])
+            link_or_copy(g["file"], g["prev_file"])
+        os.replace(tmp, g["file"])
+        os.replace(g["saving_journal"], g["journal"])
 
     def close(self):
         if self.doc is not None:

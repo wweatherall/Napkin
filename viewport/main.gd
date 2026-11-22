@@ -445,6 +445,9 @@ func _update_saved() -> void:
 	if doc.save_error != "":            # stays until a save lands (I54); the worker retries on the next change
 		ui_saved.text = "Couldn't save: %s" % doc.save_error
 		ui_saved.add_theme_color_override("font_color", Color(0.75, 0.1, 0.1))
+	elif doc.recovered_note != "" and pending_rev <= saved_rev:     # until the next save lands (A32)
+		ui_saved.text = doc.recovered_note
+		ui_saved.remove_theme_color_override("font_color")
 	else:
 		ui_saved.text = "Saving…" if pending_rev > saved_rev else "Saved"
 		ui_saved.remove_theme_color_override("font_color")
@@ -1501,7 +1504,7 @@ func _port_free(p: int) -> bool:
 
 # The window <-> worker protocol's version (docs/protocol.md): bump it when a message or shared-file field changes.
 # The worker reports its own (worker/serve.py PROTOCOL_VERSION) in hello; a worker speaking another isn't shared.
-const PROTOCOL_VERSION := 3
+const PROTOCOL_VERSION := 4
 
 
 func _probe_worker(p: int) -> String:

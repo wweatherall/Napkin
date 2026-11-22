@@ -37,6 +37,7 @@ var start_fresh := false            # tests: the first open starts the file empt
 var pending_rev := 0                # the model revision the last confirmed change will be saved as
 var saved_rev := 0                  # the revision the worker last said it saved
 var save_error := ""                # why the last save failed ("" once a save lands): the indicator says so (I54)
+var recovered_note := ""            # opening fell back to the newest whole save (A32): shown until the next save lands
 var closing := false                # begin_close(): waiting for the latest revision to be saved (I55)
 var close_seq := -1                 # the seq of closing's flush: only its answer counts
 var test_delay_ms := 0              # test hook (P02): ask the worker to sit on its next answer
@@ -120,6 +121,7 @@ func on_saved(resp: Dictionary) -> void:
 	if resp.get("model", "") == model_path.simplify_path():
 		saved_rev = maxi(saved_rev, int(resp.get("rev", 0)))
 		save_error = ""
+		recovered_note = ""
 		save_changed.emit()
 
 
@@ -205,6 +207,7 @@ func on_opened(resp: Dictionary, adopt: bool) -> void:
 	opened = true
 	saved_rev = int(resp.get("rev", 0)); pending_rev = saved_rev
 	save_error = ""
+	recovered_note = recovered_text(resp.get("recovered", {}))
 	save_changed.emit()
 	if not adopt: return
 	ops = resp.get("ops", [])
@@ -213,12 +216,21 @@ func on_opened(resp: Dictionary, adopt: bool) -> void:
 	for op in ops: confirmed_ids[op["id"]] = true     # already in the file: no wave
 
 
+static func recovered_text(rec) -> String:
+	"""The save indicator's line for an open reply's recovered field (A32); "" when there's none."""
+	if not (rec is Dictionary) or rec.is_empty(): return ""
+	if rec.get("from", "") == "new":
+		return "Finished the last save (rev %d)" % int(rec.get("rev", 0))
+	return "Recovered the last whole save (rev %d)" % int(rec.get("rev", 0))
+
+
 func reset() -> void:
 	"""Forget this model's actions (switching models). A reply still on its way is for the old one: ignored."""
 	seq += 1
 	dirty = false
 	_drawing_pending = false
 	save_error = ""
+	recovered_note = ""
 	confirmed_ids.clear()
 	ops.clear()
 	redo_stack.clear()

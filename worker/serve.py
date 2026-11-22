@@ -9,7 +9,7 @@ import length_input
 
 # The window <-> worker protocol's version (docs/protocol.md): bump it when a message or shared-file field changes.
 # Reported in hello; a window whose PROTOCOL_VERSION (viewport/main.gd) differs starts its own worker.
-PROTOCOL_VERSION = 3
+PROTOCOL_VERSION = 4
 
 
 def run_sync(session, req):
@@ -43,13 +43,24 @@ def worker_identity():
     return h.hexdigest()
 
 
+def open_reply(s, seq):
+    """The open reply for a session. A recovery (A32) is reported once: a later open of the same session doesn't."""
+    resp = {"ok": True, "cmd": "open", "model": s.path, "rev": s.rev, "ops": [e["op"] for e in s.applied],
+            "undo_floor": s.undo_floor, "external": s.external, "seq": seq}
+    if s.recovered:
+        resp["recovered"], s.recovered = s.recovered, None
+    return resp
+
+
 def serve(port):
     """Long-running worker: newline-delimited JSON over localhost TCP. One worker serves every Shop Sketch window,
     each on its own FreeCAD document; a model belongs to one window at a time (W13).
       {"cmd": "hello"} -> {"ok", "cmd": "hello", "app": "shopsketch", "protocol": PROTOCOL_VERSION,
                            "worker": <md5 of the worker's scripts>, "pid"}
       {"cmd": "open", "model": ".../model.FCStd", "fresh": false}
-          -> {"ok", "cmd": "open", "ops", "undo_floor", "external", "rev"}
+          -> {"ok", "cmd": "open", "ops", "undo_floor", "external", "rev", "recovered"?}
+             recovered: {"from": "new"|"prev", "rev", "why"} once, when opening found a save that stopped part way
+             and put the newest whole pair in place (A32)
           -> {"ok": false, "cmd": "open", "error": "already_open", "model"} when another window has it; that window
              is sent {"cmd": "focus", "model"} so it can come to the front
       {"cmd": "sync", "model": "...", "oplog": {...}, "outdir": "...", "seq": n, "drawing": false}
@@ -196,9 +207,7 @@ def serve(port):
                     resp = {"ok": False, "cmd": "open", "error": "already_open", "model": path, "seq": seq}
                 else:
                     s = session_for(path, fresh=req.get("fresh", False), reload=True)
-                    resp = {"ok": True, "cmd": "open", "model": s.path, "rev": s.rev,
-                            "ops": [e["op"] for e in s.applied], "undo_floor": s.undo_floor,
-                            "external": s.external, "seq": seq}
+                    resp = open_reply(s, seq)
             elif cmd == "inspect_properties":         # the Properties panel's snapshot of one piece (T46)
                 model = os.path.abspath(req["model"])
                 if claim(conn, model) is not None:
