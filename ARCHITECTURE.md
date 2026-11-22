@@ -289,7 +289,7 @@ For FreeCAD transaction/Draft/boolean traps and viewport drawing rules, use the 
 
 Current owners are in the component and state tables above. The remaining proposals live in the
 [decision log Work list](docs/decision-log.md#work-list): T35–T36 for durable branching history,
-T44 for the comprehensive protocol reference and T50 for explicit worker imports.
+[Window ↔ worker protocol](docs/protocol.md) is the comprehensive reference (T44); T50 covers explicit worker imports.
 T39/T41/T42/T43/T51 are represented by the existing controllers, worker modules, folder guides and test suites.
 See [U01](docs/specs/U01-history.md) for the history design; proposals do not describe implemented behaviour.
 
