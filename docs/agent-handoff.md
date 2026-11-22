@@ -13,6 +13,7 @@ Shared scratchpad for Claude and Codex. Created by Codex on 2026-11-21 at Willia
 - A new entry is a new file, `docs/handoff/H-new-N-short-slug.md` (copy the template at the bottom; N = 1, 2 ... on your branch); the integrator numbers it at merge with `tools/number_ids.py` (T74). The open list is built from the folder by `python3 tools/handoff.py list`; don't edit it by hand (the merge step rebuilds it; on a conflict in it, run the command).
 - Keep this file short (both agents read it at the start of each job). When an entry is resolved, `python3 tools/handoff.py archive H0NN` moves it whole to [handoff-archive.md](handoff-archive.md), at the bottom, and adds one line for it under "Archived" below: ID, subject, outcome (its Resolution line). Either agent may archive an entry the other resolved. Read the archive only when you need an entry's history.
 - An entry written straight into this file by habit: `python3 tools/handoff.py split` moves it to its own file.
+- An entry is also a job when it says `For: Claude`, `Codex` or `either` (P24): its Status is the queue's input. `open` is Ready, `queued (after H0NN)` waits, `answered` is for review. Workers take jobs with `python3 tools/job.py take` and finish with `python3 tools/job.py done` (which needs your response appended and Status answered); BOARD.md's table is built from these entries and the queue. Its Touches line is what the queue checks for overlap.
 
 ## References and authority
 
@@ -34,7 +35,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H054 — T92: tools/log.py add, for decision log rows](handoff/H054-t92-log-add.md) — status: open; for: Claude
 - [H055 — T93: startup.py shows what waits on William](handoff/H055-t93-waiting-on-william.md) — status: open; for: Claude
 - [H057 — T95: the feature tests find the test files themselves](handoff/H057-t95-tests-find-themselves.md) — status: open; for: either
-- [H058 — T96: the job queue (take, done, the dead man's switch)](handoff/H058-t96-job-queue.md) — status: open; for: Claude
+- [H058 — T96: the job queue (take, done, the dead man's switch)](handoff/H058-t96-job-queue.md) — status: answered; for: Claude
 
 <!-- end of open list -->
 

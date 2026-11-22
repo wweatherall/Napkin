@@ -17,7 +17,9 @@ Run in the main checkout, on main, clean, holding the integrator lock (tools/int
  4. tools/number_ids.py (placeholders get numbers), then the decision-log and handoff checks
  5. tools/gate.sh (the quick and full tests, tests/known_failures.txt); a failing gate stops here, uncommitted
  6. commit ("Merge <branch>: <its subject>"; --impact adds an Architecture-Impact line), then --push pushes main
-What it leaves to the integrator: reviewing the branch first, the Work list result, and BOARD.md."""
+ 7. the job queue (P24, tools/job.py): the job is marked merged, its worktree removed and its branch deleted
+BOARD.md's job table is generated (tools/job.py board): a conflict in it is settled by rebuilding it.
+What it leaves to the integrator: reviewing the branch first, and the Work list result."""
 import os
 import re
 import subprocess
@@ -28,6 +30,7 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 import handoff
 import integrator
+import job
 import number_ids
 import sort_decision_log
 
@@ -367,8 +370,11 @@ def main(argv):
         merged = carry_rows(ours, git("show", f"{base}:{LOG}", root=root).stdout, git("show", f"{branch}:{LOG}", root=root).stdout)
         open(os.path.join(root, LOG), "w", encoding="utf-8").write(merged)
         say("settled docs/decision-log.md (main's, plus the branch's own rows and Details sections)")
+    if job.BOARD in conflicts:
+        git("checkout", "--ours", job.BOARD, root=root)
+        say("settled BOARD.md (main's; its job table is rebuilt below)")
     # Before staging anything: staging clears git's "unmerged" mark even with conflict markers still in a file.
-    left = [f for f in conflicts if f not in (handoff.HANDOFF, LOG, ARCHIVE)]
+    left = [f for f in conflicts if f not in (handoff.HANDOFF, LOG, ARCHIVE, job.BOARD)]
     if left:
         say(f"conflicts to settle by hand: {', '.join(left)} (the merge is left in progress)"); return 1
     marked = [f for f in conflicts if has_markers(os.path.join(root, f))]
@@ -389,6 +395,9 @@ def main(argv):
             tid, status = argv[i + 1].split("=", 1)
             say(set_status(root, tid, status))
     number_ids.apply(root, out=lambda s: say(s) if s != "no placeholders" else None)
+    bpath = os.path.join(root, job.BOARD)
+    if os.path.isfile(bpath) and job.START in open(bpath, encoding="utf-8").read():
+        job.board(root, out=say)
     git("add", "-A", root=root)
     arch = os.path.join(root, ARCHIVE)
     problems = sort_decision_log.check_files(open(os.path.join(root, LOG), encoding="utf-8").read(),
@@ -418,12 +427,13 @@ def main(argv):
     if r.returncode != 0:
         say("commit refused:\n" + (r.stdout + r.stderr).strip() + "\n(the merge is left staged; add --impact if the hook asks)"); return 1
     say("committed " + git("log", "--oneline", "-1", root=root).stdout.strip())
+    job.merged(root, branch, out=say)
     if "--push" in argv:
         p = git("push", "-q", "origin", "main", root=root)
         say("pushed main" if p.returncode == 0 else "push failed: " + p.stderr.strip())
         if p.returncode:
             return 1
-    say("left for you: the Work list result and BOARD.md")
+    say("left for you: the Work list result")
     return 0
 
 

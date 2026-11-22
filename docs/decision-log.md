@@ -347,6 +347,9 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | ZOOM_STEP | 0.88 | Zoom per notch of a plain mouse wheel (0.88 = 12% closer); smooth-scrolling mice add up to the same per notch. | viewport/main.gd | I30 |
 | ZOOM_MAX_STEPS | 3 | One scroll event never zooms more than this many notches. | viewport/main.gd | I30 |
 | CLOSE_WAIT_S | 10.0 | Closing a window waits this long (seconds) for FreeCAD to save the latest revision before asking Retry / Close without saving / Cancel. | viewport/main.gd | I55 |
+| DEADLINE | 1800 s | The job queue's dead man's switch: a job in progress with no beat (job.py command, commit, test run) for this long is reported stale to the integrator. | tools/job.py | P24 |
+| HUNG_AFTER | 600 s | job.py check flags a process from the job's worktree older than this as looking hung (and it no longer counts as a beat). | tools/job.py | P24 |
+| WATCH_POLL | 20 s | How often job.py watch looks at the queue. | tools/job.py | P24 |
 
 ## Details
 

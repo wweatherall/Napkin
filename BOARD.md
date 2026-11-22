@@ -1,46 +1,68 @@
 # Work board
 
 William says "check the board": this file tells each agent what to do next. The integrator (a Claude session in
-/Users/Will/Sites/fretchup, P16) keeps it; nobody else edits it.
+/Users/Will/Sites/fretchup, P16) keeps it; nobody else edits it. Jobs run through the queue (P24, `tools/job.py`):
+the table below is built from docs/handoff/ and the queue's live state; the integrator keeps the Order line.
+
+Order: H058, H054, H055, H046, H057, H053, H052
 
 ## If you're not the integrator
 
-1. Read the board from main, not your worktree's copy: `git -C /Users/Will/Sites/fretchup show main:BOARD.md`.
-2. Read "Notes" below for anything addressed to you (Claude or Codex) and do it.
-3. Take the first job in "Jobs" that's for you, says **Ready**, and nobody has claimed. A job is claimed when a
-   branch named after it exists: `git -C /Users/Will/Sites/fretchup branch -a | grep -i <id>` (e.g. h036). The
-   branch is the truth even if the board still says Ready.
-4. Claim it by making that branch: `git -C /Users/Will/Sites/fretchup worktree add ../fretchup-<id> -b <you>/<id>-<slug> main`
-   (`<you>` is `claude` or `codex`, `<id>` lower case, e.g. `claude/h036-keys`). Then read the job's handoff file and do it.
-5. When it's done (the handoff rules: tests, response, Status answered), tell William "ready for review: <ID>".
-   Your result goes in your handoff response, not the Work list (P17). Don't take the integrator lock.
-6. Nothing Ready for you? Say so and stop; don't start something that isn't on the board.
+1. `python3 tools/job.py take --as claude` (or `--as codex`), run anywhere in the repository: it gives you the
+   first Ready job for you whose files don't overlap a job in progress, makes its worktree (`../fretchup-<id>`)
+   and branch from main, and prints the job's handoff. A returned job comes first and continues its branch, with
+   the integrator's notes. Nothing Ready for you? It says so: tell William and stop.
+2. Read "Notes" below for anything addressed to you, then do the job in its worktree.
+3. The dead man's switch: anything you do through the job pushes its deadline back (30 minutes): a commit, a
+   quick test run from the worktree, any `job.py` command. Check in every 15-30 minutes with
+   `python3 tools/job.py check`: it lists the processes you started from the worktree (Godot, freecadcmd, the
+   test scripts) with their age, flags any that look hung (kill what's stuck), and beats.
+   A Claude worker sets a timer for it right after taking the job: CronCreate, recurring every 20 minutes, with the
+   prompt "check-in for <id>: run python3 tools/job.py check in <worktree>, deal with anything hung, then go on";
+   CronDelete it after done. A Codex worker without a timer still has the switch: its commits and test runs beat,
+   and if it goes quiet the integrator is told.
+4. Waiting on William? `python3 tools/job.py wait "<the question>"`, and ask him in chat: the switch pauses until
+   your next beat.
+5. When it's done (tests pass, the goal is met): append your response to the handoff (branch, commit, tests,
+   anything open; your result goes there, not the Work list, P17), set its Status to answered, commit, then
+   `python3 tools/job.py done`. It refuses until the response, the Status and a quick-test pass on your latest
+   commit are there (it runs the quick test if that commit has none; `python3 tools/job.py test` runs and
+   records it any time). It tells the integrator; tell William "ready for review: <ID>". Don't take the
+   integrator lock.
 
 ## If you're the integrator
 
 You're the integrator only if William said so in this session (P16) and you hold the lock: `python3
 tools/integrator.py take <your session name>` (refused if another holds it: ask William; after a context clear
-he says so and you run it with `--william`, P19). Merge with `python3 tools/integrate.py <branch> --as <name>
---push` (P20). Review every
-branch whose job says answered, merge what's good and push main, update the board and the Work list, then write the next jobs
-so each agent has one Ready.
+he says so and you run it with `--william`, P19). Run `python3 tools/job.py watch` under your watcher (Monitor):
+one line per event: a job done, a job stale (its deadline passed: check its branch and worktree), a worker
+waiting on William, a job returned, the queue empty for Claude or Codex (check in with William). Review every
+done job; merge what's good with `python3 tools/integrate.py <branch> --as <name> --push` (P20; it also removes
+the job's worktree and branch and marks it merged); put one that fails review or the gate back with
+`python3 tools/job.py return <id> "<notes>"`. Then update the Work list and write the next jobs (a handoff entry
+with Status open is Ready; "queued (after H0NN)" waits), and keep the Order line. `python3 tools/job.py status`
+shows the queue; `python3 tools/job.py board` rebuilds the table (the commit hook does it on main).
 
 ## Jobs
 
+<!-- job table: built by tools/job.py board from docs/handoff/ and the queue; don't edit by hand -->
+
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H053 | Claude | Queued | T91: integrate.py drafts the Work list result and the board | [H053](docs/handoff/H053-t91-merge-bookkeeping.md) | H058 (the job queue does the board part) |
-| H058 | Claude | **Ready** | T96: the job queue (P24: take, done, the dead man's switch) | [H058](docs/handoff/H058-t96-job-queue.md) | |
-| H054 | Claude | **Ready** | T92: tools/log.py add, for decision log rows | [H054](docs/handoff/H054-t92-log-add.md) | |
-| H055 | Claude | **Ready** | T93: startup.py shows what waits on William | [H055](docs/handoff/H055-t93-waiting-on-william.md) | |
-| H046 | Codex | **Ready** | T82: the Line tool, closed outlines and split faces (I51) | [H046](docs/handoff/H046-t82-lines-split-faces.md) | |
-| H052 | either | Queued | T66: lengths in the model's units (I57, I59) | [H052](docs/handoff/H052-t66-units.md) | T88's tool moves (every tool's vcb_value) |
-| H057 | either | **Ready** | T95: the feature tests find the test files themselves | [H057](docs/handoff/H057-t95-tests-find-themselves.md) | |
-| next | Claude | Queued | T88 steps 1-4: Paint, Select, Circle, Rectangle move to ToolContext (one job each, on files H046 doesn't touch) | written when ready | H054, H055 (William's priority: the integrator's tools first) |
+| H058 | Claude | Claimed: branch claude/h058-job-queue | T96: the job queue (take, done, the dead man's switch) | [H058](docs/handoff/H058-t96-job-queue.md) |  |
+| H054 | Claude | **Ready** | T92: tools/log.py add, for decision log rows | [H054](docs/handoff/H054-t92-log-add.md) |  |
+| H055 | Claude | **Ready** | T93: startup.py shows what waits on William | [H055](docs/handoff/H055-t93-waiting-on-william.md) |  |
+| H046 | Codex | **Ready** | T82: the Line tool, closed outlines and split faces | [H046](docs/handoff/H046-t82-lines-split-faces.md) |  |
+| H057 | either | **Ready** | T95: the feature tests find the test files themselves | [H057](docs/handoff/H057-t95-tests-find-themselves.md) |  |
+| H053 | Claude | Queued | T91: integrate.py drafts the Work list result and the board | [H053](docs/handoff/H053-t91-merge-bookkeeping.md) | H058 |
+| H052 | either | Queued | T66: lengths shown in the model's units | [H052](docs/handoff/H052-t66-units.md) | T88's tool moves |
+
+<!-- end of job table -->
 
 Done since the board started: H033 (T74 + T77), H034 (T76), H035 (T44), T56 (startup report), H036 (T75), H037 (T54), H038 (T78), H039 (T80), H040 (T33), H043 (T85), H044 (T58), H042 (T70), H041 (T81, Circle), H045 (T86), H047 (T88 spec), H048 (T79), H051 (T88 step 0), H049 (T90), H056 (T94).
 
 ## Notes
 
+- Later (no handoff yet): T88 steps 1-4, Paint, Select, Circle, Rectangle move to ToolContext (Claude; one job each, on files H046 doesn't touch), after H054 and H055 (William's priority: the integrator's tools first).
 - Codex: H046 (Lines, I51 and I58) is Ready, built on ToolContext; H057 (tests find themselves) is open to either agent.
 - Claude: William's priority (2026-11-22): the integrator's tools first. Ready: H058 (the job queue, P24, William's design), H054, H055; one session each, no shared files. H053 follows H058.

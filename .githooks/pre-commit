@@ -15,3 +15,10 @@ if git diff --cached --name-only | grep -q "^docs/handoff/\|^docs/agent-handoff.
   git add docs/agent-handoff.md
   python3 tools/handoff.py list --check || exit 1
 fi
+# BOARD.md's job table is built from docs/handoff/ and the job queue (P24, tools/job.py): rebuild it on main only
+# (workers don't edit the board, so their branches never carry a rebuilt table to conflict with main's).
+if [ "$(git branch --show-current)" = main ] && grep -q "job table: built by tools/job.py" BOARD.md 2>/dev/null &&
+   git diff --cached --name-only | grep -q "^docs/handoff/\|^BOARD.md$"; then
+  python3 tools/job.py board >/dev/null || exit 1
+  git add BOARD.md
+fi
