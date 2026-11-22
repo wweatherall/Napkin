@@ -1,6 +1,6 @@
 ### H063 — T64: watch the model file and reload FreeCAD's saves, with a wave
 
-Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: queued (after H062) | For: Claude
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: open | For: Claude
 
 References: A36 (William's call, 2026-11-22: what happens when FreeCAD saves while actions are pending), Q19
 (decided: watch, reload, wave, undo stops at the FreeCAD change), A25 (journal adoption, undo floor; the worker
