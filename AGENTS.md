@@ -6,7 +6,8 @@ Its folder guides apply to Codex too. This file owns Codex-specific startup, iso
 
 ## At the start of every session
 
-1. Read [docs/agent-handoff.md](docs/agent-handoff.md): its rules and the open list. Each open entry is its own
+1. Run `python3 tools/startup.py` first (add a Work list ID, e.g. `T54`, for its row and the decisions it cites).
+   Then read [docs/agent-handoff.md](docs/agent-handoff.md): its rules and the open list. Each open entry is its own
    file in docs/handoff/; read the Codex ones and their replies. Read the archive only for needed history.
 2. Check `git log --oneline -15 main` and `git branch -a` for changes since the last session.
 3. Search [docs/decision-log.md](docs/decision-log.md) by ID, e.g. `rg '^\| I34 ' docs/decision-log.md`;
