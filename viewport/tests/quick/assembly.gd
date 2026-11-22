@@ -49,7 +49,7 @@ func run() -> void:
 	await harness._key(KEY_ESCAPE)
 	await harness._key(KEY_ESCAPE)
 	harness._ok("Esc leaves", m.context == "", m.context)
-	# Copying a whole assembly (I47): the copy is a new assembly of linked copies; 3x after it is refused for now
+	# Copying a whole assembly (I47): the copy is a new assembly of linked copies; rows are checked in assembly_row.gd
 	m.set_tool("move")
 	var before := m.ops.size()
 	await harness._grab(Vector3(50, 25, 118))
@@ -63,7 +63,3 @@ func run() -> void:
 	var new_aid: String = m.body_assembly.get(made[0], "") if made.size() == 2 else ""
 	harness._ok("copying an assembly makes a new assembly of its boards", m.ops.size() == before + 1 and new_aid != "" and new_aid != old_aid
 		and m.body_assembly.get(made[1], "") == new_aid and m.unit_of("b1")["bodies"].size() == 2, [m.ops.back(), m.body_assembly])
-	await harness._type("3x\n")
-	await harness._wait_wave()
-	harness._ok("3x after copying an assembly is refused, the single copy stays", m.ops.size() == before + 1
-		and m.ops.back().get("count", 1) == 1 and m.ui_sync.text.contains("isn't built yet"), [m.ops.back(), m.ui_sync.text])
