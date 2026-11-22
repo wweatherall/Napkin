@@ -29,7 +29,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 - [H045 — T86: a process outlives the quick test](handoff/H045-quick-test-leftover-process.md) — status: open; for: Claude
 - [H046 — T82: the Line tool, closed outlines and split faces](handoff/H046-t82-lines-split-faces.md) — status: queued (after T88); for: Codex
-- [H047 — T88 stage 1: the tools' interface to Main (inventory and proposal)](handoff/H047-t88-tool-interface.md) — status: open; for: Codex
+- [H047 — T88 stage 1: the tools' interface to Main (inventory and proposal)](handoff/H047-t88-tool-interface.md) — status: answered; for: Codex
 - [H048 — T79: a failed save is forgotten](handoff/H048-t79-failed-save.md) — status: open; for: Claude
 
 <!-- end of open list -->
