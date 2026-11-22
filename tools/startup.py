@@ -288,6 +288,15 @@ def main(argv):
         print("  (none)")
     for l in notes(board):
         print("  Note: " + l.strip().removeprefix("- "))
+    try:                     # the live queue (P24): what's in progress, waiting, done, and next for each agent
+        import job
+        lines = []
+        job.status(root, out=lines.append)
+        print("Job queue (tools/job.py status):")
+        for l in lines:
+            print("  " + l)
+    except Exception as e:   # the queue is a convenience here; startup still reports the rest
+        print(f"Job queue: not read ({type(e).__name__}: {e})")
 
     import handoff   # the open jobs' Touches lists, from main (P11): a file two open jobs both list
     names = [l.split("/")[-1] for l in git("ls-tree", "--name-only", "main", "docs/handoff/", cwd=root).splitlines()
