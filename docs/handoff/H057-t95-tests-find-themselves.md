@@ -1,6 +1,6 @@
 ### H057 — T95: the feature tests find the test files themselves
 
-Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: open | For: either
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: queued (after H053) | For: either
 
 References: T95, P07 (two kinds of test), P11 (parallel by files), P18 (the gate), H049 (the faster gate, which
 changes the same scripts first).
