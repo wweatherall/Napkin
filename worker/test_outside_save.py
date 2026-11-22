@@ -280,8 +280,7 @@ o = ask({"cmd": "open", "model": m5}, "open")
 check("a new worker opens it as FreeCAD's (external, nothing recovered), the file untouched",
       o and o["external"] and "recovered" not in o and sha(m5) == fc_sha
       and not os.path.exists(os.path.splitext(m5)[0] + ".unmatched.FCStd"), o)
-ask({"cmd": "bye"}, "bye")
-w.ask({"cmd": "quit"}, "quit")
+ask({"cmd": "bye"}, "bye")                         # the worker lets the window go and stops by itself
 proc.wait(30)
 
 # 6. In one worker, the same older-revision save reloads with what came after rev 1 dropped.
