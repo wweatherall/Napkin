@@ -43,7 +43,7 @@ Response — Codex, 2026-11-22 (claimed; behaviour clarification pending):
 
 Response — Codex, 2026-11-22 (implementation complete):
 
-- Branch: `codex/h044-assembly-rows`; final commit recorded below. Based on current main `b426d7f`.
+- Branch: `codex/h044-assembly-rows`; implementation commit `15f81d4`. Based on current main `b426d7f`.
 - William confirmed linked shapes (I-new-1, which supersedes I47's temporary refusal) and moving a copied
   assembly inside its row detaches all its positions while keeping shape links (I-new-2). No questions remain.
 - `3x` / `/3` amend the original copy op; each offset gets its own assembly. Source-major board IDs and old
