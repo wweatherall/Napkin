@@ -3,7 +3,7 @@
 # when tests/known_failures.txt lists it (each line: the check's name as the quick test prints it, then "# T<n>"
 # naming the Work list item that fixes it). The full test must pass outright.
 #   tools/gate.sh          exit 0 = GATE PASS
-cd "$(dirname "$0")/.." || exit 2
+cd "$(git rev-parse --show-toplevel 2>/dev/null || echo "$(dirname "$0")/..")" || exit 2   # the checkout you run it in
 OUT=$(mktemp -d "${TMPDIR:-/tmp}/shopsketch-gate.XXXXXX")
 KNOWN=tests/known_failures.txt
 tools/quicktest.sh > "$OUT/quick.log" 2>&1; QRC=$?

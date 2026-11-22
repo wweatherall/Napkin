@@ -185,7 +185,7 @@ def main(argv):
         say("fix these, then commit by hand:\n  " + "\n  ".join(problems)); return 1
 
     if "--no-gate" not in argv:
-        gate = subprocess.run([os.path.join(HERE, "gate.sh")], cwd=root, capture_output=True, text=True)
+        gate = subprocess.run([os.path.join(root, "tools", "gate.sh") if os.path.exists(os.path.join(root, "tools", "gate.sh")) else os.path.join(HERE, "gate.sh")], cwd=root, capture_output=True, text=True)
         verdict = (gate.stdout.strip().split("\n") or [""])[-1]
         say(verdict)
         if gate.returncode != 0:
