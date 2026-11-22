@@ -29,6 +29,9 @@ marked Superseded (never deleted). Ask William before countermanding an Active d
   for a working prototype.
 
 ## Working with Codex (ChatGPT)
+- One Claude session is the integrator (P12): it assigns jobs in the handoff's Jobs section, reviews and merges.
+  Any other session (Claude or Codex) takes the job it's given, works in its own worktree and delivers to the
+  integrator; it doesn't merge into main.
 - Codex reads `AGENTS.md` (its instruction file) at the start of each session; keep it in step with this section.
 - Nothing notifies either agent of the other's changes. At the start of a session, read the handoff and check
   `git branch -a` for `codex/*` branches with new commits; when you leave Codex something, tell William.
