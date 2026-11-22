@@ -1,6 +1,6 @@
 ### H055 — T93: startup.py shows what waits on William
 
-Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: open | For: Claude
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: queued (after H056) | For: Claude
 
 References: T93, P16, P19, tools/startup.py, H050 (the integrator's note, kept by hand today).
 

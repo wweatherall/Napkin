@@ -32,9 +32,10 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H050 — For the next integrator session: where things stand](handoff/H050-integrator-state.md) — status: open; for: the integrator
 - [H051 — T88 step 0: the tools' interface, foundation](handoff/H051-t88-step0-foundation.md) — status: open; for: Claude
 - [H052 — T66: lengths shown in the model's units](handoff/H052-t66-units.md) — status: queued (after T88's tool moves); for: either
-- [H053 — T91: integrate.py drafts the Work list result and the board](handoff/H053-t91-merge-bookkeeping.md) — status: open; for: Claude
-- [H054 — T92: tools/log.py add, for decision log rows](handoff/H054-t92-log-add.md) — status: open; for: Claude
-- [H055 — T93: startup.py shows what waits on William](handoff/H055-t93-waiting-on-william.md) — status: open; for: Claude
+- [H053 — T91: integrate.py drafts the Work list result and the board](handoff/H053-t91-merge-bookkeeping.md) — status: queued (after H056); for: Claude
+- [H054 — T92: tools/log.py add, for decision log rows](handoff/H054-t92-log-add.md) — status: queued (after H056); for: Claude
+- [H055 — T93: startup.py shows what waits on William](handoff/H055-t93-waiting-on-william.md) — status: queued (after H056); for: Claude
+- [H056 — T94: reshape the decision log (live file + archive, subjects, principles)](handoff/H056-t94-log-reshape.md) — status: open; for: Claude
 
 <!-- end of open list -->
 

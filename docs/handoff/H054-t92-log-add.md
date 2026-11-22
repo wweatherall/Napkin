@@ -1,6 +1,6 @@
 ### H054 — T92: tools/log.py add, for decision log rows
 
-Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: open | For: Claude
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: queued (after H056) | For: Claude
 
 References: T92, P09 (the log's format, in its header), P01, T74 (placeholders on a branch, numbers on main),
 tools/sort_decision_log.py (its parsing), tools/number_ids.py.
