@@ -809,3 +809,167 @@ Response — Codex, 2026-11-22:
   questions remain. Open: whole quick-test gate and integrator review. Nothing merged into main or pushed.
 
 Resolution: merged into main by the integrator, 2026-11-22. Quick test with H040: only the hide check fails, which fails on main back to 8ff1f91 too (now T85); the worker-restart check is H042. Full test passes.
+
+### H043 — T85: the quick test's hide check fails on main
+
+Author: Claude (integrator) | Date: 2026-11-22 | Status: resolved | For: Claude
+
+References: T85, P07; viewport/tests/quick/hide.gd (the check at "View > Hidden geometry shows it ghosted"),
+viewport/selection.gd `toggle_hidden_geometry`, viewport/presenter.gd (where `mat_hidden_ghost` is applied).
+
+Touches: viewport/tests/quick/hide.gd, viewport/tests/quick/selection_row.gd (if its occasional failures share the
+cause), viewport/tests/harness.gd. Read-only on selection.gd, presenter.gd and main.gd: H041 (the Circle tool) is
+changing presenter.gd and main.gd. If the cause is in app code rather than the test, stop and report it in the
+handoff before changing anything.
+
+Request: `[hide] View > Hidden geometry shows it ghosted` fails on every quick test since at least 2026-11-22 01:00,
+on main back to 8ff1f91, though workers saw it pass the evening before. b1's material_override is null, so the H
+press before it didn't hide b1 (the click on b1 then H, in hide.gd). Find out why: the test's timing, the click
+missing b1, or something in the environment (it passed before on the same code). Also seen once: four
+`[selection_row]` checks failing together. Done when 5 quick tests in a row pass with no hide failure. Report what
+the cause was.
+
+**Response — Claude, 2026-11-22.** Branch `claude/h043-hide-check`. Cause: the test, not the app. `main.gd`'s
+`_menu` drops a repeat of the same command within 150 ms (so a menu item and its key don't both fire). hide.gd
+presses H, then (wave, drag, Cmd+Z, wave, click) H again; instrumented, the gap at the click was 190–270 ms, and on
+a fast run the second H fell inside 150 ms and was thrown away: b1 selected, never hidden, material_override null.
+Passing runs were the slower ones (16–21 s), which is why it looked environmental. The `[selection_row]` cluster
+fits the same cause (Backspace → `_menu("delete")` right after the previous lap's Backspace); not reproduced in
+these runs. Fix (test only): `harness._menu_settle()` waits until no command fired in the last 160 ms; every
+`_key*` helper calls it, and hide.gd's direct `m._menu(...)` calls go through `harness._menu(tag)`. No app code
+changed. Verified: `tools/quicktest.sh` 6 runs in a row, no hide failure (5 × 153/153; the 6th 152/153, see below).
+Architecture sections changed: none.
+Still open: (1) `[worker] a new worker took over and confirmed the next board` fails intermittently, on main
+before this change too (shown ids `["b1","b3"]`, no b9); outside this job's files (worker.gd). (2) Capturing a
+quick test's output with `$(...)` sometimes never returns, as if a process from the run outlives it holding stdout
+(perhaps the worker the `[worker]` lap restarts); a plain run redirected to a file takes 17 s. Both worth a Work
+list item. (3) linked.gd calls `m._menu("detach")` directly; harmless now, but could use `harness._menu`.
+
+Resolution: merged into main by the integrator, 2026-11-22.
+
+### H044 — T58: copy an assembly into a row (3x, /3)
+
+Author: Claude (integrator) | Date: 2026-11-22 | Status: resolved | For: Codex
+
+References: T58, I47 (copying a whole assembly makes a new assembly; a row of them is refused today), I32 (a row
+works like a component you enter), T12 / A22c (rows of boards, linked copies), I48; viewport/tools/move_tool.gd
+(`_whole_assemblies`, the count amendment), worker/move.py (`groups`), worker/assembly.py (`copy_into_assembly`).
+
+Touches: viewport/tools/move_tool.gd, viewport/selection.gd (what a row member stands for), worker/move.py,
+worker/assembly.py, worker/scenario/70_assembly.py (replace the old refusal check), a new worker/scenario/NN_assembly_rows.py, a new viewport/tests/quick/assembly_row.gd (or steps
+in quick/assembly.gd), the T58 row. Not viewport/presenter.gd, main.gd, keys.gd, push_tool.gd, worker/push.py,
+worker/model.py, docs/protocol.md or ARCHITECTURE.md: H041 (the Circle tool) is changing them. If you need one
+of them, say so in chat first; for docs/protocol.md and ARCHITECTURE.md, put the text you'd add in your response
+and the integrator adds it at merge.
+
+Additional Touches — Codex, 2026-11-22: viewport/CLAUDE.md (remove the old row-refusal description);
+ARCHITECTURE.md, Selection operations and Native model and identity only,
+to satisfy AGENTS.md's same-commit architecture rule; announced in chat, separate from H041's module table rows.
+
+Request: `3x` or `/3` after copying a whole assembly makes a row of assemblies: each copy a new assembly (I47),
+the row spaced like a row of boards, its spacing editable later the same way. From outside, a click picks the
+whole row; inside the row, an assembly stands as one member (entering it again enters that assembly). Undo is one
+step. Anything this doesn't settle (what moving one assembly out of the row does, whether the copies are linked
+like a row of boards): ask William in chat, one question at a time, with a recommendation, and log the answer.
+Checks: scenario steps for 3x and /3 of a two-board assembly, an edit of the spacing, undo, reopen equal a fresh
+build; a quick section that does it with the real Move tool.
+
+Response — Codex, 2026-11-22 (claimed; behaviour clarification pending):
+
+- Claimed `codex/h044-assembly-rows` from main `4aec99f` in `/private/tmp/fretchup-h044`.
+  H041 is already claimed; H044's implementation files do not overlap H041 or H043.
+- Added `worker/scenario/70_assembly.py` to Touches above: it asserts that assembly rows are refused.
+  The existing `viewport/tests/quick/assembly.gd` has the matching refusal check and is already in scope.
+- Asked William whether the row's copies stay linked in shape (recommendation: yes, as existing board rows
+  and single assembly copies). Awaiting his answer before implementing dependent behaviour.
+- Still to settle, one question at a time: moving a copied assembly inside the entered row (recommendation:
+  detach that whole assembly's position from the row, retaining shape links, following I32).
+- No application code changed; Status remains open. Protocol/architecture wording will be supplied here
+  for the integrator as the assignment requests.
+- Baseline `tools/quicktest.sh`: runtime aborts in Godot/FreeCAD, three viewport windows and twelve feature
+  checks did not finish; terminated the stalled serve test. Log-sort/ID/startup tests passed (12/29/25).
+  Logs: `/var/folders/94/7fmphygj0xbfskx9w0ntz48w0000gn/T/shopsketch-quick.mlFeHj9mXg`.
+
+Response — Codex, 2026-11-22 (implementation complete):
+
+- Branch: `codex/h044-assembly-rows`; implementation commit `15f81d4`. Based on current main `b426d7f`.
+- William confirmed linked shapes (I52, which supersedes I47's temporary refusal) and moving a copied
+  assembly inside its row detaches all its positions while keeping shape links (I53). No questions remain.
+- `3x` / `/3` amend the original copy op; each offset gets its own assembly. Source-major board IDs and old
+  single-copy journals remain readable. Array holders keep their board origins and share Count/Step/Span
+  through the first holder. Editing that master Step (fixed) or Span (distributed) changes the whole row.
+- Existing board `assembly`/`row` metadata resolves row → assembly → board context; Esc returns to the row.
+  Moving outside moves every board once; inside a row, moving a copied assembly detaches all its members.
+  Shape edits still propagate, including after detachment. One undo removes the row. Mirrored assembly
+  members retain native mirror chains of hidden linked sources, with array expressions on source placements
+  and mirror planes; detaching clears both. Added native checks for reflected geometry, shared shape edits,
+  spacing, whole-row movement, detachment, fresh builds and reopen, plus atomic invalid-ID rejection.
+- Verification: `tools/quicktest.sh` passed: 165 viewport checks, all feature tests (259 scenario checks).
+  Logs: `/var/folders/94/7fmphygj0xbfskx9w0ntz48w0000gn/T/shopsketch-quick.AVMXaGcRdT`.
+  `tools/fulltest.sh` passed: all six recorded suites unchanged, targeted suites and all feature tests pass.
+  Logs: `/var/folders/94/7fmphygj0xbfskx9w0ntz48w0000gn/T/shopsketch-full.RViv4aHKnq`.
+  The initial UI failure was only an overly strict new assertion: exported boxes round /3's 66.666… to 66.67;
+  fixed its tolerance to the export precision. The earlier runtime aborts were confined to sandboxed runs;
+  the completed verification ran with approved host execution.
+- Architecture: updated Selection operations and Native model and identity in the same code commit, as
+  AGENTS.md and the commit hook require. Announced the ARCHITECTURE.md overlap in chat before editing;
+  H041 owns module table rows, which are untouched. Also corrected viewport/CLAUDE.md's old refusal description (announced first; no other job lists it).
+  No other job's application files were touched.
+- Integrator: update `docs/protocol.md`'s move schema to `groups?: {old AssemblyId: new AssemblyId | new AssemblyId[]}`.
+  A string represents one copy; an array contains exactly `count` distinct destination IDs, one per offset.
+  Replace "assembly rows are currently refused" with "whole-assembly copies support fixed and distributed
+  rows; each offset gets its own assembly; board IDs remain source-major". Bump the reference revision
+  alongside H041's pending protocol changes. This document remains untouched here as assigned.
+- Placeholders: I52, I53. No merge to main or push performed.
+
+Resolution: merged into main by the integrator, 2026-11-22.
+
+### H042 — T70: a late worker reply can't replace a newer state
+
+<<<<<<< HEAD
+Author: Claude (integrator) | Date: 2026-11-22 | Status: queued (after H041) | For: Claude
+=======
+Author: Claude (integrator) | Date: 2026-11-22 | Status: resolved | For: Claude
+>>>>>>> claude/h042-late-replies
+
+References: T70, U02 (its last clause), W13; docs/protocol.md findings 2 and 4 (lifecycle replies reach sync
+logic; an open reply has no seq); viewport/document.gd `send_open`, `on_opened`, `on_sync_reply`;
+viewport/main.gd `_on_worker`, `_on_open`; worker/serve.py `handle`.
+
+Touches: viewport/document.gd, viewport/main.gd (`_on_worker` and `_on_open` only), worker/serve.py (`handle`:
+echo seq on open and lifecycle replies), viewport/test_document.gd, a new worker/scenario or a check in
+worker/test_serve.py, docs/protocol.md (findings 2 and 4: mark fixed; the reply fields), ARCHITECTURE.md if the
+protocol section names reply fields. Not viewport/tools/* (H040), not viewport/tests/suites/* or harness.gd (H039).
+
+Request: every worker reply the window acts on can be matched to the request it answers, and one that answers
+an older request is ignored. (1) `open` echoes the request's seq and model; the window drops an open reply for a
+model it has since left, or older than its latest open. (2) `_on_worker` routes flush / hello / bye / quit replies
+by cmd, so they never reach `on_sync_reply`. (3) Sync already does this by seq: check it holds when a reply
+arrives after a model switch. This is a protocol change: bump the reference version in docs/protocol.md. (4) Also seen by H039 (1 in 11 quick tests under load): `[worker] a new worker took over and confirmed the next
+board` failed: after a worker restart a reply from before it (or the re-sent request) cleared `in_flight`
+(`on_sync_reply` clears it for any seq), so the next sync was never sent. Make `in_flight` follow the seq. Checks:
+a stale open after a quick A → B switch is ignored (headless document test), a flush reply doesn't touch sync
+state, the serve test sees seq echoed.
+
+**Response — Claude (worker), 2026-11-22.** Done on `claude/h042-late-replies`.
+- (1) `send_open` advances `seq` and records it as `open_seq`. The worker echoes `seq` (and the absolute model)
+  on open success, `already_open` and errors. `document.gd:is_current_open` drops a reply that isn't for the
+  latest open or names another model. `main.gd:_on_open` checks it first, so a late refusal can't send the
+  window back either.
+- (2) `_on_worker` sends only `sync`/`replay` replies to `on_sync_reply`. Other replies are dropped (an error is
+  shown in the status line). hello/flush/bye/quit now echo `seq` too.
+- (3) and (4) `in_flight_seq`: `on_sync_reply` ignores any reply that isn't for the request in flight, so an
+  answer from before a reconnect (or a lifecycle reply) can't clear `in_flight` and strand the next sync. With
+  that, a reply after a model switch is matched by seq as before.
+- Two existing document checks used replies the worker never sends (an error with no seq, and an answer for a
+  seq that wasn't in flight); I corrected them to real ones.
+- Tests: document test 53/53 (8 new: stale open after A → B, stale refusal, wrong model, re-open, lifecycle
+  reply leaves sync state alone, reply from before a reconnect, resend then latest). Serve test 15/15 (5 new
+  seq-echo checks). Quick test: 152 passed, 1 failed (T85's hide check, failing on main already). Full test
+  passes.
+- Docs: protocol reference 0.2 (findings 2 and 4 fixed, reply fields). ARCHITECTURE.md: "Lifecycle of an edit"
+  step 8 and the paragraph after it, and the commands table (open's fields, seq echo).
+
+Status: answered
+
+Resolution: merged into main by the integrator, 2026-11-22.

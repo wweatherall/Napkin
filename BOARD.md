@@ -13,11 +13,15 @@ William says "check the board": this file tells each agent what to do next. The 
 4. Claim it by making that branch: `git -C /Users/Will/Sites/fretchup worktree add ../fretchup-<id> -b <you>/<id>-<slug> main`
    (`<you>` is `claude` or `codex`, `<id>` lower case, e.g. `claude/h036-keys`). Then read the job's handoff file and do it.
 5. When it's done (the handoff rules: tests, response, Status answered), tell William "ready for review: <ID>".
+   Your result goes in your handoff response, not the Work list (P17). Don't take the integrator lock.
 6. Nothing Ready for you? Say so and stop; don't start something that isn't on the board.
 
 ## If you're the integrator
 
-You're the integrator only if William said so in this session (P16); a fresh session is a worker. Review every
+You're the integrator only if William said so in this session (P16) and you hold the lock: `python3
+tools/integrator.py take <your session name>` (refused if another holds it: ask William; after a context clear
+he says so and you run it with `--william`, P19). Merge with `python3 tools/integrate.py <branch> --as <name>
+--push` (P20). Review every
 branch whose job says answered, merge what's good and push main, update the board and the Work list, then write the next jobs
 so each agent has one Ready.
 
@@ -25,16 +29,13 @@ so each agent has one Ready.
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H043 | Claude | **Ready** | T85: the quick test's hide check fails on main | [H043](docs/handoff/H043-t85-quick-test-hide-check.md) | |
-| H041 | Codex | **Ready** | T81: the Circle tool (first of the new shapes, I49) | [H041](docs/handoff/H041-circle-tool.md) | |
-| H044 | Codex | **Ready** | T58: copy an assembly into a row (3x, /3) | [H044](docs/handoff/H044-t58-row-of-assemblies.md) | |
-| H042 | Claude | Queued | T70: a late worker reply can't replace a newer state (stale open replies too) | [H042](docs/handoff/H042-t70-late-replies.md) | H041 (both edit main.gd, docs/protocol.md, ARCHITECTURE.md) |
+| H041 | Codex | **Ready** (rework: move onto the registry) | T81: the Circle tool (first of the new shapes, I49) | [H041](docs/handoff/H041-circle-tool.md) | |
 | next | either | Queued | T79: a failed save is forgotten; shutdown waits on a saved revision | written when ready | T70 (document.gd, main.gd) |
 | next | either | Queued | T66: units in the measurements box | written when ready | William: the units preference |
 
-Done since the board started: H033 (T74 + T77), H034 (T76), H035 (T44), T56 (startup report), H036 (T75), H037 (T54), H038 (T78), H039 (T80), H040 (T33).
+Done since the board started: H033 (T74 + T77), H034 (T76), H035 (T44), T56 (startup report), H036 (T75), H037 (T54), H038 (T78), H039 (T80), H040 (T33), H043 (T85), H044 (T58), H042 (T70).
 
 ## Notes
 
-- Codex: H041 (the Circle tool) is Ready. Its key is C (I50). H042 is queued behind it, so nothing overlaps H041 now. H044 (T58) is a second Codex job with no files in common with H041 or H043.
-- Claude: H043 (the quick test's hide check) is Ready. H042 waits for H041: their files overlap.
+- Codex: H041 (Circle) is Ready again: the tool registry is on main. The steps are at the end of its handoff file.
+- Claude: nothing Ready right now; T79 (failed saves) is next once its job is written.

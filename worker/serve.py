@@ -7,6 +7,10 @@ from common import HERE, OpError
 from session import Session, atomic_json
 import length_input
 
+# The window <-> worker protocol's version (docs/protocol.md): bump it when a message or shared-file field changes.
+# Reported in hello; a window whose PROTOCOL_VERSION (viewport/main.gd) differs starts its own worker.
+PROTOCOL_VERSION = 2
+
 
 def run_sync(session, req):
     ops = req["oplog"]["ops"] if "oplog" in req else req["ops"]
@@ -42,7 +46,8 @@ def worker_identity():
 def serve(port):
     """Long-running worker: newline-delimited JSON over localhost TCP. One worker serves every Shop Sketch window,
     each on its own FreeCAD document; a model belongs to one window at a time (W13).
-      {"cmd": "hello"} -> {"ok", "cmd": "hello", "app": "shopsketch", "worker": <md5 of this script>, "pid"}
+      {"cmd": "hello"} -> {"ok", "cmd": "hello", "app": "shopsketch", "protocol": PROTOCOL_VERSION,
+                           "worker": <md5 of the worker's scripts>, "pid"}
       {"cmd": "open", "model": ".../model.FCStd", "fresh": false}
           -> {"ok", "cmd": "open", "ops", "undo_floor", "external", "rev"}
           -> {"ok": false, "cmd": "open", "error": "already_open", "model"} when another window has it; that window
@@ -134,19 +139,20 @@ def serve(port):
                 send(conn, length_input.handle(req))
                 return None
             if cmd == "hello":
-                send(conn, {"ok": True, "cmd": "hello", "app": "shopsketch", "worker": me, "pid": os.getpid()})
+                send(conn, {"ok": True, "cmd": "hello", "seq": seq, "app": "shopsketch", "protocol": PROTOCOL_VERSION,
+                            "worker": me, "pid": os.getpid()})
                 return None
             if cmd == "quit":
                 if len(clients) > 1:                # other windows still use this worker: only this one leaves
-                    send(conn, {"ok": True, "cmd": "quit", "stopped": False})
+                    send(conn, {"ok": True, "cmd": "quit", "seq": seq, "stopped": False})
                     release(conn)
                     return None
                 save_pending()
-                send(conn, {"ok": True, "cmd": "quit", "stopped": True})
+                send(conn, {"ok": True, "cmd": "quit", "seq": seq, "stopped": True})
                 return "stop"
             if cmd == "bye":
                 let_go(conn, list(clients[conn]["models"]))
-                send(conn, {"ok": True, "cmd": "bye"})
+                send(conn, {"ok": True, "cmd": "bye", "seq": seq})
                 release(conn)
                 return None
             if cmd == "flush":              # save now (tests, quitting the app)
@@ -160,12 +166,12 @@ def serve(port):
                 other = claim(conn, path)
                 if other is not None:
                     send(other, {"ok": True, "cmd": "focus", "model": path})
-                    resp = {"ok": False, "cmd": "open", "error": "already_open", "model": path}
+                    resp = {"ok": False, "cmd": "open", "error": "already_open", "model": path, "seq": seq}
                 else:
                     s = session_for(path, fresh=req.get("fresh", False), reload=True)
                     resp = {"ok": True, "cmd": "open", "model": s.path, "rev": s.rev,
                             "ops": [e["op"] for e in s.applied], "undo_floor": s.undo_floor,
-                            "external": s.external}
+                            "external": s.external, "seq": seq}
             elif cmd == "inspect_properties":         # the Properties panel's snapshot of one piece (T46)
                 model = os.path.abspath(req["model"])
                 if claim(conn, model) is not None:

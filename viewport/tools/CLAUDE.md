@@ -1,6 +1,16 @@
 # viewport/tools/: the tools
 
 One object per tool (T4). Each owns its state; `main.gd` hands it the cursor, clicks, keys and typed values.
+
+## Adding a tool: one new file
+`tools/<name>_tool.gd`, extending `res://tools/tool.gd`, with a `TOOL` constant:
+`const TOOL := {"id": "circle", "label": "Circle", "tip": "Circle (C)", "key": KEY_C, "order": 60}`
+(`key`: `KEY_NONE` for none; `order`: its place left to right, the five today are 10–50; `"show_links": true` to
+tint a linked board's copies while over it). `tool_registry.gd` finds it (from source and in the built app) and
+main.gd makes the tool, its toolbar segment, its Tools menu item (`label (key)`) and its key; nothing shared
+lists tools. A repeated id or key is reported (`push_error`, and `test_tools.gd`). Then extend the expected lists
+in `test_tools.gd` and `tests/quick/registry.gd` (they pin what William sees), and add its quick-test section.
+A key the tool handles only while active stays in its `key(e)`; other shortcuts stay in keys.gd.
 The viewport guide (`../CLAUDE.md`) covers drafts, waves and the rules for drawing.
 
 ## The interface (`tool.gd`, the base every tool extends)

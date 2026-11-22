@@ -10,10 +10,14 @@ ARCHITECTURE.md the module map and protocol (update it in the same commit when y
   and doesn't put this folder on `sys.path`, so replay.py does). One-off: `OPLOG=ops.json OUTDIR=out`.
 - `common.py`: shared basics (FreeCAD imports, `TOL`, `OpError`, `vec`/`unit`, `add_props`, `Frame`, wood cards);
   modules import only the shared names they use, explicitly (T50).
-- `model.py`: `Model` (reads the document; building blocks: boards, planes, extrusions, booleans, `Tip`; `apply`
-  and `HANDLERS`). Each kind of action is a mixin in its own file: `push.py` (rect, push/pull, through-cuts),
+- `model.py`: `Model` (reads the document; building blocks: boards, planes, extrusions, booleans, `Tip`; `apply`;
+  `HANDLERS` is worked out from the `op_<type>` methods; `action_mixins()` finds the mixins). Each kind of action is a mixin in its own file: `push.py` (rect, push/pull, through-cuts),
   `move.py` (move, copies, links, arrays, detach, make unique), `mirror.py`, `assembly.py`, `paint.py` (paint,
-  grain), `visibility.py` (hide/unhide, T28), `deletion.py` (dependency-preserving delete and original promotion, T34/I46). A new op: an `op_<type>` in the right mixin (or a new mixin listed in `Model`), and its type in `HANDLERS`.
+  grain), `visibility.py` (hide/unhide, T28), `deletion.py` (dependency-preserving delete and original promotion, T34/I46). A new op: an `op_<type>` method in the right mixin; that is all (it is in `HANDLERS` by
+  its name, so name helpers anything but `op_`). A new kind of action: a new `worker/<name>.py` with a top-level
+  class `<Name>Actions` (its `op_*` methods); `action_mixins()` finds it by reading the sources (ast) and joins it
+  to `Model`, and the hash and app bundle take every non-test .py, so no other file changes. A method name two
+  mixins both define stops the worker at import. Add its scenario step (`scenario/NN_feature.py`).
 - `export.py`: bodies.json entries, per-board mesh files and their caches, model.glb, the TechDraw page.
 - `session.py`: `Session`, one live document per .FCStd: `sync`, undo, rebuild, journal, saves.
 - `serve.py`: the connection loop (`hello`, `open`, `sync`, `length`, `inspect_properties`, `bye`, `quit`; `saved`
@@ -23,7 +27,8 @@ ARCHITECTURE.md the module map and protocol (update it in the same commit when y
   `evaluate_length` ports it: after changing it, run `freecadcmd tools/length_cases.py` and the units test.
 - `object_properties.py`: the Properties panel's snapshot and `property_edit` (T46, I36).
 - `materials.py`: the wood library (T15, M03). `drawing.py`: shop drawings (plain python3, not the worker).
-- The worker's hash (`hello`) is the MD5 of every .py here except `test_*`; main.gd `_worker_identity()` computes
+- `hello` reports `PROTOCOL_VERSION` (serve.py; viewport/main.gd has the same constant): bump both when a message or
+  shared-file field changes (docs/protocol.md). The worker's hash (`hello`) is the MD5 of every .py here except `test_*`; main.gd `_worker_identity()` computes
   the same. A new non-test .py is in the hash and the app bundle automatically.
 
 ## How a model is built
@@ -95,7 +100,7 @@ ARCHITECTURE.md the module map and protocol (update it in the same commit when y
   `tests/scenario_fixture.json`, each step checked and undone back to the fixture, then cumulative stories that
   must equal fresh builds and reopened files; T34 adds multi-target transforms, shared array/mirror sources,
   deletion/promotion, subsequent edits/moves and atomic rejection. A new worker behaviour: add a numbered `scenario/NN_feature.py` with `run(ctx)` first; the thin runner discovers these in lexical order. `scenario/context.py` owns the fixture/session and checks; shared story ops go in `ctx.actions`. Declare `requires = ("NN_earlier.py",)` when consuming earlier ops; missing or out-of-order prerequisites fail before the fixture opens. New files need no shared registration or featuretest.sh edit).
-  Plain python3, starting freecadcmd themselves: `test_serve.py` (12: one worker, two windows; a worker on port 0),
+  Plain python3, starting freecadcmd themselves: `test_serve.py` (13: one worker, two windows; hello carries the protocol version; a worker on port 0),
   `test_length_protocol.py` (3). Use `TESTDIR=<dir>` for outputs.
 - Tests import names explicitly from their owning modules after putting this folder on `sys.path`;
   `import test_load` configures the FreeCAD test runtime without re-exporting worker names.

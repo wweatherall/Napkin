@@ -91,7 +91,7 @@ func _init() -> void:
 	# --- the worker failed ---
 	t = make(); d = t[0]; c = t[1]; seen = t[2]
 	d.ops.append(op("r1")); d.sync()
-	d.on_sync_reply({"ok": false, "error": "boom"})
+	d.on_sync_reply({"ok": false, "error": "boom", "seq": 1})
 	check("a worker error is reported, nothing confirmed", seen["failed"] == ["boom"] and seen["synced"].is_empty()
 		and not d.in_flight and d.confirmed_ids.is_empty())
 
@@ -174,6 +174,48 @@ func _init() -> void:
 	d.on_sync_reply(reply(d, ["r1"], old_seq))
 	check("the old model's answer, still on its way, is ignored", seen["synced"].is_empty() and d.confirmed_ids.is_empty())
 
+	# --- late replies (T70): an open for a model since left, a reply from before a reconnect, lifecycle replies ---
+	t = make(); d = t[0]; c = t[1]; seen = t[2]
+	d.open("/tmp/doc-a.FCStd", false)
+	var open_a: Dictionary = c.last()
+	d.reset(); d.open("/tmp/doc-b.FCStd", false)
+	var open_b: Dictionary = c.last()
+	check("each open carries its own seq", open_a.has("seq") and open_b["seq"] > open_a["seq"])
+	var late_a := {"ok": true, "cmd": "open", "model": "/tmp/doc-a.FCStd", "seq": open_a["seq"], "rev": 1, "ops": [op("r1")]}
+	check("a quick A -> B switch: A's open reply, arriving late, is ignored", not d.is_current_open(late_a))
+	check("so is a refusal for the old open (it can't send the window back)", not d.is_current_open(
+		{"ok": false, "cmd": "open", "error": "already_open", "model": "/tmp/doc-a.FCStd", "seq": open_a["seq"]}))
+	check("a reply with the right seq for another model is ignored", not d.is_current_open(
+		{"ok": true, "cmd": "open", "model": "/tmp/doc-a.FCStd", "seq": open_b["seq"]}))
+	check("B's own open reply counts", d.is_current_open(
+		{"ok": true, "cmd": "open", "model": "/tmp/doc-b.FCStd", "seq": open_b["seq"], "rev": 0, "ops": []}))
+	d.open("/tmp/doc-b.FCStd", false)
+	check("reopening the same model: only the latest open counts", not d.is_current_open(
+		{"ok": true, "cmd": "open", "model": "/tmp/doc-b.FCStd", "seq": open_b["seq"]}))
+
+	t = make(); d = t[0]; c = t[1]; seen = t[2]
+	d.ops.append(op("r1")); d.sync()
+	d.on_sync_reply({"ok": true, "cmd": "flush", "seq": null})
+	d.on_sync_reply({"ok": true, "cmd": "bye"})
+	check("a lifecycle reply doesn't touch sync state", d.in_flight and seen["synced"].is_empty() and seen["idle"] == 0
+		and seen["failed"].is_empty())
+
+	t = make(); d = t[0]; c = t[1]; seen = t[2]
+	d.opened = true
+	d.ops.append(op("r1")); d.sync()
+	var lost_seq: int = d.seq
+	d.on_link_up()                                      # a new worker: the model goes again
+	d.ops.append(op("r2")); d.sync()                    # an edit while that resend is in flight
+	var syncs_before: int = c.syncs().size()
+	d.on_sync_reply(reply(d, ["r1"], lost_seq))         # an answer from before the restart
+	check("a reply from before a reconnect doesn't clear in_flight", d.in_flight and d.dirty
+		and c.syncs().size() == syncs_before and seen["synced"].is_empty())
+	d.on_sync_reply(reply(d, ["r1"], c.syncs().back()["seq"]))
+	check("the resend's answer sends the next state", c.syncs().size() == syncs_before + 1
+		and c.last()["oplog"]["ops"].size() == 2 and d.in_flight)
+	d.on_sync_reply(reply(d, ["r1", "r2"], d.seq))
+	check("and that one is shown", seen["synced"].size() == 1 and not d.in_flight)
+
 	# --- drawing requests are consumed by the next send, idle or busy ---
 	t = make(); d = t[0]; c = t[1]; seen = t[2]
 	d.request_drawing()
@@ -203,7 +245,7 @@ func _init() -> void:
 	var drawing_seq: int = d.seq
 	d.reset()
 	d.open("/tmp/doc-other.FCStd", false)
-	d.on_sync_reply(reply(d, [], drawing_seq))
+	d.on_sync_reply(reply(d, [], drawing_seq - 1))     # the answer to the sync in flight (the drawing was queued)
 	d.sync()
 	check("switching models clears a queued drawing request", c.last()["model"] == "/tmp/doc-other.FCStd"
 		and c.last()["drawing"] == false)

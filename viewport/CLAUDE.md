@@ -8,7 +8,7 @@ protocol (update it in the same commit when you change either). Tools have their
 ## Files
 - `main.gd` (~2,000 lines; split in T39 / T41 / T75): setup and UI, materials and mesh helpers (`_tri_mesh`, `_lines`),
   worker process and lifecycle, rejection bookkeeping, input dispatch (mouse, trackpad, camera), model switching.
-- `keys.gd` (T75): the keyboard, `m.keys`: shortcuts, tool keys, Esc, Enter, Delete / Backspace (I48), typed
+- `keys.gd` (T75): the keyboard, `m.keys`: shortcuts, tool keys (`m.tool_keys`, from each tool's `TOOL`), Esc, Enter, Delete / Backspace (I48), typed
   characters, Tab / ⌥ for Push/Pull. main's `_input` / `_unhandled_input` stay the entry points (tests call
   `m._unhandled_input`) and hand it key presses.
 - `measure_box.gd` (T75): the measurements box, `m.measure`: typed text (`vcb`), `typing`, the box itself, typed
@@ -27,7 +27,8 @@ protocol (update it in the same commit when you change either). Tools have their
   selection / context highlights. Draws with main's helpers through `m` (like the tools); main forwards the old
   names (`m.body_tris`, `m.drafts`, `m._begin_wave`, ...). main routes the document's signals to it.
 - `inference.gd`: the one snapping engine (pick; endpoint > midpoint > on edge; axis inference). Every tool uses it.
-- `tools/`: one object per tool (see its guide). `property_panel.gd`: the Properties panel (T46, I36).
+- `tools/`: one object per tool (see its guide); `tool_registry.gd` finds them (each declares a `TOOL`), and the
+  toolbar, Tools menu and tool keys come from that. `property_panel.gd`: the Properties panel (T46, I36).
 - `units.gd`: lengths. `evaluate_length` / `evaluate_pair` give FreeCAD's answer for a typed length at once (a
   port of `worker/length_input.py`; what it declines goes to FreeCAD); `format_length` for showing lengths.
 - `worker_client.gd`: TCP framing, reconnect. `tests.gd`: small test-mode dispatcher; `tests/harness.gd`: shared input, timing and assertions;
@@ -44,8 +45,8 @@ protocol (update it in the same commit when you change either). Tools have their
 - Redo (T31, ⇧⌘Z): `undo()` puts the action on `redo_stack` with the ops key it left; `redo()` puts it back only
   while `ops` still has that key, so any new action, amend or rejection ends redo (linear until U01). Esc cancels
   the tool's gesture (`in_gesture()`) first, then the selection, then the assembly you're in.
-- Worker (W13): a window uses the worker on port 7878 if `hello` reports the same hash (`_worker_identity()`: every
-  worker .py except tests), else starts one there (a different version gets a private worker on a free port). Each
+- Worker (W13): a window uses the worker on port 7878 if `hello` reports the same protocol version (`PROTOCOL_VERSION`,
+  docs/protocol.md; `_worker_of`) and the same hash (`_worker_identity()`: every worker .py except tests), else starts one there (a different version gets a private worker on a free port). Each
   window has its own FreeCAD document; a model is open in one window at a time (`already_open`, the owner gets
   `focus`; a window launched on a taken model closes itself). Closing a window sends `bye`. If the worker dies,
   whichever window notices restarts it. File > New Window (⌘⇧N). Files beside the viewport: `_beside_project()`.
@@ -55,7 +56,7 @@ protocol (update it in the same commit when you change either). Tools have their
   one (`enter_context_of`, the rest greyed and unpickable), Esc leaves. Inside an entered array a moved copy leaves
   the row (op `"detach": true`, I32); a board pushed out inside an assembly joins it (op `"assembly"`). Inside a
   mirror group the plane shows and moving the copy moves the original reflected.
-- Selection (T34): Select drags right for enclosed units, left for crossing units; Shift adds. Move on a selected board uses the whole selection (copy/mirror too); a copy of every board of an assembly makes a new assembly (I47, `_whole_assemblies`), 3x / /3 of one is refused (T58). Delete / Backspace (I48): once the measurements box is clicked or typed in (`typing`), they edit it, even emptied, until a click in the view or a new selection; otherwise they delete in one op, in any tool: mid-move what's being moved, else the selection (Edit > Delete has no menu key). Deleted IDs follow ops immediately, suppressing confirmed and draft collisions even with Hidden geometry on. Deleting an entered row's original promotes a survivor and keeps the entered context with it (I46). Cached undo/redo states restore relationship metadata as well as geometry.
+- Selection (T34): Select drags right for enclosed units, left for crossing units; Shift adds. Move on a selected board uses the whole selection (copy/mirror too); a copy of every board of an assembly makes a new assembly (`_whole_assemblies`); 3x / /3 makes a row of linked assemblies with editable spacing (T58, I52). Enter the row, then an assembly; moving a copied assembly inside the row detaches all its positions while keeping shape links (I53). Delete / Backspace (I48): once the measurements box is clicked or typed in (`typing`), they edit it, even emptied, until a click in the view or a new selection; otherwise they delete in one op, in any tool: mid-move what's being moved, else the selection (Edit > Delete has no menu key). Deleted IDs follow ops immediately, suppressing confirmed and draft collisions even with Hidden geometry on. Deleting an entered row's original promotes a survivor and keeps the entered context with it (I46). Cached undo/redo states restore relationship metadata as well as geometry.
 - Hide (T28, I37): H hides the selection (else the board under the cursor), Shift+H unhides all; Edit > Unhide
   selected / last; View > Hidden geometry ghosts hidden boards (pickable, to unhide one). The hidden set comes
   from `ops` (`hidden_boards()`, applied in the presenter's `apply_context`), so hide and its undo show at once; `is_hidden`
@@ -91,6 +92,9 @@ protocol (update it in the same commit when you change either). Tools have their
   undo floor, redo.
 - `test_selection.gd` (headless, in the feature tests): selection.gd with a stand-in document: what a board stands for
   outside and inside, entering and leaving, the hidden/deleted sets following ops, hide / delete / assembly / unlink ops and context following original promotion. Quick-test `selection` covers boxes, Shift-click, multi-board move/copy/count amendments/mirror/delete, undo/redo, tool-first grabs after undo and deletion inside an entered array.
+- `test_tools.gd` (headless, in the feature tests, and run by `tools/build_app.sh` inside the built pack): the tool
+  registry finds exactly Select, Paint, Rectangle, Push/Pull, Move with their labels, tooltips, keys, menu names.
+  Quick-test `registry` checks the real toolbar, Tools menu names and that each tool key picks its tool.
 - `test_units.gd` (`Godot --headless --path viewport --script res://test_units.gd`, 114): the parser, and the local
   evaluator against FreeCAD's answers in `tests/length_cases.json`.
 - Tests use a private worker on a port it picks itself and reports in a file (T47); `--port=N` uses an outside

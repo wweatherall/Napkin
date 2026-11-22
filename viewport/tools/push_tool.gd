@@ -1,6 +1,8 @@
 extends "res://tools/tool.gd"
 ## Push/Pull (P): click a face, rectangle or circle, move, then click or type a distance + Return (minus = cut).
 
+const TOOL := {"id": "push", "label": "Push/Pull", "tip": "Push/Pull (P)", "key": KEY_P, "order": 40, "show_links": true}   # the toolbar, the Tools menu and the key (tool_registry.gd)
+
 var state := {}
 var face_highlight: MeshInstance3D
 const FIT_MODES := ["Butt to plane", "Slice at plane", "Fully reach plane"]   # I41: ⌥ Option cycles them

@@ -1,6 +1,8 @@
 extends "res://tools/tool.gd"
 ## Circle (C): centre, then radius; the same click/drag gesture as Rectangle (I43).
 
+const TOOL := {"id": "circle", "label": "Circle", "tip": "Circle (C)", "key": KEY_C, "order": 35, "show_links": true}
+
 var state := {}
 
 

@@ -80,3 +80,43 @@ func run() -> void:
 	bodies = harness._bodies()
 	harness._ok("B makes a separate exact round board", bodies.has("b2") and absf(bodies.get("b2", {}).get("volume_mm3", 0.0) - PI * 225 * 30) < 0.1, bodies)
 	await harness._shot("circle_hole_boss_board")
+	await _check_predictions()
+
+
+func _check_predictions() -> void:
+	# P21: feed the same circle/height to the actual viewport predictor and FreeCAD.
+	# The native boundary is exact; the preview's extrema may fall short by one facet's sagitta.
+	var cases := [
+		[Vector3.ZERO, Vector3(0, 0, 1), 40.0],
+		[Vector3(120, 80, 50), Vector3(1, 0, 0), 19.05],
+		[Vector3(75, -25, 10), Vector3(1, 2, 3).normalized(), 35.5],
+		[Vector3(-80, 20, 5), Vector3(0, 0, -1), 0.2],
+		[Vector3(1000, -900, 250), Vector3(0, -1, 0), 300.0],
+	]
+	var height := 37.0
+	for i in cases.size():
+		var center: Vector3 = cases[i][0]
+		var normal: Vector3 = cases[i][1]
+		var radius: float = cases[i][2]
+		await harness._fresh("circle_prediction_%d" % i, [
+			{"id": "r1", "type": "circle", "plane": {"origin": Main.arr3(center), "normal": Main.arr3(normal)}, "radius": radius},
+			{"id": "pp1", "type": "push_pull", "target": {"rect": "r1"}, "distance": height, "body": "b1"},
+		])
+		var shape: Dictionary = m.pres.circle_geometry(center, normal, radius)
+		var predicted_radius: float = (shape.pts[0] - center).length()
+		var predicted_volume := PI * predicted_radius * predicted_radius * height
+		var native: Dictionary = harness._bodies().get("b1", {})
+		harness._ok("circle prediction %d: preview radius agrees with native cylinder volume" % i,
+			not native.is_empty() and absf(native.get("volume_mm3", -1.0) - predicted_volume) < maxf(0.051, predicted_volume * 0.000002), native)
+		var lo := Vector3(INF, INF, INF)
+		var hi := -lo
+		for p in shape.pts:
+			lo = lo.min(p).min(p + normal * height)
+			hi = hi.max(p).max(p + normal * height)
+		var bounds: Array = native.get("world_bbox", [])
+		var matches := bounds.size() == 6
+		var tolerance := radius * (1.0 - cos(PI / m.pres.CIRCLE_SEGMENTS)) + 0.001
+		for axis in 3:
+			if matches:
+				matches = absf(bounds[axis] - lo[axis]) <= tolerance and absf(bounds[axis + 3] - hi[axis]) <= tolerance
+		harness._ok("circle prediction %d: faceted preview bounds agree with native geometry" % i, matches, [bounds, lo, hi, tolerance])

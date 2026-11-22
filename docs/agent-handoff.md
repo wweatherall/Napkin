@@ -28,9 +28,6 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 <!-- open list: built from docs/handoff/ by tools/handoff.py; don't edit by hand -->
 
 - [H041 — T81: the Circle tool](handoff/H041-circle-tool.md) — status: answered; for: either
-- [H042 — T70: a late worker reply can't replace a newer state](handoff/H042-t70-late-replies.md) — status: queued (after H041); for: Claude
-- [H043 — T85: the quick test's hide check fails on main](handoff/H043-t85-quick-test-hide-check.md) — status: open; for: Claude
-- [H044 — T58: copy an assembly into a row (3x, /3)](handoff/H044-t58-row-of-assemblies.md) — status: open; for: Codex
 
 <!-- end of open list -->
 
@@ -45,7 +42,8 @@ Rules for every job (Claude or Codex):
 - Your own worktree and branch from main, never a checkout in /Users/Will/Sites/fretchup (the integrator works
   there). Name the branch after the job, as [BOARD.md](../BOARD.md) says (`claude/h036-keys`): that claims it.
 - Touch only the files your job lists. If you need another file, say so in chat and in your response first:
-  another job may own it. Shared hot spots (your Work list row, your handoff response, a line in
+  another job may own it. Don't edit the Work list: put your result in your handoff response and the integrator writes the row at
+  merge (P17). Shared hot spots (your handoff response, a line in
   ARCHITECTURE.md) are small edits made at the end, after merging main into your branch.
 - Use the IDs given here; if you need a new decision or Work list ID, take a placeholder (I-new-N, T-new-N with N = 1,
   2 ...) and the integrator numbers it at merge (`tools/number_ids.py`, T74).
@@ -64,6 +62,9 @@ H036 (T75) is open from main. It touches viewport files only, so it runs alongsi
 
 Full entries in [handoff-archive.md](handoff-archive.md).
 
+- H042 — T70: a late worker reply can't replace a newer state. Resolved: merged into main by the integrator, 2026-11-22.
+- H044 — T58: copy an assembly into a row (3x, /3). Resolved: merged into main by the integrator, 2026-11-22.
+- H043 — T85: the quick test's hide check fails on main. Resolved: merged into main by the integrator, 2026-11-22.
 - H040 — T33: small distances: typed values of any size get through. Resolved: merged into main by the integrator, 2026-11-22. Quick test with H040: only the hide check fails, which fails on main back to 8ff1f91 too (now T85); the worker-restart check is H042. Full test passes.
 - H039 — T80: make the full test reliable (suites that sometimes differ, a startup crash). Resolved: merged into main by the integrator, 2026-11-22. The quick-test flake it found (a worker restart, a reply clearing in_flight) joins T70 (H042).
 - H038 — T78: a drawing request made while a sync is in flight is lost. Resolved: merged into main by the integrator, 2026-11-22.

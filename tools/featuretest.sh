@@ -2,7 +2,7 @@
 # Feature tests (~10 s): everything that checks Shop Sketch's answers against FreeCAD, with no window: the worker
 # tests (native, runs, arrays, combos, properties, length input, the T48 scenario), the serve and length-protocol tests
 # (plain python3, they start freecadcmd themselves), the units parser, the document controller's
-# sequencing (test_document.gd), selection and context (test_selection.gd) and the decision log's sort script. Run them
+# sequencing (test_document.gd), selection and context (test_selection.gd), the tool registry (test_tools.gd) and the decision log's sort script. Run them
 # while building a feature, before its tool exists; tools/quicktest.sh runs them too, beside the viewport session.
 #   tools/featuretest.sh [outdir]      exit status 0 = all passed; prints one summary line
 cd "$(dirname "$0")/.."
@@ -24,9 +24,11 @@ TESTS=(
   "units|$GD --headless --path viewport --script res://test_units.gd|UNITS TESTS"
   "document|$GD --headless --path viewport --script res://test_document.gd|DOCUMENT TESTS"
   "selection|$GD --headless --path viewport --script res://test_selection.gd|SELECTION TESTS"
+  "tools|$GD --headless --path viewport --script res://test_tools.gd|TOOL TESTS"
   "logsort|python3 tools/test_sort_decision_log.py|LOG SORT TESTS"
   "ids|python3 tools/test_number_ids.py|ID TESTS"
   "startup|python3 tools/test_startup.py|STARTUP TESTS"
+  "lock|python3 tools/test_integrator.py|LOCK TESTS"
 )
 PIDS=()
 for t in "${TESTS[@]}"; do

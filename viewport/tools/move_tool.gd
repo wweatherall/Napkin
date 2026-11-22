@@ -4,6 +4,8 @@ extends "res://tools/tool.gd"
 ## Arrows cycle axis lock -> plane lock -> free. After a copy: 5x / *5 for an array, /5 to spread copies;
 ## a plain number right after a move changes its distance.
 
+const TOOL := {"id": "move", "label": "Move", "tip": "Move (M)", "key": KEY_M, "order": 50, "show_links": true}   # the toolbar, the Tools menu and the key (tool_registry.gd)
+
 var state := {}
 var copy := false
 var mirror := false
@@ -414,7 +416,9 @@ func _preview_move() -> void:
 	var all := PackedVector3Array()
 	var src: PackedVector3Array = state["tris"]
 	if copy and state.get("unit", {}).get("kind", "") == "row":
-		src = m.body_tris[state["body"]]              # copying from a row copies just that board
+		var body: String = state["body"]
+		var aid: String = m.body_assembly.get(body, "")
+		src = m.unit_tris({"bodies": m.sel.members_of(aid)}) if aid != "" else m.body_tris[body]
 	for off in _move_offsets(state["vec"], state["count"], state["divide"], copy):
 		for q in src: all.append(q + off)
 	m.overlay.mesh = m._tri_mesh(all, m.mat_draft if state.get("cut", {}).is_empty() else m.mat_cut)
@@ -430,21 +434,27 @@ func commit_move(vec: Vector3, count := 1, divide := false, reuse_oid := "") -> 
 		return
 	var body: String = state.get("body", "")
 	var unit: Dictionary = state.get("unit", {"kind": "board", "bodies": [body]})
-	var targets: Array = unit["bodies"].duplicate() if unit["kind"] in ["selection", "assembly"] else [body]
+	# Copying from an assembly row copies the pointed-at assembly, just as copying
+	# from a board row copies its pointed-at board.
+	if copy and unit["kind"] == "row" and m.body_assembly.get(body, "") != "":
+		unit = {"id": m.body_assembly[body], "kind": "assembly", "bodies": m.sel.members_of(m.body_assembly[body])}
+	var assembly_row: bool = unit["kind"] == "row" and m.body_assembly.get(body, "") != ""
+	var targets: Array = unit["bodies"].duplicate() if unit["kind"] in ["selection", "assembly"] or assembly_row else [body]
 	var whole := _whole_assemblies(targets) if copy else []
-	if not whole.is_empty() and (count > 1 or divide):
-		m._say_status(ASSEMBLY_ROW); return
 	var oid := reuse_oid
 	if oid == "":
 		m.counters["mv"] += 1
 		oid = "mv%d" % m.counters["mv"]
-	var op := {"id": oid, "type": "move", "targets": targets, "selection": unit["kind"] in ["selection", "assembly"],
+	var op := {"id": oid, "type": "move", "targets": targets, "selection": unit["kind"] in ["selection", "assembly"] or assembly_row,
 			   "vector": [vec.x, vec.y, vec.z], "copy": copy}
 	if not whole.is_empty():                     # each wholly copied assembly comes out as a new one (I47)
 		var groups := {}
 		for aid in whole:
-			m.counters["a"] += 1
-			groups[aid] = "a%d" % m.counters["a"]
+			var ids := []
+			for i in count:
+				m.counters["a"] += 1
+				ids.append("a%d" % m.counters["a"])
+			groups[aid] = ids if count > 1 else ids[0]
 		op["groups"] = groups
 	if not copy and m.context.begins_with("row:"):
 		op["detach"] = true                          # inside an entered array a copy moves alone (I32)
@@ -558,13 +568,10 @@ func _commit_cut_move(vec: Vector3, count: int, divide: bool, reuse_oid: String)
 	m.sync()
 
 
-const ASSEMBLY_ROW := "Copying an assembly into a row isn't built yet: copy it once"
-
-
 func _whole_assemblies(targets: Array) -> Array:
 	"""The assemblies every member of which is being copied, from outside (I47)."""
 	var out := []
-	if m.context != "": return out
+	if m.context.begins_with("assembly:"): return out
 	for b in targets:
 		var aid: String = m.body_assembly.get(b, "")
 		if aid == "" or out.has(aid): continue
@@ -597,8 +604,6 @@ func _amend_last_move(txt: String) -> bool:
 		vec = vec.normalized() * absf(float(t))
 	else:
 		return false
-	if op.has("groups") and (count > 1 or divide):
-		m._say_status(ASSEMBLY_ROW); return true   # the single copy stays as it is
 	var body: String = op["cut"]["body"] if op.has("cut") else op["targets"][0]
 	var was_copy: bool = op["copy"]
 	m.remove_op(last_oid)

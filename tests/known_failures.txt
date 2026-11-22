@@ -1,0 +1,4 @@
+# Quick-test checks that fail on main today, each with the Work list item that fixes it. tools/gate.sh lets
+# these through and nothing else; delete a line when its item is merged. Format: the check as the quick test
+# prints it ("[section] name"), then "# T<n>".
+[hide] View > Hidden geometry shows it ghosted  # T85
