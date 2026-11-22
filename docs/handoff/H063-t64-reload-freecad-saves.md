@@ -8,9 +8,11 @@ already reloads a file replaced on disk: Session.disk_sig / file_sig), A32 and H
 them), T65 (the re-apply offer: next, not this job), W01-W09 (the wave), CLOSE_WAIT_S (the same kind of wait),
 A35 (PROTOCOL_VERSION).
 
-Touches: worker/session.py, worker/serve.py, a new worker/test_outside_save.py (and a worker/scenario step if it
-fits), viewport/document.gd, viewport/main.gd (small: the dialog and the reload's wave), viewport/test_document.gd,
-a quick-test step (viewport/tests/quick/, a new file), docs/decision-log.md (A36's and T64's "Where in the code",
+Touches: worker/session.py, worker/serve.py, a new worker/test_outside_save.py (and worker/scenario/NN_outside_save.py,
+new, if it fits), viewport/document.gd, viewport/main.gd (small: the dialog and the reload's wave), viewport/test_document.gd,
+a quick-test step (viewport/tests/quick/outside_save.gd, new; if the
+quick-test or scenario registries' pinned lists must change, H046 (Codex) has those files: give the lines as "For the
+integrator:" lines), docs/decision-log.md (A36's and T64's "Where in the code",
 a Tunables row with `log.py add`). Not docs/protocol.md or ARCHITECTURE.md (P28: the integrator's):
 write what your change does to them as "Architecture:" lines in your response.
 
