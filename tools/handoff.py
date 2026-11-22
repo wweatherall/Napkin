@@ -9,6 +9,7 @@ and an open list this script builds from the folder, between its two marker line
                                            section before "## Archived") into its own file, then rebuild the list;
                                            an entry that has a file and was answered inline (on a branch made
                                            before T77) updates its file, if only responses were added
+  python3 tools/handoff.py overlaps         list files two open jobs both touch (P11; queued jobs don't count); exit 1 if any
   python3 tools/handoff.py archive H037    move the entry to the bottom of docs/handoff-archive.md, word for word,
                                            and add its line under "Archived" (outcome: its Resolution line)
 
@@ -150,6 +151,72 @@ def archive(root, hid):
     return head
 
 
+PATH = re.compile(r"(?<![\w/.-])((?:[\w.-]+/)+(?:[\w.*-]+)?|[\w-]+\.(?:md|py|gd|sh|json|cfg|gdshader))(?![\w/])")
+TOP = {"ARCHITECTURE.md", "CLAUDE.md", "AGENTS.md", "BOARD.md", "README.txt", "FREECAD_FEATURE_MAP.md"}
+SKIP = re.compile(r"^(not |read-only|if |nothing |no )", re.I)
+
+
+def touches(body):
+    """The files a job says it will change, from its "Touches:" paragraph. Sentences that say what it won't touch
+    ("Not viewport/main.gd ...", "Read-only on ...") are left out; a folder or glob (viewport/tools/*) is kept as is."""
+    lines = body.split("\n")
+    k = next((i for i, l in enumerate(lines) if l.startswith("Touches:")), None)
+    if k is None:
+        return set()
+    para = []
+    for l in lines[k:]:
+        if not l.strip():
+            break
+        para.append(l)
+    text = " ".join(para)[len("Touches:"):]
+    out = set()
+    for sentence in re.split(r"(?<=[.;])\s+(?=[A-Z(])", text):
+        if SKIP.match(sentence.strip()):
+            continue
+        for m in PATH.finditer(sentence):
+            p = m.group(1).rstrip(".,;:")
+            if "/" in p or p in TOP:
+                out.add(p)
+    return out
+
+
+def _covers(a, b):
+    """Does path a include path b (equal, a folder of it, or a glob over it)?"""
+    if a == b:
+        return True
+    if a.endswith("*"):                       # viewport/tools/* or worker/scenario/NN_*
+        return b.startswith(a.rstrip("*"))
+    if "." not in a.rsplit("/", 1)[-1]:       # a folder: worker/scenario, docs/handoff/
+        return b.startswith(a.rstrip("/") + "/")
+    return False
+
+
+def overlaps_in(texts, statuses=("open", "answered")):
+    """[(file, [job IDs])] for files two or more open jobs both say they touch (P11). texts: {file name: entry text}.
+    Queued jobs don't count: they wait for the job they'd overlap."""
+    jobs = {}
+    for name, text in texts.items():
+        head = next((l[4:].strip() for l in text.split("\n") if l.startswith("### ")), name)
+        meta = next((l for l in text.split("\n") if l.startswith("Author:")), "")
+        status = next((p.split(":", 1)[1].strip() for p in meta.split(" | ") if p.strip().startswith("Status:")), "")
+        if status.split(" ")[0] in statuses:
+            jobs[head.split()[0]] = touches(text)
+    out = {}
+    ids = sorted(jobs)
+    for i, a in enumerate(ids):
+        for b in ids[i + 1:]:
+            for pa in jobs[a]:
+                for pb in jobs[b]:
+                    if _covers(pa, pb) or _covers(pb, pa):
+                        out.setdefault(pa if len(pa) >= len(pb) else pb, set()).update([a, b])
+    return sorted((k, sorted(v)) for k, v in out.items())
+
+
+def overlaps(root):
+    folder = os.path.join(root, FOLDER)
+    return overlaps_in({n: open(os.path.join(folder, n), encoding="utf-8").read() for n, _, _ in entries(root)})
+
+
 def main():
     root = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
     args = sys.argv[1:]
@@ -161,6 +228,13 @@ def main():
                 sys.exit(1)
         elif write_list(root):
             print(f"rebuilt the open list in {HANDOFF}")
+    elif args[:1] == ["overlaps"]:
+        found = overlaps(root)
+        for path, ids in found:
+            print(f"{path}: {', '.join(ids)}")
+        if not found:
+            print("no two open jobs touch the same file")
+        sys.exit(1 if found else 0)
     elif args[:1] == ["split"]:
         for name in split(root):
             print(f"moved {name[:-3].split('-')[0]} to {FOLDER}/{name}")

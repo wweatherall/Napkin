@@ -86,6 +86,30 @@ def details_problems(text):
     return out
 
 
+STATUSES = {   # the only statuses each table may use (P-new-1): workers write results in their handoff file
+    "## Decisions": {"Active", "Tentative"},
+    "## Superseded decisions": {"Superseded"},
+    "## Open questions": {"Open", "Decided", "Parked"},
+    "## Work list": {"Open", "In progress", "Done", "Parked", "Split"},
+}
+QUEUED = re.compile(r"^Open \(queued: H\d+\)$")
+
+
+def status_problems(text):
+    """Every table row's Status must be one its section allows; a Work list item may also be "Open (queued: H040)"."""
+    out, section = [], None
+    for line in text.split("\n"):
+        if line.startswith("## "):
+            section = line.strip()
+            continue
+        if section in STATUSES and line.startswith("| ") and not line.startswith("| ID ") and ID.match(line.split("|")[1].strip()):
+            cells = [c.strip() for c in line.split("|")]
+            status = cells[3] if len(cells) > 3 else ""
+            if status not in STATUSES[section] and not (section == "## Work list" and QUEUED.match(status)):
+                out.append(f"{cells[1]}: status '{status}' isn't one of {sorted(STATUSES[section])} ({section[3:]})")
+    return out
+
+
 def main():
     args = [a for a in sys.argv[1:] if a != "--check"]
     path = args[0] if args else "docs/decision-log.md"
@@ -95,7 +119,7 @@ def main():
         if new != text:
             print(f"{path} is not sorted by ID: run python3 tools/sort_decision_log.py")
             sys.exit(1)
-        problems = details_problems(text)
+        problems = details_problems(text) + status_problems(text)
         if problems:
             print("\n".join(problems))
             sys.exit(1)
