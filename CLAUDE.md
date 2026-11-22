@@ -33,6 +33,8 @@ marked Superseded (never deleted). Ask William before countermanding an Active d
 - One Claude session is the integrator (P16), and it holds the lock (`python3 tools/integrator.py status`, P19):
   only a session William has named takes it. It assigns jobs on the board, reviews, and merges with
   `python3 tools/integrate.py <branch> --as <name>` (P20), which runs the gate, `tools/gate.sh` (P18).
+  A branch that changes a message bumps PROTOCOL_VERSION by one on both sides (A35); if main moved on meanwhile,
+  integrate.py renumbers it on top. It also flags files a branch changed outside its job's Touches list.
   Any other session (Claude or Codex) takes the job it's given, works in its own worktree and delivers to the
   integrator; it doesn't merge into main. "Check the board" means: follow `BOARD.md` (P14).
 - Codex reads `AGENTS.md` (its instruction file) at the start of each session; keep it in step with this section.

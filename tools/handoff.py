@@ -143,7 +143,7 @@ def archive(root, hid):
     hpath = os.path.join(root, HANDOFF)
     lines = open(hpath, encoding="utf-8").read().split("\n")
     a = lines.index("## Archived")
-    first = next(k for k in range(a + 1, len(lines)) if lines[k].startswith("- ") or lines[k].startswith("## "))
+    first = next((k for k in range(a + 1, len(lines)) if lines[k].startswith("- ") or lines[k].startswith("## ")), len(lines))
     lines.insert(first, f"- {head}. Resolved: {outcome}")
     open(hpath, "w", encoding="utf-8").write("\n".join(lines))
     os.remove(path)

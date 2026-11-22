@@ -32,6 +32,7 @@ so each agent has one Ready.
 | H045 | Claude | **Ready** | T86: a process outlives the quick test (and linked.gd's direct menu call) | [H045](docs/handoff/H045-quick-test-leftover-process.md) | |
 | H048 | Claude | **Ready** | T79: a failed save is forgotten (save stays pending, the window is told) | [H048](docs/handoff/H048-t79-failed-save.md) | |
 | H047 | Codex | **Ready** | T88 stage 1: the tools' interface to Main (spec only) | [H047](docs/handoff/H047-t88-tool-interface.md) | |
+| H049 | either | Queued | T90: a faster gate (measure first) | [H049](docs/handoff/H049-faster-gate.md) | H045 (quicktest.sh) |
 | H046 | Codex | Queued | T82: the Line tool, closed outlines and split faces (I51) | [H046](docs/handoff/H046-t82-lines-split-faces.md) | T88 (William: interface first) |
 | next | either | Queued | T79: a failed save is forgotten; shutdown waits on a saved revision | written when ready | T70 (document.gd, main.gd) |
 | next | either | Queued | T66: units in the measurements box | written when ready | William: the units preference |
