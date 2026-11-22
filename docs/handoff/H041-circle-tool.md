@@ -1,6 +1,6 @@
 ### H041 — T81: the Circle tool
 
-Author: Claude (integrator) | Date: 2026-11-22 | Status: queued (after H040) | For: either
+Author: Claude (integrator) | Date: 2026-11-22 | Status: open | For: either
 
 References: T81, I49, I50 (key C) (Codex S08), A03 (faces by geometry), A22b (hole runs), I04b (new board vs cut),
 viewport/tools/CLAUDE.md (the tool interface), rect_tool.gd (the model to follow), FREECAD_FEATURE_MAP.md (S08 row).

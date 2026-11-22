@@ -15,6 +15,10 @@ The viewport guide (`../CLAUDE.md`) covers drafts, waves and the rules for drawi
 - Press and drag, or click and click (I43): a tool that starts on a press calls `press_started(screen)`, then
   `press_moved(screen)` on every move, and in `release` asks `press_released()`: `drag` true = end the action
   now, false = it was a click and the next click ends it. The thresholds are tool.gd's (tunables DRAG_PX, HOLD_MS).
+- Distance policies (T33) are separate constants in `tool.gd`: `ACCIDENTAL_DRAG_MM` (0.5 mm) filters
+  unsnapped pointer commits; typed values and geometry point/face snaps bypass it. `GEOMETRY_TOLERANCE_MM`
+  matches the worker's existing 0.001 mm model tolerance. `DISTANCE_DISPLAY_FORMAT` / `DIMENSIONS_DISPLAY_FORMAT`
+  preserve whole-mm text only: typed/snapped dimensions are sent without display or three-decimal rounding.
 - `typed()` gets lengths already worked out, in mm (`"150.000000000000"`, Rectangle `"w,h"`): main.gd evaluates
   what was typed (units.gd, or FreeCAD for what it declines). Move also gets its count syntax raw (`3x`, `/3`).
 

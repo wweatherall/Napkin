@@ -40,14 +40,14 @@ func click(screen: Vector2) -> void:
 		state["depths"] = _depths_behind()
 		press_started(screen)
 	else:
-		commit_push(state["dist"], state.get("edge_fit", {}))
+		_finish_push()
 
 
 func release(screen: Vector2) -> void:
 	# a press-and-drag ends here; a click goes on until the next click (I43)
 	if press_released().get("drag", false) and state.get("active", false):
 		_push_drag(screen)
-		commit_push(state["dist"], state.get("edge_fit", {}))
+		_finish_push()
 
 
 func typed(txt: String) -> void:
@@ -56,7 +56,7 @@ func typed(txt: String) -> void:
 
 
 func vcb_value() -> String:
-	return "%d" % state["dist"] if state.get("active", false) else ""
+	return DISTANCE_DISPLAY_FORMAT % state["dist"] if state.get("active", false) else ""
 
 
 func tip() -> String:
@@ -79,8 +79,8 @@ func _depths_behind() -> Array:
 	for i in range(0, tris.size(), 3):
 		var hit = Geometry3D.ray_intersects_triangle(from, -n, tris[i], tris[i + 1], tris[i + 2])
 		if hit == null: continue
-		var t: float = Main.r3((hit - state["anchor"]).dot(-n))
-		if t > 0.5: found[-t] = true
+		var t: float = clean_pointer_distance((hit - state["anchor"]).dot(-n))
+		if t >= GEOMETRY_TOLERANCE_MM: found[-t] = true
 	var out := found.keys()
 	out.sort()
 	out.reverse()            # nearest first: -6 (a pocket floor), then -18 (the back face)
@@ -132,7 +132,7 @@ func coplanar_region(bid: String, n: Vector3, p: Vector3) -> PackedVector3Array:
 	for i in range(0, all.size(), 3):
 		var a := all[i]; var b := all[i + 1]; var c := all[i + 2]
 		var tn := (b - a).cross(c - a).normalized()
-		if absf(tn.dot(n)) > 0.999 and absf((a - p).dot(n)) < 0.5:
+		if absf(tn.dot(n)) > 0.999 and absf((a - p).dot(n)) < GEOMETRY_TOLERANCE_MM:
 			cand.append([a, b, c])
 	if cand.is_empty(): return PackedVector3Array()
 	# flood fill from the triangle under the point, across shared edges
@@ -183,7 +183,7 @@ func _push_drag(screen: Vector2) -> void:
 	var pt := infer.point(screen, "", {}, false, {"n": state["n"], "p": state["anchor"]})
 	m.marker.visible = false
 	if not pt.is_empty():
-		state["dist"] = Main.r3((pt["point"] - state["anchor"]).dot(state["n"]))
+		state["dist"] = clean_pointer_distance((pt["point"] - state["anchor"]).dot(state["n"]))
 		state["snap"] = pt["kind"]
 		m._show_marker({"hit": true, "point": pt["point"], "snap": pt["kind"]})
 	else:
@@ -239,7 +239,7 @@ func _edge_inference(pt: Dictionary, screen: Vector2) -> void:
 			for corner in state.tris:
 				depth = minf(depth,normal.dot(plane_point-corner)/denom)
 				far = maxf(far,normal.dot(plane_point-corner)/denom)
-			if depth + source_size <= 0.001 or absf(depth) < 0.5: continue
+			if depth + source_size <= 0.001 or absf(depth) < GEOMETRY_TOLERANCE_MM: continue
 			var outward := normal if side else -normal
 			var last: Dictionary = state.get("last_hover",{})
 			var hovered: bool = last.get("body","") == body and outward.dot(last.normal) > 0.999
@@ -303,19 +303,24 @@ func _push_shape(d: float) -> PackedVector3Array:
 
 
 func _preview_push(d: float) -> void:
-	if absf(d) < 0.5:
+	if absf(d) < GEOMETRY_TOLERANCE_MM:
 		m.overlay.mesh = m._tri_mesh(state["tris"], m.mat_hover); m.overlay_lines.mesh = null; return
 	var pr := _push_shape(d)
 	m.overlay.mesh = m._tri_mesh(pr, m.mat_cut if d < 0 else m.mat_draft)
 	m.overlay_lines.mesh = m._lines(Main.feature_edges(pr), Color(0.6, 0.35, 0.0)).mesh
 
 
+func _finish_push() -> void:
+	if not pointer_distance_ok(state["dist"], state.get("snap", "") != "" or state.has("edge_fit")): return
+	commit_push(state["dist"], state.get("edge_fit", {}))
+
+
 func commit_push(d: float, edge_fit := {}) -> void:
-	if absf(d) < 0.5: return
+	if absf(d) < GEOMETRY_TOLERANCE_MM: return
 	m.reject_note = ""
 	m.counters["pp"] += 1
 	var oid := "pp%d" % m.counters["pp"]
-	var op := {"id": oid, "type": "push_pull", "distance": Main.r3(d)}
+	var op := {"id": oid, "type": "push_pull", "distance": d}
 	var on := ""
 	if state["rect"] != "":
 		op["target"] = {"rect": state["rect"]}

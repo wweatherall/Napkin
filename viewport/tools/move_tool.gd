@@ -90,7 +90,7 @@ func typed(txt: String) -> void:
 		if txt.is_valid_float():
 			var ax: int = state.get("mir_ax", state["face_ax"])
 			var d := absf(float(txt))
-			var side: float = signf(state["vec"][ax]) if absf(state["vec"][ax]) > 0.5 else state["face_sign"]
+			var side: float = signf(state["vec"][ax]) if absf(state["vec"][ax]) >= GEOMETRY_TOLERANCE_MM else state["face_sign"]
 			var c: float
 			if ax == state["face_ax"]:
 				c = state["face_c"] + side * d
@@ -99,7 +99,7 @@ func typed(txt: String) -> void:
 			commit_mirror_move(ax, c)
 		return
 	var tl := txt.to_lower()
-	if tl.is_valid_float() and state["vec"].length() > 0.5:
+	if tl.is_valid_float() and state["vec"].length() >= GEOMETRY_TOLERANCE_MM:
 		commit_move(state["vec"].normalized() * absf(float(tl)))
 
 
@@ -110,10 +110,10 @@ func vcb_label() -> String:
 func vcb_value() -> String:
 	if not state.get("active", false): return ""
 	if mirror and state.get("mir_face", "") != "":
-		return "%d" % absf((state["ref"] - state["mir_p"]).dot(state["mir_n"]))
+		return DISTANCE_DISPLAY_FORMAT % absf((state["ref"] - state["mir_p"]).dot(state["mir_n"]))
 	if mirror and state.has("mir_c"):
-		return "%d" % _mirror_face_gap(state["mir_ax"], state["mir_c"])
-	return "%d" % state["vec"].length()
+		return DISTANCE_DISPLAY_FORMAT % _mirror_face_gap(state["mir_ax"], state["mir_c"])
+	return DISTANCE_DISPLAY_FORMAT % state["vec"].length()
 
 
 func tip() -> String:
@@ -321,6 +321,7 @@ func _finish() -> void:
 		if state.get("mir_face", "") != "": commit_mirror(state["mir_p"], state["mir_n"])
 		else: commit_mirror_move(state["mir_ax"], state["mir_c"])
 	else:
+		if not pointer_distance_ok(state["vec"].length(), state.get("point_snap", false)): return
 		commit_move(state["vec"])
 
 
@@ -345,6 +346,7 @@ func _move_move(screen: Vector2) -> void:
 	var lax: int = state["lock"]
 	var dest = null
 	var kind := ""
+	var point_snap := false
 	var guide_axis := -1
 	var guide_plane := -1
 	if mode == "axis":
@@ -360,6 +362,7 @@ func _move_move(screen: Vector2) -> void:
 			if mode == "plane":                       # stay on the locked plane
 				dest = dest - plane_n * (dest - ref).dot(plane_n)
 			kind = pt["kind"]
+			point_snap = true
 		else:
 			var axes := [0, 1, 2] if mode == "free" else [(lax + 1) % 3, (lax + 2) % 3]
 			var inf := infer.axis(screen, ref, axes, state.get("inferred", -1))
@@ -385,6 +388,7 @@ func _move_move(screen: Vector2) -> void:
 	if dest == null: return
 	state["vec"] = dest - ref
 	state["kind"] = kind
+	state["point_snap"] = point_snap
 	m._draw_guides(ref, guide_axis, guide_plane)
 	if mirror and not moving_cut:
 		_preview_mirror_move()
@@ -419,7 +423,7 @@ func _preview_move() -> void:
 
 
 func commit_move(vec: Vector3, count := 1, divide := false, reuse_oid := "") -> void:
-	if vec.length() < 0.5: return
+	if vec.length() < GEOMETRY_TOLERANCE_MM: return
 	m.reject_note = ""
 	if not state.get("cut", {}).is_empty():
 		_commit_cut_move(vec, count, divide, reuse_oid)
@@ -435,7 +439,7 @@ func commit_move(vec: Vector3, count := 1, divide := false, reuse_oid := "") -> 
 		m.counters["mv"] += 1
 		oid = "mv%d" % m.counters["mv"]
 	var op := {"id": oid, "type": "move", "targets": targets, "selection": unit["kind"] in ["selection", "assembly"],
-			   "vector": Main.arr3(vec), "copy": copy}
+			   "vector": [vec.x, vec.y, vec.z], "copy": copy}
 	if not whole.is_empty():                     # each wholly copied assembly comes out as a new one (I47)
 		var groups := {}
 		for aid in whole:
@@ -521,7 +525,7 @@ func _commit_cut_move(vec: Vector3, count: int, divide: bool, reuse_oid: String)
 		m.counters["mv"] += 1
 		oid = "mv%d" % m.counters["mv"]
 	var op := {"id": oid, "type": "move", "targets": [], "cut": {"body": body, "op": cut["op"]},
-		"vector": Main.arr3(vec), "copy": copy}
+		"vector": [vec.x, vec.y, vec.z], "copy": copy}
 	if copy:
 		op["count"] = count
 		op["divide"] = divide

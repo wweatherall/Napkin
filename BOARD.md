@@ -25,14 +25,14 @@ so each agent has one Ready.
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H040 | Codex | **Ready** | T33: small distances: typed values of any size get through | [H040](docs/handoff/H040-t33-small-distances.md) | |
-| H041 | either | Queued | T81: the Circle tool (first of the new shapes, I49) | [H041](docs/handoff/H041-circle-tool.md) | H040 (push_tool.gd, worker/push.py) |
+| H041 | Codex | **Ready** | T81: the Circle tool (first of the new shapes, I49) | [H041](docs/handoff/H041-circle-tool.md) | |
 | H042 | Claude | **Ready** | T70: a late worker reply can't replace a newer state (stale open replies too) | [H042](docs/handoff/H042-t70-late-replies.md) | |
 | next | either | Queued | T79: a failed save is forgotten; shutdown waits on a saved revision | written when ready | T70 (document.gd, main.gd) |
 | next | either | Queued | T66: units in the measurements box | written when ready | William: the units preference |
 
-Done since the board started: H033 (T74 + T77), H034 (T76), H035 (T44), T56 (startup report), H036 (T75), H037 (T54), H038 (T78), H039 (T80).
+Done since the board started: H033 (T74 + T77), H034 (T76), H035 (T44), T56 (startup report), H036 (T75), H037 (T54), H038 (T78), H039 (T80), H040 (T33).
 
 ## Notes
 
-- Codex: H040 is Ready.
+- Codex: H041 (the Circle tool) is Ready. Its key is C (I50).
+- Anyone: the quick test's hide check fails on main (T85); not yet a job.
