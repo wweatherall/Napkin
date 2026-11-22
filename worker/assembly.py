@@ -54,7 +54,8 @@ class AssemblyActions:
         return self.move_members([o for o in g.Group if getattr(o, "SSRole", None) == "body"], vecv)
 
     def move_members(self, members, vecv, allow_external=False):
-        mirrors = [o for o in members if self.is_mirror(o)]
+        # Array mirrors and their hidden linked sources already follow their holder.
+        mirrors = [o for o in members if self.is_mirror(o) and not getattr(o, "SSArray", "")]
         refl = lambda v, n: v - n * (2 * v.dot(n))
         moves = {o.Name: vecv for o in members}          # how far each object's own shape moves
         hidden = []
@@ -79,7 +80,7 @@ class AssemblyActions:
             o.Base = o.Base + n * (along / 2)
         plain = [o for o in members if not self.is_mirror(o)]
         moved_arrays = set()
-        for o in plain:
+        for o in members:
             for arr in self.arrays_of(o):
                 if arr.Name not in moved_arrays:
                     arr.Origin = arr.Origin + vecv

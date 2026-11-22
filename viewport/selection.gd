@@ -64,6 +64,9 @@ func unit_of(bid: String) -> Dictionary:
 	"""What a tool acts on when you point at this board from where you are."""
 	if bid == "": return {}
 	if context == "":
+		var assembly_row := _assembly_row(bid)
+		if not assembly_row.is_empty(): return assembly_row
+	if context == "" or context.begins_with("row:"):
 		var a: String = body_assembly.get(bid, "")
 		if a != "":
 			return {"id": a, "kind": "assembly", "bodies": body_assembly.keys().filter(func(b): return body_assembly[b] == a)}
@@ -73,10 +76,33 @@ func unit_of(bid: String) -> Dictionary:
 	return {"id": bid, "kind": "board", "bodies": [bid]}
 
 
+func _assembly_row(bid: String) -> Dictionary:
+	"""Join the parallel board rows through their assemblies, using existing worker metadata."""
+	var members := [bid]
+	var rows := []
+	var assemblies := []
+	var cursor := 0
+	while cursor < members.size():
+		var b: String = members[cursor]
+		cursor += 1
+		var row: String = body_row.get(b, "")
+		var assembly: String = body_assembly.get(b, "")
+		if row != "" and not rows.has(row): rows.append(row)
+		if assembly != "" and not assemblies.has(assembly): assemblies.append(assembly)
+		for other in body_row:
+			if members.has(other): continue
+			if (row != "" and body_row[other] == row) or (assembly != "" and body_assembly.get(other, "") == assembly):
+				members.append(other)
+	if rows.is_empty() or assemblies.size() < 2: return {}
+	rows.sort()
+	return {"id": bid, "kind": "row", "source": rows[0], "bodies": members}
+
+
 func in_context(bid: String) -> bool:
 	if context == "" or bid == "": return true
 	if context.begins_with("assembly:"): return body_assembly.get(bid, "") == context.substr(9)
-	return body_row.get(bid, "") == context.substr(4)
+	var row := _assembly_row(bid)
+	return row.get("source", body_row.get(bid, "")) == context.substr(4)
 
 
 func context_assembly() -> String:
@@ -98,7 +124,7 @@ func mirror_plane_of_context() -> Array:
 
 func edit_blocked(bid: String) -> bool:
 	"""From outside, an assembly's boards are edited by entering it (SketchUp)."""
-	if context == "" and body_assembly.get(bid, "") != "":
+	if not context.begins_with("assembly:") and body_assembly.get(bid, "") != "":
 		say.emit("Double-click the assembly (Select tool) to edit inside it")
 		return true
 	return false
@@ -141,8 +167,10 @@ func set_selection(ids: Array) -> void:
 
 
 func enter_context_of(bid: String) -> void:
-	if bid == "" or context != "": return
-	if body_assembly.get(bid, "") != "": context = "assembly:" + body_assembly[bid]
+	if bid == "" or context.begins_with("assembly:"): return
+	var row := _assembly_row(bid)
+	if context == "" and not row.is_empty(): context = "row:" + row["source"]
+	elif body_assembly.get(bid, "") != "": context = "assembly:" + body_assembly[bid]
 	elif body_row.get(bid, "") != "": context = "row:" + body_row[bid]
 	else: return
 	set_selection([])
@@ -150,7 +178,13 @@ func enter_context_of(bid: String) -> void:
 
 
 func leave_context() -> void:
-	context = ""
+	var parent := ""
+	if context.begins_with("assembly:"):
+		var members := members_of(context.substr(9))
+		if not members.is_empty():
+			var row := _assembly_row(members[0])
+			if not row.is_empty(): parent = "row:" + row["source"]
+	context = parent
 	context_changed.emit()
 
 
