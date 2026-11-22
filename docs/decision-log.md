@@ -295,7 +295,7 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | T64 | Watch the model file and reload FreeCAD's saves automatically, with a wave (from T17). | Open | Q19, A25 |  |
 | T65 | When a FreeCAD save dropped Shop Sketch actions, ask: re-apply them on top, or keep FreeCAD's version (from T17). | Open | Q19, A25 | After T64; the question's wording is your call. |
 | T66 | Lengths shown in the measurements box in your units, display rounding separate from stored precision, and a units preference (from T32). | Open | T32, I35, I57 | Units preference: your call. Decided 2026-11-22: I57 (formats, rounding, ~ for rounded, saved per model). Typed bare numbers: I59. Assigned: H052 (after T88's tool moves, since every tool's vcb_value changes). |
-| T67 | IDs that never collide across kept history branches (from T35). | Open | U02 |  |
+| T67 | IDs that never collide across kept history branches (from T35). | Open | U02 | William chose it as Codex's next job, 2026-11-22. Assigned: H059 (Codex). |
 | T68 | One undo step per user action (from T35). | Open | U02, A23 |  |
 | T69 | Typed corrections that don't rewrite kept versions (from T35). | Open | U02 |  |
 | T71 | History stage 2: keep abandoned futures in memory and show the history panel on the right (from T36). | Open | U01 | Needs T67–T69. Spec: docs/specs/U01-history.md. |

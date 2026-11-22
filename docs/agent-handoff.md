@@ -33,6 +33,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H052 — T66: lengths shown in the model's units](handoff/H052-t66-units.md) — status: queued (after T88's tool moves); for: either
 - [H053 — T91: integrate.py drafts the Work list result and the board](handoff/H053-t91-merge-bookkeeping.md) — status: open; for: Claude
 - [H057 — T95: the feature tests find the test files themselves](handoff/H057-t95-tests-find-themselves.md) — status: queued (after H053); for: either
+- [H059 — T67: IDs that never collide across kept history branches](handoff/H059-t67-branch-safe-ids.md) — status: open; for: Codex
 
 <!-- end of open list -->
 

@@ -4,7 +4,7 @@ William says "check the board": this file tells each agent what to do next. The 
 /Users/Will/Sites/fretchup, P16) keeps it; nobody else edits it. Jobs run through the queue (P24, `tools/job.py`):
 the table below is built from docs/handoff/ and the queue's live state; the integrator keeps the Order line.
 
-Order: H053, H046, H057, H052
+Order: H053, H059, H046, H057, H052
 
 ## If you're not the integrator
 
@@ -49,7 +49,8 @@ shows the queue; `python3 tools/job.py board` rebuilds the table (the commit hoo
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H053 | Claude | **Ready** | T91: integrate.py drafts the Work list result and the board | [H053](docs/handoff/H053-t91-merge-bookkeeping.md) |  |
+| H053 | Claude | In progress (claude since 12:17) | T91: integrate.py drafts the Work list result and the board | [H053](docs/handoff/H053-t91-merge-bookkeeping.md) |  |
+| H059 | Codex | **Ready** | T67: IDs that never collide across kept history branches | [H059](docs/handoff/H059-t67-branch-safe-ids.md) |  |
 | H046 | Codex | In progress (codex since 12:07) | T82: the Line tool, closed outlines and split faces | [H046](docs/handoff/H046-t82-lines-split-faces.md) |  |
 | H057 | either | Queued | T95: the feature tests find the test files themselves | [H057](docs/handoff/H057-t95-tests-find-themselves.md) | H053 |
 | H052 | either | Queued | T66: lengths shown in the model's units | [H052](docs/handoff/H052-t66-units.md) | T88's tool moves |
@@ -61,5 +62,5 @@ Done since the board started: H033 (T74 + T77), H034 (T76), H035 (T44), T56 (sta
 ## Notes
 
 - Later (no handoff yet): T88 steps 1-4, Paint, Select, Circle, Rectangle move to ToolContext (Claude; one job each, on files H046 doesn't touch), after H054 and H055 (William's priority: the integrator's tools first).
-- Codex: H046 (Lines, I51 and I58) is Ready, built on ToolContext; H057 (tests find themselves) follows H053 (both edit CLAUDE.md). Take jobs with `python3 tools/job.py take --as codex` (P24).
+- Codex: after H046 (Lines), H059 (T67, branch-safe IDs: William's choice, 2026-11-22); H057 (tests find themselves) follows H053 (both edit CLAUDE.md). Take jobs with `python3 tools/job.py take --as codex` (P24).
 - Claude: William's priority (2026-11-22): the integrator's tools first: H053 next. Take jobs with `python3 tools/job.py take --as claude` from now on (P24).
