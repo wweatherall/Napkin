@@ -1,6 +1,6 @@
 # Window ↔ worker protocol
 
-Protocol reference **0.1**, describing main `8ff1f91` (2026-11-21). This is a documentation version: the TCP protocol has no version field or negotiation. Existing embedded format identifiers are `oplog/0.1` and `shopsketch-journal/0.1`; binary meshes use Godot's Variant array encoding. This document records implemented behaviour; it does not introduce fields or change code (T44).
+Protocol reference **0.1**, describing main `8ff1f91` (2026-11-21); a documentation version. The wire protocol's own version is **1**: the worker reports it in `hello` (`protocol`), defined once per side (`worker/serve.py` `PROTOCOL_VERSION`, `viewport/main.gd` `PROTOCOL_VERSION`). **Rule: bump it on both sides when a message or a shared-file field changes** (added, removed, renamed or its meaning changed), and update this document. There is no negotiation: a window shares a worker only when the version matches. Existing embedded format identifiers are `oplog/0.1` and `shopsketch-journal/0.1`; binary meshes use Godot's Variant array encoding. This document records implemented behaviour; it does not introduce fields or change code (T44).
 
 ## Transport, identity and lifetime
 
@@ -8,9 +8,9 @@ Each TCP stream carries UTF-8 JSON objects, one per LF-terminated line, on `127.
 
 Sources: [worker/serve.py](../worker/serve.py):`serve`, nested `handle`/`send`; [viewport/worker_client.gd](../viewport/worker_client.gd):`send`, `_process`, `_drain`.
 
-The window probes port 7878 using `hello`. Identity is the MD5 of the concatenated contents of the worker's immediate `.py` files, sorted by filename, excluding `test_*` (not recursive). A matching worker is shared; an occupied port with a different identity leads to a private worker. Tests use `SERVE_PORT=0` and an atomic `SERVE_PORT_FILE` containing the chosen decimal port and LF. `SERVE_PORT` selects serve mode in `serve.main`; absent it, `OPLOG` and `OUTDIR` select one-off replay, with drawing and immediate save, without TCP.
+The window probes port 7878 using `hello`. A worker reporting another protocol version (or none) is treated like one with a different identity: the window starts its own and prints a `SHOPSKETCH ... speaks protocol` line. Identity is the MD5 of the concatenated contents of the worker's immediate `.py` files, sorted by filename, excluding `test_*` (not recursive). A matching worker is shared; an occupied port with a different identity leads to a private worker. Tests use `SERVE_PORT=0` and an atomic `SERVE_PORT_FILE` containing the chosen decimal port and LF. `SERVE_PORT` selects serve mode in `serve.main`; absent it, `OPLOG` and `OUTDIR` select one-off replay, with drawing and immediate save, without TCP.
 
-Sources: [worker/replay.py](../worker/replay.py):entry point; [worker/serve.py](../worker/serve.py):`worker_files`, `worker_identity`, `main`, `serve`; [viewport/main.gd](../viewport/main.gd):`_worker_identity`, `_probe_worker`, `_pick_worker`, `_start_worker`, `_await_port_file`.
+Sources: [worker/replay.py](../worker/replay.py):entry point; [worker/serve.py](../worker/serve.py):`worker_files`, `worker_identity`, `main`, `serve`; [viewport/main.gd](../viewport/main.gd):`_worker_identity`, `_probe_worker`, `_hello`, `_worker_of`, `_pick_worker`, `_start_worker`, `_await_port_file`.
 
 One worker holds many sessions but evaluates requests serially on one thread. One connection owns at most one model at a time. Ownership keys are `os.path.abspath` paths, without symlink resolution or OS-wide file locking. Claiming a different available model saves and releases the old one; claiming an occupied model leaves the current ownership alone. Released sessions remain cached. Disconnection saves/releases owned models. Autosave waits for **all** clients to be quiet for 0.25 s after the last handled request. `SERVE_IDLE_EXIT` seconds after the last connection leaves controls worker exit (0 disables; macOS app supplies 10).
 
@@ -32,14 +32,14 @@ Examples are illustrative JSON lines; timing values, paths, IDs and hashes vary.
 
 ### `hello`
 
-Request: `cmd: "hello"`. Success: `ok: true`, `cmd: "hello"`, `app: "shopsketch"`, `worker: string` (32 lowercase hex MD5), `pid: integer`. No `seq` echo.
+Request: `cmd: "hello"`. Success: `ok: true`, `cmd: "hello"`, `app: "shopsketch"`, `protocol: integer` (the protocol version, currently 1), `worker: string` (32 lowercase hex MD5), `pid: integer`. No `seq` echo. The window uses the worker only if `protocol` equals its own version and `worker` its own identity.
 
 ```json
 {"cmd":"hello"}
-{"ok":true,"cmd":"hello","app":"shopsketch","worker":"0123456789abcdef0123456789abcdef","pid":1234}
+{"ok":true,"cmd":"hello","app":"shopsketch","protocol":1,"worker":"0123456789abcdef0123456789abcdef","pid":1234}
 ```
 
-Producer/consumer: [worker/serve.py](../worker/serve.py):`serve.handle`, `worker_identity`; [viewport/main.gd](../viewport/main.gd):`_probe_worker`. Probing uses a separate short-lived connection.
+Producer/consumer: [worker/serve.py](../worker/serve.py):`serve.handle`, `worker_identity`; [viewport/main.gd](../viewport/main.gd):`_probe_worker` (`_hello`, `_worker_of`). Probing uses a separate short-lived connection.
 
 ### `open`
 
@@ -181,7 +181,7 @@ FaceRef = `{body: string, normal: Vec3, point: Vec3}`: world face identified geo
 | `rect` | `plane: Plane`, `size: [number,number]` positive mm, `corner?: [number,number] = [0,0]` plane-local mm | [push.py](../worker/push.py):`PushActions.op_rect` |
 | `push_pull` | `target: {rect: string}` or `{face: FaceRef}`, `distance: number` nonzero signed mm along normal; `body?: string` requests new/separate BodyId (otherwise free rectangle defaults to `<id>_body`); `assembly?: string` new board's assembly; `through?: boolean = false` for negative cuts; `resize_stock?: boolean`; `edge_fit?: {target_body: string, face: integer, fit_mode?: integer = 0}` | [push.py](../worker/push.py):`PushActions.op_push_pull` |
 | `move` | `targets: string[]`, `vector: Vec3`; `copy?: boolean = false`, `count?: integer = 1` copies excluding original, `divide?: boolean = false` distributes copies across vector instead of repeating vector; `new_ids?: string[]` consumed target-by-target, then copy-by-copy (fallback `<target>_<i+1>` for i starting 1); `selection?: boolean`, `detach?: boolean`; `groups?: {old AssemblyId: new AssemblyId}` for copying whole assemblies once | [move.py](../worker/move.py):`MoveActions.op_move`, `move_selection` |
-| `move` with cut | additionally `cut: {body: string, op: string}` selects a rectangular cutter/row; same vector/copy/count/divide fields; targets may be empty; new_ids unused for cutter arrays | [move.py](../worker/move.py):`MoveActions.op_move_cut` |
+| `move` with cut | additionally `cut: {body: string, op: string}` selects a rectangular cutter/row; same vector/copy/count/divide fields; targets may be empty; new_ids unused for cutter arrays | [move.py](../worker/move.py):`MoveActions.move_cut` (called by `op_move`) |
 | `mirror` | `targets: string[]`, `plane: {point: Vec3, normal: Vec3}`, `replace?: boolean = false`, `new_ids?: string[]` (fallback `<target>_m`), `group?: string` mirror assembly ID if originals ungrouped; replacement retains original BodyId | [mirror.py](../worker/mirror.py):`MirrorActions.op_mirror` |
 | `make_component` | `body: string`, `name: string` | [move.py](../worker/move.py):`MoveActions.op_make_component` |
 | `detach` / `make_unique` | `targets: string[]`; detach clears array membership; unique deep-copies shared definition | [move.py](../worker/move.py):`MoveActions.op_detach`, `op_make_unique` |
@@ -308,7 +308,7 @@ The optional `SERVE_PORT_FILE` is plain decimal text with LF, e.g. `49152\n`, at
 
 These are observed code limitations/mismatches, not changes made by the original documentation job. Separately completed fixes are marked below.
 
-1. **No wire protocol version.** The requested reference version is documentary. `hello` carries an implementation MD5; oplog format is emitted but not validated. Consequently there is no independent compatibility negotiation for messages or meshes. Sources: `serve.worker_identity`, `run_sync`; `main.gd:_probe_worker`; `document.gd:oplog`.
+1. **Fixed: wire protocol version.** `hello` now carries `protocol` (currently 1; `serve.PROTOCOL_VERSION`, `main.gd PROTOCOL_VERSION`, bumped when a message or file field changes), and `main.gd:_worker_of` refuses a worker reporting another version, as it does a different implementation MD5 (the window starts its own). Still not done: no negotiation, and the oplog format string is emitted but not validated. Checks: `worker/test_serve.py` (hello carries the version both sides define), quick section `protocol`. Was: no wire protocol version; `hello` carried only an implementation MD5. Sources: `serve.handle`, `serve.PROTOCOL_VERSION`; `main.gd:_probe_worker`, `_worker_of`; `document.gd:oplog`.
 2. **Lifecycle replies are not routed in the general client.** `main.gd:_on_worker` handles open/length/inspect/focus/saved, then forwards every other dictionary to `document.gd:on_sync_reply`. A normal `flush`/hello/bye/quit success has no result and can reach sync-only logic (null/missing seq or missing result). Current app hello uses its own probe; shared shutdown reads raw bytes; flush is used by socket tests. The issue concerns using these commands through the ordinary reply signal. Sources: `serve.handle`; `main.gd:_on_worker`, `_probe_worker`, `_shutdown_worker`; `document.gd:on_sync_reply`.
 3. **Fixed (T78 / H038): drawing intent while busy.** `document.gd:request_drawing` retains a per-model pending flag while a sync is in flight. The next `_send` carries `drawing: true` alongside the latest ops and consumes the flag; later ordinary syncs send false. `reset` clears queued intent when switching models. Once enabled, the worker's session drawing flag stays true. Sources: `document.gd:request_drawing`, `_send`, `on_sync_reply`, `reset`; `serve.run_sync`.
 4. **Open replies lack freshness correlation.** `open` success/refusal does not echo seq, and `main.gd:_on_open` does not compare returned model against current model before adopting ops. Unlike sync/inspection, rapid switches cannot distinguish a stale open response by request identity. Sources: `serve.handle`; `document.gd:send_open`, `on_opened`; `main.gd:_on_open`.

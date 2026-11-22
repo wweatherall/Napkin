@@ -2,6 +2,7 @@
   python3 worker/test_serve.py   (TESTDIR=<folder> for its files; FREECAD=<freecadcmd> to override)"""
 import json
 import os
+import re
 import socket
 import subprocess
 import sys
@@ -88,6 +89,13 @@ try:
     ha, hb = a.ask({"cmd": "hello"}, "hello"), b.ask({"cmd": "hello"}, "hello")
     check("both windows reach the same worker, which says who it is",
           ha and hb and ha["app"] == "shopsketch" and ha["pid"] == hb["pid"] and len(ha["worker"]) == 32, (ha, hb))
+    with open(os.path.join(HERE, "serve.py")) as f:
+        version = int(re.search(r"^PROTOCOL_VERSION = (\d+)$", f.read(), re.M).group(1))
+    with open(os.path.join(HERE, "..", "viewport", "main.gd")) as f:
+        window_version = int(re.search(r"^const PROTOCOL_VERSION := (\d+)$", f.read(), re.M).group(1))
+    check("hello carries the protocol version (serve.py PROTOCOL_VERSION), the same main.gd checks for",
+          ha.get("protocol") == version == window_version and isinstance(ha.get("protocol"), int),
+          (ha.get("protocol"), version, window_version))
     oa = a.ask({"cmd": "open", "model": m1, "fresh": True}, "open")
     ob = b.ask({"cmd": "open", "model": m2, "fresh": True}, "open")
     check("each window opens its own model", oa["ok"] and ob["ok"], (oa, ob))

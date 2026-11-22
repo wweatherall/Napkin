@@ -94,7 +94,7 @@ confirmed meshes, the worker link, typed values, drawing rules, viewport tests) 
 
 ## Tests
 - Two kinds of test (P07): feature tests check Shop Sketch's answers against FreeCAD with no window
-  (`tools/featuretest.sh`, ~5 s, all side by side: every worker test, the T48 scenario, the units test, the document controller test, the selection test, the log sort test); UI tests drive the viewport.
+  (`tools/featuretest.sh`, ~5 s, all side by side: every worker test, the T48 scenario, the units test, the document controller test, the selection test, the tool registry test, the log sort test); UI tests drive the viewport.
   A new feature gets a numbered file in `worker/scenario/` first (run the feature tests while building it), then a
   quick-test step once its tool exists.
 - After every change: `tools/quicktest.sh` (~8 s): the feature tests beside every viewport feature once, in three

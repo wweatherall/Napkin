@@ -3,6 +3,8 @@ extends "res://tools/tool.gd"
 ## Started with a click, it ends with a click; started with a press-and-drag (or a press held down), it ends
 ## when you let go (tool.gd, I43).
 
+const TOOL := {"id": "rect", "label": "Rectangle", "tip": "Rectangle (R)", "key": KEY_R, "order": 30, "show_links": true}   # the toolbar, the Tools menu and the key (tool_registry.gd)
+
 var state := {}
 
 

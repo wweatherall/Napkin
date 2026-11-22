@@ -6,8 +6,9 @@ References: T81, I49, I50 (key C) (Codex S08), A03 (faces by geometry), A22b (ho
 viewport/tools/CLAUDE.md (the tool interface), rect_tool.gd (the model to follow), FREECAD_FEATURE_MAP.md (S08 row).
 
 Touches: viewport/tools/circle_tool.gd (new), viewport/tools/push_tool.gd and worker/push.py (pushing a circle's
-face), worker/circle.py (new mixin) and the HANDLERS line in worker/model.py, viewport/presenter.gd (the circle's
-draft), viewport/main.gd (the tool list and toolbar segment only), viewport/keys.gd (the key), viewport/tools/CLAUDE.md,
+face), worker/circle.py (new, a CircleActions class: found by itself, no model.py edit), viewport/presenter.gd (the circle's
+draft), (no main.gd or keys.gd edit: circle_tool.gd declares its TOOL constant, viewport/tools/CLAUDE.md "Adding a tool"),
+viewport/test_tools.gd and viewport/tests/quick/registry.gd (add Circle to the pinned tool list), worker/scenario/99_op_registry.py (the new op type), viewport/tools/CLAUDE.md,
 viewport/tests/quick/circle.gd and worker/scenario/NN_circle.py (new), docs/protocol.md (the new op),
 ARCHITECTURE.md (module table rows).
 

@@ -4,6 +4,8 @@ extends "res://tools/tool.gd"
 ## Arrows cycle axis lock -> plane lock -> free. After a copy: 5x / *5 for an array, /5 to spread copies;
 ## a plain number right after a move changes its distance.
 
+const TOOL := {"id": "move", "label": "Move", "tip": "Move (M)", "key": KEY_M, "order": 50, "show_links": true}   # the toolbar, the Tools menu and the key (tool_registry.gd)
+
 var state := {}
 var copy := false
 var mirror := false
