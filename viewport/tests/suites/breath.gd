@@ -17,8 +17,11 @@ func run() -> void:
 	for op in m.ops: m.confirmed_ids[op["id"]] = true
 	m.sync()
 	await harness._wait_confirm()
-	m.target = Main.m2g(Vector3(420, 150, 220)); m.dist = 1.75; m.yaw = deg_to_rad(-36); m.pitch = deg_to_rad(-22)
-	m._update_camera()
+	m.camera_rig.target = Main.m2g(Vector3(420, 150, 220))
+	m.camera_rig.dist = 1.75
+	m.camera_rig.yaw = deg_to_rad(-36)
+	m.camera_rig.pitch = deg_to_rad(-22)
+	m.camera_rig.update_camera()
 	m.cursor2d.position = Vector2(1000, 650)
 	await harness._frames(15)
 	# 1. a tall new board; FreeCAD takes ~4.5 s, then accepts

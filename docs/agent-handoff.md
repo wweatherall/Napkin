@@ -44,7 +44,6 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H110 — T113 step 3: the menus move out of main.gd into menus.gd](handoff/H110-t113-menus.md) — status: queued (after H103, H101); for: either
 - [H111 — T113 step 4a: building the interface moves out of main.gd into ui.gd](handoff/H111-t113-ui.md) — status: queued (after H110); for: either
 - [H112 — T113 step 4b: wood rendering moves from main.gd to appearance.gd](handoff/H112-t113-wood.md) — status: queued (after H101, H110); for: either
-- [H113 — T113 step 4c: the camera (orbit, pan, zoom, trackpad) moves out of main.gd into camera_rig.gd](handoff/H113-t113-camera.md) — status: open; for: either
 - [H114 — T113 step 4d: main.gd's selection pass-throughs go; callers use m.sel](handoff/H114-t113-selection-forwarders.md) — status: queued (after H101); for: either
 
 <!-- end of open list -->
@@ -53,6 +52,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 Full entries in [handoff-archive.md](handoff-archive.md).
 
+- H113 — T113 step 4c: the camera (orbit, pan, zoom, trackpad) moves out of main.gd into camera_rig.gd. Resolved: merged into main by the integrator, 2026-11-23.
 - H117 — For the next integrator session: where things stand. Resolved: see the archive
 - H085 — T83: the Arc tool (2-Point and Centre arcs, exact in FreeCAD, splitting faces). Resolved: merged into main by the integrator, 2026-11-23.
 - H115 — T112: the queue checks overlap by function (P45). Resolved: merged into main by the integrator, 2026-11-23.

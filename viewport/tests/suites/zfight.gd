@@ -25,8 +25,11 @@ func run() -> void:
 	for d in [0.45, 0.9, 1.8, 3.5]:
 		for yaw_d in [-60.0, -25.0, 15.0]:
 			for pitch_d in [-30.0, -55.0, -75.0]:
-				m.target = Main.m2g(Vector3(150, 100, 50)); m.yaw = deg_to_rad(yaw_d); m.pitch = deg_to_rad(pitch_d); m.dist = d
-				m._update_camera()
+				m.camera_rig.target = Main.m2g(Vector3(150, 100, 50))
+				m.camera_rig.yaw = deg_to_rad(yaw_d)
+				m.camera_rig.pitch = deg_to_rad(pitch_d)
+				m.camera_rig.dist = d
+				m.camera_rig.update_camera()
 				await harness._drag_to(Vector3(40, 30, 100), 2)
 				await harness._frames(2)
 				var tag := "zf_%02d" % k

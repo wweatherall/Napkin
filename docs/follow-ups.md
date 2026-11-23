@@ -19,3 +19,4 @@ or that turns it into a Work list item. `python3 tools/startup.py` lists the ope
 - H104 (2026-11-23): `tools/job.py` `return_job` does not refuse when run inside a job worktree (unlike `reassign_job`); decide whether `return` should refuse it too.
 - H103 (2026-11-23): Godot 4.6's macOS NativeMenu.get_item_accelerator() maps keyEquivalent "," through find_keycode_from_string(","), returning KEY_MASK_META without KEY_COMMA; verify ⌘, opens preferences.json interactively during the hardware feel test (Q4), and add a Cmd+, fallback in viewport/keys.gd if macOS menu dispatch ever misses it.
 - H103 (2026-11-23): T111 Mac Preferences window remains future work once the JSON file and hardware feel test (Q4) settle the tunables.
+- H113 (2026-11-23): To remove the preference aliases, point main's preference wiring and `tests/quick/preferences.gd` at

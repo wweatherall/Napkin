@@ -86,8 +86,11 @@ func _wait_wave() -> void:
 	await _frames(2 if quick else 12)            # quick test: the checks read state, not pixels (T48)
 
 func _view(target_m: Vector3, yaw_deg: float, pitch_deg: float, d: float) -> void:
-	m.target = Main.m2g(target_m); m.yaw = deg_to_rad(yaw_deg); m.pitch = deg_to_rad(pitch_deg); m.dist = d
-	m._update_camera()
+	m.camera_rig.target = Main.m2g(target_m)
+	m.camera_rig.yaw = deg_to_rad(yaw_deg)
+	m.camera_rig.pitch = deg_to_rad(pitch_deg)
+	m.camera_rig.dist = d
+	m.camera_rig.update_camera()
 	await _frames(3)
 
 func _rect(start_m: Vector3, toward_m: Vector3, dims: String) -> void:

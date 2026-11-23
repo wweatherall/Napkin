@@ -55,8 +55,8 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
 | H105 | Gemini | In progress (gemini since 07:43) | integrate.py stops for a response's `Changed from the brief:` lines (P44) | [H105](docs/handoff/H105-integrate-shows-brief-changes.md) |  |
-| H086 | either | In progress (codex since 07:41) | T83 step 2: an arc on a corner is tangent to both edges (rounded corners) | [H086](docs/handoff/H086-t83-arc-corner-tangent.md) |  |
-| H093 | either | In progress (codex since 07:41) | Outside saves: a failed reload asks, a worker lost mid-reload reloads again, and a question the actions overtook closes (H092 findings 2 and 5, A39) | [H093](docs/handoff/H093-outside-save-failures.md) |  |
+| H086 | either | **Done**: for review (codex) | T83 step 2: an arc on a corner is tangent to both edges (rounded corners) | [H086](docs/handoff/H086-t83-arc-corner-tangent.md) |  |
+| H093 | either | **Done**: for review (codex) | Outside saves: a failed reload asks, a worker lost mid-reload reloads again, and a question the actions overtook closes (H092 findings 2 and 5, A39) | [H093](docs/handoff/H093-outside-save-failures.md) |  |
 | H094 | either | Queued | A reload from a revision Shop Sketch no longer remembers keeps the ops that file holds (H092 finding 6) | [H094](docs/handoff/H094-reload-unknown-revision.md) | H093 |
 | H096 | either | Queued | Pushing one cell of a split profile keeps the rest of the profile on screen (H092 finding 9) | [H096](docs/handoff/H096-region-push-keeps-profile.md) | H083 |
 | H097 | either | Queued | T110: test helpers that make a failure-path check a few lines | [H097](docs/handoff/H097-failure-path-test-helpers.md) | H094 |
@@ -66,7 +66,6 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 | H110 | either | Queued | T113 step 3: the menus move out of main.gd into menus.gd | [H110](docs/handoff/H110-t113-menus.md) | H103, H101 |
 | H111 | either | Queued | T113 step 4a: building the interface moves out of main.gd into ui.gd | [H111](docs/handoff/H111-t113-ui.md) | H110 |
 | H112 | either | Queued | T113 step 4b: wood rendering moves from main.gd to appearance.gd | [H112](docs/handoff/H112-t113-wood.md) | H101, H110 |
-| H113 | either | In progress (codex since 07:41) | T113 step 4c: the camera (orbit, pan, zoom, trackpad) moves out of main.gd into camera_rig.gd | [H113](docs/handoff/H113-t113-camera.md) |  |
 | H114 | either | Queued | T113 step 4d: main.gd's selection pass-throughs go; callers use m.sel | [H114](docs/handoff/H114-t113-selection-forwarders.md) | H101 |
 
 <!-- end of job table -->

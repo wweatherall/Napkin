@@ -9,8 +9,11 @@ var m: Main:
 
 
 func run() -> void:
-	m.target = Main.m2g(Vector3(230, 150, 210)); m.dist = 1.35; m.yaw = deg_to_rad(-40); m.pitch = deg_to_rad(-24)
-	m._update_camera()
+	m.camera_rig.target = Main.m2g(Vector3(230, 150, 210))
+	m.camera_rig.dist = 1.35
+	m.camera_rig.yaw = deg_to_rad(-40)
+	m.camera_rig.pitch = deg_to_rad(-24)
+	m.camera_rig.update_camera()
 	m.cursor2d.position = Vector2(900, 650)
 	await harness._frames(10)
 	# 1. side panel: drag a rectangle, pull it up, click to finish on the top face
