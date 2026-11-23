@@ -62,9 +62,9 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 | H107 | either | Queued | T113 step 1a: the FreeCAD worker's process moves out of main.gd into worker_process.gd | [H107](docs/handoff/H107-t113-worker-process.md) | H094 |
 | H108 | either | Queued | T113 step 1b: the closing and outside-save dialogs move out of main.gd into save_prompts.gd | [H108](docs/handoff/H108-t113-save-prompts.md) | H107 |
 | H109 | either | Queued | T113 step 2: what a rejection takes with it moves to document.gd, and main's document pass-throughs go | [H109](docs/handoff/H109-t113-rejections.md) | H096, H094 |
-| H111 | either | Queued | T113 step 4a: building the interface moves out of main.gd into ui.gd | [H111](docs/handoff/H111-t113-ui.md) | H110 |
-| H112 | either | Queued | T113 step 4b: wood rendering moves from main.gd to appearance.gd | [H112](docs/handoff/H112-t113-wood.md) | H101, H110 |
-| H114 | either | Queued | T113 step 4d: main.gd's selection pass-throughs go; callers use m.sel | [H114](docs/handoff/H114-t113-selection-forwarders.md) | H110 |
+| H111 | either | **Ready** | T113 step 4a: building the interface moves out of main.gd into ui.gd | [H111](docs/handoff/H111-t113-ui.md) |  |
+| H112 | either | **Ready** | T113 step 4b: wood rendering moves from main.gd to appearance.gd | [H112](docs/handoff/H112-t113-wood.md) |  |
+| H114 | either | Queued | T113 step 4d: main.gd's selection pass-throughs go; callers use m.sel | [H114](docs/handoff/H114-t113-selection-forwarders.md) | H112 |
 
 <!-- end of job table -->
 
@@ -72,7 +72,7 @@ Done since the board started: H033 (T74 + T77), H034 (T76), H035 (T44), T56 (sta
 
 ## Notes
 
-- H096 waits on H093 (test_document.gd); H114 on H110 (keys.gd, tests/quick/hide.gd).
+- H096 waits on H093 (test_document.gd); H114 on H112 (keys.gd, presenter.gd). H111 and H112 share main.gd by function only (P45) and run at once.
 - H093 merges only after H098 (the break-it trial, William's request): H098 goes to an agent other than H093's builder.
 - T88: steps 1-5 (Paint H065, Select H071, Circle H072, Rectangle H075, Push/Pull H079) merged; step 6 (Move, and the legacy setup's removal) is H083 (Gemini finishing Codex's work, William 2026-11-22), H052 (T66 units) and the rest go on from Gemini's version. H101 (Codex checks and tidies it) doesn't hold anything up: it runs when no job holds the tool files, from main as it is then, and Codex fixes whatever it touches (William, 2026-11-22).
 - H101 is for the Codex session that started H083 (01a20629…, William): its H083 count was taken off so it can take H101 without a /clear.
