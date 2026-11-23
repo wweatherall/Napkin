@@ -4059,3 +4059,101 @@ For the integrator: Update docs/protocol.md (PROTOCOL_VERSION 9, open/reload uni
 Result: 4c7f1e6; quicktest 254/254 + all feature tests green (units 132/132, model_units 22/22, tool_context 147/147, length_input 23/23); T66 display units (I57, I59, I62), Units menu, Meta persistence, set_units protocol v9, bare-number default_unit.
 
 Resolution: merged into main by the integrator, 2026-11-22.
+
+### H106 — For the next integrator session: where things stand
+
+Author: Claude (integrator, fretchup-74) | Date: 2026-11-22 | Status: open | For: the integrator
+
+References: docs/integrator.md, BOARD.md, tools/startup.py, memory `launch-gemini`.
+
+Touches: nothing (a note). Archive it once read: `python3 tools/handoff.py archive H0NN`.
+
+Taking over: after a /clear William says you're the integrator: `python3 tools/integrator.py take <name>
+--william`, `python3 tools/startup.py`, then re-arm the watch (`python3 -u tools/job.py watch --next`, Bash
+run_in_background). William is short on Claude tokens: keep Claude workers idle, give exact jobs to Gemini, and
+launch Gemini windows yourself (memory `launch-gemini`: osascript + `agy -i "Gemini go"`), telling William.
+
+Done this session (2026-11-22, late; main pushed): merged H099 (job worktrees in `<checkout>-jobs/<id>`), H083
+(T88 step 6, Gemini finishing Codex's work; T88 Done), H102 (preferences.gd; I fixed RELEASE_DEG at review, the
+brief's mistake), H052 (T66 units, protocol 9). Logged P43 (no light /code-review per merge), I62 (no saved
+units: the user's default, else the last used), I63 (preferences JSON, live, ⌘,), T111 (Preferences), P44 (a
+brief's rule says what it's for; a worker may depart with a `Changed from the brief:` line). Wrote H101, H103,
+H104, H105.
+
+The queue:
+- H103 (T111 step 2, preferences wired) and H104 (job.py reassign, quieter watch, one-line results): Gemini, in
+  progress since 23:26 / 23:27. Both briefs predate P44.
+- H105 (integrate.py stops for `Changed from the brief:` lines): queued after H104 (same file). Make it Ready
+  when H104 merges and launch Gemini for it.
+- H101 (Codex tidies the T88 Move migration): for the Codex session 01a20629… that started H083, which William
+  keeps for it (its H083 count was removed). It holds nothing up: make it Ready when no job holds the tool files
+  or main.gd (after H103), and tell William to send that Codex session, with "re-read BOARD.md step 3 (P44)".
+  Another Codex session must not take it first.
+- H085 (Arc), then H086, H093 (+H098, William's break-it trial, for an agent other than H093's builder), H094,
+  H096, H097: after H103 (main.gd / tool files). Write T59 step 2 (Push/Pull `to_face`, protocol bump) now that
+  H083 and H052 are in.
+- Follow-ups added: a one-off `[move]` quick flake (H083); H052's two (length_cases.py doesn't generate the
+  default_unit cases; featuretest.sh log names can collide across worker/ and viewport/).
+
+No small fixes this session. Nothing waiting on William.
+
+### H101 — T88 after H083: Codex checks and tidies the Move migration as built (no behaviour change)
+
+Author: Claude (integrator, fretchup-74) | Date: 2026-11-22 | Status: resolved | For: codex
+
+References: H083 (T88 step 6: Move to ToolContext, the legacy setup goes), T88, A34. William, 2026-11-22: Codex
+started H083 and its session went quiet with the work nearly done; Gemini finishes it so the queue moves
+(H052 and the Arc jobs wait for it). William wants Codex, which built most of it and knows the design, to
+keep the job: after H083 merges, check the codebase around it and refactor where Gemini's finish, or the
+migration as a whole, falls short of what Codex meant.
+
+Touches: the same files as H083: viewport/tools/*.gd (every tool, tool.gd), viewport/tool_context.gd,
+viewport/test_tool_context.gd, viewport/presenter.gd, viewport/main.gd (only what Move's migration left
+there: the aliases, `_make_tools`, the guides body), viewport/tool_geometry.gd, viewport/test_tools.gd,
+viewport/tests/quick/move.gd. Not the worker, not docs/protocol.md, ARCHITECTURE.md or the folder guides
+(write those as "Architecture:" / "For the integrator:" lines).
+
+Start: your old worktree and its branch were handed to Gemini (your uncommitted work was committed unchanged as
+0167c59) and removed when H083 merged; 0167c59 is still in main's history. Take this job with `python3 tools/job.py take --as
+codex` once it is Ready: it starts a fresh branch from main, which by then holds H083 as merged.
+
+Request:
+1. Read what Gemini added on top of your commit: `git diff 0167c59 <H083's merge commit>^2` (the merge commit is
+   named in H083's archive entry and in `git log --merges --grep H083`), then the migration as merged.
+2. Fix what's wrong or unfinished in it, and tidy what you'd have done differently: leftovers of the legacy
+   setup, duplicated bodies between main.gd, presenter.gd and the tools, aliases main.gd keeps that nothing
+   reads any more (check the tests too), anything a tool still reaches through main that ToolContext should give it.
+3. No behaviour change: every quick-test and feature check passes unchanged. A check you think is wrong: say so
+   in the response, don't change it. A behaviour change you'd want: a Follow-up line for William, not code.
+4. Nothing waits for this job (William, 2026-11-22): other jobs (H052 units, the Arc tool) may have built on
+   Gemini's version by the time you start. Start from main as it is then, and fix what your tidy touches in them too.
+5. Keep it reviewable: one commit per kind of change, each saying what it moves and why.
+
+Checks: the existing ones (tools/featuretest.sh, tools/quicktest.sh, the T88 marker checks in test_tools.gd).
+A refactor that removes an alias adds no check; one that moves a body keeps the checks that covered it pointing
+at its new home.
+
+Response: what you found in Gemini's finish (a short list: fine / changed, and why), what you tidied, and any
+alias or body you left with the reason.
+
+Reading path: H083's entry and response, then `tool.gd` → `tool_context.gd` → `move_tool.gd` → main.gd
+`_make_tools` and the aliases → presenter.gd `present_draft` / `mirror_preview`. Who owns what: tools own their
+gesture state, ToolContext is all a tool gets from the app, presenter.gd draws, main.gd wires.
+
+Run `tools/featuretest.sh` and `tools/quicktest.sh` while building, then `python3 tools/job.py test`. End your
+response with a Result line; leftovers as Follow-up lines; anything for the merge as For the integrator lines.
+
+Response — Codex, 2026-11-23. Branch `codex/h101-t88-codex-checks-move`, code through `c3be19b`.
+
+- Compared `0167c59` with the second parent of merge `f2ad057` and inspected Gemini's finish in `a7ad7f9`. Keep the float bounds expectation and Line's check that it receives the window's actual context. Both express the intended contracts. Keep William's approved A40 numbering. The log fixture's assumption about branch placeholders is already tracked under H059. The intervening merge from main accounts for the unrelated worker changes.
+- Fixed an issue inherited from the earlier preview path. It took the mesh from a newly allocated line node on each outlined redraw and lost the node. Commit `50339b9` lets previews, mirror outlines and guides request a mesh directly. A headless comparison of 256 redraws counted 256 added orphan nodes with the H083 context and zero with the fix. The outline still contained the expected vertices.
+- Removed unused Main geometry, collision, marker, cache and wave forwarders in `d1e60eb`. Kept the aliases with callers, including `_lines` for drawing, `_begin_wave` for reloads, `move_state` and `draft_bboxes` for suites, and the geometry and colour names pinned by the context checks. H114 owns the separate selection forwarders, including `unit_tris`.
+- Simplified Move's board-draft construction in `c3be19b`. It reads each source's triangles once and emits its offsets in reserved body-ID order. A row move still previews all its members and the wave still starts at the last offset. The newer units formatting remains in place.
+- Verified the feature suite, 254 quick checks, 147 context checks, 12 registry checks and the full gate with recorded-suite comparisons. The clean code commit passed `job.py test`. No new decision IDs or open questions.
+
+Changed from the brief: William assigned H101 directly while it was queued. Registered the job using a one-off H101 selection and the normal locked claim operation. The preferences job and this review changed different functions. The queue implementation and main checkout were left alone.
+Architecture: The presenter supplies a line mesh directly to the existing view preview capability. Its node-returning lines helper remains for callers that put a node in the scene.
+For the integrator: In the viewport guide, remove the reference to Main forwarding `_tri_mesh` and describe the presenter supplying meshes for existing overlay nodes. Main still forwards `_lines` for node callers.
+Result: c3be19b; feature tests and 254 quick checks passed, full gate passed and recorded suites matched; kept Gemini's finish, fixed the outlined-preview node leak, removed unused Main aliases and simplified Move's draft ordering
+
+Resolution: merged into main by the integrator, 2026-11-23.

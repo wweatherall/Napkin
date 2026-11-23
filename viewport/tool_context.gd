@@ -25,7 +25,7 @@ var paint: PaintCapability
 
 func _init(parts := {}) -> void:
 	"""parts: infer, pres, sel, doc, measure (owner objects); cursor, show_marker, hide_marker,
-	tri_mesh, lines, refresh_tip, clear_rejection, new_board (Callables); appearance (wood/paint owner);
+	tri_mesh, line_mesh, refresh_tip, clear_rejection, new_board (Callables); appearance (wood/paint owner);
 	overlay, overlay_lines (nodes); materials (style -> Material). Anything missing is null / a no-op."""
 	pick = PickCapability.new(parts)
 	model = ModelCapability.new(parts)
@@ -226,7 +226,7 @@ class DocumentCapability extends _Capability:
 class ViewCapability extends _Capability:
 	const STYLES := ["hover", "profile", "draft", "cut", "cut_highlight"]
 	var _tri_mesh
-	var _lines
+	var _line_mesh
 	var _overlay
 	var _overlay_lines
 	var _materials: Dictionary
@@ -235,7 +235,7 @@ class ViewCapability extends _Capability:
 	var _pres
 
 	func _init(parts: Dictionary) -> void:
-		_tri_mesh = parts.get("tri_mesh"); _lines = parts.get("lines")
+		_tri_mesh = parts.get("tri_mesh"); _line_mesh = parts.get("line_mesh")
 		_overlay = parts.get("overlay"); _overlay_lines = parts.get("overlay_lines")
 		_materials = parts.get("materials", {})
 		_show_marker = parts.get("show_marker"); _hide_marker = parts.get("hide_marker")
@@ -248,7 +248,7 @@ class ViewCapability extends _Capability:
 		if is_instance_valid(_overlay):
 			_overlay.mesh = null if tris.is_empty() else _call(_tri_mesh, [tris, _materials.get(style)])
 		if is_instance_valid(_overlay_lines):
-			_overlay_lines.mesh = null if lines.size() < 2 else _call(_lines, [lines, line_color]).mesh
+			_overlay_lines.mesh = null if lines.size() < 2 else _call(_line_mesh, [lines, line_color])
 
 	func clear_preview() -> void:
 		"""Clear the preview and its outline (not the marker, guides or face highlight)."""

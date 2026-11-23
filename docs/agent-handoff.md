@@ -38,8 +38,18 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H096 — Pushing one cell of a split profile keeps the rest of the profile on screen (H092 finding 9)](handoff/H096-region-push-keeps-profile.md) — status: queued (after H083); for: either
 - [H097 — T110: test helpers that make a failure-path check a few lines](handoff/H097-failure-path-test-helpers.md) — status: queued (after H094); for: either
 - [H098 — Trial: try to break H093 before it merges (checks only)](handoff/H098-break-h093.md) — status: queued (after H093); for: either (the integrator sets it, when H093 is done, to an agent other than H093's builder)
-- [H101 — T88 after H083: Codex checks and tidies the Move migration as built (no behaviour change)](handoff/H101-t88-codex-checks-move.md) — status: queued (after H083; then whenever no job holds the tool files); for: codex
 - [H103 — T111 step 2: preferences wired in: ⌘, opens the file, saving it applies the feel tunables and the default units](handoff/H103-t111-preferences-wired.md) — status: open; for: gemini
+- [H104 — Integrator tools: `job.py reassign`, a quieter watch, a short result at merge](handoff/H104-integrator-tool-fixes.md) — status: open; for: gemini
+- [H105 — integrate.py stops for a response's `Changed from the brief:` lines (P44)](handoff/H105-integrate-shows-brief-changes.md) — status: queued (after H104); for: gemini
+- [H107 — T113 step 1a: the FreeCAD worker's process moves out of main.gd into worker_process.gd](handoff/H107-t113-worker-process.md) — status: queued (after H094); for: either
+- [H108 — T113 step 1b: the closing and outside-save dialogs move out of main.gd into save_prompts.gd](handoff/H108-t113-save-prompts.md) — status: queued (after H107); for: either
+- [H109 — T113 step 2: what a rejection takes with it moves to document.gd, and main's document pass-throughs go](handoff/H109-t113-rejections.md) — status: queued (after H096, H094); for: either
+- [H110 — T113 step 3: the menus move out of main.gd into menus.gd](handoff/H110-t113-menus.md) — status: queued (after H103, H101); for: either
+- [H111 — T113 step 4a: building the interface moves out of main.gd into ui.gd](handoff/H111-t113-ui.md) — status: queued (after H110); for: either
+- [H112 — T113 step 4b: wood rendering moves from main.gd to appearance.gd](handoff/H112-t113-wood.md) — status: queued (after H101, H110); for: either
+- [H113 — T113 step 4c: the camera (orbit, pan, zoom, trackpad) moves out of main.gd into camera_rig.gd](handoff/H113-t113-camera.md) — status: queued (after H103); for: either
+- [H114 — T113 step 4d: main.gd's selection pass-throughs go; callers use m.sel](handoff/H114-t113-selection-forwarders.md) — status: queued (after H101); for: either
+- [H115 — T112: the queue checks overlap by function (P45)](handoff/H115-t112-overlap-by-function.md) — status: queued (after H104); for: Codex
 
 <!-- end of open list -->
 
@@ -47,6 +57,8 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 Full entries in [handoff-archive.md](handoff-archive.md).
 
+- H101 — T88 after H083: Codex checks and tidies the Move migration as built (no behaviour change). Resolved: merged into main by the integrator, 2026-11-23.
+- H106 — For the next integrator session: where things stand. Resolved: see the archive
 - H052 — T66: lengths shown in the model's units. Resolved: merged into main by the integrator, 2026-11-22.
 - H102 — T111 step 1: the preferences file, read, checked and watched (a module and its tests; nothing wired yet). Resolved: merged into main by the integrator, 2026-11-22.
 - H083 — T88 step 6: Move moves to ToolContext, and the legacy setup goes. Resolved: merged into main by the integrator, 2026-11-22.
@@ -159,12 +171,13 @@ References: decision IDs, files, commits, or tests.
 
 Touches: the files this job expects to change (P11).
 
-Finding or request: ...
+Finding or request: ... Each rule says what it's for ("RELEASE_DEG never below INFER_DEG, so an axis can't let
+go before it sticks"), so the worker can tell when the letter defeats it (P44).
 
 What can fail (a job touching saving, reloading or the worker link, P42): each step that can fail (a file
 missing or unreadable, the worker gone, a reply late or out of order, a dialog open while replies arrive), what
 should happen, and the named check that proves it. The worker may add cases, not drop any.
 
-Response — Author, YYYY-MM-DD: ...
+Response — Author, YYYY-MM-DD: ... (a `Changed from the brief:` line per departure, P44)
 
 Resolution: ...
