@@ -34,6 +34,8 @@ protocol (update it in the same commit when you change either). Tools have their
   toolbar, Tools menu and tool keys come from that. `property_panel.gd`: the Properties panel (T46, I36).
 - `appearance.gd` (T88 step 1): the wood library, the current Paint wood and the paint command; Main keeps wood
   rendering, the Wood menu and T (grain), and forwards `wood_library` / `wood_keys` / `paint_material`.
+- `preferences.gd` (I63, T111): reads, checks and watches the preferences JSON (the default units and the feel
+  tunables); standalone, the caller passes the path; tests make their own file. Not wired in yet (H103).
 - `units.gd`: lengths. `evaluate_length` / `evaluate_pair` give FreeCAD's answer for a typed length at once (a
   port of `worker/length_input.py`; what it declines goes to FreeCAD); `format_length` for showing lengths.
 - `worker_client.gd`: TCP framing, reconnect. `tests.gd`: small test-mode dispatcher; `tests/harness.gd`: shared input, timing and assertions;
