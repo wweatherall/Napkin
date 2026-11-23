@@ -1,6 +1,6 @@
 ### H113 — T113 step 4c: the camera (orbit, pan, zoom, trackpad) moves out of main.gd into camera_rig.gd
 
-Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: open | For: either
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: answered | For: either
 
 References: T113, P45, Q4, I63 (the feel tunables, wired by H103).
 
@@ -34,6 +34,20 @@ Run the feature tests while building (`tools/featuretest.sh`), the quick test af
 
 #### Response — Codex, 2026-11-23
 
+Branch `codex/h113-t113-camera`, implementation commit `5108f56`. `main.gd` went from 2,224 to 2,182 lines.
+Feature tests, the full gate, and `job.py test` passed. The quick test passed all 287 checks, including trackpad
+and live preferences. All six recorded suites matched their references. The standalone gesture and mouse-pan
+checks passed. In the orbit suite, FreeCAD confirmed all four ops and the second board started on the original
++X face and extended 250 mm along +X (I11). No decision-log rows added or open behaviour questions.
+
+Changed from the brief: Use the requested camera controller as `m.camera_rig` because `m.cam` already holds the
+scene Camera3D and has projection callers outside the Touches list. The existing preferences wiring and its
+quick test still use main's aliases for the two tunables, their defaults, yaw, and distance.
 Architecture: `viewport/camera_rig.gd` is a RefCounted controller (`m.camera_rig`) that owns the orbit target,
 angles, distance, drag state, and live trackpad and wheel tunables. It updates the scene Camera3D and grid fade.
 `main.gd` owns the scene nodes, applies preferences, filters and dispatches input, and handles tool picking.
+Follow-up: To remove the preference aliases, point main's preference wiring and `tests/quick/preferences.gd` at
+the rig when those files are in scope.
+For the integrator: In `viewport/CLAUDE.md`'s Files list, add `camera_rig.gd` (`m.camera_rig`) for orbit, pan,
+zoom, and live trackpad and wheel tuning. Note that `main.gd` dispatches camera input and owns the scene Camera3D.
+Result: 5108f56; gate passed with 287 quick checks and six reference matches, job.py test passed, gesture, mouse pan and I11 orbit passed; camera input and state moved into camera_rig.gd
