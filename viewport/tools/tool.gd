@@ -81,6 +81,11 @@ func typed(_txt: String) -> void:
 	pass
 
 
+## Whether the current measurement is raw text rather than a length.
+func typed_raw() -> bool:
+	return false
+
+
 func vcb_label() -> String:
 	return "Distance"
 

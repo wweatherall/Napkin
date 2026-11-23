@@ -1,6 +1,7 @@
 extends SceneTree
 ## I51/P21: pure planar arrangement cases; optionally export predictions for the FreeCAD scenario.
 const Regions := preload("res://regions.gd")
+const Presenter := preload("res://presenter.gd")
 const Geo := preload("res://tool_geometry.gd")
 var passed := 0
 var failed := 0
@@ -54,6 +55,42 @@ func example(label: String, segments: Array, at: Array, area: float, polygon := 
 	predictions.append({"name": label, "source": arrays(outline), "source_hole": source_hole, "normal": arr(n), "point": arr(p),
 		"outline": arrays(result.outline), "holes": result.holes.map(func(h): return arrays(h)), "area": result.area, "lo": arr(lo), "hi": arr(hi)})
 
+func _arc_example() -> Dictionary:
+	var n := Vector3.BACK
+	var start := Vector3(850, 0, 20)
+	var mid := Vector3(870, 50, 20)
+	var end := Vector3(850, 100, 20)
+	var facets := Presenter.arc_points(start, mid, end)
+	check("arc facets use the circle's angular density", facets.size() == 17, facets.size())
+	var stock := tris(PackedVector3Array([Vector3(800, 0, 20), Vector3(900, 0, 20),
+		Vector3(900, 100, 20), Vector3(800, 100, 20)]), n)
+	var line := {"a": start, "b": end, "pts": facets}
+	var at := Vector3(830, 50, 20)
+	var left := Regions.find(stock, [line], n, at)
+	var right := Regions.find(stock, [line], n, Vector3(885, 50, 20))
+	var left_outline: PackedVector3Array = left.get("outline", PackedVector3Array())
+	var right_outline: PackedVector3Array = right.get("outline", PackedVector3Array())
+	# Reconstructing on the source plane adds Float32 translation noise in the outlines.
+	check("an arc polyline splits the square into two cells", left.get("area", 0.0) > 5000.0
+		and right.get("area", 0.0) < 5000.0 and absf(left.get("area", 0.0) + right.get("area", 0.0) - 10000) < 0.1)
+	var shared_facets := true
+	for p in facets:
+		var on_left := Array(left_outline).any(func(v): return v.distance_to(p) < 0.001)
+		var on_right := Array(right_outline).any(func(v): return v.distance_to(p) < 0.001)
+		shared_facets = shared_facets and on_left and on_right
+	check("both cell outlines follow every arc facet", shared_facets)
+	var inner_start := start + Vector3(0, 0.04, 0)
+	var inner_end := end - Vector3(0, 0.04, 0)
+	var inner_line := {"a": inner_start, "b": inner_end, "pts": Presenter.arc_points(inner_start, mid, inner_end)}
+	var unsnapped := Regions.find(stock, [inner_line], n, at)
+	inner_line.merge({"snap_start": true, "snap_end": true})
+	var snapped := Regions.find(stock, [inner_line], n, at)
+	check("only explicitly snapped arc ends bridge the source boundary", absf(unsnapped.get("area", 0.0) - 10000) < 0.1
+		and absf(snapped.get("area", 0.0) - left.get("area", 0.0)) < 2.0 and snapped.get("area", 0.0) > 5000.0)
+	return {"outline": arrays(left_outline), "holes": left.get("holes", []).map(func(h): return arrays(h)),
+		"normal": arr(n), "area": left.get("area", 0.0)}
+
+
 func _init() -> void:
 	example("unsplit face", [], [20, 20], 10000)
 	example("one crossing line left", [[[50, 0], [50, 100]]], [20, 20], 5000)
@@ -101,7 +138,11 @@ func _init() -> void:
 	for pair in loop:
 		var ps := points(pair); free.append({"a":ps[0], "b":ps[1]})
 	check("independent loose segments close into a free region", absf(Regions.find(PackedVector3Array(), free, Vector3(0,0,1), Vector3(50,50,0)).get("area",0) - 1600) < 0.01)
+	var arc_prediction := _arc_example()
 	for arg in OS.get_cmdline_user_args():
+		if arg.begins_with("--arc-output="):
+			var f := FileAccess.open(arg.trim_prefix("--arc-output="), FileAccess.WRITE)
+			f.store_string(JSON.stringify(arc_prediction))
 		if arg.begins_with("--regions-output="):
 			var f := FileAccess.open(arg.trim_prefix("--regions-output="), FileAccess.WRITE)
 			f.store_string(JSON.stringify(predictions))

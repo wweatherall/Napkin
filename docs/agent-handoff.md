@@ -31,7 +31,6 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 <!-- open list: built from docs/handoff/ by tools/handoff.py; don't edit by hand -->
 
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
-- [H085 — T83: the Arc tool (2-Point and Centre arcs, exact in FreeCAD, splitting faces)](handoff/H085-t83-arc-tool.md) — status: open; for: either
 - [H086 — T83 step 2: an arc on a corner is tangent to both edges (rounded corners)](handoff/H086-t83-arc-corner-tangent.md) — status: queued (after H085); for: either
 - [H093 — Outside saves: a failed reload asks, a worker lost mid-reload reloads again, and a question the actions overtook closes (H092 findings 2 and 5, A39)](handoff/H093-outside-save-failures.md) — status: open; for: either
 - [H094 — A reload from a revision Shop Sketch no longer remembers keeps the ops that file holds (H092 finding 6)](handoff/H094-reload-unknown-revision.md) — status: queued (after H093); for: either
@@ -54,6 +53,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 Full entries in [handoff-archive.md](handoff-archive.md).
 
+- H085 — T83: the Arc tool (2-Point and Centre arcs, exact in FreeCAD, splitting faces). Resolved: merged into main by the integrator, 2026-11-23.
 - H115 — T112: the queue checks overlap by function (P45). Resolved: merged into main by the integrator, 2026-11-23.
 - H116 — For the next integrator session: where things stand. Resolved: see the archive
 - H103 — T111 step 2: preferences wired in: ⌘, opens the file, saving it applies the feel tunables and the default units. Resolved: merged into main by the integrator, 2026-11-23.

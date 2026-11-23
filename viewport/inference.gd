@@ -102,6 +102,7 @@ func point(screen: Vector2, exclude: String, plane := {}, with_rects := false, n
 	not_on: {"n", "p"}: ignore points on this plane (Push/Pull: the face being pushed)."""
 	var verts := {}
 	var edges := {}
+	var arc_midpoints := {}
 	for bid in pres.body_verts:
 		if bid != exclude and not sel.is_hidden(bid): verts[bid] = pres.body_verts[bid]
 	for bid in pres.body_edges:
@@ -118,7 +119,12 @@ func point(screen: Vector2, exclude: String, plane := {}, with_rects := false, n
 		var line: Dictionary = pres.loose_lines[lid]
 		if line.on != "" and sel.is_hidden(line.on): continue
 		verts["line " + lid] = PackedVector3Array([line.a, line.b])
-		edges["line " + lid] = PackedVector3Array([line.a, line.b])
+		var drawing_id: String = "line " + lid
+		if line.has("pts"):
+			arc_midpoints[drawing_id] = line.mid
+			edges[drawing_id] = pres.polyline_segments(line.pts)
+		else:
+			edges[drawing_id] = PackedVector3Array([line.a, line.b])
 	var keep := func(v: Vector3) -> bool: return _on_plane(v, plane) and not _on_other(v, not_on)
 	# endpoints
 	var cands := []
@@ -127,9 +133,13 @@ func point(screen: Vector2, exclude: String, plane := {}, with_rects := false, n
 			if keep.call(v): cands.append([v, bid])
 	var best := _nearest_visible(cands, screen, snap_px, "endpoint")
 	if not best.is_empty(): return best
-	# midpoints
+	# Midpoints belong to whole arcs, so skip their internal display facets here.
 	cands = []
+	for bid in arc_midpoints:
+		var mid: Vector3 = arc_midpoints[bid]
+		if keep.call(mid): cands.append([mid, bid])
 	for bid in edges:
+		if arc_midpoints.has(bid): continue
 		var segs: PackedVector3Array = edges[bid]
 		for i in range(0, segs.size(), 2):
 			var mid := (segs[i] + segs[i + 1]) * 0.5
@@ -144,7 +154,7 @@ func point(screen: Vector2, exclude: String, plane := {}, with_rects := false, n
 		for i in range(0, segs.size(), 2):
 			if not (_on_plane(segs[i], plane) and _on_plane(segs[i + 1], plane)): continue
 			var q := closest_on_segment_to_ray(segs[i], segs[i + 1], o, d)
-			var g := _grid_along(q, segs[i], segs[i + 1])
+			var g := q if arc_midpoints.has(bid) else _grid_along(q, segs[i], segs[i + 1])
 			if _on_other(q, not_on) or _on_other(g, not_on): continue
 			cands.append([g, bid, q])
 	return _nearest_visible(cands, screen, edge_px, "on edge")

@@ -39,24 +39,22 @@ class LineActions:
         return face, n
 
     def native_region(self, source, predicted, spec):
-        """Keep native arcs when the viewport selected a cell of a tessellated curved boundary.
-        The viewport already chose the region. Native splitting only refines that boundary, in this op.
-        Straight faces use the submitted polygon directly.
-        """
-        if all(e.Curve.__class__.__name__ == "Line" for e in source.Edges):
-            return predicted
+        """Refine the selected tessellated cell against native curved boundaries and drawings."""
         ids = set(spec.get("lines", []))
-        drawings = [o for o in self.doc.Objects if getattr(o, "SSLineId", "") in ids]
-        if not drawings:
+        drawings = [edge for obj in self.doc.Objects if getattr(obj, "SSLineId", "") in ids
+                    for edge in Part.getShape(obj).Edges]
+        if not drawings or all(isinstance(e.Curve, Part.Line) for e in [*source.Edges, *drawings]):
             return predicted
         from BOPTools.SplitAPI import slice
         tools = []
         span = source.BoundBox.DiagonalLength * 2 + 1
-        for obj in drawings:
-            for edge in Part.getShape(obj).Edges:
-                a, b = edge.Vertexes[0].Point, edge.Vertexes[-1].Point
-                direction = unit(b - a)
-                tools.append(Part.makeLine(a - direction * span, b + direction * span))
+        for edge in drawings:
+            if not isinstance(edge.Curve, Part.Line):
+                tools.append(edge)
+                continue
+            a, b = edge.Vertexes[0].Point, edge.Vertexes[-1].Point
+            direction = unit(b - a)
+            tools.append(Part.makeLine(a - direction * span, b + direction * span))
         pieces = slice(source, tools, "Split", TOL).Faces
         chosen = [f for f in pieces if f.common(predicted).Area > f.Area * 0.5]
         if not chosen:
