@@ -19,10 +19,11 @@ Request: read H093's code as built (its diff, then the whole of the outside-save
 fail" list, P42): a step that fails (a file missing or unreadable, the worker gone, a save that fails), a reply
 late, repeated or out of order (a reload's reply after a `keep_mine`, an old reply after a reconnect), a dialog
 open while replies land, two of these at once (the worker lost while the question is open; a second outside save
-while a reload is out). For each case you try, add a named check in the test files above. A check that passes is
-kept as cover. A check that fails is kept too, but runs only when `BREAK_H093=1` is set in the environment (each prints
-`SKIP <name> (BREAK_H093)` otherwise), so the quick test and `job.py done` still pass; it asserts what should
-happen, not what does. Don't fix the code.
+while a reload is out). For each case you try, write a named check in the test files above. Keep only the checks that find a bug
+(William, 2026-11-22: so the test suite doesn't grow with cover nobody asked for); delete the ones that pass,
+and list them in your response's table instead. A kept check runs only when `BREAK_H093=1` is set in the
+environment (each prints `SKIP <name> (BREAK_H093)` otherwise), so the quick test and `job.py done` still pass;
+it asserts what should happen, not what does. Don't fix the code.
 
 Response: a table of every case tried: the case, the check's name, passes or fails, and for a failure what
 happens and what you'd expect (A36, A39). Then a line saying which of the failures H093's brief listed
