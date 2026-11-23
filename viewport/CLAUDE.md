@@ -35,8 +35,13 @@ protocol (update it in the same commit when you change either). Tools have their
 - `inference.gd`: the one snapping engine (pick; endpoint > midpoint > on edge; axis inference). Every tool uses it.
 - `tools/`: one object per tool (see its guide); `tool_registry.gd` finds them (each declares a `TOOL`), and the
   toolbar, Tools menu and tool keys come from that. `property_panel.gd`: the Properties panel (T46, I36).
-- `appearance.gd` (T88 step 1): the wood library, the current Paint wood and the paint command; Main keeps wood
-  rendering and T (grain), and forwards `wood_library` / `wood_keys` / `paint_material`.
+- `appearance.gd` (T88 step 1, T113): wood: the library, each board's material, the wood shader material presenter.gd
+  asks for (`wood_material`), the current Paint wood, and the Paint and T (grain) commands. Made with the document
+  and a texture-path callable, not Main. Main forwards `wood_library` / `wood_keys` / `paint_material`,
+  `set_paint_material` and `_turn_grain` for menus.gd's Wood menu.
+- `ui.gd` (T113): the interface, `m.ui`: the theme and palette (`c`, `box`), toolbar, Properties panel, status bar,
+  tooltip, toggle buttons and the save indicator. Main keeps the label nodes (`ui_hint`, `ui_sync`, `ui_tip`,
+  `ui_saved`); MeasureBox styles its box through `m.ui`.
 - `menus.gd` (T113): the native menus, `m.menus`: builds them (the Tools menu from the registry, Units, Wood), keeps
   their check marks and shows New / Open's dialogs. Toolbar buttons, menu items and keys.gd's shortcuts all call
   `m.menus.run(tag)`; model switching and new windows stay in main.

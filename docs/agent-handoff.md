@@ -39,7 +39,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H107 — T113 step 1a: the FreeCAD worker's process moves out of main.gd into worker_process.gd](handoff/H107-t113-worker-process.md) — status: queued (after H094); for: either
 - [H108 — T113 step 1b: the closing and outside-save dialogs move out of main.gd into save_prompts.gd](handoff/H108-t113-save-prompts.md) — status: queued (after H107); for: either
 - [H109 — T113 step 2: what a rejection takes with it moves to document.gd, and main's document pass-throughs go](handoff/H109-t113-rejections.md) — status: queued (after H096, H094); for: either
-- [H114 — T113 step 4d: main.gd's selection pass-throughs go; callers use m.sel](handoff/H114-t113-selection-forwarders.md) — status: queued (after H112); for: either
+- [H114 — T113 step 4d: main.gd's selection pass-throughs go; callers use m.sel](handoff/H114-t113-selection-forwarders.md) — status: open; for: either
 
 <!-- end of open list -->
 
