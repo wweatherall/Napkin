@@ -47,7 +47,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H112 — T113 step 4b: wood rendering moves from main.gd to appearance.gd](handoff/H112-t113-wood.md) — status: queued (after H101, H110); for: either
 - [H113 — T113 step 4c: the camera (orbit, pan, zoom, trackpad) moves out of main.gd into camera_rig.gd](handoff/H113-t113-camera.md) — status: open; for: either
 - [H114 — T113 step 4d: main.gd's selection pass-throughs go; callers use m.sel](handoff/H114-t113-selection-forwarders.md) — status: queued (after H101); for: either
-- [H115 — T112: the queue checks overlap by function (P45)](handoff/H115-t112-overlap-by-function.md) — status: open; for: Codex
+- [H115 — T112: the queue checks overlap by function (P45)](handoff/H115-t112-overlap-by-function.md) — status: answered; for: Codex
 
 <!-- end of open list -->
 
