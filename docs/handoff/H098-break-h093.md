@@ -1,6 +1,6 @@
 ### H098 — Trial: try to break H093 before it merges (checks only)
 
-Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: open | For: gemini
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: open | For: gemini | Builds on: H093
 
 References: H093 (outside saves: a failed reload asks, a worker lost mid-reload reloads again, a question the
 actions overtook closes; A36, A39), P42 (its "What can fail" list), H092 (seven of the first ultra review's ten
