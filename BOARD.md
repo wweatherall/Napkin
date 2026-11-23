@@ -54,7 +54,7 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H093 | either | Returned: **Ready** for Codex (resumes codex/h093-outside-save-failures) | Outside saves: a failed reload asks, a worker lost mid-reload reloads again, and a question the actions overtook closes (H092 findings 2 and 5, A39) | [H093](docs/handoff/H093-outside-save-failures.md) |  |
+| H093 | either | **Done**: for review (codex) | Outside saves: a failed reload asks, a worker lost mid-reload reloads again, and a question the actions overtook closes (H092 findings 2 and 5, A39) | [H093](docs/handoff/H093-outside-save-failures.md) |  |
 | H098 | Gemini | **Done**: for review (gemini) | Trial: try to break H093 before it merges (checks only) | [H098](docs/handoff/H098-break-h093.md) |  |
 | H094 | either | Queued | A reload from a revision Shop Sketch no longer remembers keeps the ops that file holds (H092 finding 6) | [H094](docs/handoff/H094-reload-unknown-revision.md) | H093 |
 | H096 | either | Queued | Pushing one cell of a split profile keeps the rest of the profile on screen (H092 finding 9) | [H096](docs/handoff/H096-region-push-keeps-profile.md) | H083 |
@@ -62,7 +62,6 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 | H107 | either | Queued | T113 step 1a: the FreeCAD worker's process moves out of main.gd into worker_process.gd | [H107](docs/handoff/H107-t113-worker-process.md) | H094 |
 | H108 | either | Queued | T113 step 1b: the closing and outside-save dialogs move out of main.gd into save_prompts.gd | [H108](docs/handoff/H108-t113-save-prompts.md) | H107 |
 | H109 | either | Queued | T113 step 2: what a rejection takes with it moves to document.gd, and main's document pass-throughs go | [H109](docs/handoff/H109-t113-rejections.md) | H096, H094 |
-| H114 | either | **Ready** | T113 step 4d: main.gd's selection pass-throughs go; callers use m.sel | [H114](docs/handoff/H114-t113-selection-forwarders.md) |  |
 
 <!-- end of job table -->
 

@@ -25,7 +25,7 @@ func run() -> void:
 	harness._ok("3x copies a two-board assembly three times in one op", made.size() == 6 and m.ops.size() == base.size() + 1, m.ops.back())
 	if made.size() != 6: return
 	harness._ok("each copy has its own assembly", m.body_assembly[made[0]] == m.body_assembly[made[3]] and m.body_assembly[made[0]] != m.body_assembly[made[1]], m.body_assembly)
-	harness._ok("outside, a board stands for the entire assembly row", m.unit_of(made[0])["bodies"].size() == 8, m.unit_of(made[0]))
+	harness._ok("outside, a board stands for the entire assembly row", m.sel.unit_of(made[0])["bodies"].size() == 8, m.sel.unit_of(made[0]))
 	await harness._type("/3\n")
 	await harness._wait_wave()
 	made = m.ops.back()["new_ids"]
@@ -47,7 +47,7 @@ func run() -> void:
 	m.set_tool("select")
 	await harness._double_click_at(Vector3(250, 25, 18))
 	harness._ok("double-click enters the row", m.context.begins_with("row:"), m.context)
-	harness._ok("inside a row, a whole assembly is one member", m.unit_of(made[0])["kind"] == "assembly" and m.unit_of(made[0])["bodies"].size() == 2, m.unit_of(made[0]))
+	harness._ok("inside a row, a whole assembly is one member", m.sel.unit_of(made[0])["kind"] == "assembly" and m.sel.unit_of(made[0])["bodies"].size() == 2, m.sel.unit_of(made[0]))
 	await harness._double_click_at(Vector3(250, 25, 18))
 	harness._ok("entering again enters that assembly", m.context == "assembly:" + m.body_assembly[made[0]], m.context)
 	await harness._key(KEY_ESCAPE)
