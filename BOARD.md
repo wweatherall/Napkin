@@ -62,8 +62,7 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 | H107 | either | Queued | T113 step 1a: the FreeCAD worker's process moves out of main.gd into worker_process.gd | [H107](docs/handoff/H107-t113-worker-process.md) | H094 |
 | H108 | either | Queued | T113 step 1b: the closing and outside-save dialogs move out of main.gd into save_prompts.gd | [H108](docs/handoff/H108-t113-save-prompts.md) | H107 |
 | H109 | either | Queued | T113 step 2: what a rejection takes with it moves to document.gd, and main's document pass-throughs go | [H109](docs/handoff/H109-t113-rejections.md) | H096, H094 |
-| H111 | either | **Ready** | T113 step 4a: building the interface moves out of main.gd into ui.gd | [H111](docs/handoff/H111-t113-ui.md) |  |
-| H112 | either | **Ready** | T113 step 4b: wood rendering moves from main.gd to appearance.gd | [H112](docs/handoff/H112-t113-wood.md) |  |
+| H111 | either | **Done**: for review (codex) | T113 step 4a: building the interface moves out of main.gd into ui.gd | [H111](docs/handoff/H111-t113-ui.md) |  |
 | H114 | either | Queued | T113 step 4d: main.gd's selection pass-throughs go; callers use m.sel | [H114](docs/handoff/H114-t113-selection-forwarders.md) | H112 |
 
 <!-- end of job table -->

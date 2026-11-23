@@ -4843,3 +4843,51 @@ Follow-up: When the model quick test and shell suite can be edited, have them re
 Result: f012183; gate and job.py test passed with 295 quick checks and six reference matches in the gate; native menu construction and dispatch moved to menus.gd, and main.gd lost 147 lines.
 
 Resolution: merged into main by the integrator, 2026-11-23.
+
+### H112 — T113 step 4b: wood rendering moves from main.gd to appearance.gd
+
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: resolved | For: either
+
+References: T113, P45, T15, M03, T88 step 1 (appearance.gd).
+
+Touches: viewport/appearance.gd, viewport/main.gd (the section "wood (T15, M03)": `WOOD`, `_load_wood_library`,
+`_wood_texture`, `_wood_material`, `set_paint_material`, `_turn_grain`; the forwarded `wood_library` /
+`wood_keys` / `paint_material`), viewport/presenter.gd (its `_wood_material` call), viewport/keys.gd (T),
+viewport/tests/quick/wood.gd, viewport/tools/paint_tool.gd only if it reaches main for these. The Wood menu went to
+menus.gd in H110.
+
+Why (P45, T113): main.gd (~2,130 lines) is the file every job meets; moving whole sections out lets jobs run side by side and makes it easier to read. Behaviour unchanged: nothing William would notice changes, no message, file or saving changes. A filler job: Ready when nothing else holds its files.
+
+Rules for every T113 step (each says what it is for, P44):
+- Move the code, don't rewrite it: same names minus the leading `_` where callers outside the new file now need them, same comments, so `git diff --color-moved` shows a move and review is quick.
+- No forwarders left in main.gd for the moved names (the point is a thinner main): callers, tests included, call the new object. Keep a forwarder only where a caller can't be changed in this job (say which in your response).
+- The new file is a plain `RefCounted` (or `Node` if it needs `_process`/timers/dialogs as children) made in main like `keys` and `measure` (`load("res://<file>.gd").new()`, given `self`), no `class_name` (viewport/CLAUDE.md).
+
+Today (checked 2026-11-22): appearance.gd (T88 step 1) owns the library, the current Paint wood and the paint
+command; main keeps the rendering (`_wood_material`, called by presenter.gd), texture cache and T (grain,
+`_turn_grain`, called by keys.gd); wood.gd calls `m.set_paint_material`.
+
+Request: those move into appearance.gd; the presenter and keys call `m.appearance.*`; main's forwarded wood
+names go.
+
+Cases that must still work: painting, the board look (cached by mesh + material + grain), T turns the grain;
+the gate with no change to tests/reference/.
+
+Checks: quick test wood; `wc -l viewport/main.gd` before and after.
+
+Run the feature tests while building (`tools/featuretest.sh`), the quick test after each change, then `python3 tools/job.py test`. End your response with a Result line; leftovers as Follow-up lines; the folder-guide change (viewport/CLAUDE.md's Files list) as a For the integrator line.
+
+#### Response from Codex — 2026-11-23
+
+Branch `codex/h112-t113-wood`. Code commit `5e72659`. Main went from 2,035 to 1,987 lines. The native Wood menu in `viewport/menus.gd` still uses Main's read-only `wood_library`, `wood_keys` and `paint_material` accessors and its `set_paint_material` and `_turn_grain` forwarders. The presenter, keyboard and wood quick test call appearance directly. No decision IDs added. No open questions.
+
+Feature tests passed. The wood quick section verified Paint selection, walnut rendering and T grain rotation. The gate passed all 295 quick checks and matched all six recorded suites. Reference files have no changes. `job.py test` passed on the clean code commit.
+
+Changed from the brief: Main constructs appearance with the document and a texture-path callable in place of passing `self`; the tool-context tests require appearance to work without a dependency on Main.
+Architecture: Runtime-loaded `m.appearance` owns board wood lookup, texture caching, shader material construction, Paint selection and grain rotation. It takes a document and a texture-path callable. Main routes the Paint selection signal to the menu checks and tool switch, and retains forwarders for the native Wood menu.
+Architecture: The presenter asks appearance for a wood material and keeps the confirmed board cache keyed by mesh, material, grain and across direction. Keys passes the hovered board to appearance for T. Both Paint and grain rotation append and sync through the document capability.
+Follow-up: Point the native Wood menu at `m.appearance` and remove its five Main forwarders when `menus.gd` is in scope.
+For the integrator: Update the Files list in `viewport/CLAUDE.md` to show that `appearance.gd` owns wood rendering and grain rotation, and that the Wood menu still uses Main's forwarders.
+Result: 5e72659; feature tests passed, gate passed with 295 quick checks and six reference matches, job.py test passed; moved wood rendering and grain controls into appearance.gd and removed 48 lines from main.gd
+
+Resolution: merged into main by the integrator, 2026-11-23.
