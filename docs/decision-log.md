@@ -44,7 +44,7 @@ One subject per decision; the Decisions column is generated.
 | Push/Pull | Extruding, cutting, and fitting a board's end to another board. | I05, I08, I23, I24, I34, I40, I41, I45, I56 |
 | Move, copies and arrays | Move, linked copies, arrays, mirrors, components and assemblies. | A10, A11b, A22c, A26, I10, I12c, I13b, I14, I15, I16, I17, I20, I21, I25, I28, I32, I46, I52, I53 |
 | Snapping | Points, edges, axes and the grid, shared by every tool. | I03b, I18, I19 |
-| Measurements | Typed values, units and the measurements box. | I35, I48, I57, I59 |
+| Measurements | Typed values, units and the measurements box. | I35, I48, I57, I59, I62 |
 | View and look | Camera and input devices, panels, the Mac look, lines, lighting, hiding. | I22, I30, I31, I36, I37, W10, W11, W12, W14 |
 | Feedback | The confirmation wave and what colours mean. | I06, W01, W02, W03, W04, W05, W06, W07, W08, W09 |
 | Materials | Wood cards, grain and painting. | A05, I33, M01, M02, M03, M04 |
@@ -59,10 +59,10 @@ Each states one idea; Explains (generated) lists the decisions that name it. Wil
 |---|---|---|---|---|
 | G01 | Feel first: a draft appears the moment you act and input never waits on FreeCAD; FreeCAD catches up and the wave confirms it. | Active | A02, A06, A08, A23, A24, A27, A28, A29, I01, I11, I16, I17, I23, I43, I44, I45, W01, W02, W03, W04, W07, W09 | 2026-11-22 |
 | G02 | The .FCStd file is the model: every action becomes ordinary, editable FreeCAD features, and Shop Sketch is a view of them. | Active | A05, A07, A09, A21, A23, A25, A26, D01, D02, I36, I37, I42, M01, M02, M03, P04, P06 | 2026-11-22 |
-| G03 | Work as SketchUp does, and as a Mac app does, unless there's a reason not to; a decision that departs from SketchUp says why. | Active | A06, A30, I01, I02, I04b, I05, I09, I10, I14, I18, I22, I28, I30, I31, I37, I38, I49, I50, I51, I58, I59, I60, I61, P04, W14 | 2026-11-22 |
+| G03 | Work as SketchUp does, and as a Mac app does, unless there's a reason not to; a decision that departs from SketchUp says why. | Active | A06, A30, I01, I02, I04b, I05, I09, I10, I14, I18, I22, I28, I30, I31, I37, I38, I49, I50, I51, I58, I59, I60, I61, I62, P04, W14 | 2026-11-22 |
 | G04 | Relationships stay live: copies, arrays, mirrors and fits follow later edits, and you can detach one on purpose. | Active | A10, A11b, A22c, A26, I21, I24, I25, I28, I32, I34, I40, I41, I46, I52, I53 | 2026-11-22 |
 | G05 | One key per idea, meaning the same thing in every tool. | Active | I03b, I12c, I15, I20, I33, I48, I50, I56 | 2026-11-22 |
-| G06 | Typed values follow what you're doing: the direction you drag, and the model's units for a bare number; any unit you type, written however you write it, is understood. | Active | I02, I13b, I14, I19, I35, I57, I59 | 2026-11-22 |
+| G06 | Typed values follow what you're doing: the direction you drag, and the model's units for a bare number; any unit you type, written however you write it, is understood. | Active | I02, I13b, I14, I19, I35, I57, I59, I62 | 2026-11-22 |
 | G07 | One meaning per colour: violet cuts, red rejects, amber is new; nothing else uses them except the red/green/blue axis guides. | Active | I21, W05, W06, W08, W10 | 2026-11-22 |
 | G08 | Refer to geometry, never to FreeCAD's internal numbers. | Active | A03, I24, I40, I42 | 2026-11-22 |
 | G09 | Never lose work: always saved, atomically, and undo crosses sessions without hiding changes made in FreeCAD. | Active | A24, A25, A27, A28, A32, A36, A37, A39, I54, I55, U01, U02, U03, W13 | 2026-11-22 |
@@ -194,6 +194,7 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | I48 | Delete / Backspace belong to the measurements box once you click it or type, even after it's emptied, until you pick in the view or select boards again; then, with nothing typed, they delete, in any tool: mid-move what's being moved (a hole being moved is left alone), otherwise the selection. A focused text field (Properties) keeps its keys. Edit > Delete has no menu key (it would fire while typing). | Active | Refines I46 | William, 2026-11-21 (T34 review): 'What matters is no text selected then deleted object; when text box selected, it is restricted to that.' 'Once you have selected the text box or started typing then delete should delete the text unless you select the item again.' | G05 | viewport/main.gd typing, _unhandled_input | 2026-11-21 |
 | I57 | Lengths are shown in the model's units, picked in a Units menu: Feet and inches (8' 3 1/4"), Inches as fractions (99 1/4"), Inches as decimals (99.25"), or Metric (m, cm or mm), each with a rounding choice (1/8–1/64"; 0.1–0.001"; 1–0.01 mm). Default: fractional inches at 1/16". A length the rounding changed shows with ~ in front. The choice is saved in the model's .FCStd; a new model starts with the last units used. Display only: FreeCAD keeps exact millimetres, and typing still takes any unit (I35). | Active | Builds on I35, T32 | Your call, 2026-11-22 (T66). A framing-style 8-3-1/4 was dropped: it would read as a subtraction when edited (I35). | G06 | Not built: T66 | 2026-11-22 |
 | I59 | A bare number typed in the measurements box (no unit) is in the model's display units (I57): inches in Feet and inches or Inches, the chosen m / cm / mm in Metric. A typed unit always wins. | Active | Refines T32 (bare = mm) | Your call, 2026-11-22 (T66), as SketchUp. | G03, G06 | Not built: T66 (measure_box.gd default_unit) | 2026-11-22 |
+| I62 | A model with no units saved in it (made before T66, or its saved value unreadable) opens in the default units the user has set (once Preferences exist, T111), else the last units used, as a new model does. It is then saved with them. | Active | Refines I57 | William, 2026-11-22 (H052's brief): old models shouldn't jump to a fixed default. | G03, G06 | Not built: H052 (worker/session.py, viewport units) | 2026-11-22 |
 
 ### View and look
 
@@ -334,6 +335,7 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | T108 | Fillet tool: round a board's edges with FreeCAD's own fillet (exact, editable), once edges can be selected. | Open | I61 | William, 2026-11-22: 'there's like an amazing fillet tool that I feel like we could just get for free once we got selection done, so save that for later'. After edge selection. |
 | T109 | Loops of lines and arcs: drawings that meet end to end and close (lines and arcs mixed, on the ground or on a face) make a face, pushable like a closed Line outline. | Open | I49, I51, I60 | William, 2026-11-22: add to the to-dos. After T83 (H085). |
 | T110 | Test helpers for failure paths: hold a worker reply back, drop and restore the worker link, make the next save fail, replace a model file with unreadable bytes, as short calls in worker tests (worker/test_*.py) and viewport/test_document.gd, so each case in a brief's 'What can fail' section is a short check. | Open | P42 | William, 2026-11-22: add it, after the jobs already queued. Brief to write. Job: H097 (queued after H094). |
+| T111 | Preferences: a window for the user's settings; first, the default units a new model (or one with none saved) opens in (I62), over the last units used. | Open | I57, I62 | William, 2026-11-22: later; not written as a job yet. |
 
 ## Tunables
 

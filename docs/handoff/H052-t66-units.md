@@ -1,8 +1,8 @@
 ### H052 — T66: lengths shown in the model's units
 
-Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: queued (after H083) | For: either
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: open | For: gemini
 
-References: T66, I57 (the Units menu, rounding, ~, saved per model), I59 (bare numbers typed are in the model's
+References: T66, I57, I62 (the Units menu, rounding, ~, saved per model), I59 (bare numbers typed are in the model's
 units), I35 and T32 (typing lengths), P21 (viewport vs FreeCAD answers: tests/length_cases.json), Q22.
 
 Touches: viewport/units.gd and viewport/test_units.gd (formatting), viewport/measure_box.gd (display, default_unit),
@@ -39,7 +39,7 @@ What can fail (P42: the units are saved in the model and come back on open and r
 - Changing the units with no action after it: the change is saved (it doesn't wait for the next action), and a
   window closed straight after keeps it. Check: set_units, flush, reopen: the new units.
 - A file from before this job (no units in its Meta), and a Meta value that isn't one of the formats (edited
-  by hand, a newer version): it opens, showing ANSWER-FROM-WILLIAM; a value it can't read never stops the open.
+  by hand, a newer version): it opens, in the last units used (I62: as a new model does; a default from Preferences, T111, comes later) and is saved with them; a value it can't read never stops the open.
   Checks: an old fixture file; one with `ShopSketchUnits` set to `"furlongs"`.
 - FreeCAD saves the file (the outside save, A36): reload takes the units in FreeCAD's file (FreeCAD keeps Meta);
   "Keep Shop Sketch's" keeps the window's. Check: both, in worker/test_outside_save.py's style.
