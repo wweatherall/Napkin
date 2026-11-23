@@ -7,6 +7,8 @@ const Units := preload("res://units.gd")
 const Geo := preload("res://tool_geometry.gd")
 const Inference := preload("res://inference.gd")
 const Presenter := preload("res://presenter.gd")
+const Preferences := preload("res://preferences.gd")
+const Tool := preload("res://tools/tool.gd")
 const GRID := Inference.GRID          # the grid and snap settings are inference's (T88); old names for consumers
 const SNAP_PX := Inference.SNAP_PX
 
@@ -264,6 +266,7 @@ func _ready() -> void:
 	_make_tools()                 # after the world: inference and the tool context take the camera and overlays
 	_make_keys()
 	_make_ui()
+	_init_preferences()
 	_make_menus()
 	_set_title()
 	if not test_mode: _remember_model(model_path)
@@ -1171,6 +1174,9 @@ func _on_synced(resp: Dictionary) -> void:
 	if reject_note != "":
 		ui_sync.text = "✗ rejected " + doc.readable_ids(reject_note)
 		ui_sync.add_theme_color_override("font_color", Color(0.75, 0.1, 0.1))
+	elif _startup_prefs_problem != "":
+		_say_status(_startup_prefs_problem)
+		_startup_prefs_problem = ""
 	confirmed.emit(seq)
 	if resp["result"].has("export_ms") and drawing_pending:
 		drawing_pending = false
@@ -1823,6 +1829,113 @@ func _reset_model_state() -> void:
 	marker.visible = false
 
 
+# ---------------- preferences (I63, T111) ----------------
+const PREFERENCES_PATH := "user://preferences.json"
+const PREFERENCES_KEY := KEY_MASK_META | KEY_COMMA
+var preferences_path := PREFERENCES_PATH
+var prefs := Preferences.new()
+var _prefs_timer: Timer
+var _startup_prefs_problem := ""
+
+
+func _init_preferences() -> void:
+	if test_mode: return
+	_start_preferences()
+
+
+func _start_preferences() -> void:
+	"""Load preferences_path and start the 0.5 s poll timer (skipped at startup in test_mode, I63)."""
+	_load_preferences(true)
+	if not doc.opened and not measure.units_user_set:
+		measure.units = measure.default_units()
+		measure.update()
+	if _prefs_timer == null:
+		_prefs_timer = Timer.new()
+		_prefs_timer.name = "PreferencesTimer"
+		_prefs_timer.wait_time = 0.5
+		_prefs_timer.one_shot = false
+		_prefs_timer.timeout.connect(_poll_preferences)
+		add_child(_prefs_timer)
+	_prefs_timer.start()
+
+
+func _poll_preferences() -> void:
+	if prefs.changed_on_disk(preferences_path):
+		_load_preferences(false)
+
+
+func _load_preferences(at_start: bool) -> void:
+	var res := prefs.load_from(preferences_path)
+	_apply_preferences(res["values"])
+	var msg := _preferences_status(res, at_start)
+	if msg != "":
+		_say_status(msg)
+		if at_start and not doc.opened and not res["problems"].is_empty():
+			_startup_prefs_problem = msg
+	elif res["problems"].is_empty():
+		_startup_prefs_problem = ""
+
+
+func _apply_preferences(values: Dictionary) -> void:
+	"""Apply preferences values ({units, tuning}, or a tuning dictionary) to live tunables and default units."""
+	var t: Dictionary = values["tuning"] if typeof(values.get("tuning")) == TYPE_DICTIONARY else values
+	if t.has("GRID"): Inference.grid = float(t["GRID"])
+	if t.has("SNAP_PX"): Inference.snap_px = float(t["SNAP_PX"])
+	if t.has("EDGE_PX"): Inference.edge_px = float(t["EDGE_PX"])
+	if t.has("INFER_DEG"): Inference.infer_deg = float(t["INFER_DEG"])
+	if t.has("RELEASE_DEG"): Inference.release_deg = float(t["RELEASE_DEG"])
+	if t.has("DRAG_PX"): Tool.drag_px = float(t["DRAG_PX"])
+	if t.has("HOLD_MS"): Tool.hold_ms = int(t["HOLD_MS"])
+	if t.has("TRACKPAD_PX"): trackpad_px = float(t["TRACKPAD_PX"])
+	if t.has("ZOOM_STEP"): zoom_step = float(t["ZOOM_STEP"])
+	if typeof(values.get("units")) == TYPE_DICTIONARY:
+		var def_u = values["units"].get("default")
+		measure.pref_default_units = String(def_u) if typeof(def_u) == TYPE_STRING else ""
+
+
+func _preferences_status(res: Dictionary, at_start: bool) -> String:
+	var problems: Array = res.get("problems", [])
+	if not problems.is_empty():
+		var first: String = problems[0]
+		if problems.size() > 1:
+			return "%s (and %d more)" % [first, problems.size() - 1]
+		return first
+	if at_start:
+		return ""
+	var changed: Array = res.get("changed", [])
+	if changed.is_empty():
+		return ""
+	var parts: Array[String] = []
+	for k in changed:
+		if k == "units.default":
+			parts.append("default units %s" % (measure.pref_default_units if measure.pref_default_units != "" else "none"))
+		else:
+			parts.append("%s %s" % [k, Preferences.format_num(_live_tuning(k))])
+	return "Preferences: " + ", ".join(parts)
+
+
+func _live_tuning(key: String) -> float:
+	match key:
+		"GRID": return Inference.grid
+		"SNAP_PX": return Inference.snap_px
+		"EDGE_PX": return Inference.edge_px
+		"INFER_DEG": return Inference.infer_deg
+		"RELEASE_DEG": return Inference.release_deg
+		"DRAG_PX": return Tool.drag_px
+		"HOLD_MS": return float(Tool.hold_ms)
+		"TRACKPAD_PX": return trackpad_px
+		"ZOOM_STEP": return zoom_step
+	return 0.0
+
+
+func _open_preferences() -> void:
+	var err := prefs.write_defaults(preferences_path)
+	if err != OK and err != ERR_ALREADY_EXISTS:
+		_say_status("Couldn't write preferences.json: %s" % error_string(err))
+		return
+	OS.shell_open(ProjectSettings.globalize_path(preferences_path))
+
+
 # menus: tag -> action. Menu shortcuts and the same keys in the window may both arrive: act once.
 var _menu_last := {}
 var _menus := {}                    # name -> menu RID (for check marks)
@@ -1830,6 +1943,10 @@ var _menus := {}                    # name -> menu RID (for check marks)
 
 func _make_menus() -> void:
 	if not NativeMenu.has_feature(NativeMenu.FEATURE_GLOBAL_MENU): return
+	if NativeMenu.has_system_menu(NativeMenu.APPLICATION_MENU_ID):
+		var app_menu := NativeMenu.get_system_menu(NativeMenu.APPLICATION_MENU_ID)
+		if app_menu.is_valid():
+			NativeMenu.add_item(app_menu, "Preferences…", _menu, Callable(), "preferences", PREFERENCES_KEY)
 	var main_menu := NativeMenu.get_system_menu(NativeMenu.MAIN_MENU_ID)
 	var spec := [
 		["File", [["New Window", "newwindow", KEY_MASK_META | KEY_MASK_SHIFT | KEY_N], ["New…", "new", KEY_MASK_META | KEY_N],
@@ -1910,6 +2027,7 @@ func _menu(tag) -> void:
 	_menu_last[tag] = now
 	if tools.has(tag): set_tool(tag); return      # a tool's id (tool_registry.gd)
 	match tag:
+		"preferences": _open_preferences()
 		"newwindow": new_window()
 		"new": _file_dialog(true)
 		"open": _file_dialog(false)
@@ -2030,7 +2148,7 @@ func _unhandled_input(e: InputEvent) -> void:
 		elif e.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN] and e.pressed:
 			# zoom by how much was scrolled: a smooth-scrolling mouse (MX Master) sends many small steps per notch
 			var amount := clampf(e.factor if e.factor > 0.0 else 1.0, 0.0, ZOOM_MAX_STEPS)
-			var step := pow(ZOOM_STEP, amount)
+			var step := pow(zoom_step, amount)
 			_zoom(step if e.button_index == MOUSE_BUTTON_WHEEL_UP else 1.0 / step, e.position)
 		elif e.button_index == MOUSE_BUTTON_LEFT and e.pressed and e.double_click:
 			tools[tool].double_click(e.position)
@@ -2045,11 +2163,11 @@ func _unhandled_input(e: InputEvent) -> void:
 	elif e is InputEventPanGesture:
 		# trackpad (and Magic Mouse) two-finger drag: orbit; with Shift, pan. A wheel mouse sends wheel buttons instead.
 		if e.shift_pressed:
-			var k := dist * 0.0012 * TRACKPAD_PX
+			var k := dist * 0.0012 * trackpad_px
 			target += (-cam.global_transform.basis.x * e.delta.x + cam.global_transform.basis.y * e.delta.y) * k
 		else:
-			yaw -= e.delta.x * 0.008 * TRACKPAD_PX
-			pitch = clampf(pitch - e.delta.y * 0.008 * TRACKPAD_PX, -1.5, 1.5)
+			yaw -= e.delta.x * 0.008 * trackpad_px
+			pitch = clampf(pitch - e.delta.y * 0.008 * trackpad_px, -1.5, 1.5)
 		_update_camera()
 	elif e is InputEventMagnifyGesture:
 		_zoom(1.0 / maxf(e.factor, 0.01), e.position)      # pinch out = closer, toward the cursor
@@ -2080,16 +2198,17 @@ func _repeat_gesture(e: InputEventGesture) -> bool:
 
 
 const TRACKPAD_PX := 33.0     # Godot scales a trackpad's scroll by 0.03: this makes one finger-pixel = one mouse-pixel
-
+var trackpad_px := TRACKPAD_PX
 
 const ZOOM_STEP := 0.88       # zoom per notch of a plain wheel (scroll amount 1)
 const ZOOM_MAX_STEPS := 3.0   # one scroll event never zooms more than this many notches
+var zoom_step := ZOOM_STEP
 
 
 func _zoom(f: float, screen: Vector2) -> void:
 	var p := pick(screen)
 	if p.get("hit", false) and f < 1.0:
-		target = target.lerp(m2g(p["point"]), 1.0 - pow(0.88, log(f) / log(ZOOM_STEP)))   # toward the cursor, as much as zoomed
+		target = target.lerp(m2g(p["point"]), 1.0 - pow(0.88, log(f) / log(zoom_step)))   # toward the cursor, as much as zoomed
 	dist = clampf(dist * f, 0.05, 50.0)
 	_update_camera()
 

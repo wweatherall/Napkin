@@ -3,6 +3,8 @@ extends SceneTree
 ## partial recovery on bad edits, deletion while running, deep copy, changed_on_disk and write_defaults.
 ## Run: Godot --headless --path viewport --script res://test_preferences.gd
 const Preferences = preload("res://preferences.gd")
+const MeasureBox = preload("res://measure_box.gd")
+const Units = preload("res://units.gd")
 
 var passed := 0
 var failed := 0
@@ -69,6 +71,8 @@ func _init() -> void:
 	_test_deep_copy()
 	_test_changed_on_disk()
 	_test_write_defaults()
+	_test_units_validation()
+	_test_measure_box_default_units()
 
 	if own_tmp:
 		cleanup_dir(tmp_dir)
@@ -97,7 +101,7 @@ func _test_all_keys_good() -> void:
 	var prefs := Preferences.new()
 	var p := tmp_dir.path_join("all_good.json")
 	write_text(p, JSON.stringify({
-		"units": {"system": "imperial", "precision": 16},
+		"units": {"default": "in-dec:0.01"},
 		"tuning": {
 			"GRID": 12.5,
 			"ZOOM_STEP": 0.92,
@@ -112,7 +116,7 @@ func _test_all_keys_good() -> void:
 	}, "  ", false))
 	var r := prefs.load_from(p)
 	check("all good: no problems", r["problems"].is_empty())
-	check("all good: units preserved", r["values"]["units"] == {"system": "imperial", "precision": 16.0})
+	check("all good: units default preserved", r["values"]["units"] == {"default": "in-dec:0.01"})
 	var t: Dictionary = r["values"]["tuning"]
 	check("all good: SNAP_PX", is_equal_approx(t["SNAP_PX"], 20.0))
 	check("all good: EDGE_PX", is_equal_approx(t["EDGE_PX"], 11.0))
@@ -123,7 +127,7 @@ func _test_all_keys_good() -> void:
 	check("all good: TRACKPAD_PX", is_equal_approx(t["TRACKPAD_PX"], 40.0))
 	check("all good: ZOOM_STEP", is_equal_approx(t["ZOOM_STEP"], 0.92))
 	check("all good: GRID", is_equal_approx(t["GRID"], 12.5))
-	var want_order := ["SNAP_PX", "EDGE_PX", "INFER_DEG", "RELEASE_DEG", "DRAG_PX", "HOLD_MS", "TRACKPAD_PX", "ZOOM_STEP", "GRID"]
+	var want_order := ["units.default", "SNAP_PX", "EDGE_PX", "INFER_DEG", "RELEASE_DEG", "DRAG_PX", "HOLD_MS", "TRACKPAD_PX", "ZOOM_STEP", "GRID"]
 	check("all good: changed in DEFAULTS order", r["changed"] == want_order)
 
 
@@ -186,7 +190,7 @@ func _test_half_written_and_bad_json() -> void:
 func _test_deleted_while_running() -> void:
 	var prefs := Preferences.new()
 	var p := tmp_dir.path_join("deleted.json")
-	write_text(p, "{\"units\": {\"system\": \"imperial\"}, \"tuning\": {\"SNAP_PX\": 25}}\n")
+	write_text(p, "{\"units\": {\"default\": \"in-frac:1/16\"}, \"tuning\": {\"SNAP_PX\": 25}}\n")
 	var r1 := prefs.load_from(p)
 	check("before delete: SNAP_PX 25", is_equal_approx(r1["values"]["tuning"]["SNAP_PX"], 25.0))
 	check("before delete: changed_on_disk false", not prefs.changed_on_disk(p))
@@ -195,12 +199,12 @@ func _test_deleted_while_running() -> void:
 	check("after delete: changed_on_disk true", prefs.changed_on_disk(p))
 	var r2 := prefs.load_from(p)
 	check("after delete: keeps last good SNAP_PX", is_equal_approx(r2["values"]["tuning"]["SNAP_PX"], 25.0))
-	check("after delete: keeps last good units", r2["values"]["units"] == {"system": "imperial"})
+	check("after delete: keeps last good units", r2["values"]["units"] == {"default": "in-frac:1/16"})
 	check("after delete: no problem", r2["problems"].is_empty())
 	check("after delete: changed is empty", r2["changed"].is_empty())
 	check("after loading missing: changed_on_disk false", not prefs.changed_on_disk(p))
 
-	write_text(p, "{\"tuning\": {\"SNAP_PX\": 30}}\n")
+	write_text(p, "{\"units\": {\"default\": \"in-frac:1/16\"}, \"tuning\": {\"SNAP_PX\": 30}}\n")
 	check("reappeared: changed_on_disk true", prefs.changed_on_disk(p))
 	var r3 := prefs.load_from(p)
 	check("reappeared: applies new SNAP_PX 30", is_equal_approx(r3["values"]["tuning"]["SNAP_PX"], 30.0))
@@ -228,11 +232,11 @@ func _test_wrong_types() -> void:
 	check("non-object units reports problem", ru["problems"].size() == 1 and "units" in ru["problems"][0])
 	check("non-object units still applies tuning", is_equal_approx(ru["values"]["tuning"]["SNAP_PX"], 20.0))
 
-	write_text(p, "{\"units\": {\"system\": \"metric\"}, \"tuning\": [1, 2]}\n")
+	write_text(p, "{\"units\": {\"default\": \"mm:1\"}, \"tuning\": [1, 2]}\n")
 	var rt := prefs.load_from(p)
 	check("non-object tuning reports problem", rt["problems"].size() == 1 and "tuning" in rt["problems"][0])
 	check("non-object tuning keeps last good tuning", is_equal_approx(rt["values"]["tuning"]["SNAP_PX"], 20.0))
-	check("non-object tuning still applies units", rt["values"]["units"] == {"system": "metric"})
+	check("non-object tuning still applies units", rt["values"]["units"] == {"default": "mm:1"})
 
 
 func _test_hold_ms_and_infer_release() -> void:
@@ -370,13 +374,13 @@ func _test_changed_across_loads() -> void:
 func _test_deep_copy() -> void:
 	var prefs := Preferences.new()
 	var p := tmp_dir.path_join("deepcopy.json")
-	write_text(p, "{\"units\": {\"system\": \"metric\"}, \"tuning\": {\"SNAP_PX\": 18}}\n")
+	write_text(p, "{\"units\": {\"default\": \"mm:1\"}, \"tuning\": {\"SNAP_PX\": 18}}\n")
 	var r1 := prefs.load_from(p)
 	r1["values"]["tuning"]["SNAP_PX"] = 99.0
-	r1["values"]["units"]["system"] = "hacked"
+	r1["values"]["units"]["default"] = "hacked"
 	var r2 := prefs.load_from(p)
 	check("deep copy: tuning unaffected by caller mutation", is_equal_approx(r2["values"]["tuning"]["SNAP_PX"], 18.0))
-	check("deep copy: units unaffected by caller mutation", r2["values"]["units"] == {"system": "metric"})
+	check("deep copy: units unaffected by caller mutation", r2["values"]["units"] == {"default": "mm:1"})
 	check("deep copy: changed unaffected by caller mutation", r2["changed"].is_empty())
 
 
@@ -407,11 +411,11 @@ func _test_changed_on_disk() -> void:
 
 func _test_write_defaults() -> void:
 	var prefs := Preferences.new()
-	var p := tmp_dir.path_join("written.json")
+	var p := tmp_dir.path_join("nested/sub/written.json")
 	var err := prefs.write_defaults(p)
-	check("write_defaults on missing returns OK", err == OK)
+	check("write_defaults on missing (and missing folder) returns OK", err == OK)
 	var text := read_text(p)
-	check("write_defaults writes units as {}", "\"units\": {}" in text)
+	check("write_defaults writes units default as null", "\"units\":" in text and "\"default\": null" in text)
 	var keys := ["SNAP_PX", "EDGE_PX", "INFER_DEG", "RELEASE_DEG", "DRAG_PX", "HOLD_MS", "TRACKPAD_PX", "ZOOM_STEP", "GRID"]
 	var last_pos := -1
 	var in_order := true
@@ -438,11 +442,81 @@ func _test_write_defaults() -> void:
 
 	# Writes current values (after loading non-defaults and deleting file)
 	var p3 := tmp_dir.path_join("current_values.json")
-	write_text(p3, "{\"units\": {\"system\": \"imperial\"}, \"tuning\": {\"SNAP_PX\": 21}}\n")
+	write_text(p3, "{\"units\": {\"default\": \"in-dec:0.01\"}, \"tuning\": {\"SNAP_PX\": 21}}\n")
 	prefs.load_from(p3)
 	DirAccess.remove_absolute(p3)
 	var err3 := prefs.write_defaults(p3)
 	check("write_defaults writes current values after delete", err3 == OK)
 	var r3 := Preferences.new().load_from(p3)
 	check("write_defaults current values read back SNAP_PX 21", is_equal_approx(r3["values"]["tuning"]["SNAP_PX"], 21.0))
-	check("write_defaults current values read back units", r3["values"]["units"] == {"system": "imperial"})
+	check("write_defaults current values read back units default", r3["values"]["units"] == {"default": "in-dec:0.01"})
+
+
+func _test_units_validation() -> void:
+	var prefs := Preferences.new()
+	var p := tmp_dir.path_join("units_check.json")
+
+	# Valid specs accepted
+	for spec in ["in-frac:1/16", "mm:1", "ft-in:1/32", "in-dec:0.01", "cm:0.1", "m:0.001"]:
+		write_text(p, JSON.stringify({"units": {"default": spec}}))
+		var r := prefs.load_from(p)
+		check("units default %s accepted" % spec, r["problems"].is_empty() and r["values"]["units"] == {"default": spec})
+		check("units default %s marks units.default changed" % spec, r["changed"] == ["units.default"])
+
+	# Same spec again: unchanged
+	var r_same := prefs.load_from(p)
+	check("units default unchanged: changed empty", r_same["problems"].is_empty() and r_same["changed"].is_empty())
+
+	# Explicit null clears default
+	write_text(p, "{\"units\": {\"default\": null}}\n")
+	var r_null := prefs.load_from(p)
+	check("units default null accepted and clears", r_null["problems"].is_empty() and r_null["values"]["units"] == {"default": null})
+	check("units default null marks units.default changed", r_null["changed"] == ["units.default"])
+
+	# Set a good default, then test unknown key and bad values
+	write_text(p, "{\"units\": {\"default\": \"mm:1\"}}\n")
+	prefs.load_from(p)
+
+	write_text(p, "{\"units\": {\"default\": \"in-dec:0.01\", \"precision\": 16}}\n")
+	var r_unk := prefs.load_from(p)
+	check("unknown units key reports exact problem",
+		r_unk["problems"] == ["preferences.json: unknown units setting precision"])
+	check("unknown units key still applies valid default and drops unknown",
+		r_unk["values"]["units"] == {"default": "in-dec:0.01"})
+
+	for bad_val in ["\"metric\"", "\"\"", "\"mm:0.001\"", "42", "true", "[1]", "{\"a\": 1}"]:
+		write_text(p, "{\"units\": {\"default\": %s}}\n" % bad_val)
+		var r_bad := prefs.load_from(p)
+		check("bad units default %s keeps last good" % bad_val, r_bad["values"]["units"] == {"default": "in-dec:0.01"})
+		check("bad units default %s reports exact format" % bad_val,
+			r_bad["problems"].size() == 1
+			and r_bad["problems"][0].begins_with('preferences.json: units default must be a units setting like "in-frac:1/16" (got '))
+		check("bad units default %s has no change" % bad_val, r_bad["changed"].is_empty())
+
+	# Omitting units section reverts default to null
+	write_text(p, "{\"tuning\": {\"SNAP_PX\": 14}}\n")
+	var r_omit := prefs.load_from(p)
+	check("omitting units section reverts default to null",
+		r_omit["problems"].is_empty() and r_omit["values"]["units"] == {"default": null} and r_omit["changed"] == ["units.default"])
+
+
+func _test_measure_box_default_units() -> void:
+	var mb := MeasureBox.new()
+	var cfg_path := tmp_dir.path_join("mb_settings.cfg")
+	mb.init_units(cfg_path, Units.DEFAULT_SPEC)
+	check("default_units: fallback when no preference and no settings", mb.default_units() == Units.DEFAULT_SPEC)
+
+	var cfg := ConfigFile.new()
+	cfg.set_value("units", "last", "cm:0.1")
+	cfg.save(cfg_path)
+	check("default_units: last used wins over fallback", mb.default_units() == "cm:0.1")
+
+	mb.pref_default_units = "in-dec:0.01"
+	check("default_units: preference wins over last used and fallback", mb.default_units() == "in-dec:0.01")
+
+	mb.pref_default_units = ""
+	check("default_units: clearing preference falls back to last used", mb.default_units() == "cm:0.1")
+
+	mb.pref_default_units = "not-a-spec"
+	check("default_units: invalid preference falls back to last used", mb.default_units() == "cm:0.1")
+	mb.free()

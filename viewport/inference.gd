@@ -15,6 +15,11 @@ const EDGE_PX := 8.0            # on-edge snap radius, pixels
 const INFER_DEG := 8.0          # drag within this angle of an axis's on-screen direction -> sticks to it
 const RELEASE_DEG := 12.0       # ...and lets go beyond this (hysteresis)
 const PLANE_TOL := 0.5          # mm: how far off a plane a point may sit and still count as on it
+static var grid := GRID         # live values (I63, preferences.gd); constants above stay the built-in defaults
+static var snap_px := SNAP_PX
+static var edge_px := EDGE_PX
+static var infer_deg := INFER_DEG
+static var release_deg := RELEASE_DEG
 var cam: Camera3D
 var world: World3D                                  # the physics world the boards' collisions are in
 var pres                                            # presenter.gd: body_verts, body_edges, rects (read only)
@@ -70,7 +75,7 @@ func on_grid(p: Dictionary) -> Dictionary:
 	var pt: Vector3 = p["point"]
 	for i in 3:
 		if absf(n[i]) < 0.5:
-			pt[i] = snappedf(pt[i], GRID)
+			pt[i] = snappedf(pt[i], grid)
 	p["point"] = pt; p["snap"] = "grid"
 	return p
 
@@ -120,7 +125,7 @@ func point(screen: Vector2, exclude: String, plane := {}, with_rects := false, n
 	for bid in verts:
 		for v in verts[bid]:
 			if keep.call(v): cands.append([v, bid])
-	var best := _nearest_visible(cands, screen, SNAP_PX, "endpoint")
+	var best := _nearest_visible(cands, screen, snap_px, "endpoint")
 	if not best.is_empty(): return best
 	# midpoints
 	cands = []
@@ -129,7 +134,7 @@ func point(screen: Vector2, exclude: String, plane := {}, with_rects := false, n
 		for i in range(0, segs.size(), 2):
 			var mid := (segs[i] + segs[i + 1]) * 0.5
 			if keep.call(mid): cands.append([mid, bid])
-	best = _nearest_visible(cands, screen, SNAP_PX, "midpoint")
+	best = _nearest_visible(cands, screen, snap_px, "midpoint")
 	if not best.is_empty(): return best
 	# on an edge
 	cands = []
@@ -142,7 +147,7 @@ func point(screen: Vector2, exclude: String, plane := {}, with_rects := false, n
 			var g := _grid_along(q, segs[i], segs[i + 1])
 			if _on_other(q, not_on) or _on_other(g, not_on): continue
 			cands.append([g, bid, q])
-	return _nearest_visible(cands, screen, EDGE_PX, "on edge")
+	return _nearest_visible(cands, screen, edge_px, "on edge")
 
 
 func _nearest_visible(cands: Array, screen: Vector2, radius: float, kind: String) -> Dictionary:
@@ -179,7 +184,7 @@ func _grid_along(q: Vector3, a: Vector3, b: Vector3) -> Vector3:
 	for i in 3:
 		if absf(absf(u[i]) - 1.0) < 1e-6:
 			var lo := minf(a[i], b[i]); var hi := maxf(a[i], b[i])
-			q[i] = clampf(snappedf(q[i], GRID), lo, hi)
+			q[i] = clampf(snappedf(q[i], grid), lo, hi)
 	return q
 
 
@@ -204,7 +209,7 @@ func axis(screen: Vector2, anchor: Vector3, axes: Array, current: int) -> int:
 		if dir.length() < 3.0: continue                 # axis points at the camera: nothing to follow on screen
 		var ang := rad_to_deg(dv.angle_to(dir))
 		ang = minf(absf(ang), 180.0 - absf(ang))        # either direction along the axis
-		var limit := RELEASE_DEG if ax == current else INFER_DEG
+		var limit := release_deg if ax == current else infer_deg
 		if ang < limit and ang < best_ang:
 			best_ang = ang; best = ax
 	return best
@@ -224,7 +229,7 @@ func axis_dest(screen: Vector2, ref: Vector3, ax: int, exclude := "") -> Variant
 		var under := pick(screen)
 		if not under.get("hit", false) or under["body"] == exclude: return null
 		t = (under["point"] - ref).dot(ax_v)
-	return ref + ax_v * (snappedf(t, GRID) if grid_enabled.call() else roundf(t))
+	return ref + ax_v * (snappedf(t, grid) if grid_enabled.call() else roundf(t))
 
 
 func plane_dest(screen: Vector2, ref: Vector3, n: Vector3) -> Variant:
@@ -236,7 +241,7 @@ func plane_dest(screen: Vector2, ref: Vector3, n: Vector3) -> Variant:
 	var vec := o + d * t - ref
 	if grid_enabled.call():                                    # snap the distance travelled, not the position
 		for i in 3:
-			if absf(n[i]) < 0.5: vec[i] = snappedf(vec[i], GRID)
+			if absf(n[i]) < 0.5: vec[i] = snappedf(vec[i], grid)
 	return ref + vec
 
 

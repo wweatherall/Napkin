@@ -100,6 +100,8 @@ func tip() -> String:
 # else was a click, and the next click ends it. Rectangle, Push/Pull and Move share this rule.
 const DRAG_PX := 6.0          # the cursor moved this far with the button down: it's a drag
 const HOLD_MS := 300          # ...or the button stayed down this long
+static var drag_px := DRAG_PX # live values (I63, preferences.gd); constants above stay the built-in defaults
+static var hold_ms := HOLD_MS
 var _press := {}              # while the button that started a gesture is down: {"at", "t0", "moved"}
 
 
@@ -110,7 +112,7 @@ func press_started(screen: Vector2) -> void:
 
 func press_moved(screen: Vector2) -> void:
 	"""Call on every cursor move."""
-	if not _press.is_empty() and screen.distance_to(_press["at"]) > DRAG_PX:
+	if not _press.is_empty() and screen.distance_to(_press["at"]) > drag_px:
 		_press["moved"] = true
 
 
@@ -120,7 +122,7 @@ func press_released() -> Dictionary:
 	if _press.is_empty(): return {}
 	var p := _press
 	_press = {}
-	return {"drag": p["moved"] or Time.get_ticks_msec() - int(p["t0"]) >= HOLD_MS, "moved": p["moved"]}
+	return {"drag": p["moved"] or Time.get_ticks_msec() - int(p["t0"]) >= hold_ms, "moved": p["moved"]}
 
 
 func press_reset() -> void:

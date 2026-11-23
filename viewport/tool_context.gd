@@ -97,10 +97,10 @@ class PickCapability extends _Capability:
 		return bool(_infer.grid_enabled.call())
 
 	func grid_step() -> float:
-		return Inference.GRID
+		return Inference.grid
 
 	func snap_radius() -> float:
-		return Inference.SNAP_PX
+		return Inference.snap_px
 
 
 # ---------------------------------------------------------------- model reads (presenter.gd)
