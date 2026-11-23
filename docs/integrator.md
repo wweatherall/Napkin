@@ -13,7 +13,8 @@ in CLAUDE.md's "Working with Codex" section; this page says what the integrator 
   enough (review done, full test passes) and pushes main after merging (P16). Other sessions never merge or push.
 
 ## The queue watch
-- No timed check-ins (P39): run `python3 tools/job.py watch --next` in the background (Monitor); it wakes you
+- No timed check-ins (P39): run `python3 -u tools/job.py watch --next` with Bash `run_in_background` (not a
+  Monitor: it expires every 30 min, and each wake re-reads the whole context); it wakes you
   once on the first new event (a job done, a job stale: its deadline passed, check its branch and worktree; a
   worker waiting on William; a job returned; the queue empty for Claude or Codex: check in with William). Start
   it again after each. After a context clear, re-arm it.
@@ -27,8 +28,9 @@ in CLAUDE.md's "Working with Codex" section; this page says what the integrator 
   on meanwhile (A35); removes the job's worktree and branch and marks it merged; with --push it stops before
   pushing for you to look (`--yes` goes on).
 - Put one that fails review or the gate back with `python3 tools/job.py return <id> "<notes>"`.
-- Placeholder IDs (T74): merge with `--no-commit`, run `python3 tools/number_ids.py` (`--dry-run` to look first),
-  then commit; it gives each I-new-N, T-new-N, H-new-N the next free number.
+- Placeholder IDs (T74): integrate.py runs `tools/number_ids.py` at merge, giving each I-new-N, T-new-N, H-new-N
+  the next free number. Jobs you write on main get numbers the same way: run `python3 tools/number_ids.py`
+  (`--dry-run` to look first) before committing.
 - Codex records William's decisions in the log itself (P09, AGENTS.md). When integrating its branch, carry over
   only the rows it added or superseded: its copy of the rest may be older than main's.
 - Results (T91, P17): integrate.py commits each response's `Result:` line to its Work list row; a response without
@@ -50,3 +52,17 @@ in CLAUDE.md's "Working with Codex" section; this page says what the integrator 
   claimed job's: two whose lists overlap don't run at once (tell William before starting one that does).
 - The shared hot spots (the decision log's Work list, the handoff, viewport/main.gd, the map) stay small edits
   made once the work is done.
+
+## Traps seen at merge
+- A paused merge (`--continue`) accepts changes only to ARCHITECTURE.md and docs/protocol.md. Folder-guide
+  updates a response asks for go in a commit of their own after the merge.
+- number_ids.py numbers every placeholder it finds, prose included: never write one as an example (in a handoff,
+  the archive or a note); write "a placeholder" instead.
+- A branch started from an older main that touches files main changed since: merge main into it in a scratch
+  worktree first and integrate that.
+- Two jobs that each bump PROTOCOL_VERSION to the same number merge silently: bump the later one by one (A35).
+- A merge that brings a new version of a tool integrate.py imports (number_ids, job) runs the old one for that
+  merge: check its effect.
+- integrate.py settles BOARD.md as main's: a branch's edits to the board's instructions are lost; put them back.
+- `job.py take` with no job id takes the next Ready job for this session: an integrator never runs it.
+

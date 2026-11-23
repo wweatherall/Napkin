@@ -9,6 +9,7 @@ Implementation below was checked against `main` at `950a030`; later feature bran
 | Question | Read / maintain here |
 |---|---|
 | How do I install and use the app? | [README.txt](README.txt) |
+| How does a worker take and finish a job; what does the integrator do? | [BOARD.md](BOARD.md) (the queue, workers' steps, the job table); the integrator's work (lock, watch, review, merge, the map) in [docs/integrator.md](docs/integrator.md) |
 | What development workflow and test commands apply? | [CLAUDE.md](CLAUDE.md); Codex-specific instructions in [AGENTS.md](AGENTS.md) |
 | What local rules, traps and tests apply to this part? | [Worker guide](worker/CLAUDE.md), [viewport guide](viewport/CLAUDE.md), [tool guide](viewport/tools/CLAUDE.md) |
 | How do components fit together; who owns state and durable data? | This architecture map |
