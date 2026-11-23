@@ -53,7 +53,7 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
 | H105 | Gemini | **Ready** | integrate.py stops for a response's `Changed from the brief:` lines (P44) | [H105](docs/handoff/H105-integrate-shows-brief-changes.md) |  |
-| H086 | either | Queued | T83 step 2: an arc on a corner is tangent to both edges (rounded corners) | [H086](docs/handoff/H086-t83-arc-corner-tangent.md) | H085 |
+| H086 | either | **Ready** | T83 step 2: an arc on a corner is tangent to both edges (rounded corners) | [H086](docs/handoff/H086-t83-arc-corner-tangent.md) |  |
 | H093 | either | **Ready** | Outside saves: a failed reload asks, a worker lost mid-reload reloads again, and a question the actions overtook closes (H092 findings 2 and 5, A39) | [H093](docs/handoff/H093-outside-save-failures.md) |  |
 | H094 | either | Queued | A reload from a revision Shop Sketch no longer remembers keeps the ops that file holds (H092 finding 6) | [H094](docs/handoff/H094-reload-unknown-revision.md) | H093 |
 | H096 | either | Queued | Pushing one cell of a split profile keeps the rest of the profile on screen (H092 finding 9) | [H096](docs/handoff/H096-region-push-keeps-profile.md) | H083 |
@@ -73,7 +73,7 @@ Done since the board started: H033 (T74 + T77), H034 (T76), H035 (T44), T56 (sta
 
 ## Notes
 
-- H085, H093 and H113 share viewport/main.gd by function (P45: `redo`'s op-type branch; the outside-saves section; the camera functions): they run at once. H096, H110 and H114 wait: they overlap H085 or H093 in whole files (test_document.gd, measure_box.gd, presenter.gd, tool_context.gd).
+- H093 and H113 share viewport/main.gd by function (P45) and run at once; H086 (Arc corners) shares nothing with them. H096 waits on H093 (test_document.gd); H110 on H113 (tests/harness.gd); H114 on H086 (test_tool_context.gd).
 - H093 merges only after H098 (the break-it trial, William's request): H098 goes to an agent other than H093's builder.
 - T88: steps 1-5 (Paint H065, Select H071, Circle H072, Rectangle H075, Push/Pull H079) merged; step 6 (Move, and the legacy setup's removal) is H083 (Gemini finishing Codex's work, William 2026-11-22), H052 (T66 units) and the rest go on from Gemini's version. H101 (Codex checks and tidies it) doesn't hold anything up: it runs when no job holds the tool files, from main as it is then, and Codex fixes whatever it touches (William, 2026-11-22).
 - H101 is for the Codex session that started H083 (01a20629…, William): its H083 count was taken off so it can take H101 without a /clear.

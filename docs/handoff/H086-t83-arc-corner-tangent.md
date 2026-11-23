@@ -1,6 +1,6 @@
 ### H086 — T83 step 2: an arc on a corner is tangent to both edges (rounded corners)
 
-Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: queued (after H085) | For: either
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: open | For: either
 
 References: T83, I61 (William's call: "If you make an arc on the corner, it should default to tangency"), I60
 (the Arc tool), I51 (arcs split faces), P21. H085 builds the Arc tool this job extends.
