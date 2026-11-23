@@ -37,7 +37,6 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H086 — T83 step 2: an arc on a corner is tangent to both edges (rounded corners)](handoff/H086-t83-arc-corner-tangent.md) — status: queued (after H085); for: either
 - [H087 — A38: a rebuild keeps FreeCAD's edits (the floor copy)](handoff/H087-floor-copy.md) — status: open; for: gemini
 - [H088 — integrate.py and job.py show the tests' progress as it happens](handoff/H088-live-test-output.md) — status: open; for: gemini
-- [H089 — For the next integrator session: where things stand](handoff/H089-integrator-state.md) — status: open; for: the integrator
 
 <!-- end of open list -->
 
@@ -45,6 +44,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 Full entries in [handoff-archive.md](handoff-archive.md).
 
+- H089 — For the next integrator session: where things stand. Resolved: see the archive
 - H081 — T106: the test scripts show progress and keep their output in the job's scratch/. Resolved: merged into main by the integrator, 2026-11-22.
 - H080 — T105: job.py done reuses a quick-test pass across handoff-only commits. Resolved: merged into main by the integrator, 2026-11-22.
 - H084 — For the next integrator session: where things stand. Resolved: see the archive
