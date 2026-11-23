@@ -67,6 +67,9 @@ geometry and Main's wrappers agreeing, and no main.gd reference in the context, 
   sweep). Typed: chord, then bulge; a radius with `r`; Centre's sweep in degrees (`typed_raw`). One `arc` op (start
   as the plane's point, `mid`, `end`, snap flags), registered like a line (`ctx.view.register_line`), so it splits
   faces for Push/Pull; FreeCAD keeps an exact Block-constrained sketch arc (worker/arc.py).
+  On a corner (I61, H086): a 2-Point arc from one outline edge to the adjoining one, ends the same distance from
+  the corner, snaps its bulge tangent to both (magenta, "Tangent at corner"); `50r` there places a 50 mm fillet,
+  moving both ends along their edges. A tangent arc's points go into the op unrounded.
 - `circle_tool.gd` (C, T81): click a face or the ground for the centre, then click or type a radius (or
   press-and-drag, I43). Uses Rectangle's snapping and distance policies; the measurements box accepts the same
   length syntax. Makes a `circle` op with an exact radius. Loose profiles share the existing `rects` presentation,
