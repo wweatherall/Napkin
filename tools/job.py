@@ -178,6 +178,8 @@ def jobs_from(texts):
         waits = re.search(r"after ([^)]*)", raw)
         out.append({"id": jid, "name": name, "for": who, "kind": kind, "item": head.split("—", 1)[-1].strip(),
                     "waits": waits.group(1).strip() if waits else "", "touches": handoff.touches_named(text),
+                    # Builds on: H0NN (a trial that merges that job's branch first, H098): its overlap is intended
+                    "builds_on": re.findall(r"H\d+", f.get("Builds on", "")),
                     "slug": name[:-3].split("-", 1)[1] if "-" in name[:-3] else "job"})
     return out
 
@@ -232,7 +234,7 @@ def takeable(root, st, agent, jobs, order, claims=None):
             continue
         if st["jobs"].get(j["id"], {}).get("state") == "merged":
             continue
-        clash = {other: overlap(j["touches"], t) for other, t in held.items()}
+        clash = {other: overlap(j["touches"], t) for other, t in held.items() if other not in j.get("builds_on", ())}
         clash = {k: v for k, v in clash.items() if v}
         if clash:
             why.append(f"{j['id']}: overlaps " + "; ".join(f"{k} ({', '.join(v)})" for k, v in clash.items()))

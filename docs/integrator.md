@@ -56,6 +56,8 @@ Architecture: lines, the response) and CLAUDE.md (commit trailers); this page sa
   claimed job's: two whose lists overlap don't run at once (tell William before starting one that does). A
   shared file named with backticked functions after it (`viewport/main.gd (`redo`)`) overlaps only where the
   names meet (P45; the tools check it once T112 is built, until then compare by eye).
+- A job meant to share files with another (a trial that merges that job's branch first, like H098 on H093) says
+  `| Builds on: H0NN` in its Author line: the queue then doesn't hold it back for that overlap.
 - The shared hot spots (the decision log's Work list, the handoff, viewport/main.gd, the map) stay small edits
   made once the work is done.
 - A job touching saving, reloading or the worker link gets a "What can fail" section in its brief (P42; the
