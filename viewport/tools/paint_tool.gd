@@ -6,10 +6,6 @@ const TOOL := {"id": "paint", "label": "Paint", "tip": "Paint (pick the wood in 
 		"show_links": true}   # the toolbar, the Tools menu and the key (tool_registry.gd)
 
 
-func uses_main() -> bool:
-	return false
-
-
 func hint() -> String:
 	var name := ctx.paint.current_name()
 	return "Paint with %s: click a board. Pick the wood in the Wood menu; T turns a board's grain" % (name if name != "" else "wood")

@@ -6,9 +6,6 @@ const TOOL := {"id": "circle", "label": "Circle", "tip": "Circle (C)", "key": KE
 var state := {}
 
 
-func uses_main() -> bool: return false
-
-
 func reset() -> void:
 	state = {}
 	press_reset()

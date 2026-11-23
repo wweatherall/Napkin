@@ -8,9 +8,6 @@ const TOOL := {"id": "rect", "label": "Rectangle", "tip": "Rectangle (R)", "key"
 var state := {}
 
 
-func uses_main() -> bool: return false
-
-
 func reset() -> void:
 	state = {}
 	press_reset()

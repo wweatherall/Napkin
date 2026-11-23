@@ -8,10 +8,6 @@ const FIT_MODES := ["Butt to plane", "Slice at plane", "Fully reach plane"]   # 
 var hover := {}          # the face, rectangle or circle under the cursor
 
 
-func uses_main() -> bool:
-	return false
-
-
 func reset() -> void:
 	state = {}
 	press_reset()

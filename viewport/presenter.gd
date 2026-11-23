@@ -38,10 +38,10 @@ var stock_frames := {}              # body id -> rectangular stock frame from bo
 
 var _selection_box: Panel
 var _face: MeshInstance3D
-var push_tests := PushTestRecorder.new()
+var draft_tests := DraftTestRecorder.new()
 
 
-class PushTestRecorder:
+class DraftTestRecorder:
 	var reject_next := false
 	var bounds := {}
 
@@ -57,6 +57,63 @@ class PushTestRecorder:
 			lo = lo.min(point)
 			hi = hi.max(point)
 		bounds[id] = [Geo.arr3(lo), Geo.arr3(hi)]
+
+
+var guides: MeshInstance3D
+
+
+func draw_guides(ref: Vector3, axis: int, plane_axis: int) -> void:
+	if guides == null:
+		guides = MeshInstance3D.new(); add_child(guides)
+	guides.mesh = null
+	var segs := PackedVector3Array()
+	var col := Color(0.4, 0.4, 0.4)
+	if axis >= 0:
+		var v := Geo.axis_vector(axis)
+		var k := -3000.0
+		while k < 3000.0:                                # dotted line along the axis through the grab point
+			segs.append_array([ref + v * k, ref + v * (k + 14.0)])
+			k += 30.0
+		col = [Color(0.85, 0.1, 0.1), Color(0.1, 0.6, 0.1), Color(0.1, 0.25, 0.9)][axis]
+	if plane_axis >= 0:
+		var u := Geo.axis_vector((plane_axis + 1) % 3) * 600.0
+		var w := Geo.axis_vector((plane_axis + 2) % 3) * 600.0
+		for k in range(-6, 7):
+			segs.append_array([ref + u * (k / 6.0) - w, ref + u * (k / 6.0) + w, ref + w * (k / 6.0) - u, ref + w * (k / 6.0) + u])
+		col = [Color(0.85, 0.1, 0.1, 0.5), Color(0.1, 0.6, 0.1, 0.5), Color(0.1, 0.25, 0.9, 0.5)][plane_axis]
+	if not segs.is_empty():
+		var outline := lines(segs, col)
+		guides.mesh = outline.mesh
+		outline.free()
+
+
+func clear_guides() -> void:
+	if guides: guides.mesh = null
+
+
+func mirror_preview(tris: PackedVector3Array, corners: PackedVector3Array, axis := -1) -> void:
+	var plane := m.mat_plane.duplicate() as StandardMaterial3D
+	var edge_color := Color(0.6, 0.2, 0.45)
+	plane.albedo_color = Color(0.85, 0.35, 0.6, 0.3)
+	if axis >= 0:
+		plane.albedo_color = AXIS_COLORS[axis]
+		edge_color = AXIS_COLORS[axis]
+		edge_color.a = 1.0
+		edge_color = edge_color.darkened(0.2)
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	for i in [0, 1, 2, 0, 2, 3]: st.add_vertex(Geo.m2g(corners[i]))
+	var mesh := tri_mesh(tris, m.mat_draft)
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, st.commit_to_arrays())
+	mesh.surface_set_material(1, plane)
+	m.overlay.mesh = mesh
+	var segments := Geo.feature_edges(tris)
+	for i in 4:
+		segments.append(corners[i])
+		segments.append(corners[(i + 1) % 4])
+	var outline := lines(segments, edge_color)
+	m.overlay_lines.mesh = outline.mesh
+	outline.free()
 
 
 func face_highlight(tris: PackedVector3Array) -> void:
@@ -87,14 +144,14 @@ func present_draft(op: Dictionary, pieces: Array, wave: Dictionary) -> void:
 		body_tris[id] = tris
 		body_verts[id] = Geo.unique_verts(tris)
 		body_edges[id] = segments
-		if m.test_mode: push_tests.record(id, tris)
+		if m.test_mode: draft_tests.record(id, tris)
 		if piece.replace:
 			for old in m.bodies_root.find_children(id, "MeshInstance3D", true, false):
 				old.visible = false
 
 	if op.type == "push_pull": drop_draft(op.target.get("rect", ""))
 	var bodies: Array = wave.bodies
-	begin_wave(op.id, wave.origin, wave.tris, wave.is_new, bodies[0] if op.type == "push_pull" else bodies)
+	begin_wave(op.id, wave.origin, wave.tris, wave.is_new, bodies[0] if op.type == "push_pull" or op.has("cut") else bodies)
 	if wave.attach == "drafts":
 		for surface in root.get_children():
 			attach_wave(op.id, surface, surface.get_child(0), DEFAULT_BASE)
