@@ -47,7 +47,6 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H080 | either | In progress (codex since 19:56) | T105: job.py done reuses a quick-test pass across handoff-only commits | [H080](docs/handoff/H080-done-reuses-quick-pass.md) |  |
 | H081 | either | In progress (codex since 19:56) | T106: the test scripts show progress and keep their output in the job's scratch/ | [H081](docs/handoff/H081-test-progress-and-scratch.md) |  |
 | H083 | either | **Ready** | T88 step 6: Move moves to ToolContext, and the legacy setup goes | [H083](docs/handoff/H083-t88-move-to-toolcontext.md) |  |
 | H052 | either | Queued | T66: lengths shown in the model's units | [H052](docs/handoff/H052-t66-units.md) | T88's tool moves |

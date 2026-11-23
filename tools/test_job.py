@@ -10,6 +10,7 @@ import subprocess
 import sys
 import tempfile
 import time
+from unittest.mock import patch
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -230,6 +231,14 @@ body = open(hpath).read()
 open(hpath, "w").write(body.replace("Status: open", "Status: answered"))
 r, out = run(job.done, wt1)
 check("done refuses with uncommitted changes", not r and "uncommitted" in out, out)
+# Stand-in for the bookkeeping script in this throwaway checkout. Record each invocation outside the tree.
+book_runs = os.path.join(base, "bookkeeping-runs")
+book_fail = os.path.join(base, "bookkeeping-fails")
+os.mkdir(os.path.join(wt1, "tools"))
+with open(os.path.join(wt1, "tools", "test_bookkeeping.py"), "w") as f:
+    f.write(f"import os, sys\nwith open({book_runs!r}, 'a') as log: log.write('run\\n')\n"
+            f"sys.exit(int(os.path.exists({book_fail!r})))\n")
+job.handoff.write_list(wt1)
 commit(wt1, "answered")
 r, out = run(job.done, wt1)
 check("done runs the quick test when the latest commit has no pass, and refuses on a failure",
@@ -238,10 +247,24 @@ job.QUICKTEST = ["true"]
 r, out = run(job.test, wt1)
 head = sh(wt1, "git", "rev-parse", "HEAD").stdout.strip()
 check("job.py test records a pass for the latest commit", r and state(root)["jobs"]["H001"]["test"]["commit"] == head, out)
+# Record a real pass on a sibling tip whose only difference is a handoff edit.
+branch = sh(wt1, "git", "branch", "--show-current").stdout.strip()
+sh(wt1, "git", "switch", "-qc", "other-pass")
+open(hpath, "a").write("\nOther response.\n")
+commit(wt1, "other response")
+run(job.test, wt1)
+sh(wt1, "git", "switch", "-q", branch)
+job.QUICKTEST = ["false"]
+r, out = run(job.done, wt1)
+check("done reruns the quick test for a non-ancestor pass even with only a handoff difference",
+      not r and "QUICK TEST FAILED" in out and not os.path.exists(book_runs), out)
+job.QUICKTEST = ["true"]
+run(job.test, wt1)
 open(os.path.join(wt1, "more.txt"), "w").write("x\n"); commit(wt1, "one more")
 job.QUICKTEST = ["sh", "-c", "exit 1"]
 r, out = run(job.done, wt1)
-check("a pass on an older commit doesn't count", not r and "no quick-test pass recorded" in out, out)
+check("a code change after a pass reruns the quick test",
+      not r and "QUICK TEST FAILED" in out and not os.path.exists(book_runs), out)
 job.QUICKTEST = ["true"]
 _procs = job.processes
 job.processes = lambda wt: [(4242, job.HUNG_AFTER + 60, "godot --quicktest")]
@@ -249,8 +272,39 @@ r, out = run(job.done, wt1)
 job.processes = _procs
 check("done refuses while a process from the worktree looks hung, and names it (P40)",
       not r and "pid 4242" in out and "looks hung" in out and state(root)["jobs"]["H001"]["state"] != "done", out)
+run(job.test, wt1)
+open(os.path.join(wt1, "more.txt"), "a").write("temporary change\n")
+commit(wt1, "change code")
+sh(wt1, "git", "revert", "--no-edit", "HEAD")
+with patch.object(job, "test", return_value=False) as quick:
+    r, out = run(job.done, wt1)
+check("even a reverted code change requires the quick test", not r and quick.called and not os.path.exists(book_runs), out)
+run(job.test, wt1)
+passed = sh(wt1, "git", "rev-parse", "HEAD").stdout.strip()
+
+open(hpath, "a").write("\nResponse addendum.\n")
+commit(wt1, "append handoff response")
+index_path = os.path.join(wt1, job.handoff.HANDOFF)
+listed = open(index_path).read()
+open(index_path, "w").write(listed.replace("status: answered", "status: open"))
+commit(wt1, "stale open list")
+with patch.object(job, "test", return_value=False) as quick:
+    r, out = run(job.done, wt1)
+check("a stale open list refuses reuse", not r and quick.called and "out of date" in out, out)
+job.handoff.write_list(wt1)
+commit(wt1, "refresh open list")
+
+open(book_fail, "w").close()
+with patch.object(job, "test", return_value=False) as quick:
+    r, out = run(job.done, wt1)
+check("a bookkeeping failure refuses reuse and falls back to the quick test",
+      not r and quick.called and "bookkeeping check failed" in out and state(root)["jobs"]["H001"]["state"] != "done", out)
+os.remove(book_fail)
+job.QUICKTEST = ["false"]  # success below requires skipping the full quick test
 r, out = run(job.done, wt1)
 j = state(root)["jobs"]["H001"]
+check("after handoff-only commits done runs only bookkeeping and names the reused pass",
+      r and open(book_runs).read().splitlines() == ["run", "run"] and f"reused the quick-test pass from {passed[:7]}" in out, out)
 check("done marks the job done once all is in order", r and j["state"] == "done" and "ready for review: H001" in out, out)
 check("done notes a response with no Result line (T91)", "has no line \"Result:" in out, out)
 check("done's closing message after a session's one job: ready for a /clear (P37)",
