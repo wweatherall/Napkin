@@ -40,6 +40,9 @@ protocol (update it in the same commit when you change either). Tools have their
   asks for (`wood_material`), the current Paint wood, and the Paint and T (grain) commands. Made with the document
   and a texture-path callable, not Main. Main forwards `wood_library` / `wood_keys` / `paint_material`,
   `set_paint_material` and `_turn_grain` for menus.gd's Wood menu.
+- `worker_process.gd` (T113): the FreeCAD worker's process, `m.worker`: finds, probes, picks, starts, restarts, watches
+  and stops the worker, and writes worker.log. main keeps `PROTOCOL_VERSION`, opening the model and reconnects
+  (`_send_open`, `_on_link_up`); `worker_client.gd` owns the socket.
 - `ui.gd` (T113): the interface, `m.ui`: the theme and palette (`c`, `box`), toolbar, Properties panel, status bar,
   tooltip, toggle buttons and the save indicator. Main keeps the label nodes (`ui_hint`, `ui_sync`, `ui_tip`,
   `ui_saved`); MeasureBox styles its box through `m.ui`.
@@ -67,7 +70,7 @@ protocol (update it in the same commit when you change either). Tools have their
   while `ops` still has that key, so any new action, amend or rejection ends redo (linear until U01). Esc cancels
   the tool's gesture (`in_gesture()`) first, then the selection, then the assembly you're in.
 - Worker (W13): a window uses the worker on port 7878 if `hello` reports the same protocol version (`PROTOCOL_VERSION`,
-  docs/protocol.md; `_worker_of`) and the same hash (`_worker_identity()`: every worker .py except tests), else starts one there (a different version gets a private worker on a free port). Each
+  docs/protocol.md; `m.worker.worker_of`, worker_process.gd) and the same hash (`worker_identity()`: every worker .py except tests), else starts one there (a different version gets a private worker on a free port). Each
   window has its own FreeCAD document; a model is open in one window at a time (`already_open`, the owner gets
   `focus`; a window launched on a taken model closes itself). Closing a window sends `bye`. If the worker dies,
   whichever window notices restarts it. File > New Window (⌘⇧N). Files beside the viewport: `_beside_project()`.

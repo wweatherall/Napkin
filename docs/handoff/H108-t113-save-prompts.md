@@ -1,6 +1,6 @@
 ### H108 — T113 step 1b: the closing and outside-save dialogs move out of main.gd into save_prompts.gd
 
-Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: queued (after H107) | For: either
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: open | For: either
 
 References: T113, P45, I55, T79, A36, A39, T64, H093.
 
@@ -16,7 +16,16 @@ Rules for every T113 step (each says what it is for, P44):
 - No forwarders left in main.gd for the moved names (the point is a thinner main): callers, tests included, call the new object. Keep a forwarder only where a caller can't be changed in this job (say which in your response).
 - The new file is a plain `RefCounted` (or `Node` if it needs `_process`/timers/dialogs as children) made in main like `keys` and `measure` (`load("res://<file>.gd").new()`, given `self`), no `class_name` (viewport/CLAUDE.md).
 
-Today (checked 2026-11-22, before H093 changes them: re-read after it merges): main.gd lines ~1612-1779:
+After H093 (rechecked 2026-11-23): the outside-saves section (main.gd ~1171-1323) now also holds
+`_outside_dialog`, `_outside_question_model`, `_outside_closed_model`, `_outside_question_text`,
+`_outside_question_reason`, `outside_closed`, `_on_outside_failed`, `_on_outside_keep_failed`,
+`_show_outside_question`, `_dismiss_outside_question`, `_on_outside_actions_landed`: they move too (they are the
+question's state). `_reset_model_state` (in main, model switching) calls `_dismiss_outside_question` and stays in
+main, calling `m.prompts`; tests call `m._dismiss_outside_question` and read `m._outside_question_model`
+(outside_save.gd) and `m._reset_model_state` (harness.gd, unchanged). The section ends at "documents, menus,
+dialogs (T8)"; `SETTINGS` and below stay.
+
+Before H093 (checked 2026-11-22): main.gd lines ~1612-1779:
 CLOSE_WAIT_S, `_close_asking`, `_close_try`, `close_asked`, `close_done`, `_request_close`, `_ask_close`,
 `_close_choice`, `_close_now`; OUTSIDE_SAVE_WAIT, `_outside_try`, `outside_asked`, `reload_waves`,
 `_on_outside_waiting`, `_ask_outside`, `_outside_choice`, `_on_reloaded`, `_on_kept_mine`. Tests call
