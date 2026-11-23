@@ -14,58 +14,31 @@ live file in the same commit as the change. Keep rows short (the file's header s
 marked Superseded (never deleted). Ask William before countermanding an Active decision.
 
 ## Working with William
-- He wants a partner working through the Work list one item at a time, so nothing gets missed. Say which item
-  you're on; when it's done, end your handoff response with one line, `Result: <commit>; <tests>; <what changed>`;
-  integrate.py copies it into the Work list at merge (P17: workers don't edit the Work list; T91).
-- Each item on its own branch; commit when its tests pass. The integrator merges into main when it judges a branch
-  good enough (review done, full test passes) and pushes main after merging (P16); other sessions never merge or push.
-- Quick test after every change; full test when it fails or before a merge. Add a quick-test step per feature.
-- New behaviour choices are his: ask (one question at a time, with a recommendation) and log the answer (P01).
-- One Work list item at a time: finish it (tests, commit, the result in your handoff, a handoff note if Codex is
-  affected) before the next; a worker session takes one job (P37), then a fresh session. The files carry the
-  state, not the chat.
-- Tests are the project's memory: every behaviour gets a named check, so nobody has to remember how it works.
-- Small fixes take the light path (P22, was P08): nothing William would notice changes (or the code is made to do what a
-  logged decision says), no protocol, file format, module boundary or saving is touched, and it's ~30 lines or less.
-  Commit it on the standing `small-fixes` branch after the quick test (code: `Architecture-Impact: none - <reason>`);
-  no Work list row or handoff. The integrator merges and pushes it when the gate passes, without
-  asking (P22); list the fixes for William at the end of the session. If a fix grows past that, make it a Work list item.
-- FreeCAD 1.1.4 is installed; don't work around bugs that 1.1.4 no longer has. The AppKit rebuild (T25) waits
-  for a working prototype.
+- He wants a partner through the Work list one item at a time: say which item you're on, and finish it before the
+  next. The files carry the state, not the chat.
+- Behaviour choices are his: ask, one question at a time, with a recommendation, and log the answer (P01).
+- Tests are the project's memory: every behaviour gets a named check.
+- Small fixes (P22): nothing he'd notice changes (or the code is made to do what a logged decision says), no
+  protocol, file format, module boundary or saving is touched, ~30 lines or less. Commit on the `small-fixes`
+  branch after the quick test (`Architecture-Impact: none - <reason>`), no Work list row or handoff; the
+  integrator merges and pushes it when the gate passes. List the fixes for him at the end of the session. Bigger
+  becomes a Work list item.
+- FreeCAD 1.1.4 is installed: don't work around bugs it no longer has. The AppKit rebuild (T25) waits for a
+  working prototype.
 
 ## Working with Codex (ChatGPT) and other sessions
-- One Claude session is the integrator (P16): only one William has named, holding the lock (P19). Its work (the
-  lock, the queue watch, review, merging, numbering IDs, writing the map) is in `docs/integrator.md`; read it
-  only if you're the integrator. Every other session, Claude or Codex, is a worker: "check the board" means
-  follow `BOARD.md` (P14), which says how to take a job, run its tests, finish it and stop (P24, P37, P40).
-  Codex reads `AGENTS.md` (its own rules) at the start of each session; keep it in step with this section.
-- Nothing notifies either agent of the other's changes. Start every session with `python3 tools/startup.py`
-  (branches with new commits, the board, the queue, what's waiting on William); when you leave Codex something,
-  tell William.
-- `docs/agent-handoff.md` is the shared scratchpad: its rules and an open list; each open entry is its own file in
-  `docs/handoff/` (T77). Read the ones you're picking up. `python3 tools/handoff.py archive H0NN` moves a resolved
-  entry whole to `docs/handoff-archive.md` with a one-line index left behind; read the archive only for history.
-- Work in parallel by files, not topics: every job lists in its handoff entry the files it expects to touch
-  ("Touches: ..."). Two jobs whose lists overlap don't run at once (`job.py take` won't give you one); tell William
-  before starting one that does. The shared hot spots (the decision log's Work list, the handoff,
-  viewport/main.gd) stay small edits made once the work is done.
-- New IDs (decisions, Work list items, questions, handoff entries) are placeholders on a branch: I-new-N, T-new-N,
-  H-new-N (a new entry is `docs/handoff/H-new-N-slug.md`); the integrator numbers them at merge (T74). On a branch,
-  change only the log rows your job adds or supersedes.
-- `ARCHITECTURE.md` and `docs/protocol.md` are the integrator's (P28): a worker doesn't edit them. A job that
-  changes a module, a message or file format, state ownership, or saving/recovery writes what it does as
-  `Architecture: <what>` lines in its handoff entry. A branch that changes a message bumps PROTOCOL_VERSION by one
-  on both sides (A35).
-- Commit with `git -c core.hooksPath=.githooks commit ...` (the tracked architecture check). A commit changing
-  watched code names its entry, `Architecture-Impact: in the handoff - H0NN` (the entry's Architecture: lines in
-  the same commit or earlier); a genuinely non-architectural change uses `Architecture-Impact: none - <specific
-  reason>`, which the reviewer verifies.
-- A job's scratch files, logs and measurements go in `scratch/` inside its worktree (git ignores it), never in
-  /private/tmp or elsewhere (P25). Leftovers go in your response as `Follow-up:` lines and merge instructions as
-  `For the integrator:` lines (P26).
-- Save context: don't read the big shared documents whole. Grep the decision log by ID (`grep "^| I34 " docs/decision-*.md`),
-  and read `Codex's suggestions.md`, `FREECAD_FEATURE_MAP.md` and `ARCHITECTURE.md` by section (grep the heading,
-  then read that range).
+- Start every session with `python3 tools/startup.py`. Nothing notifies either agent of the other's changes: when
+  you leave Codex something, tell William.
+- The integrator is the one Claude session William named, holding the lock (P16, P19); only it merges and pushes,
+  and its work is in `docs/integrator.md`. Every other session is a worker: "check the board" means follow
+  `BOARD.md`. Codex reads `AGENTS.md`; keep it in step.
+- Commit with `git -c core.hooksPath=.githooks commit`. A commit changing watched code says `Architecture-Impact:
+  in the handoff - H0NN` (that entry's `Architecture:` lines committed) or `Architecture-Impact: none - <specific
+  reason>`, which the reviewer checks.
+- Scratch files and logs go in `scratch/` inside your worktree, never /private/tmp (P25).
+- Handoff entries: `docs/agent-handoff.md`. Don't read big shared documents whole: grep the decision log by ID
+  (`grep "^| I34 " docs/decision-*.md`); read `Codex's suggestions.md`, `FREECAD_FEATURE_MAP.md` and
+  `ARCHITECTURE.md` by section.
 
 ## How it works
 Each part has its own guide, loaded when you work in that folder: `worker/CLAUDE.md` (the FreeCAD side: modules,
