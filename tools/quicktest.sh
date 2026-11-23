@@ -7,6 +7,9 @@
 #   tools/quicktest.sh --one      every section in one window, one after another (as before T49)
 # If anything fails, run tools/fulltest.sh. Exit status 0 = all passed.
 cd "$(dirname "$0")/.."
+# Only exit on the guard's refusal; an unavailable helper must not block tests.
+python3 tools/job.py guard-checkout
+[ $? -eq 1 ] && exit 1
 START=$SECONDS
 GD=/Applications/Godot.app/Contents/MacOS/Godot
 LANES=3

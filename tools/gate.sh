@@ -4,6 +4,9 @@
 # naming the Work list item that fixes it). The full test must pass outright.
 #   tools/gate.sh          exit 0 = GATE PASS
 cd "$(git rev-parse --show-toplevel 2>/dev/null || echo "$(dirname "$0")/..")" || exit 2   # the checkout you run it in
+# Only exit on the guard's refusal; an unavailable helper must not block tests.
+python3 tools/job.py guard-checkout
+[ $? -eq 1 ] && exit 1
 OUT=$(mktemp -d "${TMPDIR:-/tmp}/shopsketch-gate.XXXXXX")
 KNOWN=tests/known_failures.txt
 START=$SECONDS
