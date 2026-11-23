@@ -18,15 +18,12 @@ The viewport guide (`../CLAUDE.md`) covers drafts, waves and the rules for drawi
   `docs/specs/T88-tool-interface.md`): `ctx.pick` (inference: hit, snap, on_grid, point, axis, axis_dest,
   plane_dest, ray, project, cursor, grid), `ctx.model` (boards' triangles, profiles, saved lines, drawn regions, stock frames, cuts),
   `ctx.selection` (ids, context, unit_of, set_ids, enter, ...), `ctx.document` (next_id, op, append, remove, sync),
-  `ctx.view` (preview, marker, guides, selection box, face highlight, register_profile, present_draft: a committed draft's pieces and its wave), `ctx.ui` (typed text,
+  `ctx.view` (preview, marker, guides, mirror_preview, selection box, face highlight, register_profile, present_draft: a committed draft's pieces and its wave), `ctx.ui` (typed text,
   measurements, tooltip, rejection note, New board) and `ctx.paint` (`current_name`, `apply`; owned by `../appearance.gd`). Answers are copies; no adapter gives out
   Main, a node, a material or a cache map. Pure geometry is `Geo` (`../tool_geometry.gd`), preloaded in tool.gd.
-- Legacy, until each tool moves (T88 steps 1–6): `uses_main()` is the temporary marker. While it returns true
-  (Move, the last legacy tool, until step 6), main.gd also calls `setup(m)`, giving `m` (main.gd) and `infer` (inference.gd). A tool
-  moved to the context overrides `uses_main()` to return false, uses only `ctx` and `Geo`, and leaves
-  `STILL_ON_MAIN` in `../test_tools.gd` in the same commit. A new tool (Line, H046) starts on the context; Paint (H065) is the worked example of a move, Push/Pull (H079) of one that commits drafts.
-  Snap only through inference (`ctx.pick`, or `infer` / `m.snap()` / `m.pick()` in a legacy tool): one snapping
-  engine for every tool (I03b).
+- Every tool gets only the context (A40, T88 step 6): no `m`, no `infer`, no Main preload; use only `ctx` and
+  `Geo`. Push/Pull (H079) is the worked example of a tool that commits drafts, Move (H083) of one with mirror
+  previews and guides. Snap only through inference (`ctx.pick`): one snapping engine for every tool (I03b).
 - `mouse_moved`, `click`, `double_click`, `release` (a press-and-drag ends here), `key(e)` (keys the tool handles
   itself; return true when handled), `typed(txt)` (a value from the measurements box, after Return), `reset()`
   (switching tools, Esc). Status: `hint()`, `tip()` (by the cursor), `vcb_label()`, `vcb_value()`.
@@ -44,22 +41,20 @@ The viewport guide (`../CLAUDE.md`) covers drafts, waves and the rules for drawi
   what was typed (units.gd, or FreeCAD for what it declines). Move also gets its count syntax raw (`3x`, `/3`).
 
 ## Making an action
-1. Build the op: an id from `m.doc.next_id("pp")` (`ctx.document.next_id` in a ToolContext tool; never a counter by hand: IDs carry 128 random bits so they never collide across history branches, T67), `type`, and targets by geometry (`{body, normal,
+1. Build the op: an id from `ctx.document.next_id("pp")` (never a counter by hand: IDs carry 128 random bits so they never collide across history branches, T67), `type`, and targets by geometry (`{body, normal,
    point}`, never face numbers, A03); a new board takes a new `b` id.
-2. `m.ops.append(op)`, draw the draft at once, start the wave (`m._begin_wave`, `m._attach_wave`), clear the
-   tool's state and overlays, then `m.sync()`. FreeCAD confirms later; never wait for it.
+2. `ctx.document.append(op)` (doesn't sync), draw the draft at once (`ctx.view.register_profile(op)`, or the
+   draft and its wave: `ctx.view.present_draft(op, pieces, wave)`), clear the tool's state and overlays, then
+   `ctx.document.sync()`. FreeCAD confirms later; never wait for it.
 3. The worker needs a matching `op_<type>` (worker/CLAUDE.md). Add a quick-test step in `tests/quick/<section>.gd` (a new section file is picked up by itself; list it in `tests/quick_runner.gd` QUICK_LANES only to pin its lane).
-Tools talk to the worker only through `ops` and `m.sync()`. On the context the same steps are
-`ctx.document.next_id("pp")`, `ctx.document.append(op)` (doesn't sync), `ctx.view.register_profile(op)` or the
-draft and its wave (`ctx.view.present_draft(op, pieces, wave)`), then `ctx.document.sync()`.
+Tools talk to the worker only through `ctx.document` (`append`, `sync`).
 
 ## Tests of the interface
 `../test_tool_context.gd` (headless, `Godot --headless --path viewport --script res://test_tool_context.gd`):
-each capability's public members against an allowlist (the spec's surface; `view.mirror_preview` is listed as
-arriving with Move), answers are snapshots, id sequences, append
+each capability's public members against an allowlist (the spec's surface, `view.mirror_preview` included), answers are snapshots, id sequences, append
 without a sync, remove's signals, ray/project against the camera's own answers on a tilted view, the moved
 geometry and Main's wrappers agreeing, and no main.gd reference in the context, geometry or inference code.
-`../test_tools.gd` makes every tool with a context and pins which still use main.gd.
+`../test_tools.gd` checks the registry and makes every tool with a ToolContext.
 
 ## The tools
 - `select_tool.gd` (Space; context-only, H071): click selects (from outside, an assembly or array row whole), Shift-click adds or
