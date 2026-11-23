@@ -97,16 +97,12 @@ var overlay_lines: MeshInstance3D
 var marker: MeshInstance3D
 
 # What's on screen (boards' triangles, corners, edges and cuts; drafts; confirmed boards; remembered states; waves)
-# lives in the presenter (presenter.gd, A33b, T41). These names forward to it, so tools and tests keep m.body_tris.
+# lives in the presenter (presenter.gd, A33b, T41). These names forward to it, for the window and its test suites.
 var pres = Presenter.new()
 var body_tris: Dictionary:          # body id -> PackedVector3Array (model mm, 3 per tri)
 	get: return pres.body_tris
 var body_verts: Dictionary:         # body id -> PackedVector3Array (unique corners)
 	get: return pres.body_verts
-var body_edges: Dictionary:         # body id -> feature edge segments (model mm)
-	get: return pres.body_edges
-var body_cuts: Dictionary:          # body id -> [{op, kind, lo, hi}] from FreeCAD: holes and added pieces
-	get: return pres.body_cuts
 var rects: Dictionary:              # rect id -> {"tris","n","on","pts"}
 	get: return pres.rects
 var drafts: Dictionary:             # op id -> Node3D
@@ -128,13 +124,7 @@ var trace_rows: Array[String]:
 func _register_rect(op: Dictionary) -> void: pres.register_rect(op)
 func _begin_wave(oid: String, origin_m: Vector3, tris: PackedVector3Array, is_new: bool, body) -> void:
 	pres.begin_wave(oid, origin_m, tris, is_new, body)
-func _attach_wave(oid: String, mi: MeshInstance3D, edges: MeshInstance3D, base: Color) -> void:
-	pres.attach_wave(oid, mi, edges, base)
-func _end_wave(oid: String) -> void: pres.end_wave(oid)
 func _show_state(key: String) -> bool: return pres.show_state(key)
-func _cut_at(bid: String, pt: Vector3) -> Dictionary: return pres.cut_at(bid, pt)
-func _cut_tris(bid: String, op_id: String) -> PackedVector3Array: return pres.cut_tris(bid, op_id)
-func _base_of(mi: MeshInstance3D) -> Color: return pres.base_of(mi)
 
 
 func _make_presenter() -> void:
@@ -176,7 +166,7 @@ const OVERLAY_BIAS := 0.001   # overlays sit 0.1% of the camera distance nearer 
 var overlay_bias := OVERLAY_BIAS
 var grid_mat: ShaderMaterial
 var caption: Label
-var draft_bboxes: Dictionary:   # compatibility for Move and the recorded suites
+var draft_bboxes: Dictionary:   # predicted bounds read by the recorded suites
 	get: return pres.draft_tests.bounds
 var preload_path := ""
 var cursor2d: Node2D
@@ -210,9 +200,7 @@ var mat_draft_edge: StandardMaterial3D
 static func m2g(p: Vector3) -> Vector3: return Geo.m2g(p)
 static func g2m(p: Vector3) -> Vector3: return Geo.g2m(p)
 static func n_g2m(n: Vector3) -> Vector3: return Geo.n_g2m(n)
-static func r3(x: float) -> float: return Geo.r3(x)
 static func arr3(v: Vector3) -> Array: return Geo.arr3(v)
-static func clean_normal(n: Vector3) -> Vector3: return Geo.clean_normal(n)
 static func plane_basis(n: Vector3) -> Array: return Geo.plane_basis(n)
 
 # ---------------- setup ----------------
@@ -638,23 +626,9 @@ func _lines(segs_m: PackedVector3Array, color: Color, width_pt := LINE_PX, bias 
 	return pres.lines(segs_m, color, width_pt, bias)
 
 
-func _tri_mesh(tris_m: PackedVector3Array, mat: Material) -> ArrayMesh:
-	return pres.tri_mesh(tris_m, mat)
-
-
 static func _ekey(p: Vector3, q: Vector3) -> String: return Geo.edge_key(p, q)
 static func feature_edges(tris: PackedVector3Array) -> PackedVector3Array: return Geo.feature_edges(tris)
 static func unique_verts(tris: PackedVector3Array) -> PackedVector3Array: return Geo.unique_verts(tris)
-static func prism(tris: PackedVector3Array, n: Vector3, d: float) -> PackedVector3Array: return Geo.prism(tris, n, d)
-static func prism_by(tris: PackedVector3Array, offset: Callable) -> PackedVector3Array: return Geo.prism_by(tris, offset)
-
-func _add_collision(mi: MeshInstance3D, meta_key: String, meta_val: String) -> void:
-	pres.add_collision(mi, meta_key, meta_val)
-
-
-# ---------------- picking & snapping ----------------
-func _show_marker(p: Dictionary) -> void:
-	pres.show_marker(p)
 
 
 # ---------------- tools ----------------
@@ -688,8 +662,7 @@ func _make_tools() -> void:
 
 
 func _make_tool_context():
-	"""The owners each capability wraps, and the few main.gd helpers still bound in (T88 step 0: each moves to
-	its owner when its first tool migrates). Nothing here hands a tool main.gd itself."""
+	"""Wire the capability owners and window callbacks shared by every tool."""
 	return load("res://tool_context.gd").new({
 		"infer": infer, "pres": pres, "sel": sel, "doc": doc, "measure": measure,
 		"cursor": _cursor_pos,
@@ -1007,7 +980,6 @@ func _cursor_pos() -> Vector2:
 const AXIS_COLORS := Presenter.AXIS_COLORS
 
 static func _axis_vec(ax: int) -> Vector3: return Geo.axis_vector(ax)
-static func reflect_point(q: Vector3, p: Vector3, n: Vector3) -> Vector3: return Geo.reflect_point(q, p, n)
 static func reflect_tris(tris: PackedVector3Array, p: Vector3, n: Vector3) -> PackedVector3Array: return Geo.reflect_tris(tris, p, n)
 static func _mirror_tris(tris: PackedVector3Array, ax: int, c: float) -> PackedVector3Array: return Geo.mirror_triangles(tris, ax, c)
 
