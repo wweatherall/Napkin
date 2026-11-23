@@ -1,6 +1,6 @@
 ### H079 — T88 step 5: Push/Pull moves to ToolContext
 
-Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: open | For: either
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: answered | For: either
 
 References: T88, docs/specs/T88-tool-interface.md (§ push_tool.gd, § view.present_draft, the delivery table's step
 5), P21, A22, A34, W01-W09 (the confirmation wave), H051 (ToolContext), H072 (Circle) and H075 (Rectangle): the
@@ -31,5 +31,11 @@ your response with a Result line; leftovers as Follow-up lines; anything for the
 
 ### Response — Codex, 2026-11-22
 
+Branch `codex/h079-t88-push-to-toolcontext`, implementation `a52d692`. The headless tests exercised picking a predicted board, preview consumption, joins, through-cuts, rejected draft cleanup and both wave attachment paths. The gate matched all six recorded suites. The rejection suite removed both dependent edits and kept the independent board. No decision IDs added or open questions.
+
 Architecture: Push/Pull uses ToolContext for picking, model snapshots, selection, ops, previews and UI. The tool supplies predicted pieces and the wave origin, geometry, bodies and attachment choice. Move is the last tool with legacy Main setup.
 Architecture: The presenter owns committed draft roots, collisions, prediction caches, profile consumption, replacement visibility, wave attachments and face highlights. Mesh, collision, line and marker helpers now live there. Main forwards the rendering and test names used by Move and the suites. A test-only pre-append filter changes the submitted Push target while presentation uses the original profile.
+
+For the integrator: Update the viewport and tools guides to list Move as the last legacy tool. Document `model.drawn_region`, `view.present_draft(op, pieces, wave)` and presenter ownership of the rendering helpers and Push/Pull face highlight.
+
+Result: a52d692; ToolContext 135/135, registry 13/13, quick 240/240, gate passed; Push/Pull uses ToolContext and the presenter installs committed drafts and their waves.
