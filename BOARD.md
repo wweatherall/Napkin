@@ -53,8 +53,7 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
 | H105 | Gemini | **Ready** | integrate.py stops for a response's `Changed from the brief:` lines (P44) | [H105](docs/handoff/H105-integrate-shows-brief-changes.md) |  |
-| H115 | Codex | **Done**: for review (codex) | T112: the queue checks overlap by function (P45) | [H115](docs/handoff/H115-t112-overlap-by-function.md) |  |
-| H085 | either | In progress (codex since 07:10) | T83: the Arc tool (2-Point and Centre arcs, exact in FreeCAD, splitting faces) | [H085](docs/handoff/H085-t83-arc-tool.md) |  |
+| H085 | either | **Done**: for review (codex) | T83: the Arc tool (2-Point and Centre arcs, exact in FreeCAD, splitting faces) | [H085](docs/handoff/H085-t83-arc-tool.md) |  |
 | H086 | either | Queued | T83 step 2: an arc on a corner is tangent to both edges (rounded corners) | [H086](docs/handoff/H086-t83-arc-corner-tangent.md) | H085 |
 | H093 | either | **Ready** | Outside saves: a failed reload asks, a worker lost mid-reload reloads again, and a question the actions overtook closes (H092 findings 2 and 5, A39) | [H093](docs/handoff/H093-outside-save-failures.md) |  |
 | H094 | either | Queued | A reload from a revision Shop Sketch no longer remembers keeps the ops that file holds (H092 finding 6) | [H094](docs/handoff/H094-reload-unknown-revision.md) | H093 |

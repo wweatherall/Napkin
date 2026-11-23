@@ -15,7 +15,7 @@ Shared scratchpad for Claude and Codex. Created by Codex on 2026-11-21 at Willia
 - An entry written straight into this file by habit: `python3 tools/handoff.py split` moves it to its own file.
 - A job's response ends with one line `Result: <commit>; <tests>; <what changed>` (e.g. `Result: 2c91ed7; tools/test_x.py 9/9, quick test passed; x.py does y`); at merge, integrate.py appends it to the item's Work list row (T91). No `|` in it.
 - Anything you leave is its own line `Follow-up: <what>`, and anything the integrator must do at merge its own line `For the integrator: <what>` (a leading `- ` allowed, like Result:). At merge, integrate.py copies each follow-up into [follow-ups.md](follow-ups.md) and prints the instructions (P26, T97); a leftover only in prose is easy to miss.
-- An entry is also a job when it says `For: Claude`, `Codex` or `either` (P24): its Status is the queue's input. `open` is Ready, `queued (after H0NN)` waits, `answered` is for review. Workers take jobs with `python3 tools/job.py take` and finish with `python3 tools/job.py done` (which needs your response appended and Status answered); BOARD.md's table is built from these entries and the queue. Its Touches line is what the queue checks for overlap.
+- An entry is also a job when it says `For: Claude`, `Codex` or `either` (P24): its Status is the queue's input. `open` is Ready, `queued (after H0NN)` waits, `answered` is for review. Workers take jobs with `python3 tools/job.py take` and finish with `python3 tools/job.py done` (which needs your response appended and Status answered); BOARD.md's table is built from these entries and the queue. Its Touches line is what the queue checks for overlap. After a shared file's path, list the functions or constants it changes in backticks inside parentheses so two jobs that name parts of that file overlap only where their names match (P45).
 
 ## References and authority
 
@@ -47,7 +47,6 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H112 — T113 step 4b: wood rendering moves from main.gd to appearance.gd](handoff/H112-t113-wood.md) — status: queued (after H101, H110); for: either
 - [H113 — T113 step 4c: the camera (orbit, pan, zoom, trackpad) moves out of main.gd into camera_rig.gd](handoff/H113-t113-camera.md) — status: open; for: either
 - [H114 — T113 step 4d: main.gd's selection pass-throughs go; callers use m.sel](handoff/H114-t113-selection-forwarders.md) — status: queued (after H101); for: either
-- [H115 — T112: the queue checks overlap by function (P45)](handoff/H115-t112-overlap-by-function.md) — status: open; for: Codex
 
 <!-- end of open list -->
 
@@ -55,6 +54,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 Full entries in [handoff-archive.md](handoff-archive.md).
 
+- H115 — T112: the queue checks overlap by function (P45). Resolved: merged into main by the integrator, 2026-11-23.
 - H116 — For the next integrator session: where things stand. Resolved: see the archive
 - H103 — T111 step 2: preferences wired in: ⌘, opens the file, saving it applies the feel tunables and the default units. Resolved: merged into main by the integrator, 2026-11-23.
 - H104 — Integrator tools: `job.py reassign`, a quieter watch, a short result at merge. Resolved: merged into main by the integrator, 2026-11-23.

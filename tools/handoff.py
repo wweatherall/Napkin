@@ -18,6 +18,7 @@ number is given at merge (tools/number_ids.py)."""
 import os
 import re
 import sys
+from fnmatch import fnmatchcase
 
 FOLDER = "docs/handoff"
 HANDOFF = "docs/agent-handoff.md"
@@ -158,12 +159,37 @@ NOT_ASIDE = re.compile(r"\((?:not|don't|do not|never)\b[^()]*\)", re.I)
 
 
 def touches(body):
-    """The files a job says it will change, from its "Touches:" paragraph. Sentences that say what it won't touch
-    ("Not viewport/main.gd ...", "Read-only on ...") are left out; a folder or glob (viewport/tools/*) is kept as is."""
+    """The paths a job says it will change in its Touches paragraph."""
+    return set(touches_named(body))
+
+
+def _listed_names(text, start):
+    """Read backticked identifiers inside the parenthetical directly after a path."""
+    opening = re.compile(r"`?\s*\(").match(text, start)
+    if not opening:
+        return None
+    depth = 1
+    names = set()
+    for token in re.compile(r"`([^`]+)`|[()]").finditer(text, opening.end()):
+        name = token.group(1)
+        if name is not None:
+            if re.fullmatch(r"[A-Za-z_]\w*(?:\(\))?", name):
+                names.add(name.removesuffix("()"))
+        elif token.group() == "(":
+            depth += 1
+        else:
+            depth -= 1
+            if depth == 0:
+                return names or None
+    return None
+
+
+def touches_named(body):
+    """Map each Touches path to its named functions or constants, or None for the whole path."""
     lines = body.split("\n")
     k = next((i for i, l in enumerate(lines) if l.startswith("Touches:")), None)
     if k is None:
-        return set()
+        return {}
     para = []
     for l in lines[k:]:
         if not l.strip():
@@ -171,14 +197,22 @@ def touches(body):
         para.append(l)
     text = " ".join(para)[len("Touches:"):]
     text = NOT_ASIDE.sub("", text)      # "(don't add it to tools/x.sh: ...)" names a file the job stays off
-    out = set()
-    for sentence in re.split(r"(?<=[.;])\s+(?=[A-Z(])", text):
-        if SKIP.match(sentence.strip()):
-            continue
-        for m in PATH.finditer(sentence):
-            p = m.group(1).rstrip(".,;:")
-            if "/" in p or p in TOP:
-                out.add(p)
+    out = {}
+    # Keep each sentence's offset so an annotation can extend across a sentence boundary.
+    offset = 0
+    for sentence in re.split(r"(?<=[.;])(?=\s+[A-Z(])", text):
+        if not SKIP.match(sentence.strip()):
+            for match in PATH.finditer(sentence):
+                path = match.group(1).rstrip(".,;:")
+                if "/" not in path and path not in TOP:
+                    continue
+                name = path.rsplit("/", 1)[-1]
+                names = _listed_names(text, offset + match.end()) if "." in name and "*" not in name else None
+                if path not in out or names is None:
+                    out[path] = names
+                elif out[path] is not None:
+                    out[path].update(names)
+        offset += len(sentence)
     return out
 
 
@@ -186,15 +220,32 @@ def _covers(a, b):
     """Does path a include path b (equal, a folder of it, or a glob over it)?"""
     if a == b:
         return True
-    if a.endswith("*"):                       # viewport/tools/* or worker/scenario/NN_*
-        return b.startswith(a.rstrip("*"))
-    if "." not in a.rsplit("/", 1)[-1]:       # a folder: worker/scenario, docs/handoff/
+    folder, _, name = a.rpartition("/")
+    if "*" in name:
+        other_folder, _, other_name = b.rpartition("/")
+        return folder == other_folder and fnmatchcase(other_name, name)
+    if "." not in name:                       # a folder: worker/scenario, docs/handoff/
         return b.startswith(a.rstrip("/") + "/")
     return False
 
 
+def shared_touches(a, b):
+    """Describe the overlaps between two touches_named maps."""
+    out = set()
+    for pa, names_a in a.items():
+        for pb, names_b in b.items():
+            if not (_covers(pa, pb) or _covers(pb, pa)):
+                continue
+            path = pa if len(pa) >= len(pb) else pb
+            if names_a is None or names_b is None:
+                out.add(path)
+            else:
+                out.update(f"{path} ({name})" for name in names_a & names_b)
+    return out
+
+
 def overlaps_in(texts, statuses=("open", "answered")):
-    """[(file, [job IDs])] for files two or more open jobs both say they touch (P11). texts: {file name: entry text}.
+    """[(file, [job IDs])] for paths or names two or more open jobs both say they touch (P45). texts: {file name: entry text}.
     Queued jobs don't count: they wait for the job they'd overlap."""
     jobs = {}
     for name, text in texts.items():
@@ -202,15 +253,13 @@ def overlaps_in(texts, statuses=("open", "answered")):
         meta = next((l for l in text.split("\n") if l.startswith("Author:")), "")
         status = next((p.split(":", 1)[1].strip() for p in meta.split(" | ") if p.strip().startswith("Status:")), "")
         if status.split(" ")[0] in statuses:
-            jobs[head.split()[0]] = touches(text)
+            jobs[head.split()[0]] = touches_named(text)
     out = {}
     ids = sorted(jobs)
     for i, a in enumerate(ids):
         for b in ids[i + 1:]:
-            for pa in jobs[a]:
-                for pb in jobs[b]:
-                    if _covers(pa, pb) or _covers(pb, pa):
-                        out.setdefault(pa if len(pa) >= len(pb) else pb, set()).update([a, b])
+            for shared in shared_touches(jobs[a], jobs[b]):
+                out.setdefault(shared, set()).update([a, b])
     return sorted((k, sorted(v)) for k, v in out.items())
 
 

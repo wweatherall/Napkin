@@ -127,6 +127,17 @@ check("a job with a branch made by hand counts as claimed", r is None and "H006:
 check("the state lives in git's common folder, shared by every worktree",
       job.state_path(wt1) == job.state_path(root) and job.state_path(root).endswith(os.path.join(".git", "shopsketch-jobs.json")))
 
+named_jobs = job.jobs_from({
+    "H001-redo.md": entry("H001", "either", "open", "viewport/main.gd (`redo`)."),
+    "H002-redo.md": entry("H002", "either", "open", "viewport/main.gd (`redo()`)."),
+    "H003-save.md": entry("H003", "either", "open", "viewport/main.gd (`_ask_outside`)."),
+})
+selected, reasons = job.takeable(root, {"jobs": {"H001": {"state": "in progress"}}}, "codex",
+                                named_jobs, ["H001", "H002", "H003"], claims={})
+check("the queue reports the shared function and takes the Ready job naming another function in main.gd",
+      selected and selected["id"] == "H003" and reasons == ["H002: overlaps H001 (viewport/main.gd (redo))"],
+      (selected, reasons))
+
 # --- wrong-checkout guard (T102), including both shell entry points before any test starts ---
 guard_env = {k: v for k, v in os.environ.items() if k not in
              ("CLAUDE_CODE_SESSION_ID", "CODEX_SESSION_ID", "CODEX_THREAD_ID", "SHOPSKETCH_ANY_CHECKOUT")}
