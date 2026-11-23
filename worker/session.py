@@ -5,6 +5,7 @@ import json
 import os
 import re
 import shutil
+import tempfile
 import zipfile
 import time
 import materials as wood
@@ -367,13 +368,23 @@ class Session:
         self.model = Model(self.doc)
 
     def _load_file(self, path=None):
-        """Open the file as the live document (opening, reloading an outside save, or rebuilding from the floor copy)."""
-        self.doc = App.openDocument(path or self.path)
-        self.doc.UndoMode = 1
-        self.drawing = remove_drawing_pages(self.doc) or self.drawing
-        self.doc.recompute()
-        self.model = Model(self.doc)
-        self.model.add_hidden_props()           # boards saved before hiding existed (T28)
+        """Open the file as the live document (opening or rebuilding from the floor copy)."""
+        self.doc, self.model, drawing = self._open_document(path or self.path)
+        self.drawing = drawing or self.drawing
+
+    @staticmethod
+    def _open_document(path):
+        doc = App.openDocument(path)
+        try:
+            doc.UndoMode = 1
+            drawing = remove_drawing_pages(doc)
+            doc.recompute()
+            model = Model(doc)
+            model.add_hidden_props()           # boards saved before hiding existed (T28)
+        except Exception:
+            App.closeDocument(doc.Name)
+            raise
+        return doc, model, drawing
 
     def _write_floor_copy(self):
         """Write <model>.floor.FCStd atomically from the live document at the floor (A38)."""
@@ -499,15 +510,25 @@ class Session:
         the revision FreeCAD opened) leave the list and are kept in the journal as dropped (T65); undo stops at the
         FreeCAD change, in this session and the next (the journal's floor). Returns {changed, removed, dropped}."""
         before = self.board_marks()
-        frev = file_rev(self.path)
-        kept = self._file_ops(frev)
-        held = {e["key"] for e in kept}
-        when = time.strftime("%Y-%m-%dT%H:%M:%S")
-        gone = [{"op": e["op"], "after_rev": frev, "at": when} for e in self.applied
-                if e["status"] == "ok" and e["key"] not in held]
+        sig = self.disk_sig()
+        # FreeCAD returns the live document when asked to open its path again. Open a separate copy so an
+        # unreadable save can't displace the live model. Keeping it beside the source preserves relative paths.
+        with tempfile.NamedTemporaryFile(dir=os.path.dirname(self.path), prefix=".shopsketch-reload-",
+                                         suffix=".FCStd") as snapshot:
+            shutil.copyfile(self.path, snapshot.name)
+            frev = file_rev(snapshot.name)
+            digest = sha256(snapshot.name)
+            kept = self._file_ops(frev)
+            held = {e["key"] for e in kept}
+            when = time.strftime("%Y-%m-%dT%H:%M:%S")
+            gone = [{"op": e["op"], "after_rev": frev, "at": when} for e in self.applied
+                    if e["status"] == "ok" and e["key"] not in held]
+            doc, model, drawing = self._open_document(snapshot.name)
         if self.doc is not None:
             App.closeDocument(self.doc.Name)
-        self._load_file()
+        doc.FileName = self.path
+        self.doc, self.model = doc, model
+        self.drawing = drawing or self.drawing
         self.ids.seed_native(self.doc)
         self.applied = kept
         self.undo_floor = self.session_base = len(kept)
@@ -518,11 +539,11 @@ class Session:
         file_meta_rev = int(self.doc.Meta.get("ShopSketchRev", "0") or 0)
         self.rev = max(self.rev, file_meta_rev)       # our next save goes on counting up
         self.units = parse_units(self.doc.Meta.get("ShopSketchUnits"))
-        self.file_sha = sha256(self.path)
+        self.file_sha = digest
         self.rev_ops = {file_meta_rev: list(kept)}
         self.doc.clearUndos()
         atomic_json(journal_path(self.path), self._journal(file_meta_rev, self.file_sha))
-        self.file_sig = self.disk_sig()
+        self.file_sig = sig
         self.model.show_as_hidden()
         after = self.board_marks()
         changed = sorted(b for b in after if before.get(b) != after[b])
