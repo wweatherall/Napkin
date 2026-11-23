@@ -32,7 +32,6 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 - [H052 — T66: lengths shown in the model's units](handoff/H052-t66-units.md) — status: queued (after T88's tool moves); for: either
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
-- [H081 — T106: the test scripts show progress and keep their output in the job's scratch/](handoff/H081-test-progress-and-scratch.md) — status: open; for: either
 - [H083 — T88 step 6: Move moves to ToolContext, and the legacy setup goes](handoff/H083-t88-move-to-toolcontext.md) — status: open; for: either
 
 <!-- end of open list -->
@@ -41,6 +40,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 Full entries in [handoff-archive.md](handoff-archive.md).
 
+- H081 — T106: the test scripts show progress and keep their output in the job's scratch/. Resolved: merged into main by the integrator, 2026-11-22.
 - H080 — T105: job.py done reuses a quick-test pass across handoff-only commits. Resolved: merged into main by the integrator, 2026-11-22.
 - H084 — For the next integrator session: where things stand. Resolved: see the archive
 - H079 — T88 step 5: Push/Pull moves to ToolContext. Resolved: merged into main by the integrator, 2026-11-22.

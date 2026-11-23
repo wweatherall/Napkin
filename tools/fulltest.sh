@@ -10,16 +10,18 @@
 cd "$(dirname "$0")/.."
 FC=/Applications/FreeCAD.app/Contents/Resources/bin/freecadcmd
 START=$SECONDS
+. tools/gate.sh || exit 1
+set_test_tmpdir || exit 1
 GD=/Applications/Godot.app/Contents/MacOS/Godot
 # Only the gate uses this mode, after quicktest has parsed scripts and run feature tests.
 GATE_UI_ONLY=0
 for a in "$@"; do [ "$a" = "--gate-ui-only" ] && GATE_UI_ONLY=1; done
 if [ $GATE_UI_ONLY -eq 0 ]; then
-  tools/parsecheck.sh || { echo "full test not run: a viewport script doesn't parse"; exit 1; }
+  run_stage "full: parse" tools/parsecheck.sh || { echo "full test not run: a viewport script doesn't parse"; exit 1; }
 fi
 if [ $GATE_UI_ONLY -eq 0 ]; then echo "TIMING parse: $((SECONDS - START)) s";
 else echo "TIMING parse/features: reused successful quick checks"; fi
-OUT=$(mktemp -d -t shopsketch-full)
+OUT=$(mktemp -d "${TEST_TMPDIR%/}/shopsketch-full.XXXXXX") || exit 1
 FAST=--fast
 for a in "$@"; do [ "$a" = "--full-pace" ] && FAST=""; done
 RECORDED="facetest movetest mirrortest infertest holetest zfighttest"
@@ -29,7 +31,7 @@ TARGETED="undotest snaptest recttest shelltest jointest rejecttest"
 LANES=("undotest snaptest recttest" "facetest movetest shelltest" "mirrortest infertest jointest" "holetest zfighttest rejecttest")
 FEATURES=""
 if [ $GATE_UI_ONLY -eq 0 ]; then
-  tools/featuretest.sh "$OUT/feature" > "$OUT/feature.log" 2>&1 &
+  run_stage "full: feature tests" run_features "$OUT" &
   FEATURES=$!
 fi
 WORKERS=()
@@ -64,18 +66,29 @@ lane() {   # lane <n> <suites...>: its own worker, then each suite in turn
   echo "TIMING full lane $n: $((SECONDS - lane_start)) s" >> "$OUT/timing$n.log"
   kill $w 2>/dev/null
 }
-PIDS=()
-for i in "${!LANES[@]}"; do lane $((i + 1)) ${LANES[$i]} & PIDS+=($!); done
-wait "${PIDS[@]}"
-cat "$OUT"/timing*.log
-FAIL=0
-[ -f "$OUT/retries" ] && cat "$OUT/retries"
-for f in "$OUT"/lane*.fail; do [ -f "$f" ] && { cat "$f"; FAIL=1; }; done
-if [[ " $* " == *" --update-reference "* ]]; then
-  for s in $RECORDED; do cp "$OUT/$s/out/bodies.json" "$OUT/$s/out/status.json" tests/reference/$s/; done
+viewport_suites() {
+  PIDS=()
+  for i in "${!LANES[@]}"; do lane $((i + 1)) ${LANES[$i]} & PIDS+=($!); done
+  wait "${PIDS[@]}"
+  cat "$OUT"/timing*.log
+  local failed=0
+  [ -f "$OUT/retries" ] && cat "$OUT/retries"
+  for f in "$OUT"/lane*.fail; do [ -f "$f" ] && { cat "$f"; failed=1; }; done
+  return "$failed"
+}
+run_stage "full: viewport suites" viewport_suites
+FAIL=$?
+update_references() {
+  local s
+  for s in $RECORDED; do
+    cp "$OUT/$s/out/bodies.json" "$OUT/$s/out/status.json" "tests/reference/$s/" || return 1
+  done
   echo "references updated from $OUT"
+}
+if [[ " $* " == *" --update-reference "* ]]; then
+  run_stage "full: update references" update_references || FAIL=1
 fi
-python3 tools/compare_suites.py "$OUT" || FAIL=1
+run_stage "full: compare suites" python3 tools/compare_suites.py "$OUT" || FAIL=1
 for t in $TARGETED; do grep -E "TEST|SCRIPT ERROR" "$OUT/$t/godot.log" | grep -v " done$"; done
 if [ -n "$FEATURES" ]; then
   wait $FEATURES || FAIL=1

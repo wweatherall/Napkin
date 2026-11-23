@@ -18,3 +18,5 @@ or that turns it into a Work list item. `python3 tools/startup.py` lists the ope
 - H078 (2026-11-22): docs/agent-handoff.md's "Jobs, round 1" section (below the open list, outside this job's Touches)
 - H078 (2026-11-22): AGENTS.md's `git log --oneline -15 main` / `git branch -a` step repeats what startup.py already
 - H078 (2026-11-22): say in CLAUDE.md what "watched code" is (which paths the architecture check watches), so a worker
+- H081 (2026-11-22): worker/test_length_protocol.py creates its temporary folder through TMPDIR instead of its assigned TESTDIR. In a job it now lands in scratch and is removed on exit.
+- H081 (2026-11-22): integrate.py and job.py test capture the scripts' output until exit. Live progress is visible when running the scripts directly or through job.py run.
