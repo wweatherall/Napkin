@@ -35,7 +35,9 @@ Run in the main checkout, on main, clean, holding the integrator lock (tools/int
    step 6, the merge staged, and prints them under "for you now:" marked "map:": write them in (checked against
    the code), then `integrate.py --continue --as <name> [--push [--yes]]` does steps 6-9. A refused merge commit
    (the architecture hook) is left the same way: stage the map or give --impact, then --continue
-BOARD.md's job table is generated (tools/job.py board): a conflict in it is settled by rebuilding it.
+BOARD.md's job table is generated (tools/job.py board): a conflict in it is settled by rebuilding it. In a BOARD.md
+conflict main's Order line, "## Jobs" section (the table) and "## Notes" (the integrator's) are kept; any other
+section the branch alone changed is the branch's; both changing one stops the merge (H073).
 What it leaves to the integrator: reviewing the branch first, and a Result line a response didn't give."""
 import json
 import os
@@ -306,6 +308,48 @@ def set_status(root, tid, status):
     return f"{tid}: {status}" + (f" (moved to {ARCHIVE})" if moved else "")
 
 
+BOARD_OURS = ("Jobs", "Notes")       # the integrator's sections of BOARD.md (with its Order line): main's always
+
+
+def board_sections(text):
+    """BOARD.md as [(heading, body)]: "" for the text before the first "## " heading (its Order line taken out,
+    the integrator's), then each section with its heading line. Returns (sections, Order line)."""
+    parts, order = [["", []]], None
+    for line in text.split("\n"):
+        if line.startswith("## "):
+            parts.append([line[3:].strip(), []])
+        if line.startswith("Order:") and len(parts) == 1:
+            order = line
+            parts[0][1].append("\0order")
+        else:
+            parts[-1][1].append(line)
+    return [(h, "\n".join(b)) for h, b in parts], order
+
+
+def settle_board(ours, base, theirs):
+    """A BOARD.md conflict settled (H073): main's Order line, Jobs and Notes; a section only the branch changed is
+    the branch's (added or removed too); one both changed is reported. Returns (text, [section names both changed])."""
+    (o, order), (b, _), (t, _) = board_sections(ours), board_sections(base), board_sections(theirs)
+    od, bd, td = dict(o), dict(b), dict(t)
+    out, clashes = [], []
+    for h, mine in o:
+        if h in BOARD_OURS or td.get(h) == bd.get(h) or td.get(h) == mine:
+            pick = mine
+        elif mine == bd.get(h):
+            pick = td.get(h)                # None: the branch removed it
+        else:
+            clashes.append(h or "the top (before the first heading)"); pick = mine
+        if pick is not None:
+            out.append((h, pick))
+    for i, (h, theirs_body) in enumerate(t):    # a section the branch added goes after the one it follows there
+        if h not in od and h not in bd:
+            after = next((j for j in range(i - 1, -1, -1) if t[j][0] in [x for x, _ in out]), None)
+            at = [x for x, _ in out].index(t[after][0]) + 1 if after is not None else len(out)
+            out.insert(at, (h, theirs_body))
+    text = "\n".join(body for _, body in out)
+    return text.replace("\0order", order or ""), clashes
+
+
 def settle_handoff(root, branch):
     """Keep main's docs/agent-handoff.md; bring in the branch's inline "### H..." entries, then split them out."""
     git("checkout", "--ours", handoff.HANDOFF, root=root)
@@ -520,8 +564,14 @@ def main(argv):
         open(os.path.join(root, LOG), "w", encoding="utf-8").write(merged)
         say("settled docs/decision-log.md (main's, plus the branch's own rows and Details sections)")
     if job.BOARD in conflicts:
-        git("checkout", "--ours", job.BOARD, root=root)
-        say("settled BOARD.md (main's; its job table is rebuilt below)")
+        text, clashes = settle_board(git("show", f"HEAD:{job.BOARD}", root=root).stdout,
+                                     git("show", f"{base}:{job.BOARD}", root=root).stdout,
+                                     git("show", f"{branch}:{job.BOARD}", root=root).stdout)
+        if clashes:
+            say(f"BOARD.md: main and the branch both changed {', '.join(repr(c) for c in clashes)}: settle it by hand "
+                "(the merge is left in progress)"); return 1
+        open(os.path.join(root, job.BOARD), "w", encoding="utf-8").write(text)
+        say("settled BOARD.md (main's Order line, job table and Notes, the branch's other sections; the table is rebuilt below)")
     # Before staging anything: staging clears git's "unmerged" mark even with conflict markers still in a file.
     left = [f for f in conflicts if f not in (handoff.HANDOFF, LOG, ARCHIVE, job.BOARD)]
     if left:

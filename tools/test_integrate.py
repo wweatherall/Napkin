@@ -206,4 +206,49 @@ check("--job: the job's worktree and its own branch are removed, and the scratch
       not os.path.isdir(wt) and "claude/h070-x" not in branches and "scratch/h070" not in branches, said + branches)
 shutil.rmtree(root)
 
+# 6. A BOARD.md conflict (H073): main's Order line, job table and Notes stay; the branch's edits to the other
+#    sections come with it; both changing one section stops the merge.
+BOARD = ("# Work board\n\nIntro.\n\nOrder: H001\n\n## If you're not the integrator\n\n1. Take a job.\n\n"
+         "## If you're the integrator\n\nSee integrator.md.\n\n## Jobs\n\n| Job |\n|---|\n| H001 |\n\n## Notes\n\n- one\n")
+main_b = BOARD.replace("Order: H001", "Order: H001, H002").replace("| H001 |", "| H001 |\n| H002 |").replace("- one", "- main's note")
+branch_b = BOARD.replace("1. Take a job.", "1. Take a job, then read its Notes.").replace("- one", "- branch's note")
+text, clashes = integrate.settle_board(main_b, BOARD, branch_b)
+check("board: the branch's instructions and main's Order, table and Notes all stay",
+      clashes == [] and "1. Take a job, then read its Notes." in text and "Order: H001, H002" in text
+      and "| H002 |" in text and "- main's note" in text and "branch's note" not in text, text)
+added = branch_b.replace("## Jobs", "## Tips\n\nA tip.\n\n## Jobs")
+text, _ = integrate.settle_board(main_b, BOARD, added)
+check("board: a section the branch adds goes in where the branch put it",
+      text.index("See integrator.md.") < text.index("## Tips") < text.index("## Jobs"), text)
+text, _ = integrate.settle_board(main_b, BOARD, BOARD)
+check("board: a branch that changed nothing leaves main's file as it is", text == main_b, text)
+both = main_b.replace("1. Take a job.", "1. Take one job.")
+text, clashes = integrate.settle_board(both, BOARD, branch_b)
+check("board: both changing the same section is reported", clashes == ["If you're not the integrator"], clashes)
+
+root = repo()
+write(root, "BOARD.md", BOARD); sh(root, "git", "add", "-A"); sh(root, "git", "commit", "-qm", "board")
+sh(root, "git", "checkout", "-qb", "agent/b")
+write(root, "BOARD.md", branch_b); sh(root, "git", "commit", "-qam", "branch edits the board")
+sh(root, "git", "checkout", "-q", "main")
+write(root, "BOARD.md", main_b); sh(root, "git", "commit", "-qam", "main edits the board")
+integrator.take(integrator.lock_path(root), "tester", out=lambda *a: None)
+rc, said = run_integrate("agent/b", "--as", "tester", "--no-gate")
+board = open(os.path.join(root, "BOARD.md")).read()
+check("board merge: the branch's instructions and main's Notes are both in the merge",
+      rc == 0 and "1. Take a job, then read its Notes." in board and "- main's note" in board
+      and "<<<<<<<" not in board and "settled BOARD.md" in said, said + board)
+sh(root, "git", "checkout", "-qb", "agent/c", "HEAD~1")
+write(root, "BOARD.md", main_b.replace("1. Take a job, then read its Notes.", "x").replace("1. Take a job.", "1. Take two jobs.")
+      .replace("- main's note", "- c's note"))
+sh(root, "git", "commit", "-qam", "c edits the same section")
+sh(root, "git", "checkout", "-q", "main")
+head0 = sh(root, "git", "rev-parse", "HEAD").stdout
+rc, said = run_integrate("agent/c", "--as", "tester", "--no-gate")
+check("board merge: both editing the same section stops it, nothing committed",
+      rc == 1 and "both changed" in said and "If you're not the integrator" in said
+      and sh(root, "git", "rev-parse", "HEAD").stdout == head0, said)
+sh(root, "git", "merge", "--abort")
+shutil.rmtree(root)
+
 print(f"INTEGRATE TESTS: {sum(RESULTS)} passed, {len(RESULTS) - sum(RESULTS)} failed")
