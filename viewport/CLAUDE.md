@@ -6,7 +6,7 @@ evaluator; this side predicts. The top-level CLAUDE.md has the overview; ARCHITE
 protocol (update it in the same commit when you change either). Tools have their own guide in `tools/CLAUDE.md`.
 
 ## Files
-- `main.gd` (~1,800 lines; split in T39 / T41 / T75 / T113): setup, materials (`_lines` still forwards to the presenter for callers that want a node),
+- `main.gd` (~1,400 lines; split in T39 / T41 / T75 / T113): setup, materials (`_lines` still forwards to the presenter for callers that want a node),
   worker process and lifecycle, rejection bookkeeping, input dispatch (camera input to `camera_rig.gd`, menus in `menus.gd`, the interface built by `ui.gd`), model switching.
 - `keys.gd` (T75): the keyboard, `m.keys`: shortcuts, tool keys (`m.tool_keys`, from each tool's `TOOL`), Esc, Enter, Delete / Backspace (I48), typed
   characters, Tab / ⌥ for Push/Pull. main's `_input` / `_unhandled_input` stay the entry points (tests call
@@ -40,6 +40,8 @@ protocol (update it in the same commit when you change either). Tools have their
   asks for (`wood_material`), the current Paint wood, and the Paint and T (grain) commands. Made with the document
   and a texture-path callable, not Main. Main forwards `wood_library` / `wood_keys` / `paint_material`,
   `set_paint_material` and `_turn_grain` for menus.gd's Wood menu.
+- `save_prompts.gd` (T113): the close and outside-save questions, `m.prompts` (a Node, main's child): their dialogs,
+  state, deadlines and choices; document.gd decides when to save or reload, main connects its signals here.
 - `worker_process.gd` (T113): the FreeCAD worker's process, `m.worker`: finds, probes, picks, starts, restarts, watches
   and stops the worker, and writes worker.log. main keeps `PROTOCOL_VERSION`, opening the model and reconnects
   (`_send_open`, `_on_link_up`); `worker_client.gd` owns the socket.
