@@ -23,7 +23,9 @@ Architecture: lines, the response) and CLAUDE.md (commit trailers); this page sa
 
 ## Review and merge
 - Review every done job (Codex's `codex/*` branches too). Read each `Changed from the brief:` line first (P44):
-  accept it, or return the job; one that changes what William would notice goes to him. For a brief with a "What can fail" section, check that each case
+  accept it, or return the job; one that changes what William would notice goes to him (`integrate.py` also stops
+  with the merge staged when any response has one, prints them under "for you now:", and records them in the merge
+  commit on `--continue`; `--yes` doesn't skip this stop). For a brief with a "What can fail" section, check that each case
   listed there has its named check, and that the check fails without the change where it can (P42). Merge what's good with
   `python3 tools/integrate.py <branch> --as <name> --push` (P20). It runs the gate, `tools/gate.sh` (P18); flags
   files the branch changed outside its job's Touches list; renumbers a PROTOCOL_VERSION bump on top if main moved

@@ -534,5 +534,160 @@ check("the result commit itself still writes the full uncut Result text to the W
       and f"Result (2222bbb, merged {merge_sha}): {short_text}." in log_now, log_now)
 shutil.rmtree(root)
 
+# 10. Changed from the brief (P44): scoped to the response (outside code blocks), stops staged before commit
+#     (even with --yes), combines with the map pause into one stop, and records each change in the merge commit.
+brief_with_quote = (
+    "### H083 — T1: brief quoting the phrase\n\nAuthor: Claude | Status: answered\n\n"
+    "Request: add a `Changed from the brief:` line per departure:\n"
+    "Changed from the brief: example in the brief itself\n"
+    "- Changed from the brief: bulleted example in the brief\n"
+)
+check("changed_from_brief ignores lines in the brief before the Response heading",
+      integrate.changed_from_brief(brief_with_quote) == []
+      and integrate.changed_from_brief(brief_with_quote + "\nResponse — Gemini, 2026-11-23:\nDone.\n") == [],
+      integrate.changed_from_brief(brief_with_quote))
+code_block_resp = (
+    brief_with_quote
+    + "\n**Response — Gemini, 2026-11-23**\n\n"
+    "```markdown\nChanged from the brief: inside backtick fence\n```\n"
+    "~~~\n- Changed from the brief: inside tilde fence\n~~~\n"
+    "> Changed from the brief: quoted line\n"
+    "Changed from the brief: kept line one  \n"
+    "- Changed from the brief: kept line two\n"
+)
+check("changed_from_brief parses plain and bulleted lines in the response and ignores fenced code blocks and quotes",
+      integrate.changed_from_brief(code_block_resp) == ["kept line one", "kept line two"],
+      integrate.changed_from_brief(code_block_resp))
+
+
+def brief_repo(entry_text, branch_name="agent/p44", with_map=False, with_remote=False):
+    root = repo()
+    if with_map:
+        write(root, "ARCHITECTURE.md", "# Map\n")
+        sh(root, "git", "add", "-A"); sh(root, "git", "commit", "-qm", "add map")
+    bare = None
+    if with_remote:
+        bare = tempfile.mkdtemp(prefix="p44-remote-")
+        sh(bare, "git", "init", "-q", "--bare")
+        sh(root, "git", "remote", "add", "origin", bare)
+        sh(root, "git", "push", "-q", "origin", "main")
+    sh(root, "git", "checkout", "-qb", branch_name)
+    write(root, "notes.md", f"change on {branch_name}\n")
+    write(root, "docs/handoff/H083-p44.md", entry_text)
+    sh(root, "git", "add", "-A"); sh(root, "git", "commit", "-qm", "H083 work")
+    sh(root, "git", "checkout", "-q", "main")
+    integrator.take(integrator.lock_path(root), "tester", out=lambda *a: None)
+    return root, bare
+
+
+# 10a. Brief quotes the phrase and response has it only inside a code block: no stop, merges cleanly.
+root, _ = brief_repo(
+    brief_with_quote
+    + "\nResponse — Gemini, 2026-11-23:\nDone.\n\n```text\nChanged from the brief: sample in code block\n```\n"
+)
+rc, said = run_integrate("agent/p44", "--as", "tester", "--no-gate")
+merge_body = sh(root, "git", "log", "-1", "--format=%B").stdout
+check("brief quoting the phrase and response with only a fenced example merges with no stop",
+      rc == 0 and "staged, not committed" not in said and "Changed from the brief (" not in merge_body
+      and not os.path.exists(integrate.state_file(root)), said + merge_body)
+shutil.rmtree(root)
+
+# 10b. Branch with no Changed from the brief line at all merges with no stop.
+root, _ = brief_repo(
+    "### H083 — T1: plain job\n\nAuthor: Claude | Status: answered\n\n"
+    "Request: ordinary task.\n\nResponse — Gemini, 2026-11-23:\nDone.\n"
+)
+rc, said = run_integrate("agent/p44", "--as", "tester", "--no-gate")
+check("branch with no Changed from the brief line merges with no stop",
+      rc == 0 and "staged, not committed" not in said and "changed:" not in said
+      and not os.path.exists(integrate.state_file(root)), said)
+shutil.rmtree(root)
+
+# 10c. Branch with Changed from the brief lines stops staged even with --push --yes; --continue with nothing else
+#      changed commits with each line in the merge commit message.
+root, bare = brief_repo(
+    "### H083 — T1: departed job\n\nAuthor: Claude | Status: answered\n\n"
+    "Request: do X.\n\nResponse — Gemini, 2026-11-23:\nDone.\n\n"
+    "Changed from the brief: brief said A; did B; A broke C\n"
+    "- Changed from the brief: updated test_foo.py; asserted old text; P46\n"
+    "Result: abc1234; test_integrate passes; departed cleanly\n",
+    with_remote=True,
+)
+head0 = sh(root, "git", "rev-parse", "HEAD").stdout.strip()
+rc, said = run_integrate("agent/p44", "--as", "tester", "--no-gate", "--push", "--yes")
+idx = said.find("for you now:")
+expected_p44_msg = (
+    'the merge is staged, not committed (P44): check each change from the brief above; accept with '
+    'python3 tools/integrate.py --continue --as tester --push, or put the job back with '
+    'python3 tools/job.py return H083 "<notes>"'
+)
+check("Changed from the brief stops staged even with --yes, prints under 'for you now:' and gives P44 message",
+      rc == 0 and idx >= 0
+      and "  H083: changed: brief said A; did B; A broke C" in said[idx:]
+      and "  H083: changed: updated test_foo.py; asserted old text; P46" in said[idx:]
+      and expected_p44_msg in said
+      and sh(root, "git", "rev-parse", "HEAD").stdout.strip() == head0
+      and sh(root, "git", "rev-parse", "-q", "--verify", "MERGE_HEAD").returncode == 0
+      and sh(bare, "git", "rev-parse", "main").stdout.strip() == head0, said)
+rc, said = run_integrate("--continue", "--as", "tester")
+merge_sha = sh(root, "git", "log", "-1", "--format=%H", "--merges").stdout.strip()
+merge_body = sh(root, "git", "log", "-1", "--format=%B", merge_sha).stdout
+check("--continue after P44 stop with nothing else changed commits with the changes in the merge commit message",
+      rc == 0 and "Changed from the brief (H083): brief said A; did B; A broke C" in merge_body
+      and "Changed from the brief (H083): updated test_foo.py; asserted old text; P46" in merge_body
+      and not os.path.exists(integrate.state_file(root))
+      and "agent/p44" not in sh(root, "git", "branch").stdout, said + merge_body)
+shutil.rmtree(root); shutil.rmtree(bare)
+
+# 10d. Both Architecture and Changed from the brief: one stop listing both; --continue after map edit commits both.
+root, _ = brief_repo(
+    "### H083 — T1: map and brief change\n\nAuthor: Claude | Status: answered\n\n"
+    "Request: do X.\n\nResponse — Gemini, 2026-11-23:\nDone.\n\n"
+    "Architecture: notes.md owns the note\n"
+    "Changed from the brief: brief said X; did Y; Y serves the purpose\n"
+    "Result: def5678; tests pass; map and departure\n",
+    with_map=True,
+)
+head0 = sh(root, "git", "rev-parse", "HEAD").stdout.strip()
+rc, said = run_integrate("agent/p44", "--as", "tester", "--no-gate")
+idx = said.find("for you now:")
+check("both map and brief changes produce one stop listing both under 'for you now:'",
+      rc == 0 and idx >= 0
+      and "  H083: map: notes.md owns the note" in said[idx:]
+      and "  H083: changed: brief said X; did Y; Y serves the purpose" in said[idx:]
+      and "(P28)" in said and "(P44)" in said
+      and sh(root, "git", "rev-parse", "HEAD").stdout.strip() == head0, said)
+rc, said = run_integrate("--continue", "--as", "tester")
+check("with both map and brief changes, --continue still requires the map edit",
+      rc == 1 and "aren't changed yet" in said, said)
+write(root, "ARCHITECTURE.md", "# Map\n\nnotes.md owns the note.\n")
+sh(root, "git", "add", "ARCHITECTURE.md")
+rc, said = run_integrate("--continue", "--as", "tester")
+merge_sha = sh(root, "git", "log", "-1", "--format=%H", "--merges").stdout.strip()
+merge_body = sh(root, "git", "log", "-1", "--format=%B", merge_sha).stdout
+check("after map edit, one --continue commits both the map and the Changed from the brief line",
+      rc == 0 and "notes.md owns the note." in sh(root, "git", "show", f"{merge_sha}:ARCHITECTURE.md").stdout
+      and "Changed from the brief (H083): brief said X; did Y; Y serves the purpose" in merge_body
+      and not os.path.exists(integrate.state_file(root)), said + merge_body)
+shutil.rmtree(root)
+
+# 10e. Architecture + Changed from the brief with --impact: stops once for P44 only, --continue keeps --impact.
+root, _ = brief_repo(
+    "### H083 — T1: impact plus brief change\n\nAuthor: Claude | Status: answered\n\n"
+    "Request: do X.\n\nResponse — Gemini, 2026-11-23:\nDone.\n\n"
+    "Architecture: notes.md owns the note\n"
+    "Changed from the brief: brief said X; did Y; Y serves the purpose\n",
+    with_map=True,
+)
+rc, said = run_integrate("agent/p44", "--as", "tester", "--no-gate", "--impact", "no architecture change needed")
+check("with --impact and brief changes, stops for P44 only (not P28)",
+      rc == 0 and "(P44)" in said and "(P28)" not in said and "  H083: changed:" in said, said)
+rc, said = run_integrate("--continue", "--as", "tester")
+merge_body = sh(root, "git", "log", "-1", "--format=%B").stdout
+check("--continue without repeating --impact commits with both the brief change and Architecture-Impact",
+      rc == 0 and "Changed from the brief (H083): brief said X; did Y; Y serves the purpose" in merge_body
+      and "Architecture-Impact: none - no architecture change needed" in merge_body, said + merge_body)
+shutil.rmtree(root)
+
 print(f"INTEGRATE TESTS: {sum(RESULTS)} passed, {len(RESULTS) - sum(RESULTS)} failed")
 raise SystemExit(0 if all(RESULTS) else 1)   # a failed check fails the run, not only its summary
