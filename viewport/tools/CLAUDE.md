@@ -22,7 +22,7 @@ The viewport guide (`../CLAUDE.md`) covers drafts, waves and the rules for drawi
   measurements, tooltip, rejection note, New board) and `ctx.paint` (`current_name`, `apply`; owned by `../appearance.gd`). Answers are copies; no adapter gives out
   Main, a node, a material or a cache map. Pure geometry is `Geo` (`../tool_geometry.gd`), preloaded in tool.gd.
 - Legacy, until each tool moves (T88 steps 1–6): `uses_main()` is the temporary marker. While it returns true
-  (the four legacy tools: Rectangle, Circle, Push/Pull, Move), main.gd also calls `setup(m)`, giving `m` (main.gd) and `infer` (inference.gd). A tool
+  (the two legacy tools: Push/Pull, Move), main.gd also calls `setup(m)`, giving `m` (main.gd) and `infer` (inference.gd). A tool
   moved to the context overrides `uses_main()` to return false, uses only `ctx` and `Geo`, and leaves
   `STILL_ON_MAIN` in `../test_tools.gd` in the same commit. A new tool (Line, H046) starts on the context; Paint (H065) is the worked example of a move.
   Snap only through inference (`ctx.pick`, or `infer` / `m.snap()` / `m.pick()` in a legacy tool): one snapping
