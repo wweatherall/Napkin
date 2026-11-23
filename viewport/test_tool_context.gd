@@ -20,9 +20,24 @@ var made: Array = []
 
 class LinePresenter:
 	var received := {}
+	var region := {"outline": [Vector3.ZERO], "holes": [[Vector3.ONE]], "lines": ["rline"]}
+	func drawn_region(_source: PackedVector3Array, _body: String, _normal: Vector3, _point: Vector3) -> Dictionary:
+		return region
 	func register_line(o: Dictionary) -> void:
 		received = o.duplicate(true)
 		o.end[0] = 999
+
+
+class DraftScene:
+	var drafts_root := Node3D.new()
+	var bodies_root := Node3D.new()
+	var mat_hover := StandardMaterial3D.new()
+	var mat_draft := StandardMaterial3D.new()
+	var mat_cut := StandardMaterial3D.new()
+	var mat_rect := StandardMaterial3D.new()
+	var overlay_bias := 0.0
+	var line_scale := 1.0
+	var test_mode := true
 
 
 class FakeAppearance:
@@ -97,16 +112,16 @@ const ALLOW := {
 	"pick": ["hit", "snap", "on_grid", "point", "axis", "axis_dest", "plane_dest", "ray", "project", "cursor",
 			 "grid_enabled", "grid_step", "snap_radius"],
 	"model": ["body_ids", "has_body", "triangles", "profile", "stock_frame", "unit_triangles", "cut_at",
-			  "cut_triangles", "circle_geometry", "lines_on"],
+			  "cut_triangles", "circle_geometry", "lines_on", "drawn_region"],
 	"selection": ["ids", "context", "assembly_of", "members_of", "unit_of", "in_context", "is_hidden",
 				  "context_assembly", "edit_blocked", "set_ids", "enter"],
 	"document": ["next_id", "op", "append", "remove", "sync"],
 	"view": ["preview", "clear_preview", "marker", "hide_marker", "guides", "clear_guides", "selection_box",
-			 "clear_selection_box", "face_highlight", "clear_face_highlight", "register_profile", "register_line"],
+			 "clear_selection_box", "face_highlight", "clear_face_highlight", "register_profile", "register_line", "present_draft"],
 	"ui": ["typed_text", "refresh_measurements", "refresh_tip", "clear_rejection", "new_board"],
 	"paint": ["current_name", "apply"],
 }
-const DEFERRED := {"view": ["present_draft", "mirror_preview"]}   # step 5 (Push/Pull), step 6 (Move)
+const DEFERRED := {"view": ["mirror_preview"]}   # step 6 (Move)
 
 
 static func public_members(o: Object) -> Dictionary:
@@ -182,6 +197,11 @@ func _initialize() -> void:
 	var line_op := {"id": "rline", "type": "line", "end": [10, 20, 0]}
 	line_ctx.view.register_line(line_op)
 	check("view.register_line passes a deep copy to the presenter", line_pres.received == line_op and line_op.end[0] == 10)
+
+	var region := line_ctx.model.drawn_region(PackedVector3Array(), "b1", Vector3.UP, Vector3.ZERO)
+	region.outline.clear(); region.holes[0].clear(); region.lines.clear()
+	check("model.drawn_region returns independent outlines, holes and line IDs",
+		line_pres.region == {"outline": [Vector3.ZERO], "holes": [[Vector3.ONE]], "lines": ["rline"]})
 
 	# --- snapshots: what a tool gets back is its own copy ---
 	var pres = t["pres"]; var sel = t["sel"]; var doc = t["doc"]
@@ -307,14 +327,15 @@ func _initialize() -> void:
 	# --- view, ui and paint with bound stand-ins ---
 	var calls := []
 	var overlay := MeshInstance3D.new(); var overlay_lines := MeshInstance3D.new(); made.append(overlay); made.append(overlay_lines)
-	var added := []
+	var scene := DraftScene.new()
+	made.append(scene.drafts_root); made.append(scene.bodies_root)
+	pres.m = scene
 	var mats := {"hover": StandardMaterial3D.new(), "profile": StandardMaterial3D.new()}
 	var vparts: Dictionary = t["parts"].duplicate()
 	vparts.merge({"overlay": overlay, "overlay_lines": overlay_lines, "materials": mats,
 		"tri_mesh": func(tris, mat): calls.append(["tri", tris.size(), mat]); return ArrayMesh.new(),
 		"lines": func(segs, col): calls.append(["lines", segs.size(), col]); var mi := MeshInstance3D.new(); mi.mesh = ArrayMesh.new(); made.append(mi); return mi,
 		"show_marker": func(h): calls.append(["marker", h]); h["point"] = Vector3.ONE,
-		"add_node": func(n): added.append(n),
 		"refresh_tip": func(s): calls.append(["tip", s]),
 		"new_board": func() -> bool: return true,
 		"appearance": FakeAppearance.new(calls)})
@@ -331,7 +352,7 @@ func _initialize() -> void:
 	check("view.marker passes a copy of the hit", hit["point"] == Vector3(5, 5, 0) and calls.back()[0] == "marker")
 	v.view.selection_box(Vector2(10, 10), Vector2(50, 40)); v.view.selection_box(Vector2(10, 10), Vector2(60, 70))
 	var panels: Array = pres.get_children().filter(func(n): return n is Panel)
-	check("view.selection_box reuses a presenter-owned box and follows the drag", added.is_empty() and panels.size() == 1
+	check("view.selection_box reuses a presenter-owned box and follows the drag", panels.size() == 1
 		and panels[0].size == Vector2(50, 60) and panels[0].mouse_filter == Control.MOUSE_FILTER_IGNORE)
 	var panel: Panel = panels[0]
 	var style: StyleBoxFlat = panel.get_theme_stylebox("panel")
@@ -343,11 +364,12 @@ func _initialize() -> void:
 	v.view.clear_selection_box()
 	check("view.clear_selection_box releases the presenter's Panel", panel.is_queued_for_deletion())
 	v.view.face_highlight(tri)
-	check("view.face_highlight makes its own node in the hover style", added.size() == 1 and added[0] is MeshInstance3D
-		and added[0].mesh != null and calls.back() == ["tri", 3, mats["hover"]])
+	var face: MeshInstance3D = pres.get_children().filter(func(n): return n is MeshInstance3D)[0]
+	v.view.face_highlight(tri)
+	check("view.face_highlight reuses a presenter-owned node with the hover material",
+		face.mesh.surface_get_material(0) == scene.mat_hover and pres.get_children().filter(func(n): return n is MeshInstance3D).size() == 1)
 	v.view.clear_face_highlight()
-	check("view.clear_face_highlight clears it", added[0].mesh == null)
-	made.append(added[0])
+	check("view.clear_face_highlight clears it", face.mesh == null)
 	check("ui.new_board / paint.current_name read the bound options", v.ui.new_board() and v.paint.current_name() == "White oak")
 	var targets := ["b1"]
 	v.paint.apply(targets)
@@ -566,6 +588,8 @@ func _initialize() -> void:
 	rect.click(Vector2.ZERO)
 	check("Rectangle won't start on an assembly board from outside", not rect.busy())
 
+	_test_push()
+
 	# --- geometry: the moved functions, and Main's wrappers give the same answers ---
 	var v3 := Vector3(1.23456, -7.0004, 2.5)
 	check("arr3 keeps its 0.001 rounding", Geo.arr3(v3) == [1.235, -7.0, 2.5] and Main.arr3(v3) == Geo.arr3(v3))
@@ -581,7 +605,7 @@ func _initialize() -> void:
 		and Main.AXIS_COLORS == Presenter.AXIS_COLORS)
 
 	# --- source: the context, geometry and inference never reach main.gd ---
-	for path in ["res://tool_context.gd", "res://tool_geometry.gd", "res://inference.gd", "res://appearance.gd", "res://tools/paint_tool.gd", "res://tools/select_tool.gd", "res://tools/circle_tool.gd", "res://tools/rect_tool.gd", "res://tools/line_tool.gd"]:
+	for path in ["res://tool_context.gd", "res://tool_geometry.gd", "res://inference.gd", "res://appearance.gd", "res://tools/paint_tool.gd", "res://tools/select_tool.gd", "res://tools/circle_tool.gd", "res://tools/rect_tool.gd", "res://tools/line_tool.gd", "res://tools/push_tool.gd"]:
 		var code := code_only(FileAccess.get_file_as_string(path))
 		var bad := []
 		for needle in ['preload("res://main.gd")', 'load("res://main.gd")', "Main.", "Main)", ": Main", "infer.m", "\tm.", " m.", "(m."]:
@@ -592,6 +616,103 @@ func _initialize() -> void:
 	for n in made: if is_instance_valid(n): n.free()
 	print("TOOL CONTEXT TESTS: %d passed, %d failed" % [passed, failed])
 	quit(1 if failed > 0 else 0)
+
+
+func _test_push() -> void:
+	var t := make()
+	var pres: Presenter = t.pres
+	var scene := DraftScene.new()
+	pres.m = scene
+	made.append(scene.drafts_root); made.append(scene.bodies_root)
+	var infer := PaintInference.new()
+	var parts: Dictionary = t.parts.duplicate()
+	parts.merge({"infer": infer, "push_filter": pres.push_tests.filter}, true)
+	var ctx := ToolContext.new(parts)
+	var push = load("res://tools/push_tool.gd").new()
+	push.setup_context(ctx)
+	var normal := Vector3(0, 0, 1)
+	var plane := {"origin": [0, 0, 0], "normal": [0, 0, 1]}
+	var rect := {"id": "profile", "type": "rect", "plane": plane, "corner": [0, 0], "size": [10, 10]}
+	ctx.document.append(rect)
+	ctx.view.register_profile(rect)
+	var profile_node: Node = pres.drafts.profile
+	infer.hit = {"hit": true, "point": Vector3(4, 4, 0), "normal": normal, "rect": "profile", "body": ""}
+	push.click(Vector2.ZERO)
+	push.typed("6.25")
+	var op: Dictionary = t.doc.ops.back()
+	var board: String = op.body
+	var predicted := Geo.prism(ctx.model.profile("profile").tris, normal, 6.25)
+	var surface: MeshInstance3D = pres.drafts[op.id].get_child(0)
+	var colliders := surface.find_children("*", "StaticBody3D", true, false)
+	check("context-only Push makes a board, consumes the profile and syncs",
+		push.m == null and not push.uses_main() and not push.busy() and op.distance == 6.25 and op.target.rect == "profile"
+		and not pres.drafts.has("profile") and profile_node.is_queued_for_deletion() and t.doc.seq == 1)
+	check("new draft is pickable with its vertices and edges installed together",
+		colliders.size() == 1 and colliders[0].get_meta("body_id") == board and colliders[0].collision_layer == 1
+		and ctx.model.triangles(board) == predicted and pres.body_verts[board] == Geo.unique_verts(predicted)
+		and pres.body_edges[board] == Geo.feature_edges(predicted))
+	var w: Dictionary = pres.op_waves[op.id]
+	check("new draft owns the wave and records bounds", w.bodies == [board] and w.links[0][0] == surface
+		and w.links[0][1] == surface.get_child(0) and w.og == Geo.m2g(Vector3(4, 4, 6.25))
+		and pres.push_tests.bounds[board] == [[0.0, 0.0, 0.0], [10.0, 10.0, 6.25]])
+	var root: Node = pres.drafts[op.id]
+	pres.drop_confirmed_drafts({})
+	check("confirmation frees the whole draft root", root.is_queued_for_deletion() and not pres.drafts.has(op.id))
+
+	var confirmed := MeshInstance3D.new()
+	confirmed.name = board
+	confirmed.mesh = pres.tri_mesh(predicted, scene.mat_rect)
+	var edges := MeshInstance3D.new()
+	confirmed.add_child(edges); confirmed.set_meta("edges", edges)
+	scene.bodies_root.add_child(confirmed)
+	infer.hit.point.z = 6.25
+	for distance in [2.0, -6.25]:
+		var id := "join" if distance > 0 else "cut"
+		var profile := rect.duplicate(true)
+		profile.id = id
+		profile.plane = {"on": {"body": board, "normal": [0, 0, 1], "point": [0, 0, 6.25]}}
+		ctx.document.append(profile); ctx.view.register_profile(profile)
+		infer.hit.rect = id
+		push.click(Vector2.ZERO); push.typed(str(distance))
+		var edit: Dictionary = t.doc.ops.back()
+		var patch: MeshInstance3D = pres.drafts[edit.id].get_child(0)
+		check("context-only %s edits the existing board and waves on its confirmed mesh" % id,
+			not edit.has("body") and edit.target == {"rect": id} and edit.distance == distance
+			and edit.get("through", false) == (distance < 0) and pres.op_waves[edit.id].links[0][0] == confirmed
+			and patch.mesh.surface_get_material(0) == (scene.mat_cut if distance < 0 else scene.mat_draft)
+			and patch.find_children("*", "StaticBody3D", true, false).is_empty() and ctx.model.triangles(board) == predicted)
+
+	pres.push_tests.reject_next = true
+	infer.hit.rect = ""; infer.hit.body = board
+	push.click(Vector2.ZERO); push.typed("1")
+	check("a face push leaves the profile rejection armed", pres.push_tests.reject_next and t.doc.ops.back().target.has("face"))
+	rect.id = "rejected-profile"
+	ctx.document.append(rect); ctx.view.register_profile(rect)
+	infer.hit.rect = rect.id; infer.hit.body = ""; infer.hit.point.z = 0
+	push.click(Vector2.ZERO); push.typed("3")
+	var rejected: Dictionary = t.doc.ops.back()
+	var doomed: Node = pres.drafts[rejected.id]
+	check("only the submitted profile target changes on forced rejection", not pres.push_tests.reject_next
+		and rejected.target == {"rect": "r_missing"} and not pres.drafts.has(rect.id))
+	pres.op_waves[rejected.id].state = "rejected"
+	pres.drop_confirmed_drafts({})
+	check("the rejected draft survives confirmation until rollback", pres.drafts.has(rejected.id) and not doomed.is_queued_for_deletion())
+	t.doc.op_removed.connect(func(removed): pres.forget_op(removed, t.doc.ops, {}))
+	ctx.document.remove(rejected.id)
+	check("rollback removes the op, wave, draft root and all three prediction caches", ctx.document.op(rejected.id).is_empty()
+		and doomed.is_queued_for_deletion() and not pres.drafts.has(rejected.id) and not pres.op_waves.has(rejected.id)
+		and not ctx.model.has_body(rejected.body) and not pres.body_edges.has(rejected.body) and not pres.body_verts.has(rejected.body))
+
+	# A multi-piece draft exercises replacement and verifies that caller-owned arrays remain snapshots.
+	var tris := predicted.duplicate()
+	var piece := {"tris": tris, "style": "draft", "line_color": Color.RED, "body_id": board, "replace": true}
+	var wave := {"origin": Vector3.ZERO, "tris": tris, "is_new": false, "bodies": [board], "attach": "drafts"}
+	ctx.view.present_draft({"id": "replacement", "type": "move"}, [piece, piece.merged({"body_id": ""}, true)], wave)
+	piece.tris[0] = Vector3.INF
+	wave.bodies.clear()
+	check("present_draft hides replaced meshes and attaches ordered pieces under one root",
+		not confirmed.visible and pres.drafts.replacement.get_child_count() == 2 and pres.op_waves.replacement.links.size() == 2
+		and ctx.model.triangles(board) == predicted and pres.op_waves.replacement.bodies == [board])
 
 
 static func _same(a: Array, b: Array) -> bool:

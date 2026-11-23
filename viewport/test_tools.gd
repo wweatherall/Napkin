@@ -6,7 +6,7 @@ const Registry = preload("res://tool_registry.gd")
 const ToolContext = preload("res://tool_context.gd")
 # T88's migration marker: the tools that still get main.gd (uses_main() true). A tool moved to ToolContext
 # leaves this list in the same commit; at step 6 the list is empty and the marker goes.
-const STILL_ON_MAIN := ["push", "move"]
+const STILL_ON_MAIN := ["move"]
 var passed := 0
 var failed := 0
 

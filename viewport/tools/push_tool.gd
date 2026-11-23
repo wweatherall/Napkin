@@ -4,15 +4,18 @@ extends "res://tools/tool.gd"
 const TOOL := {"id": "push", "label": "Push/Pull", "tip": "Push/Pull (P)", "key": KEY_P, "order": 40, "show_links": true}   # the toolbar, the Tools menu and the key (tool_registry.gd)
 
 var state := {}
-var face_highlight: MeshInstance3D
 const FIT_MODES := ["Butt to plane", "Slice at plane", "Fully reach plane"]   # I41: ⌥ Option cycles them
 var hover := {}          # the face, rectangle or circle under the cursor
+
+
+func uses_main() -> bool:
+	return false
 
 
 func reset() -> void:
 	state = {}
 	press_reset()
-	if is_instance_valid(face_highlight): face_highlight.mesh = null
+	ctx.view.clear_face_highlight()
 
 
 func hint() -> String:
@@ -35,7 +38,7 @@ func click(screen: Vector2) -> void:
 	if not state.get("active", false):
 		_push_hover(screen)
 		if hover.is_empty(): return
-		if m.edit_blocked(hover.get("body", "") if hover.get("rect", "") == "" else m.rects[hover["rect"]]["on"]): return
+		if ctx.selection.edit_blocked(hover.get("body", "") if hover.get("rect", "") == "" else ctx.model.profile(hover["rect"]).on): return
 		state = hover.duplicate()
 		state["active"] = true
 		state["dist"] = 0.0
@@ -73,8 +76,8 @@ func tip() -> String:
 func _depths_behind() -> Array:
 	"""How far behind the pushed face each face of the same board lies (the back face, a pocket's floor), as
 	negative push distances, deepest last. Measured straight through the board, so hidden faces count here."""
-	var bid: String = state["body"] if state.get("rect", "") == "" else m.rects[state["rect"]]["on"]
-	var tris: PackedVector3Array = m.body_tris.get(bid, PackedVector3Array())
+	var bid: String = state["body"] if state.get("rect", "") == "" else ctx.model.profile(state["rect"]).on
+	var tris: PackedVector3Array = ctx.model.triangles(bid)
 	var n: Vector3 = state["n"]
 	var from: Vector3 = state["anchor"] - n * 0.01
 	var found := {}
@@ -95,45 +98,47 @@ func _snap_to_face_behind(screen: Vector2) -> void:
 	the whole thickness, so the first part of a push in follows the cursor."""
 	var depths: Array = state.get("depths", [])
 	if depths.is_empty() or state["dist"] >= 0.0: return
-	var screen_at := func(d: float) -> Vector2: return m.cam.unproject_position(Main.m2g(state["anchor"] + state["n"] * d))
+	var screen_at := func(d: float) -> Vector2: return ctx.pick.project(state["anchor"] + state["n"] * d).screen
 	var here: Vector2 = screen_at.call(state["dist"])
 	var stops := [0.0] + depths                  # the start, then the faces behind, nearest first
 	for k in depths.size():
 		var c: float = depths[k]
 		var at: Vector3 = state["anchor"] + state["n"] * c
 		var p: Vector2 = screen_at.call(c)
-		var radius := Main.SNAP_PX
+		var radius := ctx.pick.snap_radius()
 		radius = minf(radius, 0.5 * p.distance_to(screen_at.call(stops[k])))
 		if k + 1 < depths.size(): radius = minf(radius, 0.5 * p.distance_to(screen_at.call(depths[k + 1])))
 		if p.distance_to(here) < radius:
 			state["dist"] = c
 			state["snap"] = "back face" if k == depths.size() - 1 else "face behind"
-			m._show_marker({"hit": true, "point": at, "snap": state["snap"]})
+			ctx.view.marker({"hit": true, "point": at, "snap": state["snap"]})
 			return
 
 
 func _push_hover(screen: Vector2) -> void:
 	hover = {}
-	m.overlay.mesh = null
-	var p := m.pick(screen)
-	m.marker.visible = false
+	ctx.view.clear_preview()
+	var p := ctx.pick.hit(screen)
+	ctx.view.hide_marker()
 	if not p.get("hit", false): return
 	var tris := PackedVector3Array()
+	var on: String = p.body
 	if p["rect"] != "":
-		tris = m.rects[p["rect"]]["tris"]
+		var profile := ctx.model.profile(p.rect)
+		tris = profile.tris
+		on = profile.on
 	elif p["body"] != "":
 		tris = coplanar_region(p["body"], p["normal"], p["point"])
-	var on: String = m.rects[p.rect].on if p.rect != "" else p.body
-	var region: Dictionary = m.pres.drawn_region(tris, on, p.normal, p.point)
+	var region: Dictionary = ctx.model.drawn_region(tris, on, p.normal, p.point)
 	if not region.is_empty(): tris = region.tris
 	if tris.is_empty(): return
 	hover = {"rect": p["rect"], "body": p["body"], "n": p["normal"], "anchor": p["point"], "tris": tris}
 	if not region.is_empty(): hover["region"] = region
-	m.overlay.mesh = m._tri_mesh(tris, m.mat_hover)
+	ctx.view.preview(tris, "hover")
 
 
 func coplanar_region(bid: String, n: Vector3, p: Vector3) -> PackedVector3Array:
-	var all: PackedVector3Array = m.body_tris.get(bid, PackedVector3Array())
+	var all: PackedVector3Array = ctx.model.triangles(bid)
 	var cand := []
 	for i in range(0, all.size(), 3):
 		var a := all[i]; var b := all[i + 1]; var c := all[i + 2]
@@ -148,7 +153,7 @@ func coplanar_region(bid: String, n: Vector3, p: Vector3) -> PackedVector3Array:
 	var by_edge := {}
 	for i in cand.size():
 		for e in [[0, 1], [1, 2], [2, 0]]:
-			var k := Main._ekey(cand[i][e[0]], cand[i][e[1]])
+			var k := Geo.edge_key(cand[i][e[0]], cand[i][e[1]])
 			if not by_edge.has(k): by_edge[k] = []
 			by_edge[k].append(i)
 	var seen := {start: true}
@@ -156,7 +161,7 @@ func coplanar_region(bid: String, n: Vector3, p: Vector3) -> PackedVector3Array:
 	while not stack.is_empty():
 		var i: int = stack.pop_back()
 		for e in [[0, 1], [1, 2], [2, 0]]:
-			for j in by_edge[Main._ekey(cand[i][e[0]], cand[i][e[1]])]:
+			for j in by_edge[Geo.edge_key(cand[i][e[0]], cand[i][e[1]])]:
 				if not seen.has(j): seen[j] = true; stack.append(j)
 	var out := PackedVector3Array()
 	for i in seen: out.append_array(PackedVector3Array(cand[i]))
@@ -175,28 +180,28 @@ static func _in_tri(p: Vector3, a: Vector3, b: Vector3, c: Vector3) -> bool:
 
 
 func _push_drag(screen: Vector2) -> void:
-	var a := Main.m2g(state["anchor"])
-	var n := Vector3(state["n"].x, state["n"].z, -state["n"].y)
-	var o := m.cam.project_ray_origin(screen); var d := m.cam.project_ray_normal(screen)
-	var w0 := a - o
+	var ray := ctx.pick.ray(screen)
+	var n: Vector3 = state.n
+	var d: Vector3 = ray.direction
+	var w0: Vector3 = state.anchor - ray.origin
 	var bb := n.dot(d); var cc := d.dot(d); var dd := n.dot(w0); var ee := d.dot(w0)
 	var den := n.dot(n) * cc - bb * bb
 	if absf(den) < 1e-9: return
 	var s := (bb * ee - cc * dd) / den
-	state["dist"] = roundf(s * 1000.0)
+	state["dist"] = roundf(s)
 	state["snap"] = ""
 	# push to a point (Q16): over a corner, midpoint or edge of any board, the face goes to that point's level
-	var pt := infer.point(screen, "", {}, false, {"n": state["n"], "p": state["anchor"]})
-	m.marker.visible = false
+	var pt := ctx.pick.point(screen, "", {}, false, {"n": state["n"], "p": state["anchor"]})
+	ctx.view.hide_marker()
 	if not pt.is_empty():
 		state["dist"] = clean_pointer_distance((pt["point"] - state["anchor"]).dot(state["n"]))
 		state["snap"] = pt["kind"]
-		m._show_marker({"hit": true, "point": pt["point"], "snap": pt["kind"]})
+		ctx.view.marker({"hit": true, "point": pt["point"], "snap": pt["kind"]})
 	else:
 		_snap_to_face_behind(screen)
 	_edge_inference(pt, screen)
 	_preview_push(state["dist"])
-	m._update_vcb()
+	ctx.ui.refresh_measurements()
 
 
 static func _vec(a: Array) -> Vector3:
@@ -207,27 +212,28 @@ func _edge_inference(pt: Dictionary, screen: Vector2) -> void:
 	if state.has("region"): return     # a region push must not resize an entire stock face
 	var previous: Dictionary = state.get("edge_fit", {})
 	state.erase("edge_fit")
-	if is_instance_valid(face_highlight): face_highlight.mesh = null
+	ctx.view.clear_face_highlight()
 	var body: String = pt.get("body","")
 	if pt.get("kind","") not in ["on edge","midpoint","endpoint"]:
-		var hit := m.pick(screen)
+		var hit := ctx.pick.hit(screen)
 		if hit.get("body","") != "": state["last_hover"] = hit
 		if not pt.is_empty() or hit.get("body","") == "": return
 		body = hit.body
 		pt = hit
-	if body == state.body or not m.stock_frames.has(body) or m.stock_frames[body].fitted: return
+	var target := ctx.model.stock_frame(body)
+	if body == state.body or target.is_empty() or target.fitted: return
 	var source_size := 0.0
 	if state.rect != "":
 		# Plane-fit stock dimensions describe rectangles. Circle pushes still use point/back-face inference.
-		if m.rects[state.rect].get("kind", "rect") != "rect": return
-		if m.rects[state.rect].on != "" and not (m.new_board and state.dist > 0): return
+		var profile := ctx.model.profile(state.rect)
+		if profile.get("kind", "rect") != "rect": return
+		if profile.on != "" and not (ctx.ui.new_board() and state.dist > 0): return
 	else:
-		if not m.stock_frames.has(state.body) or m.stock_frames[state.body].fitted: return
-		var src: Dictionary = m.stock_frames[state.body]
+		var src := ctx.model.stock_frame(state.body)
+		if src.is_empty() or src.fitted: return
 		for i in 3:
 			if absf(_vec(src.axes[i]).dot(state.n)) > 0.9999: source_size = src.sizes[i]
 		if source_size <= 0: return
-	var target: Dictionary = m.stock_frames[body]
 	var origin := _vec(target.origin)
 	var edge_point: Vector3 = pt.get("edge_point",pt.point)
 	var push: Vector3 = state.n
@@ -280,11 +286,8 @@ func _choose_face(index: int) -> void:
 	var mode: int = state.get("fit_mode", 0)
 	state["dist"] = option.far if mode == 2 else option.distance      # Fully reach: square at the last contact
 	state["edge_fit"] = {"target_body":state.edge_body,"face":option.face,"fit_mode":mode}
-	if not is_instance_valid(face_highlight):
-		face_highlight = MeshInstance3D.new()
-		m.add_child(face_highlight)
 	var triangles := coplanar_region(state.edge_body,option.normal,state.edge_point)
-	face_highlight.mesh = m._tri_mesh(triangles,m.mat_hover)
+	ctx.view.face_highlight(triangles)
 
 
 func key(e: InputEventKey) -> bool:
@@ -296,8 +299,8 @@ func key(e: InputEventKey) -> bool:
 	else:
 		_choose_face((state.choice+1)%state.options.size())
 	_preview_push(state.dist)
-	m._update_vcb()
-	m._update_tip(state.edge_screen)
+	ctx.ui.refresh_measurements()
+	ctx.ui.refresh_tip(state.edge_screen)
 	return true
 
 
@@ -307,16 +310,16 @@ func _push_shape(d: float) -> PackedVector3Array:
 		var o: Dictionary = state.options[state.choice]
 		var pp: Vector3 = o.plane_point; var pn: Vector3 = o.plane_normal; var push: Vector3 = o.push
 		var denom := pn.dot(push)
-		return Main.prism_by(state["tris"], func(p: Vector3) -> Vector3: return push * (pn.dot(pp - p) / denom))
-	return Main.prism(state["tris"], state["n"], d)
+		return Geo.prism_by(state["tris"], func(p: Vector3) -> Vector3: return push * (pn.dot(pp - p) / denom))
+	return Geo.prism(state["tris"], state["n"], d)
 
 
 func _preview_push(d: float) -> void:
 	if absf(d) < GEOMETRY_TOLERANCE_MM:
-		m.overlay.mesh = m._tri_mesh(state["tris"], m.mat_hover); m.overlay_lines.mesh = null; return
+		ctx.view.preview(state.tris, "hover")
+		return
 	var pr := _push_shape(d)
-	m.overlay.mesh = m._tri_mesh(pr, m.mat_cut if d < 0 else m.mat_draft)
-	m.overlay_lines.mesh = m._lines(Main.feature_edges(pr), Color(0.6, 0.35, 0.0)).mesh
+	ctx.view.preview(pr, "cut" if d < 0 else "draft", Geo.feature_edges(pr))
 
 
 func _finish_push() -> void:
@@ -326,15 +329,15 @@ func _finish_push() -> void:
 
 func commit_push(d: float, edge_fit := {}) -> void:
 	if absf(d) < GEOMETRY_TOLERANCE_MM: return
-	m.reject_note = ""
-	var oid := m.doc.next_id("pp")
+	ctx.ui.clear_rejection()
+	var oid := ctx.document.next_id("pp")
 	var op := {"id": oid, "type": "push_pull", "distance": d}
 	var on := ""
 	if state["rect"] != "":
 		op["target"] = {"rect": state["rect"]}
-		on = m.rects[state["rect"]]["on"]
+		on = ctx.model.profile(state["rect"]).on
 	else:
-		op["target"] = {"face": {"body": state["body"], "normal": Main.arr3(state["n"]), "point": Main.arr3(state["anchor"])}}
+		op["target"] = {"face": {"body": state["body"], "normal": Geo.arr3(state["n"]), "point": Geo.arr3(state["anchor"])}}
 		on = state["body"]
 	if state.has("region"):
 		var r: Dictionary = state.region
@@ -349,51 +352,23 @@ func commit_push(d: float, edge_fit := {}) -> void:
 	var new_id := ""
 	# a rectangle becomes its own board (free, or on a face with "new board" on);
 	# pushing a body's own face always edits that body, like SketchUp
-	if (state["rect"] != "" or state.has("region")) and (on == "" or (d > 0 and m.new_board)):
-		new_id = m.doc.next_id("b")
+	if (state["rect"] != "" or state.has("region")) and (on == "" or (d > 0 and ctx.ui.new_board())):
+		new_id = ctx.document.next_id("b")
 		op["body"] = new_id
-		if m.context_assembly() != "": op["assembly"] = m.context_assembly()   # drawn inside: it joins (T20)
-	if m.force_reject_next and op["target"].has("rect"):
-		op["target"] = {"rect": "r_missing"}      # test hook only: guarantees FreeCAD rejects it
-		m.force_reject_next = false
+		if ctx.selection.context_assembly() != "": op["assembly"] = ctx.selection.context_assembly()   # drawn inside: it joins (T20)
 	if not edge_fit.is_empty():
 		op["edge_fit"] = edge_fit.duplicate()
-	elif not state.has("region") and state.rect == "" and m.stock_frames.has(on) and not m.stock_frames[on].fitted:
+	elif not state.has("region") and state.rect == "" and not ctx.model.stock_frame(on).get("fitted", true):
 		op["resize_stock"] = true
-	m.ops.append(op)
-	var end_point: Vector3 = state["anchor"] + state["n"] * d   # on the moved face, under the cursor's axis
+	ctx.document.append(op)
 	var pr := _push_shape(d)
-	var nodes := _add_push_draft(op, pr, d, new_id)
-	if m.test_mode and new_id != "":
-		var lo := Vector3(INF, INF, INF); var hi := -lo
-		for q in pr: lo = lo.min(q); hi = hi.max(q)
-		m.draft_bboxes[new_id] = [Main.arr3(lo), Main.arr3(hi)]
-	# the wave starts now, before FreeCAD has answered
-	if new_id != "":
-		m._begin_wave(oid, end_point, pr, true, new_id)
-		m._attach_wave(oid, nodes[0], nodes[1], Main.DEFAULT_BASE)
-	else:
-		m._begin_wave(oid, end_point, m.body_tris.get(on, pr), false, on)
-		for mi in m.bodies_root.find_children(on, "MeshInstance3D", true, false):
-			m._attach_wave(oid, mi, mi.get_child(mi.get_child_count() - 1), m._base_of(mi))
-	if state["rect"] != "" and m.drafts.has(state["rect"]):
-		m.drafts[state["rect"]].queue_free(); m.drafts.erase(state["rect"])
+	var piece := {"tris": pr, "style": "cut" if d < 0 else "draft", "line_color": Color(0.6, 0.35, 0),
+		"body_id": new_id, "replace": false}
+	var is_new := new_id != ""
+	var wave := {"origin": state.anchor + state.n * d, "tris": pr if is_new or not ctx.model.has_body(on) else ctx.model.triangles(on),
+		"is_new": is_new, "bodies": [new_id if is_new else on], "attach": "drafts" if is_new else "confirmed"}
+	ctx.view.present_draft(op, [piece], wave)
 	reset()
-	m.overlay.mesh = null; m.overlay_lines.mesh = null
-	m.marker.visible = false
-	m.sync()
-
-
-func _add_push_draft(op: Dictionary, pr: PackedVector3Array, d: float, new_id: String) -> Array:
-	var mi := MeshInstance3D.new()
-	mi.mesh = m._tri_mesh(pr, m.mat_cut if d < 0 else m.mat_draft)
-	var edges := m._lines(Main.feature_edges(pr), Color(0.6, 0.35, 0.0))
-	mi.add_child(edges)
-	m.drafts_root.add_child(mi)
-	m.drafts[op["id"]] = mi
-	if new_id != "":
-		m._add_collision(mi, "body_id", new_id)
-		m.body_tris[new_id] = pr                     # lets you keep working on a draft board
-		m.body_verts[new_id] = Main.unique_verts(pr)
-		m.body_edges[new_id] = Main.feature_edges(pr)
-	return [mi, edges]
+	ctx.view.clear_preview()
+	ctx.view.hide_marker()
+	ctx.document.sync()
