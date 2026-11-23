@@ -5,7 +5,9 @@ Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: queued (af
 References: T113, P45, A27, W13, A35, T47, viewport/CLAUDE.md "Worker (W13)".
 
 Touches: viewport/worker_process.gd (new), viewport/main.gd (the section "the FreeCAD worker (T6)": its consts and
-vars, `_free_port` … `_shutdown_worker`, `_log_worker`; the calls to them in `_ready`,
+vars, `_free_port`, `_worker_files`, `_worker_identity`, `_port_free`,
+`_probe_worker`, `_worker_of`, `_hello`, `_pick_worker`, `_start_worker`, `_await_port_file`, `_watch_worker`,
+`_say_worker`, `_send_open`, `_on_link_down`, `_on_link_up`, `_shutdown_worker`, `_log_worker`; the calls to them in `_ready`,
 `_process`, `_exit_tree`, `_close_now`, `_ask_outside`), viewport/tests/quick/hash.gd,
 viewport/tests/quick/protocol.gd, viewport/tests/quick/worker.gd. Not the worker, not worker_client.gd, not tools/.
 

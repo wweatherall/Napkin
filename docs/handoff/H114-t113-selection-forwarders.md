@@ -4,8 +4,9 @@ Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: queued (af
 
 References: T113, P45, T41, A33b.
 
-Touches: viewport/main.gd (the one-line forwarders under "selection and context": `unit_of` … `unit_tris`, about
-18), viewport/keys.gd, viewport/tool_context.gd, viewport/presenter.gd, viewport/inference.gd,
+Touches: viewport/main.gd (the one-line forwarders under "selection and context": `unit_of`, `in_context`, `edit_blocked`,
+`context_assembly`, `enter_context_of`, `leave_context`, `set_selection`, `hidden_boards`, `is_hidden`,
+`hide_selected`, `unhide`, `toggle_hidden_geometry`, `make_assembly`, `_siblings_of`, `_linked_op`, `unit_tris`), viewport/keys.gd, viewport/tool_context.gd, viewport/presenter.gd, viewport/inference.gd,
 viewport/test_tool_context.gd, viewport/tests/quick/*.gd that call them (selection, hide, assembly,
 assembly_row, linked, properties, undo). Not selection.gd's behaviour.
 
