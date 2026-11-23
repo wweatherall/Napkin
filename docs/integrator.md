@@ -58,6 +58,8 @@ Architecture: lines, the response) and CLAUDE.md (commit trailers); this page sa
   model; workers said its precision let them build it without guessing). Check every claim it makes about how
   the code works today against the code before marking it Ready: H077's brief stated an order of steps opposite
   to integrate.py's, and the worker had to choose between "no change in behaviour" and the brief.
+- A brief whose job has a tricky part gets a `Reading path:` line: the functions to read, in order, to see the
+  whole lifetime of what the job moves, and who owns what (T107, dropped in favour of this; H083 is the model).
 
 ## Traps seen at merge
 - A paused merge (`--continue`) accepts changes only to ARCHITECTURE.md and docs/protocol.md. Folder-guide
