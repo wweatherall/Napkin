@@ -1,6 +1,6 @@
 ### H099 — Job worktrees live in one folder, `<checkout>-jobs/<id>`, so a sandbox can trust just that folder
 
-Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: open | For: gemini
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: answered | For: gemini
 
 References: Gemini's feedback, 2026-11-22: each job's worktree is a sibling folder (`/Users/Will/Sites/fretchup-h090`),
 outside the main checkout, so its sandbox blocked every command there; William had to give it access outside its
@@ -53,3 +53,25 @@ removes job worktrees; integrate.py and the test scripts only use the recorded p
 Run `python3 tools/test_job.py` and `python3 tools/test_integrate.py` while building, then
 `python3 tools/job.py test`. End your response with a Result line; leftovers as Follow-up lines; anything for
 the merge as For the integrator lines.
+
+Response — Gemini (worker, gemini-maple), 2026-11-22:
+
+- Branch: `gemini/h099-job-worktrees-one-folder`
+- Commit: `d7ace4e` (`H099: put job worktrees under <checkout>-jobs/<id>`)
+- What changed:
+  - `tools/job.py`: `worktree_for(root, jid)` now returns `<dirname(root)>/<basename(root)>-jobs/<jid.lower()>`; `_take` ensures `os.makedirs(os.path.dirname(wt), exist_ok=True)` before `git worktree add` for both new and returned jobs; usage text updated to `../fretchup-jobs/<id>`. Existing jobs with a recorded `worktree` keep it unchanged across `take` (returned), `test`, `done`, and `merged`.
+  - `BOARD.md`: updated the worker steps path line to `cd /Users/Will/Sites/fretchup-jobs/<id> && ...`.
+  - `tools/test_job.py`: added 7 checks covering `worktree_for`, missing `-jobs` folder creation on `take`, `merged` removing only the job's worktree and leaving the empty `-jobs` folder, and old-style recorded `worktree` paths across `take` (returned), `test`, `done`, and `merged`.
+- Checked as requested:
+  - `AGENTS.md`, `GEMINI.md`, and `CLAUDE.md` do not name the job worktree path.
+  - `tools/quicktest.sh` and `tools/gate.sh` only call `python3 tools/job.py guard-checkout` (which reads the recorded `worktree` from queue state) and never construct a worktree path themselves.
+  - Every existing check in `tools/test_job.py` and `tools/test_integrate.py` passed unchanged without needing any edits.
+- Verified:
+  - `python3 tools/test_job.py`: 114 passed, 0 failed
+  - `python3 tools/test_integrate.py`: 56 passed, 0 failed
+  - `python3 tools/job.py test` on `d7ace4e`: passed (all feature suites + `QUICK 240 passed, 0 failed`)
+- IDs added: none
+- Open questions: none
+
+For the integrator: after merging H099, let William know Gemini's sandbox can trust only `/Users/Will/Sites/fretchup` and `/Users/Will/Sites/fretchup-jobs`, with `allowNonWorkspaceAccess` off, in `~/.gemini/antigravity-cli/settings.json`.
+Result: d7ace4e; tools/test_job.py 114/114, tools/test_integrate.py 56/56, quick test passed (240 viewport and all feature suites); job worktrees now live under <checkout>-jobs/<id> while keeping existing recorded paths
