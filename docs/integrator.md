@@ -29,7 +29,9 @@ in CLAUDE.md's "Working with Codex" section; this page says what the integrator 
   pushing for you to look (`--yes` goes on).
 - Put one that fails review or the gate back with `python3 tools/job.py return <id> "<notes>"`.
 - Placeholder IDs (T74): integrate.py runs `tools/number_ids.py` at merge, giving each I-new-N, T-new-N, H-new-N
-  the next free number. Jobs you write on main get numbers the same way: run `python3 tools/number_ids.py`
+  the next free number. It numbers only placeholders that are IDs (a log row, a handoff entry's file or heading, and
+  references to them); any other is left and reported as "not numbered: <file>:<line>" (H073). Jobs you write on
+  main get numbers the same way: run `python3 tools/number_ids.py`
   (`--dry-run` to look first) before committing.
 - Codex records William's decisions in the log itself (P09, AGENTS.md). When integrating its branch, carry over
   only the rows it added or superseded: its copy of the rest may be older than main's.
@@ -56,13 +58,10 @@ in CLAUDE.md's "Working with Codex" section; this page says what the integrator 
 ## Traps seen at merge
 - A paused merge (`--continue`) accepts changes only to ARCHITECTURE.md and docs/protocol.md. Folder-guide
   updates a response asks for go in a commit of their own after the merge.
-- number_ids.py numbers every placeholder it finds, prose included: never write one as an example (in a handoff,
-  the archive or a note); write "a placeholder" instead.
 - A branch started from an older main that touches files main changed since: merge main into it in a scratch
   worktree first and integrate that.
 - Two jobs that each bump PROTOCOL_VERSION to the same number merge silently: bump the later one by one (A35).
 - A merge that brings a new version of a tool integrate.py imports (number_ids, job) runs the old one for that
   merge: check its effect.
-- integrate.py settles BOARD.md as main's: a branch's edits to the board's instructions are lost; put them back.
 - `job.py take` with no job id takes the next Ready job for this session: an integrator never runs it.
 
