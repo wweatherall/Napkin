@@ -36,7 +36,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H094 — A reload from a revision Shop Sketch no longer remembers keeps the ops that file holds (H092 finding 6)](handoff/H094-reload-unknown-revision.md) — status: queued (after H093); for: either
 - [H096 — Pushing one cell of a split profile keeps the rest of the profile on screen (H092 finding 9)](handoff/H096-region-push-keeps-profile.md) — status: queued (after H083); for: either
 - [H097 — T110: test helpers that make a failure-path check a few lines](handoff/H097-failure-path-test-helpers.md) — status: queued (after H094); for: either
-- [H098 — Trial: try to break H093 before it merges (checks only)](handoff/H098-break-h093.md) — status: open; for: gemini (H093 was built by Codex)
+- [H098 — Trial: try to break H093 before it merges (checks only)](handoff/H098-break-h093.md) — status: open; for: gemini
 - [H105 — integrate.py stops for a response's `Changed from the brief:` lines (P44)](handoff/H105-integrate-shows-brief-changes.md) — status: open; for: gemini
 - [H107 — T113 step 1a: the FreeCAD worker's process moves out of main.gd into worker_process.gd](handoff/H107-t113-worker-process.md) — status: queued (after H094); for: either
 - [H108 — T113 step 1b: the closing and outside-save dialogs move out of main.gd into save_prompts.gd](handoff/H108-t113-save-prompts.md) — status: queued (after H107); for: either
