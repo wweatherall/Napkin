@@ -4,7 +4,7 @@
 Worker (run in your job's worktree unless it says otherwise):
   python3 tools/job.py take [--as claude|codex|gemini] [--session <name>] [--wait]
                                 the first Ready job for you (in the board's order) whose files don't overlap a job
-                                in progress: makes ../fretchup-<id> and <agent>/<id>-<slug> from main, marks it in
+                                in progress: makes ../fretchup-jobs/<id> and <agent>/<id>-<slug> from main, marks it in
                                 progress and prints the handoff. A returned job comes first and resumes its branch.
                                 One job at a time per session, at most MAX_JOBS per session (P37): then a /clear,
                                 which gives a Claude session a new CLAUDE_CODE_SESSION_ID. Run it anywhere in the
@@ -348,7 +348,7 @@ def guard_checkout(cwd, out=print):
 
 
 def worktree_for(root, jid):
-    return os.path.join(os.path.dirname(root), f"{os.path.basename(root)}-{jid.lower()}")
+    return os.path.join(os.path.dirname(root), f"{os.path.basename(root)}-jobs", jid.lower())
 
 
 def counted(session):
@@ -388,12 +388,14 @@ def _take(cwd, agent, session, now=None, out=print):
         if prev.get("state") == "returned":
             branch, wt = prev["branch"], prev.get("worktree") or worktree_for(root, job["id"])
             if not os.path.isdir(wt):
+                os.makedirs(os.path.dirname(wt), exist_ok=True)
                 r = git(root, "worktree", "add", wt, branch)
                 if r.returncode:
                     out(f"refused: couldn't make the worktree: {r.stderr.strip()}")
                     return None, "refused"
         else:
             branch, wt = f"{agent}/{job['id'].lower()}-{job['slug']}", worktree_for(root, job["id"])
+            os.makedirs(os.path.dirname(wt), exist_ok=True)
             r = git(root, "worktree", "add", wt, "-b", branch, "main")
             if r.returncode:
                 out(f"refused: couldn't make the worktree: {r.stderr.strip()}")
