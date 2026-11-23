@@ -37,7 +37,6 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H086 — T83 step 2: an arc on a corner is tangent to both edges (rounded corners)](handoff/H086-t83-arc-corner-tangent.md) — status: queued (after H085); for: either
 - [H093 — Outside saves: a failed reload asks, a worker lost mid-reload reloads again, and a question the actions overtook closes (H092 findings 2 and 5, A39)](handoff/H093-outside-save-failures.md) — status: queued (after H083); for: either
 - [H094 — A reload from a revision Shop Sketch no longer remembers keeps the ops that file holds (H092 finding 6)](handoff/H094-reload-unknown-revision.md) — status: queued (after H093); for: either
-- [H095 — Redo after undoing an action that never reached the worker no longer blocks every sync (H092 finding 8)](handoff/H095-redo-unowned-id.md) — status: open; for: either
 - [H096 — Pushing one cell of a split profile keeps the rest of the profile on screen (H092 finding 9)](handoff/H096-region-push-keeps-profile.md) — status: queued (after H083); for: either
 - [H097 — T110: test helpers that make a failure-path check a few lines](handoff/H097-failure-path-test-helpers.md) — status: queued (after H094); for: either
 - [H098 — Trial: try to break H093 before it merges (checks only)](handoff/H098-break-h093.md) — status: queued (after H093); for: either (the integrator sets it, when H093 is done, to an agent other than H093's builder)
@@ -48,6 +47,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 Full entries in [handoff-archive.md](handoff-archive.md).
 
+- H095 — Redo after undoing an action that never reached the worker no longer blocks every sync (H092 finding 8). Resolved: merged into main by the integrator, 2026-11-22.
 - H090 — T59 step 1: a cut made to a pocket's floor stays tied to it (the worker side). Resolved: merged into main by the integrator, 2026-11-22.
 - H092 — The first `/code-review ultra` (main against ultra-base): ten findings, three fixed. Resolved: all ten findings fixed or made jobs (H093-H096).
 - H091 — integrate.py keeps main's Order line, job table and Notes on a clean BOARD.md merge too. Resolved: merged into main by the integrator, 2026-11-22.

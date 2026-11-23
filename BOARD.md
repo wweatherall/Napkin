@@ -48,7 +48,6 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
 | H083 | either | **Stale** (codex, no beat since 20:13) | T88 step 6: Move moves to ToolContext, and the legacy setup goes | [H083](docs/handoff/H083-t88-move-to-toolcontext.md) |  |
-| H095 | either | In progress (gemini since 21:54) | Redo after undoing an action that never reached the worker no longer blocks every sync (H092 finding 8) | [H095](docs/handoff/H095-redo-unowned-id.md) |  |
 | H052 | either | Queued | T66: lengths shown in the model's units | [H052](docs/handoff/H052-t66-units.md) | T88's tool moves |
 | H085 | either | Queued | T83: the Arc tool (2-Point and Centre arcs, exact in FreeCAD, splitting faces) | [H085](docs/handoff/H085-t83-arc-tool.md) | H052 |
 | H086 | either | Queued | T83 step 2: an arc on a corner is tangent to both edges (rounded corners) | [H086](docs/handoff/H086-t83-arc-corner-tangent.md) | H085 |
