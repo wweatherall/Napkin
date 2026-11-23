@@ -40,7 +40,6 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H097 — T110: test helpers that make a failure-path check a few lines](handoff/H097-failure-path-test-helpers.md) — status: queued (after H094); for: either
 - [H098 — Trial: try to break H093 before it merges (checks only)](handoff/H098-break-h093.md) — status: queued (after H093); for: either (the integrator sets it, when H093 is done, to an agent other than H093's builder)
 - [H101 — T88 after H083: Codex checks and tidies the Move migration as built (no behaviour change)](handoff/H101-t88-codex-checks-move.md) — status: queued (after H083; then whenever no job holds the tool files); for: codex
-- [H102 — T111 step 1: the preferences file, read, checked and watched (a module and its tests; nothing wired yet)](handoff/H102-t111-preferences-module.md) — status: open; for: gemini
 - [H103 — T111 step 2: preferences wired in: ⌘, opens the file, saving it applies the feel tunables and the default units](handoff/H103-t111-preferences-wired.md) — status: queued (after H052, H102); for: either
 
 <!-- end of open list -->
@@ -49,6 +48,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 Full entries in [handoff-archive.md](handoff-archive.md).
 
+- H102 — T111 step 1: the preferences file, read, checked and watched (a module and its tests; nothing wired yet). Resolved: merged into main by the integrator, 2026-11-22.
 - H083 — T88 step 6: Move moves to ToolContext, and the legacy setup goes. Resolved: merged into main by the integrator, 2026-11-22.
 - H099 — Job worktrees live in one folder, `<checkout>-jobs/<id>`, so a sandbox can trust just that folder. Resolved: merged into main by the integrator, 2026-11-22.
 - H100 — For the next integrator session: where things stand. Resolved: see the archive
