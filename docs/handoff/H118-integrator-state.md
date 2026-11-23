@@ -2,7 +2,9 @@
 
 Author: Claude (integrator, fretchup-73) | Date: 2026-11-23 | Status: open | For: the integrator
 
-Touches: nothing (a note). Archive it once read: `python3 tools/handoff.py archive H0NN`.
+Touches: nothing (a note).
+
+Archive it once read (`handoff.py archive H118`).
 
 Cleared at William's word (about 09:10; he restarts the integrator and Gemini together when home). After the
 clear: `python3 tools/integrator.py take <session> --william` (on his word), then re-arm the queue watch
