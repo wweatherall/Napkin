@@ -46,10 +46,13 @@ class CircleInference:
 	var hit := {}
 	var ray_at := Vector3.ZERO
 	var snap_kind := "grid"
+	var snap_at: Variant = null
 	var calls: Array = []
 	func pick(_screen: Vector2) -> Dictionary: return hit.duplicate(true)
 	func snap(p: Dictionary, _screen: Vector2) -> Dictionary:
-		calls.append("snap"); p["snap"] = snap_kind; return p
+		calls.append("snap"); p["snap"] = snap_kind
+		if snap_at != null: p["point"] = snap_at
+		return p
 	func on_grid(p: Dictionary) -> Dictionary:
 		calls.append("on_grid"); p["snap"] = "grid"; return p
 	func ray(_screen: Vector2) -> Dictionary: return {"origin": ray_at + Vector3(0, 0, 500), "direction": Vector3(0, 0, -1)}
@@ -502,6 +505,67 @@ func _initialize() -> void:
 	circle.click(Vector2.ZERO)
 	check("Circle won't start on an assembly's board from outside (ctx.selection.edit_blocked)", not circle.busy())
 
+	# Rectangle uses the same context without Main, preserving its plane and signed dimension rules.
+	var rinfer := CircleInference.new()
+	var rpres := ProfilePresenter.new(); rpres.real = pres
+	var rmeasure := FakeMeasure.new()
+	var rparts: Dictionary = vparts.duplicate()
+	rparts.merge({"infer": rinfer, "pres": rpres, "measure": rmeasure}, true)
+	var rect = load("res://tools/rect_tool.gd").new()
+	rect.setup_context(ToolContext.new(rparts))
+	rinfer.hit = {"hit": false}
+	var r_count: int = doc.ops.size()
+	rect.click(Vector2.ZERO)
+	check("context-only Rectangle ignores empty space", rect.m == null and not rect.uses_main()
+		and not rect.busy() and doc.ops.size() == r_count)
+	rinfer.hit = {"hit": true, "point": Vector3(10, 20, 0), "normal": Vector3(0, 0, 1), "body": "", "rect": ""}
+	rect.mouse_moved(Vector2.ZERO)
+	check("Rectangle shows the snap marker before its first corner", calls.back()[0] == "marker")
+	rect.click(Vector2.ZERO)
+	rinfer.ray_at = Vector3(40.25, 60.125, 0)
+	rinfer.snap_kind = "endpoint"; rinfer.snap_at = Vector3(10, 60, 0)
+	rect.mouse_moved(Vector2(50, 50))
+	check("Rectangle ignores a snap leaving one side zero and falls back to the cursor grid",
+		rinfer.calls.back() == "on_grid" and not rect.state["point_snap"]
+		and absf(rect.state["du"] - 30.25) < 1e-5 and absf(rect.state["dv"] - 40.125) < 1e-5, rect.state)
+	check("Rectangle previews two triangles and four edges in the profile style and updates dimensions",
+		overlay.mesh != null and overlay_lines.mesh != null and rmeasure.updates == 1
+		and rect.vcb_label() == "Dimensions" and rect.vcb_value() == "30, 40"
+		and calls.any(func(c): return c == ["tri", 6, mats["profile"]])
+		and calls.any(func(c): return c == ["lines", 8, Color(0.1, 0.2, 0.6)]))
+	var r_seq: int = doc.seq
+	rect.click(Vector2(50, 50))
+	var rop: Dictionary = doc.ops.back()
+	check("Rectangle commits one op with exact unrounded dimensions and a document id",
+		doc.ops.size() == r_count + 1 and rop["type"] == "rect" and String(rop["id"]).begins_with("r")
+		and rop["size"] == [30.25, 40.125] and rop["corner"] == [0.0, 0.0]
+		and rop["plane"] == {"origin": [10.0, 20.0, 0.0], "normal": [0.0, 0.0, 1.0]}, rop)
+	check("Rectangle registers a profile copy, clears its preview and syncs",
+		rpres.registered == [rop] and not rop.has("radius") and not rect.busy()
+		and overlay.mesh == null and overlay_lines.mesh == null and doc.seq == r_seq + 1)
+
+	# A tilted profile resolves its supporting board and preserves the drag quadrant for typed sizes.
+	rinfer.snap_at = null; rinfer.snap_kind = "grid"
+	var rn := Vector3(0, 0.6, 0.8)
+	var rb := Geo.plane_basis(rn)
+	var origin := Vector3(12, 22, 5)
+	rinfer.hit = {"hit": true, "point": origin, "normal": rn, "body": "", "rect": rop["id"]}
+	rect.click(Vector2.ZERO)
+	check("Rectangle on a profile reads its supporting board through the model", rect.state["on"] == "board-under")
+	rinfer.ray_at = origin - rb[0] * 12.5 + rb[1] * 7.25
+	rect.mouse_moved(Vector2(50, 50))
+	check("Rectangle ray intersects the tilted drawing plane in its local basis",
+		absf(rect.state["du"] + 12.5) < 1e-4 and absf(rect.state["dv"] - 7.25) < 1e-4, rect.state)
+	rect.typed("-12.375,0.125")
+	rop = doc.ops.back()
+	check("Rectangle typed fractional and sub-millimetre sizes keep the quadrant and exact plane",
+		rop["size"] == [12.375, 0.125] and rop["corner"] == [-12.375, 0.0]
+		and rop["plane"] == {"on": {"body": "board-under", "normal": Geo.arr3(rn), "point": Geo.arr3(origin)}}
+		and not rect.busy(), rop)
+	rinfer.hit = {"hit": true, "point": Vector3.ZERO, "normal": Vector3(0, 0, 1), "body": "b1", "rect": ""}
+	rect.click(Vector2.ZERO)
+	check("Rectangle won't start on an assembly board from outside", not rect.busy())
+
 	# --- geometry: the moved functions, and Main's wrappers give the same answers ---
 	var v3 := Vector3(1.23456, -7.0004, 2.5)
 	check("arr3 keeps its 0.001 rounding", Geo.arr3(v3) == [1.235, -7.0, 2.5] and Main.arr3(v3) == Geo.arr3(v3))
@@ -517,7 +581,7 @@ func _initialize() -> void:
 		and Main.AXIS_COLORS == Presenter.AXIS_COLORS)
 
 	# --- source: the context, geometry and inference never reach main.gd ---
-	for path in ["res://tool_context.gd", "res://tool_geometry.gd", "res://inference.gd", "res://appearance.gd", "res://tools/paint_tool.gd", "res://tools/select_tool.gd", "res://tools/circle_tool.gd"]:
+	for path in ["res://tool_context.gd", "res://tool_geometry.gd", "res://inference.gd", "res://appearance.gd", "res://tools/paint_tool.gd", "res://tools/select_tool.gd", "res://tools/circle_tool.gd", "res://tools/rect_tool.gd", "res://tools/line_tool.gd"]:
 		var code := code_only(FileAccess.get_file_as_string(path))
 		var bad := []
 		for needle in ['preload("res://main.gd")', 'load("res://main.gd")', "Main.", "Main)", ": Main", "infer.m", "\tm.", " m.", "(m."]:

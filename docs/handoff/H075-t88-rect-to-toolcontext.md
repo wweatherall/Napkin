@@ -27,3 +27,24 @@ listed; clear that line in docs/follow-ups.md), the existing rectangle quick che
 unchanged, test_tools.gd's registry. Quick test, then the gate. If only the known H069 flakes stop `job.py done`, say
 so in the response and `job.py wait`; the integrator's gate decides. End your response with a Result line; leftovers
 as Follow-up lines; anything for the merge as For the integrator lines.
+
+Response — Codex, 2026-11-22:
+
+Implemented T88 step 4 on `codex/h075-t88-rect-to-toolcontext`. Rectangle now uses only ctx and Geo, with
+uses_main() false. Picking, snapping, rays, profile lookup, edit blocking, preview, measurements, document IDs,
+append/register/sync all use the existing capabilities; no capability grew. Main's wrappers still have consumers
+and remain. Added context-only Rectangle checks for zero-side snap fallback, tilted planes, signed typed fractional
+and sub-millimetre sizes, exact op dimensions, profile registration, preview and selection blocking. The source
+check now includes Rectangle and Line; removed H072's completed follow-up. Registry now lists only Push/Pull and
+Move as legacy tools. Existing rectangle UI checks and length comparison tests are unchanged.
+
+Verification: gate passes (quick 240 passed, 0 failed; ToolContext 123/123; registry 13/13; all feature tests;
+FreeCAD matches all 2500 length table cases; full test passes, zero known failures). Gate evidence:
+`scratch/h075-tmp/shopsketch-gate.kjNGjt/`. Initial quick: UI 240/240 and context 123/123 passed, but test_job's
+watchdog cleanup check saw another matching sleep process; the gate rerun passed that test 74/74. Initial evidence
+retained in `scratch/h075-initial-quick/`. `git diff --check` passes. Main merged before handoff (already up to date).
+Decisions: T88, A34, I43, I44 and P21 applied; no new behaviour choices or placeholder IDs.
+
+Architecture: Rectangle no longer receives Main; it uses existing ToolContext capabilities and Geo.rect_points.
+Architecture: Document and presenter ownership, worker protocol, op format, saving and recovery are unchanged.
+For the integrator: Update the tools folder guide's legacy-tool list to Push/Pull and Move, and mark Rectangle as context-only (H075); no interface names were added.
