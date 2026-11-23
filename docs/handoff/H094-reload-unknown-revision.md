@@ -1,6 +1,6 @@
 ### H094 — A reload from a revision Shop Sketch no longer remembers keeps the ops that file holds (H092 finding 6)
 
-Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: open | For: either
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: open | For: codex
 
 References: A36 and T64 (outside saves: a reload keeps the ops the file's revision held), A32 (save
 generations), A35 (a new shared-file field bumps PROTOCOL_VERSION on both sides), H092 finding 6, H087 / A38

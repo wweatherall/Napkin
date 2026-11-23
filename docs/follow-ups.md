@@ -27,3 +27,4 @@ or that turns it into a Work list item. `python3 tools/startup.py` lists the ope
 - H112 (2026-11-23): Point the native Wood menu at `m.appearance` and remove its five Main forwarders when `menus.gd` is in scope.
 - H111 (2026-11-23): When their callers are in scope, change the native menu commands to call `m.ui.update_toggles()` and the registry quick test to read `m.ui.tool_buttons`, then remove main's compatibility members.
 - H093 (2026-11-23): H063 still applies to a replacement worker that never held Shop Sketch's live pre-conflict document.
+- integrator (2026-11-23): integrate.py reads `Changed from the brief:` and `Architecture:` as one line each; a worker that wraps them (Codex does) gets only the first line printed at the stop and in the merge message (H093's five changes were cut mid-sentence). Read each up to the next blank line or line kind.
