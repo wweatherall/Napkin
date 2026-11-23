@@ -106,7 +106,7 @@ sh(root, "git", "branch", "claude/h006-claimed-job")        # a job claimed the 
 r, out = run(job.take, root, "claude", "s1")
 wt1 = os.path.realpath(job.worktree_for(root, "H001"))
 check("take gives the first Ready job in the board's order", r == "H001", out)
-check("take makes the worktree and branch from main", os.path.isdir(wt1) and
+check("take makes the worktree and branch from main, with a scratch/ folder", os.path.isdir(os.path.join(wt1, "scratch")) and
       sh(wt1, "git", "branch", "--show-current").stdout.strip() == "claude/h001-first-job")
 check("take prints the handoff", "Request: do it." in out and "### H001" in out, out)
 s = state(root)["jobs"]["H001"]
@@ -367,11 +367,16 @@ msgs = []
 check("run passes a command's exit code through", job.run(root, ["sh", "-c", "exit 3"], out=msgs.append) == 3, msgs)
 msgs = []
 t0 = time.time()
-rc = job.run(root, ["sh", "-c", "sleep 31.7 & sleep 31.7; wait"], limit=1, out=msgs.append)
-time.sleep(0.3)
-left = subprocess.run(["pgrep", "-f", "sleep 31.7"], capture_output=True, text=True).stdout.strip()
+# A duration of this run's own (two worktrees' tests run at once and must not see each other's processes), and
+# up to 5 s for the stopped processes to go (a busy machine is slow to reap them).
+nap = f"sleep 31.{os.getpid()}"
+rc = job.run(root, ["sh", "-c", f"{nap} & {nap}; wait"], limit=1, out=msgs.append)
+for _ in range(50):
+    left = subprocess.run(["pgrep", "-f", nap], capture_output=True, text=True).stdout.strip()
+    if not left: break
+    time.sleep(0.1)
 check("run stops a command past its limit with every process it started, says HUNG, exits 124",
-      rc == 124 and any(m.startswith("HUNG:") for m in msgs) and not left and time.time() - t0 < 10, (rc, msgs, left))
+      rc == 124 and any(m.startswith("HUNG:") for m in msgs) and not left and time.time() - t0 < 20, (rc, msgs, left))
 msgs = []
 check("run says so when the command can't start", job.run(root, ["/no/such/program"], out=msgs.append) == 127
       and "can't start" in msgs[0], msgs)

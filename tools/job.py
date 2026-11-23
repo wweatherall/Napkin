@@ -374,6 +374,7 @@ def _take(cwd, agent, session, now=None, out=print):
                 out(f"refused: couldn't make the worktree: {r.stderr.strip()}")
                 return None, "refused"
         wt = os.path.realpath(wt)
+        os.makedirs(os.path.join(wt, "scratch"), exist_ok=True)     # where the job's logs go (P25); git ignores it
         st["jobs"][job["id"]] = {**{k: prev[k] for k in ("notes", "returned") if k in prev},
                                  "state": "in progress", "agent": agent, "session": session, "branch": branch,
                                  "worktree": wt, "handoff": job["name"], "taken": now, "beat": now}
