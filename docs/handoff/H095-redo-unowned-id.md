@@ -32,3 +32,5 @@ allocates IDs; the worker's registry is the document's memory of them.
 
 Run the feature tests while building (`tools/featuretest.sh`), then `python3 tools/job.py test`. End your
 response with a Result line; leftovers as Follow-up lines; anything for the merge as For the integrator lines.
+
+Architecture: docs/protocol.md (Ops section): remove `ID already reserved` from the worker's sync ID-refusal errors; `IdRegistry.accept` now lets the first op creating an unowned reserved modern ID claim and record ownership of it, while still refusing duplicate creations in one op list or a different recorded owner with `ID collision` (wire protocol and `ARCHITECTURE.md` unchanged).

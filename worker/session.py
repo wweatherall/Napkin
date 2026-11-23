@@ -73,8 +73,6 @@ class IdRegistry:
                 if modern and not legacy:
                     if identity in seen or (identity in owners and owners[identity] != owner):
                         raise OpError(f"ID collision: {identity}")
-                    if identity in self.reserved and identity not in owners:
-                        raise OpError(f"ID already reserved: {identity}")
                 seen.add(identity)
                 owners[identity] = owner
         self.owners = owners
