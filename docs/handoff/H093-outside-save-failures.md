@@ -158,3 +158,9 @@ Follow-up: H063 still applies to a replacement worker that never held Shop Sketc
 The retry copies FreeCAD's file aside and then resends the window's actions.
 
 For the integrator: All 16 named H098 regressions now run by default with no environment flag.
+
+Verified `20eee5b` with the full suite and the clean-commit quick test. All 35 feature suites passed,
+including 135 document checks and 39 worker outside-save checks. All 302 quick checks passed across
+three windows. The six recorded comparisons matched.
+
+Result: 20eee5b; full suite passed, quick test 302/302; fixed all 16 H098 outside-save failures and enabled the regression checks by default.
