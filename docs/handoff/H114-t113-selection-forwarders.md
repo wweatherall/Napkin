@@ -6,7 +6,7 @@ References: T113, P45, T41, A33b.
 
 Touches: viewport/main.gd (the one-line forwarders under "selection and context": `unit_of`, `in_context`, `edit_blocked`,
 `context_assembly`, `enter_context_of`, `leave_context`, `set_selection`, `hidden_boards`, `is_hidden`,
-`hide_selected`, `unhide`, `toggle_hidden_geometry`, `make_assembly`, `_siblings_of`, `_linked_op`, `unit_tris`), viewport/keys.gd, viewport/tool_context.gd, viewport/presenter.gd, viewport/inference.gd,
+`hide_selected`, `unhide`, `toggle_hidden_geometry`, `make_assembly`, `_siblings_of`, `_linked_op`, `unit_tris`), viewport/keys.gd, viewport/menus.gd (`run`: `m.make_assembly`, added by H110 after this brief), viewport/tool_context.gd, viewport/presenter.gd, viewport/inference.gd,
 viewport/test_tool_context.gd, the quick tests that call them: viewport/tests/quick/selection.gd,
 viewport/tests/quick/hide.gd, viewport/tests/quick/assembly.gd, viewport/tests/quick/assembly_row.gd,
 viewport/tests/quick/linked.gd, viewport/tests/quick/properties.gd, viewport/tests/quick/undo.gd. Not selection.gd's behaviour.
