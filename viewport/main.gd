@@ -52,6 +52,11 @@ var redo_stack: Array:
 var test_delay_ms: int:       # test hook: ask the worker to sit on its answer
 	get: return doc.test_delay_ms
 	set(v): doc.test_delay_ms = v
+var menus = load("res://menus.gd").new(self)
+# The model quick test and shell suite still read the menu names here.
+var _menus: Dictionary:
+	get: return menus.menus
+
 var tool := "rect"
 var grid_snap := true
 var new_board := false       # a rectangle on a face joins that board when pushed out (I04b); B for a separate board
@@ -78,6 +83,10 @@ var ui_vcb_box: PanelContainer:
 func _update_vcb() -> void: measure.update()
 func apply_vcb() -> void: measure.apply()
 func _on_length(resp: Dictionary) -> void: measure.on_length(resp)
+
+
+func set_units(spec: String) -> bool:
+	return measure.set_units(spec, true)
 
 var oplog_path := ""
 var drawing_script := ""
@@ -275,7 +284,7 @@ func _ready() -> void:
 	_make_keys()
 	_make_ui()
 	_init_preferences()
-	_make_menus()
+	menus.make_menus()
 	_set_title()
 	if not test_mode: _remember_model(model_path)
 	client = WorkerClient.new()
@@ -524,7 +533,7 @@ func _segments(items: Array, toggles: bool) -> PanelContainer:
 		b.toggle_mode = true
 		b.focus_mode = Control.FOCUS_NONE
 		if not toggles: b.button_group = group
-		b.pressed.connect(_menu.bind(it[1]))
+		b.pressed.connect(menus.run.bind(it[1]))
 		row.add_child(b)
 		(_toggle_buttons if toggles else _tool_buttons)[it[1]] = b
 	return track
@@ -557,7 +566,7 @@ func _make_ui() -> void:
 	row.add_child(_segments(tool_list.map(func(t): return [t["label"], t["id"], t["tip"]]), false))   # tool_registry.gd
 	for spec in [["Undo", "undo", "Undo (⌘Z)"], ["Redo", "redo", "Redo (⇧⌘Z)"], ["Drawing", "drawing", "Drawing and cut list (D)"]]:
 		var b := Button.new(); b.text = spec[0]; b.tooltip_text = spec[2]; b.focus_mode = Control.FOCUS_NONE
-		b.pressed.connect(_menu.bind(spec[1]))
+		b.pressed.connect(menus.run.bind(spec[1]))
 		row.add_child(b)
 	var gap := Control.new(); gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL; gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(gap)
@@ -622,7 +631,7 @@ func _make_ui() -> void:
 
 
 func _update_toggles() -> void:
-	_update_menu_checks()
+	menus.update_menu_checks()
 	if _toggle_buttons.has("grid"): _toggle_buttons["grid"].set_pressed_no_signal(grid_snap)
 	if _toggle_buttons.has("newboard"): _toggle_buttons["newboard"].set_pressed_no_signal(new_board)
 
@@ -825,7 +834,7 @@ func _on_hidden_changed(by_op: bool) -> void:
 		if overlay != null: overlay.mesh = null
 		pres.forget_siblings()
 	else:
-		_update_menu_checks()
+		menus.update_menu_checks()
 
 
 func _apply_context() -> void: pres.apply_context()
@@ -892,7 +901,7 @@ var _wood_tex := {}                 # texture file -> ImageTexture
 
 
 func _load_wood_library(dir: String) -> void:
-	if appearance.load_library(dir): _build_materials_menu()
+	if appearance.load_library(dir): menus.build_materials_menu()
 
 
 func _wood_texture(file: String) -> Texture2D:
@@ -927,33 +936,9 @@ func _wood_material(bid: String, b: Dictionary, base: Color) -> ShaderMaterial:
 	return sm
 
 
-func _build_materials_menu() -> void:
-	"""The Wood menu: pick what Paint puts on (picking one switches to Paint)."""
-	if not NativeMenu.has_feature(NativeMenu.FEATURE_GLOBAL_MENU) or _wood_menu_rid.is_valid(): return
-	var bar := NativeMenu.get_system_menu(NativeMenu.MAIN_MENU_ID)
-	_wood_menu_rid = NativeMenu.create_menu()
-	for k in wood_keys:
-		var i := NativeMenu.add_radio_check_item(_wood_menu_rid, wood_library[k]["name"], _on_wood_menu, Callable(), k)
-		NativeMenu.set_item_checked(_wood_menu_rid, i, k == paint_material)
-	NativeMenu.add_separator(_wood_menu_rid)
-	NativeMenu.add_item(_wood_menu_rid, "Turn grain 90° (T)", _on_wood_menu, Callable(), "turn")
-	NativeMenu.add_submenu_item(bar, "Wood", _wood_menu_rid)
-
-
-var _wood_menu_rid := RID()
-
-
-func _on_wood_menu(tag) -> void:
-	if tag == "turn":
-		_turn_grain(); return
-	set_paint_material(String(tag))
-
-
 func set_paint_material(k: String) -> void:
 	if not appearance.select_wood(k): return
-	if _wood_menu_rid.is_valid():
-		for i in NativeMenu.get_item_count(_wood_menu_rid):
-			NativeMenu.set_item_checked(_wood_menu_rid, i, NativeMenu.get_item_tag(_wood_menu_rid, i) == k)
+	menus.update_wood_checks(k)
 	set_tool("paint")
 
 
@@ -1947,118 +1932,6 @@ func _open_preferences() -> void:
 	OS.shell_open(ProjectSettings.globalize_path(preferences_path))
 
 
-# menus: tag -> action. Menu shortcuts and the same keys in the window may both arrive: act once.
-var _menu_last := {}
-var _menus := {}                    # name -> menu RID (for check marks)
-
-
-func _make_menus() -> void:
-	if not NativeMenu.has_feature(NativeMenu.FEATURE_GLOBAL_MENU): return
-	if NativeMenu.has_system_menu(NativeMenu.APPLICATION_MENU_ID):
-		var app_menu := NativeMenu.get_system_menu(NativeMenu.APPLICATION_MENU_ID)
-		if app_menu.is_valid():
-			NativeMenu.add_item(app_menu, "Preferences…", _menu, Callable(), "preferences", PREFERENCES_KEY)
-	var main_menu := NativeMenu.get_system_menu(NativeMenu.MAIN_MENU_ID)
-	var spec := [
-		["File", [["New Window", "newwindow", KEY_MASK_META | KEY_MASK_SHIFT | KEY_N], ["New…", "new", KEY_MASK_META | KEY_N],
-				  ["Open…", "open", KEY_MASK_META | KEY_O], [],
-				  ["Show in Finder", "reveal", 0], [], ["Drawing and cut list (D)", "drawing", 0]]],
-		["Edit", [["Undo", "undo", KEY_MASK_META | KEY_Z], ["Redo", "redo", KEY_MASK_META | KEY_MASK_SHIFT | KEY_Z], [], ["Make assembly", "assemble", KEY_MASK_META | KEY_G],
-				  ["Delete (⌫)", "delete", 0], ["Make unique (U)", "unique", 0], ["Detach from array", "detach", 0], [],
-				  ["Hide (H)", "hide", 0], ["Unhide selected", "unhide_selected", 0], ["Unhide last", "unhide_last", 0],
-				  ["Unhide all (Shift+H)", "unhide_all", 0]]],
-		["Tools", tool_list.map(func(t): return [load("res://tool_registry.gd").menu_label(t), t["id"], 0])],
-		["View", [["Grid snap (G)", "grid", -1], ["New board on faces (B)", "newboard", -1], ["Hidden geometry", "hiddengeom", -1]]],
-	]
-	for m in spec:
-		var rid := NativeMenu.create_menu()
-		_menus[m[0]] = rid
-		for it in m[1]:
-			if it.is_empty():
-				NativeMenu.add_separator(rid)
-			elif it[2] == -1:
-				NativeMenu.add_check_item(rid, it[0], _menu, Callable(), it[1])
-			else:
-				NativeMenu.add_item(rid, it[0], _menu, Callable(), it[1], it[2])
-		NativeMenu.add_submenu_item(main_menu, m[0], rid)
-	_update_menu_checks()
-	_build_units_menu()
-
-
-var _units_menu_rid := RID()
-
-
-func _build_units_menu() -> void:
-	"""The Units menu (I57): display format and rounding, saved per model."""
-	if not NativeMenu.has_feature(NativeMenu.FEATURE_GLOBAL_MENU) or _units_menu_rid.is_valid(): return
-	var bar := NativeMenu.get_system_menu(NativeMenu.MAIN_MENU_ID)
-	_units_menu_rid = NativeMenu.create_menu()
-	NativeMenu.add_submenu_item(bar, "Units", _units_menu_rid)
-	_update_units_menu()
-
-
-func _update_units_menu() -> void:
-	if not _units_menu_rid.is_valid(): return
-	NativeMenu.clear(_units_menu_rid)
-	var cur := Units.parse_spec(measure.units)
-	var fmt: String = cur["format"] if cur.ok else "in-frac"
-	var prec: String = cur["precision"] if cur.ok else "1/16"
-	for f in Units.FORMAT_ORDER:
-		if f == "m": NativeMenu.add_separator(_units_menu_rid)
-		var i := NativeMenu.add_radio_check_item(_units_menu_rid, Units.FORMATS[f]["label"], _on_units_menu, Callable(), "format:" + f)
-		NativeMenu.set_item_checked(_units_menu_rid, i, f == fmt)
-	NativeMenu.add_separator(_units_menu_rid)
-	var hdr := NativeMenu.add_item(_units_menu_rid, "Rounding")
-	NativeMenu.set_item_disabled(_units_menu_rid, hdr, true)
-	for p in Units.FORMATS[fmt]["precisions"]:
-		var i := NativeMenu.add_radio_check_item(_units_menu_rid, Units.precision_label(fmt, p), _on_units_menu, Callable(), "prec:" + p)
-		NativeMenu.set_item_checked(_units_menu_rid, i, p == prec)
-
-
-func _on_units_menu(tag) -> void:
-	var s := String(tag)
-	if s.begins_with("format:"): measure.set_format(s.substr(7))
-	elif s.begins_with("prec:"): measure.set_precision(s.substr(5))
-
-
-func set_units(spec: String) -> bool:
-	return measure.set_units(spec, true)
-
-
-func _update_menu_checks() -> void:
-	if not _menus.has("View"): return
-	NativeMenu.set_item_checked(_menus["View"], 0, grid_snap)
-	NativeMenu.set_item_checked(_menus["View"], 1, new_board)
-	NativeMenu.set_item_checked(_menus["View"], 2, show_hidden)
-
-
-func _menu(tag) -> void:
-	var now := Time.get_ticks_msec()
-	if now - int(_menu_last.get(tag, -1000)) < 150: return        # the menu and the key both fired
-	_menu_last[tag] = now
-	if tools.has(tag): set_tool(tag); return      # a tool's id (tool_registry.gd)
-	match tag:
-		"preferences": _open_preferences()
-		"newwindow": new_window()
-		"new": _file_dialog(true)
-		"open": _file_dialog(false)
-		"reveal": OS.shell_show_in_file_manager(model_path)
-		"drawing": export_drawing()
-		"undo": undo()
-		"redo": redo()
-		"assemble": make_assembly()
-		"unique": _linked_op("make_unique")
-		"detach": _linked_op("detach")
-		"delete": tools[tool].reset(); sel.delete_selected()
-		"hide": hide_selected()
-		"unhide_selected": unhide("selected")
-		"unhide_last": unhide("last")
-		"unhide_all": unhide("all")
-		"hiddengeom": toggle_hidden_geometry()
-		"grid": grid_snap = not grid_snap; _update_toggles()
-		"newboard": new_board = not new_board; _update_toggles()
-
-
 func new_window() -> void:
 	"""Another window on a new Untitled model, sharing this window's FreeCAD worker (W13)."""
 	var docs := OS.get_system_dir(OS.SYSTEM_DIR_DOCUMENTS).path_join("Shop Sketch")
@@ -2074,26 +1947,6 @@ func new_window() -> void:
 	args.append("--model=" + path)
 	var pid := OS.create_process(OS.get_executable_path(), args)
 	print("SHOPSKETCH new window pid %d on %s" % [pid, path])
-
-
-func _file_dialog(new: bool) -> void:
-	var start := model_path.get_base_dir()
-	var name := "Untitled.FCStd" if new else ""
-	var filters := PackedStringArray(["*.FCStd ; FreeCAD model"])
-	var mode := DisplayServer.FILE_DIALOG_MODE_SAVE_FILE if new else DisplayServer.FILE_DIALOG_MODE_OPEN_FILE
-	var done := func(ok: bool, paths: PackedStringArray, _filter: int) -> void:
-		if ok and not paths.is_empty(): switch_model(paths[0], new)
-	if DisplayServer.has_feature(DisplayServer.FEATURE_NATIVE_DIALOG_FILE):
-		DisplayServer.file_dialog_show("New model" if new else "Open a model", start, name, false, mode, filters, done)
-	else:
-		var fd := FileDialog.new()
-		fd.access = FileDialog.ACCESS_FILESYSTEM
-		fd.file_mode = FileDialog.FILE_MODE_SAVE_FILE if new else FileDialog.FILE_MODE_OPEN_FILE
-		fd.filters = filters
-		fd.current_dir = start
-		fd.file_selected.connect(func(p: String) -> void: switch_model(p, new); fd.queue_free())
-		add_child(fd)
-		fd.popup_centered_ratio(0.6)
 
 
 # ---------------- drawing export ----------------

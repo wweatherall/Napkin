@@ -24,30 +24,36 @@ func run() -> void:
 	m.set_tool("rect")
 	await harness._drag_to(Vector3(0, 0, 0), 2); await harness._press()
 	await harness._drag_to(Vector3(300, 200, 0), 2)
-	m._on_units_menu("format:mm")
-	m._on_units_menu("prec:1")
+	m.menus.on_units_menu("format:mm")
+	m.menus.on_units_menu("prec:1")
 	harness._ok("mm format shows exact mm in the measurements box", m.ui_vcb.text == "300 mm, 200 mm", m.ui_vcb.text)
 
-	m._on_units_menu("format:cm")
-	m._on_units_menu("prec:0.1")
+	m.menus.on_units_menu("format:cm")
+	m.menus.on_units_menu("prec:0.1")
 	harness._ok("cm format updates the measurements box immediately", m.ui_vcb.text == "30 cm, 20 cm", m.ui_vcb.text)
 
-	m._on_units_menu("format:m")
-	m._on_units_menu("prec:0.01")
+	m.menus.on_units_menu("format:m")
+	m.menus.on_units_menu("prec:0.01")
 	harness._ok("m format updates the measurements box immediately", m.ui_vcb.text == "0.3 m, 0.2 m", m.ui_vcb.text)
 
-	m._on_units_menu("format:in-frac")
-	m._on_units_menu("prec:1/16")
+	m.menus.on_units_menu("format:in-frac")
+	m.menus.on_units_menu("prec:1/16")
 	harness._ok("fractional inches shows ~ for rounded mm lengths (300 mm ≈ 11 13/16\", 200 mm ≈ 7 7/8\")",
 		m.ui_vcb.text == "~11 13/16\", ~7 7/8\"", m.ui_vcb.text)
 
-	m._on_units_menu("format:in-dec")
-	m._on_units_menu("prec:0.01")
+	m.menus.on_units_menu("format:in-dec")
+	m.menus.on_units_menu("prec:0.01")
 	harness._ok("decimal inches shows ~11.81\", ~7.87\"", m.ui_vcb.text == "~11.81\", ~7.87\"", m.ui_vcb.text)
 
 	# 2. Bare typed numbers are in the model's units (I59); explicit units always win.
-	m._on_units_menu("format:ft-in")
-	m._on_units_menu("prec:1/16")
+	m.menus.on_units_menu("format:ft-in")
+	m.menus.on_units_menu("prec:1/16")
+	var units_menu: RID = m.menus.units_menu_rid
+	if units_menu.is_valid():
+		var checked := []
+		for i in NativeMenu.get_item_count(units_menu):
+			if NativeMenu.is_item_checked(units_menu, i): checked.append(NativeMenu.get_item_tag(units_menu, i))
+		harness._ok("Units menu checks the current format and rounding", checked == ["format:ft-in", "prec:1/16"], checked)
 	await harness._type("12, 6\n")
 	await harness._wait_confirm()
 	var rect_op: Dictionary = m.ops.back()
