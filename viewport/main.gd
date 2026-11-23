@@ -674,6 +674,8 @@ func _make_tool_context():
 		"show_marker": pres.show_marker, "hide_marker": func(): marker.visible = false,
 		"push_filter": pres.draft_tests.filter if test_mode else Callable(),
 		"refresh_tip": _update_tip, "clear_rejection": func(): reject_note = "",
+		"refresh_hint": func(): ui_hint.text = tools[tool].hint(),
+		"show_status": _say_status, "tool_active": func(id: String) -> bool: return tool == id,
 		"new_board": func() -> bool: return new_board,
 		"appearance": appearance,
 	})
@@ -1037,7 +1039,7 @@ func redo() -> void:
 	if op.is_empty():
 		_say_status("Nothing to redo")
 		return
-	if op.type == "line":
+	if op.type in ["line", "arc"]:
 		pres.register_line(op)
 	elif op["type"] in ["rect", "circle"]:
 		if not rects.has(op["id"]): _register_rect(op)
@@ -1392,7 +1394,7 @@ func _port_free(p: int) -> bool:
 
 # The window <-> worker protocol's version (docs/protocol.md): bump it when a message or shared-file field changes.
 # The worker reports its own (worker/serve.py PROTOCOL_VERSION) in hello; a worker speaking another isn't shared.
-const PROTOCOL_VERSION := 9
+const PROTOCOL_VERSION := 10
 
 
 func _probe_worker(p: int) -> String:

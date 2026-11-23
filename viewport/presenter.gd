@@ -291,6 +291,38 @@ func reset() -> void:
 
 # ---------------- rectangles drawn on faces and in space ----------------
 
+static func arc_points(a: Vector3, mid: Vector3, b: Vector3) -> PackedVector3Array:
+	"""Tessellate an exact arc whose mid point is halfway along the sweep."""
+	var half := a.distance_to(b) * 0.5
+	if half <= 0.0: return PackedVector3Array()
+	var along := (b - a).normalized()
+	var chord_mid := a + (b - a) * 0.5
+	var sag := mid - chord_mid
+	sag -= along * sag.dot(along)
+	var height := sag.length()
+	if height <= 0.0: return PackedVector3Array()
+	var side := sag / height
+	var half_sweep := 2.0 * atan2(height, half)
+	var radius := (half * half + height * height) / (2.0 * height)
+	var count := maxi(2, ceili(CIRCLE_SEGMENTS * half_sweep / PI))
+	var points := PackedVector3Array([a])
+	for i in range(1, count):
+		var angle := (2.0 * float(i) / count - 1.0) * half_sweep
+		# cos(angle) - cos(half_sweep), factored to retain precision on shallow arcs.
+		var rise := 2.0 * radius * sin((half_sweep + angle) * 0.5) * sin((half_sweep - angle) * 0.5)
+		points.append(chord_mid + along * (radius * sin(angle)) + side * rise)
+	points.append(b)
+	return points
+
+
+static func polyline_segments(points: PackedVector3Array) -> PackedVector3Array:
+	var segments := PackedVector3Array()
+	for i in range(1, points.size()):
+		segments.append(points[i - 1])
+		segments.append(points[i])
+	return segments
+
+
 func register_line(op: Dictionary) -> void:
 	var src: Dictionary = op.plane.get("on", op.plane)
 	var start: Array = src.get("point", src.get("origin", [0, 0, 0]))
@@ -299,7 +331,14 @@ func register_line(op: Dictionary) -> void:
 	var n := Vector3(src.normal[0], src.normal[1], src.normal[2])
 	loose_lines[op.id] = {"a": a, "b": b, "n": n, "on": src.get("body", ""), "snap_start": op.get("snap_start", false), "snap_end": op.get("snap_end", false)}
 	drop_draft("line:" + op.id)
-	var node = lines(PackedVector3Array([a, b]), Color(0.1, 0.2, 0.6))
+	var segments := PackedVector3Array([a, b])
+	if op.type == "arc":
+		var mid := Vector3(op.mid[0], op.mid[1], op.mid[2])
+		var points := arc_points(a, mid, b)
+		loose_lines[op.id]["pts"] = points
+		loose_lines[op.id]["mid"] = mid
+		segments = polyline_segments(points)
+	var node := lines(segments, Color(0.1, 0.2, 0.6))
 	m.drafts_root.add_child(node)
 	drafts["line:" + op.id] = node
 	if op.has("outline"): register_rect(op)
@@ -311,7 +350,13 @@ func lines_on(body: String, normal: Vector3, point: Vector3) -> Array:
 	for id in loose_lines:
 		var line: Dictionary = loose_lines[id]
 		if line.on != body: continue
-		if absf((line.a - point).dot(normal)) > Regions.EPS or absf((line.b - point).dot(normal)) > Regions.EPS: continue
+		var points: PackedVector3Array = line.get("pts", PackedVector3Array([line.a, line.b]))
+		var coplanar := not points.is_empty()
+		for p in points:
+			if absf((p - point).dot(normal)) > Regions.EPS:
+				coplanar = false
+				break
+		if not coplanar: continue
 		var copy := line.duplicate(true); copy["id"] = id
 		result.append(copy)
 	return result
@@ -393,7 +438,7 @@ func drop_draft(oid: String) -> void:
 func rebuild_rect_drafts(ops: Array, used: Dictionary) -> void:
 	"""After an open: every rectangle's data, and a draft for those not yet pushed out."""
 	for op in ops:
-		if op.type == "line":
+		if op.type in ["line", "arc"]:
 			if not loose_lines.has(op.id): register_line(op)
 			if used.has(op.id): drop_draft(op.id)
 			continue
@@ -409,7 +454,7 @@ func forget_op(op: Dictionary, ops: Array, used: Dictionary) -> void:
 	var oid: String = op["id"]
 	end_wave(oid)
 	drop_draft(oid)
-	if op.type == "line":
+	if op.type in ["line", "arc"]:
 		loose_lines.erase(oid); rects.erase(oid); drop_draft("line:" + oid)
 	elif op["type"] in ["rect", "circle"]:
 		rects.erase(oid)

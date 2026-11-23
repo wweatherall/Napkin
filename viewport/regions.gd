@@ -231,14 +231,20 @@ static func find(source: PackedVector3Array, lines: Array, normal: Vector3, poin
 	var segments: Array = boundary.values()
 	var boundary_count := segments.size()
 	for line in lines:
-		var a: Vector3 = line.a; var b: Vector3 = line.b
-		if absf((a - point).dot(normal)) > EPS or absf((b - point).dot(normal)) > EPS: continue
-		var a2: Vector2 = flat.call(a); var b2: Vector2 = flat.call(b)
+		var points: PackedVector3Array = line.get("pts", PackedVector3Array([line.a, line.b]))
+		var projected := PackedVector2Array()
+		for p in points:
+			if absf((p - point).dot(normal)) > EPS: break
+			projected.append(flat.call(p))
+		if projected.size() != points.size() or projected.size() < 2: continue
 		# Explicit geometry snaps may land on a different tessellation of the same native curved edge.
-		# Only these endpoints bridge the export's existing 0.1 mm display deflection; free endpoints keep EPS.
-		if line.get("snap_start", false): a2 = _snap_boundary(a2, boundary.values(), 0.101)
-		if line.get("snap_end", false): b2 = _snap_boundary(b2, boundary.values(), 0.101)
-		if a2.distance_to(b2) >= EPS: segments.append([a2, b2])
+		# Only drawing ends bridge the export's existing 0.1 mm deflection; internal facets keep EPS.
+		var last := projected.size() - 1
+		if line.get("snap_start", false): projected[0] = _snap_boundary(projected[0], boundary.values(), 0.101)
+		if line.get("snap_end", false): projected[last] = _snap_boundary(projected[last], boundary.values(), 0.101)
+		for i in range(1, projected.size()):
+			if projected[i - 1].distance_to(projected[i]) >= EPS:
+				segments.append([projected[i - 1], projected[i]])
 	var cycles := _cycles(segments, source2, boundary_count)
 	var chosen := PackedVector2Array()
 	for cycle in cycles:

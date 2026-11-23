@@ -3,8 +3,8 @@ extends Node
 ## text goes. `m.measure`; main.gd forwards the old names (`m.vcb`, `m.typing`, `m.apply_vcb()`, `m._update_vcb()`,
 ## `m.length_pending`, `m.ui_vcb_box`, ...), so tools and tests don't change.
 ##
-## Typed values: Move's count syntax (`3x`, `/3`) goes to the tool as typed; a length is worked out by units.gd at
-## once and handed to the tool in mm; only what it declines waits for a `length` reply from FreeCAD (T32).
+## Move counts and Centre Arc angles reach the tool as typed. Lengths are worked out by units.gd and handed
+## to the tool in mm; only what it declines waits for a `length` reply from FreeCAD (T32).
 ## `typing` (I48): once the box is clicked or typed in, Delete / Backspace edit it until a click in the view or a
 ## new selection.
 
@@ -223,16 +223,21 @@ func stop_typing() -> void:
 
 func apply() -> void:
 	var tool: String = m.tool
-	var tools: Dictionary = m.tools
+	var active = m.tools[tool]
 	var txt := vcb.strip_edges()
 	vcb = ""
 	if txt != "":
 		var counts := RegEx.new()
 		counts.compile("^(?:[0-9]+x|[x*][0-9]+|/[0-9]+)$")
-		if tool == "move" and counts.search(txt.to_lower()) != null:
+		var raw: bool = active.has_method("typed_raw") and active.typed_raw()
+		if raw or (tool == "move" and counts.search(txt.to_lower()) != null):
 			length_pending = {}
-			tools[tool].typed(txt)
-		elif tool in ["rect", "circle", "line", "push", "move"]:
+			active.typed(txt)
+		elif tool in ["rect", "circle", "line", "arc", "push", "move"]:
+			var suffix := ""
+			if tool == "arc" and active.radius_input() and txt.to_lower().ends_with("r"):
+				suffix = "r"
+				txt = txt.left(-1).strip_edges()
 			var texts := txt.split(",") if tool == "rect" else PackedStringArray([txt])
 			var du := default_unit()
 			# Worked out here, at once, the way FreeCAD would (units.gd evaluate_length: 150, 3/4", 1' 6 1/2",
@@ -241,13 +246,13 @@ func apply() -> void:
 			var here := Units.evaluate_pair(txt, du) if tool == "rect" else Units.evaluate_length(txt, du)
 			if here.ok:
 				length_pending = {}
-				tools[tool].typed("%.12f,%.12f" % [here.a_mm, here.b_mm] if tool == "rect" else "%.12f" % here.mm)
+				active.typed("%.12f,%.12f" % [here.a_mm, here.b_mm] if tool == "rect" else ("%.12f" % here.mm) + suffix)
 			elif texts.size() != (2 if tool == "rect" else 1):
 				m.ui_sync.text = "Enter two lengths separated by a comma"
 			else:
 				length_id += 1
 				length_pending = {"id": length_id, "tool": tool, "model": m.model_path, "seq": m.seq,
-					"state": tools[tool].state.duplicate(true)}
+					"state": active.state.duplicate(true), "suffix": suffix}
 				m.client.send({"cmd": "length", "id": length_id, "texts": Array(texts), "default_unit": du})
 				m.ui_sync.text = "Evaluating length…"
 	update()
@@ -265,5 +270,5 @@ func on_length(resp: Dictionary) -> void:
 		return
 	var values := PackedStringArray()
 	for value in resp.values: values.append("%.12f" % float(value))
-	m.tools[tool].typed(",".join(values))
+	m.tools[tool].typed(",".join(values) + pending.get("suffix", ""))
 	update()

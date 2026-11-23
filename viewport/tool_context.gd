@@ -8,7 +8,7 @@ extends RefCounted
 ##   document   document.gd: new ids, op snapshots, append, remove, sync
 ##   view       presenter / main.gd: previews, the snap marker, guides, the selection box, face highlight,
 ##              registering profiles, presenting committed draft pieces and their wave
-##   ui         the measurements box, the tooltip, the rejection note, the window's New board option
+##   ui         the measurements box, the active tool, hint, tooltip, status, and the New board option
 ##   paint      the wood the Paint tool puts on, and painting
 ## No adapter gives out Main, a controller, a scene node, a shared material or a live cache map (test_tool_context.gd
 ## checks each adapter's public members against an allowlist). Owners are passed in once, in `_init`; a part left
@@ -25,7 +25,8 @@ var paint: PaintCapability
 
 func _init(parts := {}) -> void:
 	"""parts: infer, pres, sel, doc, measure (owner objects); cursor, show_marker, hide_marker,
-	tri_mesh, line_mesh, refresh_tip, clear_rejection, new_board (Callables); appearance (wood/paint owner);
+	tri_mesh, line_mesh, refresh_tip, clear_rejection, refresh_hint, show_status, tool_active, new_board
+	(Callables); appearance (wood/paint owner);
 	overlay, overlay_lines (nodes); materials (style -> Material). Anything missing is null / a no-op."""
 	pick = PickCapability.new(parts)
 	model = ModelCapability.new(parts)
@@ -303,11 +304,17 @@ class UiCapability extends _Capability:
 	var _measure
 	var _refresh_tip
 	var _clear_rejection
+	var _refresh_hint
+	var _show_status
+	var _tool_active
 	var _new_board
 
 	func _init(parts: Dictionary) -> void:
 		_measure = parts.get("measure")
 		_refresh_tip = parts.get("refresh_tip"); _clear_rejection = parts.get("clear_rejection")
+		_refresh_hint = parts.get("refresh_hint")
+		_show_status = parts.get("show_status")
+		_tool_active = parts.get("tool_active")
 		_new_board = parts.get("new_board")
 
 	func typed_text() -> String:
@@ -327,6 +334,16 @@ class UiCapability extends _Capability:
 	func clear_rejection() -> void:
 		"""Clear the last rejection's status note (a new action starts)."""
 		_call(_clear_rejection)
+
+	func refresh_hint() -> void:
+		"""Ask the window to show the current tool's hint again."""
+		_call(_refresh_hint)
+
+	func show_status(text: String) -> void:
+		_call(_show_status, [text])
+
+	func tool_active(id: String) -> bool:
+		return _call(_tool_active, [id]) == true
 
 	func new_board() -> bool:
 		"""The window's New board option (B, I04b)."""

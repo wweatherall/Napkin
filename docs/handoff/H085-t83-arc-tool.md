@@ -113,3 +113,21 @@ arc or line, editing an arc after it's drawn, loops of lines and arcs closing in
 
 End your response with a Result line; leftovers as Follow-up lines; anything for the merge as For the integrator
 lines.
+
+**Response — Codex, 2026-11-23**
+
+Branch `codex/h085-t83-arc-tool`. Implemented I60's 2-Point and Centre gestures, the typed chord, bulge, radius and sweep, and exact arc-bounded Push/Pull. Verified the keyboard modes and hints, drag-to-chord, cancellation, a mouse sweep past 180°, a refused full sweep, snapping, undo/redo, and preview-to-worker agreement. The native scenario checks a join, a cut, and an extrusion from a split loose profile at full FreeCAD precision, plus rejection of degenerate, off-plane and non-finite points. No new decision or Work list IDs or open questions.
+
+Changed from the brief: William approved extending the Touches list to `viewport/inference.gd`; this lets the drawing snap to its true endpoints and midpoint and to its displayed curve along the edge.
+
+Changed from the brief: `main.gd` also wires the Arc status and hint callbacks in `_make_tool_context`; the callbacks let the tool refresh its hint and report invalid radius through the existing status bar while keeping Main private.
+
+Changed from the brief: Presenter removes arc drawings from its cache and drafts in `forget_op`, which is also needed for undo and rejected operations. The existing worker scenario registry now expects the new ArcActions mixin and arc op.
+
+Architecture: Protocol version 10 on both sides adds `arc` with the Line plane reference, world-mm `mid` and `end`, and endpoint snap flags. ArcActions saves one blocked native circular arc in a Sketcher sketch in Lines with SSLineId and OnBody.
+
+Architecture: Presenter owns the arc facets and drawing record. Regions accepts optional polyline points and bridges only the two flagged drawing ends. Native region refinement feeds the actual arc edges and extended straight drawing edges to FreeCAD's splitter within the existing discrepancy bound.
+
+Architecture: Tools can request raw measurement text via `typed_raw()`. Centre sweep takes degrees. The measurement box sends arc radii through the H052 length evaluator with the radius suffix restored, including on a FreeCAD reply. ToolContext UI adds `refresh_hint()`, `show_status(text)`, and `tool_active(id)`.
+
+For the integrator: Record the new tool and op in the viewport and worker guides and in docs/protocol.md. Update the T88 UI capability list with the three additions above and point I60 at the implementation.
