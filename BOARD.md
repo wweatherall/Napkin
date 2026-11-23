@@ -54,7 +54,7 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H093 | either | **Done**: for review (codex) | Outside saves: a failed reload asks, a worker lost mid-reload reloads again, and a question the actions overtook closes (H092 findings 2 and 5, A39) | [H093](docs/handoff/H093-outside-save-failures.md) |  |
+| H093 | either | Returned: **Ready** for Codex (resumes codex/h093-outside-save-failures) | Outside saves: a failed reload asks, a worker lost mid-reload reloads again, and a question the actions overtook closes (H092 findings 2 and 5, A39) | [H093](docs/handoff/H093-outside-save-failures.md) |  |
 | H098 | Gemini | **Done**: for review (gemini) | Trial: try to break H093 before it merges (checks only) | [H098](docs/handoff/H098-break-h093.md) |  |
 | H094 | either | Queued | A reload from a revision Shop Sketch no longer remembers keeps the ops that file holds (H092 finding 6) | [H094](docs/handoff/H094-reload-unknown-revision.md) | H093 |
 | H096 | either | Queued | Pushing one cell of a split profile keeps the rest of the profile on screen (H092 finding 9) | [H096](docs/handoff/H096-region-push-keeps-profile.md) | H083 |
@@ -71,6 +71,6 @@ Done since the board started: H033 (T74 + T77), H034 (T76), H035 (T44), T56 (sta
 ## Notes
 
 - H096 waits on H093 (test_document.gd);
-- H093 merges only after H098 (the break-it trial, William's request): H098 goes to an agent other than H093's builder.
+- H093 returned (08:2x) with H098's 16 failing checks to fix (its Touches widened in the return notes); H098 is merged with it. H094, H096 wait on H093.
 - T88: steps 1-5 (Paint H065, Select H071, Circle H072, Rectangle H075, Push/Pull H079) merged; step 6 (Move, and the legacy setup's removal) is H083 (Gemini finishing Codex's work, William 2026-11-22), H052 (T66 units) and the rest go on from Gemini's version. H101 (Codex checks and tidies it) doesn't hold anything up: it runs when no job holds the tool files, from main as it is then, and Codex fixes whatever it touches (William, 2026-11-22).
 - H101 is for the Codex session that started H083 (01a20629…, William): its H083 count was taken off so it can take H101 without a /clear.
