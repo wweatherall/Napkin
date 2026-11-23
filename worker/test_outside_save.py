@@ -11,6 +11,7 @@ import json
 import os
 import re
 import shutil
+import signal
 import socket
 import subprocess
 import sys
@@ -19,7 +20,7 @@ import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 FC = os.environ.get("FREECAD", "/Applications/FreeCAD.app/Contents/Resources/bin/freecadcmd")
-tmp = os.environ.get("TESTDIR") or tempfile.mkdtemp(prefix="shopsketch-outside-")
+tmp = os.path.abspath(os.environ.get("TESTDIR") or tempfile.mkdtemp(prefix="shopsketch-outside-"))
 os.makedirs(tmp, exist_ok=True)
 R = [0, 0]
 
@@ -40,16 +41,25 @@ class Window:
         self.sock.sendall((json.dumps(req) + "\n").encode())
         return self.wait(want)
 
-    def wait(self, want, timeout=60):
-        t0 = time.time()
-        while time.time() - t0 < timeout:
+    def wait(self, want, timeout=60, model=None):
+        for i, msg in enumerate(self.extra):
+            if msg.get("cmd") == want and (model is None or msg.get("model") == model):
+                return self.extra.pop(i)
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
             while b"\n" in self.buf:
                 line, self.buf = self.buf.split(b"\n", 1)
                 msg = json.loads(line)
-                if msg.get("cmd") == want:
+                if msg.get("cmd") == want and (model is None or msg.get("model") == model):
                     return msg
                 self.extra.append(msg)
-            chunk = self.sock.recv(65536)
+            self.sock.settimeout(max(0.001, deadline - time.monotonic()))
+            try:
+                chunk = self.sock.recv(65536)
+            except socket.timeout:
+                return None
+            finally:
+                self.sock.settimeout(60)
             if not chunk:
                 return None
             self.buf += chunk
@@ -147,23 +157,7 @@ def opened(model):
 
 def wait_outside(model, timeout=10):
     """The worker's outside_save event for this model (others are kept in w.extra and counted as stray)."""
-    t0 = time.time()
-    while time.time() - t0 < timeout:
-        for m in list(w.extra):
-            if m.get("cmd") == "outside_save" and m.get("model") == model:
-                w.extra.remove(m)
-                return m
-        w.sock.settimeout(max(0.05, timeout - (time.time() - t0)))
-        try:
-            got = w.wait("outside_save", timeout)
-        except OSError:
-            got = None
-        finally:
-            w.sock.settimeout(60)
-        if got is None:
-            return None
-        w.extra.append(got)
-    return None
+    return w.wait("outside_save", timeout=timeout, model=model)
 
 
 def stray():
@@ -204,9 +198,27 @@ out2 = m2 + "-out"
 opened(m2)
 sync(w, m2, board_ops(300), 1)
 ask({"cmd": "flush", "model": m2}, "flush")
-freecad_save(m2)
-fc_sha = sha(m2)
-sync(w, m2, board_ops(300) + second(200), 2)      # lands in FreeCAD's document, but the file is FreeCAD's
+# Prepare FreeCAD's save away from the watched path. Stop the worker at an acknowledged
+# process boundary, queue the actions and publish the save, then resume. The watch's first
+# look settles the new file; the queued sync lands before its next look reports unsaved.
+edit = m2 + ".edited.FCStd"
+shutil.copy2(m2, edit)
+freecad_save(edit)
+fc_sha = sha(edit)
+os.kill(proc.pid, signal.SIGSTOP)
+_, stopped = os.waitpid(proc.pid, os.WUNTRACED)
+assert os.WIFSTOPPED(stopped), stopped
+try:
+    out = os.path.join(tmp, os.path.basename(m2) + "-out")
+    os.makedirs(out, exist_ok=True)
+    req = {"cmd": "sync", "model": m2, "outdir": out, "seq": 2,
+           "oplog": {"format": "oplog/0.1", "units": "mm", "ops": board_ops(300) + second(200)}}
+    w.sock.sendall((json.dumps(req) + "\n").encode())
+    os.replace(edit, m2)
+finally:
+    os.kill(proc.pid, signal.SIGCONT)
+landed = w.wait("sync")
+check("the pending actions land before the outside-save notification", landed and landed["ok"], landed)
 ev = wait_outside(m2)
 check("an outside save with actions unsaved says so", ev and ev["unsaved"] is True, ev)
 time.sleep(1.0)                                      # four autosave periods

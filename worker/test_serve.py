@@ -12,7 +12,7 @@ import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 FC = os.environ.get("FREECAD", "/Applications/FreeCAD.app/Contents/Resources/bin/freecadcmd")
-tmp = os.environ.get("TESTDIR") or tempfile.mkdtemp(prefix="shopsketch-serve-")
+tmp = os.path.abspath(os.environ.get("TESTDIR") or tempfile.mkdtemp(prefix="shopsketch-serve-"))
 os.makedirs(tmp, exist_ok=True)
 R = [0, 0]
 
@@ -33,16 +33,25 @@ class Window:
         self.sock.sendall((json.dumps(req) + "\n").encode())
         return self.wait(want)
 
-    def wait(self, want, timeout=60):
-        t0 = time.time()
-        while time.time() - t0 < timeout:
+    def wait(self, want, timeout=60, model=None):
+        for i, msg in enumerate(self.extra):
+            if msg.get("cmd") == want and (model is None or msg.get("model") == model):
+                return self.extra.pop(i)
+        deadline = time.monotonic() + timeout
+        while time.monotonic() < deadline:
             while b"\n" in self.buf:
                 line, self.buf = self.buf.split(b"\n", 1)
                 msg = json.loads(line)
-                if msg.get("cmd") == want:
+                if msg.get("cmd") == want and (model is None or msg.get("model") == model):
                     return msg
                 self.extra.append(msg)
-            chunk = self.sock.recv(65536)
+            self.sock.settimeout(max(0.001, deadline - time.monotonic()))
+            try:
+                chunk = self.sock.recv(65536)
+            except socket.timeout:
+                return None
+            finally:
+                self.sock.settimeout(60)
             if not chunk:
                 return None
             self.buf += chunk
@@ -50,6 +59,24 @@ class Window:
 
     def close(self):
         self.sock.close()
+
+
+# Events can arrive before the command reply, under load or in the same socket read.
+reader, writer = socket.socketpair()
+queued = Window.__new__(Window)
+queued.sock, queued.buf, queued.extra = reader, b"", []
+try:
+    writer.sendall(b'{"cmd":"saved","model":"one"}\n{"cmd":"saved","model":"two"}\n'
+                   b'{"cmd":"focus"}\n{"cmd":"sync"}\n')
+    check("a command reply can follow unsolicited events", queued.wait("sync") == {"cmd": "sync"})
+    check("waiting retrieves saved and focus events already buffered before the reply",
+          queued.wait("saved", model="two") == {"cmd": "saved", "model": "two"}
+          and queued.wait("saved", model="one") == {"cmd": "saved", "model": "one"}
+          and queued.wait("focus") == {"cmd": "focus"}
+          and queued.extra == [])
+finally:
+    reader.close()
+    writer.close()
 
 
 def board_ops(w):
@@ -110,10 +137,10 @@ try:
         vols.append(bodies[0]["volume_mm3"] if bodies else 0)
     check("both get their own board, in their own document", sa["ok"] and sb["ok"] and vols == [300 * 100 * 18, 500 * 100 * 18],
           (sa.get("error"), sb.get("error"), vols))
-    saved = a.wait("saved", timeout=10)
+    saved = a.wait("saved", timeout=10, model=m1)
     check("the window that owns a model hears when it's saved", saved is not None and saved["model"] == m1, saved)
     ob2 = b.ask({"cmd": "open", "model": m1, "seq": 13}, "open")
-    focus = a.wait("focus", timeout=5)
+    focus = a.wait("focus", timeout=5, model=m1)
     check("opening a model another window has is refused (one window per model)",
           ob2 and not ob2["ok"] and ob2["error"] == "already_open" and ob2.get("seq") == 13, ob2)
     fl = b.ask({"cmd": "flush", "seq": 14}, "flush")
@@ -132,11 +159,11 @@ try:
     m3 = os.path.join(ro, "three.FCStd")
     b.ask({"cmd": "open", "model": m3, "fresh": True}, "open")
     sync(b, m3, board_ops(200), 3)
-    first = b.wait("saved", timeout=10)
+    first = b.wait("saved", timeout=10, model=m3)
     os.chmod(ro, 0o555)
     try:
         sync(b, m3, board_ops(250), 4)
-        bad = b.wait("save_failed", timeout=10)
+        bad = b.wait("save_failed", timeout=10, model=m3)
         check("a save that fails tells the window that owns the model (save_failed: model, rev, error)",
               bad is not None and bad["model"] == m3 and first and bad["rev"] == first["rev"] + 1
               and bad.get("error") == "PermissionError: the folder readonly is read-only",
