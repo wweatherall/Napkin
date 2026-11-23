@@ -20,6 +20,10 @@ clear: `python3 tools/integrator.py take <session> --william` (on his word), the
   H093 (with H098's 16 checks, returned twice: H098 findings, then the reload snapshot's Label), H098 (its branch
   came in with H093; marked merged by hand with `job.merged`), H094 (protocol 11: Meta `ShopSketchOps`), H107,
   H108. main.gd ~1,390 lines (2,224 this morning).
+- Ready, written at William's word after the session's feedback: H119 (T114: questions answered through the
+  queue, `job.py answer`) and H120 (T115: Touches checked at Ready; wrapped response lines read whole). Neither
+  overlaps the other or H096. William also had item 3 done: docs/integrator.md now says to recheck a brief when
+  its blocker merges.
 - Small fixes this session (listed for William): Gemini session names carry the start time (before the clear);
   a job's Author line may say `Builds on: H0NN` and the queue lets its overlap with that job through (H098).
 - Brief lesson: Touches must name full paths (bare names after a path aren't matched: H110's flag) and no globs

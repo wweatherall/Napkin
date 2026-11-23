@@ -71,6 +71,9 @@ Architecture: lines, the response) and CLAUDE.md (commit trailers); this page sa
   Before writing a rule that sets one value of a linked pair or group (two angles, a range, a count and its
   list), check the state it leaves the others in. The worker may depart from a rule whose letter defeats its
   purpose, with a `Changed from the brief:` line.
+- When a job's blocker merges, recheck its brief against the code before opening it: the blocker may have
+  rewritten what the brief describes (H094 and H108 both needed updating after H093). Re-date its "Today", fix what
+  moved, and add the blocker's new names to its Touches.
 - Make a brief exact: its scope, the exact wording of any message, the cases that must still work (H076 is the
   model; workers said its precision let them build it without guessing). Check every claim it makes about how
   the code works today against the code before marking it Ready: H077's brief stated an order of steps opposite

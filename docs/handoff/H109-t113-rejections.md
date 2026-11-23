@@ -7,7 +7,8 @@ References: T113, P45, T16, Q7, A31.
 Touches: viewport/document.gd, viewport/test_document.gd, viewport/main.gd (the section "rejections take what
 built on them (T16, Q7)"; the pass-throughs `_op_of`, `remove_ops`, `remove_op`, `_restore_counters`,
 `_consumed_rects`, `can_redo`), viewport/keys.gd, viewport/tests/harness.gd, viewport/tests/suites/breath.gd,
-viewport/tests/quick/undo.gd, worker.gd, outside_save.gd, save_failure.gd (only the renamed calls). Not
+viewport/tests/quick/undo.gd, viewport/tests/quick/worker.gd, viewport/tests/quick/outside_save.gd,
+viewport/tests/quick/save_failure.gd (only the renamed calls). Not
 presenter.gd's waves.
 
 Why (P45, T113): main.gd (~2,130 lines) is the file every job meets; moving whole sections out lets jobs run side by side and makes it easier to read. Behaviour unchanged: nothing William would notice changes, no message, file or saving changes. A filler job: Ready when nothing else holds its files.
