@@ -27,8 +27,9 @@ Worker (run in your job's worktree unless it says otherwise):
   python3 tools/job.py wait "<question>"
                                 you're waiting on William: pauses the switch until your next beat
   python3 tools/job.py done     refuses unless the handoff has your response and Status answered, the tree is
-                                committed, and the quick test passed on the latest commit (it runs the quick test if
-                                that commit has no pass yet); then marks the job done and tells the integrator
+                                committed, and the quick test passed. After handoff-only commits it checks the open
+                                list and bookkeeping to reuse a clean pass. Otherwise it runs any missing quick test.
+                                Then it marks the job done and tells the integrator
 Integrator:
   python3 tools/job.py status   the queue as text: jobs in progress, waiting, done, returned; what's Ready
   python3 tools/job.py board    rewrite BOARD.md's job table from docs/handoff/ (in the board's Order line) plus the
@@ -558,6 +559,41 @@ def test(cwd, jid=None, out=print):
     return ok
 
 
+def quick_pass_covers(top, recorded, head, out):
+    if not (recorded.get("clean") and recorded.get("ok")):
+        return False
+    passed = recorded.get("commit")
+    if passed == head:
+        return True
+    if not passed or git(top, "merge-base", "--is-ancestor", passed, head).returncode:
+        return False
+
+    # Compare every commit with its parents, so a revert or merge cannot hide a code change.
+    changes = subprocess.run(["git", "log", "--format=", "-m", "--root", "--no-renames", "--name-only", "-z",
+                              f"{passed}..{head}", "--"], cwd=top, capture_output=True)
+    folder = os.fsencode(handoff.FOLDER + "/")
+    index = os.fsencode(handoff.HANDOFF)
+    if changes.returncode or any(path != index and not path.startswith(folder)
+                                 for path in changes.stdout.split(b"\0") if path):
+        return False
+
+    # test_bookkeeping.py exercises result handling on fixtures. Check this worktree's open list too.
+    try:
+        with open(os.path.join(top, handoff.HANDOFF), encoding="utf-8") as f:
+            listed = f.read()
+        if handoff.with_list(listed, top) != listed:
+            out("the handoff open list is out of date")
+            return False
+    except (OSError, ValueError, SystemExit) as e:
+        out(f"could not check the handoff open list: {e}")
+        return False
+    if subprocess.run([sys.executable, "tools/test_bookkeeping.py"], cwd=top).returncode:
+        out("handoff bookkeeping check failed")
+        return False
+    out(f"reused the quick-test pass from {passed[:7]} for {head[:7]} after checking the handoff")
+    return True
+
+
 def done(cwd, jid=None, now=None, out=print):
     top = toplevel(cwd)
     with locked(state_path(cwd)) as st:
@@ -587,7 +623,7 @@ def done(cwd, jid=None, now=None, out=print):
         return False
     head = git(top, "rev-parse", "HEAD").stdout.strip()
     t = j.get("test") or {}
-    if not (t.get("commit") == head and t.get("ok") and t.get("clean")):
+    if not quick_pass_covers(top, t, head, out):
         out(f"no quick-test pass recorded for {head[:7]}: running it")
         if not test(cwd, k, out):
             out("refused: the quick test failed on the latest commit")
