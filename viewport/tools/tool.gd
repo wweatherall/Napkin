@@ -1,10 +1,7 @@
 extends RefCounted
 ## A tool owns its state; main.gd hands it the cursor, clicks, keys and typed values (T4). All tools snap
-## through the one engine in inference.gd. A tool uses what `ctx` (tool_context.gd, T88) offers; until it has
-## moved there, it also gets `m` (main.gd) and `infer` (the legacy setup below).
+## through the one engine in inference.gd and use the capabilities offered by ctx.
 
-const Main := preload("res://main.gd")          # T88: only for the legacy setup; goes at step 6
-const Inference := preload("res://inference.gd")
 const ToolContext := preload("res://tool_context.gd")
 const Geo := preload("res://tool_geometry.gd")
 # Independent policies (T33): pointer intent, native model resolution, and text only.
@@ -14,8 +11,6 @@ const DISTANCE_DISPLAY_FORMAT := "%d"  # existing whole-mm display; never round 
 const DIMENSIONS_DISPLAY_FORMAT := "%d, %d"
 
 var ctx: ToolContext   # every tool gets this (setup_context)
-var m: Main            # legacy: only tools whose uses_main() is true get these (setup)
-var infer: Inference
 
 
 static func pointer_distance_ok(distance: float, point_snap: bool) -> bool:
@@ -32,19 +27,6 @@ static func clean_pointer_distance(distance: float) -> float:
 func setup_context(context: ToolContext) -> void:
 	"""Every tool: what it may use (tool_context.gd)."""
 	ctx = context
-
-
-## T88 migration marker (temporary, removed at step 6 with setup below): true = this tool still reaches into
-## main.gd and gets the legacy setup too. A tool moved to ToolContext overrides this to return false; main.gd
-## asks each tool rather than listing them (A34), and test_tools.gd pins which tools still return true.
-func uses_main() -> bool:
-	return true
-
-
-func setup(viewport: Main) -> void:
-	"""Legacy (T88: goes at step 6): main.gd itself, for tools not yet moved to ctx."""
-	m = viewport
-	infer = viewport.infer
 
 
 ## forget any operation in progress (switching tools, Esc)

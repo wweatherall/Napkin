@@ -3,8 +3,6 @@ extends "res://tools/tool.gd"
 const TOOL := {"id": "line", "label": "Line", "tip": "Line (L)", "key": KEY_L, "order": 37, "show_links": true}
 var state := {}
 
-func uses_main() -> bool: return false
-
 func reset() -> void:
 	state = {}
 	press_reset()

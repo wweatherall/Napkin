@@ -35,6 +35,9 @@ class DraftScene:
 	var mat_draft := StandardMaterial3D.new()
 	var mat_cut := StandardMaterial3D.new()
 	var mat_rect := StandardMaterial3D.new()
+	var mat_plane := StandardMaterial3D.new()
+	var overlay: MeshInstance3D
+	var overlay_lines: MeshInstance3D
 	var overlay_bias := 0.0
 	var line_scale := 1.0
 	var test_mode := true
@@ -106,8 +109,7 @@ func check(label: String, condition: bool, detail = "") -> void:
 
 
 # The spec's surface (docs/specs/T88-tool-interface.md, "Proposed surface"). `selection.set` is `set_ids`
-# (Object.set can't be overridden). DEFERRED arrive with the step that first uses them; each step moves its
-# names from DEFERRED to ALLOW.
+# (Object.set can't be overridden).
 const ALLOW := {
 	"pick": ["hit", "snap", "on_grid", "point", "axis", "axis_dest", "plane_dest", "ray", "project", "cursor",
 			 "grid_enabled", "grid_step", "snap_radius"],
@@ -116,12 +118,11 @@ const ALLOW := {
 	"selection": ["ids", "context", "assembly_of", "members_of", "unit_of", "in_context", "is_hidden",
 				  "context_assembly", "edit_blocked", "set_ids", "enter"],
 	"document": ["next_id", "op", "append", "remove", "sync"],
-	"view": ["preview", "clear_preview", "marker", "hide_marker", "guides", "clear_guides", "selection_box",
+	"view": ["preview", "mirror_preview", "clear_preview", "marker", "hide_marker", "guides", "clear_guides", "selection_box",
 			 "clear_selection_box", "face_highlight", "clear_face_highlight", "register_profile", "register_line", "present_draft"],
 	"ui": ["typed_text", "refresh_measurements", "refresh_tip", "clear_rejection", "new_board"],
 	"paint": ["current_name", "apply"],
 }
-const DEFERRED := {"view": ["mirror_preview"]}   # step 6 (Move)
 
 
 static func public_members(o: Object) -> Dictionary:
@@ -181,8 +182,6 @@ func _initialize() -> void:
 		check("%s: public methods are the allowlist" % cap, _same(pm["methods"], ALLOW[cap]),
 			{"extra": _minus(pm["methods"], ALLOW[cap]), "missing": _minus(ALLOW[cap], pm["methods"])})
 		check("%s: no public variables (owners stay private)" % cap, pm["props"].is_empty(), pm["props"])
-		for name in DEFERRED.get(cap, []):
-			check("%s.%s is not there yet (its step adds it)" % [cap, name], not pm["methods"].has(name))
 	var raw := ["main", "m", "doc", "pres", "sel", "measure", "cam", "client", "infer", "get_owner", "ops",
 				"counters", "body_tris", "rects", "overlay"]
 	var leaks := []
@@ -424,7 +423,7 @@ func _initialize() -> void:
 	paint_infer.hit = {"hit": true, "body": "b1"}
 	paint_tool.mouse_moved(Vector2.ZERO)
 	check("context-only Paint previews the hovered assembly and names the chosen wood",
-		paint_tool.m == null and not paint_tool.uses_main() and overlay.mesh != null
+		overlay.mesh != null
 		and calls.back() == ["tri", 3, mats["hover"]] and paint_tool.hint().begins_with("Paint with Black walnut:"))
 	paint_tool.click(Vector2.ZERO)
 	check("Paint click targets the whole assembly through the context",
@@ -443,8 +442,7 @@ func _initialize() -> void:
 	select.mouse_moved(Vector2.ZERO)
 	select.click(Vector2.ZERO)
 	select.release(Vector2.ZERO)
-	check("context-only Select previews and selects the assembly", select.m == null and not select.uses_main()
-		and overlay.mesh != null and sel.selection == ["b1", "b2"])
+	check("context-only Select previews and selects the assembly", overlay.mesh != null and sel.selection == ["b1", "b2"])
 	select.double_click(Vector2.ZERO)
 	check("Select double-click enters the assembly through the context", sel.context == "assembly:a1")
 	sel.context = ""
@@ -495,8 +493,7 @@ func _initialize() -> void:
 	circle.setup_context(ToolContext.new(cparts))
 	cinfer.hit = {"hit": true, "point": Vector3(10, 20, 0), "normal": Vector3(0, 0, 1), "body": "", "rect": ""}
 	circle.mouse_moved(Vector2.ZERO)
-	check("context-only Circle shows the snap marker before the centre", circle.m == null and not circle.uses_main()
-		and calls.back()[0] == "marker" and not circle.busy())
+	check("context-only Circle shows the snap marker before the centre", calls.back()[0] == "marker" and not circle.busy())
 	circle.click(Vector2.ZERO)
 	cinfer.ray_at = Vector3(10 + 30.25, 20, 0)
 	circle.mouse_moved(Vector2(50, 0))
@@ -538,8 +535,7 @@ func _initialize() -> void:
 	rinfer.hit = {"hit": false}
 	var r_count: int = doc.ops.size()
 	rect.click(Vector2.ZERO)
-	check("context-only Rectangle ignores empty space", rect.m == null and not rect.uses_main()
-		and not rect.busy() and doc.ops.size() == r_count)
+	check("context-only Rectangle ignores empty space", not rect.busy() and doc.ops.size() == r_count)
 	rinfer.hit = {"hit": true, "point": Vector3(10, 20, 0), "normal": Vector3(0, 0, 1), "body": "", "rect": ""}
 	rect.mouse_moved(Vector2.ZERO)
 	check("Rectangle shows the snap marker before its first corner", calls.back()[0] == "marker")
@@ -589,6 +585,7 @@ func _initialize() -> void:
 	check("Rectangle won't start on an assembly board from outside", not rect.busy())
 
 	_test_push()
+	_test_move()
 
 	# --- geometry: the moved functions, and Main's wrappers give the same answers ---
 	var v3 := Vector3(1.23456, -7.0004, 2.5)
@@ -605,7 +602,7 @@ func _initialize() -> void:
 		and Main.AXIS_COLORS == Presenter.AXIS_COLORS)
 
 	# --- source: the context, geometry and inference never reach main.gd ---
-	for path in ["res://tool_context.gd", "res://tool_geometry.gd", "res://inference.gd", "res://appearance.gd", "res://tools/paint_tool.gd", "res://tools/select_tool.gd", "res://tools/circle_tool.gd", "res://tools/rect_tool.gd", "res://tools/line_tool.gd", "res://tools/push_tool.gd"]:
+	for path in ["res://tool_context.gd", "res://tool_geometry.gd", "res://inference.gd", "res://appearance.gd", "res://tools/paint_tool.gd", "res://tools/select_tool.gd", "res://tools/circle_tool.gd", "res://tools/rect_tool.gd", "res://tools/line_tool.gd", "res://tools/push_tool.gd", "res://tools/move_tool.gd", "res://tools/tool.gd"]:
 		var code := code_only(FileAccess.get_file_as_string(path))
 		var bad := []
 		for needle in ['preload("res://main.gd")', 'load("res://main.gd")', "Main.", "Main)", ": Main", "infer.m", "\tm.", " m.", "(m."]:
@@ -626,7 +623,7 @@ func _test_push() -> void:
 	made.append(scene.drafts_root); made.append(scene.bodies_root)
 	var infer := PaintInference.new()
 	var parts: Dictionary = t.parts.duplicate()
-	parts.merge({"infer": infer, "push_filter": pres.push_tests.filter}, true)
+	parts.merge({"infer": infer, "push_filter": pres.draft_tests.filter}, true)
 	var ctx := ToolContext.new(parts)
 	var push = load("res://tools/push_tool.gd").new()
 	push.setup_context(ctx)
@@ -645,7 +642,7 @@ func _test_push() -> void:
 	var surface: MeshInstance3D = pres.drafts[op.id].get_child(0)
 	var colliders := surface.find_children("*", "StaticBody3D", true, false)
 	check("context-only Push makes a board, consumes the profile and syncs",
-		push.m == null and not push.uses_main() and not push.busy() and op.distance == 6.25 and op.target.rect == "profile"
+		not push.busy() and op.distance == 6.25 and op.target.rect == "profile"
 		and not pres.drafts.has("profile") and profile_node.is_queued_for_deletion() and t.doc.seq == 1)
 	check("new draft is pickable with its vertices and edges installed together",
 		colliders.size() == 1 and colliders[0].get_meta("body_id") == board and colliders[0].collision_layer == 1
@@ -654,7 +651,7 @@ func _test_push() -> void:
 	var w: Dictionary = pres.op_waves[op.id]
 	check("new draft owns the wave and records bounds", w.bodies == [board] and w.links[0][0] == surface
 		and w.links[0][1] == surface.get_child(0) and w.og == Geo.m2g(Vector3(4, 4, 6.25))
-		and pres.push_tests.bounds[board] == [[0.0, 0.0, 0.0], [10.0, 10.0, 6.25]])
+		and pres.draft_tests.bounds[board] == [[0.0, 0.0, 0.0], [10.0, 10.0, 6.25]])
 	var root: Node = pres.drafts[op.id]
 	pres.drop_confirmed_drafts({})
 	check("confirmation frees the whole draft root", root.is_queued_for_deletion() and not pres.drafts.has(op.id))
@@ -682,17 +679,17 @@ func _test_push() -> void:
 			and patch.mesh.surface_get_material(0) == (scene.mat_cut if distance < 0 else scene.mat_draft)
 			and patch.find_children("*", "StaticBody3D", true, false).is_empty() and ctx.model.triangles(board) == predicted)
 
-	pres.push_tests.reject_next = true
+	pres.draft_tests.reject_next = true
 	infer.hit.rect = ""; infer.hit.body = board
 	push.click(Vector2.ZERO); push.typed("1")
-	check("a face push leaves the profile rejection armed", pres.push_tests.reject_next and t.doc.ops.back().target.has("face"))
+	check("a face push leaves the profile rejection armed", pres.draft_tests.reject_next and t.doc.ops.back().target.has("face"))
 	rect.id = "rejected-profile"
 	ctx.document.append(rect); ctx.view.register_profile(rect)
 	infer.hit.rect = rect.id; infer.hit.body = ""; infer.hit.point.z = 0
 	push.click(Vector2.ZERO); push.typed("3")
 	var rejected: Dictionary = t.doc.ops.back()
 	var doomed: Node = pres.drafts[rejected.id]
-	check("only the submitted profile target changes on forced rejection", not pres.push_tests.reject_next
+	check("only the submitted profile target changes on forced rejection", not pres.draft_tests.reject_next
 		and rejected.target == {"rect": "r_missing"} and not pres.drafts.has(rect.id))
 	pres.op_waves[rejected.id].state = "rejected"
 	pres.drop_confirmed_drafts({})
@@ -713,6 +710,81 @@ func _test_push() -> void:
 	check("present_draft hides replaced meshes and attaches ordered pieces under one root",
 		not confirmed.visible and pres.drafts.replacement.get_child_count() == 2 and pres.op_waves.replacement.links.size() == 2
 		and ctx.model.triangles(board) == predicted and pres.op_waves.replacement.bodies == [board])
+
+
+func _test_move() -> void:
+	var t := make()
+	var scene := DraftScene.new()
+	var pres: Presenter = t.pres
+	pres.m = scene
+	made.append(scene.drafts_root); made.append(scene.bodies_root)
+	scene.overlay = MeshInstance3D.new()
+	scene.overlay_lines = MeshInstance3D.new()
+	made.append(scene.overlay); made.append(scene.overlay_lines)
+	var infer := CircleInference.new()
+	var ctx := ToolContext.new(t.parts.merged({"infer": infer}, true))
+	var move = load("res://tools/move_tool.gd").new()
+	move.setup_context(ctx)
+	var tris := PackedVector3Array([Vector3.ZERO, Vector3.RIGHT, Vector3.UP])
+	var corners := PackedVector3Array([Vector3.ZERO, Vector3.RIGHT, Vector3.RIGHT + Vector3.UP, Vector3.UP])
+	for axis in [-1, 0, 1, 2]:
+		ctx.view.mirror_preview(tris, corners, axis)
+		var mesh := scene.overlay.mesh
+		var color: Color = Presenter.AXIS_COLORS[axis] if axis >= 0 else Color(0.85, 0.35, 0.6, 0.3)
+		check("mirror preview draws the ghost, plane and perimeter for axis %d" % axis,
+			mesh.get_surface_count() == 2 and mesh.surface_get_material(0) == scene.mat_draft
+			and mesh.surface_get_material(1).albedo_color.is_equal_approx(color)
+			and mesh.surface_get_array_len(1) == 6 and scene.overlay_lines.mesh.surface_get_array_len(0) == 28)
+	ctx.view.guides(Vector3.ZERO, 1, -1)
+	check("axis guide draws its 200 dashes", pres.guides.mesh.surface_get_array_len(0) == 800)
+	ctx.view.guides(Vector3.ZERO, -1, 1)
+	check("plane guide draws its grid", pres.guides.mesh.surface_get_array_len(0) == 104)
+	ctx.view.clear_guides()
+	check("clearing guides removes the guide mesh", pres.guides.mesh == null)
+
+	var confirmed := MeshInstance3D.new()
+	confirmed.name = "board"
+	confirmed.mesh = pres.tri_mesh(tris, scene.mat_rect)
+	var edges := MeshInstance3D.new()
+	confirmed.add_child(edges); confirmed.set_meta("edges", edges)
+	scene.bodies_root.add_child(confirmed)
+	pres.body_tris.board = tris
+	infer.hit = {"hit": true, "body": "board", "normal": Vector3.BACK, "point": Vector3.ZERO}
+	move.click(Vector2.ZERO)
+	move.commit_move(Vector3.RIGHT * 10)
+	var op: Dictionary = t.doc.ops.back()
+	check("context-only Move replaces the board at its destination",
+		op.targets == ["board"] and not confirmed.visible and pres.body_tris.board[0] == Vector3.RIGHT * 10
+		and pres.op_waves[op.id].links[0][0] == pres.drafts[op.id].get_child(0))
+
+	move.copy = true
+	move.click(Vector2.ZERO)
+	move.commit_move(Vector3.UP * 20, 2)
+	op = t.doc.ops.back()
+	var wave: Dictionary = pres.op_waves[op.id]
+	check("context-only copy array gives each copy a draft and ends the wave at the last offset",
+		op.new_ids.size() == 2 and wave.bodies == op.new_ids and wave.links.size() == 2
+		and wave.og == Geo.m2g(Vector3.UP * 40) and pres.draft_tests.bounds[op.new_ids[1]][0] == [10.0, 40.0, 0.0])
+
+	move.click(Vector2.ZERO)
+	move.commit_mirror(Vector3.ZERO, Vector3.RIGHT)
+	op = t.doc.ops.back()
+	check("context-only mirror copy reflects the board into its reserved body",
+		op.type == "mirror" and op.has("group") and op.targets == ["board"]
+		and pres.body_tris[op.new_ids[0]] == Geo.reflect_tris(pres.body_tris.board, Vector3.ZERO, Vector3.RIGHT)
+		and pres.op_waves[op.id].bodies == op.new_ids)
+
+	pres.body_cuts.board = [{"kind": "cut", "op": "hole", "lo": Vector3.ZERO, "hi": Vector3.ONE}]
+	move.click(Vector2.ZERO)
+	move.commit_move(Vector3.RIGHT * 5, 2)
+	op = t.doc.ops.back()
+	wave = pres.op_waves[op.id]
+	var patch: MeshInstance3D = pres.drafts[op.id].get_child(0)
+	check("context-only cut array keeps its wave on the confirmed board and its edges",
+		op.cut == {"body": "board", "op": "hole"} and op.count == 2 and pres.drafts[op.id].get_child_count() == 2
+		and patch.mesh.surface_get_material(0) == scene.mat_cut and patch.get_child_count() == 1
+		and wave.body == "board" and wave.links.size() == 1 and wave.links[0][0] == confirmed
+		and wave.links[0][1] == edges and wave.og == Geo.m2g(Vector3.RIGHT * 10) and t.doc.seq == 4)
 
 
 static func _same(a: Array, b: Array) -> bool:

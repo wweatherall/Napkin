@@ -13,8 +13,6 @@ extends RefCounted
 ## No adapter gives out Main, a controller, a scene node, a shared material or a live cache map (test_tool_context.gd
 ## checks each adapter's public members against an allowlist). Owners are passed in once, in `_init`; a part left
 ## out is null (the headless tests build contexts with stand-ins).
-##
-## Move still uses the legacy setup until step 6, when view.mirror_preview arrives.
 
 var pick: PickCapability
 var model: ModelCapability
@@ -26,7 +24,7 @@ var paint: PaintCapability
 
 
 func _init(parts := {}) -> void:
-	"""parts: infer, pres, sel, doc, measure (owner objects); cursor, show_marker, hide_marker, guides, clear_guides,
+	"""parts: infer, pres, sel, doc, measure (owner objects); cursor, show_marker, hide_marker,
 	tri_mesh, lines, refresh_tip, clear_rejection, new_board (Callables); appearance (wood/paint owner);
 	overlay, overlay_lines (nodes); materials (style -> Material). Anything missing is null / a no-op."""
 	pick = PickCapability.new(parts)
@@ -233,8 +231,6 @@ class ViewCapability extends _Capability:
 	var _materials: Dictionary
 	var _show_marker
 	var _hide_marker
-	var _guides
-	var _clear_guides
 	var _pres
 
 	func _init(parts: Dictionary) -> void:
@@ -242,7 +238,6 @@ class ViewCapability extends _Capability:
 		_overlay = parts.get("overlay"); _overlay_lines = parts.get("overlay_lines")
 		_materials = parts.get("materials", {})
 		_show_marker = parts.get("show_marker"); _hide_marker = parts.get("hide_marker")
-		_guides = parts.get("guides"); _clear_guides = parts.get("clear_guides")
 		_pres = parts.get("pres")
 
 	func preview(tris: PackedVector3Array, style: String, lines := PackedVector3Array(), line_color := Color(0.6, 0.35, 0)) -> void:
@@ -268,10 +263,13 @@ class ViewCapability extends _Capability:
 
 	func guides(ref: Vector3, axis: int, plane_axis: int) -> void:
 		"""Move's dotted axis line or plane grid through ref (-1: none)."""
-		_call(_guides, [ref, axis, plane_axis])
+		_pres.draw_guides(ref, axis, plane_axis)
 
 	func clear_guides() -> void:
-		_call(_clear_guides)
+		_pres.clear_guides()
+
+	func mirror_preview(tris: PackedVector3Array, corners: PackedVector3Array, axis := -1) -> void:
+		_pres.mirror_preview(tris.duplicate(), corners.duplicate(), axis)
 
 	func selection_box(start: Vector2, finish: Vector2) -> void:
 		"""Select's drag box: blue dragging right (enclosed), green dragging left (crossing)."""

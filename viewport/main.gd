@@ -177,7 +177,7 @@ var overlay_bias := OVERLAY_BIAS
 var grid_mat: ShaderMaterial
 var caption: Label
 var draft_bboxes: Dictionary:   # compatibility for Move and the recorded suites
-	get: return pres.push_tests.bounds
+	get: return pres.draft_tests.bounds
 var preload_path := ""
 var cursor2d: Node2D
 
@@ -682,7 +682,6 @@ func _make_tools() -> void:
 	for t in tool_list:
 		tools[t["id"]] = t["script"].new()
 		tools[t["id"]].setup_context(tool_ctx)
-		if tools[t["id"]].uses_main(): tools[t["id"]].setup(self)   # T88: not yet moved to the context
 		tool_info[t["id"]] = t
 		if t["key"] != KEY_NONE: tool_keys[t["key"]] = t["id"]
 
@@ -696,8 +695,7 @@ func _make_tool_context():
 		"tri_mesh": pres.tri_mesh, "lines": pres.lines, "overlay": overlay, "overlay_lines": overlay_lines,
 		"materials": {"hover": mat_hover, "profile": mat_rect, "draft": mat_draft, "cut": mat_cut, "cut_highlight": mat_cut_hl},
 		"show_marker": pres.show_marker, "hide_marker": func(): marker.visible = false,
-		"guides": _draw_guides, "clear_guides": func(): if guides: guides.mesh = null,
-		"push_filter": pres.push_tests.filter if test_mode else Callable(),
+		"push_filter": pres.draft_tests.filter if test_mode else Callable(),
 		"refresh_tip": _update_tip, "clear_rejection": func(): reject_note = "",
 		"new_board": func() -> bool: return new_board,
 		"appearance": appearance,
@@ -726,7 +724,7 @@ func set_tool(t: String) -> void:
 	tool = t
 	for k in tools: tools[k].reset()
 	vcb = ""
-	if guides: guides.mesh = null
+	pres.clear_guides()
 	if ui_tip: ui_tip.visible = false
 	overlay.mesh = null; overlay_lines.mesh = null
 	ui_hint.text = tools[t].hint()
@@ -998,30 +996,6 @@ func _say_status(txt: String) -> void:
 
 # ---------------- snapping visuals (the engine is inference.gd) ----------------
 const SNAP_COLORS := Presenter.SNAP_COLORS   # the rendering constants are the presenter's (T88)
-var guides: MeshInstance3D
-
-
-func _draw_guides(ref: Vector3, axis: int, plane_axis: int) -> void:
-	if guides == null:
-		guides = MeshInstance3D.new(); add_child(guides)
-	guides.mesh = null
-	var segs := PackedVector3Array()
-	var col := Color(0.4, 0.4, 0.4)
-	if axis >= 0:
-		var v := _axis_vec(axis)
-		var k := -3000.0
-		while k < 3000.0:                                # dotted line along the axis through the grab point
-			segs.append_array([ref + v * k, ref + v * (k + 14.0)])
-			k += 30.0
-		col = [Color(0.85, 0.1, 0.1), Color(0.1, 0.6, 0.1), Color(0.1, 0.25, 0.9)][axis]
-	if plane_axis >= 0:
-		var u := _axis_vec((plane_axis + 1) % 3) * 600.0
-		var w := _axis_vec((plane_axis + 2) % 3) * 600.0
-		for k in range(-6, 7):
-			segs.append_array([ref + u * (k / 6.0) - w, ref + u * (k / 6.0) + w, ref + w * (k / 6.0) - u, ref + w * (k / 6.0) + u])
-		col = [Color(0.85, 0.1, 0.1, 0.5), Color(0.1, 0.6, 0.1, 0.5), Color(0.1, 0.25, 0.9, 0.5)][plane_axis]
-	if not segs.is_empty():
-		guides.mesh = _lines(segs, col).mesh
 
 
 func _cursor_pos() -> Vector2:
@@ -1249,8 +1223,8 @@ static func _ops_key(list: Array) -> String:
 const DEFAULT_BASE := Presenter.DEFAULT_BASE   # a board's colour before FreeCAD says (tools start waves with it)
 var reject_note := ""
 var force_reject_next: bool:
-	get: return pres.push_tests.reject_next
-	set(v): pres.push_tests.reject_next = v
+	get: return pres.draft_tests.reject_next
+	set(v): pres.draft_tests.reject_next = v
 
 
 func _process(delta: float) -> void:
