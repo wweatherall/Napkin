@@ -6,7 +6,7 @@ evaluator; this side predicts. The top-level CLAUDE.md has the overview; ARCHITE
 protocol (update it in the same commit when you change either). Tools have their own guide in `tools/CLAUDE.md`.
 
 ## Files
-- `main.gd` (~2,000 lines; split in T39 / T41 / T75): setup and UI, materials (the mesh helpers `_tri_mesh`, `_lines` forward to the presenter),
+- `main.gd` (~2,000 lines; split in T39 / T41 / T75): setup and UI, materials (`_lines` still forwards to the presenter for callers that want a node),
   worker process and lifecycle, rejection bookkeeping, input dispatch (mouse, trackpad, camera), model switching.
 - `keys.gd` (T75): the keyboard, `m.keys`: shortcuts, tool keys (`m.tool_keys`, from each tool's `TOOL`), Esc, Enter, Delete / Backspace (I48), typed
   characters, Tab / ⌥ for Push/Pull. main's `_input` / `_unhandled_input` stay the entry points (tests call
@@ -25,7 +25,7 @@ protocol (update it in the same commit when you change either). Tools have their
 - `presenter.gd` (T41, A33b): geometry on screen, `m.pres`. Owns `body_tris` / `body_verts` / `body_edges` /
   `body_cuts`, drafts and rects, confirmed board nodes, remembered states, waves (`step_waves` each frame) and the
   selection / context highlights. Also owns a unit's joined triangles (`unit_tris`), Select's drag box (T88 step 2), the mesh / line / collision /
-  marker helpers (`tri_mesh`, `lines`, `add_collision`, `show_marker`), Push/Pull's face highlight, Move's guides (`draw_guides` / `clear_guides`) and
+  marker helpers (`tri_mesh`, `line_mesh` (a mesh for a node already in the scene: previews, outlines, guides), `lines` (a new node), `add_collision`, `show_marker`), Push/Pull's face highlight, Move's guides (`draw_guides` / `clear_guides`) and
   `mirror_preview` (T88 step 6), and `present_draft` (a committed draft and its wave, Push/Pull's and Move's);
   `draft_tests` (was `push_tests`) is the test recorder of new boards' draft bounds and the rejection filter. main forwards the old
   names (`m.body_tris`, `m.drafts`, `m._begin_wave`, ...). main routes the document's signals to it.

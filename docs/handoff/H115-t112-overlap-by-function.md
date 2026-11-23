@@ -39,6 +39,12 @@ Request:
    file can name the functions or constants it changes in backticks after it, and then overlaps only where the
    names meet (P45).
 
+5. `_covers` treats a path with `*` only at its end as a glob: `viewport/tools/*.gd` is taken as a file, so
+   integrate.py flagged viewport/tools/move_tool.gd as outside H101's Touches list (H101's merge, 2026-11-23). Make a
+   `*` anywhere in the last part a glob (fnmatch on that part), so `viewport/tools/*.gd` covers
+   `viewport/tools/move_tool.gd` but not `viewport/tools/sub/x.gd`. Why: a wrong "outside its Touches" flag makes the
+   integrator check by hand, and a missed overlap lets two jobs clash. Check: that case, in test_number_ids.py.
+
 Cases that must still work: every current check in test_number_ids.py's overlap block (H041's
 "viewport/main.gd (the tool list only)" has no backticked names, so it is still the whole file and still clashes
 with H042's "(`_on_open` only)"); test_job.py's "a job whose files overlap one in progress is passed over";
