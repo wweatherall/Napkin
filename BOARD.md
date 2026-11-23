@@ -45,8 +45,7 @@ You're the integrator only if William said so in this session (P16) and you hold
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H076 | either | **Ready** | T102: the tests refuse to run in the main checkout for a session that holds a job | [H076](docs/handoff/H076-wrong-checkout-guard.md) |  |
-| H077 | either | **Ready** | T103: integrate.py's main() split into named steps | [H077](docs/handoff/H077-split-integrate-main.md) |  |
+| H077 | either | In progress (codex since 19:17) | T103: integrate.py's main() split into named steps | [H077](docs/handoff/H077-split-integrate-main.md) |  |
 | H078 | Claude | **Ready** | T104: the worker's instructions, cheap to read | [H078](docs/handoff/H078-readable-worker-rules.md) |  |
 | H079 | either | **Ready** | T88 step 5: Push/Pull moves to ToolContext | [H079](docs/handoff/H079-t88-push-to-toolcontext.md) |  |
 | H052 | either | Queued | T66: lengths shown in the model's units | [H052](docs/handoff/H052-t66-units.md) | T88's tool moves |

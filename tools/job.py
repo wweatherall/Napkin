@@ -11,6 +11,9 @@ Worker (run in your job's worktree unless it says otherwise):
                                 repository. --wait: nothing Ready? look again every WATCH_POLL until a job is taken
                                 (exit 0) or WORKER_WAIT passes (exit 1); holds no job meanwhile. Run it in the
                                 background, so the session wakes when it exits.
+  python3 tools/job.py guard-checkout
+                                refuse tests in the main checkout when this session holds a job elsewhere;
+                                SHOPSKETCH_ANY_CHECKOUT=1 allows a deliberate run there (T102)
   python3 tools/job.py beat     "still working": pushes the deadline back. Commits on the job's branch, a quick-test
                                 run in its worktree and every job.py command count as beats too.
   python3 tools/job.py run [--limit S] -- <command ...>
@@ -320,6 +323,27 @@ def default_agent():
 def default_session(agent):
     return (os.environ.get("CLAUDE_CODE_SESSION_ID") or os.environ.get("CODEX_SESSION_ID")
             or os.environ.get("CODEX_THREAD_ID") or agent)
+
+
+def guard_checkout(cwd, out=print):
+    """Read-only, fail-open test guard: never lock the queue or use a shared fallback session."""
+    try:
+        session = default_session(None)
+        if os.environ.get("SHOPSKETCH_ANY_CHECKOUT") == "1" or not session:
+            return True
+        if toplevel(cwd) != main_root(cwd):
+            return True
+        for jid, held in read_state(state_path(cwd))["jobs"].items():
+            if held.get("session") == session and held.get("state") in WORKING:
+                message = (f"you're in the main checkout; your job {jid} is in {held['worktree']}: "
+                           "cd there and run it again")
+                break
+        else:
+            return True
+    except Exception:                     # a broken/unreadable queue or git must never prevent testing
+        return True
+    out(message)
+    return False
 
 
 def worktree_for(root, jid):
@@ -760,6 +784,8 @@ def main(argv):
         print(__doc__)
         return 0
     opt = lambda name: argv[argv.index(name) + 1] if name in argv and argv.index(name) + 1 < len(argv) else None
+    if cmd == "guard-checkout":
+        return 0 if guard_checkout(cwd) else 1
     if cmd == "take":
         agent = (opt("--as") or default_agent() or "").lower()
         if agent not in AGENTS:

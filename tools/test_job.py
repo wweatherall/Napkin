@@ -126,6 +126,52 @@ check("a job with a branch made by hand counts as claimed", r is None and "H006:
 check("the state lives in git's common folder, shared by every worktree",
       job.state_path(wt1) == job.state_path(root) and job.state_path(root).endswith(os.path.join(".git", "shopsketch-jobs.json")))
 
+# --- wrong-checkout guard (T102), including both shell entry points before any test starts ---
+guard_env = {k: v for k, v in os.environ.items() if k not in
+             ("CLAUDE_CODE_SESSION_ID", "CODEX_SESSION_ID", "CODEX_THREAD_ID", "SHOPSKETCH_ANY_CHECKOUT")}
+for checkout in (root, wt1):
+    folder = os.path.join(checkout, "tools")
+    os.makedirs(folder, exist_ok=True)
+    for name in ("job.py", "handoff.py"):
+        shutil.copy(os.path.join(HERE, name), folder)
+    for name, marker in (("quicktest.sh", "START=$SECONDS"), ("gate.sh", "OUT=$(mktemp")):
+        prefix = open(os.path.join(HERE, name)).read().split(marker, 1)[0]
+        open(os.path.join(folder, name), "w").write(prefix + "echo tests-started\n")
+
+
+def guard_check(name, checkout=root, extra=None, refused=False):
+    for script in ("quicktest.sh", "gate.sh"):
+        result = sh(checkout, "bash", "tools/" + script, env=dict(guard_env, **(extra or {})))
+        expected = f"you're in the main checkout; your job H001 is in {wt1}: cd there and run it again\n"
+        check(f"{script}: {name}", result.returncode == (1 if refused else 0) and
+              result.stdout == (expected if refused else "tests-started\n"),
+              (result.returncode, result.stdout, result.stderr))
+
+
+for key in ("CLAUDE_CODE_SESSION_ID", "CODEX_SESSION_ID", "CODEX_THREAD_ID"):
+    guard_check("refuses the main checkout and names the job's worktree (" + key + ")",
+                extra={key: "s1"}, refused=True)
+guard_check("runs in a job worktree", checkout=wt1, extra={"CODEX_THREAD_ID": "s1"})
+guard_check("runs for a session without a job", extra={"CODEX_THREAD_ID": "integrator"})
+guard_check("runs without a detectable session ID")
+guard_check("allows the deliberate override", extra={"CODEX_THREAD_ID": "s1", "SHOPSKETCH_ANY_CHECKOUT": "1"})
+queue = job.state_path(root)
+saved_queue = open(queue).read()
+os.remove(queue)
+guard_check("runs with a missing queue", extra={"CODEX_THREAD_ID": "s1"})
+open(queue, "w").write("not json")
+guard_check("runs with a malformed queue", extra={"CODEX_THREAD_ID": "s1"})
+open(queue, "w").write('{"jobs": null}')
+guard_check("runs with an invalid queue structure", extra={"CODEX_THREAD_ID": "s1"})
+os.remove(queue)
+os.mkdir(queue)  # opening a directory as JSON fails even when tests run as root
+nguard = {"CODEX_THREAD_ID": "s1"}
+guard_check("runs with an unreadable queue", extra=nguard)
+os.rmdir(queue)
+open(queue, "w").write(saved_queue)
+for checkout in (root, wt1):
+    shutil.rmtree(os.path.join(checkout, "tools"))
+
 # --- the switch: beats from commands, commits and test runs ---
 now = time.time()
 j = state(root)["jobs"]["H001"]
