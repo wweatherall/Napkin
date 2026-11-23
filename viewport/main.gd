@@ -4,7 +4,6 @@ extends Node3D
 
 const WorkerClient := preload("res://worker_client.gd")
 const Units := preload("res://units.gd")
-const LINE_SHADER := preload("res://line.gdshader")
 const Geo := preload("res://tool_geometry.gd")
 const Inference := preload("res://inference.gd")
 const Presenter := preload("res://presenter.gd")
@@ -177,7 +176,8 @@ const OVERLAY_BIAS := 0.001   # overlays sit 0.1% of the camera distance nearer 
 var overlay_bias := OVERLAY_BIAS
 var grid_mat: ShaderMaterial
 var caption: Label
-var draft_bboxes := {}     # test: new body id -> [min, max] of its draft prism (model mm)
+var draft_bboxes: Dictionary:   # compatibility for Move and the recorded suites
+	get: return pres.push_tests.bounds
 var preload_path := ""
 var cursor2d: Node2D
 
@@ -627,80 +627,18 @@ func _update_toggles() -> void:
 
 
 # ---------------- mesh helpers ----------------
-const LINE_PX := 1.5          # width of edges and outlines, in points (doubled on a Retina screen)
+const LINE_PX := Presenter.LINE_PX          # width of edges and outlines, in points (doubled on a Retina screen)
 const GRID_LINE_PX := 1.0
 const AXIS_LINE_PX := 1.75
 var line_scale := 1.0         # physical pixels per point
-var _line_mats := {}          # [color, width, bias] -> ShaderMaterial, shared
 
 
-func _line_mat(color: Color, width_pt: float, bias: float) -> ShaderMaterial:
-	var key := [color, width_pt, bias]
-	if not _line_mats.has(key):
-		var m := ShaderMaterial.new()
-		m.shader = LINE_SHADER
-		m.set_shader_parameter("color", color)
-		m.set_shader_parameter("width_px", width_pt * line_scale)
-		m.set_shader_parameter("bias", bias)
-		_line_mats[key] = m
-	return _line_mats[key]
-
-
-## Line segments (pairs of model-space points) as anti-aliased strips a fixed width on screen (line.gdshader).
 func _lines(segs_m: PackedVector3Array, color: Color, width_pt := LINE_PX, bias := -1.0) -> MeshInstance3D:
-	var mi := MeshInstance3D.new()
-	if segs_m.size() < 2:
-		return mi
-	var n := segs_m.size() / 2
-	var verts := PackedVector3Array(); verts.resize(n * 4)
-	var other := PackedFloat32Array(); other.resize(n * 16)
-	var uvs := PackedVector2Array(); uvs.resize(n * 4)
-	var idx := PackedInt32Array(); idx.resize(n * 6)
-	for i in n:
-		var a := m2g(segs_m[2 * i]); var b := m2g(segs_m[2 * i + 1])
-		var v := 4 * i
-		verts[v] = a; verts[v + 1] = a; verts[v + 2] = b; verts[v + 3] = b
-		for k in 4:
-			var o: Vector3 = b if k < 2 else a
-			other[(v + k) * 4] = o.x; other[(v + k) * 4 + 1] = o.y; other[(v + k) * 4 + 2] = o.z; other[(v + k) * 4 + 3] = 0.0
-		uvs[v] = Vector2(0, -1); uvs[v + 1] = Vector2(0, 1); uvs[v + 2] = Vector2(1, -1); uvs[v + 3] = Vector2(1, 1)
-		var t := 6 * i
-		idx[t] = v; idx[t + 1] = v + 1; idx[t + 2] = v + 2; idx[t + 3] = v + 1; idx[t + 4] = v + 3; idx[t + 5] = v + 2
-	var arr := []
-	arr.resize(Mesh.ARRAY_MAX)
-	arr[Mesh.ARRAY_VERTEX] = verts
-	arr[Mesh.ARRAY_CUSTOM0] = other
-	arr[Mesh.ARRAY_TEX_UV] = uvs
-	arr[Mesh.ARRAY_INDEX] = idx
-	var m := ArrayMesh.new()
-	m.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr, [], {},
-		Mesh.ARRAY_CUSTOM_RGBA_FLOAT << Mesh.ARRAY_FORMAT_CUSTOM0_SHIFT)
-	m.surface_set_material(0, _line_mat(color, width_pt, overlay_bias if bias < 0.0 else bias))
-	mi.mesh = m
-	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	mi.extra_cull_margin = 0.05      # the strip is a little wider than its segment on screen
-	return mi
+	return pres.lines(segs_m, color, width_pt, bias)
 
 
 func _tri_mesh(tris_m: PackedVector3Array, mat: Material) -> ArrayMesh:
-	var st := SurfaceTool.new()
-	st.begin(Mesh.PRIMITIVE_TRIANGLES)
-	var c := Vector3.ZERO
-	for p in tris_m:
-		c += p
-	c /= maxf(1.0, tris_m.size())
-	for i in range(0, tris_m.size(), 3):
-		var a := m2g(tris_m[i]); var b := m2g(tris_m[i + 1]); var d := m2g(tris_m[i + 2])
-		var n := (b - a).cross(d - a).normalized()
-		var mid := (a + b + d) / 3.0
-		if n.dot(mid - m2g(c)) < 0: n = -n
-		if (b - a).cross(d - a).dot(n) > 0:   # Godot front faces are clockwise
-			var t := b; b = d; d = t
-		for p in [a, b, d]:
-			st.set_normal(n); st.add_vertex(p)
-	var m := st.commit()
-	m.surface_set_material(0, mat)
-	return m
+	return pres.tri_mesh(tris_m, mat)
 
 
 static func _ekey(p: Vector3, q: Vector3) -> String: return Geo.edge_key(p, q)
@@ -710,23 +648,12 @@ static func prism(tris: PackedVector3Array, n: Vector3, d: float) -> PackedVecto
 static func prism_by(tris: PackedVector3Array, offset: Callable) -> PackedVector3Array: return Geo.prism_by(tris, offset)
 
 func _add_collision(mi: MeshInstance3D, meta_key: String, meta_val: String) -> void:
-	mi.create_trimesh_collision()
-	for c in mi.get_children():
-		if c is StaticBody3D:
-			c.set_meta(meta_key, meta_val)
-			c.collision_layer = 2 if meta_key == "rect_id" else 1
-			for s in c.get_children():
-				if s is CollisionShape3D and s.shape is ConcavePolygonShape3D:
-					s.shape.backface_collision = true
+	pres.add_collision(mi, meta_key, meta_val)
 
 
 # ---------------- picking & snapping ----------------
 func _show_marker(p: Dictionary) -> void:
-	marker.visible = p.get("hit", false)
-	if marker.visible:
-		marker.position = m2g(p["point"])
-		var col: Color = SNAP_COLORS.get(p.get("snap", ""), Color(0.35, 0.35, 0.4))
-		(marker.mesh.material as StandardMaterial3D).albedo_color = col
+	pres.show_marker(p)
 
 
 # ---------------- tools ----------------
@@ -766,11 +693,11 @@ func _make_tool_context():
 	return load("res://tool_context.gd").new({
 		"infer": infer, "pres": pres, "sel": sel, "doc": doc, "measure": measure,
 		"cursor": _cursor_pos,
-		"tri_mesh": _tri_mesh, "lines": _lines, "overlay": overlay, "overlay_lines": overlay_lines,
+		"tri_mesh": pres.tri_mesh, "lines": pres.lines, "overlay": overlay, "overlay_lines": overlay_lines,
 		"materials": {"hover": mat_hover, "profile": mat_rect, "draft": mat_draft, "cut": mat_cut, "cut_highlight": mat_cut_hl},
-		"show_marker": _show_marker, "hide_marker": func(): marker.visible = false,
+		"show_marker": pres.show_marker, "hide_marker": func(): marker.visible = false,
 		"guides": _draw_guides, "clear_guides": func(): if guides: guides.mesh = null,
-		"add_node": add_child,
+		"push_filter": pres.push_tests.filter if test_mode else Callable(),
 		"refresh_tip": _update_tip, "clear_rejection": func(): reject_note = "",
 		"new_board": func() -> bool: return new_board,
 		"appearance": appearance,
@@ -1321,7 +1248,9 @@ static func _ops_key(list: Array) -> String:
 # ---------------- the frame ----------------
 const DEFAULT_BASE := Presenter.DEFAULT_BASE   # a board's colour before FreeCAD says (tools start waves with it)
 var reject_note := ""
-var force_reject_next := false
+var force_reject_next: bool:
+	get: return pres.push_tests.reject_next
+	set(v): pres.push_tests.reject_next = v
 
 
 func _process(delta: float) -> void:

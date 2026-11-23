@@ -7,18 +7,14 @@ extends RefCounted
 ##   selection  selection.gd: the selection, context, assemblies, what a board stands for
 ##   document   document.gd: new ids, op snapshots, append, remove, sync
 ##   view       presenter / main.gd: previews, the snap marker, guides, the selection box, face highlight,
-##              registering a drawn profile
+##              registering profiles, presenting committed draft pieces and their wave
 ##   ui         the measurements box, the tooltip, the rejection note, the window's New board option
 ##   paint      the wood the Paint tool puts on, and painting
 ## No adapter gives out Main, a controller, a scene node, a shared material or a live cache map (test_tool_context.gd
 ## checks each adapter's public members against an allowlist). Owners are passed in once, in `_init`; a part left
 ## out is null (the headless tests build contexts with stand-ins).
 ##
-## The adapters arrived in step 0 (H051); Line, Paint, Select and Circle now use only the context. Where a
-## body still lives in main.gd (the mesh and line helpers, the marker, guides, the tooltip) the adapter
-## calls it through one narrowly bound Callable; each body moves to its owner when its first tool migrates.
-## Not yet here: view.present_draft (Push/Pull, step 5), view.mirror_preview (Move, step 6) and the Push/Pull
-## test rejection filter (step 5): each arrives with the tool that first needs it.
+## Move still uses the legacy setup until step 6, when view.mirror_preview arrives.
 
 var pick: PickCapability
 var model: ModelCapability
@@ -31,7 +27,7 @@ var paint: PaintCapability
 
 func _init(parts := {}) -> void:
 	"""parts: infer, pres, sel, doc, measure (owner objects); cursor, show_marker, hide_marker, guides, clear_guides,
-	tri_mesh, lines, add_node, refresh_tip, clear_rejection, new_board (Callables); appearance (wood/paint owner);
+	tri_mesh, lines, refresh_tip, clear_rejection, new_board (Callables); appearance (wood/paint owner);
 	overlay, overlay_lines (nodes); materials (style -> Material). Anything missing is null / a no-op."""
 	pick = PickCapability.new(parts)
 	model = ModelCapability.new(parts)
@@ -132,6 +128,9 @@ class ModelCapability extends _Capability:
 		"""Saved segment snapshots on this body/plane, including ids."""
 		return _pres.lines_on(body, normal, point)
 
+	func drawn_region(source: PackedVector3Array, body: String, normal: Vector3, point: Vector3) -> Dictionary:
+		return _pres.drawn_region(source, body, normal, point).duplicate(true)
+
 	func stock_frame(id: String) -> Dictionary:
 		return _pres.stock_frames.get(id, {}).duplicate(true)
 
@@ -196,9 +195,11 @@ class SelectionCapability extends _Capability:
 # ---------------------------------------------------------------- the op list (document.gd)
 class DocumentCapability extends _Capability:
 	var _doc
+	var _push_filter: Callable
 
 	func _init(parts: Dictionary) -> void:
 		_doc = parts.get("doc")
+		_push_filter = parts.get("push_filter", Callable())
 
 	func next_id(prefix: String) -> String:
 		"""Allocate through the document's permanent reservation registry."""
@@ -210,7 +211,9 @@ class DocumentCapability extends _Capability:
 
 	func append(o: Dictionary) -> void:
 		"""Add an op (a copy of it) at the end. Doesn't sync: draw it, then call sync()."""
-		_doc.ops.append(o.duplicate(true))
+		var copy := o.duplicate(true)
+		if _push_filter.is_valid() and copy.get("type") == "push_pull": _push_filter.call(copy)
+		_doc.ops.append(copy)
 
 	func remove(id: String, resync := true) -> void:
 		"""Take an op out (document.gd remove_op): op_removed fires; with resync, removed and a sync follow."""
@@ -232,9 +235,7 @@ class ViewCapability extends _Capability:
 	var _hide_marker
 	var _guides
 	var _clear_guides
-	var _add_node
 	var _pres
-	var _face: MeshInstance3D
 
 	func _init(parts: Dictionary) -> void:
 		_tri_mesh = parts.get("tri_mesh"); _lines = parts.get("lines")
@@ -242,7 +243,6 @@ class ViewCapability extends _Capability:
 		_materials = parts.get("materials", {})
 		_show_marker = parts.get("show_marker"); _hide_marker = parts.get("hide_marker")
 		_guides = parts.get("guides"); _clear_guides = parts.get("clear_guides")
-		_add_node = parts.get("add_node")
 		_pres = parts.get("pres")
 
 	func preview(tris: PackedVector3Array, style: String, lines := PackedVector3Array(), line_color := Color(0.6, 0.35, 0)) -> void:
@@ -282,13 +282,13 @@ class ViewCapability extends _Capability:
 
 	func face_highlight(tris: PackedVector3Array) -> void:
 		"""Push/Pull's highlight of the face an edge offers, in the hover style."""
-		if not is_instance_valid(_face):
-			_face = MeshInstance3D.new()
-			_call(_add_node, [_face])
-		_face.mesh = null if tris.is_empty() else _call(_tri_mesh, [tris, _materials.get("hover")])
+		_pres.face_highlight(tris)
 
 	func clear_face_highlight() -> void:
-		if is_instance_valid(_face): _face.mesh = null
+		if _pres != null: _pres.clear_face_highlight()
+
+	func present_draft(op: Dictionary, pieces: Array, wave: Dictionary) -> void:
+		_pres.present_draft(op.duplicate(true), pieces.duplicate(true), wave.duplicate(true))
 
 	func register_profile(o: Dictionary) -> void:
 		"""Draw a just-made rect or circle op as a pickable profile (presenter.gd register_rect)."""

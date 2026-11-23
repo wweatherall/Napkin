@@ -5,13 +5,15 @@ extends Node
 ## states (undo shows at once), the confirmation waves, and the highlights that show selection and context (the
 ## selection, ghosting outside an entered assembly, hidden boards, the mirror plane, linked copies), drawn from
 ## what selection.gd says. main.gd routes the document's signals here and keeps the rejection bookkeeping; this
-## draws with main's mesh helpers and materials (`m._tri_mesh`, `m._lines`, `m.mat_*`), as the tools do.
+## builds the meshes, line strips and pick collisions, using the window's materials.
 
 signal boards_read(data: Array, dir: String)   # bodies.json read, before building: main updates selection and wood
 signal wave_rejected_done(oid: String)        # a red wave has played out: main removes the op (and its dependents)
 
 const Regions := preload("res://regions.gd")
 const Geo := preload("res://tool_geometry.gd")
+const LINE_SHADER := preload("res://line.gdshader")
+const LINE_PX := 1.5
 const WAVE := preload("res://confirm_wave.gdshader")
 const WAVE_LINES := preload("res://confirm_wave_lines.gdshader")
 const WOOD := preload("res://wood.gdshader")
@@ -35,6 +37,162 @@ var stock_frames := {}              # body id -> rectangular stock frame from bo
 
 
 var _selection_box: Panel
+var _face: MeshInstance3D
+var push_tests := PushTestRecorder.new()
+
+
+class PushTestRecorder:
+	var reject_next := false
+	var bounds := {}
+
+	func filter(op: Dictionary) -> void:
+		if reject_next and op.target.has("rect"):
+			op.target = {"rect": "r_missing"}
+			reject_next = false
+
+	func record(id: String, tris: PackedVector3Array) -> void:
+		var lo := Vector3(INF, INF, INF)
+		var hi := -lo
+		for point in tris:
+			lo = lo.min(point)
+			hi = hi.max(point)
+		bounds[id] = [Geo.arr3(lo), Geo.arr3(hi)]
+
+
+func face_highlight(tris: PackedVector3Array) -> void:
+	if not is_instance_valid(_face):
+		_face = MeshInstance3D.new()
+		add_child(_face)
+	_face.mesh = null if tris.is_empty() else tri_mesh(tris, m.mat_hover)
+
+
+func clear_face_highlight() -> void:
+	if is_instance_valid(_face): _face.mesh = null
+
+
+func present_draft(op: Dictionary, pieces: Array, wave: Dictionary) -> void:
+	var root := Node3D.new()
+	m.drafts_root.add_child(root)
+	drafts[op.id] = root
+	for piece in pieces:
+		var tris: PackedVector3Array = piece.tris
+		var surface := MeshInstance3D.new()
+		surface.mesh = tri_mesh(tris, m.mat_cut if piece.style == "cut" else m.mat_draft)
+		var segments := Geo.feature_edges(tris)
+		surface.add_child(lines(segments, piece.line_color))
+		root.add_child(surface)
+		var id: String = piece.body_id
+		if id.is_empty(): continue
+		add_collision(surface, "body_id", id)
+		body_tris[id] = tris
+		body_verts[id] = Geo.unique_verts(tris)
+		body_edges[id] = segments
+		if m.test_mode: push_tests.record(id, tris)
+		if piece.replace:
+			for old in m.bodies_root.find_children(id, "MeshInstance3D", true, false):
+				old.visible = false
+
+	if op.type == "push_pull": drop_draft(op.target.get("rect", ""))
+	var bodies: Array = wave.bodies
+	begin_wave(op.id, wave.origin, wave.tris, wave.is_new, bodies[0] if op.type == "push_pull" else bodies)
+	if wave.attach == "drafts":
+		for surface in root.get_children():
+			attach_wave(op.id, surface, surface.get_child(0), DEFAULT_BASE)
+	else:
+		for id in wave.bodies:
+			for surface in m.bodies_root.find_children(id, "MeshInstance3D", true, false):
+				attach_wave(op.id, surface, surface.get_meta("edges"), base_of(surface))
+
+
+var _line_mats := {}          # [color, width, bias] -> ShaderMaterial, shared
+
+
+func _line_mat(color: Color, width_pt: float, bias: float) -> ShaderMaterial:
+	var key := [color, width_pt, bias]
+	if not _line_mats.has(key):
+		var material := ShaderMaterial.new()
+		material.shader = LINE_SHADER
+		material.set_shader_parameter("color", color)
+		material.set_shader_parameter("width_px", width_pt * m.line_scale)
+		material.set_shader_parameter("bias", bias)
+		_line_mats[key] = material
+	return _line_mats[key]
+
+
+## Line segments (pairs of model-space points) as anti-aliased strips a fixed width on screen (line.gdshader).
+func lines(segs_m: PackedVector3Array, color: Color, width_pt := LINE_PX, bias := -1.0) -> MeshInstance3D:
+	var mi := MeshInstance3D.new()
+	if segs_m.size() < 2:
+		return mi
+	var n := segs_m.size() / 2
+	var verts := PackedVector3Array(); verts.resize(n * 4)
+	var other := PackedFloat32Array(); other.resize(n * 16)
+	var uvs := PackedVector2Array(); uvs.resize(n * 4)
+	var idx := PackedInt32Array(); idx.resize(n * 6)
+	for i in n:
+		var a := Geo.m2g(segs_m[2 * i]); var b := Geo.m2g(segs_m[2 * i + 1])
+		var v := 4 * i
+		verts[v] = a; verts[v + 1] = a; verts[v + 2] = b; verts[v + 3] = b
+		for k in 4:
+			var o: Vector3 = b if k < 2 else a
+			other[(v + k) * 4] = o.x; other[(v + k) * 4 + 1] = o.y; other[(v + k) * 4 + 2] = o.z; other[(v + k) * 4 + 3] = 0.0
+		uvs[v] = Vector2(0, -1); uvs[v + 1] = Vector2(0, 1); uvs[v + 2] = Vector2(1, -1); uvs[v + 3] = Vector2(1, 1)
+		var t := 6 * i
+		idx[t] = v; idx[t + 1] = v + 1; idx[t + 2] = v + 2; idx[t + 3] = v + 1; idx[t + 4] = v + 3; idx[t + 5] = v + 2
+	var arr := []
+	arr.resize(Mesh.ARRAY_MAX)
+	arr[Mesh.ARRAY_VERTEX] = verts
+	arr[Mesh.ARRAY_CUSTOM0] = other
+	arr[Mesh.ARRAY_TEX_UV] = uvs
+	arr[Mesh.ARRAY_INDEX] = idx
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr, [], {},
+		Mesh.ARRAY_CUSTOM_RGBA_FLOAT << Mesh.ARRAY_FORMAT_CUSTOM0_SHIFT)
+	mesh.surface_set_material(0, _line_mat(color, width_pt, m.overlay_bias if bias < 0.0 else bias))
+	mi.mesh = mesh
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mi.extra_cull_margin = 0.05      # the strip is a little wider than its segment on screen
+	return mi
+
+
+func tri_mesh(tris_m: PackedVector3Array, mat: Material) -> ArrayMesh:
+	var st := SurfaceTool.new()
+	st.begin(Mesh.PRIMITIVE_TRIANGLES)
+	var c := Vector3.ZERO
+	for p in tris_m:
+		c += p
+	c /= maxf(1.0, tris_m.size())
+	for i in range(0, tris_m.size(), 3):
+		var a := Geo.m2g(tris_m[i]); var b := Geo.m2g(tris_m[i + 1]); var d := Geo.m2g(tris_m[i + 2])
+		var n := (b - a).cross(d - a).normalized()
+		var mid := (a + b + d) / 3.0
+		if n.dot(mid - Geo.m2g(c)) < 0: n = -n
+		if (b - a).cross(d - a).dot(n) > 0:   # Godot front faces are clockwise
+			var t := b; b = d; d = t
+		for p in [a, b, d]:
+			st.set_normal(n); st.add_vertex(p)
+	var mesh := st.commit()
+	mesh.surface_set_material(0, mat)
+	return mesh
+
+
+func add_collision(mi: MeshInstance3D, meta_key: String, meta_val: String) -> void:
+	mi.create_trimesh_collision()
+	for c in mi.get_children():
+		if c is StaticBody3D:
+			c.set_meta(meta_key, meta_val)
+			c.collision_layer = 2 if meta_key == "rect_id" else 1
+			for s in c.get_children():
+				if s is CollisionShape3D and s.shape is ConcavePolygonShape3D:
+					s.shape.backface_collision = true
+
+
+func show_marker(p: Dictionary) -> void:
+	m.marker.visible = p.get("hit", false)
+	if m.marker.visible:
+		m.marker.position = Geo.m2g(p["point"])
+		var col: Color = SNAP_COLORS.get(p.get("snap", ""), Color(0.35, 0.35, 0.4))
+		(m.marker.mesh.material as StandardMaterial3D).albedo_color = col
 
 
 func unit_tris(unit: Dictionary) -> PackedVector3Array:
@@ -65,6 +223,7 @@ func clear_selection_box() -> void:
 
 func reset() -> void:
 	"""Another model: nothing of the old one stays on screen or in the caches."""
+	clear_face_highlight()
 	for oid in op_waves.keys(): end_wave(oid)
 	for k in drafts: drafts[k].queue_free()
 	drafts.clear(); rects.clear(); loose_lines.clear()
@@ -84,7 +243,7 @@ func register_line(op: Dictionary) -> void:
 	var n := Vector3(src.normal[0], src.normal[1], src.normal[2])
 	loose_lines[op.id] = {"a": a, "b": b, "n": n, "on": src.get("body", ""), "snap_start": op.get("snap_start", false), "snap_end": op.get("snap_end", false)}
 	drop_draft("line:" + op.id)
-	var node = m._lines(PackedVector3Array([a, b]), Color(0.1, 0.2, 0.6))
+	var node = lines(PackedVector3Array([a, b]), Color(0.1, 0.2, 0.6))
 	m.drafts_root.add_child(node)
 	drafts["line:" + op.id] = node
 	if op.has("outline"): register_rect(op)
@@ -120,7 +279,7 @@ func register_rect(op: Dictionary) -> void:
 	var src: Dictionary = pl["on"] if pl.has("on") else pl
 	var origin := Vector3(src["point"][0], src["point"][1], src["point"][2]) if pl.has("on") else Vector3(src["origin"][0], src["origin"][1], src["origin"][2])
 	var n := Vector3(src["normal"][0], src["normal"][1], src["normal"][2])
-	var b: Array = m.plane_basis(n)
+	var b: Array = Geo.plane_basis(n)
 	var pts: PackedVector3Array
 	var tris: PackedVector3Array
 	var lines := PackedVector3Array()
@@ -139,15 +298,15 @@ func register_rect(op: Dictionary) -> void:
 	else:
 		var corner: Array = op.get("corner", [0, 0])
 		var o2: Vector3 = origin + b[0] * float(corner[0]) + b[1] * float(corner[1])
-		pts = m._rect_pts(o2, b[0], b[1], op["size"][0], op["size"][1])
+		pts = Geo.rect_points(o2, b[0], b[1], op["size"][0], op["size"][1])
 		tris = PackedVector3Array([pts[0], pts[1], pts[2], pts[0], pts[2], pts[3]])
 		lines = PackedVector3Array([pts[0], pts[1], pts[1], pts[2], pts[2], pts[3], pts[3], pts[0]])
 	rects[op["id"]] = {"tris": tris, "n": n, "on": src.get("body", "") if pl.has("on") else "", "pts": pts, "kind": op["type"]}
 	var mi := MeshInstance3D.new()
-	mi.mesh = m._tri_mesh(tris, m.mat_rect)
-	mi.add_child(m._lines(lines, Color(0.1, 0.2, 0.6)))
+	mi.mesh = tri_mesh(tris, m.mat_rect)
+	mi.add_child(self.lines(lines, Color(0.1, 0.2, 0.6)))
 	m.drafts_root.add_child(mi)
-	m._add_collision(mi, "rect_id", op["id"])
+	add_collision(mi, "rect_id", op["id"])
 	drafts[op["id"]] = mi
 
 
@@ -281,8 +440,8 @@ func _build_board(dir: String, b: Dictionary) -> Dictionary:
 			mat.roughness = 0.85
 			mesh.surface_set_material(0, mat)
 		mi.mesh = mesh
-		m._add_collision(mi, "body_id", bid)
-	var edges: MeshInstance3D = m._lines(parts[2], Color(0.08, 0.08, 0.08))
+		add_collision(mi, "body_id", bid)
+	var edges: MeshInstance3D = lines(parts[2], Color(0.08, 0.08, 0.08))
 	mi.add_child(edges)
 	mi.set_meta("body_mesh", true); mi.set_meta("edges", edges)
 	return {"node": mi, "bid": bid, "tris": tris, "verts": parts[3], "edges": parts[2]}
@@ -425,10 +584,10 @@ var trace_rows: Array[String] = []
 
 
 func begin_wave(oid: String, origin_m: Vector3, tris: PackedVector3Array, is_new: bool, body) -> void:
-	var og: Vector3 = m.m2g(origin_m)
+	var og := Geo.m2g(origin_m)
 	var reach := 0.0
 	for p in tris:
-		reach = maxf(reach, (m.m2g(p) as Vector3).distance_to(og))
+		reach = maxf(reach, Geo.m2g(p).distance_to(og))
 	var dur := clampf(reach / 0.7, 0.5, 1.0)
 	op_waves[oid] = {"og": og, "reach": reach, "dur": dur, "tn": 0.0,
 					 "p": 0.0, "v": 1.0 / dur, "v1": 1.0 / dur,   # progress (0..1), velocity, and the first smoothing stage
@@ -445,7 +604,7 @@ func attach_wave(oid: String, mi: MeshInstance3D, edges: MeshInstance3D, base: C
 	sm.set_shader_parameter("draft_color", Color(draft.albedo_color.r, draft.albedo_color.g, draft.albedo_color.b))
 	sm.set_shader_parameter("draft_alpha", draft.albedo_color.a)
 	var lm := ShaderMaterial.new(); lm.shader = WAVE_LINES
-	lm.set_shader_parameter("width_px", m.LINE_PX * m.line_scale)
+	lm.set_shader_parameter("width_px", LINE_PX * m.line_scale)
 	lm.set_shader_parameter("bias", m.overlay_bias)
 	for mat in [sm, lm]:
 		mat.set_shader_parameter("origin", w["og"])
@@ -597,21 +756,21 @@ func show_mirror_plane() -> void:
 		for q in body_tris.get(b, PackedVector3Array()):
 			lo = lo.min(q); hi = hi.max(q)
 	var p0: Vector3 = plane[0]; var n: Vector3 = plane[1]
-	var basis: Array = m.plane_basis(n)
+	var basis: Array = Geo.plane_basis(n)
 	var c := (lo + hi) * 0.5
 	c -= n * (c - p0).dot(n)                       # the middle of the pair, on the plane
 	var r := maxf((hi - lo).length() * 0.6, 50.0)
 	var u: Vector3 = basis[0] * r; var v: Vector3 = basis[1] * r
 	var quad := PackedVector3Array()
 	for q in [c - u - v, c + u - v, c + u + v, c - u - v, c + u + v, c - u + v]: quad.append(q)
-	plane_node.mesh = m._tri_mesh(quad, m.mat_plane)
+	plane_node.mesh = tri_mesh(quad, m.mat_plane)
 
 
 func show_selection() -> void:
 	if _sel_overlay == null: _sel_overlay = _overlay_node()
 	var t := PackedVector3Array()
 	for b in sel.selection: t.append_array(body_tris.get(b, PackedVector3Array()))
-	_sel_overlay.mesh = m._tri_mesh(t, m.mat_selected) if not t.is_empty() else null
+	_sel_overlay.mesh = tri_mesh(t, m.mat_selected) if not t.is_empty() else null
 
 
 func show_siblings(sib: Array) -> void:
@@ -624,7 +783,7 @@ func show_siblings(sib: Array) -> void:
 	var tris := PackedVector3Array()
 	for b in sib: tris.append_array(body_tris.get(b, PackedVector3Array()))
 	if not tris.is_empty():
-		_sibling_overlay.mesh = m._tri_mesh(tris, m.mat_sibling)
+		_sibling_overlay.mesh = tri_mesh(tris, m.mat_sibling)
 
 
 func forget_siblings() -> void:

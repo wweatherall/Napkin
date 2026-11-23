@@ -28,3 +28,8 @@ push_tool.gd, the existing push quick checks and the recorded suites unchanged (
 test_tools.gd's registry. Quick test, then the gate. This is the largest move so far: if it grows past one
 reviewable branch, stop at a working point (present_draft and its checks first), say so, and `job.py wait`. End
 your response with a Result line; leftovers as Follow-up lines; anything for the merge as For the integrator lines.
+
+### Response — Codex, 2026-11-22
+
+Architecture: Push/Pull uses ToolContext for picking, model snapshots, selection, ops, previews and UI. The tool supplies predicted pieces and the wave origin, geometry, bodies and attachment choice. Move is the last tool with legacy Main setup.
+Architecture: The presenter owns committed draft roots, collisions, prediction caches, profile consumption, replacement visibility, wave attachments and face highlights. Mesh, collision, line and marker helpers now live there. Main forwards the rendering and test names used by Move and the suites. A test-only pre-append filter changes the submitted Push target while presentation uses the original profile.
