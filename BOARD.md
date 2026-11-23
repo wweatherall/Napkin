@@ -61,7 +61,6 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 | H094 | either | Queued | A reload from a revision Shop Sketch no longer remembers keeps the ops that file holds (H092 finding 6) | [H094](docs/handoff/H094-reload-unknown-revision.md) | H093 |
 | H096 | either | Queued | Pushing one cell of a split profile keeps the rest of the profile on screen (H092 finding 9) | [H096](docs/handoff/H096-region-push-keeps-profile.md) | H083 |
 | H097 | either | Queued | T110: test helpers that make a failure-path check a few lines | [H097](docs/handoff/H097-failure-path-test-helpers.md) | H094 |
-| H101 | Codex | Queued | T88 after H083: Codex checks and tidies the Move migration as built (no behaviour change) | [H101](docs/handoff/H101-t88-codex-checks-move.md) | H083; then whenever no job holds the tool files |
 | H115 | Codex | Queued | T112: the queue checks overlap by function (P45) | [H115](docs/handoff/H115-t112-overlap-by-function.md) | H104 |
 | H107 | either | Queued | T113 step 1a: the FreeCAD worker's process moves out of main.gd into worker_process.gd | [H107](docs/handoff/H107-t113-worker-process.md) | H094 |
 | H108 | either | Queued | T113 step 1b: the closing and outside-save dialogs move out of main.gd into save_prompts.gd | [H108](docs/handoff/H108-t113-save-prompts.md) | H107 |

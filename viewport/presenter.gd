@@ -82,9 +82,7 @@ func draw_guides(ref: Vector3, axis: int, plane_axis: int) -> void:
 			segs.append_array([ref + u * (k / 6.0) - w, ref + u * (k / 6.0) + w, ref + w * (k / 6.0) - u, ref + w * (k / 6.0) + u])
 		col = [Color(0.85, 0.1, 0.1, 0.5), Color(0.1, 0.6, 0.1, 0.5), Color(0.1, 0.25, 0.9, 0.5)][plane_axis]
 	if not segs.is_empty():
-		var outline := lines(segs, col)
-		guides.mesh = outline.mesh
-		outline.free()
+		guides.mesh = line_mesh(segs, col)
 
 
 func clear_guides() -> void:
@@ -111,9 +109,7 @@ func mirror_preview(tris: PackedVector3Array, corners: PackedVector3Array, axis 
 	for i in 4:
 		segments.append(corners[i])
 		segments.append(corners[(i + 1) % 4])
-	var outline := lines(segments, edge_color)
-	m.overlay_lines.mesh = outline.mesh
-	outline.free()
+	m.overlay_lines.mesh = line_mesh(segments, edge_color)
 
 
 func face_highlight(tris: PackedVector3Array) -> void:
@@ -181,6 +177,12 @@ func lines(segs_m: PackedVector3Array, color: Color, width_pt := LINE_PX, bias :
 	var mi := MeshInstance3D.new()
 	if segs_m.size() < 2:
 		return mi
+	mi.mesh = line_mesh(segs_m, color, width_pt, bias)
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	mi.extra_cull_margin = 0.05      # the strip is a little wider than its segment on screen
+	return mi
+
+func line_mesh(segs_m: PackedVector3Array, color: Color, width_pt := LINE_PX, bias := -1.0) -> ArrayMesh:
 	var n := segs_m.size() / 2
 	var verts := PackedVector3Array(); verts.resize(n * 4)
 	var other := PackedFloat32Array(); other.resize(n * 16)
@@ -206,10 +208,7 @@ func lines(segs_m: PackedVector3Array, color: Color, width_pt := LINE_PX, bias :
 	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr, [], {},
 		Mesh.ARRAY_CUSTOM_RGBA_FLOAT << Mesh.ARRAY_FORMAT_CUSTOM0_SHIFT)
 	mesh.surface_set_material(0, _line_mat(color, width_pt, m.overlay_bias if bias < 0.0 else bias))
-	mi.mesh = mesh
-	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	mi.extra_cull_margin = 0.05      # the strip is a little wider than its segment on screen
-	return mi
+	return mesh
 
 
 func tri_mesh(tris_m: PackedVector3Array, mat: Material) -> ArrayMesh:

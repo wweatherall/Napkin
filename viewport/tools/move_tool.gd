@@ -433,26 +433,19 @@ func commit_move(vec: Vector3, count := 1, divide := false, reuse_oid := "") -> 
 	var all := PackedVector3Array()
 	var src: PackedVector3Array = state["tris"]
 	memo[oid] = {"tris": src, "ref": state["ref"], "unit": unit.duplicate(true)}
-	var wave_bodies := made if copy else [body]
-	var srcs := []
-	for i in offsets.size(): srcs.append(ctx.model.triangles(body) if copy and unit["kind"] != "board" else src)
-	if copy and targets.size() > 1:
-		var steps := offsets.duplicate()
-		srcs = []; offsets = []
-		for b in targets:
-			for step in steps:
-				srcs.append(ctx.model.triangles(b)); offsets.append(step)
-	if not copy and unit["kind"] != "board":       # the whole assembly / row moves: one draft per board
-		wave_bodies = unit["bodies"]
-		srcs = []; offsets = []
-		for b in wave_bodies:
-			srcs.append(ctx.model.triangles(b)); offsets.append(vec)
-	for i in offsets.size():
-		var moved := PackedVector3Array()
-		for q in srcs[i]: moved.append(q + offsets[i])
-		all.append_array(moved)
-		pieces.append(_board_piece(moved, wave_bodies[i]))
-	var dest: Vector3 = state["ref"] + offsets[offsets.size() - 1]
+	# A row move has one op target but previews every member. Copies follow the
+	# same target-then-offset order used above to allocate their new body IDs.
+	var sources: Array = unit["bodies"] if not copy and unit["kind"] != "board" else targets
+	var wave_bodies: Array = made if copy else sources
+	for source_id in sources:
+		var source := src if unit["kind"] == "board" else ctx.model.triangles(source_id)
+		for offset in offsets:
+			var moved := PackedVector3Array()
+			for point in source:
+				moved.append(point + offset)
+			all.append_array(moved)
+			pieces.append(_board_piece(moved, wave_bodies[pieces.size()]))
+	var dest: Vector3 = state["ref"] + offsets.back()
 	ctx.view.present_draft(op, pieces, {"origin": dest, "tris": all, "is_new": copy, "bodies": wave_bodies, "attach": "drafts"})
 	last_oid = oid
 	state["last_vec"] = vec
