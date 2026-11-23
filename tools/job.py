@@ -2,7 +2,7 @@
 """The job queue (P24): a worker takes a job and says done; a dead man's switch flags one gone quiet.
 
 Worker (run in your job's worktree unless it says otherwise):
-  python3 tools/job.py take [--as claude|codex] [--session <name>] [--wait]
+  python3 tools/job.py take [--as claude|codex|gemini] [--session <name>] [--wait]
                                 the first Ready job for you (in the board's order) whose files don't overlap a job
                                 in progress: makes ../fretchup-<id> and <agent>/<id>-<slug> from main, marks it in
                                 progress and prints the handoff. A returned job comes first and resumes its branch.
@@ -65,7 +65,7 @@ WATCH_POLL = 20             # seconds between watch's looks at the queue, and ta
 MAX_JOBS = 1                # jobs one session takes before it asks William for a /clear (P37, was 3 under P27; tunable)
 WORKER_WAIT = 20 * 60       # seconds take --wait looks for a job before it stops (P27, tunable)
 QUICKTEST = ["tools/quicktest.sh"]
-AGENTS = ("claude", "codex")
+AGENTS = ("claude", "codex", "gemini")
 BOARD = "BOARD.md"
 START = "<!-- job table: built by tools/job.py board from docs/handoff/ and the queue; don't edit by hand -->"
 END = "<!-- end of job table -->"
@@ -825,7 +825,7 @@ def main(argv):
     if cmd == "take":
         agent = (opt("--as") or default_agent() or "").lower()
         if agent not in AGENTS:
-            print("say who you are: job.py take --as claude|codex")
+            print("say who you are: job.py take --as claude|codex|gemini")
             return 2
         session = opt("--session") or default_session(agent)
         if "--wait" in argv:

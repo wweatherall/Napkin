@@ -152,7 +152,7 @@ def archive(root, hid):
 
 
 PATH = re.compile(r"(?<![\w/.-])((?:[\w.-]+/)+(?:[\w.*-]+)?|[\w-]+\.(?:md|py|gd|sh|json|cfg|gdshader))(?![\w/])")
-TOP = {"ARCHITECTURE.md", "CLAUDE.md", "AGENTS.md", "BOARD.md", "README.txt", "FREECAD_FEATURE_MAP.md"}
+TOP = {"ARCHITECTURE.md", "CLAUDE.md", "AGENTS.md", "GEMINI.md", "BOARD.md", "README.txt", "FREECAD_FEATURE_MAP.md"}
 SKIP = re.compile(r"^(not |read-only|if |nothing |no )", re.I)
 NOT_ASIDE = re.compile(r"\((?:not|don't|do not|never)\b[^()]*\)", re.I)
 
