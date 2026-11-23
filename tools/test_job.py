@@ -138,6 +138,12 @@ check("the queue reports the shared function and takes the Ready job naming anot
       selected and selected["id"] == "H003" and reasons == ["H002: overlaps H001 (viewport/main.gd (redo))"],
       (selected, reasons))
 
+trial = job.jobs_from({"H004-trial.md": entry("H004", "either", "open", "viewport/main.gd (`redo`).")
+                       .replace("| For: either", "| For: either | Builds on: H001")})
+selected, reasons = job.takeable(root, {"jobs": {"H001": {"state": "done"}}}, "codex", trial, ["H004"], claims={})
+check("a job that builds on another (Builds on: H001) isn't held back by sharing its files",
+      selected and selected["id"] == "H004" and reasons == [], (selected, reasons))
+
 # --- wrong-checkout guard (T102), including both shell entry points before any test starts ---
 guard_env = {k: v for k, v in os.environ.items() if k not in
              ("CLAUDE_CODE_SESSION_ID", "CODEX_SESSION_ID", "CODEX_THREAD_ID", "SHOPSKETCH_ANY_CHECKOUT")}
