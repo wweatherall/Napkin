@@ -1,6 +1,6 @@
 ### H085 — T83: the Arc tool (2-Point and Centre arcs, exact in FreeCAD, splitting faces)
 
-Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: open | For: either
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: answered | For: either
 
 References: T83, I60 (the gesture, William's call), I49 (arcs exact in FreeCAD), I51 (lines split faces; arcs the
 same), I58 (the Line tool's chain), I59 and T66 (typed lengths, as H052 leaves them), I43 (press-and-drag or
@@ -131,3 +131,5 @@ Architecture: Presenter owns the arc facets and drawing record. Regions accepts 
 Architecture: Tools can request raw measurement text via `typed_raw()`. Centre sweep takes degrees. The measurement box sends arc radii through the H052 length evaluator with the radius suffix restored, including on a FreeCAD reply. ToolContext UI adds `refresh_hint()`, `show_status(text)`, and `tool_active(id)`.
 
 For the integrator: Record the new tool and op in the viewport and worker guides and in docs/protocol.md. Update the T88 UI capability list with the three additions above and point I60 at the implementation.
+
+Result: 5212f66; gate passed with 287 viewport checks and all feature and full suites passing; added exact 2-Point and Centre arcs, snapping, and arc-bounded Push/Pull on faces and profiles.
