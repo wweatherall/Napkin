@@ -34,6 +34,8 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
 - [H069 — Three timing-sensitive tests that fail under load](handoff/H069-flaky-timing-tests.md) — status: open; for: either
 - [H072 — T88 step 3: Circle moves to ToolContext](handoff/H072-t88-circle-to-toolcontext.md) — status: open; for: either
+- [H073 — Two merge traps the tools cause: placeholders in prose, and BOARD.md's instructions lost](handoff/H073-integrator-tool-traps.md) — status: open; for: either
+- [H074 — For the next integrator session: where things stand](handoff/H074-integrator-state.md) — status: open; for: the integrator
 
 <!-- end of open list -->
 
