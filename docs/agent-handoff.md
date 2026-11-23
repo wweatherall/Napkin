@@ -32,7 +32,6 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 - [H052 — T66: lengths shown in the model's units](handoff/H052-t66-units.md) — status: queued (after T88's tool moves); for: either
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
-- [H075 — T88 step 4: Rectangle moves to ToolContext](handoff/H075-t88-rect-to-toolcontext.md) — status: open; for: Codex
 
 <!-- end of open list -->
 
@@ -67,6 +66,7 @@ H036 (T75) is open from main. It touches viewport files only, so it runs alongsi
 
 Full entries in [handoff-archive.md](handoff-archive.md).
 
+- H075 — T88 step 4: Rectangle moves to ToolContext. Resolved: merged into main by the integrator, 2026-11-22.
 - H073 — Two merge traps the tools cause: placeholders in prose, and BOARD.md's instructions lost. Resolved: merged into main by the integrator, 2026-11-22.
 - H074 — For the next integrator session: where things stand. Resolved: see the archive
 - H072 — T88 step 3: Circle moves to ToolContext. Resolved: merged into main by the integrator, 2026-11-22.
