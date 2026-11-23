@@ -3,7 +3,6 @@ extends Node3D
 ## Model space = Z-up millimetres (what the op log uses). Godot space = Y-up metres.
 
 const WorkerClient := preload("res://worker_client.gd")
-const Units := preload("res://units.gd")
 const Geo := preload("res://tool_geometry.gd")
 const Inference := preload("res://inference.gd")
 const Presenter := preload("res://presenter.gd")
@@ -17,7 +16,7 @@ const SNAP_PX := Inference.SNAP_PX
 # names forward to it, so tools and tests can keep writing m.ops, m.counters, m.seq.
 const Document := preload("res://document.gd")
 var doc: Document = Document.new()
-var appearance = preload("res://appearance.gd").new(doc)
+var appearance = load("res://appearance.gd").new(doc, _beside_project)
 var ops: Array:
 	get: return doc.ops
 	set(v): doc.ops = v
@@ -52,6 +51,12 @@ var redo_stack: Array:
 var test_delay_ms: int:       # test hook: ask the worker to sit on its answer
 	get: return doc.test_delay_ms
 	set(v): doc.test_delay_ms = v
+var menus = load("res://menus.gd").new(self)
+var ui = load("res://ui.gd").new(self)
+# The model quick test and shell suite still read the menu names here.
+var _menus: Dictionary:
+	get: return menus.menus
+
 var tool := "rect"
 var grid_snap := true
 var new_board := false       # a rectangle on a face joins that board when pushed out (I04b); B for a separate board
@@ -78,6 +83,10 @@ var ui_vcb_box: PanelContainer:
 func _update_vcb() -> void: measure.update()
 func apply_vcb() -> void: measure.apply()
 func _on_length(resp: Dictionary) -> void: measure.on_length(resp)
+
+
+func set_units(spec: String) -> bool:
+	return measure.set_units(spec, true)
 
 var oplog_path := ""
 var drawing_script := ""
@@ -189,6 +198,12 @@ var properties_seq := -1
 var ui_hint: Label
 var ui_sync: Label
 var ui_tip: Label
+var ui_saved: Label                 # quiet 'Saving…' / 'Saved' (Q22): the wave means accepted, this means on disk
+var saved_shown: Array = []         # tests: what the indicator has said, in order (T45: fast saves can't be missed)
+
+# The registry quick test still reads the toolbar buttons here.
+var _tool_buttons: Dictionary:
+	get: return ui.tool_buttons
 
 signal confirmed(seq_no: int)
 
@@ -216,6 +231,8 @@ static func plane_basis(n: Vector3) -> Array: return Geo.plane_basis(n)
 # ---------------- setup ----------------
 func _ready() -> void:
 	appearance.status.connect(_say_status)
+	appearance.wood_selected.connect(menus.update_wood_checks)
+	appearance.wood_selected.connect(func(_key: String): set_tool("paint"))
 	_make_presenter()
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--oplog="): oplog_path = a.substr(8)
@@ -273,9 +290,9 @@ func _ready() -> void:
 	_make_world()
 	_make_tools()                 # after the world: inference and the tool context take the camera and overlays
 	_make_keys()
-	_make_ui()
+	ui.make_ui()
 	_init_preferences()
-	_make_menus()
+	menus.make_menus()
 	_set_title()
 	if not test_mode: _remember_model(model_path)
 	client = WorkerClient.new()
@@ -288,7 +305,7 @@ func _ready() -> void:
 	doc.sent.connect(func(n: int): sent_clock[n] = movie_clock)
 	doc.synced.connect(_on_synced)
 	doc.sync_failed.connect(_on_sync_failed)
-	doc.save_changed.connect(_update_saved)
+	doc.save_changed.connect(ui.update_saved)
 	doc.close_ready.connect(_close_now)
 	doc.close_blocked.connect(_ask_close)
 	get_tree().set_auto_accept_quit(false)       # closing waits for the latest save first (I55, _request_close)
@@ -434,199 +451,9 @@ func _make_world() -> void:
 	add_child(_lines(PackedVector3Array([Vector3.ZERO, Vector3(0, 0, 2000)]), Color(0.1, 0.25, 0.9), AXIS_LINE_PX))
 
 
-# ---------------- interface (T24: Mac-like) ----------------
-# System font, macOS colours (light or dark, your accent colour), a segmented control for the tools,
-# push buttons, a quiet status bar and a measurements field that lights up while you type.
-var dark := false
-var accent := Color(0.0, 0.48, 1.0)
-var _tool_buttons := {}
-var _toggle_buttons := {}
-var ui_saved: Label                 # quiet 'Saving…' / 'Saved' (Q22): the wave means accepted, this means on disk
-
-
-var saved_shown: Array = []         # tests: what the indicator has said, in order (T45: fast saves can't be missed)
-
-
-func _update_saved() -> void:
-	if ui_saved == null: return
-	if doc.save_error != "":            # stays until a save lands (I54); the worker retries on the next change
-		ui_saved.text = "Couldn't save: %s" % doc.save_error
-		ui_saved.add_theme_color_override("font_color", Color(0.75, 0.1, 0.1))
-	elif doc.recovered_note != "" and pending_rev <= saved_rev:     # until the next save lands (A32)
-		ui_saved.text = doc.recovered_note
-		ui_saved.remove_theme_color_override("font_color")
-	else:
-		ui_saved.text = "Saving…" if pending_rev > saved_rev else "Saved"
-		ui_saved.remove_theme_color_override("font_color")
-	if test_mode and (saved_shown.is_empty() or saved_shown.back() != ui_saved.text): saved_shown.append(ui_saved.text)
-
-
-func _c(light: Color, dark_c: Color) -> Color:
-	return dark_c if dark else light
-
-
-func _box(bg: Color, radius := 6, border := Color(0, 0, 0, 0), bw := 0, pad := Vector2(10, 4)) -> StyleBoxFlat:
-	var s := StyleBoxFlat.new()
-	s.bg_color = bg
-	s.set_corner_radius_all(radius)
-	if bw > 0:
-		s.border_color = border
-		s.set_border_width_all(bw)
-	s.content_margin_left = pad.x; s.content_margin_right = pad.x
-	s.content_margin_top = pad.y; s.content_margin_bottom = pad.y
-	s.anti_aliasing = true
-	return s
-
-
-func _make_theme() -> Theme:
-	var t := Theme.new()
-	var f := SystemFont.new()
-	f.font_names = PackedStringArray([".AppleSystemUIFont", "SF Pro Text", "Helvetica Neue", "Arial"])
-	t.default_font = f
-	t.default_font_size = 13
-	var text := _c(Color(0.11, 0.11, 0.12), Color(0.92, 0.92, 0.93))
-	t.set_color("font_color", "Label", text)
-	for st in ["font_color", "font_hover_color", "font_pressed_color", "font_hover_pressed_color", "font_focus_color"]:
-		t.set_color(st, "Button", text)
-	# push buttons
-	var edge := _c(Color(0.77, 0.77, 0.79), Color(0.36, 0.36, 0.38))
-	t.set_stylebox("normal", "Button", _box(_c(Color(1, 1, 1), Color(0.36, 0.36, 0.38)), 6, edge, 1, Vector2(12, 3)))
-	t.set_stylebox("hover", "Button", _box(_c(Color(0.97, 0.97, 0.98), Color(0.4, 0.4, 0.42)), 6, edge, 1, Vector2(12, 3)))
-	t.set_stylebox("pressed", "Button", _box(_c(Color(0.86, 0.86, 0.88), Color(0.46, 0.46, 0.48)), 6, edge, 1, Vector2(12, 3)))
-	t.set_stylebox("hover_pressed", "Button", t.get_stylebox("pressed", "Button"))
-	t.set_stylebox("focus", "Button", StyleBoxEmpty.new())
-	# segments: flat inside a grey track; the selected one is a raised white tile
-	t.set_type_variation("Segment", "Button")
-	var flat := _box(Color(0, 0, 0, 0), 5, Color(0, 0, 0, 0), 0, Vector2(11, 3))
-	var hov := _box(_c(Color(0, 0, 0, 0.05), Color(1, 1, 1, 0.06)), 5, Color(0, 0, 0, 0), 0, Vector2(11, 3))
-	var sel := _box(_c(Color(1, 1, 1), Color(0.43, 0.43, 0.46)), 5, Color(0, 0, 0, 0), 0, Vector2(11, 3))
-	sel.shadow_color = Color(0, 0, 0, 0.18); sel.shadow_size = 2; sel.shadow_offset = Vector2(0, 1)
-	t.set_stylebox("normal", "Segment", flat)
-	t.set_stylebox("hover", "Segment", hov)
-	t.set_stylebox("pressed", "Segment", sel)
-	t.set_stylebox("hover_pressed", "Segment", sel)
-	t.set_stylebox("focus", "Segment", StyleBoxEmpty.new())
-	t.set_type_variation("Quiet", "Label")
-	t.set_color("font_color", "Quiet", _c(Color(0.43, 0.43, 0.45), Color(0.62, 0.62, 0.65)))
-	t.set_font_size("font_size", "Quiet", 11)
-	return t
-
-
-func _segments(items: Array, toggles: bool) -> PanelContainer:
-	var track := PanelContainer.new()
-	track.add_theme_stylebox_override("panel", _box(_c(Color(0.86, 0.86, 0.88), Color(0.24, 0.24, 0.26)), 7, Color(0, 0, 0, 0), 0, Vector2(2, 2)))
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 2)
-	track.add_child(row)
-	var group := ButtonGroup.new()
-	for it in items:
-		var b := Button.new()
-		b.text = it[0]; b.tooltip_text = it[2]
-		b.theme_type_variation = "Segment"
-		b.toggle_mode = true
-		b.focus_mode = Control.FOCUS_NONE
-		if not toggles: b.button_group = group
-		b.pressed.connect(_menu.bind(it[1]))
-		row.add_child(b)
-		(_toggle_buttons if toggles else _tool_buttons)[it[1]] = b
-	return track
-
-
-func _make_ui() -> void:
-	dark = DisplayServer.is_dark_mode_supported() and DisplayServer.is_dark_mode()
-	for a in OS.get_cmdline_user_args():
-		if a == "--appearance=light": dark = false
-		elif a == "--appearance=dark": dark = true
-	var ac := DisplayServer.get_accent_color()
-	if ac.a > 0.0: accent = ac
-	var layer := CanvasLayer.new()
-	add_child(layer)
-	var root := Control.new()
-	root.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	root.theme = _make_theme()
-	layer.add_child(root)
-	# toolbar
-	var bar := PanelContainer.new()
-	bar.set_anchors_and_offsets_preset(Control.PRESET_TOP_WIDE)
-	var bar_style := _box(_c(Color(0.93, 0.93, 0.94), Color(0.17, 0.17, 0.18)), 0, Color(0, 0, 0, 0), 0, Vector2(10, 7))
-	bar_style.border_width_bottom = 1; bar_style.border_color = _c(Color(0.8, 0.8, 0.82), Color(0.07, 0.07, 0.08))
-	bar.add_theme_stylebox_override("panel", bar_style)
-	root.add_child(bar)
-	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 10)
-	bar.add_child(row)
-	row.add_child(_segments(tool_list.map(func(t): return [t["label"], t["id"], t["tip"]]), false))   # tool_registry.gd
-	for spec in [["Undo", "undo", "Undo (⌘Z)"], ["Redo", "redo", "Redo (⇧⌘Z)"], ["Drawing", "drawing", "Drawing and cut list (D)"]]:
-		var b := Button.new(); b.text = spec[0]; b.tooltip_text = spec[2]; b.focus_mode = Control.FOCUS_NONE
-		b.pressed.connect(_menu.bind(spec[1]))
-		row.add_child(b)
-	var gap := Control.new(); gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL; gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	row.add_child(gap)
-	row.add_child(_segments([["Grid snap", "grid", "Snap to a 10 mm grid (G)"], ["New board", "newboard", "Pushing a profile drawn on a face makes a separate board (B)"]], true))
-	var properties_button := Button.new()
-	properties_button.text = "Properties"
-	properties_button.focus_mode = Control.FOCUS_NONE
-	properties_button.pressed.connect(func():
-		properties_panel.visible = not properties_panel.visible
-		if properties_panel.visible: _request_properties())
-	row.add_child(properties_button)
-	properties_panel = load("res://property_panel.gd").new()
-	root.add_child(properties_panel)
-	properties_panel.set_anchors_and_offsets_preset(Control.PRESET_RIGHT_WIDE)
-	properties_panel.offset_left = -360
-	properties_panel.offset_right = -10
-	properties_panel.offset_top = 60
-	properties_panel.offset_bottom = -45
-	properties_panel.add_theme_stylebox_override("panel", _box(_c(Color(0.96, 0.96, 0.97), Color(0.17, 0.17, 0.18)), 8, _c(Color(0.7, 0.7, 0.72), Color(0.3, 0.3, 0.32)), 1, Vector2(12, 10)))
-	properties_panel.hide()
-	properties_panel.refresh_requested.connect(_request_properties)
-	properties_panel.edit_requested.connect(_edit_property)
-	var fit_outline := MeshInstance3D.new()          # the plane-fit preview (I40)
-	add_child(fit_outline)
-	properties_panel.preview_changed.connect(func(lines: PackedVector3Array):
-		fit_outline.mesh = null
-		if not lines.is_empty():
-			var outline := _lines(lines, Color(0.9, 0.4, 0.05))
-			fit_outline.mesh = outline.mesh
-			outline.free())
-	# status bar with the measurements field
-	var status := PanelContainer.new()
-	status.set_anchors_and_offsets_preset(Control.PRESET_BOTTOM_WIDE)
-	status.grow_vertical = Control.GROW_DIRECTION_BEGIN          # grow up from the bottom edge
-	var st_style := _box(_c(Color(0.95, 0.95, 0.96), Color(0.15, 0.15, 0.16)), 0, Color(0, 0, 0, 0), 0, Vector2(12, 4))
-	st_style.border_width_top = 1; st_style.border_color = _c(Color(0.82, 0.82, 0.84), Color(0.07, 0.07, 0.08))
-	status.add_theme_stylebox_override("panel", st_style)
-	root.add_child(status)
-	var srow := HBoxContainer.new()
-	srow.add_theme_constant_override("separation", 14)
-	status.add_child(srow)
-	ui_hint = Label.new(); ui_hint.theme_type_variation = "Quiet"; ui_hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	ui_hint.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS; ui_hint.clip_text = true
-	ui_sync = Label.new(); ui_sync.theme_type_variation = "Quiet"; ui_sync.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	ui_sync.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS; ui_sync.clip_text = true
-	ui_saved = Label.new(); ui_saved.theme_type_variation = "Quiet"
-	srow.add_child(ui_hint); srow.add_child(ui_sync); srow.add_child(ui_saved)
-	measure.name = "MeasureBox"
-	measure.m = self
-	measure.init_units("" if test_mode else SETTINGS, Units.TEST_SPEC if test_mode else Units.DEFAULT_SPEC)
-	add_child(measure)
-	measure.build(srow)
-	# tooltip by the cursor
-	ui_tip = Label.new()
-	ui_tip.add_theme_font_size_override("font_size", 11)
-	var tip := _box(_c(Color(1, 1, 1, 0.97), Color(0.2, 0.2, 0.22, 0.97)), 6, _c(Color(0.78, 0.78, 0.8), Color(0.33, 0.33, 0.35)), 1, Vector2(8, 4))
-	tip.shadow_color = Color(0, 0, 0, 0.18); tip.shadow_size = 4; tip.shadow_offset = Vector2(0, 2)
-	ui_tip.add_theme_stylebox_override("normal", tip)
-	ui_tip.visible = false
-	root.add_child(ui_tip)
-	_update_toggles()
-
-
+# The native Grid snap and New board menu commands still call this.
 func _update_toggles() -> void:
-	_update_menu_checks()
-	if _toggle_buttons.has("grid"): _toggle_buttons["grid"].set_pressed_no_signal(grid_snap)
-	if _toggle_buttons.has("newboard"): _toggle_buttons["newboard"].set_pressed_no_signal(new_board)
+	ui.update_toggles()
 
 
 # ---------------- mesh helpers ----------------
@@ -718,7 +545,7 @@ func set_tool(t: String) -> void:
 	if ui_tip: ui_tip.visible = false
 	overlay.mesh = null; overlay_lines.mesh = null
 	ui_hint.text = tools[t].hint()
-	if _tool_buttons.has(t): _tool_buttons[t].set_pressed_no_signal(true)
+	if ui.tool_buttons.has(t): ui.tool_buttons[t].set_pressed_no_signal(true)
 	_update_vcb()
 
 
@@ -827,7 +654,7 @@ func _on_hidden_changed(by_op: bool) -> void:
 		if overlay != null: overlay.mesh = null
 		pres.forget_siblings()
 	else:
-		_update_menu_checks()
+		menus.update_menu_checks()
 
 
 func _apply_context() -> void: pres.apply_context()
@@ -877,95 +704,21 @@ func _edit_property(change: Dictionary) -> void:
 	properties_panel.message("Applying property…")
 	sync()
 
-# ---------------- wood (T15, M03) ----------------
-# The worker writes materials.json (the library) beside bodies.json; each board's material, grain and across
-# directions come in bodies.json. Textures live in materials/textures beside the project (or in the app bundle).
-const WOOD := preload("res://wood.gdshader")
-# Compatibility aliases for remaining render/menu consumers.
+# The Wood menu in menus.gd still uses these names.
 var wood_library: Dictionary:
 	get: return appearance.wood_library
 var wood_keys: Array:
 	get: return appearance.wood_keys
-var body_material := {}             # board id -> material key
 var paint_material: String:
 	get: return appearance.paint_material
-	set(v): appearance.paint_material = v
-var _wood_tex := {}                 # texture file -> ImageTexture
-
-
-func _load_wood_library(dir: String) -> void:
-	if appearance.load_library(dir): _build_materials_menu()
-
-
-func _wood_texture(file: String) -> Texture2D:
-	if not _wood_tex.has(file):
-		var img := Image.load_from_file(_beside_project("materials/textures/" + file))
-		if img == null or img.is_empty():
-			_wood_tex[file] = null
-		else:
-			img.generate_mipmaps()
-			_wood_tex[file] = ImageTexture.create_from_image(img)
-	return _wood_tex[file]
-
-
-func _wood_material(bid: String, b: Dictionary, base: Color) -> ShaderMaterial:
-	var e: Dictionary = wood_library.get(b.get("material", ""), {})
-	if e.is_empty(): return null
-	var side := _wood_texture(e["texture"]); var end := _wood_texture(e["end_texture"])
-	if side == null or end == null: return null
-	var sm := ShaderMaterial.new(); sm.shader = WOOD
-	sm.set_shader_parameter("side_tex", side); sm.set_shader_parameter("end_tex", end)
-	var g: Array = b.get("grain", [1, 0, 0]); var a: Array = b.get("across", [0, 1, 0])
-	sm.set_shader_parameter("grain", m2g(Vector3(g[0], g[1], g[2])))
-	sm.set_shader_parameter("across", m2g(Vector3(a[0], a[1], a[2])))
-	sm.set_shader_parameter("side_size", float(e["size_mm"]) / 1000.0)
-	sm.set_shader_parameter("side_grain_v", e["grain"] == "v")
-	sm.set_shader_parameter("end_size", float(e["end_size_mm"]) / 1000.0)
-	var et := end.get_size()
-	sm.set_shader_parameter("end_aspect", et.y / maxf(et.x, 1.0))
-	var h := hash(bid)
-	sm.set_shader_parameter("offset", Vector2(float(h & 1023) / 1024.0, float((h >> 10) & 1023) / 1024.0))
-	sm.set_shader_parameter("base_color", base)
-	return sm
-
-
-func _build_materials_menu() -> void:
-	"""The Wood menu: pick what Paint puts on (picking one switches to Paint)."""
-	if not NativeMenu.has_feature(NativeMenu.FEATURE_GLOBAL_MENU) or _wood_menu_rid.is_valid(): return
-	var bar := NativeMenu.get_system_menu(NativeMenu.MAIN_MENU_ID)
-	_wood_menu_rid = NativeMenu.create_menu()
-	for k in wood_keys:
-		var i := NativeMenu.add_radio_check_item(_wood_menu_rid, wood_library[k]["name"], _on_wood_menu, Callable(), k)
-		NativeMenu.set_item_checked(_wood_menu_rid, i, k == paint_material)
-	NativeMenu.add_separator(_wood_menu_rid)
-	NativeMenu.add_item(_wood_menu_rid, "Turn grain 90° (T)", _on_wood_menu, Callable(), "turn")
-	NativeMenu.add_submenu_item(bar, "Wood", _wood_menu_rid)
-
-
-var _wood_menu_rid := RID()
-
-
-func _on_wood_menu(tag) -> void:
-	if tag == "turn":
-		_turn_grain(); return
-	set_paint_material(String(tag))
 
 
 func set_paint_material(k: String) -> void:
-	if not appearance.select_wood(k): return
-	if _wood_menu_rid.is_valid():
-		for i in NativeMenu.get_item_count(_wood_menu_rid):
-			NativeMenu.set_item_checked(_wood_menu_rid, i, NativeMenu.get_item_tag(_wood_menu_rid, i) == k)
-	set_tool("paint")
+	appearance.set_paint_material(k)
 
 
 func _turn_grain() -> void:
-	var bid := hover_body
-	if bid == "" or body_material.get(bid, "") == "":
-		_say_status("Point at a painted board to turn its grain"); return
-	ops.append({"id": doc.next_id("tg"), "type": "turn_grain", "targets": [bid]})
-	sync()
-	_say_status("%s: grain turned 90°" % doc.board_name(bid))
+	appearance.turn_grain(hover_body)
 
 
 # ---------------- linked boards (T12: A22c, I28, Q28, Q29) ----------------
@@ -1206,8 +959,8 @@ func _apply_confirmed(dir: String, key: String) -> void:
 func _on_boards_read(data: Array, dir: String) -> void:
 	"""bodies.json, before the presenter builds from it: what each board belongs to, and its wood."""
 	sel.set_boards(data)
-	if wood_library.is_empty(): _load_wood_library(dir)
-	for b in data: body_material[b["id"]] = b.get("material", "")
+	if appearance.wood_library.is_empty() and appearance.load_library(dir): menus.build_materials_menu()
+	appearance.set_boards(data)
 	pres.forget_siblings()
 
 
@@ -1660,7 +1413,7 @@ func _close_choice(choice: String) -> void:
 			_close_now()
 		_:
 			doc.cancel_close()
-			_update_saved()
+			ui.update_saved()
 			ui_sync.text = ""
 
 
@@ -1993,118 +1746,6 @@ func _open_preferences() -> void:
 	OS.shell_open(ProjectSettings.globalize_path(preferences_path))
 
 
-# menus: tag -> action. Menu shortcuts and the same keys in the window may both arrive: act once.
-var _menu_last := {}
-var _menus := {}                    # name -> menu RID (for check marks)
-
-
-func _make_menus() -> void:
-	if not NativeMenu.has_feature(NativeMenu.FEATURE_GLOBAL_MENU): return
-	if NativeMenu.has_system_menu(NativeMenu.APPLICATION_MENU_ID):
-		var app_menu := NativeMenu.get_system_menu(NativeMenu.APPLICATION_MENU_ID)
-		if app_menu.is_valid():
-			NativeMenu.add_item(app_menu, "Preferences…", _menu, Callable(), "preferences", PREFERENCES_KEY)
-	var main_menu := NativeMenu.get_system_menu(NativeMenu.MAIN_MENU_ID)
-	var spec := [
-		["File", [["New Window", "newwindow", KEY_MASK_META | KEY_MASK_SHIFT | KEY_N], ["New…", "new", KEY_MASK_META | KEY_N],
-				  ["Open…", "open", KEY_MASK_META | KEY_O], [],
-				  ["Show in Finder", "reveal", 0], [], ["Drawing and cut list (D)", "drawing", 0]]],
-		["Edit", [["Undo", "undo", KEY_MASK_META | KEY_Z], ["Redo", "redo", KEY_MASK_META | KEY_MASK_SHIFT | KEY_Z], [], ["Make assembly", "assemble", KEY_MASK_META | KEY_G],
-				  ["Delete (⌫)", "delete", 0], ["Make unique (U)", "unique", 0], ["Detach from array", "detach", 0], [],
-				  ["Hide (H)", "hide", 0], ["Unhide selected", "unhide_selected", 0], ["Unhide last", "unhide_last", 0],
-				  ["Unhide all (Shift+H)", "unhide_all", 0]]],
-		["Tools", tool_list.map(func(t): return [load("res://tool_registry.gd").menu_label(t), t["id"], 0])],
-		["View", [["Grid snap (G)", "grid", -1], ["New board on faces (B)", "newboard", -1], ["Hidden geometry", "hiddengeom", -1]]],
-	]
-	for m in spec:
-		var rid := NativeMenu.create_menu()
-		_menus[m[0]] = rid
-		for it in m[1]:
-			if it.is_empty():
-				NativeMenu.add_separator(rid)
-			elif it[2] == -1:
-				NativeMenu.add_check_item(rid, it[0], _menu, Callable(), it[1])
-			else:
-				NativeMenu.add_item(rid, it[0], _menu, Callable(), it[1], it[2])
-		NativeMenu.add_submenu_item(main_menu, m[0], rid)
-	_update_menu_checks()
-	_build_units_menu()
-
-
-var _units_menu_rid := RID()
-
-
-func _build_units_menu() -> void:
-	"""The Units menu (I57): display format and rounding, saved per model."""
-	if not NativeMenu.has_feature(NativeMenu.FEATURE_GLOBAL_MENU) or _units_menu_rid.is_valid(): return
-	var bar := NativeMenu.get_system_menu(NativeMenu.MAIN_MENU_ID)
-	_units_menu_rid = NativeMenu.create_menu()
-	NativeMenu.add_submenu_item(bar, "Units", _units_menu_rid)
-	_update_units_menu()
-
-
-func _update_units_menu() -> void:
-	if not _units_menu_rid.is_valid(): return
-	NativeMenu.clear(_units_menu_rid)
-	var cur := Units.parse_spec(measure.units)
-	var fmt: String = cur["format"] if cur.ok else "in-frac"
-	var prec: String = cur["precision"] if cur.ok else "1/16"
-	for f in Units.FORMAT_ORDER:
-		if f == "m": NativeMenu.add_separator(_units_menu_rid)
-		var i := NativeMenu.add_radio_check_item(_units_menu_rid, Units.FORMATS[f]["label"], _on_units_menu, Callable(), "format:" + f)
-		NativeMenu.set_item_checked(_units_menu_rid, i, f == fmt)
-	NativeMenu.add_separator(_units_menu_rid)
-	var hdr := NativeMenu.add_item(_units_menu_rid, "Rounding")
-	NativeMenu.set_item_disabled(_units_menu_rid, hdr, true)
-	for p in Units.FORMATS[fmt]["precisions"]:
-		var i := NativeMenu.add_radio_check_item(_units_menu_rid, Units.precision_label(fmt, p), _on_units_menu, Callable(), "prec:" + p)
-		NativeMenu.set_item_checked(_units_menu_rid, i, p == prec)
-
-
-func _on_units_menu(tag) -> void:
-	var s := String(tag)
-	if s.begins_with("format:"): measure.set_format(s.substr(7))
-	elif s.begins_with("prec:"): measure.set_precision(s.substr(5))
-
-
-func set_units(spec: String) -> bool:
-	return measure.set_units(spec, true)
-
-
-func _update_menu_checks() -> void:
-	if not _menus.has("View"): return
-	NativeMenu.set_item_checked(_menus["View"], 0, grid_snap)
-	NativeMenu.set_item_checked(_menus["View"], 1, new_board)
-	NativeMenu.set_item_checked(_menus["View"], 2, show_hidden)
-
-
-func _menu(tag) -> void:
-	var now := Time.get_ticks_msec()
-	if now - int(_menu_last.get(tag, -1000)) < 150: return        # the menu and the key both fired
-	_menu_last[tag] = now
-	if tools.has(tag): set_tool(tag); return      # a tool's id (tool_registry.gd)
-	match tag:
-		"preferences": _open_preferences()
-		"newwindow": new_window()
-		"new": _file_dialog(true)
-		"open": _file_dialog(false)
-		"reveal": OS.shell_show_in_file_manager(model_path)
-		"drawing": export_drawing()
-		"undo": undo()
-		"redo": redo()
-		"assemble": make_assembly()
-		"unique": _linked_op("make_unique")
-		"detach": _linked_op("detach")
-		"delete": tools[tool].reset(); sel.delete_selected()
-		"hide": hide_selected()
-		"unhide_selected": unhide("selected")
-		"unhide_last": unhide("last")
-		"unhide_all": unhide("all")
-		"hiddengeom": toggle_hidden_geometry()
-		"grid": grid_snap = not grid_snap; _update_toggles()
-		"newboard": new_board = not new_board; _update_toggles()
-
-
 func new_window() -> void:
 	"""Another window on a new Untitled model, sharing this window's FreeCAD worker (W13)."""
 	var docs := OS.get_system_dir(OS.SYSTEM_DIR_DOCUMENTS).path_join("Shop Sketch")
@@ -2120,26 +1761,6 @@ func new_window() -> void:
 	args.append("--model=" + path)
 	var pid := OS.create_process(OS.get_executable_path(), args)
 	print("SHOPSKETCH new window pid %d on %s" % [pid, path])
-
-
-func _file_dialog(new: bool) -> void:
-	var start := model_path.get_base_dir()
-	var name := "Untitled.FCStd" if new else ""
-	var filters := PackedStringArray(["*.FCStd ; FreeCAD model"])
-	var mode := DisplayServer.FILE_DIALOG_MODE_SAVE_FILE if new else DisplayServer.FILE_DIALOG_MODE_OPEN_FILE
-	var done := func(ok: bool, paths: PackedStringArray, _filter: int) -> void:
-		if ok and not paths.is_empty(): switch_model(paths[0], new)
-	if DisplayServer.has_feature(DisplayServer.FEATURE_NATIVE_DIALOG_FILE):
-		DisplayServer.file_dialog_show("New model" if new else "Open a model", start, name, false, mode, filters, done)
-	else:
-		var fd := FileDialog.new()
-		fd.access = FileDialog.ACCESS_FILESYSTEM
-		fd.file_mode = FileDialog.FILE_MODE_SAVE_FILE if new else FileDialog.FILE_MODE_OPEN_FILE
-		fd.filters = filters
-		fd.current_dir = start
-		fd.file_selected.connect(func(p: String) -> void: switch_model(p, new); fd.queue_free())
-		add_child(fd)
-		fd.popup_centered_ratio(0.6)
 
 
 # ---------------- drawing export ----------------

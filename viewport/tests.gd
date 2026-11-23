@@ -19,7 +19,7 @@ func run() -> void:
 		harness.quick = true
 		Engine.time_scale = 5.0
 	if not (m.quick_test or m.join_test or m.reject_test or m.snap_test or m.rect_test or m.undo_test or m.shell_test or m.perf_test or m.line_test or m.gesture_test or m.lifecycle_test):
-		m.new_board = true; m._update_toggles()     # the scripted suites were recorded with 'New board' on (I04 then)
+		m.new_board = true; m.ui.update_toggles()     # the scripted suites were recorded with 'New board' on (I04 then)
 	if m.breath_test: await _suite("breath")
 	elif m.face_test: await _suite("face")
 	elif m.orbit_test: await _suite("orbit")

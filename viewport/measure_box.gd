@@ -10,7 +10,7 @@ extends Node
 
 const Units := preload("res://units.gd")
 
-var m                               # main.gd: tools, tool, ui_sync, client, doc, model_path, seq, styling helpers
+var m                               # main.gd: tools, tool, ui_sync, client, doc, model_path, seq, UI styling
 var vcb := ""                       # the text typed so far
 var typing := false                 # the measurements box has Delete/Backspace: since a click on it or a typed key, until a click in the view (I48)
 var length_id := 0
@@ -85,7 +85,7 @@ func _send_units() -> void:
 func _notify_units_changed() -> void:
 	update()
 	if m == null: return
-	if m.has_method("_update_units_menu"): m._update_units_menu()
+	m.menus.update_units_menu()
 	if m.has_method("_update_tip") and m.has_method("_cursor_pos") and m.get("ui_tip") != null:
 		m._update_tip(m._cursor_pos())
 
@@ -186,9 +186,9 @@ func build(row: Container) -> void:
 	ui_label = Label.new(); ui_label.theme_type_variation = "Quiet"
 	ui_box = PanelContainer.new()
 	ui_box.custom_minimum_size = Vector2(150, 0)
-	_style = m._box(m._c(Color(1, 1, 1), Color(0.11, 0.11, 0.12)), 5, m._c(Color(0.75, 0.75, 0.77), Color(0.33, 0.33, 0.35)), 1, Vector2(8, 2))
+	_style = m.ui.box(m.ui.c(Color(1, 1, 1), Color(0.11, 0.11, 0.12)), 5, m.ui.c(Color(0.75, 0.75, 0.77), Color(0.33, 0.33, 0.35)), 1, Vector2(8, 2))
 	_style_typing = _style.duplicate()
-	_style_typing.border_color = m.accent; _style_typing.set_border_width_all(2)
+	_style_typing.border_color = m.ui.accent; _style_typing.set_border_width_all(2)
 	ui_box.add_theme_stylebox_override("panel", _style)
 	ui_box.gui_input.connect(func(ev):
 		if ev is InputEventMouseButton and ev.pressed and ev.button_index == MOUSE_BUTTON_LEFT:

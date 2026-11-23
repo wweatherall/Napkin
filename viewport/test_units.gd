@@ -24,6 +24,11 @@ class FakeTool:
 	func typed(txt: String) -> void: last_typed = txt
 
 
+class FakeMenus:
+	var updates := 0
+	func update_units_menu() -> void: updates += 1
+
+
 class FakeMain:
 	var doc
 	var client
@@ -32,8 +37,7 @@ class FakeMain:
 	var tool := "push"
 	var tools := {}
 	var ui_sync := {"text": ""}
-	var menu_updates := 0
-	func _update_units_menu() -> void: menu_updates += 1
+	var menus := FakeMenus.new()
 
 
 func check(label: String, condition: bool, detail = "") -> void:
@@ -236,7 +240,7 @@ func _measure_box_units_lifecycle() -> void:
 	var before_n := client.by_cmd("set_units").size()
 	mb.set_units("ft-in:1/32", true)
 	check("menu choice updates display immediately and sends set_units", mb.units == "ft-in:1/32" and mb.units_dirty
-		and client.by_cmd("set_units").size() == before_n + 1 and fm.menu_updates > 0)
+		and client.by_cmd("set_units").size() == before_n + 1 and fm.menus.updates > 0)
 	# Simulate link drop before reply arrives: reconnect resends set_units.
 	doc.on_link_up()
 	mb.on_link_up()

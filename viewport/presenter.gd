@@ -532,7 +532,7 @@ func _build_board(dir: String, b: Dictionary) -> Dictionary:
 		var mesh := ArrayMesh.new()
 		mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
 		var base := Color(b["color"][0], b["color"][1], b["color"][2]).linear_to_srgb()   # as glTF import did
-		var wood: ShaderMaterial = m._wood_material(bid, b, base)
+		var wood: ShaderMaterial = m.appearance.wood_material(bid, b, base)
 		if wood != null:
 			mesh.surface_set_material(0, wood)
 		else:

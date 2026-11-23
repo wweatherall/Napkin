@@ -4672,3 +4672,271 @@ zoom, and live trackpad and wheel tuning. Note that `main.gd` dispatches camera 
 Result: 5108f56; gate passed with 287 quick checks and six reference matches, job.py test passed, gesture, mouse pan and I11 orbit passed; camera input and state moved into camera_rig.gd
 
 Resolution: merged into main by the integrator, 2026-11-23.
+
+### H105 — integrate.py stops for a response's `Changed from the brief:` lines (P44)
+
+Author: Claude (integrator, fretchup-74) | Date: 2026-11-22 | Status: resolved | For: gemini
+
+References: P44 (a worker may depart from a brief's rule that defeats its purpose, with a `Changed from the
+brief:` line; the integrator reviews every one), P28 (the map pause this copies), T91, P26 (how Follow-up and
+For the integrator lines are read today).
+
+Touches: tools/integrate.py, tools/test_integrate.py, docs/integrator.md (the Review and merge line about P44).
+
+Today (checked 2026-11-22): integrate.py reads a response's `Follow-up:` and `For the integrator:` lines with
+`FOLLOW_UP` / `FOR_INTEGRATOR` (~line 449) and prints the latter under "for you now:". A job with
+`Architecture:` lines stops with the merge staged (`pause_for_map`, ~line 785) until `--continue`. Nothing reads
+`Changed from the brief:`.
+
+Request (the purpose: a departure from a brief can't merge without the integrator having seen it):
+1. `CHANGED = re.compile(r"(?m)^[-*]?\s*Changed from the brief:\s*(.+?)\s*$")` and `changed_from_brief(text)`,
+   as `for_integrator`.
+2. A branch whose responses have any: print them under "for you now:" as `<H id>: changed: <what>`, and stop
+   with the merge staged exactly as the map pause does (one stop when a job has both), with the message
+   `the merge is staged, not committed (P44): check each change from the brief above; accept with python3
+   tools/integrate.py --continue --as <name>, or put the job back with python3 tools/job.py return <id>
+   "<notes>"`. `--yes` doesn't skip this stop (it skips only the push confirmation, as today).
+3. The merge commit's message gets a line per change: `Changed from the brief (<H id>): <what>`, so the history
+   keeps it.
+
+What can fail:
+- A response with the line inside a code block or quoted from the brief's own text (the brief mentions the
+  phrase): only lines in the response count (after the `Response` heading, as the other line kinds are read;
+  check how they're scoped and use the same). Check: a brief that quotes the phrase, a response without it: no stop.
+- `--continue` after the stop with nothing else changed: the merge commits with the lines in its message. Check.
+- Both a map and changes: one stop, both listed. Check.
+
+Checks (tools/test_integrate.py, a throwaway repo as its other cases): the three above, plus a branch with no
+such line merges with no stop.
+
+Reading path: integrate.py `follow_ups` / `for_integrator` / `architecture` and where they're collected (`now`,
+`maps` in the state) → `pause_for_map` → `commit_merge` (the message). Who owns what: integrate.py reads
+responses and stops; the integrator decides.
+
+Run `python3 tools/test_integrate.py` while building, then `python3 tools/job.py test`. End your response with a
+Result line; leftovers as Follow-up lines; anything for the merge as For the integrator lines.
+
+Response — Gemini (worker, gemini-cedar-1123-0743), 2026-11-23:
+
+Branch `gemini/h105-integrate-shows-brief-changes`, commit `b5ed52a`. Implemented `CHANGED` and `changed_from_brief(text)` in `tools/integrate.py` (scoped from the `Response` heading onward and outside Markdown fenced code blocks), collected brief changes in `archive_entries`, stopped staged in `pause_for_map` with `<H id>: changed: <what>` under `for you now:` and the P44 prompt (combined into one stop with P28 when both apply, preserved `--impact` across `--continue`, and not skipped by `--yes`), added `Changed from the brief (<H id>): <what>` lines to the merge commit message, and updated `docs/integrator.md` (Review and merge). Verified with `tools/test_integrate.py` (70/70, 11 new P44 checks), `tools/test_follow_ups.py` (23/23), `tools/test_bookkeeping.py` (14/14), and `python3 tools/job.py test` (all feature suites and 287/287 viewport quick checks passed on `b5ed52a`). No new IDs added; no open questions.
+
+Changed from the brief: the brief said to scope `changed_from_brief` after the `Response` heading "as the other line kinds are read; check how they're scoped and use the same"; I scoped `changed_from_brief` to after the `Response` heading and outside Markdown fenced code blocks while leaving `follow_ups`, `for_integrator`, and `architecture` unchanged; the other line kinds currently scan the whole entry and existing test fixtures (`test_integrate.py`'s `H080-ordered.md` and `test_bookkeeping.py`'s case 4) omit a `Response` heading, so scoping them would break existing tests while scanning the whole entry for `changed_from_brief` would fail this brief's What-can-fail case.
+Follow-up: `follow_ups()`, `for_integrator()`, and `architecture()` in `tools/integrate.py` still scan the full handoff file rather than scoping to the Response section outside fenced code blocks (left untouched in H105 because existing test fixtures omit a `Response` heading); consider scoping them once those fixtures include `Response` headings.
+Result: b5ed52a; test_integrate 70/70, test_follow_ups 23/23, test_bookkeeping 14/14, job.py test passed (287 viewport + all feature suites); integrate.py stops staged for response-scoped Changed from the brief lines (combined with P28, not skipped by --yes), records them in the merge commit message, and updates docs/integrator.md
+
+Resolution: merged into main by the integrator, 2026-11-23.
+
+### H086 — T83 step 2: an arc on a corner is tangent to both edges (rounded corners)
+
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: resolved | For: either
+
+References: T83, I61 (William's call: "If you make an arc on the corner, it should default to tangency"), I60
+(the Arc tool), I51 (arcs split faces), P21. H085 builds the Arc tool this job extends.
+
+Touches: viewport/tools/arc_tool.gd, viewport/tool_geometry.gd (a pure outline helper, if any), viewport/test_tool_context.gd only if a capability grows, a new
+worker/scenario/ file, viewport/tests/quick/arc.gd. Not inference.gd (snapping stays its job; ask before changing
+it), ARCHITECTURE.md or the folder guides ("Architecture:" and "For the integrator:" lines instead).
+
+What the user does: with the 2-Point Arc, the start clicked on one edge of a face or profile and the end on an
+edge that meets it at a corner (the two edges share an end, and are not parallel), with both points the same
+distance from that corner (within the snap distance the tool uses for endpoints; snap the end to the
+equal-distance point when the cursor is that close): the bulge snaps to the arc tangent to both edges and the
+arc is drawn in magenta, with the tip "Tangent at corner". Moving the cursor off the tangent bulge by more than
+the snap distance frees it, as a snap does. Typing `50r` with start and end on the two edges places the fillet of
+radius 50 there (start and end move along their edges to the tangent points; the corner's angle sets where). The
+committed op is an ordinary `arc` op: nothing new reaches FreeCAD, and the region it cuts off can be pushed down
+as a through-cut to round a tabletop's corner.
+
+Checks: worker/scenario: a 600 x 400 board's top corner with a 50 mm tangent arc, the corner region cut through:
+FreeCAD's solid has a cylindrical face of radius 50 meeting both side faces tangentially (normals equal at the
+seam, within 1e-6), and the viewport's region area agrees with FreeCAD's (P21). viewport/tests/quick/arc.gd: the
+tangent snap and its tip on a 90° corner and on a non-square corner (a polygon profile from the Line tool), `50r`
+at a corner, a free bulge after leaving the snap, and the corner cut through (draft first, then FreeCAD's mesh).
+
+Reading path: arc_tool.gd as H085 leaves it (the bulge step), then inference.gd `_nearest_visible` (a snap's answer
+is the point, its kind and its body, not the edge: today nothing reports which edge a point is on), then
+regions.gd `find`'s boundary (a face's outline from its triangles: the edges shared by one triangle only), which
+is how the tool finds the two edges through its start and end (from `ctx.model.triangles` or the profile's
+`tris`; a pure helper in tool_geometry.gd if it's shared), then presenter.gd
+`drawn_region` (the corner region). The tool owns the tangent test and the bulge; the presenter and the worker
+don't change.
+
+Not in this job: tangent to the previous arc or line in a chain, rounding all four corners at once, FreeCAD's
+fillet on a solid's edges (T108).
+
+End your response with a Result line; leftovers as Follow-up lines; anything for the merge as For the integrator
+lines.
+
+### Response from Codex, 2026-11-23
+
+Branch `codex/h086-t83-arc-corner-tangent`, implementation `d7d6df9`. The 2-Point Arc snaps the end
+to equal distance along an adjacent outline edge. At the tangent midpoint it shows a magenta preview and
+the tip “Tangent at corner.” Moving away restores free bulge control. A typed radius repositions both
+endpoints along the selected edges.
+
+The gate passed with 294 quick viewport checks and all feature and full suites passing. Quick coverage
+includes the square snap, release to free bulge, a non-square Line profile, `50r`, and the through-cut
+from draft to confirmed mesh. The viewport and FreeCAD region areas agreed within 5 mm². The worker
+scenario checked the 50 mm cylinder, both seam normals within 1e-6, and undo back to its fixture.
+
+No new decision IDs or open questions.
+
+Architecture: The Arc tool uses the coplanar triangle outline and the live endpoint snap radius for
+corner tangency. It saves the tangent points at viewport precision in the existing arc op.
+
+For the integrator: Add the corner snap and typed corner radius to the Arc entry in viewport/tools/CLAUDE.md.
+
+Result: d7d6df9; gate passed, 294 quick viewport checks and 603 worker scenario checks; tangent 2-Point Arc corner snaps, typed fillets, and verified through-cuts
+
+Resolution: merged into main by the integrator, 2026-11-23.
+
+### H110 — T113 step 3: the menus move out of main.gd into menus.gd
+
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: resolved | For: either
+
+References: T113, P45, A30, A34, I62.
+
+Touches: viewport/menus.gd (new), viewport/main.gd (`_make_menus`, `_build_units_menu`, `_update_units_menu`,
+`_on_units_menu`, `set_units`, `_update_menu_checks`, `_menu`, `_build_materials_menu`, `_on_wood_menu`,
+`_file_dialog`, and their calls), viewport/keys.gd, viewport/measure_box.gd, viewport/test_units.gd,
+viewport/tests/harness.gd, viewport/tests/quick/hide.gd, linked.gd, registry.gd, undo.gd, units.gd. Not
+`switch_model`, `new_window`, `_last_model`, `_remember_model`, `_out_for`, `_set_title` (the model's files
+stay in main).
+
+Why (P45, T113): main.gd (~2,130 lines) is the file every job meets; moving whole sections out lets jobs run side by side and makes it easier to read. Behaviour unchanged: nothing William would notice changes, no message, file or saving changes. A filler job: Ready when nothing else holds its files.
+
+Rules for every T113 step (each says what it is for, P44):
+- Move the code, don't rewrite it: same names minus the leading `_` where callers outside the new file now need them, same comments, so `git diff --color-moved` shows a move and review is quick.
+- No forwarders left in main.gd for the moved names (the point is a thinner main): callers, tests included, call the new object. Keep a forwarder only where a caller can't be changed in this job (say which in your response).
+- The new file is a plain `RefCounted` (or `Node` if it needs `_process`/timers/dialogs as children) made in main like `keys` and `measure` (`load("res://<file>.gd").new()`, given `self`), no `class_name` (viewport/CLAUDE.md).
+
+Today (checked 2026-11-22; H103 adds a Preferences item, re-read after it merges): `_menu(tag)` is the one
+handler every menu item calls; keys.gd, harness.gd and several quick tests call `m._menu`; measure_box.gd and
+test_units.gd call `m._update_units_menu` / `m.set_units`; the Tools menu is built from `tool_list` (A34).
+
+Request: menus.gd as `m.menus` builds the menu bar and handles every item (`m.menus.run(tag)` for `_menu`);
+what an item does stays where it is today (it calls main or the object that owns it), so only building and
+dispatch move. `set_units` moves only if it is about the menu; if it sets the model's units, it stays and the
+menu calls it: say which.
+
+Cases that must still work: every menu item and its key (quick test registry checks the Tools menu), File >
+New / Open / New Window, the units menu's check marks, Edit > Undo / Redo / Delete; the gate with no change to
+tests/reference/.
+
+Checks: the quick tests listed, calling `m.menus.*`; `wc -l viewport/main.gd` before and after.
+
+Run the feature tests while building (`tools/featuretest.sh`), the quick test after each change, then `python3 tools/job.py test`. End your response with a Result line; leftovers as Follow-up lines; the folder-guide change (viewport/CLAUDE.md's Files list) as a For the integrator line.
+
+#### Response — Codex, 2026-11-23
+
+Branch: `codex/h110-t113-menus`. Code commit: `f012183`.
+
+`main.gd` went from 2,182 to 2,035 lines. `m.menus` builds the native menus, updates check marks, and dispatches menu, toolbar and keyboard commands. `set_units` stays in main's model-facing API and delegates to MeasureBox, which applies and persists the model's units. The read-only `m._menus` compatibility getter serves `tests/quick/models.gd` and `tests/suites/shell.gd`, both outside Touches.
+
+Verified: feature tests and the gate passed (295 quick checks, six recorded suites matched, reference files unchanged). The Tools quick test reads the native menu, and the Units quick test checks the selected format and rounding. A separate macOS smoke test verified the native File New / Open / New Window and Edit Undo / Redo / Delete callback bindings and accelerators. The smoke test inspected the bindings without driving the system dialogs. Its native menu shutdown warnings also reproduced on the branch baseline.
+
+Decision IDs added: none. Open questions: none.
+
+Architecture: Add `viewport/menus.gd` (`m.menus`, RefCounted) to the module map. It owns the native menu RIDs, the duplicate-command filter, check marks and New/Open dialog presentation. Toolbar callbacks and matching keyboard shortcuts share `m.menus.run(tag)`. The Tools menu still derives from the tool registry. Main owns model switching, new-window creation and launching preferences. MeasureBox owns display units and asks the menus to refresh their check marks. Appearance owns the wood library and Paint command. Main still owns wood rendering and grain rotation, and menus.gd builds and checks the Wood menu.
+For the integrator: Add `menus.gd` to the Files list in `viewport/CLAUDE.md`. Update the main, keys and appearance entries there and the corresponding module map entries to name `m.menus` as the menu owner.
+Follow-up: When the model quick test and shell suite can be edited, have them read the menu RIDs from `m.menus` and remove main's compatibility getter.
+Result: f012183; gate and job.py test passed with 295 quick checks and six reference matches in the gate; native menu construction and dispatch moved to menus.gd, and main.gd lost 147 lines.
+
+Resolution: merged into main by the integrator, 2026-11-23.
+
+### H112 — T113 step 4b: wood rendering moves from main.gd to appearance.gd
+
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: resolved | For: either
+
+References: T113, P45, T15, M03, T88 step 1 (appearance.gd).
+
+Touches: viewport/appearance.gd, viewport/main.gd (the section "wood (T15, M03)": `WOOD`, `_load_wood_library`,
+`_wood_texture`, `_wood_material`, `set_paint_material`, `_turn_grain`; the forwarded `wood_library` /
+`wood_keys` / `paint_material`), viewport/presenter.gd (its `_wood_material` call), viewport/keys.gd (T),
+viewport/tests/quick/wood.gd, viewport/tools/paint_tool.gd only if it reaches main for these. The Wood menu went to
+menus.gd in H110.
+
+Why (P45, T113): main.gd (~2,130 lines) is the file every job meets; moving whole sections out lets jobs run side by side and makes it easier to read. Behaviour unchanged: nothing William would notice changes, no message, file or saving changes. A filler job: Ready when nothing else holds its files.
+
+Rules for every T113 step (each says what it is for, P44):
+- Move the code, don't rewrite it: same names minus the leading `_` where callers outside the new file now need them, same comments, so `git diff --color-moved` shows a move and review is quick.
+- No forwarders left in main.gd for the moved names (the point is a thinner main): callers, tests included, call the new object. Keep a forwarder only where a caller can't be changed in this job (say which in your response).
+- The new file is a plain `RefCounted` (or `Node` if it needs `_process`/timers/dialogs as children) made in main like `keys` and `measure` (`load("res://<file>.gd").new()`, given `self`), no `class_name` (viewport/CLAUDE.md).
+
+Today (checked 2026-11-22): appearance.gd (T88 step 1) owns the library, the current Paint wood and the paint
+command; main keeps the rendering (`_wood_material`, called by presenter.gd), texture cache and T (grain,
+`_turn_grain`, called by keys.gd); wood.gd calls `m.set_paint_material`.
+
+Request: those move into appearance.gd; the presenter and keys call `m.appearance.*`; main's forwarded wood
+names go.
+
+Cases that must still work: painting, the board look (cached by mesh + material + grain), T turns the grain;
+the gate with no change to tests/reference/.
+
+Checks: quick test wood; `wc -l viewport/main.gd` before and after.
+
+Run the feature tests while building (`tools/featuretest.sh`), the quick test after each change, then `python3 tools/job.py test`. End your response with a Result line; leftovers as Follow-up lines; the folder-guide change (viewport/CLAUDE.md's Files list) as a For the integrator line.
+
+#### Response from Codex — 2026-11-23
+
+Branch `codex/h112-t113-wood`. Code commit `5e72659`. Main went from 2,035 to 1,987 lines. The native Wood menu in `viewport/menus.gd` still uses Main's read-only `wood_library`, `wood_keys` and `paint_material` accessors and its `set_paint_material` and `_turn_grain` forwarders. The presenter, keyboard and wood quick test call appearance directly. No decision IDs added. No open questions.
+
+Feature tests passed. The wood quick section verified Paint selection, walnut rendering and T grain rotation. The gate passed all 295 quick checks and matched all six recorded suites. Reference files have no changes. `job.py test` passed on the clean code commit.
+
+Changed from the brief: Main constructs appearance with the document and a texture-path callable in place of passing `self`; the tool-context tests require appearance to work without a dependency on Main.
+Architecture: Runtime-loaded `m.appearance` owns board wood lookup, texture caching, shader material construction, Paint selection and grain rotation. It takes a document and a texture-path callable. Main routes the Paint selection signal to the menu checks and tool switch, and retains forwarders for the native Wood menu.
+Architecture: The presenter asks appearance for a wood material and keeps the confirmed board cache keyed by mesh, material, grain and across direction. Keys passes the hovered board to appearance for T. Both Paint and grain rotation append and sync through the document capability.
+Follow-up: Point the native Wood menu at `m.appearance` and remove its five Main forwarders when `menus.gd` is in scope.
+For the integrator: Update the Files list in `viewport/CLAUDE.md` to show that `appearance.gd` owns wood rendering and grain rotation, and that the Wood menu still uses Main's forwarders.
+Result: 5e72659; feature tests passed, gate passed with 295 quick checks and six reference matches, job.py test passed; moved wood rendering and grain controls into appearance.gd and removed 48 lines from main.gd
+
+Resolution: merged into main by the integrator, 2026-11-23.
+
+### H111 — T113 step 4a: building the interface moves out of main.gd into ui.gd
+
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: resolved | For: either
+
+References: T113, P45, T24.
+
+Touches: viewport/ui.gd (new), viewport/main.gd (`_c`, `_box`, `_make_theme`, `_segments`, `_make_ui`,
+`_update_toggles`, `_update_saved`, and the `ui_*` vars they set), viewport/measure_box.gd,
+viewport/tests.gd, viewport/tests/harness.gd. Not property_panel.gd.
+
+Why (P45, T113): main.gd (~2,130 lines) is the file every job meets; moving whole sections out lets jobs run side by side and makes it easier to read. Behaviour unchanged: nothing William would notice changes, no message, file or saving changes. A filler job: Ready when nothing else holds its files.
+
+Rules for every T113 step (each says what it is for, P44):
+- Move the code, don't rewrite it: same names minus the leading `_` where callers outside the new file now need them, same comments, so `git diff --color-moved` shows a move and review is quick.
+- No forwarders left in main.gd for the moved names (the point is a thinner main): callers, tests included, call the new object. Keep a forwarder only where a caller can't be changed in this job (say which in your response).
+- The new file is a plain `RefCounted` (or `Node` if it needs `_process`/timers/dialogs as children) made in main like `keys` and `measure` (`load("res://<file>.gd").new()`, given `self`), no `class_name` (viewport/CLAUDE.md).
+
+Today (checked 2026-11-22): main.gd ~435-630 builds the theme, toolbar and panels once at start;
+measure_box.gd calls `m._box` / `m._c`; tests.gd and harness.gd call `m._update_toggles`. Many files read
+main's `ui_sync`, `ui_status` and the like.
+
+Request: ui.gd as `m.ui` builds them and keeps `_update_toggles` / `_update_saved`. The labels other code
+writes to (`ui_sync`, …) may stay as vars on main that ui.gd fills in, so their many writers needn't change in
+this job: your call, say which.
+
+Cases that must still work: the window looks the same (compare a screenshot before and after in your
+response: `--write-movie` one frame, or the quick test's own); the gate with no change to tests/reference/.
+
+Checks: the quick test; `wc -l viewport/main.gd` before and after.
+
+Run the feature tests while building (`tools/featuretest.sh`), the quick test after each change, then `python3 tools/job.py test`. End your response with a Result line; leftovers as Follow-up lines; the folder-guide change (viewport/CLAUDE.md's Files list) as a For the integrator line.
+
+#### Response — Codex, 2026-11-23
+
+Branch: `codex/h111-t113-ui`. Code commit: `d3719f8`.
+
+`main.gd` went from 2,035 to 1,851 lines. Main retains the labels `ui_hint`, `ui_sync`, `ui_tip`, and `ui_saved`, the `saved_shown` test history, and the Properties panel reference, which the UI controller fills or updates. Main has two compatibility members for files outside Touches. The native Grid snap and New board commands in `menus.gd` use `_update_toggles()`, and `tests/quick/registry.gd` reads `_tool_buttons`.
+
+Verified: feature tests, quick tests, the gate, and `job.py test` passed. The gate ran 295 quick viewport checks and six recorded suites that matched their references. The reference files are unchanged. ImageMagick measured 0 differing pixels across the 1280 × 800 light-mode startup frames recorded before and after with Godot's `--write-movie`. The frames are in `scratch/h111/before/window00000000.png` and `scratch/h111/after/window00000000.png`.
+
+Decision IDs added: none. Open questions: none.
+
+Architecture: Add `viewport/ui.gd` (`m.ui`, RefCounted) to the module map. It builds the viewport theme, toolbar, Properties panel, status bar and cursor tooltip. It owns the palette and toolbar button tables and updates toggle buttons and the save indicator. Main still owns the scene nodes, the label references (`ui_hint`, `ui_sync`, `ui_tip`, `ui_saved`), the saved-indicator test history and the Properties panel reference. MeasureBox still owns measurements and uses `m.ui` for styling. Toolbar actions continue through `m.menus.run(tag)`.
+For the integrator: Add `ui.gd` to the Files list in `viewport/CLAUDE.md` for the viewport theme, toolbar, Properties panel construction, status bar, tooltip and save indicator. Update the main and MeasureBox entries to name `m.ui`.
+Follow-up: When their callers are in scope, change the native menu commands to call `m.ui.update_toggles()` and the registry quick test to read `m.ui.tool_buttons`, then remove main's compatibility members.
+Result: d3719f8; feature tests, quick test, gate (295 quick checks and six reference matches), job.py test and pixel-identical light-mode startup frames; moved interface construction and toggle and save-indicator updates into ui.gd, reducing main.gd by 184 lines.
+
+Resolution: merged into main by the integrator, 2026-11-23.

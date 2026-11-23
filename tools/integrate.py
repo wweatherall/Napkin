@@ -4,7 +4,7 @@
   python3 tools/integrate.py <branch> --as <name> [--status T33=Done ...] [--subject I-new-N=Snapping ...]
                              [--push [--yes]] [--no-gate] [--impact "<reason>"] [--job H0NN]
   python3 tools/integrate.py --continue --as <name> [--push [--yes]] [--impact "<reason>"]
-                             after a merge stopped for the map (P28) or a refused commit
+                             after a merge stopped for the map (P28), brief changes (P44) or a refused commit
 
 Run in the main checkout, on main, clean, holding the integrator lock (tools/integrator.py). In order:
  1. git merge --no-ff --no-commit <branch>
@@ -30,10 +30,12 @@ Run in the main checkout, on main, clean, holding the integrator lock (tools/int
 9. follow-ups (P26, T97): each answered entry's "Follow-up: <what>" lines are appended to docs/follow-ups.md as
    "- <H0NN> (<date>): <what>" in the merge commit (one already there isn't added twice); its "For the integrator:
    <what>" lines are printed after the merge, under "for you now:"
-10. the map (P28, T100): workers don't edit ARCHITECTURE.md or docs/protocol.md; an answered entry's
-   "Architecture: <what>" lines say what the change does to them. With any (and no --impact), it stops before
-   step 6, the merge staged, and prints them under "for you now:" marked "map:": write them in (checked against
-   the code), then `integrate.py --continue --as <name> [--push [--yes]]` does steps 6-9. A refused merge commit
+10. the map (P28, T100) and brief changes (P44): workers don't edit ARCHITECTURE.md or docs/protocol.md; an answered
+   entry's "Architecture: <what>" lines say what the change does to them, and "Changed from the brief: <what>" lines
+   record departures from the brief. With any (for the map, when no --impact), it stops before step 6, the merge
+   staged, and prints them under "for you now:" marked "map:" / "changed:": write the map in (checked against the
+   code) and review each brief change, then `integrate.py --continue --as <name> [--push [--yes]]` does steps 6-9
+   (brief changes are recorded in the merge commit message; `--yes` doesn't skip the stop). A refused merge commit
    (the architecture hook) is left the same way: stage the map or give --impact, then --continue
 BOARD.md's job table is generated (tools/job.py board): a conflict in it is settled by rebuilding it. In a BOARD.md
 conflict — or a clean BOARD.md merge where the branch changed BOARD.md (H091) — main's Order line, "## Jobs"
@@ -449,6 +451,8 @@ def result_line(text):
 FOLLOW_UP = re.compile(r"(?m)^[-*]?\s*Follow-up:\s*(.+?)\s*$")
 FOR_INTEGRATOR = re.compile(r"(?m)^[-*]?\s*For the integrator:\s*(.+?)\s*$")
 ARCHITECTURE_LINE = re.compile(r"(?m)^[-*]?\s*Architecture:\s*(.+?)\s*$")
+CHANGED = re.compile(r"(?m)^[-*]?\s*Changed from the brief:\s*(.+?)\s*$")
+RESPONSE_HEADING = re.compile(r"(?m)^(?:#{1,6}\s+|\*\*)?Response\b")
 FOLLOW_UPS = "docs/follow-ups.md"
 FOLLOW_UPS_HEADER = """# Follow-ups
 
@@ -475,6 +479,34 @@ def for_integrator(text):
 def architecture(text):
     """A response's "Architecture: <what>" lines (P28): what the change does to the map or the protocol."""
     return ARCHITECTURE_LINE.findall(text or "")
+
+
+def _strip_fenced_blocks(text):
+    """Remove Markdown fenced code blocks (``` or ~~~) so quoted examples aren't read as response lines."""
+    out, fence = [], None
+    for line in (text or "").splitlines():
+        m = re.match(r"^[ \t]*(`{3,}|~{3,})(.*)$", line)
+        if fence is None:
+            if m and not (m.group(1)[0] == "`" and "`" in m.group(2)):
+                fence = (m.group(1)[0], len(m.group(1)))
+                continue
+            out.append(line)
+        else:
+            if m and m.group(1)[0] == fence[0] and len(m.group(1)) >= fence[1] and not m.group(2).strip():
+                fence = None
+    return "\n".join(out)
+
+
+def _response_body(text):
+    """The response portion of a handoff entry (from its Response heading onward), without fenced code blocks."""
+    cleaned = _strip_fenced_blocks(text)
+    m = RESPONSE_HEADING.search(cleaned)
+    return cleaned[m.start():] if m else ""
+
+
+def changed_from_brief(text):
+    """A response's "Changed from the brief: <what>" lines (P44), scoped to the response and outside code blocks."""
+    return CHANGED.findall(_response_body(text))
 
 
 def open_follow_ups(text):
@@ -738,13 +770,14 @@ def number_entries(s):
 
 def archive_entries(s):
     root, answered, statuses, say = s.root, s.answered, s.statuses, s.say
-    results, missing, later, now, maps = [], [], [], [], []
+    results, missing, later, now, maps, changed = [], [], [], [], [], []
     for rel in answered:
         text = open(os.path.join(root, rel), encoding="utf-8").read()
         hid, got, tid = entry_id(text, rel), result_line(text), entry_item(text, [t for t, _ in statuses])
         later += [(hid, w) for w in follow_ups(text)]
         now += [(hid, w) for w in for_integrator(text)]
         maps += [(hid, w) for w in architecture(text)]
+        changed += [(hid, w) for w in changed_from_brief(text)]
         if got and tid:
             results.append((hid, tid) + got)
         else:
@@ -753,7 +786,7 @@ def archive_entries(s):
     added = add_follow_ups(root, later)
     if added:
         say(f"follow-ups: {len(added)} added to {FOLLOW_UPS}")
-    s.payload.update(results=results, missing=missing, now=now, maps=maps)
+    s.payload.update(results=results, missing=missing, now=now, maps=maps, changed=changed)
     return s
 
 
@@ -798,29 +831,43 @@ def run_gate(s):
 def pause_for_map(s):
     root, branch, name, impact, argv, say = s.root, s.branch, s.name, s.impact, s.argv, s.say
     subject, bumped, extra, delivers = s.subject, s.bumped, s.extra, s.delivers
+    state = s.payload
+    now, maps, changed = state["now"], state["maps"], state.get("changed", [])
     msg = f"Merge {branch}: {subject}\n\nMerged by tools/integrate.py ({name})."
     if bumped:
         msg += f" Protocol version {bumped[0]} renumbered to {bumped[1]}."
     if extra:
         msg += "\nOutside its Touches list: " + ", ".join(extra) + "."
-    state = s.payload
-    state.update(branch=branch, job_branch=delivers if delivers != branch else None, msg=msg)
-    now, maps = state["now"], state["maps"]
-    if maps and not impact and not map_staged(root):
-        save_state(root, state)         # P28: the map goes in the merge commit, written from the lines below
+    for hid, what in changed:
+        msg += f"\nChanged from the brief ({hid}): {what}"
+    state.update(branch=branch, job_branch=delivers if delivers != branch else None, msg=msg, impact=impact)
+    need_map = bool(maps and not impact and not map_staged(root))
+    need_brief = bool(changed)
+    if need_map or need_brief:
+        save_state(root, state)         # P28 / P44: staged merge waits for the map edit and/or brief-change review
         say("for you now:")
         for hid, what in now:
             print(f"  {hid}: {what}")
-        for hid, what in maps:
-            print(f"  {hid}: map: {what}")
-        say("the merge is staged, not committed (P28): write these into ARCHITECTURE.md / docs/protocol.md, checked "
-            "against the code, `git add` them, then: python3 tools/integrate.py --continue --as " + name
-            + (" --push" if "--push" in argv else ""))
+        if need_map:
+            for hid, what in maps:
+                print(f"  {hid}: map: {what}")
+        if need_brief:
+            for hid, what in changed:
+                print(f"  {hid}: changed: {what}")
+        cont = "python3 tools/integrate.py --continue --as " + name + (" --push" if "--push" in argv else "")
+        if need_map:
+            say("the merge is staged, not committed (P28): write these into ARCHITECTURE.md / docs/protocol.md, checked "
+                "against the code, `git add` them, then: " + cont)
+        if need_brief:
+            ids = list(dict.fromkeys(hid for hid, _ in changed))
+            ret_id = s.jid or (ids[0] if len(ids) == 1 else "<id>")
+            say("the merge is staged, not committed (P44): check each change from the brief above; accept with "
+                + cont + f', or put the job back with python3 tools/job.py return {ret_id} "<notes>"')
         return s.stop(0)
     return s
 
 
-STATE = "shopsketch-integrate.json"     # a merge stopped for the map (P28), beside the job queue's state
+STATE = "shopsketch-integrate.json"     # a paused merge (P28 / P44), beside the job queue's state
 
 
 def state_file(root):
@@ -845,7 +892,7 @@ def map_staged(root):
 
 def resume(argv):
     """integrate.py --continue --as <name> [--push [--yes]] [--impact "<reason>"]: commit a merge that stopped for
-    the map (P28) or a refused commit, then do the rest (the job merged, the Result drafts, the push)."""
+    the map (P28), brief changes (P44) or a refused commit, then do the rest (the job merged, the Result drafts, the push)."""
     if "--as" not in argv:
         print(__doc__)
         return 2
@@ -861,10 +908,11 @@ def load_continuation(s):
         return s.stop(1)
     path = state_file(root)
     if not os.path.isfile(path):
-        say("nothing to continue: no merge stopped for the map"); return s.stop(1)
+        say("nothing to continue: no paused merge"); return s.stop(1)
     if git("rev-parse", "-q", "--verify", "MERGE_HEAD", root=root).returncode:
         say(f"no merge in progress: nothing to commit (remove {path} if that merge was given up)"); return s.stop(1)
     state = json.load(open(path, encoding="utf-8"))
+    impact = impact or state.get("impact")
     git("add", "-u", "--", *MAP_FILES, root=root)     # only the map edits: nothing else joins the merge unseen
     moved = [p for p in git("diff", "--name-only", state.get("tree") or "HEAD", git("write-tree", root=root).stdout.strip(),
                             root=root).stdout.split() if p not in MAP_FILES] if state.get("tree") else []
@@ -878,6 +926,7 @@ def load_continuation(s):
         for hid, what in state["maps"]:
             print(f"  {hid}: map: {what}")
         return s.stop(1)
+    s.impact = impact
     s.payload = state
     return s
 

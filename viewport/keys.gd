@@ -17,12 +17,12 @@ func before_gui(e: InputEvent) -> bool:
 func press(e: InputEventKey) -> void:
 	"""A key press the GUI didn't take (not an echo)."""
 	var cmd: bool = e.ctrl_pressed or e.meta_pressed
-	if cmd and e.shift_pressed and e.keycode == KEY_Z: m._menu("redo"); return    # Shift+Cmd+Z
-	if cmd and e.keycode == KEY_Z: m._menu("undo"); return    # Cmd+Z on a Mac
-	if cmd and e.shift_pressed and e.keycode == KEY_N: m._menu("newwindow"); return
-	if cmd and e.keycode == KEY_N: m._menu("new"); return
-	if cmd and e.keycode == KEY_G: m._menu("assemble"); return
-	if cmd and e.keycode == KEY_O: m._menu("open"); return
+	if cmd and e.shift_pressed and e.keycode == KEY_Z: m.menus.run("redo"); return    # Shift+Cmd+Z
+	if cmd and e.keycode == KEY_Z: m.menus.run("undo"); return    # Cmd+Z on a Mac
+	if cmd and e.shift_pressed and e.keycode == KEY_N: m.menus.run("newwindow"); return
+	if cmd and e.keycode == KEY_N: m.menus.run("new"); return
+	if cmd and e.keycode == KEY_G: m.menus.run("assemble"); return
+	if cmd and e.keycode == KEY_O: m.menus.run("open"); return
 	var box = m.measure
 	match e.keycode:
 		KEY_ESCAPE:                        # the gesture first, then the selection, then the assembly you're in (T31)
@@ -40,7 +40,7 @@ func press(e: InputEventKey) -> void:
 				if grabbed.get("cut", {}).is_empty():                 # (a hole being moved: deleting holes isn't built)
 					var ids: Array = grabbed.get("unit", {}).get("bodies", [grabbed.get("body", "")])
 					m.set_tool("move"); m.set_selection(ids); m.sel.delete_selected()
-			else: m._menu("delete")
+			else: m.menus.run("delete")
 			return
 	var ch := char(e.unicode) if e.unicode > 0 else ""
 	var t = m.tools[m.tool]
@@ -49,9 +49,9 @@ func press(e: InputEventKey) -> void:
 		box.type_char(ch); return
 	if m.tool_keys.has(e.keycode): m.set_tool(m.tool_keys[e.keycode]); return   # each tool's own key (its TOOL)
 	match e.keycode:
-		KEY_G: m._menu("grid")
-		KEY_B: m._menu("newboard")
+		KEY_G: m.menus.run("grid")
+		KEY_B: m.menus.run("newboard")
 		KEY_D: m.export_drawing()
-		KEY_U: m._menu("unique")
-		KEY_H: m._menu("unhide_all" if e.shift_pressed else "hide")
-		KEY_T: m._turn_grain()
+		KEY_U: m.menus.run("unique")
+		KEY_H: m.menus.run("unhide_all" if e.shift_pressed else "hide")
+		KEY_T: m.appearance.turn_grain(m.hover_body)
