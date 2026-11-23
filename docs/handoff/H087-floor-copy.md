@@ -58,3 +58,7 @@ through environment variables); when a script raises, freecadcmd runs it a secon
 Run the feature tests while building (`tools/featuretest.sh`), then `python3 tools/job.py test` (the quick
 test). End your response with a Result line; leftovers as Follow-up lines; anything for the merge as For the
 integrator lines.
+
+Architecture: `worker/session.py` `generation()` adds `"floor_file"` (`<model>.floor.FCStd`) beside the model; `Session._write_floor_copy()` writes it atomically (`saveCopy` to a temp name + `os.replace`) when the undo floor is set from FreeCAD (`_open_existing` when `self.external`, and `reload_outside` right after `_load_file`). Models never edited in FreeCAD write no floor copy.
+Architecture: the journal (`<model>.shopsketch.json`) gains one optional field `"floor_copy": {"sha256": <hex>, "ops": <undo_floor>}` written by `Session._journal()`; a journal without it reads as no copy, and all existing journal fields are unchanged.
+Architecture: `Session._rebuild(ops)` starts from `<model>.floor.FCStd` when `undo_floor > 0` and the file's sha256 and `ops` match `floor_copy`, keeping `applied[:undo_floor]`, `undo_floor`, and `session_base = undo_floor`, then replaying `ops[undo_floor:]`; if the copy is missing or mismatched it raises `OpError("can't undo past the FreeCAD edit: its copy is missing")` and leaves the document unchanged. `Session.save()` still writes via `saveCopy` to `self.path` (not the floor copy). `Session` alone owns the floor copy; no protocol or viewport changes.
