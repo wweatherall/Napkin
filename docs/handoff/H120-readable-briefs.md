@@ -1,6 +1,6 @@
 ### H120 — T115: briefs the tools can read (Touches checked at Ready; wrapped response lines read whole)
 
-Author: Claude (integrator, fretchup-73) | Date: 2026-11-23 | Status: open | For: either
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-23 | Status: answered | For: either
 
 References: T115, P45 (Touches), P44 (Changed from the brief), P28 (Architecture lines), P26 (follow-ups).
 
@@ -49,3 +49,20 @@ Reading path: handoff.py `touches_named` (PATH, SKIP, NOT_ASIDE, TOP) → `share
 Run `python3 tools/test_handoff.py` and `python3 tools/test_integrate.py` while building, then
 `python3 tools/job.py test`. End your response with a Result line; leftovers as Follow-up lines; anything for
 the merge as For the integrator lines.
+
+Response — Codex, 2026-11-23:
+
+Implemented on `codex/h120-readable-briefs` at `6e993b0`. The hook checks staged open or queued briefs
+against paths in the index. The standalone check reads the checkout. The integrator joins wrapped response fields
+up to their next boundary and recognizes the requested Response headings. Removed the two completed follow-ups.
+
+The board-wide check found three existing diagnostics:
+- H067 reads `communication/design` as a missing path.
+- H096 lists `presenter.gd` and `line.gd` bare in its dependency note.
+
+The focused suites passed (handoff 9/9, integrate 75/75, follow-ups 23/23). The quick test passed with 303 viewport
+checks. The full test passed and all six reference suites matched. No new decision IDs or open questions.
+
+Changed from the brief: `tools/test_follow_ups.py` was outside Touches; added a blank line before its prose fixture under P46; the old fixture expected the Architecture field to end at a line break.
+
+Result: 6e993b0; handoff 9/9, integrate 75/75, follow-ups 23/23, quick and full tests passed; validates staged Touches and preserves wrapped response fields
