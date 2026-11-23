@@ -41,7 +41,6 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H097 — T110: test helpers that make a failure-path check a few lines](handoff/H097-failure-path-test-helpers.md) — status: queued (after H094); for: either
 - [H098 — Trial: try to break H093 before it merges (checks only)](handoff/H098-break-h093.md) — status: queued (after H093); for: either (the integrator sets it, when H093 is done, to an agent other than H093's builder)
 - [H099 — Job worktrees live in one folder, `<checkout>-jobs/<id>`, so a sandbox can trust just that folder](handoff/H099-job-worktrees-one-folder.md) — status: open; for: gemini
-- [H100 — For the next integrator session: where things stand](handoff/H100-integrator-state.md) — status: open; for: the integrator
 
 <!-- end of open list -->
 
@@ -49,6 +48,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 Full entries in [handoff-archive.md](handoff-archive.md).
 
+- H100 — For the next integrator session: where things stand. Resolved: see the archive
 - H095 — Redo after undoing an action that never reached the worker no longer blocks every sync (H092 finding 8). Resolved: merged into main by the integrator, 2026-11-22.
 - H090 — T59 step 1: a cut made to a pocket's floor stays tied to it (the worker side). Resolved: merged into main by the integrator, 2026-11-22.
 - H092 — The first `/code-review ultra` (main against ultra-base): ten findings, three fixed. Resolved: all ten findings fixed or made jobs (H093-H096).
