@@ -49,7 +49,7 @@ One subject per decision; the Decisions column is generated.
 | Feedback | The confirmation wave and what colours mean. | I06, W01, W02, W03, W04, W05, W06, W07, W08, W09 |
 | Materials | Wood cards, grain and painting. | A05, I33, M01, M02, M03, M04 |
 | Output | Drawings, cut lists and renders. | A07, D01, D02, P06 |
-| Process | How the agents work, test, merge and record decisions. | P01, P02, P03, P07, P09, P10, P14, P15, P16, P17, P18, P19, P20, P21, P22, P23, P24, P25, P26, P28, P29, P31, P32, P33, P34, P35, P36, P37, P38, P39, P40, P41, P42, P43, P44, P45 |
+| Process | How the agents work, test, merge and record decisions. | P01, P02, P03, P07, P09, P10, P14, P15, P16, P17, P18, P19, P20, P21, P22, P23, P24, P25, P26, P28, P29, P31, P32, P33, P34, P35, P36, P37, P38, P39, P40, P41, P42, P43, P44, P45, P46 |
 
 ## Principles
 
@@ -68,7 +68,7 @@ Each states one idea; Explains (generated) lists the decisions that name it. Wil
 | G09 | Never lose work: always saved, atomically, and undo crosses sessions without hiding changes made in FreeCAD. | Active | A24, A25, A27, A28, A32, A36, A37, A39, I54, I55, U01, U02, U03, W13 | 2026-11-22 |
 | G10 | A rejected action says why and leaves nothing behind. | Active | A23, I06, I08, W06 | 2026-11-22 |
 | G11 | Nothing rests on memory: every decision is logged, every behaviour has a named test, and every prediction of FreeCAD's answer is checked against FreeCAD. | Active | A38, I51, P01, P02, P03, P07, P09, P18, P21, P23, P26, P28, P29, P31, P32, P33, P34, P35, P36 | 2026-11-22 |
-| G12 | Work splits by files, and one integrator merges, numbers and keeps the records. | Active | A31, A33b, A34, A35, P10, P14, P15, P16, P17, P18, P19, P20, P22, P24, P25, P26, P28, P29, P31, P32, P33, P34, P35, P36, P37, P38, P39, P40, P41, P42, P43, P44, P45 | 2026-11-22 |
+| G12 | Work splits by files, and one integrator merges, numbers and keeps the records. | Active | A31, A33b, A34, A35, P10, P14, P15, P16, P17, P18, P19, P20, P22, P24, P25, P26, P28, P29, P31, P32, P33, P34, P35, P36, P37, P38, P39, P40, P41, P42, P43, P44, P45, P46 | 2026-11-22 |
 | G13 | Show what an edit will change before it does. | Active | I28 | 2026-11-22 |
 
 ## Decisions
@@ -286,6 +286,7 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | P43 | The integrator doesn't run a light /code-review on every merge; review stays as docs/integrator.md says (the integrator's own review, the gate, P42's What-can-fail checks), and William runs the ultra review himself as features land (H092). | Active |  | William, 2026-11-22: answered the integrator's proposal (H074) no. | G12 | docs/integrator.md (Review and merge) | 2026-11-22 |
 | P44 | A brief's rule says what it's for as well as what to do. A worker may depart from a rule when following it to the letter would defeat its purpose or break something the code relies on: it does what serves the purpose and adds a 'Changed from the brief:' line to its response (what the brief said, what it did, why); the integrator reviews every one. Not for anything William would notice (behaviour, visible wording, what is saved: ask him), and never to drop a 'What can fail' case or a check, only to change how one is met. | Active |  | William, 2026-11-22: H102's brief had a rule that left RELEASE_DEG below INFER_DEG (an axis would let go before it sticks); the worker built it as written and tested it. Exact briefs carry the integrator's mistakes exactly; a stated purpose lets the worker catch them. | G12 | BOARD.md (worker step 3, step 6), AGENTS.md, docs/agent-handoff.md (entry template), docs/integrator.md (Writing jobs, Review and merge) | 2026-11-22 |
 | P45 | Agents work in parallel by files, not topics, as P11 said (each job lists its Touches and stays within one session), and may share a file by function: a Touches entry can name, in backticks after the file, the functions or constants it changes (viewport/main.gd (`redo`, `_ask_outside`)); two jobs naming the same file overlap only if their names meet. A file named without names is the whole file. The integrator resolves any textual clash at merge; the gate catches the rest. | Active | Replaces P11 (whole-file overlap) | William, 2026-11-22: six queued jobs touched different parts of main.gd and waited on each other; teams rely on git merging separate hunks and tests, not file locks. | G12 | tools/handoff.py touches(), tools/job.py overlap() (not built: the T row for it) | 2026-11-22 |
+| P46 | A worker may update, without asking first, a tools/test_*.py check outside its Touches list when that check only asserts on output its own job changes (a message, a printed line); it names the file in a Changed from the brief: line. Any other file outside Touches is still asked for first. integrate.py's outside-Touches flag shows it at review. | Active | Builds on P45 (the Touches list); narrows its ask-first rule | William, 2026-11-23, from Gemini's H104 feedback: test_bookkeeping.py asserted integrate.py's old output and the worker had to stop and ask; the review sees the file either way. | G12 | BOARD.md worker step 3, AGENTS.md | 2026-11-23 |
 
 ## Open questions
 

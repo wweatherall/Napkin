@@ -15,7 +15,9 @@ worktree (T102).
    entry (a returned job comes first). Nothing Ready: run `python3 tools/job.py take --wait` in the
    background; if it gives up (20 min), tell William.
 2. Read the Notes at the bottom for anything addressed to you.
-3. Change only the files on the job's Touches line; to touch another, ask first, in chat and your response (P11).
+3. Change only the files on the job's Touches line; to touch another, ask first, in chat and your response (P45).
+   One exception (P46): a `tools/test_*.py` check that only asserts on output your job changes (a message, a
+   printed line) you update without asking, and name it in a `Changed from the brief:` line.
    Leave these alone:
    - the Work list: your result goes in your response (P17);
    - ARCHITECTURE.md and docs/protocol.md: a change to a module, a message, a file format, who owns some state,
