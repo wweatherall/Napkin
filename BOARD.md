@@ -57,8 +57,7 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 | H096 | either | Waiting on William (gemini): H096: may I also guard target.region in viewport/main.gd (redo, outside Touches — otherwise redoing a region push drops the profile draft and fails H096's redo check) and viewport/presenter.gd (forget_op — otherwise undoing a region push leaks the existing draft node)? | Pushing one cell of a split profile keeps the rest of the profile on screen (H092 finding 9) | [H096](docs/handoff/H096-region-push-keeps-profile.md) |  |
 | H097 | either | Queued | T110: test helpers that make a failure-path check a few lines | [H097](docs/handoff/H097-failure-path-test-helpers.md) | H096 |
 | H109 | either | Queued | T113 step 2: what a rejection takes with it moves to document.gd, and main's document pass-throughs go | [H109](docs/handoff/H109-t113-rejections.md) | H096, H094 |
-| H119 | either | **Ready** | T114: a worker's question is answered through the queue (scope to the integrator, behaviour to William) | [H119](docs/handoff/H119-worker-answers.md) |  |
-| H120 | either | **Ready** | T115: briefs the tools can read (Touches checked at Ready; wrapped response lines read whole) | [H120](docs/handoff/H120-readable-briefs.md) |  |
+| H120 | either | **Done**: for review (codex) | T115: briefs the tools can read (Touches checked at Ready; wrapped response lines read whole) | [H120](docs/handoff/H120-readable-briefs.md) |  |
 
 <!-- end of job table -->
 

@@ -12,6 +12,10 @@
   `Changed from the brief:` line to your response (BOARD.md step 3, P44); not for behaviour, which is William's (next line).
 - Behaviour choices are William's: ask, one question at a time, with a recommendation. Log each answer (names,
   keys, defaults and wording too) as its own row, `python3 tools/log.py add` (P01, P09). Active decisions govern.
+- For permission to touch a file or function outside Touches, ask the integrator with
+  `python3 tools/job.py wait --scope "<question>"`. For behaviour, wording or what is saved, ask William in chat and run
+  `python3 tools/job.py wait "<question>"`. Run either command in the background. After a timeout, run the
+  same command again. Quote the queue's answer in the handoff response.
 - Commit with `git -c core.hooksPath=.githooks commit`; watched code needs `Architecture-Impact: in the handoff -
   H0NN` or `Architecture-Impact: none - <specific reason>`.
 - Scratch files and logs go in `scratch/` inside your worktree, never /private/tmp (P25).
