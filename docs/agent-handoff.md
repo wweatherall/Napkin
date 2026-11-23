@@ -41,6 +41,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H097 — T110: test helpers that make a failure-path check a few lines](handoff/H097-failure-path-test-helpers.md) — status: queued (after H094); for: either
 - [H098 — Trial: try to break H093 before it merges (checks only)](handoff/H098-break-h093.md) — status: queued (after H093); for: either (the integrator sets it, when H093 is done, to an agent other than H093's builder)
 - [H099 — Job worktrees live in one folder, `<checkout>-jobs/<id>`, so a sandbox can trust just that folder](handoff/H099-job-worktrees-one-folder.md) — status: open; for: gemini
+- [H100 — For the next integrator session: where things stand](handoff/H100-integrator-state.md) — status: open; for: the integrator
 
 <!-- end of open list -->
 
