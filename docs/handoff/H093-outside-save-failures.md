@@ -164,3 +164,18 @@ including 135 document checks and 39 worker outside-save checks. All 302 quick c
 three windows. The six recorded comparisons matched.
 
 Result: 20eee5b; full suite passed, quick test 302/302; fixed all 16 H098 outside-save failures and enabled the regression checks by default.
+
+**Response 3 — Codex, 2026-11-23**
+
+Branch `codex/h093-outside-save-failures`, updated from main. No new decision IDs or open questions.
+
+- The staged document takes its label from the model file stem before the floor or a later save is written.
+  The check opens the saved model in FreeCAD 1.1.4 and also reads the stored label in `Document.xml`, since
+  FreeCAD normalizes the label on open. The snapshot-derived internal `doc.Name` is safe: the worker uses it
+  to close or activate the document, including before Draft operations.
+- The viewport export runs after the floor and journal replacements. A failed replacement preserves the
+  previous `bodies.json`. The worker rolls back any replacements already made if a later replacement or
+  the export raises. Named checks exercise failed floor, journal and export writes.
+
+Architecture: The worker restores the model label on the reload snapshot and publishes the viewport export
+after the replacement floor and journal are in place. It rolls those files back if the reload fails.

@@ -18,6 +18,7 @@ import sys
 import tempfile
 import time
 import zipfile
+import xml.etree.ElementTree as ET
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 FC = os.environ.get("FREECAD", "/Applications/FreeCAD.app/Contents/Resources/bin/freecadcmd")
@@ -108,6 +109,14 @@ doc.save()
 App.closeDocument(doc.Name)
 ''')
 
+READ_LABEL = os.path.join(tmp, "freecad_label.py")
+with open(READ_LABEL, "w") as f:
+    f.write('''import os, FreeCAD as App
+doc = App.openDocument(os.environ["READ_MODEL"])
+print("MODEL LABEL: " + doc.Label, flush=True)
+App.closeDocument(doc.Name)
+''')
+
 
 def freecad_save(model, add=12):
     """What William does in FreeCAD: open the model, make its first board thicker, save."""
@@ -189,6 +198,16 @@ bad = sync(w, m1, ops[:1], 3)
 check("a sync taking back an op below the floor is refused", bad and not bad["ok"] and "FreeCAD" in bad["error"], bad)
 sync(w, m1, ops + second(200), 4)
 ask({"cmd": "flush", "model": m1}, "flush")
+label_read = subprocess.run([FC, READ_LABEL], env=dict(os.environ, READ_MODEL=m1),
+                            capture_output=True, text=True, timeout=120)
+expected_label = os.path.splitext(os.path.basename(m1))[0]
+# FreeCAD normalizes the label on open, so check what Shop Sketch saved as well.
+with zipfile.ZipFile(m1) as archive:
+    document_xml = ET.fromstring(archive.read("Document.xml"))
+    saved_label = document_xml.find("./Properties/Property[@name='Label']/String").get("value")
+check("FreeCAD reopens the saved reload with the model's file stem as its label",
+      label_read.returncode == 0 and f"MODEL LABEL: {expected_label}" in label_read.stdout.splitlines()
+      and saved_label == expected_label, f"saved label: {saved_label!r}")
 j = journal(m1)
 check("a later save keeps the floor in the journal", j["floor"] == 2 and len(j["ops"]) == 4, (j.get("floor"), len(j["ops"])))
 check("and no outside save is reported for our own save", wait_outside(m1, 1.0) is None)
@@ -452,8 +471,7 @@ check(H098_CHECKS[1], r_xml and not r_xml["ok"], r_xml)
 
 # 3. Reload failure while writing the floor copy leaves the live document intact
 m_flr = fresh_model("floor_fail")
-out_flr = m_flr + "-out"
-os.makedirs(out_flr, exist_ok=True)
+out_flr = os.path.join(tmp, os.path.basename(m_flr) + "-out")
 opened(m_flr)
 ops_flr = board_ops(300)
 sync(w, m_flr, ops_flr, 1)
@@ -462,10 +480,36 @@ freecad_save(m_flr)
 wait_outside(m_flr)
 ops_flr += second(200)
 sync(w, m_flr, ops_flr, 2)
+bodies_flr = os.path.join(out_flr, "bodies.json")
+with open(bodies_flr, "rb") as f:
+    live_bodies = f.read()
 flr_path = os.path.splitext(m_flr)[0] + ".floor.FCStd"
 os.mkdir(flr_path)
 r_flr = ask({"cmd": "reload", "model": m_flr, "outdir": out_flr}, "reload")
 os.rmdir(flr_path)
+with open(bodies_flr, "rb") as f:
+    check("a failed floor replacement leaves the last viewport export intact",
+          r_flr and not r_flr["ok"] and f.read() == live_bodies, r_flr)
+journal_path = os.path.splitext(m_flr)[0] + ".shopsketch.json"
+journal_backup = journal_path + ".test-backup"
+os.rename(journal_path, journal_backup)
+os.mkdir(journal_path)
+try:
+    r_jrnl = ask({"cmd": "reload", "model": m_flr, "outdir": out_flr}, "reload")
+    with open(bodies_flr, "rb") as f:
+        check("a failed journal replacement keeps the last viewport export and rolls back the floor",
+              r_jrnl and not r_jrnl["ok"] and f.read() == live_bodies and not os.path.exists(flr_path), r_jrnl)
+finally:
+    os.rmdir(journal_path)
+    os.rename(journal_backup, journal_path)
+blocked_outdir = os.path.join(out_flr, "blocked")
+with open(blocked_outdir, "w"):
+    pass
+journal_before = sha(journal_path)
+r_export = ask({"cmd": "reload", "model": m_flr, "outdir": blocked_outdir}, "reload")
+check("a failed reload export rolls back the journal and floor",
+      r_export and not r_export["ok"] and sha(journal_path) == journal_before and not os.path.exists(flr_path),
+      r_export)
 k_flr = ask({"cmd": "keep_mine", "model": m_flr, "outdir": out_flr}, "keep_mine")
 km_ops = journal(m_flr)["ops"] if k_flr and k_flr.get("ok") else []
 s_flr = ask({"cmd": "sync", "model": m_flr, "outdir": out_flr,

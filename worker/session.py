@@ -551,6 +551,7 @@ class Session:
                 staged = copy(self)
                 staged.doc, staged.model = doc, model
                 doc.FileName = self.path
+                doc.Label = os.path.splitext(os.path.basename(self.path))[0]
                 staged.drawing = drawing or self.drawing
                 staged.ids = deepcopy(self.ids)
                 staged.ids.seed_native(doc)
@@ -578,25 +579,31 @@ class Session:
 
                 floor = os.path.join(stage, "floor.FCStd")
                 journal = os.path.join(stage, "journal.json")
-                previous_floor = os.path.join(stage, "previous.FCStd")
                 staged._write_floor_copy(floor)
                 atomic_json(journal, staged._journal(file_meta_rev, digest))
-                if outdir:
-                    staged.export(outdir)
-                    if last_export is not None:
-                        current_export = self._exported_boards(outdir)
-                        if current_export is not None:
-                            before, after = last_export, current_export
-                if os.path.isfile(files["floor_file"]):
-                    link_or_copy(files["floor_file"], previous_floor)
-                os.replace(floor, files["floor_file"])
+
+                # Publish both recovery files before exposing the replacement boards.
+                published = []
                 try:
-                    os.replace(journal, files["journal"])
-                except OSError:
-                    if os.path.exists(previous_floor):
-                        os.replace(previous_floor, files["floor_file"])
-                    else:
-                        os.remove(files["floor_file"])
+                    for candidate, destination in ((floor, files["floor_file"]), (journal, files["journal"])):
+                        previous = None
+                        if os.path.isfile(destination):
+                            previous = candidate + ".previous"
+                            link_or_copy(destination, previous)
+                        os.replace(candidate, destination)
+                        published.append((destination, previous))
+                    if outdir:
+                        staged.export(outdir)
+                        if last_export is not None:
+                            current_export = self._exported_boards(outdir)
+                            if current_export is not None:
+                                before, after = last_export, current_export
+                except Exception:
+                    for destination, previous in reversed(published):
+                        if previous is None:
+                            os.remove(destination)
+                        else:
+                            os.replace(previous, destination)
                     raise
             except Exception:
                 App.closeDocument(doc.Name)
