@@ -1,6 +1,6 @@
 ### H083 — T88 step 6: Move moves to ToolContext, and the legacy setup goes
 
-Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: open | For: either
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: answered | For: either
 
 References: T88, docs/specs/T88-tool-interface.md (§ move_tool.gd, § view.mirror_preview and present_draft, the
 delivery table's step 6), P21, A34, W01-W09 (the confirmation wave), H051 (ToolContext), H079 (Push/Pull: the
@@ -64,3 +64,21 @@ registry. Quick test, then the gate. This is the largest tool: if it grows past 
 working point (mirror_preview, the guides and Move on the context first, the legacy setup's removal second), say so,
 and `job.py wait`. End your response with a Result line; leftovers as Follow-up lines; anything for the merge as
 For the integrator lines.
+
+Response — Gemini, 2026-11-22:
+Finished Codex's branch (`0167c59`) on `codex/h083-t88-move-to-toolcontext`, merged `main` (`fdfb4b1`), and committed the remaining fixes (`a7ad7f9`):
+- Fixed the `test_tool_context.gd` copy-array failure (`pres.draft_tests.bounds[op.new_ids[1]][0] == [10.0, 40.0, 0.0]`: Godot 4 `Array ==` compares element types strictly against `Geo.arr3`'s floats).
+- Updated `viewport/tests/quick/line.gd` line 13 (`m.tool == "line" and m.tools.line.ctx == m.tool_ctx`) after removing `uses_main()` and `m` from `tool.gd` (approved by William, outside `Touches`).
+- Numbered Codex's decision row `A40` in `docs/decision-log.md` (and its Subjects entry) instead of `A-new-1`, with William's OK, so `tools/test_log.py` passes cleanly.
+- Verified on `a7ad7f9`: `python3 tools/job.py test` passed (all feature tests including `TOOL CONTEXT TESTS: 147 passed, 0 failed`, `TOOL TESTS: 12 passed, 0 failed`, `LOG TESTS: 61 passed, 0 failed`; `QUICK 240 passed, 0 failed`), and `tools/gate.sh` passed (`GATE PASS: full test passes; QUICK 240 passed, 0 failed in 18.8 s; 0 known failure(s)`). Note: an earlier `gate.sh` run hit a one-off transient `[move]` quick-test failure (`moved 150 along red` moved along `(147.09, -29.42)`), which did not reproduce on `job.py test` or the re-run of `gate.sh` (and `fulltest` `movetest` passed both times).
+- IDs added: `A40`.
+- Open questions: none.
+
+Architecture: viewport/tools/tool.gd removes the legacy Main setup (`setup`, `m`, `infer`, `uses_main()` and the `main.gd` preload); every tool now receives only `ToolContext` through `setup_context(ctx)` (A40, T88 step 6), and `viewport/main.gd` `_make_tools` no longer calls `setup(self)`.
+Architecture: viewport/tools/move_tool.gd is now context-only (T88 step 6), using only `ctx` and `Geo` with no `main.gd` or `inference.gd` reference; committed move, copy, array, mirror and cut-move drafts and waves go through `ctx.view.present_draft`, and mirror previews go through `ctx.view.mirror_preview`.
+Architecture: viewport/tool_context.gd `ViewCapability` adds `mirror_preview(tris, corners, axis = -1)` (now on the allowlist, no longer deferred) and routes `guides` / `clear_guides` directly to `presenter.gd` rather than bound `main.gd` callables.
+Architecture: viewport/presenter.gd now owns Move's guides (`guides`, `draw_guides`, `clear_guides`, lifted from `main.gd`), `mirror_preview`, and Move's committed drafts and waves via `present_draft` (including cut-move waves attached to confirmed bodies); `push_tests` is renamed to `draft_tests` (`DraftTestRecorder`) since it records draft bounds for both Push/Pull and Move (`main.gd` keeps `draft_bboxes` and `force_reject_next` forwarding aliases).
+For the integrator: update `viewport/CLAUDE.md` to rename `push_tests` to `draft_tests` and note that `presenter.gd` now owns `guides` (`draw_guides` / `clear_guides`) and `mirror_preview` (T88 step 6).
+For the integrator: update `viewport/tools/CLAUDE.md` to drop the legacy `setup` / `uses_main()` / `STILL_ON_MAIN` migration notes and update "Making an action" and "Tests of the interface" now that all seven tools are context-only (A40) and `view.mirror_preview` is live.
+For the integrator: approved out-of-Touches files on this branch are `viewport/tests/quick/line.gd` (line 13 updated from obsolete `uses_main()` / `.m` check, William's OK), the six migrated `viewport/tools/*_tool.gd` files (obsolete `uses_main()` overrides removed, A40), and `docs/decision-log.md` (`A40` numbered directly with William's OK so `tools/test_log.py` passes).
+Result: a7ad7f9; job.py test passed (240/240 quick, ToolContext 147/147, tools 12/12, log 61/61), gate PASS (240/240 quick, full suites matched reference); Move moved to ToolContext, presenter owns guides/mirror_preview/draft_tests, legacy tool setup and uses_main() removed (T88 step 6, A40)
