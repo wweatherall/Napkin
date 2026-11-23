@@ -37,6 +37,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H086 — T83 step 2: an arc on a corner is tangent to both edges (rounded corners)](handoff/H086-t83-arc-corner-tangent.md) — status: queued (after H085); for: either
 - [H087 — A38: a rebuild keeps FreeCAD's edits (the floor copy)](handoff/H087-floor-copy.md) — status: open; for: gemini
 - [H088 — integrate.py and job.py show the tests' progress as it happens](handoff/H088-live-test-output.md) — status: open; for: gemini
+- [H089 — For the next integrator session: where things stand](handoff/H089-integrator-state.md) — status: open; for: the integrator
 
 <!-- end of open list -->
 
