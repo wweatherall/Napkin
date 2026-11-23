@@ -1,6 +1,6 @@
 ### H121 — T59 step 2: Push/Pull sends `to_face` when a cut snaps to a pocket's floor
 
-Author: Claude (integrator, fretchup-73) | Date: 2026-11-23 | Status: open | For: either
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-23 | Status: answered | For: either
 
 References: T59, I26b (a cut made up to a face stays tied to it), I40 (a typed distance stays a measurement),
 I45 (the face-behind snap), I24 (`through`), H090 (step 1, the worker side: merged), A35 (PROTOCOL_VERSION).
@@ -78,3 +78,7 @@ to an interior face. Update the protocol version history and the `push_pull` fie
 
 For the integrator: Update the Push/Pull entry in `viewport/tools/CLAUDE.md` to mention `to_face` for
 pointer cuts snapped to an interior face and the measured depth used for typed cuts.
+
+Feature tests, the full suite and the recorded quick test passed. All 313 viewport quick checks passed, and the six recorded suite outputs matched their references.
+
+Result: ad6debf; feature and full suites passed, quick test 313/313 viewport checks; Push/Pull remembers snapped pocket floors and the window and worker speak protocol 12.
