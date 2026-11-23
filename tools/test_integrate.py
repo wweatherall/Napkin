@@ -341,3 +341,4 @@ check("a failed gate stops before the map pause and every finishing step",
 shutil.rmtree(root)
 
 print(f"INTEGRATE TESTS: {sum(RESULTS)} passed, {len(RESULTS) - sum(RESULTS)} failed")
+raise SystemExit(0 if all(RESULTS) else 1)   # a failed check fails the run, not only its summary
