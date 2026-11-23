@@ -684,7 +684,7 @@ class Session:
             raise
         self.dirty = False
         self.file_sig = self.disk_sig()
-        self.rev_ops[self.rev] = list(self.applied)
+        self.rev_ops[self.rev] = [e for e in self.applied if e["status"] == "ok"]   # what the file holds
         for old in sorted(self.rev_ops)[:-50]:        # the last 50 revisions are plenty for FreeCAD's open copy
             del self.rev_ops[old]
         self.external = False   # the file is exactly our journal again; the undo floor stays (the journal keeps it)
