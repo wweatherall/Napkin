@@ -85,12 +85,20 @@ var test_mode := false
 var shots_dir := ""
 
 var cam: Camera3D
-var target := Vector3(0.25, 0.2, -0.15)
-var yaw := deg_to_rad(-38.0)
-var pitch := deg_to_rad(-26.0)
-var dist := 2.0
-var orbiting := false
-var panning := false
+var camera_rig = load("res://camera_rig.gd").new(self)
+# The preferences quick test still reads these names from main.
+const TRACKPAD_PX := preload("res://camera_rig.gd").TRACKPAD_PX
+const ZOOM_STEP := preload("res://camera_rig.gd").ZOOM_STEP
+var yaw: float:
+	get: return camera_rig.yaw
+var dist: float:
+	get: return camera_rig.dist
+var trackpad_px: float:
+	get: return camera_rig.trackpad_px
+	set(v): camera_rig.trackpad_px = v
+var zoom_step: float:
+	get: return camera_rig.zoom_step
+	set(v): camera_rig.zoom_step = v
 
 var bodies_root: Node3D
 var drafts_root: Node3D
@@ -298,7 +306,8 @@ func _ready() -> void:
 		port = _await_port_file()                   # the worker has been starting while the window was built
 		worker_port = port
 	client.start(port)
-	_update_camera()
+	camera_rig.camera = cam
+	camera_rig.update_camera()
 	_warm_up_previews()
 	set_tool("rect")
 	# open the model file; the worker answers with its history, which we adopt (tests start clean)
@@ -2105,7 +2114,7 @@ func _run_drawing_script() -> void:
 
 
 # ---------------- input ----------------
-# Keys go to keys.gd (`m.keys`, T75); the mouse, trackpad and camera stay here.
+# Keys go to keys.gd (T75), camera input to camera_rig.gd (T113).
 var keys = load("res://keys.gd").new()
 
 
@@ -2143,16 +2152,12 @@ func _unhandled_input(e: InputEvent) -> void:
 					hit = near
 				properties_panel.pick_reference(hit)
 			return
+	if (e is InputEventPanGesture or e is InputEventMagnifyGesture) and _repeat_gesture(e):
+		return       # Godot 4.6 hands an injected gesture over twice in the same frame (seen in tests); act once
+	if camera_rig.handle_input(e):
+		return
 	if e is InputEventMouseButton:
-		if e.button_index in [MOUSE_BUTTON_MIDDLE, MOUSE_BUTTON_RIGHT]:
-			orbiting = e.pressed and not e.shift_pressed
-			panning = e.pressed and e.shift_pressed
-		elif e.button_index in [MOUSE_BUTTON_WHEEL_UP, MOUSE_BUTTON_WHEEL_DOWN] and e.pressed:
-			# zoom by how much was scrolled: a smooth-scrolling mouse (MX Master) sends many small steps per notch
-			var amount := clampf(e.factor if e.factor > 0.0 else 1.0, 0.0, ZOOM_MAX_STEPS)
-			var step := pow(zoom_step, amount)
-			_zoom(step if e.button_index == MOUSE_BUTTON_WHEEL_UP else 1.0 / step, e.position)
-		elif e.button_index == MOUSE_BUTTON_LEFT and e.pressed and e.double_click:
+		if e.button_index == MOUSE_BUTTON_LEFT and e.pressed and e.double_click:
 			tools[tool].double_click(e.position)
 		elif e.button_index == MOUSE_BUTTON_LEFT and e.pressed:
 			measure.stop_typing()      # picking in the view again gives Delete back to the model (I48)
@@ -2160,30 +2165,8 @@ func _unhandled_input(e: InputEvent) -> void:
 		elif e.button_index == MOUSE_BUTTON_LEFT:
 			tools[tool].release(e.position)
 			_update_vcb()
-	elif (e is InputEventPanGesture or e is InputEventMagnifyGesture) and _repeat_gesture(e):
-		return       # Godot 4.6 hands an injected gesture over twice in the same frame (seen in tests); act once
-	elif e is InputEventPanGesture:
-		# trackpad (and Magic Mouse) two-finger drag: orbit; with Shift, pan. A wheel mouse sends wheel buttons instead.
-		if e.shift_pressed:
-			var k := dist * 0.0012 * trackpad_px
-			target += (-cam.global_transform.basis.x * e.delta.x + cam.global_transform.basis.y * e.delta.y) * k
-		else:
-			yaw -= e.delta.x * 0.008 * trackpad_px
-			pitch = clampf(pitch - e.delta.y * 0.008 * trackpad_px, -1.5, 1.5)
-		_update_camera()
-	elif e is InputEventMagnifyGesture:
-		_zoom(1.0 / maxf(e.factor, 0.01), e.position)      # pinch out = closer, toward the cursor
 	elif e is InputEventMouseMotion:
-		if orbiting:
-			yaw -= e.relative.x * 0.008
-			pitch = clampf(pitch - e.relative.y * 0.008, -1.5, 1.5)
-			_update_camera()
-		elif panning:
-			var k := dist * 0.0012
-			target += (-cam.global_transform.basis.x * e.relative.x + cam.global_transform.basis.y * e.relative.y) * k
-			_update_camera()
-		else:
-			tool_move(e.position)
+		tool_move(e.position)
 	elif e is InputEventKey and e.pressed and not e.echo:
 		keys.press(e)
 
@@ -2197,28 +2180,3 @@ func _repeat_gesture(e: InputEventGesture) -> bool:
 	if sig == _last_gesture: return true
 	_last_gesture = sig
 	return false
-
-
-const TRACKPAD_PX := 33.0     # Godot scales a trackpad's scroll by 0.03: this makes one finger-pixel = one mouse-pixel
-var trackpad_px := TRACKPAD_PX
-
-const ZOOM_STEP := 0.88       # zoom per notch of a plain wheel (scroll amount 1)
-const ZOOM_MAX_STEPS := 3.0   # one scroll event never zooms more than this many notches
-var zoom_step := ZOOM_STEP
-
-
-func _zoom(f: float, screen: Vector2) -> void:
-	var p := pick(screen)
-	if p.get("hit", false) and f < 1.0:
-		target = target.lerp(m2g(p["point"]), 1.0 - pow(0.88, log(f) / log(zoom_step)))   # toward the cursor, as much as zoomed
-	dist = clampf(dist * f, 0.05, 50.0)
-	_update_camera()
-
-
-func _update_camera() -> void:
-	var off := Vector3(0, 0, dist).rotated(Vector3.RIGHT, pitch).rotated(Vector3.UP, yaw)
-	cam.position = target + off
-	cam.look_at(target, Vector3.UP)
-	if grid_mat != null:       # the grid fades out past a few orbit distances (no shimmer toward the horizon)
-		grid_mat.set_shader_parameter("fade_start", dist * 1.5 + 0.5)
-		grid_mat.set_shader_parameter("fade_end", dist * 3.5 + 1.5)

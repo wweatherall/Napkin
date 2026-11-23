@@ -31,3 +31,9 @@ Checks: the gate with no change to tests/reference/; quick test trackpad; `wc -l
 after.
 
 Run the feature tests while building (`tools/featuretest.sh`), the quick test after each change, then `python3 tools/job.py test`. End your response with a Result line; leftovers as Follow-up lines; the folder-guide change (viewport/CLAUDE.md's Files list) as a For the integrator line.
+
+#### Response — Codex, 2026-11-23
+
+Architecture: `viewport/camera_rig.gd` is a RefCounted controller (`m.camera_rig`) that owns the orbit target,
+angles, distance, drag state, and live trackpad and wheel tunables. It updates the scene Camera3D and grid fade.
+`main.gd` owns the scene nodes, applies preferences, filters and dispatches input, and handles tool picking.

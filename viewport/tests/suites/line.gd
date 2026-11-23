@@ -14,8 +14,11 @@ func run() -> void:
 	var views := [["low", 0.0, 2.0, -40.0, -6.0], ["low_far", 0.0, 6.0, -40.0, -10.0], ["far", 0.0, 12.0, -30.0, -35.0],
 		["top_far", 0.0, 9.0, 0.0, -89.0], ["along_x", 0.0, 3.0, -90.0, -8.0]]
 	for v in views:
-		m.target = Main.m2g(Vector3(300, 200, 0)); m.dist = v[2]; m.yaw = deg_to_rad(v[3]); m.pitch = deg_to_rad(v[4])
-		m._update_camera()
+		m.camera_rig.target = Main.m2g(Vector3(300, 200, 0))
+		m.camera_rig.dist = v[2]
+		m.camera_rig.yaw = deg_to_rad(v[3])
+		m.camera_rig.pitch = deg_to_rad(v[4])
+		m.camera_rig.update_camera()
 		await harness._frames(3)
 		harness.get_viewport().get_texture().get_image().save_png(m.shots_dir.path_join("L_%s.png" % v[0]))
 	m.cursor2d.visible = true
@@ -25,8 +28,11 @@ func run() -> void:
 	await harness._wait_wave()
 	m.cursor2d.visible = false
 	for v in [["board_grazing", 1.2, -2.0, -3.0], ["board_edge_on", 0.8, -89.0, -20.0], ["board_far", 7.0, -35.0, -25.0]]:
-		m.target = Main.m2g(Vector3(300, 9, 150)); m.dist = v[1]; m.yaw = deg_to_rad(v[2]); m.pitch = deg_to_rad(v[3])
-		m._update_camera()
+		m.camera_rig.target = Main.m2g(Vector3(300, 9, 150))
+		m.camera_rig.dist = v[1]
+		m.camera_rig.yaw = deg_to_rad(v[2])
+		m.camera_rig.pitch = deg_to_rad(v[3])
+		m.camera_rig.update_camera()
 		await harness._frames(3)
 		harness.get_viewport().get_texture().get_image().save_png(m.shots_dir.path_join("L_%s.png" % v[0]))
 	print("LINETEST done")

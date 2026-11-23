@@ -9,8 +9,9 @@ var m: Main:
 
 
 func run() -> void:
-	m.target = Main.m2g(Vector3(230, 150, 200)); m.dist = 1.6
-	m._update_camera()
+	m.camera_rig.target = Main.m2g(Vector3(230, 150, 200))
+	m.camera_rig.dist = 1.6
+	m.camera_rig.update_camera()
 	await harness._frames(5)
 	# 1. side panel: rectangle on the ground, push up
 	await harness._key(KEY_R)
@@ -66,7 +67,10 @@ func run() -> void:
 	await harness._shot("09_face_push_preview")
 	await harness._type("40\n")
 	await harness._wait_confirm()
-	m.yaw = deg_to_rad(-60); m.pitch = deg_to_rad(-32); m.dist = 1.5; m._update_camera()
+	m.camera_rig.yaw = deg_to_rad(-60)
+	m.camera_rig.pitch = deg_to_rad(-32)
+	m.camera_rig.dist = 1.5
+	m.camera_rig.update_camera()
 	await harness._frames(3)
 	await harness._shot("10_final_confirmed")
 	await harness._key(KEY_D)

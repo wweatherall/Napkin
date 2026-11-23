@@ -15,8 +15,11 @@ func run() -> void:
 		await harness._frames(1)
 	await harness._wait_confirm()
 	print("HEAVYTEST opened %s with %d ops" % [m.model_path.get_file(), m.ops.size()])
-	m.target = Main.m2g(Vector3(560, 300, 0)); m.dist = 1.9; m.yaw = deg_to_rad(-28); m.pitch = deg_to_rad(-38)
-	m._update_camera()
+	m.camera_rig.target = Main.m2g(Vector3(560, 300, 0))
+	m.camera_rig.dist = 1.9
+	m.camera_rig.yaw = deg_to_rad(-28)
+	m.camera_rig.pitch = deg_to_rad(-38)
+	m.camera_rig.update_camera()
 	m.cursor2d.position = Vector2(900, 700)
 	harness._say("Opened model.FCStd: an 18 mm panel with 32 holes, each a real FreeCAD cut")
 	await harness._hold(70)
