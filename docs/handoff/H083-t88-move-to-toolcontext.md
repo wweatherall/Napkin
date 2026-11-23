@@ -33,6 +33,15 @@ members_of/unit_of`, `document.next_id/op/append/remove(id, resync)/sync`, `view
 Missing: `view.mirror_preview` (in test_tool_context.gd's DEFERRED list today) and the guides body, which still
 lives in main.gd's `_draw_guides` behind a bound Callable.
 
+Reading path (a draft's whole lifetime, in this order): move_tool.gd `commit_move` (a move, copy or array: ops,
+draft nodes, the wave), then `_commit_cut_move` and `commit_mirror` (the other two shapes), then presenter.gd
+`present_draft` (what Push/Pull already hands over, H079), `begin_wave` / `attach_wave`, `drop_confirmed_drafts`
+(FreeCAD answered: drafts give way) and `forget_op` (undo or rejection: what an op drew goes), with main.gd
+`_on_op_removed` routing to it. Then `_amend_last_move` (it removes the last op and commits again from `memo`).
+Who owns what after H079: the presenter creates and frees every draft root, collision, cache entry and highlight;
+a tool only hands it pieces; main.gd keeps forwarding names (`_lines`, `_tri_mesh`, `draft_bboxes`,
+`force_reject_next`) for Move and the suites, which own nothing.
+
 Request: T88 step 6, as the spec says. move_tool.gd uses only `ctx` and `Geo` (no `m.`, no `Main.`, no `infer.`).
 `view.mirror_preview(tris, corners, axis = -1)` arrives as the spec defines it (the plane surface and its perimeter,
 axis colours when axis >= 0, the oblique colour otherwise; the same picture as `_preview_mirror_move` /
