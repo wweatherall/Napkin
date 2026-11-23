@@ -3,7 +3,7 @@
 "Check the board" sends you here. Only the integrator edits this file; the job table is built from docs/handoff/
 and the job queue.
 
-Order: H105, H085, H086, H093, H098, H094, H096, H097, H115, H107, H108, H109, H110, H111, H112, H113, H114
+Order: H105, H115, H085, H086, H093, H098, H094, H096, H097, H107, H108, H109, H110, H111, H112, H113, H114
 
 ## If you're not the integrator
 
@@ -53,13 +53,13 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
 | H105 | Gemini | **Ready** | integrate.py stops for a response's `Changed from the brief:` lines (P44) | [H105](docs/handoff/H105-integrate-shows-brief-changes.md) |  |
-| H085 | either | **Ready** | T83: the Arc tool (2-Point and Centre arcs, exact in FreeCAD, splitting faces) | [H085](docs/handoff/H085-t83-arc-tool.md) |  |
+| H115 | Codex | **Ready** | T112: the queue checks overlap by function (P45) | [H115](docs/handoff/H115-t112-overlap-by-function.md) |  |
+| H085 | either | In progress (codex since 07:10) | T83: the Arc tool (2-Point and Centre arcs, exact in FreeCAD, splitting faces) | [H085](docs/handoff/H085-t83-arc-tool.md) |  |
 | H086 | either | Queued | T83 step 2: an arc on a corner is tangent to both edges (rounded corners) | [H086](docs/handoff/H086-t83-arc-corner-tangent.md) | H085 |
 | H093 | either | **Ready** | Outside saves: a failed reload asks, a worker lost mid-reload reloads again, and a question the actions overtook closes (H092 findings 2 and 5, A39) | [H093](docs/handoff/H093-outside-save-failures.md) |  |
 | H094 | either | Queued | A reload from a revision Shop Sketch no longer remembers keeps the ops that file holds (H092 finding 6) | [H094](docs/handoff/H094-reload-unknown-revision.md) | H093 |
 | H096 | either | Queued | Pushing one cell of a split profile keeps the rest of the profile on screen (H092 finding 9) | [H096](docs/handoff/H096-region-push-keeps-profile.md) | H083 |
 | H097 | either | Queued | T110: test helpers that make a failure-path check a few lines | [H097](docs/handoff/H097-failure-path-test-helpers.md) | H094 |
-| H115 | Codex | **Ready** | T112: the queue checks overlap by function (P45) | [H115](docs/handoff/H115-t112-overlap-by-function.md) |  |
 | H107 | either | Queued | T113 step 1a: the FreeCAD worker's process moves out of main.gd into worker_process.gd | [H107](docs/handoff/H107-t113-worker-process.md) | H094 |
 | H108 | either | Queued | T113 step 1b: the closing and outside-save dialogs move out of main.gd into save_prompts.gd | [H108](docs/handoff/H108-t113-save-prompts.md) | H107 |
 | H109 | either | Queued | T113 step 2: what a rejection takes with it moves to document.gd, and main's document pass-throughs go | [H109](docs/handoff/H109-t113-rejections.md) | H096, H094 |
