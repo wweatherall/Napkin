@@ -11,6 +11,7 @@ signal boards_read(data: Array, dir: String)   # bodies.json read, before buildi
 signal wave_rejected_done(oid: String)        # a red wave has played out: main removes the op (and its dependents)
 
 const Regions := preload("res://regions.gd")
+const Geo := preload("res://tool_geometry.gd")
 const WAVE := preload("res://confirm_wave.gdshader")
 const WAVE_LINES := preload("res://confirm_wave_lines.gdshader")
 const WOOD := preload("res://wood.gdshader")
@@ -154,7 +155,7 @@ func register_rect(op: Dictionary) -> void:
 const CIRCLE_SEGMENTS := 64
 
 func circle_geometry(center: Vector3, normal: Vector3, radius: float) -> Dictionary:
-	var basis: Array = m.plane_basis(normal)
+	var basis: Array = Geo.plane_basis(normal)   # pure: works with no Main (T88 step 3)
 	var pts := PackedVector3Array()
 	var tris := PackedVector3Array()
 	var lines := PackedVector3Array()

@@ -41,6 +41,38 @@ class PaintInference:
 	func pick(_screen: Vector2) -> Dictionary: return hit.duplicate(true)
 
 
+class CircleInference:
+	## Circle's stand-in: a fixed hit, snap/on_grid hand back the point (grid snap), a straight-down ray.
+	var hit := {}
+	var ray_at := Vector3.ZERO
+	var snap_kind := "grid"
+	var calls: Array = []
+	func pick(_screen: Vector2) -> Dictionary: return hit.duplicate(true)
+	func snap(p: Dictionary, _screen: Vector2) -> Dictionary:
+		calls.append("snap"); p["snap"] = snap_kind; return p
+	func on_grid(p: Dictionary) -> Dictionary:
+		calls.append("on_grid"); p["snap"] = "grid"; return p
+	func ray(_screen: Vector2) -> Dictionary: return {"origin": ray_at + Vector3(0, 0, 500), "direction": Vector3(0, 0, -1)}
+
+
+class ProfilePresenter:
+	## Circle's presenter stand-in: the real circle_geometry, register_rect recorded (no Main to draw with).
+	var real
+	var rects := {}
+	var registered: Array = []
+	func circle_geometry(c: Vector3, n: Vector3, r: float) -> Dictionary: return real.circle_geometry(c, n, r)
+	func register_rect(o: Dictionary) -> void:
+		registered.append(o.duplicate(true))
+		rects[o["id"]] = {"tris": PackedVector3Array(), "n": Vector3(0, 0, 1), "on": "board-under", "pts": PackedVector3Array(), "kind": o["type"]}
+		o["radius"] = -1.0
+
+
+class FakeMeasure:
+	var updates := 0
+	var vcb := ""
+	func update() -> void: updates += 1
+
+
 class FakeClient:
 	var sent: Array = []
 	func send(d: Dictionary) -> void: sent.append(d)
@@ -428,6 +460,48 @@ func _initialize() -> void:
 	check("behind-camera vertices reject enclosure but allow a separate visible crossing triangle",
 		select.box_ids(start, finish).is_empty() and select.box_ids(finish, start) == ["b3"])
 
+	# Circle runs without Main too: centre click, radius from the ray, the op through the document (T88 step 3).
+	var cinfer := CircleInference.new()
+	var cpres := ProfilePresenter.new(); cpres.real = pres
+	var cparts: Dictionary = vparts.duplicate()
+	var cmeasure := FakeMeasure.new()
+	cparts.merge({"infer": cinfer, "pres": cpres, "measure": cmeasure}, true)
+	var circle = load("res://tools/circle_tool.gd").new()
+	circle.setup_context(ToolContext.new(cparts))
+	cinfer.hit = {"hit": true, "point": Vector3(10, 20, 0), "normal": Vector3(0, 0, 1), "body": "", "rect": ""}
+	circle.mouse_moved(Vector2.ZERO)
+	check("context-only Circle shows the snap marker before the centre", circle.m == null and not circle.uses_main()
+		and calls.back()[0] == "marker" and not circle.busy())
+	circle.click(Vector2.ZERO)
+	cinfer.ray_at = Vector3(10 + 30.25, 20, 0)
+	circle.mouse_moved(Vector2(50, 0))
+	check("Circle's radius comes from the ray on the centre's plane", circle.busy() and absf(circle.state["radius"] - 30.25) < 1e-4
+		and circle.vcb_value() == "30" and cmeasure.updates == 1, circle.state)
+	check("Circle previews its disc in the profile style with a 64-segment outline", overlay.mesh != null and overlay_lines.mesh != null
+		and calls.any(func(c): return c == ["tri", 62 * 3, mats["profile"]]) and calls.any(func(c): return c == ["lines", 128, Color(0.1, 0.2, 0.6)]))
+	var c_count: int = doc.ops.size(); var c_seq: int = doc.seq
+	circle.click(Vector2(50, 0))
+	var cop: Dictionary = doc.ops.back()
+	check("Circle commits one circle op through the document: next id, the exact radius, the plane",
+		doc.ops.size() == c_count + 1 and cop["type"] == "circle" and String(cop["id"]).begins_with("r")
+		and absf(cop["radius"] - 30.25) < 1e-4 and cop["plane"] == {"origin": [10.0, 20.0, 0.0], "normal": [0.0, 0.0, 1.0]}, cop)
+	check("Circle registers a copy as a profile, clears its preview and syncs", cpres.registered.size() == 1
+		and cpres.registered[0]["id"] == cop["id"] and cop["radius"] > 0 and overlay.mesh == null and overlay_lines.mesh == null
+		and doc.seq == c_seq + 1 and not circle.busy())
+	cinfer.hit = {"hit": true, "point": Vector3(12, 22, 0), "normal": Vector3(0, 0, 1), "body": "", "rect": cop["id"]}
+	circle.click(Vector2.ZERO)
+	check("Circle on a drawn profile reads the profile's board through ctx.model", circle.busy() and circle.state["on"] == "board-under")
+	cinfer.ray_at = Vector3(12, 22, 0); cinfer.snap_kind = "endpoint"
+	circle.mouse_moved(Vector2.ZERO)
+	cinfer.snap_kind = "grid"
+	check("Circle at its own centre falls back to the grid (no zero circle)", cinfer.calls.back() == "on_grid" and circle.state["radius"] < 0.001)
+	circle.typed("-12.5")
+	check("Circle's typed radius is taken whole and positive", absf(doc.ops.back()["radius"] - 12.5) < 1e-9 and not circle.busy())
+	sel.context = ""
+	cinfer.hit = {"hit": true, "point": Vector3(0, 0, 5), "normal": Vector3(0, 0, 1), "body": "b1", "rect": ""}
+	circle.click(Vector2.ZERO)
+	check("Circle won't start on an assembly's board from outside (ctx.selection.edit_blocked)", not circle.busy())
+
 	# --- geometry: the moved functions, and Main's wrappers give the same answers ---
 	var v3 := Vector3(1.23456, -7.0004, 2.5)
 	check("arr3 keeps its 0.001 rounding", Geo.arr3(v3) == [1.235, -7.0, 2.5] and Main.arr3(v3) == Geo.arr3(v3))
@@ -443,7 +517,7 @@ func _initialize() -> void:
 		and Main.AXIS_COLORS == Presenter.AXIS_COLORS)
 
 	# --- source: the context, geometry and inference never reach main.gd ---
-	for path in ["res://tool_context.gd", "res://tool_geometry.gd", "res://inference.gd", "res://appearance.gd", "res://tools/paint_tool.gd", "res://tools/select_tool.gd"]:
+	for path in ["res://tool_context.gd", "res://tool_geometry.gd", "res://inference.gd", "res://appearance.gd", "res://tools/paint_tool.gd", "res://tools/select_tool.gd", "res://tools/circle_tool.gd"]:
 		var code := code_only(FileAccess.get_file_as_string(path))
 		var bad := []
 		for needle in ['preload("res://main.gd")', 'load("res://main.gd")', "Main.", "Main)", ": Main", "infer.m", "\tm.", " m.", "(m."]:

@@ -22,3 +22,8 @@ circle_tool.gd, the existing circle quick checks and length/circle comparison te
 registry. Quick test, then the gate. If only the known H069 flakes (test_startup.py's timeout, outside-save's
 "unsaved") stop `job.py done`, say so in the response and `job.py wait` as H071 did; the integrator's gate decides.
 End your response with a Result line; leftovers as Follow-up lines; anything for the merge as For the integrator lines.
+
+#### Response (Claude, worker, 2026-11-22)
+
+Architecture: viewport/tools/circle_tool.gd moves to ToolContext (T88 step 3): `uses_main()` is false; it picks and snaps through ctx.pick (hit, snap, on_grid, ray), reads a profile's board through ctx.model.profile and its preview disc through ctx.model.circle_geometry, previews and the marker through ctx.view (preview "profile", marker, clear_preview), registers the op through ctx.view.register_profile, allocates/appends/syncs through ctx.document, refreshes the measurements box through ctx.ui, and checks edit_blocked through ctx.selection. No ToolContext surface changed.
+Architecture: presenter.gd circle_geometry uses tool_geometry.gd's plane_basis (Main.plane_basis only forwarded to it), so it no longer needs Main; register_rect still draws with Main's mesh helpers (Rectangle/Push steps).

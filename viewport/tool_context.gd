@@ -14,7 +14,7 @@ extends RefCounted
 ## checks each adapter's public members against an allowlist). Owners are passed in once, in `_init`; a part left
 ## out is null (the headless tests build contexts with stand-ins).
 ##
-## The adapters arrived in step 0 (H051); Line, Paint and Select now use only the context. Where a
+## The adapters arrived in step 0 (H051); Line, Paint, Select and Circle now use only the context. Where a
 ## body still lives in main.gd (the mesh and line helpers, the marker, guides, the tooltip) the adapter
 ## calls it through one narrowly bound Callable; each body moves to its owner when its first tool migrates.
 ## Not yet here: view.present_draft (Push/Pull, step 5), view.mirror_preview (Move, step 6) and the Push/Pull

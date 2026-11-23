@@ -6,6 +6,9 @@ const TOOL := {"id": "circle", "label": "Circle", "tip": "Circle (C)", "key": KE
 var state := {}
 
 
+func uses_main() -> bool: return false
+
+
 func reset() -> void:
 	state = {}
 	press_reset()
@@ -24,18 +27,18 @@ func mouse_moved(screen: Vector2) -> void:
 	if busy():
 		_radius_drag(screen)
 	else:
-		m._show_marker(m.snap(m.pick(screen), screen))
+		ctx.view.marker(ctx.pick.snap(ctx.pick.hit(screen), screen))
 
 
 func click(screen: Vector2) -> void:
 	if busy():
 		_finish_circle()
 		return
-	var p := m.snap(m.pick(screen), screen)
+	var p := ctx.pick.snap(ctx.pick.hit(screen), screen)
 	if not p.get("hit", false): return
-	if m.edit_blocked(p["body"]): return
+	if ctx.selection.edit_blocked(p["body"]): return
 	var on: String = p["body"]
-	if p["rect"] != "": on = m.rects[p["rect"]]["on"]
+	if p["rect"] != "": on = ctx.model.profile(p["rect"]).get("on", "")
 	state = {"active": true, "origin": p["point"], "n": p["normal"], "on": on, "radius": 0.0}
 	press_started(screen)
 
@@ -59,27 +62,27 @@ func vcb_value() -> String:
 
 
 func _radius_drag(screen: Vector2) -> void:
-	var o := Main.g2m(m.cam.project_ray_origin(screen))
-	var d := Main.n_g2m(m.cam.project_ray_normal(screen))
+	var ray := ctx.pick.ray(screen)
+	var o: Vector3 = ray["origin"]
+	var d: Vector3 = ray["direction"]
 	var n: Vector3 = state["n"]
 	var den := d.dot(n)
 	if absf(den) < 1e-6: return
 	var t: float = (state["origin"] - o).dot(n) / den
 	var q := o + d * t
-	var p := m.snap({"hit": true, "point": q, "normal": n, "body": state["on"], "rect": ""}, screen)
+	var p := ctx.pick.snap({"hit": true, "point": q, "normal": n, "body": state["on"], "rect": ""}, screen)
 	var v: Vector3 = p["point"] - state["origin"]
 	v -= n * v.dot(n)
 	# A snap to the centre cannot make a circle; follow the grid/cursor, as Rectangle does for zero sides.
 	if p.get("snap", "grid") != "grid" and v.length() < GEOMETRY_TOLERANCE_MM:
-		p = infer.on_grid({"hit": true, "point": q, "normal": n, "body": state["on"], "rect": ""})
+		p = ctx.pick.on_grid({"hit": true, "point": q, "normal": n, "body": state["on"], "rect": ""})
 		v = p["point"] - state["origin"]
-	m._show_marker(p)
+	ctx.view.marker(p)
 	state["point_snap"] = p.get("snap", "") in ["endpoint", "midpoint", "on edge"]
 	state["radius"] = v.length()
-	var shape: Dictionary = m.pres.circle_geometry(state["origin"], n, state["radius"])
-	m.overlay.mesh = m._tri_mesh(shape.tris, m.mat_rect)
-	m.overlay_lines.mesh = m._lines(shape.lines, Color(0.1, 0.2, 0.6)).mesh
-	m._update_vcb()
+	var shape := ctx.model.circle_geometry(state["origin"], n, state["radius"])
+	ctx.view.preview(shape.tris, "profile", shape.lines, Color(0.1, 0.2, 0.6))
+	ctx.ui.refresh_measurements()
 
 
 func _finish_circle() -> void:
@@ -89,15 +92,15 @@ func _finish_circle() -> void:
 
 func commit_circle(radius: float) -> void:
 	if not is_finite(radius) or radius < GEOMETRY_TOLERANCE_MM: return
-	var rid := m.doc.next_id("r")
+	var rid := ctx.document.next_id("r")
 	var plane := {}
 	if state["on"] != "":
-		plane = {"on": {"body": state["on"], "normal": Main.arr3(state["n"]), "point": Main.arr3(state["origin"])}}
+		plane = {"on": {"body": state["on"], "normal": Geo.arr3(state["n"]), "point": Geo.arr3(state["origin"])}}
 	else:
-		plane = {"origin": Main.arr3(state["origin"]), "normal": Main.arr3(state["n"])}
+		plane = {"origin": Geo.arr3(state["origin"]), "normal": Geo.arr3(state["n"])}
 	var op := {"id": rid, "type": "circle", "plane": plane, "radius": radius}
-	m.ops.append(op)
-	m._register_rect(op)      # shared loose-profile presentation and picking
+	ctx.document.append(op)
+	ctx.view.register_profile(op)      # shared loose-profile presentation and picking
 	reset()
-	m.overlay.mesh = null; m.overlay_lines.mesh = null
-	m.sync()
+	ctx.view.clear_preview()
+	ctx.document.sync()
