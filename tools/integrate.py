@@ -39,6 +39,7 @@ BOARD.md's job table is generated (tools/job.py board): a conflict in it is sett
 conflict main's Order line, "## Jobs" section (the table) and "## Notes" (the integrator's) are kept; any other
 section the branch alone changed is the branch's; both changing one stops the merge (H073).
 What it leaves to the integrator: reviewing the branch first, and a Result line a response didn't give."""
+from dataclasses import dataclass, field
 import json
 import os
 import re
@@ -506,6 +507,52 @@ def record_result(root, tid, commit, rest, merge):
     return None, f"{tid}: not in the decision log"
 
 
+@dataclass
+class Integration:
+    """Transient run context; payload keeps the existing on-disk continuation format."""
+    argv: list
+    root: str
+    name: str
+    impact: str | None
+    branch: str = ""
+    jid: str | None = None
+    delivers: str | None = None
+    base: str = ""
+    subject: str = ""
+    settled: tuple | None = None
+    conflicts: list = field(default_factory=list)
+    bumped: tuple | None = None
+    extra: list = field(default_factory=list)
+    statuses: list = field(default_factory=list)
+    answered: list = field(default_factory=list)
+    payload: dict = field(default_factory=dict)
+    drafted: bool = False
+    exit_code: int | None = None
+
+    def say(self, text):
+        print("integrate: " + text)
+
+    def stop(self, code):
+        self.exit_code = code
+        return self
+
+
+def run_steps(s, steps):
+    for step in steps:
+        s = step(s)
+        if s.exit_code is not None:
+            return s.exit_code
+    return 0
+
+
+# Execution order and constraints (also checked by test_integrate.py):
+# - Preflight the log's subject questions before merging, so a question leaves main untouched.
+# - Settle and check all conflicts before staging: git add clears the unmerged mark even with markers left.
+# - Discover answered entries, then number before reading/archiving them: their paths and cited IDs can change.
+# - Capture Result/Follow-up/Architecture lines before archiving; apply statuses and rebuild lists afterwards.
+# - Keep the existing gate BEFORE the map pause: its saved tree is what --continue checks. The pause precedes
+#   the commit; continuation stages only map files and refuses other changes instead of repeating the gate.
+# - Commit before deleting jobs/worktrees; record results with that merge's ID, then show them before any push.
 def main(argv):
     if argv and argv[0] == "--continue":
         return resume(argv[1:])
@@ -516,20 +563,30 @@ def main(argv):
     jid = argv[argv.index("--job") + 1] if "--job" in argv and argv.index("--job") + 1 < len(argv) else None
     impact = argv[argv.index("--impact") + 1] if "--impact" in argv else None
     root = git("rev-parse", "--show-toplevel").stdout.strip()
-    say = lambda s: print("integrate: " + s)
+    return run_steps(Integration(argv, root, name, impact, branch, jid), MERGE_STEPS + FINISH_STEPS)
+
+
+def check_start(s):
+    root, name, branch, jid, say = s.root, s.name, s.branch, s.jid, s.say
     if not integrator.touch(integrator.lock_path(root), name, out=say):
-        return 1
+        return s.stop(1)
     if git("branch", "--show-current", root=root).stdout.strip() != "main":
-        say("run this in the checkout that has main"); return 1
+        say("run this in the checkout that has main"); return s.stop(1)
     if git("status", "--porcelain", "--untracked-files=no", root=root).stdout.strip():
-        say("main has uncommitted changes: commit or put them away first"); return 1
+        say("main has uncommitted changes: commit or put them away first"); return s.stop(1)
     delivers = None
     if jid:
         delivers = job_branch(root, jid)
         if not delivers:
-            say(f"--job {jid}: no such job in the queue (nothing merged)"); return 1
+            say(f"--job {jid}: no such job in the queue (nothing merged)"); return s.stop(1)
         if delivers != branch and git("merge-base", "--is-ancestor", delivers, branch, root=root).returncode:
-            say(f"--job {jid}: its branch {delivers} isn't all in {branch} (nothing merged)"); return 1
+            say(f"--job {jid}: its branch {delivers} isn't all in {branch} (nothing merged)"); return s.stop(1)
+    s.delivers = delivers
+    return s
+
+
+def prepare_log(s):
+    root, branch, argv, say = s.root, s.branch, s.argv, s.say
     base = git("merge-base", "main", branch, check=True, root=root).stdout.strip()
     subject = git("log", "-1", "--format=%s", branch, root=root).stdout.strip()
     subjects = dict(argv[i + 1].split("=", 1) for i, a in enumerate(argv) if a == "--subject" and i + 1 < len(argv))
@@ -544,10 +601,23 @@ def main(argv):
                 say(f"which subject is {key} ({area}): {text[:90]}")
             say("run again with --subject <ID>=<subject> for each (nothing merged yet); subjects: "
                 + ", ".join(subject_names(show("HEAD", LOG))))
-            return 1
+            return s.stop(1)
 
+    s.base, s.subject, s.settled = base, subject, settled
+    return s
+
+
+def merge_branch(s):
+    root, branch = s.root, s.branch
     git("merge", "--no-ff", "--no-commit", branch, root=root)
     conflicts = git("diff", "--name-only", "--diff-filter=U", root=root).stdout.split()
+    s.conflicts = conflicts
+    return s
+
+
+def settle_conflicts(s):
+    root, branch, base, settled, conflicts, say = s.root, s.branch, s.base, s.settled, s.conflicts, s.say
+    show = lambda ref, rel: git("show", f"{ref}:{rel}", root=root).stdout
     if handoff.HANDOFF in conflicts or os.path.exists(os.path.join(root, handoff.HANDOFF)):
         if handoff.HANDOFF in conflicts:
             settle_handoff(root, branch); say("settled docs/agent-handoff.md (main's, with the branch's entries moved to files)")
@@ -569,34 +639,49 @@ def main(argv):
                                      git("show", f"{branch}:{job.BOARD}", root=root).stdout)
         if clashes:
             say(f"BOARD.md: main and the branch both changed {', '.join(repr(c) for c in clashes)}: settle it by hand "
-                "(the merge is left in progress)"); return 1
+                "(the merge is left in progress)"); return s.stop(1)
         open(os.path.join(root, job.BOARD), "w", encoding="utf-8").write(text)
         say("settled BOARD.md (main's Order line, job table and Notes, the branch's other sections; the table is rebuilt below)")
     # Before staging anything: staging clears git's "unmerged" mark even with conflict markers still in a file.
     left = [f for f in conflicts if f not in (handoff.HANDOFF, LOG, ARCHIVE, job.BOARD)]
     if left:
-        say(f"conflicts to settle by hand: {', '.join(left)} (the merge is left in progress)"); return 1
+        say(f"conflicts to settle by hand: {', '.join(left)} (the merge is left in progress)"); return s.stop(1)
     marked = [f for f in conflicts if has_markers(os.path.join(root, f))]
     if marked:
-        say(f"conflict markers still in: {', '.join(marked)} (the merge is left in progress)"); return 1
+        say(f"conflict markers still in: {', '.join(marked)} (the merge is left in progress)"); return s.stop(1)
     git("add", "-A", root=root)
 
+    return s
+
+
+def check_touches(s):
+    root, base, branch, say = s.root, s.base, s.branch, s.say
     bumped = renumber_protocol(root, base, branch)
     if bumped:
         say(f"protocol version: the branch's {bumped[0]} is {bumped[1]} on main (main moved on since it left; A35)")
     extra = outside_touches(root, branch, base)
     if extra:
         say("OUTSIDE ITS TOUCHES LIST: " + ", ".join(extra) + " (check the job's response says why)")
+    s.bumped, s.extra = bumped, extra
+    return s
+
+
+def number_entries(s):
+    root, branch, base, argv, say = s.root, s.branch, s.base, s.argv, s.say
     statuses = [argv[i + 1].split("=", 1) for i, a in enumerate(argv)
                 if a == "--status" and i + 1 < len(argv) and "=" in argv[i + 1]]
-    results, missing = [], []           # read before resolve() moves the entries to the archive
-    later, now = [], []                 # P26: its Follow-up lines (to docs/follow-ups.md) and For the integrator lines
-    maps = []                           # P28: its Architecture lines, for the integrator to write into the map
     answered = answered_by(root, branch, base)
     # Number first (H060): an entry named H-new-N-slug.md is H0NN by the time its Result and follow-ups are recorded.
     numbers = number_ids.apply(root, out=lambda s: say(s) if s != "no placeholders" else None)
     answered = [numbered(rel, numbers) for rel in answered]
     statuses = [[numbered(t, numbers), s] for t, s in statuses]
+    s.answered, s.statuses = answered, statuses
+    return s
+
+
+def archive_entries(s):
+    root, answered, statuses, say = s.root, s.answered, s.statuses, s.say
+    results, missing, later, now, maps = [], [], [], [], []
     for rel in answered:
         text = open(os.path.join(root, rel), encoding="utf-8").read()
         hid, got, tid = entry_id(text, rel), result_line(text), entry_item(text, [t for t, _ in statuses])
@@ -611,9 +696,20 @@ def main(argv):
     added = add_follow_ups(root, later)
     if added:
         say(f"follow-ups: {len(added)} added to {FOLLOW_UPS}")
+    s.payload.update(results=results, missing=missing, now=now, maps=maps)
+    return s
+
+
+def update_statuses(s):
+    root, statuses, say = s.root, s.statuses, s.say
     for tid, status in statuses:        # --status T33=Done: the integrator's verdict for the item the branch did
         say(set_status(root, tid, status))
     number_ids.apply(root, out=lambda s: say(s) if s != "no placeholders" else None)
+    return s
+
+
+def rebuild_and_check(s):
+    root, say = s.root, s.say
     bpath = os.path.join(root, job.BOARD)
     if os.path.isfile(bpath) and job.START in open(bpath, encoding="utf-8").read():
         job.board(root, out=say)
@@ -625,20 +721,33 @@ def main(argv):
     if handoff.with_list(text, root) != text:
         problems.append("the handoff's open list doesn't match docs/handoff/")
     if problems:
-        say("fix these, then commit by hand:\n  " + "\n  ".join(problems)); return 1
+        say("fix these, then commit by hand:\n  " + "\n  ".join(problems)); return s.stop(1)
 
+    return s
+
+
+def run_gate(s):
+    root, argv, say = s.root, s.argv, s.say
     if "--no-gate" not in argv:
         gate = subprocess.run([os.path.join(root, "tools", "gate.sh") if os.path.exists(os.path.join(root, "tools", "gate.sh")) else os.path.join(HERE, "gate.sh")], cwd=root, capture_output=True, text=True)
         verdict = (gate.stdout.strip().split("\n") or [""])[-1]
         say(verdict)
         if gate.returncode != 0:
-            print(gate.stdout[-2000:]); say("the merge is left uncommitted"); return 1
+            print(gate.stdout[-2000:]); say("the merge is left uncommitted"); return s.stop(1)
+    return s
+
+
+def pause_for_map(s):
+    root, branch, name, impact, argv, say = s.root, s.branch, s.name, s.impact, s.argv, s.say
+    subject, bumped, extra, delivers = s.subject, s.bumped, s.extra, s.delivers
     msg = f"Merge {branch}: {subject}\n\nMerged by tools/integrate.py ({name})."
     if bumped:
         msg += f" Protocol version {bumped[0]} renumbered to {bumped[1]}."
     if extra:
         msg += "\nOutside its Touches list: " + ", ".join(extra) + "."
-    state = {"branch": branch, "job_branch": delivers if delivers != branch else None, "msg": msg, "results": results, "missing": missing, "now": now, "maps": maps}
+    state = s.payload
+    state.update(branch=branch, job_branch=delivers if delivers != branch else None, msg=msg)
+    now, maps = state["now"], state["maps"]
     if maps and not impact and not map_staged(root):
         save_state(root, state)         # P28: the map goes in the merge commit, written from the lines below
         say("for you now:")
@@ -649,8 +758,8 @@ def main(argv):
         say("the merge is staged, not committed (P28): write these into ARCHITECTURE.md / docs/protocol.md, checked "
             "against the code, `git add` them, then: python3 tools/integrate.py --continue --as " + name
             + (" --push" if "--push" in argv else ""))
-        return 0
-    return commit_and_finish(root, state, name, impact, argv, say)
+        return s.stop(0)
+    return s
 
 
 STATE = "shopsketch-integrate.json"     # a merge stopped for the map (P28), beside the job queue's state
@@ -685,14 +794,18 @@ def resume(argv):
     name = argv[argv.index("--as") + 1]
     impact = argv[argv.index("--impact") + 1] if "--impact" in argv else None
     root = git("rev-parse", "--show-toplevel").stdout.strip()
-    say = lambda s: print("integrate: " + s)
+    return run_steps(Integration(argv, root, name, impact), (load_continuation,) + FINISH_STEPS)
+
+
+def load_continuation(s):
+    root, name, impact, say = s.root, s.name, s.impact, s.say
     if not integrator.touch(integrator.lock_path(root), name, out=say):
-        return 1
+        return s.stop(1)
     path = state_file(root)
     if not os.path.isfile(path):
-        say("nothing to continue: no merge stopped for the map"); return 1
+        say("nothing to continue: no merge stopped for the map"); return s.stop(1)
     if git("rev-parse", "-q", "--verify", "MERGE_HEAD", root=root).returncode:
-        say(f"no merge in progress: nothing to commit (remove {path} if that merge was given up)"); return 1
+        say(f"no merge in progress: nothing to commit (remove {path} if that merge was given up)"); return s.stop(1)
     state = json.load(open(path, encoding="utf-8"))
     git("add", "-u", "--", *MAP_FILES, root=root)     # only the map edits: nothing else joins the merge unseen
     moved = [p for p in git("diff", "--name-only", state.get("tree") or "HEAD", git("write-tree", root=root).stdout.strip(),
@@ -700,19 +813,20 @@ def resume(argv):
     if moved:
         say("refused: the merge changed outside the map since the gate passed (" + ", ".join(moved) + "): rerun "
             "the gate (tools/gate.sh) and integrate again, or undo those changes")
-        return 1
+        return s.stop(1)
     if state.get("maps") and not impact and not map_staged(root):
         say("ARCHITECTURE.md / docs/protocol.md aren't changed yet: write the Architecture lines in first (or give "
             "--impact \"<why the map stays as it is>\")")
         for hid, what in state["maps"]:
             print(f"  {hid}: map: {what}")
-        return 1
-    return commit_and_finish(root, state, name, impact, argv, say)
+        return s.stop(1)
+    s.payload = state
+    return s
 
 
-def commit_and_finish(root, state, name, impact, argv, say):
-    """Steps 6-10: the merge commit, then the job merged, the Result drafts, what's for the integrator, the push."""
-    branch, msg = state["branch"], state["msg"]
+def commit_merge(s):
+    root, state, name, impact, say = s.root, s.payload, s.name, s.impact, s.say
+    msg = state["msg"]
     if impact:
         msg += f"\n\nArchitecture-Impact: none - {impact}"
     msg += "\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
@@ -721,13 +835,24 @@ def commit_and_finish(root, state, name, impact, argv, say):
     if r.returncode != 0:
         save_state(root, state)
         say("commit refused:\n" + (r.stdout + r.stderr).strip() + "\n(the merge is left staged: stage the map, or "
-            "give --impact, then python3 tools/integrate.py --continue --as " + name + ")"); return 1
+            "give --impact, then python3 tools/integrate.py --continue --as " + name + ")"); return s.stop(1)
     if os.path.isfile(state_file(root)):
         os.remove(state_file(root))
     say("committed " + git("log", "--oneline", "-1", root=root).stdout.strip())
+    return s
+
+
+def clean_up_job(s):
+    root, state, say = s.root, s.payload, s.say
+    branch = state["branch"]
     job.merged(root, branch, out=say)
     if state.get("job_branch"):         # --job: the scratch branch delivered this job's branch (all of it is in main)
         job.merged(root, state["job_branch"], out=say)
+    return s
+
+
+def record_results(s):
+    root, state, name, say = s.root, s.payload, s.name, s.say
     drafted = draft_results(root, [tuple(x) for x in state["results"]], name, say)
     if state["now"]:
         say("for you now:")
@@ -735,16 +860,22 @@ def commit_and_finish(root, state, name, impact, argv, say):
             print(f"  {hid}: {what}")
     if state["missing"]:
         say("left for you: the Work list result of " + ", ".join(state["missing"]))
+    s.drafted = drafted
+    return s
+
+
+def push_main(s):
+    root, argv, drafted, say = s.root, s.argv, s.drafted, s.say
     if "--push" in argv:
         if drafted and "--yes" not in argv:
             say("look the result over (above); fix it with `git commit --amend` if needed, then push: "
                 "git push origin main (or give --push --yes next time to push without stopping)")
-            return 0
+            return s.stop(0)
         p = git("push", "-q", "origin", "main", root=root)
         say("pushed main" if p.returncode == 0 else "push failed: " + p.stderr.strip())
         if p.returncode:
-            return 1
-    return 0
+            return s.stop(1)
+    return s
 
 
 def draft_results(root, results, name, say):
@@ -770,6 +901,11 @@ def draft_results(root, results, name, say):
     say("committed " + git("log", "--oneline", "-1", root=root).stdout.strip())
     print(git("show", "--format=", "--word-diff=plain", "HEAD", root=root).stdout.rstrip())
     return True
+
+
+MERGE_STEPS = (check_start, prepare_log, merge_branch, settle_conflicts, check_touches, number_entries,
+               archive_entries, update_statuses, rebuild_and_check, run_gate, pause_for_map)
+FINISH_STEPS = (commit_merge, clean_up_job, record_results, push_main)
 
 
 if __name__ == "__main__":
