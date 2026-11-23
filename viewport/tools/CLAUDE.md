@@ -76,7 +76,8 @@ geometry and Main's wrappers agreeing, and no main.gd reference in the context, 
   `r` IDs and `target.rect` Push/Pull path; FreeCAD stores an exact fully constrained sketch circle.
 - `push_tool.gd` (P): click a face, rectangle or circle, move, click or type a distance (minus = cut), or press-and-drag
   (I43). Snaps to faces behind (I23, I45; to the back face = a through-cut, `"through": true`, I24); on a face it
-  joins that board, B for a new board (I04b). Circle profiles use point/back-face depth snaps;
+  joins that board, B for a new board (I04b). A pointer cut of a rectangle, circle or region snapped to a face behind
+  sends `to_face` (T59, H121): FreeCAD ties its depth to that pocket's floor; a typed depth stays a measured number (I40). Circle profiles use point/back-face depth snaps;
   rectangular-stock plane-fit end conditions remain limited to rectangular profiles.
 - `move_tool.gd` (M), SketchUp style: grabbing a selected board transforms the whole selection (T34; move/copy/mirror
   are each one op); otherwise grab a point on a board (or a hole's wall: the hole), move, click or type a distance,
