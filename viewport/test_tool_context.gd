@@ -764,7 +764,7 @@ func _test_move() -> void:
 	var wave: Dictionary = pres.op_waves[op.id]
 	check("context-only copy array gives each copy a draft and ends the wave at the last offset",
 		op.new_ids.size() == 2 and wave.bodies == op.new_ids and wave.links.size() == 2
-		and wave.og == Geo.m2g(Vector3.UP * 40) and pres.draft_tests.bounds[op.new_ids[1]][0] == [10, 40, 0])
+		and wave.og == Geo.m2g(Vector3.UP * 40) and pres.draft_tests.bounds[op.new_ids[1]][0] == [10.0, 40.0, 0.0])
 
 	move.click(Vector2.ZERO)
 	move.commit_mirror(Vector3.ZERO, Vector3.RIGHT)

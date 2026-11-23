@@ -10,7 +10,7 @@ func run() -> void:
 	await harness._fresh("line")
 	await harness._view(Vector3(120, 60, 0), -30, -50, 1.2)
 	await harness._key(KEY_L)
-	harness._ok("L selects the context-only Line tool", m.tool == "line" and not m.tools.line.uses_main() and m.tools.line.m == null)
+	harness._ok("L selects the context-only Line tool", m.tool == "line" and m.tools.line.ctx == m.tool_ctx)
 	await harness._drag_to(Vector3.ZERO, 4)
 	await harness._button(true)
 	await harness._drag_to(Vector3(100, 0, 0), 6)
