@@ -1,6 +1,6 @@
 ### H108 — T113 step 1b: the closing and outside-save dialogs move out of main.gd into save_prompts.gd
 
-Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: open | For: either
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: answered | For: either
 
 References: T113, P45, I55, T79, A36, A39, T64, H093.
 
@@ -56,3 +56,12 @@ Run the feature tests while building (`tools/featuretest.sh`), the quick test af
 
 Architecture: `viewport/save_prompts.gd` (`m.prompts`) owns the close and outside-save dialog state, timeout guards and choices. Main forwards its window-close notification and resets the outside-save prompt on model switches. `document.gd` still decides when to save or reload.
 Architecture: `save_prompts.gd:on_reloaded` coordinates the UI refresh and calls `presenter.gd:begin_wave` for each changed board.
+
+Implemented in `1c6837e` on `codex/h108-t113-save-prompts`. `wc -l viewport/main.gd` went from 1,610 to 1,392.
+Both quick sections now exercise `m.prompts` directly.
+
+The feature suite and the full gate passed, including 303 quick checks, the targeted suites and all six reference comparisons. A headless check let both stale timers expire during newer attempts, then verified that the current timers produced the expected reasons and model. No decision IDs were added and no questions are open.
+
+Changed from the brief: The brief called for timer children; the node keeps the existing SceneTreeTimer deadlines to preserve their scheduling and retry guards.
+For the integrator: Add save_prompts.gd to the Files list in viewport/CLAUDE.md and update the main.gd line count.
+Result: 1c6837e; gate passed with 303 quick checks and all six reference comparisons, job.py test and headless timer checks passed; moved close and outside-save prompts into save_prompts.gd.
