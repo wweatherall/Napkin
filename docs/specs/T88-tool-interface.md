@@ -358,7 +358,8 @@ No tool gets `_tri_mesh`, `_lines`, `_add_collision`, `_base_of`, raw materials,
 measure.update. `refresh_tip(screen)` uses an explicit Main callback to the
 current `_update_tip` (it also adds linked-sibling text). `clear_rejection()`
 uses an explicit callback clearing Main's reject_note. `new_board() -> bool`
-reads the current window option. Those callbacks are the complete UI bridge,
+reads the current window option. Arc (T83) added `refresh_hint()` (show the active tool's hint again),
+`show_status(text)` (Main's `_say_status`, for an invalid radius) and `tool_active(id) -> bool`. Those callbacks are the complete UI bridge,
 not access to Main. Main retains option/menu state and rejection lifecycle;
 tools request changes. Sources: `tool.gd:accepts`; `main.gd:_update_tip`,
 `_on_sync_failed`; `push_tool.gd:commit_push`, `move_tool.gd:commit_move`.

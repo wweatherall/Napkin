@@ -63,6 +63,10 @@ geometry and Main's wrappers agreeing, and no main.gd reference in the context, 
 - `rect_tool.gd` (R): click a face or the ground, then click or type `width, height` (or press-and-drag, I43). Its
   second corner ignores snaps that would leave a side at zero (I44).
 - `line_tool.gd` (L, T82): context-only click-click chains and single press-drag-release segments; typed lengths follow the cursor. Esc ends a chain, clicking its start closes a polygon profile. Each segment is a saved `line` op, with world-mm endpoint and plane; explicit snap flags distinguish edge snaps from free endpoints; the closing op also holds the ordered outline. Presenter registers drawings through `ctx.view.register_line`; polygon profiles share `target.rect` Push/Pull. `regions.gd` finds the cell under Push/Pull from the source face and coplanar saved lines, including holes; the op carries `target.region` with its outline and holes. Unsplit profiles retain their exact native path. Curved boundary cells are refined against native arcs by FreeCAD.
+- `arc_tool.gd` (A, T83, I60): A toggles 2-Point (start, end, then the bulge) and Centre (centre, start, then the
+  sweep). Typed: chord, then bulge; a radius with `r`; Centre's sweep in degrees (`typed_raw`). One `arc` op (start
+  as the plane's point, `mid`, `end`, snap flags), registered like a line (`ctx.view.register_line`), so it splits
+  faces for Push/Pull; FreeCAD keeps an exact Block-constrained sketch arc (worker/arc.py).
 - `circle_tool.gd` (C, T81): click a face or the ground for the centre, then click or type a radius (or
   press-and-drag, I43). Uses Rectangle's snapping and distance policies; the measurements box accepts the same
   length syntax. Makes a `circle` op with an exact radius. Loose profiles share the existing `rects` presentation,
