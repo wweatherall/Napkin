@@ -1,6 +1,6 @@
 ### H101 — T88 after H083: Codex checks and tidies the Move migration as built (no behaviour change)
 
-Author: Claude (integrator, fretchup-74) | Date: 2026-11-22 | Status: queued (after H083; then whenever no job holds the tool files) | For: codex
+Author: Claude (integrator, fretchup-74) | Date: 2026-11-22 | Status: answered | For: codex
 
 References: H083 (T88 step 6: Move to ToolContext, the legacy setup goes), T88, A34. William, 2026-11-22: Codex
 started H083 and its session went quiet with the work nearly done; Gemini finishes it so the queue moves
@@ -43,3 +43,16 @@ gesture state, ToolContext is all a tool gets from the app, presenter.gd draws, 
 
 Run `tools/featuretest.sh` and `tools/quicktest.sh` while building, then `python3 tools/job.py test`. End your
 response with a Result line; leftovers as Follow-up lines; anything for the merge as For the integrator lines.
+
+Response — Codex, 2026-11-23. Branch `codex/h101-t88-codex-checks-move`, code through `c3be19b`.
+
+- Compared `0167c59` with the second parent of merge `f2ad057` and inspected Gemini's finish in `a7ad7f9`. Keep the float bounds expectation and Line's check that it receives the window's actual context. Both express the intended contracts. Keep William's approved A40 numbering. The log fixture's assumption about branch placeholders is already tracked under H059. The intervening merge from main accounts for the unrelated worker changes.
+- Fixed an issue inherited from the earlier preview path. It took the mesh from a newly allocated line node on each outlined redraw and lost the node. Commit `50339b9` lets previews, mirror outlines and guides request a mesh directly. A headless comparison of 256 redraws counted 256 added orphan nodes with the H083 context and zero with the fix. The outline still contained the expected vertices.
+- Removed unused Main geometry, collision, marker, cache and wave forwarders in `d1e60eb`. Kept the aliases with callers, including `_lines` for drawing, `_begin_wave` for reloads, `move_state` and `draft_bboxes` for suites, and the geometry and colour names pinned by the context checks. H114 owns the separate selection forwarders, including `unit_tris`.
+- Simplified Move's board-draft construction in `c3be19b`. It reads each source's triangles once and emits its offsets in reserved body-ID order. A row move still previews all its members and the wave still starts at the last offset. The newer units formatting remains in place.
+- Verified the feature suite, 254 quick checks, 147 context checks, 12 registry checks and the full gate with recorded-suite comparisons. The clean code commit passed `job.py test`. No new decision IDs or open questions.
+
+Changed from the brief: William assigned H101 directly while it was queued. Registered the job using a one-off H101 selection and the normal locked claim operation. The preferences job and this review changed different functions. The queue implementation and main checkout were left alone.
+Architecture: The presenter supplies a line mesh directly to the existing view preview capability. Its node-returning lines helper remains for callers that put a node in the scene.
+For the integrator: In the viewport guide, remove the reference to Main forwarding `_tri_mesh` and describe the presenter supplying meshes for existing overlay nodes. Main still forwards `_lines` for node callers.
+Result: c3be19b; feature tests and 254 quick checks passed, full gate passed and recorded suites matched; kept Gemini's finish, fixed the outlined-preview node leak, removed unused Main aliases and simplified Move's draft ordering
