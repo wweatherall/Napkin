@@ -26,3 +26,4 @@ or that turns it into a Work list item. `python3 tools/startup.py` lists the ope
 - H110 (2026-11-23): When the model quick test and shell suite can be edited, have them read the menu RIDs from `m.menus` and remove main's compatibility getter.
 - H112 (2026-11-23): Point the native Wood menu at `m.appearance` and remove its five Main forwarders when `menus.gd` is in scope.
 - H111 (2026-11-23): When their callers are in scope, change the native menu commands to call `m.ui.update_toggles()` and the registry quick test to read `m.ui.tool_buttons`, then remove main's compatibility members.
+- H093 (2026-11-23): H063 still applies to a replacement worker that never held Shop Sketch's live pre-conflict document.

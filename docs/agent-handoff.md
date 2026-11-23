@@ -31,11 +31,9 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 <!-- open list: built from docs/handoff/ by tools/handoff.py; don't edit by hand -->
 
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
-- [H093 — Outside saves: a failed reload asks, a worker lost mid-reload reloads again, and a question the actions overtook closes (H092 findings 2 and 5, A39)](handoff/H093-outside-save-failures.md) — status: open; for: either
 - [H094 — A reload from a revision Shop Sketch no longer remembers keeps the ops that file holds (H092 finding 6)](handoff/H094-reload-unknown-revision.md) — status: queued (after H093); for: either
 - [H096 — Pushing one cell of a split profile keeps the rest of the profile on screen (H092 finding 9)](handoff/H096-region-push-keeps-profile.md) — status: queued (after H083); for: either
 - [H097 — T110: test helpers that make a failure-path check a few lines](handoff/H097-failure-path-test-helpers.md) — status: queued (after H094); for: either
-- [H098 — Trial: try to break H093 before it merges (checks only)](handoff/H098-break-h093.md) — status: open; for: gemini
 - [H107 — T113 step 1a: the FreeCAD worker's process moves out of main.gd into worker_process.gd](handoff/H107-t113-worker-process.md) — status: queued (after H094); for: either
 - [H108 — T113 step 1b: the closing and outside-save dialogs move out of main.gd into save_prompts.gd](handoff/H108-t113-save-prompts.md) — status: queued (after H107); for: either
 - [H109 — T113 step 2: what a rejection takes with it moves to document.gd, and main's document pass-throughs go](handoff/H109-t113-rejections.md) — status: queued (after H096, H094); for: either
@@ -46,6 +44,8 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 Full entries in [handoff-archive.md](handoff-archive.md).
 
+- H098 — Trial: try to break H093 before it merges (checks only). Resolved: merged into main by the integrator, 2026-11-23.
+- H093 — Outside saves: a failed reload asks, a worker lost mid-reload reloads again, and a question the actions overtook closes (H092 findings 2 and 5, A39). Resolved: merged into main by the integrator, 2026-11-23.
 - H114 — T113 step 4d: main.gd's selection pass-throughs go; callers use m.sel. Resolved: merged into main by the integrator, 2026-11-23.
 - H111 — T113 step 4a: building the interface moves out of main.gd into ui.gd. Resolved: merged into main by the integrator, 2026-11-23.
 - H112 — T113 step 4b: wood rendering moves from main.gd to appearance.gd. Resolved: merged into main by the integrator, 2026-11-23.

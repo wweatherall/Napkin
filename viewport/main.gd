@@ -313,6 +313,9 @@ func _ready() -> void:
 	doc.removed.connect(_on_removed)
 	doc.idle.connect(_request_properties)
 	doc.outside_waiting.connect(_on_outside_waiting)
+	doc.outside_failed.connect(_on_outside_failed)
+	doc.outside_keep_failed.connect(_on_outside_keep_failed)
+	doc.outside_actions_landed.connect(_on_outside_actions_landed)
 	doc.reloaded.connect(_on_reloaded)
 	doc.kept_mine.connect(_on_kept_mine)
 	_make_selection()
@@ -1408,7 +1411,13 @@ func _close_now() -> void:
 # Keep Shop Sketch's (FreeCAD's file copied aside first). The worker writes nothing over FreeCAD's save meanwhile.
 const OUTSIDE_SAVE_WAIT := 10.0     # seconds actions pending at an outside save get to land before asking (tunable)
 var _outside_try := 0               # numbers each wait, so an old wait's timer can't ask
+var _outside_dialog: ConfirmationDialog
+var _outside_question_model := ""  # the open Godot dialog, or the question simulated in test mode
+var _outside_closed_model := ""    # report an automatically closed question when its reload lands
+var _outside_question_text := ""
+var _outside_question_reason := ""
 var outside_asked: Array = []       # tests: the reasons the dialog would have given (it isn't shown in test mode)
+var outside_closed := 0            # tests: questions that automatically closed when the actions landed
 var reload_waves: Array = []        # tests: the boards the last reload's wave ran on
 
 
@@ -1422,6 +1431,7 @@ func _on_outside_waiting() -> void:
 
 
 func _ask_outside() -> void:
+	if _outside_question_model == model_path: return
 	var reason := "they hadn't landed after %d s" % int(OUTSIDE_SAVE_WAIT)
 	if not client.connected or (worker_pid > 0 and not OS.is_process_running(worker_pid)):
 		reason = "the FreeCAD worker stopped"
@@ -1432,7 +1442,43 @@ func _ask_outside() -> void:
 		+ "Use FreeCAD's version: its file becomes the model; Shop Sketch's unfinished actions stay in the journal.\n"
 		+ "Keep Shop Sketch's: FreeCAD's file is first copied aside as %s.freecad-<time>.FCStd.") % [
 		model_path.get_file(), reason, model_path.get_file().get_basename()]
+	_show_outside_question(text, reason)
+
+
+func _on_outside_failed(error: String) -> void:
+	_outside_try += 1
+	_outside_closed_model = ""
+	var reason := "couldn't open FreeCAD's save: " + error
+	_log_worker("outside save of %s: %s; asking" % [model_path, reason])
+	var text := ("%s was saved in FreeCAD, but Shop Sketch couldn't open FreeCAD's save: %s.\n\n"
+		+ "Use FreeCAD's version: try opening it again.\n"
+		+ "Keep Shop Sketch's: FreeCAD's file is first copied aside as %s.freecad-<time>.FCStd.") % [
+		model_path.get_file(), error, model_path.get_file().get_basename()]
+	_show_outside_question(text, reason)
+
+
+func _on_outside_keep_failed(error: String) -> void:
+	_on_sync_failed(error)
+	_log_worker("outside save of %s: %s" % [model_path, error])
+	_outside_try += 1
+	var try_then := _outside_try
+	# The macOS alert handles its choice on the same call stack. Reopen on the next turn.
+	var ask_again := func() -> void:
+		if _outside_try != try_then or doc.outside.is_empty() or doc.outside_seq >= 0:
+			return
+		if _outside_question_text.is_empty():
+			_ask_outside()
+		else:
+			_show_outside_question(_outside_question_text, _outside_question_reason)
+	ask_again.call_deferred()
+
+
+func _show_outside_question(text: String, reason: String) -> void:
+	_dismiss_outside_question()
+	_outside_question_text = text
+	_outside_question_reason = reason
 	if test_mode:
+		_outside_question_model = model_path
 		outside_asked.append(reason)
 		return
 	var title := "FreeCAD saved this model while Shop Sketch was busy"
@@ -1441,18 +1487,36 @@ func _ask_outside() -> void:
 			func(i: int) -> void: _outside_choice("mine" if i == 1 else "freecad"))
 		return
 	var dlg := ConfirmationDialog.new()
+	_outside_dialog = dlg
+	_outside_question_model = model_path
 	dlg.title = title
 	dlg.dialog_text = text
 	dlg.ok_button_text = "Use FreeCAD's version"
 	dlg.cancel_button_text = "Keep Shop Sketch's"
-	dlg.confirmed.connect(func() -> void: dlg.queue_free(); _outside_choice("freecad"))
-	dlg.canceled.connect(func() -> void: dlg.queue_free(); _outside_choice("mine"))
+	dlg.confirmed.connect(func() -> void: _outside_choice("freecad"))
+	dlg.canceled.connect(func() -> void: _outside_choice("mine"))
 	add_child(dlg)
 	dlg.popup_centered()
 
 
+func _dismiss_outside_question() -> void:
+	_outside_question_model = ""
+	if is_instance_valid(_outside_dialog):
+		_outside_dialog.hide()
+		_outside_dialog.queue_free()
+		_outside_dialog = null
+
+
+func _on_outside_actions_landed() -> void:
+	if _outside_question_model != model_path: return
+	_dismiss_outside_question()
+	_outside_closed_model = model_path
+	if test_mode: outside_closed += 1
+
+
 func _outside_choice(choice: String) -> void:
-	if doc.outside.is_empty(): return       # settled meanwhile (the actions landed and it reloaded)
+	if doc.outside.is_empty() or doc.outside_seq >= 0: return
+	_dismiss_outside_question()
 	if choice == "mine":
 		measure.flush_units_if_dirty()
 		doc.send_keep_mine()
@@ -1490,12 +1554,17 @@ func _on_reloaded(resp: Dictionary) -> void:
 	var dropped: int = resp.get("dropped", []).size()
 	ui_sync.text = "↻ took FreeCAD's save of %s: %d board%s changed%s" % [model_path.get_file(), n, "" if n == 1 else "s",
 		"" if dropped == 0 else "; %d Shop Sketch action%s it didn't have kept in the journal" % [dropped, "" if dropped == 1 else "s"]]
+	if _outside_closed_model == model_path:
+		ui_sync.text += " (Shop Sketch's actions landed while you were deciding, so the question closed)"
+	_outside_closed_model = ""
 	ui_sync.add_theme_color_override("font_color", Color(0.1, 0.5, 0.15))
 
 
 func _on_kept_mine(resp: Dictionary) -> void:
-	ui_sync.text = "kept Shop Sketch's %s; FreeCAD's save is beside it as %s" % [model_path.get_file(),
-		String(resp.get("aside", "")).get_file()]
+	var aside = resp.get("aside")
+	ui_sync.text = "kept Shop Sketch's %s" % model_path.get_file()
+	if aside is String and aside != "":
+		ui_sync.text += "; FreeCAD's save is beside it as %s" % aside.get_file()
 	ui_sync.add_theme_color_override("font_color", Color(0.1, 0.5, 0.15))
 
 
@@ -1561,6 +1630,11 @@ func switch_model(path: String, fresh := false) -> void:
 
 
 func _reset_model_state() -> void:
+	_outside_try += 1
+	_dismiss_outside_question()
+	_outside_closed_model = ""
+	_outside_question_text = ""
+	_outside_question_reason = ""
 	properties_seq = -1
 	properties_request += 1
 	sel.set_selection([])

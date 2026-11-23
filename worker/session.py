@@ -1,11 +1,14 @@
 """Session: one live document bound to one .FCStd file; sync, undo, journal, saving (A23, A24)."""
 import FreeCAD as App
+from copy import copy, deepcopy
 import hashlib
 import json
 import os
 import re
 import shutil
+import tempfile
 import zipfile
+import xml.etree.ElementTree as ET
 import time
 import materials as wood
 from common import JOURNAL_FORMAT, OpError, unit
@@ -95,8 +98,6 @@ def write_gui_document(fcstd, previous=None):
     it FreeCAD opens the model with every object hidden. Each object shows as the model says (a board's current
     solid shown, its steps hidden); board axes and planes and the drawing page stay hidden. View settings FreeCAD
     saved in the previous file (colours, line widths, the camera) are kept."""
-    import zipfile
-    import xml.etree.ElementTree as ET
     with zipfile.ZipFile(fcstd) as z:
         if "GuiDocument.xml" in z.namelist():
             return
@@ -238,19 +239,27 @@ def link_or_copy(src, dst):
     os.replace(tmp, dst)
 
 
+def validate_project(path):
+    """FreeCAD may return an empty document on bad XML instead of raising."""
+    with zipfile.ZipFile(path) as archive:
+        root = ET.fromstring(archive.read("Document.xml"))
+        if root.tag != "Document":
+            raise OpError("Invalid project file: Document.xml has no Document root")
+        bad_entry = archive.testzip()
+        if bad_entry is not None:
+            raise OpError(f"Invalid project file: damaged {bad_entry}")
+
+
 def recover_generation(model_path):
     """Opening (A37): finish an identifiable interrupted save, preserving newer outside work.
     Only a missing or unreadable main file permits fallback to .prev. Displaced bytes are kept aside.
     Returns {"from", "rev", "why"} or None (an ordinary open, including outside edits).
     """
-    import xml.etree.ElementTree as ET
-
     def readable(path):
         try:
-            with zipfile.ZipFile(path) as z:
-                ET.fromstring(z.read("Document.xml"))
-                return z.testzip() is None
-        except (OSError, KeyError, zipfile.BadZipFile, ET.ParseError):
+            validate_project(path)
+            return True
+        except (OSError, KeyError, zipfile.BadZipFile, ET.ParseError, OpError):
             return False
 
     g = generation(model_path)
@@ -333,7 +342,7 @@ class Session:
     file); taking them back means rebuilding from the journal, which is only safe when nobody
     else has edited the file (external == False)."""
 
-    def __init__(self, model_path, fresh=False):
+    def __init__(self, model_path, fresh=False, outside_reload=False):
         self.path = os.path.abspath(model_path) if model_path else None
         self.applied = []
         self.ids = IdRegistry()
@@ -351,10 +360,10 @@ class Session:
         self.rev_ops = {}          # rev -> the applied entries that revision of the file holds (what a reload keeps)
         self.dropped = []          # actions an outside save didn't have, taken out by a reload (A36; T65 offers them)
         self.recovered = None      # {"from", "rev", "why"}: opening fell back to the newest whole save (A32)
-        if self.path and not fresh:
+        if self.path and not fresh and not outside_reload:
             self.recovered = recover_generation(self.path)
         if self.path and os.path.exists(self.path) and not fresh:
-            self._open_existing()
+            self._open_existing(outside_reload)
         else:
             self._new_doc()
 
@@ -367,21 +376,32 @@ class Session:
         self.model = Model(self.doc)
 
     def _load_file(self, path=None):
-        """Open the file as the live document (opening, reloading an outside save, or rebuilding from the floor copy)."""
-        self.doc = App.openDocument(path or self.path)
-        self.doc.UndoMode = 1
-        self.drawing = remove_drawing_pages(self.doc) or self.drawing
-        self.doc.recompute()
-        self.model = Model(self.doc)
-        self.model.add_hidden_props()           # boards saved before hiding existed (T28)
+        """Open the file as the live document (opening or rebuilding from the floor copy)."""
+        self.doc, self.model, drawing = self._open_document(path or self.path)
+        self.drawing = drawing or self.drawing
 
-    def _write_floor_copy(self):
-        """Write <model>.floor.FCStd atomically from the live document at the floor (A38)."""
-        floor_path = generation(self.path)["floor_file"]
+    @staticmethod
+    def _open_document(path):
+        doc = App.openDocument(path)
+        try:
+            doc.UndoMode = 1
+            drawing = remove_drawing_pages(doc)
+            doc.recompute()
+            model = Model(doc)
+            model.add_hidden_props()           # boards saved before hiding existed (T28)
+        except Exception:
+            App.closeDocument(doc.Name)
+            raise
+        return doc, model, drawing
+
+    def _write_floor_copy(self, floor_path=None):
+        """Write a floor snapshot atomically from the document at the floor (A38)."""
+        floor_path = floor_path or generation(self.path)["floor_file"]
         base, ext = os.path.splitext(floor_path)
         tmp = base + ".tmp" + ext
         try:
             self.doc.saveCopy(tmp)
+            digest = sha256(tmp)
             os.replace(tmp, floor_path)
         except Exception:
             if os.path.exists(tmp):
@@ -390,11 +410,14 @@ class Session:
                 except OSError:
                     pass
             raise
-        self.floor_copy = {"sha256": sha256(floor_path), "ops": self.undo_floor}
+        self.floor_copy = {"sha256": digest, "ops": self.undo_floor}
 
-    def _open_existing(self):
+    def _open_existing(self, outside_reload=False):
+        if outside_reload:
+            validate_project(self.path)
         self._load_file()
-        self.rev = int(self.doc.Meta.get("ShopSketchRev", "0") or 0)
+        file_meta_rev = int(self.doc.Meta.get("ShopSketchRev", "0") or 0)
+        self.rev = file_meta_rev
         self.units = parse_units(self.doc.Meta.get("ShopSketchUnits"))
         self.file_sha = sha256(self.path)
         jp = journal_path(self.path)
@@ -406,8 +429,12 @@ class Session:
             for op, st in zip(j["ops"], j["status"]):
                 if st.get("status") == "ok":           # failed ops left nothing in the file
                     self.applied.append({"op": op, "key": canon(op), "id": op.get("id"), "type": op.get("type"), **st})
-            same_rev = int(j.get("rev", -1)) == self.rev
-            self.external = not (same_rev and j.get("file_sha256") == self.file_sha)
+            journal_rev = int(j.get("rev", -1))
+            self.external = not (journal_rev == file_meta_rev and j.get("file_sha256") == self.file_sha)
+            if outside_reload and journal_rev > file_meta_rev:
+                self.rev = journal_rev
+                self.rev_ops[journal_rev] = self.applied
+                self.applied = self._file_ops(file_meta_rev)
             self.dropped = list(j.get("dropped", []))
             self.ids.owners.update(j.get("id_owners", {}))
             self.ids.accept(j["ops"] + self.dropped, j.get("reserved_ids", []), legacy=True)
@@ -418,9 +445,9 @@ class Session:
         floor = min(int((j or {}).get("floor", 0) or 0), len(self.applied))
         self.undo_floor = len(self.applied) if self.external else floor
         self.session_base = len(self.applied)
-        self.rev_ops = {self.rev: list(self.applied)}
+        self.rev_ops[file_meta_rev] = list(self.applied)
         self.doc.clearUndos()
-        if self.external:
+        if self.external and not outside_reload:
             self._write_floor_copy()
         else:
             fc = (j or {}).get("floor_copy")
@@ -494,39 +521,100 @@ class Session:
                     for o, st in zip(pj["ops"], pj["status"]) if st.get("status") == "ok"]
         return []
 
-    def reload_outside(self):
+    @staticmethod
+    def _exported_boards(outdir):
+        """The last boards the window saw, for a retry after the worker holding them stopped."""
+        try:
+            with open(os.path.join(outdir, "bodies.json")) as f:
+                return {b["id"]: b for b in json.load(f)}
+        except (OSError, ValueError, TypeError, KeyError):
+            return None
+
+    def reload_outside(self, outdir=None, resumed=False):
         """FreeCAD saved the file (A36): it becomes the live document. Actions the file doesn't hold (made since
         the revision FreeCAD opened) leave the list and are kept in the journal as dropped (T65); undo stops at the
         FreeCAD change, in this session and the next (the journal's floor). Returns {changed, removed, dropped}."""
         before = self.board_marks()
-        frev = file_rev(self.path)
-        kept = self._file_ops(frev)
-        held = {e["key"] for e in kept}
-        when = time.strftime("%Y-%m-%dT%H:%M:%S")
-        gone = [{"op": e["op"], "after_rev": frev, "at": when} for e in self.applied
-                if e["status"] == "ok" and e["key"] not in held]
-        if self.doc is not None:
-            App.closeDocument(self.doc.Name)
-        self._load_file()
-        self.ids.seed_native(self.doc)
-        self.applied = kept
-        self.undo_floor = self.session_base = len(kept)
-        self._write_floor_copy()
-        self.external = False                   # the journal written below names this file
-        self.dirty = False
-        self.dropped += gone
-        file_meta_rev = int(self.doc.Meta.get("ShopSketchRev", "0") or 0)
-        self.rev = max(self.rev, file_meta_rev)       # our next save goes on counting up
-        self.units = parse_units(self.doc.Meta.get("ShopSketchUnits"))
-        self.file_sha = sha256(self.path)
-        self.rev_ops = {file_meta_rev: list(kept)}
-        self.doc.clearUndos()
-        atomic_json(journal_path(self.path), self._journal(file_meta_rev, self.file_sha))
-        self.file_sig = self.disk_sig()
-        self.model.show_as_hidden()
-        after = self.board_marks()
-        changed = sorted(b for b in after if before.get(b) != after[b])
-        return {"changed": changed, "removed": sorted(b for b in before if b not in after),
+        last_export = self._exported_boards(outdir) if resumed and outdir else None
+        sig = self.disk_sig()
+        folder = os.path.dirname(self.path)
+        files = generation(self.path)
+        with tempfile.TemporaryDirectory(dir=folder, prefix=".shopsketch-reload-") as stage:
+            # FreeCAD returns the live document for the same path; load a sibling snapshot instead.
+            with tempfile.NamedTemporaryFile(dir=folder, prefix=".shopsketch-reload-", suffix=".FCStd") as snapshot:
+                shutil.copyfile(self.path, snapshot.name)
+                validate_project(snapshot.name)
+                digest = sha256(snapshot.name)
+                frev = file_rev(snapshot.name)
+                doc, model, drawing = self._open_document(snapshot.name)
+            try:
+                staged = copy(self)
+                staged.doc, staged.model = doc, model
+                doc.FileName = self.path
+                doc.Label = os.path.splitext(os.path.basename(self.path))[0]
+                staged.drawing = drawing or self.drawing
+                staged.ids = deepcopy(self.ids)
+                staged.ids.seed_native(doc)
+                file_meta_rev = int(doc.Meta.get("ShopSketchRev", "0") or 0)
+                kept = self._file_ops(frev)
+                kept_keys = {e["key"] for e in kept}
+                prior_ops = self.applied
+                if self.rev > int(self.doc.Meta.get("ShopSketchRev", "0") or 0) and self.rev in self.rev_ops:
+                    prior_ops = self.rev_ops[self.rev]
+                when = time.strftime("%Y-%m-%dT%H:%M:%S")
+                gone = [{"op": e["op"], "after_rev": frev, "at": when} for e in prior_ops
+                        if e["status"] == "ok" and e["key"] not in kept_keys]
+                staged.applied = kept
+                staged.undo_floor = staged.session_base = len(kept)
+                staged.external = staged.dirty = False
+                staged.dropped = self.dropped + gone
+                staged.rev = max(self.rev, file_meta_rev)
+                staged.units = parse_units(doc.Meta.get("ShopSketchUnits"))
+                staged.file_sha = digest
+                staged.file_sig = sig
+                staged.rev_ops = {file_meta_rev: list(kept)}
+                doc.clearUndos()
+                staged.model.show_as_hidden()
+                after = staged.board_marks()
+
+                floor = os.path.join(stage, "floor.FCStd")
+                journal = os.path.join(stage, "journal.json")
+                staged._write_floor_copy(floor)
+                atomic_json(journal, staged._journal(file_meta_rev, digest))
+
+                # Publish both recovery files before exposing the replacement boards.
+                published = []
+                try:
+                    for candidate, destination in ((floor, files["floor_file"]), (journal, files["journal"])):
+                        previous = None
+                        if os.path.isfile(destination):
+                            previous = candidate + ".previous"
+                            link_or_copy(destination, previous)
+                        os.replace(candidate, destination)
+                        published.append((destination, previous))
+                    if outdir:
+                        staged.export(outdir)
+                        if last_export is not None:
+                            current_export = self._exported_boards(outdir)
+                            if current_export is not None:
+                                before, after = last_export, current_export
+                except Exception:
+                    for destination, previous in reversed(published):
+                        if previous is None:
+                            os.remove(destination)
+                        else:
+                            os.replace(previous, destination)
+                    raise
+            except Exception:
+                App.closeDocument(doc.Name)
+                if self.doc is not None:
+                    App.setActiveDocument(self.doc.Name)
+                raise
+            if self.doc is not None:
+                App.closeDocument(self.doc.Name)
+            self.__dict__.update(vars(staged))
+        return {"changed": sorted(b for b in after if before.get(b) != after[b]),
+                "removed": sorted(b for b in before if b not in after),
                 "dropped": [d["op"] for d in gone]}     # no "rev": the reply's is the session's (open_reply)
 
     def _journal(self, rev, file_sha):

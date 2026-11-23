@@ -63,3 +63,76 @@ func run() -> void:
 	harness._ok("Keep Shop Sketch's copies FreeCAD's file aside as <model>.freecad-<time>.FCStd",
 		kept[0].get_file().begins_with("quick_outside_save.freecad-") and FileAccess.file_exists(kept[0]), kept)
 	m.outside_asked.clear()
+
+	# Inject the error reply a failed reload would send and verify the prompt in the window.
+	m.doc.outside = {"rev": m.saved_rev, "unsaved": false}
+	m.doc._outside_command = "reload"
+	m.doc.outside_seq = m.seq
+	m._on_worker({"cmd": "reload", "ok": false, "seq": m.seq, "error": "Invalid project file"})
+	harness._ok("a failed reload immediately asks with the worker's exact error",
+		m.outside_asked == ["couldn't open FreeCAD's save: Invalid project file"], m.outside_asked)
+	m._outside_choice("freecad")
+	await _until(func(): return reloads[0] == 2, 5000)
+	harness._ok("Use FreeCAD's version retries the failed reload", reloads[0] == 2, reloads)
+
+	# Set up an in-flight sync and the question on the same frame. Check the stale click before the reload reply.
+	var dismissed := [false]
+	m.doc.outside_actions_landed.connect(func():
+		var reload_seq := m.doc.outside_seq
+		m._outside_choice("mine")
+		dismissed[0] = m.outside_closed == 1 and reload_seq >= 0 and m.doc.outside_seq == reload_seq \
+			and not m.doc.outside.is_empty())
+	m.sync()
+	m.doc.on_outside_save({"model": model, "rev": m.saved_rev, "unsaved": true})
+	m._ask_outside()
+	await _until(func(): return reloads[0] == 3, 5000)
+	harness._ok("landing actions close the outside-save question and a stale click sends no keep_mine",
+		dismissed[0] and reloads[0] == 3, [dismissed[0], m.outside_closed, reloads[0]])
+	harness._ok("the reload status explains why the question closed",
+		m.ui_sync.text.ends_with(" (Shop Sketch's actions landed while you were deciding, so the question closed)"),
+		m.ui_sync.text)
+
+	# H098 outside-save regressions
+	var h098_checks := [
+		"switching models clears an open outside-save question so a later question still asks",
+		"an unreadable outside save on disk asks the window with the worker's error",
+	]
+	# 1. Switching/reopening a model while the outside-save question is open leaves it stuck
+	m.outside_asked.clear()
+	m.doc.outside = {"rev": m.saved_rev, "unsaved": true}
+	m._ask_outside()
+	m.switch_model(model, true)
+	await _until(func(): return m.opened, 10000)
+	m.outside_asked.clear()
+	m.doc.outside = {"rev": m.saved_rev, "unsaved": true}
+	m._ask_outside()
+	harness._ok(h098_checks[0],
+		m.outside_asked.size() == 1, [m.outside_asked, m._outside_question_model])
+	m._dismiss_outside_question()
+	m.doc.outside = {}
+	m.outside_asked.clear()
+
+	# 2. Real unreadable outside save on disk asks the window end-to-end
+	await harness._fresh("outside_save_broken", planks, true)
+	await _until(func(): return m.pending_rev > 0 and m.saved_rev >= m.pending_rev)
+	var broken_model: String = m.model_path
+	m.outside_asked.clear()
+	var bad_tmp := broken_model + ".invalid"
+	var f := FileAccess.open(bad_tmp, FileAccess.WRITE)
+	f.store_string("invalid FCStd")
+	f.close()
+	DirAccess.rename_absolute(bad_tmp, broken_model)
+	await _until(func(): return not m.outside_asked.is_empty(), 4000)
+	harness._ok(h098_checks[1],
+		m.outside_asked.size() == 1 and String(m.outside_asked[0]).begins_with("couldn't open FreeCAD's save:"),
+		m.outside_asked)
+
+	# If the save also fails, both choices remain available and the error goes to the status line.
+	var previous_question: Array = m.outside_asked.duplicate()
+	m._dismiss_outside_question()
+	m.doc.outside_keep_failed.emit("PermissionError: read-only")
+	await _until(func(): return m.outside_asked.size() > previous_question.size(), 1000)
+	harness._ok("a failed Keep Shop Sketch's shows the error and restores the outside-save question",
+		previous_question.size() == 1 and m.outside_asked == previous_question + previous_question
+		and m.ui_sync.text.ends_with("PermissionError: read-only"),
+		[m.outside_asked, m.ui_sync.text])

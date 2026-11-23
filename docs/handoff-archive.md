@@ -4994,3 +4994,281 @@ For the integrator: Update `viewport/CLAUDE.md` Files list (`selection.gd` and `
 Result: c9236ec; quicktest 295/295, fulltest 6/6 reference same, 35/35 feature tests (selection 47/47, tool_context 148/148); removed all 16 selection/presenter method forwarders from viewport/main.gd (1803 -> 1783 lines) and updated main.gd, keys.gd, menus.gd and 7 quick tests to call m.sel.* directly
 
 Resolution: merged into main by the integrator, 2026-11-23.
+
+### H093 — Outside saves: a failed reload asks, a worker lost mid-reload reloads again, and a question the actions overtook closes (H092 findings 2 and 5, A39)
+
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: resolved | For: either
+
+References: A36 and T64 (outside saves), A39 (William, 2026-11-22: when the pending actions land while the
+question is open, FreeCAD's version is taken, the question closes and the window says so), H092 (the ultra
+review: findings 2, 4 and 5; 4 is A39), the H063 follow-up in docs/follow-ups.md (a crash during an outside-save
+wait; related, not this job).
+
+Touches: viewport/document.gd (`on_reload_reply`, `on_link_up`), viewport/main.gd (the outside-saves section:
+`_ask_outside`, `_outside_choice`, `_on_reloaded`, and one new signal handler), worker/session.py
+(`reload_outside`), viewport/test_document.gd, viewport/tests/quick/outside_save.gd, worker/test_outside_save.py.
+Not serve.py (the model stays held after a failed reload, which is right: the window now asks), not the save
+code, not ARCHITECTURE.md (write `Architecture:` lines). Queued after H083 because it touches main.gd.
+
+Today (each checked against the code, 2026-11-22):
+- Finding 2. serve.py's `reload` runs `s.reload_outside()` before `held.pop(path)`. If it raises (FreeCAD's file
+  won't open), the model stays held, so autosave skips it, and `hold()` told the window only once.
+  document.gd `on_reload_reply` on an error clears `outside` and carries on syncing, so nothing ever asks.
+  Autosave is silently off until flush, bye or quit. And `reload_outside` closes `self.doc` before
+  `_load_file()`, so a failed load leaves the session on a closed document.
+- Finding 5. document.gd `on_link_up` with `outside` pending sets `dirty` and `outside_seq = -1` and sends
+  nothing. An idle window sent its reload at once, so the `OUTSIDE_SAVE_WAIT` timer never started. Nothing asks
+  and nothing reloads; the next action's sync builds on FreeCAD's file, which A36 means to prevent.
+- Finding 4 / A39. main.gd `_outside_choice` returns when `doc.outside` is empty, but the reload `on_sync_reply`
+  sends once the actions land doesn't empty it: `send_reload` leaves `outside` set until the reply. So a
+  "Keep Shop Sketch's" clicked after that reload went out sends `keep_mine` too. The worker has already taken
+  FreeCAD's version (the reload came first), and the window then ignores the reload's reply (`send_keep_mine`
+  moved `outside_seq` on), so the window and the worker disagree about the model. Only the Godot `ConfirmationDialog` path can be open while replies arrive. Check
+  whether `DisplayServer.dialog_show` (the native path, on macOS) blocks the main loop while it's up, and say so
+  in your response; if it doesn't, it needs the same handling.
+
+Request:
+1. A failed reload leaves the session as it was. In `Session.reload_outside`, nothing of the session changes
+   (`doc`, `applied`, `undo_floor`, `session_base`, `dropped`, the floor copy, the journal) unless FreeCAD's file
+   opened. FreeCAD's `App.openDocument` on a path that's already open may hand back that same document: check
+   this in 1.1.4 before you choose how to open the new one while the old stays live (opening a temporary copy
+   of the file first is one way), and say which way you took.
+2. A failed reload asks. In document.gd `on_reload_reply`, on an error: `outside` stays set (don't clear it),
+   `outside_seq = -1`, `in_flight = false`, and a new signal `outside_failed(error: String)` is emitted instead
+   of `sync_failed`; syncs stay held as they are while `outside` is set. main.gd handles it by asking at once,
+   the same two buttons and title as `_ask_outside`, with this text (exact):
+   `"%s was saved in FreeCAD, but Shop Sketch couldn't open FreeCAD's save: %s.\n\nUse FreeCAD's version: try
+   opening it again.\nKeep Shop Sketch's: FreeCAD's file is first copied aside as %s.freecad-<time>.FCStd."` %
+   [file name, error, file stem]. In test mode, append `"couldn't open FreeCAD's save: " + error` to
+   `outside_asked` instead of showing it. Log it with `_log_worker` as `_ask_outside` does.
+3. A worker lost mid-reload reloads again. In `on_link_up`, when `outside` is set: if a reload was out
+   (`outside_seq >= 0` before it's reset), send it again (`send_reload()`); otherwise (still waiting for the
+   actions to land) mark `dirty` as today and emit `outside_waiting`, so main.gd's timer runs and asks.
+4. A39: a question the actions overtook closes. main.gd keeps the open `ConfirmationDialog` in a variable. When
+   `on_sync_reply` sends the reload while it is open, the dialog closes (freed, its buttons do nothing more:
+   `_outside_choice` also returns when `doc.outside_seq >= 0`, a reload already out). When that reload lands,
+   `_on_reloaded`'s status line gets `" (Shop Sketch's actions landed while you were deciding, so the question
+   closed)"` appended. In test mode, where no dialog is shown, count the closes in a test variable
+   (`outside_closed`, beside `outside_asked`).
+
+Cases that must still work: every check in viewport/test_document.gd's outside-saves section, the quick test's
+outside_save section, worker/test_outside_save.py (30 checks), the save-failure section; an outside save with
+nothing pending reloads at once with no question; "Keep Shop Sketch's" before anything lands still keeps ours.
+
+Checks:
+- worker/test_outside_save.py: FreeCAD's save replaced with bytes that aren't a FreeCAD file (write garbage over
+  the model while it's held), then `reload`: an error reply; the session's document is still open and its
+  boards are as before; a `keep_mine` afterwards saves ours (FreeCAD's file copied aside).
+- viewport/test_document.gd: a reload's error reply keeps `outside`, emits `outside_failed` with the error, sends
+  nothing; a reload out, then `on_link_up`: the reload is sent again (a new seq); waiting (sync in flight, no
+  reload out), then `on_link_up`: `outside_waiting` is emitted, `dirty` set, nothing sent.
+- viewport/tests/quick/outside_save.gd: `outside_failed` puts the exact reason in `outside_asked`; the
+  question open (`_ask_outside` in test mode), then the actions land and the reload goes out: `outside_closed`
+  is 1, `_outside_choice("mine")` then sends no `keep_mine`, and the status line ends with the A39 text.
+
+Reading path: serve.py `hold` → `outside` → the `reload` and `keep_mine` commands; session.py `reload_outside`
+→ `_load_file`; document.gd `on_outside_save` → `send_reload` → `on_sync_reply` (where the reload is sent once
+the actions land) → `on_reload_reply` → `on_link_up` → `send_keep_mine`; main.gd's outside-saves section
+(`_on_outside_waiting`, `_ask_outside`, `_outside_choice`, `_on_reloaded`). Who owns what: the worker holds the
+model and owns the session; document.gd owns `outside`, `outside_seq` and when to reload; main.gd owns the
+question and the status line.
+
+Run the feature tests while building (`tools/featuretest.sh`), then `python3 tools/job.py test`. End your
+response with a Result line; leftovers as Follow-up lines; anything for the merge as For the integrator lines.
+
+**Response — Codex, 2026-11-23**
+
+Branch `codex/h093-outside-save-failures`, implementation commit `93aa42d`. No new decision IDs or open questions.
+
+FreeCAD 1.1.4 returned the existing live document and its old label when asked to open the same path after the
+disk file was replaced. The worker opens a temporary sibling copy first, removes the copy, and uses the original
+path for the newly loaded document. The revision and hash describe the bytes the worker actually loaded.
+
+Godot 4.6.1's [macOS dialog implementation](https://github.com/godotengine/godot/blob/4.6.1-stable/platform/macos/display_server_macos.mm#L814-L849)
+waits in `NSAlert.runModal` and then invokes the choice callback on that same call stack. The Godot scene loop
+cannot dispatch worker replies during that native alert. A39 dismisses the Godot `ConfirmationDialog` when an
+automatic reload goes out. The quick test exercises the same prompt state with the dialog simulated.
+
+Verified the feature suite, including 35 worker outside-save checks and 125 document checks. The three-window
+quick test passed all 291 checks, including retrying a failed reload and dismissing an overtaken question.
+
+Changed from the brief: the function list named the reload and reconnect handlers; the shared document send path
+also enforces the hold, the sync reply announces the automatic reload, and the reload sender retains the original
+ops boundary on reconnect; otherwise later edits could sync before the choice or be dropped during a retry.
+
+Changed from the brief: the worker function list only named `reload_outside`; ordinary opens, floor rebuilds,
+and staged reloads share document setup so the replacement uses the same preparation and cleans up on failure.
+
+Changed from the brief: the window function list specified one new handler; separate handlers process the two
+signals, and both questions share the same dialog setup and cleanup to keep labels and button behavior aligned.
+
+Architecture: The outside-save reload prepares a temporary sibling copy while the live document stays open.
+An unreadable copy leaves the session, floor copy, and journal intact. The loaded snapshot's hash and original
+file signature let the worker recognize a subsequent outside save.
+
+Architecture: The document controller keeps sync held after a failed reload or a reconnect before a choice,
+retries an in-flight reload with a new sequence, and signals the window on reload failure or when pending actions
+trigger a reload. The window owns the prompt and the status message. Wire messages stay the same.
+
+For the integrator: Run H098 with an agent other than H093's builder before merging H093.
+
+Result: 93aa42d; feature suite passed, quick test 291/291; unreadable outside saves preserve the live model and ask, reconnect retries an in-flight reload, and an overtaken question closes.
+
+**Response 2 — Codex, 2026-11-23**
+
+Branch `codex/h093-outside-save-failures`. Merged H098 and current main into the job branch. No new decision IDs.
+
+| H098 case | Fix |
+|---|---|
+| Outside notice with a null revision | Keeps the revision nullable and resolves the notice normally. |
+| Edits drawn after a failed reload was sent | Keeps the original action boundary across retries so those edits are sent after reload. |
+| Failed sync while a question is pending | Holds the dirty action list and leaves the question open. Only a successful sync can trigger A39. |
+| Failed Keep Shop Sketch's | Keeps the outside save pending and sync held. The window restores the original question and shows the worker's error in the status line. |
+| Worker disconnects during Keep Shop Sketch's | Retries the same choice before resending the action list. |
+| Late reload reply during Keep Shop Sketch's | Matches both the command and its request sequence. |
+| New outside notice during reload | Retains the notice and reloads it with the post-reload edits still pending. |
+| New outside notice while sync is held | Carries the hold forward to the new notice. |
+| New outside notice during Keep Shop Sketch's | Processes the new notice once the choice succeeds. Any pending sync still gets the A36 wait. |
+| Closing with edits held by a failed reload | Waits for the outside save and pending edits to resolve before allowing the close. |
+| Switching models with a question open | Dismisses the question and invalidates its timer, including when reopening the same path. |
+| Unreadable bytes on disk | The watcher notice reaches reload, and the reload error reaches the window's outside-save prompt. |
+| Outside file deleted before choosing Keep Shop Sketch's | Saves the live model and clears the hold. The status omits the aside path when there was no file to copy. |
+| ZIP with corrupt Document.xml | Validates the archive and XML before asking FreeCAD to open a candidate. |
+| Failure preparing or publishing the reload's floor copy | Prepares the replacement on a separate document. Failure keeps the original live model. A failed journal replacement restores the previous floor copy. |
+| Retried reload on a new worker | Uses the older file's known history, preserves the newer journal's actions as dropped, and compares the boards against the window's last export when available. |
+
+Changed from the brief: The close reply and document reset also check or clear outside-save state so a prior
+flush or a model switch cannot finish the wrong operation.
+
+Changed from the brief: A failed Keep Shop Sketch's reuses the existing question text and reports the error in
+the existing worker-error status line. After keeping Shop Sketch's version when the other file was deleted,
+the status uses its existing success phrase without the aside path.
+
+Architecture: The document controller owns request identity, holds and queued notices through both outside-save
+choices. Main owns the retry question and status. Closing waits for resolution and for queued actions to sync.
+
+Architecture: The worker validates a reload snapshot, prepares the replacement document, floor and journal,
+and swaps the live session after their writes succeed. A cold reload retry uses the older file's known revision
+and the newer journal to reconstruct the drop list. Wire messages and journal fields are unchanged.
+
+Follow-up: H063 still applies to a replacement worker that never held Shop Sketch's live pre-conflict document.
+The retry copies FreeCAD's file aside and then resends the window's actions.
+
+For the integrator: All 16 named H098 regressions now run by default with no environment flag.
+
+Verified `20eee5b` with the full suite and the clean-commit quick test. All 35 feature suites passed,
+including 135 document checks and 39 worker outside-save checks. All 302 quick checks passed across
+three windows. The six recorded comparisons matched.
+
+Result: 20eee5b; full suite passed, quick test 302/302; fixed all 16 H098 outside-save failures and enabled the regression checks by default.
+
+**Response 3 — Codex, 2026-11-23**
+
+Branch `codex/h093-outside-save-failures`, updated from main. No new decision IDs or open questions.
+
+- The staged document takes its label from the model file stem before the floor or a later save is written.
+  The check opens the saved model in FreeCAD 1.1.4 and also reads the stored label in `Document.xml`, since
+  FreeCAD normalizes the label on open. The snapshot-derived internal `doc.Name` is safe: the worker uses it
+  to close or activate the document, including before Draft operations.
+- The viewport export runs after the floor and journal replacements. A failed replacement preserves the
+  previous `bodies.json`. The worker rolls back any replacements already made if a later replacement or
+  the export raises. Named checks exercise failed floor, journal and export writes.
+
+Architecture: The worker restores the model label on the reload snapshot and publishes the viewport export
+after the replacement floor and journal are in place. It rolls those files back if the reload fails.
+
+Verified implementation commit `4266006`. All 35 feature suites passed, including 43 worker outside-save
+checks. The three-window quick test passed all 302 checks.
+
+Result: 4266006; quick test 302/302, worker outside-save checks 43/43; preserve the model label and publish the reload export after both recovery files.
+
+Resolution: merged into main by the integrator, 2026-11-23.
+
+### H098 — Trial: try to break H093 before it merges (checks only)
+
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: resolved | For: gemini | Builds on: H093
+
+References: H093 (outside saves: a failed reload asks, a worker lost mid-reload reloads again, a question the
+actions overtook closes; A36, A39), P42 (its "What can fail" list), H092 (seven of the first ultra review's ten
+findings were failure paths of the outside-save code, T64). A one-off trial at William's request (2026-11-22):
+not a rule.
+
+Touches: the tests only: viewport/test_document.gd, viewport/tests/quick/outside_save.gd,
+worker/test_outside_save.py, and this entry. No product code: not document.gd, main.gd, session.py or serve.py.
+
+Start: H093's branch isn't merged yet. Merge it into your branch first (`git merge <H093's branch>`, named in
+H093's response), so you test the code as built.
+
+Request: read H093's code as built (its diff, then the whole of the outside-saves code it lives in: document.gd
+`on_outside_save` to `on_keep_mine_reply` and `on_link_up`, main.gd's outside-saves section, session.py
+`reload_outside`, serve.py's `reload` and `keep_mine`) and try to break it. Look for a failure H093's brief didn't list (its "Today", Request and Checks are its "What can
+fail" list, P42): a step that fails (a file missing or unreadable, the worker gone, a save that fails), a reply
+late, repeated or out of order (a reload's reply after a `keep_mine`, an old reply after a reconnect), a dialog
+open while replies land, two of these at once (the worker lost while the question is open; a second outside save
+while a reload is out). For each case you try, write a named check in the test files above. Keep only the checks that find a bug
+(William, 2026-11-22: so the test suite doesn't grow with cover nobody asked for); delete the ones that pass,
+and list them in your response's table instead. A kept check runs only when `BREAK_H093=1` is set in the
+environment (each prints `SKIP <name> (BREAK_H093)` otherwise), so the quick test and `job.py done` still pass;
+it asserts what should happen, not what does. Don't fix the code.
+
+Response: a table of every case tried: the case, the check's name, passes or fails, and for a failure what
+happens and what you'd expect (A36, A39). Then a line saying which of the failures H093's brief listed
+and which it missed.
+
+Reading path: H093's entry (its "Today", "Request" and checks), then the reading path it gives, then H093's
+response and diff. Who owns what: you add checks; the builder (or a small fix) changes the code.
+
+Run the feature tests (`tools/featuretest.sh`), the same with `BREAK_H093=1` (say what fails), and
+`python3 tools/job.py test` (it must pass: the failing checks are off without the variable). End your
+response with a Result line; leftovers as Follow-up lines; anything for the merge as For the integrator lines.
+
+**Response — Gemini, 2026-11-23**
+
+Branch `gemini/h098-break-h093`, implementation commit `01f8a84` (merged `codex/h093-outside-save-failures` first). No new decision IDs, no product code touched, no open questions.
+
+Verified:
+- `tools/featuretest.sh` (default, no `BREAK_H093`): all 35 feature suites passed (`OUTSIDE SAVE TESTS: 35 passed, 0 failed`, `DOCUMENT TESTS: 125 passed, 0 failed`), with all 14 kept feature checks printing `SKIP <name> (BREAK_H093)`.
+- `BREAK_H093=1 tools/featuretest.sh`: exited 1 with 14 expected failures: `OUTSIDE SAVE TESTS: 35 passed, 4 failed` and `DOCUMENT TESTS: 125 passed, 10 failed` (all other 33 feature suites passed).
+- `BREAK_H093=1 tools/quicktest.sh`: viewport failed the 2 kept checks in `viewport/tests/quick/outside_save.gd` (`switching models clears an open outside-save question so a later question still asks` and `an unreadable outside save on disk asks the window with the worker's error`, plus `SCRIPT ERROR: Invalid call. Nonexistent 'int' constructor.` at `document.gd:231`).
+- `python3 tools/job.py test` on `01f8a84` (default, no `BREAK_H093`): passed (all 35 feature suites + `QUICK 291 passed, 0 failed` across 3 windows; all 16 kept checks skipped with `SKIP <name> (BREAK_H093)`).
+
+### Cases tried (28 total: 16 failed and kept under `BREAK_H093=1`, 12 passed and deleted)
+
+| File | Case | Check name | Result | What happens / what should happen (A36, A39) |
+|---|---|---|---|---|
+| `viewport/test_document.gd` | Worker sends `outside_save` with `rev: null` (every unreadable or foreign `.FCStd` file) | `outside_save with rev null reloads instead of aborting` | **FAIL** (kept) | `document.gd:231` runs `int(resp.get("rev", 0))` on `null`, throwing `Invalid call. Nonexistent 'int' constructor.` and aborting `on_outside_save`; `outside` stays `{}` and no `reload` is sent while the worker holds the model indefinitely. Should treat `null` rev safely (like `seq_of`), record `outside`, and send `reload`. |
+| `viewport/test_document.gd` | Action drawn while reload #1 is in flight, reload #1 fails, user retries "Use FreeCAD's version" | `retrying a failed reload keeps actions drawn after the first reload left` | **FAIL** (kept) | `on_reload_reply` resets `outside_seq = -1` on error, so the retry's `send_reload()` sees `outside_seq < 0` and overwrites `_ops_at_reload = ops.size()`; `r2` is silently deleted from `ops`, never synced on top, and not in `dropped`. Should preserve the original `_ops_at_reload` boundary across retries so `r2` stays on top and syncs (A36, G09). |
+| `viewport/test_document.gd` | In-flight `sync` returns `ok: false` while waiting on an outside save | `a failed sync while waiting on an outside save does not auto-reload or close the question` | **FAIL** (kept) | `on_sync_reply` emits `sync_failed`, then falls through to `send_reload()` and `outside_actions_landed.emit()`, closing any open question claiming actions landed when they failed and losing the unapplied action. Should not auto-reload or emit `outside_actions_landed` on a failed sync (A36, A39). |
+| `viewport/test_document.gd` | `keep_mine` returns `ok: false` (e.g. read-only folder) | `a failed keep_mine keeps the outside save pending instead of syncing on a held model` | **FAIL** (kept) | `send_keep_mine()` clears `outside = {}` and calls `_send()` before the reply arrives; on failure `on_keep_mine_reply` emits `sync_failed` and leaves `outside = {}`, so further syncs proceed while the worker still holds the model (autosave off). Should keep `outside` pending and hold syncs until `keep_mine` succeeds or re-asks (A36). |
+| `viewport/test_document.gd` | Worker lost and reconnects while `keep_mine` is in flight | `reconnecting while keep_mine is in flight retries keep_mine instead of syncing over FreeCAD's file` | **FAIL** (kept) | Because `send_keep_mine()` cleared `outside = {}`, `on_link_up()` leaves `outside_seq` dangling and sends a bare `sync`, building on FreeCAD's file without copying it aside. Should retry `keep_mine` (not send a bare `sync` over FreeCAD's file, A36). |
+| `viewport/test_document.gd` | Late/repeated `reload` reply arrives after a failed reload followed by `send_keep_mine()` | `a late reload reply after keep_mine cannot hijack the pending keep_mine` | **FAIL** (kept) | `send_keep_mine()` reuses `seq` without incrementing (`outside_seq = seq`) and shares `outside_seq` with `reload`; the stale `reload` reply matches `outside_seq`, wipes `ops` back to FreeCAD's ops, and drops `outside_seq` so the real `keep_mine` reply is ignored. Should isolate `keep_mine` from `reload` replies. |
+| `viewport/test_document.gd` | Second `outside_save` arrives while reload #1 is in flight | `a second outside_save while a reload is out is reloaded after the first finishes` | **FAIL** (kept) | `on_outside_save` overwrites `outside` and emits `outside_waiting` (`in_flight` is true); when reload #1 finishes, `on_reload_reply` unconditionally wipes `outside = {}` and emits `idle`, swallowing the second outside save. Should reload the newer save or keep `outside` pending (A36). |
+| `viewport/test_document.gd` | Second `outside_save` arrives while `hold_sync` is set with pending actions | `a second outside_save while sync is held keeps sync held` | **FAIL** (kept) | `on_outside_save` replaces `outside` without preserving `hold_sync`, so the next `sync()` immediately sends a `sync` on top of FreeCAD's file while unresolved. Should preserve `hold_sync` (A36). |
+| `viewport/test_document.gd` | Second `outside_save` arrives while `keep_mine` is in flight (`in_flight == false`, `dirty == false`) | `a second outside_save while keep_mine is in flight reloads once keep_mine lands` | **FAIL** (kept) | `on_outside_save` sets `outside`, skips both `busy()` and `outside_seq < 0` (since `outside_seq` is `keep_mine`'s), and `on_keep_mine_reply` clears `outside_seq` without checking `outside`, stranding the second save forever. Should reload once `keep_mine` lands (A36). |
+| `viewport/test_document.gd` | Window closes (`begin_close()`) after a failed reload with new actions drawn under `hold_sync` | `begin_close does not close immediately when unsynced actions are held after a failed reload` | **FAIL** (kept) | With `hold_sync` active, `dirty` is true while `in_flight` is false and `pending_rev == saved_rev`, so `begin_close()` returns `true` and lets the window quit without saving the new actions. Should not report ready to close while `dirty` or unresolved `outside` holds actions (G09, I55). |
+| `viewport/test_document.gd` | Repeated `on_reload_reply` with the same seq after reload #1 succeeded | `a repeated reload reply after the first succeeded is ignored` | PASS (deleted) | Ignored because `outside_seq` is already `-1`. |
+| `viewport/test_document.gd` | Late `on_sync_reply` from a pre-reload sync arrives after reload fails | `a late sync reply after a failed reload does not clear the hold or reload` | PASS (deleted) | Ignored because `in_flight` is false and `in_flight_seq` had moved to the reload's seq. |
+| `viewport/test_document.gd` | Extra edit drawn while waiting sync is in flight | `an edit drawn while waiting for a sync finishes before auto-reload goes out` | PASS (deleted) | First sync reply sends the coalesced second sync first; only once it lands does reload + `outside_actions_landed` fire. |
+| `viewport/test_document.gd` | Worker reconnects (`on_link_up`) after a failed reload | `reconnecting after a failed reload keeps sync held` | PASS (deleted) | Sync stays held (`hold_sync` remains true, `dirty` set, nothing sent). |
+| `viewport/test_document.gd` | `outside_save` arrives before `open` completes | `an outside_save before open completes is ignored` | PASS (deleted) | Ignored while `opened == false`. |
+| `viewport/tests/quick/outside_save.gd` | Model switched/reopened (`switch_model`) while outside-save question is open, then asked again | `switching models clears an open outside-save question so a later question still asks` | **FAIL** (kept) | `_reset_model_state()` never calls `_dismiss_outside_question()` (nor clears `_outside_closed_model` or bumps `_outside_try`), leaving `_outside_question_model == model_path` (and any non-native dialog open), so `_ask_outside()` silently returns without asking. Should dismiss and clear prompt state on model switch. |
+| `viewport/tests/quick/outside_save.gd` | Real unreadable bytes written over the model on disk (end-to-end worker + window) | `an unreadable outside save on disk asks the window with the worker's error` | **FAIL** (kept) | Worker notices the unreadable file and sends `outside_save` with `rev: null`; `document.gd:231` throws `int(null)` and aborts, so no `reload` is sent and `outside_asked` stays `[]`. Should send `reload`, receive the error, and ask with `"couldn't open FreeCAD's save: ..."` (A36, H093). |
+| `viewport/tests/quick/outside_save.gd` | Automatic reload after overtaken question fails, then manual "Use FreeCAD's version" retry succeeds | `a failed automatic reload clears the overtaken-question status note before retry` | PASS (deleted) | `_on_outside_failed` clears `_outside_closed_model`, so the manual retry's status does not append the A39 suffix. |
+| `viewport/tests/quick/outside_save.gd` | `_ask_outside()` called twice while question is already open | `asking again while the outside-save question is already open does not open a second prompt` | PASS (deleted) | Guarded by `_outside_question_model == model_path`. |
+| `viewport/tests/quick/outside_save.gd` | Real `ConfirmationDialog` dismissed by `_on_outside_actions_landed` | `dismissing a real ConfirmationDialog when actions land does not trigger keep_mine` | PASS (deleted) | `hide()` + `queue_free()` does not emit `canceled`, and `_outside_dialog` is cleared. |
+| `worker/test_outside_save.py` | FreeCAD's file is deleted while held: `reload` fails, then user chooses `keep_mine` | `after a deleted outside save fails reload, Keep Shop Sketch's still saves ours` | **FAIL** (kept) | `serve.py:307` skips `keep_both` when `not os.path.exists(path)` without popping `held[path]`, so `save_pending({path})` sees `path in held` and calls `keep_both` anyway -> `FileNotFoundError`; neither `reload` nor `keep_mine` can succeed. Should clear `held[path]` and save Shop Sketch's live model back to disk (A36, G09). |
+| `worker/test_outside_save.py` | Outside save is a valid ZIP with corrupt `Document.xml` | `an outside save with corrupt Document.xml fails reload instead of wiping the model` | **FAIL** (kept) | FreeCAD 1.1.4 `App.openDocument` prints a fatal XML error to stderr and returns a 0-object empty document without raising; `reload_outside()` succeeds (`ops: []`, `removed: ["b1"]`), wiping out the live model, floor copy, and journal. Should validate the archive / `Document.xml` (as `recover_generation` does) and fail reload so the live session stays intact and the window asks (A36). |
+| `worker/test_outside_save.py` | `reload_outside()` fails while writing `.floor.FCStd` (after opening snapshot), then user chooses `keep_mine` | `a reload failure while writing the floor copy leaves the live document intact` | **FAIL** (kept) | `reload_outside()` closes the old `self.doc` and replaces `self.doc`, `self.model`, `self.applied`, `self.undo_floor` before `_write_floor_copy()` runs; when `_write_floor_copy()` raises, `reload` returns `ok: False` and subsequent `keep_mine` saves FreeCAD's 30 mm board (without `b2`) over Shop Sketch's work. Should not swap or mutate the live session until floor copy and journal writes succeed (A36, H093). |
+| `worker/test_outside_save.py` | Worker killed (`SIGKILL`) mid-reload on a rev-1 FreeCAD save after rev-2 was saved; new worker receives retried `reload` directly (as `document.gd:on_link_up` sends) | `a retried reload on a new worker after a crash drops post-rev ops and keeps the rev` | **FAIL** (kept) | `session_for(path)` runs `_open_existing()` on FreeCAD's rev-1 file with the rev-2 journal and sets `self.rev_ops = {1: [r1, pp1, r2, pp2]}`; `reload_outside()` then returns `ops: [r1, pp1, r2, pp2]` (`b2` does not exist in FreeCAD's file), `undo_floor: 4`, `dropped: []`, `changed: []`, `removed: []`, and regresses `rev` from 2 to 1 while overwriting the journal. Should keep only rev 1's ops, drop `r2`/`pp2`, keep `rev >= 2`, and report changes accurately (A36, H093). |
+| `worker/test_outside_save.py` | Outside save is a 0-byte file or an empty ZIP without `Document.xml`, followed by `keep_mine` | `a 0-byte or empty-zip outside save fails reload and leaves the live document intact` | PASS (deleted) | Both fail `reload` with `OSError: Invalid project file`, leaving the live session intact for `keep_mine`. |
+| `worker/test_outside_save.py` | Failed reload on garbage bytes, then FreeCAD saves a valid file, retry `reload`, then another FreeCAD save | `after a failed reload, a valid FreeCAD save reloads cleanly and a later save is noticed` | PASS (deleted) | Retry loads the valid save (`b1` = 30 mm), clears `held`, and the next FreeCAD save is detected. |
+| `worker/test_outside_save.py` | Model folder is read-only during `reload` and `keep_mine`, then write permission restored | `in a read-only folder, reload and keep_mine fail without harming the live model` | PASS (deleted) | Both fail cleanly with `PermissionError` leaving the live model intact; `keep_mine` succeeds once writable. |
+| `worker/test_outside_save.py` | Second valid FreeCAD save overwrites the first while held, then one `reload` runs | `a second outside save while held is loaded by one reload with no extra outside_save` | PASS (deleted) | One `reload` loads the latest thickness (40 mm) and no stray `outside_save` follows. |
+
+Which failures H093's brief listed vs missed: H093's brief listed (1) unreadable outside saves leaving the live session intact and asking the window — yet its own implementation fails this end-to-end on `rev: null` in `document.gd:231`, on corrupt `Document.xml` in FreeCAD 1.1.4, and on a post-open `_write_floor_copy()` error — and (2) a worker lost mid-reload retrying the reload — yet its own implementation fails this end-to-end when the new worker serves the retried `reload` without `open` and maps rev-2 journal ops onto rev-1. H093's brief missed: retrying a failed reload losing post-reload actions (`_ops_at_reload` reset), deleting the file while held breaking `keep_mine` (`held` not popped), a failed in-flight sync falsely triggering auto-reload and `outside_actions_landed`, failed `keep_mine` clearing `outside` and syncing over a held model, reconnect while `keep_mine` is in flight syncing over FreeCAD's file, a late `reload` reply matching `keep_mine`'s unincremented `outside_seq`, a second `outside_save` arriving during `reload` / `hold_sync` / `keep_mine`, `begin_close()` closing with actions held under `hold_sync`, and `switch_model` / `_reset_model_state()` leaving the outside-save question state behind.
+
+For the integrator: Do not merge H093 until these 16 `BREAK_H093=1` failures (especially the end-to-end `rev: null` crash in `document.gd`, corrupt `Document.xml` wiping the model, deleted-file `keep_mine` failure, and crash-mid-reload corruption on a new worker) are fixed; once H093 is updated and passes `BREAK_H093=1`, ungating these checks makes them permanent regression coverage.
+
+Result: 01f8a84; feature tests passed, BREAK_H093=1 failed 14 feature and 2 quick checks, job.py test passed (291/291 quick); tried 28 failure-path cases against H093 and kept 16 failing checks gated on BREAK_H093=1.
+
+Resolution: merged into main by the integrator, 2026-11-23.

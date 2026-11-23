@@ -17,6 +17,8 @@ import subprocess
 import sys
 import tempfile
 import time
+import zipfile
+import xml.etree.ElementTree as ET
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 FC = os.environ.get("FREECAD", "/Applications/FreeCAD.app/Contents/Resources/bin/freecadcmd")
@@ -107,6 +109,14 @@ doc.save()
 App.closeDocument(doc.Name)
 ''')
 
+READ_LABEL = os.path.join(tmp, "freecad_label.py")
+with open(READ_LABEL, "w") as f:
+    f.write('''import os, FreeCAD as App
+doc = App.openDocument(os.environ["READ_MODEL"])
+print("MODEL LABEL: " + doc.Label, flush=True)
+App.closeDocument(doc.Name)
+''')
+
 
 def freecad_save(model, add=12):
     """What William does in FreeCAD: open the model, make its first board thicker, save."""
@@ -188,6 +198,16 @@ bad = sync(w, m1, ops[:1], 3)
 check("a sync taking back an op below the floor is refused", bad and not bad["ok"] and "FreeCAD" in bad["error"], bad)
 sync(w, m1, ops + second(200), 4)
 ask({"cmd": "flush", "model": m1}, "flush")
+label_read = subprocess.run([FC, READ_LABEL], env=dict(os.environ, READ_MODEL=m1),
+                            capture_output=True, text=True, timeout=120)
+expected_label = os.path.splitext(os.path.basename(m1))[0]
+# FreeCAD normalizes the label on open, so check what Shop Sketch saved as well.
+with zipfile.ZipFile(m1) as archive:
+    document_xml = ET.fromstring(archive.read("Document.xml"))
+    saved_label = document_xml.find("./Properties/Property[@name='Label']/String").get("value")
+check("FreeCAD reopens the saved reload with the model's file stem as its label",
+      label_read.returncode == 0 and f"MODEL LABEL: {expected_label}" in label_read.stdout.splitlines()
+      and saved_label == expected_label, f"saved label: {saved_label!r}")
 j = journal(m1)
 check("a later save keeps the floor in the journal", j["floor"] == 2 and len(j["ops"]) == 4, (j.get("floor"), len(j["ops"])))
 check("and no outside save is reported for our own save", wait_outside(m1, 1.0) is None)
@@ -346,6 +366,45 @@ r = ask({"cmd": "reload", "model": m7b, "outdir": m7b + "-out"}, "reload")
 check("a reload of a revision with a rejected action keeps only the ops that worked",
       r and [o["id"] for o in r["ops"]] == ["r1", "pp1"] and r["undo_floor"] == 2 and r["dropped"] == [], r)
 
+# An unreadable outside save leaves the live document and its undo floor intact. The window can still keep ours.
+broken = fresh_model("unreadable")
+opened(broken)
+ops = board_ops(300)
+sync(w, broken, ops, 1)
+ask({"cmd": "flush", "model": broken}, "flush")
+freecad_save(broken)
+wait_outside(broken)
+live_out = broken + "-out"
+first_reload = ask({"cmd": "reload", "model": broken, "outdir": live_out}, "reload")
+check("the previous outside edit sets a floor and changes the live board",
+      first_reload and first_reload["ok"] and first_reload["undo_floor"] == 2 and thickness(live_out, "b1") == 30.0,
+      first_reload)
+floor = os.path.splitext(broken)[0] + ".floor.FCStd"
+floor_sha = sha(floor)
+freecad_save(broken)
+held_event = wait_outside(broken)
+ops += second(200)
+sync(w, broken, ops, 2)
+with open(broken + ".invalid", "wb") as f:
+    f.write(b"invalid FCStd")
+os.replace(broken + ".invalid", broken)
+broken_sha = sha(broken)
+held_journal = journal(broken)
+r = ask({"cmd": "reload", "model": broken, "outdir": live_out}, "reload")
+check("an unreadable outside save fails reload while the model is held", held_event and r and not r["ok"], r)
+check("failed reload leaves the floor, journal, and outside file intact",
+      sha(floor) == floor_sha and journal(broken) == held_journal and sha(broken) == broken_sha)
+os.remove(os.path.join(live_out, "bodies.json"))
+still_live = ask({"cmd": "sync", "model": broken, "outdir": live_out,
+                  "oplog": {"format": "oplog/0.1", "units": "mm", "ops": ops}}, "sync")
+check("after failed reload the live document still exports both boards",
+      still_live and still_live["ok"] and thickness(live_out, "b1") == 30.0 and thickness(live_out, "b2") == 18.0,
+      still_live)
+k = ask({"cmd": "keep_mine", "model": broken, "outdir": live_out}, "keep_mine")
+check("after failed reload Keep Shop Sketch's copies the unreadable file aside and saves ours",
+      k and k["ok"] and sha(k["aside"]) == broken_sha and journal(broken)["file_sha256"] == sha(broken)
+      and journal(broken)["ops"] == ops and journal(broken)["floor"] == 2, k)
+
 # 8. A held model with unsaved actions whose file is then deleted: the window closing (its save keeps both, and
 #    the copy aside fails) is a failed save, not the end of the worker for every window.
 m8 = fresh_model("deleted")
@@ -363,6 +422,132 @@ check("a held model's file deleted and its window closed: the worker keeps runni
 w = Window(port)
 q = w.ask({"cmd": "quit", "seq": 99}, "quit")
 check("and still answers the next window", q is not None, q)
+proc.wait(30)
+
+# H098 outside-save regressions
+H098_CHECKS = [
+    "after a deleted outside save fails reload, Keep Shop Sketch's still saves ours",
+    "an outside save with corrupt Document.xml fails reload instead of wiping the model",
+    "a reload failure while writing the floor copy leaves the live document intact",
+    "a retried reload on a new worker after a crash drops post-rev ops and keeps the rev",
+]
+
+proc, port = start_worker()
+w = Window(port)
+
+# 1. Deleted file while held: reload fails, then Keep Shop Sketch's still saves ours
+m_del = fresh_model("deleted_keep_mine")
+out_del = m_del + "-out"
+os.makedirs(out_del, exist_ok=True)
+opened(m_del)
+ops_del = board_ops(300)
+sync(w, m_del, ops_del, 1)
+ask({"cmd": "flush", "model": m_del}, "flush")
+freecad_save(m_del)
+wait_outside(m_del)
+ops_del += second(200)
+sync(w, m_del, ops_del, 2)
+os.remove(m_del)
+r_del = ask({"cmd": "reload", "model": m_del, "outdir": out_del}, "reload")
+k_del = ask({"cmd": "keep_mine", "model": m_del, "outdir": out_del}, "keep_mine")
+check(H098_CHECKS[0],
+      r_del and not r_del["ok"] and k_del and k_del["ok"] and os.path.exists(m_del)
+      and journal(m_del)["ops"] == ops_del, (r_del, k_del))
+
+# 2. Valid zip with corrupt Document.xml: reload must fail instead of wiping the model
+m_xml = fresh_model("corrupt_xml")
+out_xml = m_xml + "-out"
+os.makedirs(out_xml, exist_ok=True)
+opened(m_xml)
+sync(w, m_xml, board_ops(300), 1)
+ask({"cmd": "flush", "model": m_xml}, "flush")
+bad_zip = m_xml + ".badxml"
+with zipfile.ZipFile(bad_zip, "w") as z:
+    z.writestr("Document.xml", "<<<not xml>>>")
+os.replace(bad_zip, m_xml)
+wait_outside(m_xml)
+r_xml = ask({"cmd": "reload", "model": m_xml, "outdir": out_xml}, "reload")
+check(H098_CHECKS[1], r_xml and not r_xml["ok"], r_xml)
+
+# 3. Reload failure while writing the floor copy leaves the live document intact
+m_flr = fresh_model("floor_fail")
+out_flr = os.path.join(tmp, os.path.basename(m_flr) + "-out")
+opened(m_flr)
+ops_flr = board_ops(300)
+sync(w, m_flr, ops_flr, 1)
+ask({"cmd": "flush", "model": m_flr}, "flush")
+freecad_save(m_flr)
+wait_outside(m_flr)
+ops_flr += second(200)
+sync(w, m_flr, ops_flr, 2)
+bodies_flr = os.path.join(out_flr, "bodies.json")
+with open(bodies_flr, "rb") as f:
+    live_bodies = f.read()
+flr_path = os.path.splitext(m_flr)[0] + ".floor.FCStd"
+os.mkdir(flr_path)
+r_flr = ask({"cmd": "reload", "model": m_flr, "outdir": out_flr}, "reload")
+os.rmdir(flr_path)
+with open(bodies_flr, "rb") as f:
+    check("a failed floor replacement leaves the last viewport export intact",
+          r_flr and not r_flr["ok"] and f.read() == live_bodies, r_flr)
+journal_path = os.path.splitext(m_flr)[0] + ".shopsketch.json"
+journal_backup = journal_path + ".test-backup"
+os.rename(journal_path, journal_backup)
+os.mkdir(journal_path)
+try:
+    r_jrnl = ask({"cmd": "reload", "model": m_flr, "outdir": out_flr}, "reload")
+    with open(bodies_flr, "rb") as f:
+        check("a failed journal replacement keeps the last viewport export and rolls back the floor",
+              r_jrnl and not r_jrnl["ok"] and f.read() == live_bodies and not os.path.exists(flr_path), r_jrnl)
+finally:
+    os.rmdir(journal_path)
+    os.rename(journal_backup, journal_path)
+blocked_outdir = os.path.join(out_flr, "blocked")
+with open(blocked_outdir, "w"):
+    pass
+journal_before = sha(journal_path)
+r_export = ask({"cmd": "reload", "model": m_flr, "outdir": blocked_outdir}, "reload")
+check("a failed reload export rolls back the journal and floor",
+      r_export and not r_export["ok"] and sha(journal_path) == journal_before and not os.path.exists(flr_path),
+      r_export)
+k_flr = ask({"cmd": "keep_mine", "model": m_flr, "outdir": out_flr}, "keep_mine")
+km_ops = journal(m_flr)["ops"] if k_flr and k_flr.get("ok") else []
+s_flr = ask({"cmd": "sync", "model": m_flr, "outdir": out_flr,
+             "oplog": {"format": "oplog/0.1", "units": "mm", "ops": ops_flr}}, "sync")
+b1_t = thickness(out_flr, "b1") if os.path.exists(os.path.join(out_flr, "bodies.json")) else None
+b2_t = thickness(out_flr, "b2") if os.path.exists(os.path.join(out_flr, "bodies.json")) else None
+check(H098_CHECKS[2],
+      r_flr and not r_flr["ok"] and k_flr and k_flr["ok"] and km_ops == ops_flr
+      and s_flr and s_flr["ok"] and b1_t == 18.0 and b2_t == 18.0,
+      (r_flr, k_flr, len(km_ops), b1_t, b2_t))
+
+# 4. Worker crash mid-reload: retried reload on a new worker (without open) drops post-rev ops and keeps rev
+m_cr = fresh_model("crash_mid_reload")
+out_cr = os.path.join(tmp, os.path.basename(m_cr) + "-out")
+os.makedirs(out_cr, exist_ok=True)
+opened(m_cr)
+sync(w, m_cr, board_ops(300), 1)
+ask({"cmd": "flush", "model": m_cr}, "flush")
+rev1_cr = m_cr + ".rev1"
+shutil.copy2(m_cr, rev1_cr)
+sync(w, m_cr, board_ops(300) + second(200), 2)
+ask({"cmd": "flush", "model": m_cr}, "flush")
+freecad_save(rev1_cr)
+os.replace(rev1_cr, m_cr)
+wait_outside(m_cr)
+proc.kill()
+proc.wait(30)
+w.close()
+proc, port = start_worker()
+w = Window(port)
+r_cr = ask({"cmd": "reload", "model": m_cr, "outdir": out_cr}, "reload")
+check(H098_CHECKS[3],
+      r_cr and r_cr["ok"] and [o["id"] for o in r_cr["ops"]] == ["r1", "pp1"]
+      and r_cr["undo_floor"] == 2 and [o["id"] for o in r_cr["dropped"]] == ["r2", "pp2"]
+      and r_cr["rev"] >= 2 and r_cr["changed"] == ["b1"] and r_cr["removed"] == ["b2"]
+      and thickness(out_cr, "b1") == 30.0 and thickness(out_cr, "b2") is None,
+      r_cr)
+w.ask({"cmd": "quit", "seq": 999}, "quit")
 proc.wait(30)
 
 print(f"OUTSIDE SAVE TESTS: {R[0]} passed, {R[1]} failed", flush=True)
