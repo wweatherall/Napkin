@@ -1,43 +1,45 @@
 # Work board
 
-William says "check the board": this file tells each agent what to do next. The integrator (a Claude session in
-/Users/Will/Sites/fretchup, P16) keeps it; nobody else edits it. Jobs run through the queue (P24, `tools/job.py`):
-the table below is built from docs/handoff/ and the queue's live state; the integrator keeps the Order line.
+"Check the board" sends you here. Only the integrator edits this file; the job table is built from docs/handoff/
+and the job queue.
 
 Order: H076, H077, H078, H079, H052
 
 ## If you're not the integrator
 
-You're a worker: you take one job, deliver it to the integrator and stop. You don't merge into main or push.
+You're a worker: one job, then stop. Only the integrator merges or pushes (P16). Each shell command starts in the
+main checkout: read there, but run everything else as `cd /Users/Will/Sites/fretchup-<id> && ...`, in your job's
+worktree (T102).
 
-1. `python3 tools/job.py take --as claude` (or `--as codex`), run anywhere in the repository: it gives you the
-   first Ready job for you whose files don't overlap a job in progress, makes its worktree (`../fretchup-<id>`)
-   and branch from main, and prints the job's handoff. A returned job comes first and continues its branch, with
-   the integrator's notes. Nothing Ready for you? Run `python3 tools/job.py take --wait` in the background;
-   it takes the next job when one is Ready, or stops after 20 min (then tell William).
-2. Read "Notes" below for anything addressed to you, then do the job in its worktree.
-3. Hung tests are yours (P40): run tests and other long commands through
-   `python3 tools/job.py run -- <command>`, in the background (run_in_background). It always ends: past 10 minutes
-   it stops the command and every process it started, prints HUNG and exits 124, so you're woken and fix it
-   yourself (look at the log, fix, run again). `python3 tools/job.py check` lists your worktree's processes any
-   time; `done` refuses while one looks hung. No timer: commits, test runs and `job.py` commands push the job's
-   30-minute deadline back (the dead man's switch); only a worker that has gone quiet reaches the integrator.
-4. Waiting on William? `python3 tools/job.py wait "<the question>"`, and ask him in chat: the switch pauses until
-   your next beat.
-5. When it's done (tests pass, the goal is met): append your response to the handoff (branch, commit, tests,
-   anything open, `Follow-up:` and `For the integrator:` lines; your result goes there, not the Work list, P17),
-   end it with a line `Result: <commit>; <tests>; <what changed>` (integrate.py copies it into the Work list),
-   set its Status to answered, commit, then
-   `python3 tools/job.py done`. It refuses until the response, the Status and a quick-test pass on your latest
-   commit are there (it runs the quick test if that commit has none; `python3 tools/job.py test` runs and
-   records it any time). It tells the integrator; tell William "ready for review: <ID>", then
-   stop: one job a session (P37: context grown over several jobs used up William's usage; `job.py` refuses a
-   2nd), then William starts a fresh one (a /clear gives a new session ID). Don't take the integrator lock.
+1. `python3 tools/job.py take --as claude` (or `--as codex`) makes your job's worktree and branch and prints its
+   entry (a returned job comes first). Nothing Ready: run `python3 tools/job.py take --wait` in the
+   background; if it gives up (20 min), tell William.
+2. Read the Notes at the bottom for anything addressed to you.
+3. Change only the files on the job's Touches line; to touch another, ask first, in chat and your response (P11).
+   Leave these alone:
+   - the Work list: your result goes in your response (P17);
+   - ARCHITECTURE.md and docs/protocol.md: a change to a module, a message, a file format, who owns some state,
+     or saving gets `Architecture: <what>` lines in your response instead (P28); a changed message also bumps
+     PROTOCOL_VERSION by one on both sides (A35);
+   - log rows your job doesn't add or supersede. Add rows with `python3 tools/log.py add`, after merging main;
+     new IDs are placeholders like T-new-1 (T74).
+   Shared files (the log, viewport/main.gd) get small edits, made at the end.
+4. Run tests and long commands in the background as `python3 tools/job.py run -- <command>`: past 10 minutes it
+   stops them and prints HUNG, and the fix is yours (P40); `python3 tools/job.py check` lists your processes.
+   Quick test (`tools/quicktest.sh`) after every change; commit when it passes. Set no timer: after 30 minutes
+   with no commit, test or job.py command, the integrator is told (P24).
+5. A question for William: ask in chat and run `python3 tools/job.py wait "<the question>"`.
+6. Append your response to the entry, dated and signed: branch, commit, what you verified, IDs you added, open
+   questions. Then a line each: `Architecture: <what>`; `Follow-up: <what>` per thing left; `For the integrator:
+   <what>` per merge step (P26); last, `Result: <commit>; <tests>; <what changed>`, no `|` (T91). Set Status to
+   `answered`; commit.
+7. `python3 tools/job.py done` (it checks the response, the Status, a quick-test pass and hung processes). Tell
+   William "ready for review: <ID>" and stop: one job a session (P37). Don't take the integrator lock.
 
 ## If you're the integrator
 
-You're the integrator only if William said so in this session (P16) and you hold the lock (P19): see
-[docs/integrator.md](docs/integrator.md) for the lock, the queue watch, review, merging and writing jobs.
+Only if William said so in this session and you hold the lock (P16, P19): read
+[docs/integrator.md](docs/integrator.md).
 
 ## Jobs
 

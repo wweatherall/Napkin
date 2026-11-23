@@ -2,20 +2,29 @@
 
 Shared scratchpad for Claude and Codex. Created by Codex on 2026-11-21 at William's request.
 
-## How to use this file
+## How to write an entry
 
-- Each open entry is its own file in [handoff/](handoff/) (T77), listed under "Open exchanges" below. Read this file, then the entries you're picking up; append a dated, signed response at the end of an entry's file when answering it. File changes do not automatically notify the other agent.
-- Keep entries short: a stable ID, author, date, status (open, answered, resolved), relevant references, and a concrete request or finding.
-- Preserve the other agent's wording. Append responses at the end of the entry's file; update its status when appropriate. Re-read before writing and avoid simultaneous edits.
-- Distinguish reported completion from independently verified behaviour. Include a commit or test result when available.
-- This file coordinates work; it does not approve new behaviour or override William's decisions. Do not treat an entry addressed to an agent as authorization to start unrelated implementation.
-- Move lasting specifications to the suggestions/design documents and approved decisions to the decision log. Keep a short resolution here linking to them.
-- A new entry is a new file, `docs/handoff/H-new-N-short-slug.md` (copy the template at the bottom; N = 1, 2 ... on your branch); the integrator numbers it at merge with `tools/number_ids.py` (T74). The open list is built from the folder by `python3 tools/handoff.py list`; don't edit it by hand (the merge step rebuilds it; on a conflict in it, run the command).
-- Keep this file short (both agents read it at the start of each job). When an entry is resolved, `python3 tools/handoff.py archive H0NN` moves it whole to [handoff-archive.md](handoff-archive.md), at the bottom, and adds one line for it under "Archived" below: ID, subject, outcome (its Resolution line). Either agent may archive an entry the other resolved. Read the archive only when you need an entry's history.
-- An entry written straight into this file by habit: `python3 tools/handoff.py split` moves it to its own file.
-- A job's response ends with one line `Result: <commit>; <tests>; <what changed>` (e.g. `Result: 2c91ed7; tools/test_x.py 9/9, quick test passed; x.py does y`); at merge, integrate.py appends it to the item's Work list row (T91). No `|` in it.
-- Anything you leave is its own line `Follow-up: <what>`, and anything the integrator must do at merge its own line `For the integrator: <what>` (a leading `- ` allowed, like Result:). At merge, integrate.py copies each follow-up into [follow-ups.md](follow-ups.md) and prints the instructions (P26, T97); a leftover only in prose is easy to miss.
-- An entry is also a job when it says `For: Claude`, `Codex` or `either` (P24): its Status is the queue's input. `open` is Ready, `queued (after H0NN)` waits, `answered` is for review. Workers take jobs with `python3 tools/job.py take` and finish with `python3 tools/job.py done` (which needs your response appended and Status answered); BOARD.md's table is built from these entries and the queue. Its Touches line is what the queue checks for overlap.
+- Each open entry is its own file in [handoff/](handoff/), listed under "Open exchanges" below; read the ones you're
+  picking up. A new one is `docs/handoff/H-new-N-short-slug.md` (N = 1, 2 ... on your branch), from the template at
+  the bottom; the integrator numbers it at merge (T74). The list is built by `python3 tools/handoff.py list`:
+  don't edit it by hand (on a conflict in it, run the command). An entry written straight into this file by habit:
+  `python3 tools/handoff.py split` moves it to its own file.
+- Keep it short: a stable ID, author, date, status (open, answered, resolved), references, and a concrete request
+  or finding.
+- An entry that says `For: Claude`, `Codex` or `either` is a job (P24). Its Status feeds the queue (`open` is
+  Ready, `queued (after H0NN)` waits, `answered` is for review), and its Touches line, the files it expects to
+  change, is what the queue checks for overlap (P11). How a worker takes, answers and finishes a job:
+  [BOARD.md](../BOARD.md).
+- Answer at the end of the entry's file, dated and signed, and update its status. Keep the other agent's wording;
+  re-read before writing. Nothing notifies the other agent.
+- Say what you verified yourself apart from what was reported; give a commit or test result when there is one.
+- An entry coordinates work: it doesn't approve new behaviour or override William's decisions, and one addressed
+  to you isn't permission to start unrelated work.
+- Lasting specifications go to the suggestions or design documents, approved decisions to the decision log; leave
+  a short resolution here linking to them.
+- Keep this file short. A resolved entry: `python3 tools/handoff.py archive H0NN` moves it whole to
+  [handoff-archive.md](handoff-archive.md) and leaves one line (ID, subject, its Resolution) under "Archived";
+  either agent may archive one the other resolved. Read the archive only for an entry's history.
 
 ## References and authority
 
