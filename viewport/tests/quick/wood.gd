@@ -12,7 +12,7 @@ func run() -> void:
 	# 5f. Wood (T15): pick a wood, paint a board, the board shows it; T turns its grain
 	await harness._fresh("wood", harness._plank(1, Vector3.ZERO, Vector3(600, 90, 19)))
 	await harness._view(Vector3(560, 45, 10), -50, -25, 0.5)
-	m.set_paint_material("black-walnut")
+	m.appearance.set_paint_material("black-walnut")
 	harness._ok("picking a wood switches to Paint", m.tool == "paint", m.tool)
 	await harness._click_at(Vector3(300, 45, 19))
 	await harness._wait_wave()
@@ -21,7 +21,7 @@ func run() -> void:
 	var node: MeshInstance3D = m.bodies_root.get_node_or_null(harness.id("b1"))
 	var smat = node.mesh.surface_get_material(0) if node != null else null
 	harness._ok("painted walnut: FreeCAD has it, the board shows the wood shader", wb.get("material", "") == "black-walnut"
-		and smat is ShaderMaterial and smat.shader == m.WOOD, [wb.get("material", ""), smat])
+		and smat is ShaderMaterial and smat.shader == m.appearance.WOOD, [wb.get("material", ""), smat])
 	await harness._drag_to(Vector3(700, 300, 0), 3)       # off the board: no hover highlight
 	await harness._shot("wood_walnut")
 	await harness._view(Vector3(600, 45, 10), 60, -12, 0.13)

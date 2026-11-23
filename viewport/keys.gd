@@ -54,4 +54,4 @@ func press(e: InputEventKey) -> void:
 		KEY_D: m.export_drawing()
 		KEY_U: m.menus.run("unique")
 		KEY_H: m.menus.run("unhide_all" if e.shift_pressed else "hide")
-		KEY_T: m._turn_grain()
+		KEY_T: m.appearance.turn_grain(m.hover_body)
