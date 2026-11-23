@@ -53,3 +53,8 @@ Reading path: main.gd `_ready` (where the port is picked) → `_pick_worker` →
 model and the window; worker_client.gd owns the socket.
 
 Run the feature tests while building (`tools/featuretest.sh`), the quick test after each change, then `python3 tools/job.py test`. End your response with a Result line; leftovers as Follow-up lines; the folder-guide change (viewport/CLAUDE.md's Files list) as a For the integrator line.
+
+#### Response — Codex, 2026-11-23
+
+Architecture: `viewport/worker_process.gd` (`m.worker`) owns worker discovery, process and port selection, startup, restart, shutdown and worker logging.
+Architecture: `main.gd` owns model opening and reconnect handling, and defines the viewport protocol version. `worker_client.gd` owns the socket.
