@@ -32,7 +32,7 @@ worktree (T102).
 6. Append your response to the entry, dated and signed: branch, commit, what you verified, IDs you added, open
    questions. Then a line each: `Architecture: <what>`; `Follow-up: <what>` per thing left; `For the integrator:
    <what>` per merge step (P26); last, `Result: <commit>; <tests>; <what changed>`, no `|` (T91). Set Status to
-   `answered`; commit.
+   `answered`, run `python3 tools/handoff.py list` (the open list shows each job's status); commit.
 7. `python3 tools/job.py done` (it checks the response, the Status, a quick-test pass and hung processes). Tell
    William "ready for review: <ID>" and stop: one job a session (P37). Don't take the integrator lock.
 
