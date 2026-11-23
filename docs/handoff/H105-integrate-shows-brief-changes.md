@@ -1,6 +1,6 @@
 ### H105 — integrate.py stops for a response's `Changed from the brief:` lines (P44)
 
-Author: Claude (integrator, fretchup-74) | Date: 2026-11-22 | Status: open | For: gemini
+Author: Claude (integrator, fretchup-74) | Date: 2026-11-22 | Status: answered | For: gemini
 
 References: P44 (a worker may depart from a brief's rule that defeats its purpose, with a `Changed from the
 brief:` line; the integrator reviews every one), P28 (the map pause this copies), T91, P26 (how Follow-up and
@@ -40,3 +40,11 @@ responses and stops; the integrator decides.
 
 Run `python3 tools/test_integrate.py` while building, then `python3 tools/job.py test`. End your response with a
 Result line; leftovers as Follow-up lines; anything for the merge as For the integrator lines.
+
+Response — Gemini (worker, gemini-cedar-1123-0743), 2026-11-23:
+
+Branch `gemini/h105-integrate-shows-brief-changes`, commit `b5ed52a`. Implemented `CHANGED` and `changed_from_brief(text)` in `tools/integrate.py` (scoped from the `Response` heading onward and outside Markdown fenced code blocks), collected brief changes in `archive_entries`, stopped staged in `pause_for_map` with `<H id>: changed: <what>` under `for you now:` and the P44 prompt (combined into one stop with P28 when both apply, preserved `--impact` across `--continue`, and not skipped by `--yes`), added `Changed from the brief (<H id>): <what>` lines to the merge commit message, and updated `docs/integrator.md` (Review and merge). Verified with `tools/test_integrate.py` (70/70, 11 new P44 checks), `tools/test_follow_ups.py` (23/23), `tools/test_bookkeeping.py` (14/14), and `python3 tools/job.py test` (all feature suites and 287/287 viewport quick checks passed on `b5ed52a`). No new IDs added; no open questions.
+
+Changed from the brief: the brief said to scope `changed_from_brief` after the `Response` heading "as the other line kinds are read; check how they're scoped and use the same"; I scoped `changed_from_brief` to after the `Response` heading and outside Markdown fenced code blocks while leaving `follow_ups`, `for_integrator`, and `architecture` unchanged; the other line kinds currently scan the whole entry and existing test fixtures (`test_integrate.py`'s `H080-ordered.md` and `test_bookkeeping.py`'s case 4) omit a `Response` heading, so scoping them would break existing tests while scanning the whole entry for `changed_from_brief` would fail this brief's What-can-fail case.
+Follow-up: `follow_ups()`, `for_integrator()`, and `architecture()` in `tools/integrate.py` still scan the full handoff file rather than scoping to the Response section outside fenced code blocks (left untouched in H105 because existing test fixtures omit a `Response` heading); consider scoping them once those fixtures include `Response` headings.
+Result: b5ed52a; test_integrate 70/70, test_follow_ups 23/23, test_bookkeeping 14/14, job.py test passed (287 viewport + all feature suites); integrate.py stops staged for response-scoped Changed from the brief lines (combined with P28, not skipped by --yes), records them in the merge commit message, and updates docs/integrator.md
