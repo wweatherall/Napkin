@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+from unittest.mock import patch
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -249,6 +250,94 @@ check("board merge: both editing the same section stops it, nothing committed",
       rc == 1 and "both changed" in said and "If you're not the integrator" in said
       and sh(root, "git", "rev-parse", "HEAD").stdout == head0, said)
 sh(root, "git", "merge", "--abort")
+shutil.rmtree(root)
+
+# 7. Trace the actual steps through main(), including the map pause and --continue. The names below are
+#    the documented order, independent of the production tuples. Wrappers still run each step's real work.
+MERGE_ORDER = ["check_start", "prepare_log", "merge_branch", "settle_conflicts", "check_touches", "number_entries",
+               "archive_entries", "update_statuses", "rebuild_and_check", "run_gate", "pause_for_map"]
+FINISH_ORDER = ["commit_merge", "clean_up_job", "record_results", "push_main"]
+
+
+@contextlib.contextmanager
+def trace_steps():
+    calls, states = [], []
+
+    def wrap(step):
+        def traced(state):
+            calls.append(step.__name__)
+            states.append(state)
+            returned = step(state)
+            if returned is not state:
+                raise AssertionError(f"{step.__name__} didn't return its run state")
+            return returned
+        return traced
+
+    with patch.object(integrate, "MERGE_STEPS", tuple(wrap(f) for f in integrate.MERGE_STEPS)), \
+         patch.object(integrate, "FINISH_STEPS", tuple(wrap(f) for f in integrate.FINISH_STEPS)), \
+         patch.object(integrate, "load_continuation", wrap(integrate.load_continuation)):
+        yield calls, states
+
+
+def ordered_repo(gate_rc=0):
+    root = repo()
+    write(root, "ARCHITECTURE.md", "# Map\n")
+    # A real subprocess gate, with a visible verdict; no actual remote is needed for these merge checks.
+    write(root, "tools/gate.sh", f"#!/bin/sh\necho GATE {'PASS' if not gate_rc else 'FAIL'}\nexit {gate_rc}\n")
+    os.chmod(os.path.join(root, "tools/gate.sh"), 0o755)
+    sh(root, "git", "add", "-A"); sh(root, "git", "commit", "-qm", "map and gate")
+    sh(root, "git", "checkout", "-qb", "agent/ordered")
+    write(root, "notes.md", "ordered change\n")
+    write(root, "docs/handoff/H080-ordered.md",
+          "### H080 — T1: ordered merge\n\nAuthor: Codex | Status: answered\n\n"
+          "Architecture: update the map.\nResult: abc1234; fixture checks; ordered change\n")
+    sh(root, "git", "add", "-A"); sh(root, "git", "commit", "-qm", "ordered branch")
+    sh(root, "git", "checkout", "-q", "main")
+    integrator.take(integrator.lock_path(root), "tester", out=lambda *a: None)
+    return root
+
+
+root = ordered_repo()
+with trace_steps() as (calls, states):
+    rc, said = run_integrate("agent/ordered", "--as", "tester", "--impact", "fixture")
+check("main runs every named step in documented order", rc == 0 and calls == MERGE_ORDER + FINISH_ORDER, calls)
+check("each step takes and returns the same run state", len({id(s) for s in states}) == 1)
+check("the ordered run gates, commits, and records the merge result",
+      "GATE PASS" in said and "Result (abc1234, merged" in open(os.path.join(root, "docs/decision-log.md")).read()
+      and not os.path.exists(integrate.state_file(root)), said)
+shutil.rmtree(root)
+
+root = ordered_repo()
+head0 = sh(root, "git", "rev-parse", "HEAD").stdout
+with trace_steps() as (calls, _):
+    rc, said = run_integrate("agent/ordered", "--as", "tester")
+check("the map pause stops after the gate, before commit or cleanup",
+      rc == 0 and calls == MERGE_ORDER and "GATE PASS" in said and "staged, not committed" in said
+      and sh(root, "git", "rev-parse", "HEAD").stdout == head0 and os.path.isfile(integrate.state_file(root)), said + str(calls))
+with trace_steps() as (calls, _):
+    rc, said = run_integrate("--continue", "--as", "tester")
+check("continue without a map edit stops at continuation validation",
+      rc == 1 and calls == ["load_continuation"] and "aren't changed yet" in said, said + str(calls))
+write(root, "ARCHITECTURE.md", "# Map\n\nUpdated after review.\n")
+sh(root, "git", "add", "ARCHITECTURE.md")
+with trace_steps() as (calls, states):
+    rc, said = run_integrate("--continue", "--as", "tester")
+check("continue runs only validation and the shared steps after the pause",
+      rc == 0 and calls == ["load_continuation"] + FINISH_ORDER and "GATE PASS" not in said
+      and len({id(s) for s in states}) == 1 and not os.path.exists(integrate.state_file(root)), said + str(calls))
+check("continue includes the reviewed map and records the merge result",
+      "Updated after review." in sh(root, "git", "show", "HEAD:ARCHITECTURE.md").stdout
+      and "Result (abc1234, merged" in open(os.path.join(root, "docs/decision-log.md")).read(), said)
+shutil.rmtree(root)
+
+root = ordered_repo(gate_rc=1)
+head0 = sh(root, "git", "rev-parse", "HEAD").stdout
+with trace_steps() as (calls, _):
+    rc, said = run_integrate("agent/ordered", "--as", "tester")
+check("a failed gate stops before the map pause and every finishing step",
+      rc == 1 and calls == MERGE_ORDER[:-1] and "GATE FAIL" in said
+      and sh(root, "git", "rev-parse", "HEAD").stdout == head0
+      and not os.path.exists(integrate.state_file(root)), said + str(calls))
 shutil.rmtree(root)
 
 print(f"INTEGRATE TESTS: {sum(RESULTS)} passed, {len(RESULTS) - sum(RESULTS)} failed")
