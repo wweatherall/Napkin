@@ -64,5 +64,5 @@ Done since the board started: H033 (T74 + T77), H034 (T76), H035 (T44), T56 (sta
 ## Notes
 
 - H093 merges only after H098 (the break-it trial, William's request): H098 goes to an agent other than H093's builder.
-- T88: steps 1-5 (Paint H065, Select H071, Circle H072, Rectangle H075, Push/Pull H079) merged; step 6 (Move, and the legacy setup's removal) is H083. H052 (T66 units) waits for it.
-- H080, H081 and H083 touch different files and can run side by side.
+- T88: steps 1-5 (Paint H065, Select H071, Circle H072, Rectangle H075, Push/Pull H079) merged; step 6 (Move, and the legacy setup's removal) is H083 (Gemini finishing Codex's work, William 2026-11-22), then H101 (Codex checks and tidies it). H052 (T66 units) waits for both (same tool files).
+- H101 is for the Codex session that started H083 (01a20629…, William): its H083 count was taken off so it can take H101 without a /clear.
