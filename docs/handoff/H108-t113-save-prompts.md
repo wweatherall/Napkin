@@ -51,3 +51,8 @@ document.gd on_outside_save → main `_on_outside_waiting` → `_ask_outside` �
 save_prompts.gd asks and passes the answer back.
 
 Run the feature tests while building (`tools/featuretest.sh`), the quick test after each change, then `python3 tools/job.py test`. End your response with a Result line; leftovers as Follow-up lines; the folder-guide change (viewport/CLAUDE.md's Files list) as a For the integrator line.
+
+#### Response — Codex, 2026-11-23
+
+Architecture: `viewport/save_prompts.gd` (`m.prompts`) owns the close and outside-save dialog state, timeout guards and choices. Main forwards its window-close notification and resets the outside-save prompt on model switches. `document.gd` still decides when to save or reload.
+Architecture: `save_prompts.gd:on_reloaded` coordinates the UI refresh and calls `presenter.gd:begin_wave` for each changed board.

@@ -41,27 +41,27 @@ func run() -> void:
 	await harness._frames(10)
 	harness._ok("and stays (the timer doesn't clear it)", m.ui_saved.text.begins_with("Couldn't save"), m.ui_saved.text)
 
-	m._request_close()
-	await _until(func(): return m.close_asked.size() == 1)
+	m.prompts.request_close()
+	await _until(func(): return m.prompts.close_asked.size() == 1)
 	harness._ok("closing with the save failing asks, with the reason, and doesn't close",
-		m.close_asked == ["the folder savefail_ro is read-only"] and not m.close_done, [m.close_asked, m.close_done])
-	m._close_choice("cancel")
+		m.prompts.close_asked == ["the folder savefail_ro is read-only"] and not m.prompts.close_done, [m.prompts.close_asked, m.prompts.close_done])
+	m.prompts.close_choice("cancel")
 	harness._ok("Cancel keeps the window, still saying it couldn't save",
-		not m.doc.closing and not m.close_done and m.ui_saved.text.begins_with("Couldn't save"), m.ui_saved.text)
-	m._request_close()
-	await _until(func(): return m.close_asked.size() == 2)
-	m._close_choice("retry")
-	await _until(func(): return m.close_asked.size() == 3)
-	harness._ok("Retry tries again and asks again while it still fails", m.close_asked.size() == 3 and not m.close_done,
-		m.close_asked)
+		not m.doc.closing and not m.prompts.close_done and m.ui_saved.text.begins_with("Couldn't save"), m.ui_saved.text)
+	m.prompts.request_close()
+	await _until(func(): return m.prompts.close_asked.size() == 2)
+	m.prompts.close_choice("retry")
+	await _until(func(): return m.prompts.close_asked.size() == 3)
+	harness._ok("Retry tries again and asks again while it still fails", m.prompts.close_asked.size() == 3 and not m.prompts.close_done,
+		m.prompts.close_asked)
 
 	OS.execute("chmod", ["755", folder])
-	m._close_choice("retry")
-	await _until(func(): return m.close_done)
+	m.prompts.close_choice("retry")
+	await _until(func(): return m.prompts.close_done)
 	harness._ok("Retry once the folder is writable saves the latest revision and closes",
-		m.close_done and m.saved_rev == m.pending_rev and m.ui_saved.text == "Saved", [m.close_done, m.saved_rev, m.pending_rev, m.ui_saved.text])
-	m.close_done = false
-	m._close_choice("discard")
-	harness._ok("Close without saving closes", m.close_done)
-	m.close_done = false
-	m.close_asked.clear()
+		m.prompts.close_done and m.saved_rev == m.pending_rev and m.ui_saved.text == "Saved", [m.prompts.close_done, m.saved_rev, m.pending_rev, m.ui_saved.text])
+	m.prompts.close_done = false
+	m.prompts.close_choice("discard")
+	harness._ok("Close without saving closes", m.prompts.close_done)
+	m.prompts.close_done = false
+	m.prompts.close_asked.clear()
