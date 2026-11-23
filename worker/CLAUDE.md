@@ -76,6 +76,8 @@ ARCHITECTURE.md the module map and protocol (update it in the same commit when y
   opens the model with everything hidden. A landed save sends `{"cmd": "saved", "rev"}` (Q22).
 - Opening a file adopts its journal. The worker watches the open model's file; FreeCAD's save is reloaded with the
   wave, or kept beside ours (A36, T64); the journal keeps the undo floor and dropped actions.
+  Setting the floor from FreeCAD's change also writes `<model>.floor.FCStd` (the journal's `floor_copy` has its sha):
+  a rebuild past 20 undo steps starts from it, not from empty (A38).
 
 ## FreeCAD rules (learned the hard way)
 - New FreeCAD properties go on objects when they are created: adding them inside an undo transaction isn't

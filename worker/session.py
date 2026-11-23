@@ -164,12 +164,14 @@ def journal_path(model_path):
 
 
 def generation(model_path):
-    """The files of one model's save generations (A32): the current pair, the one being written, the one before."""
+    """The files of one model's save generations (A32): the current pair, the one being written, the one before,
+    and the floor copy kept when FreeCAD edits the model (A38)."""
     base, ext = os.path.splitext(model_path)
     return {"file": model_path, "journal": base + ".shopsketch.json",
             "saving_file": base + ".saving" + ext, "saving_journal": base + ".shopsketch.saving.json",
             "prev_file": base + ".prev" + ext, "prev_journal": base + ".shopsketch.prev.json",
-            "unmatched_file": base + ".unmatched" + ext, "unmatched_journal": base + ".shopsketch.unmatched.json"}
+            "unmatched_file": base + ".unmatched" + ext, "unmatched_journal": base + ".shopsketch.unmatched.json",
+            "floor_file": base + ".floor" + ext}
 
 
 def read_journal(path):
@@ -321,6 +323,7 @@ class Session:
         self.applied = []
         self.ids = IdRegistry()
         self.undo_floor = 0
+        self.floor_copy = None     # {"sha256", "ops"} of <model>.floor.FCStd when the floor came from FreeCAD (A38)
         self.external = False
         self.rev = 0
         self.dirty = False
@@ -347,14 +350,31 @@ class Session:
         self.doc.UndoMode = 1
         self.model = Model(self.doc)
 
-    def _load_file(self):
-        """Open the file as the live document (opening, and reloading an outside save)."""
-        self.doc = App.openDocument(self.path)
+    def _load_file(self, path=None):
+        """Open the file as the live document (opening, reloading an outside save, or rebuilding from the floor copy)."""
+        self.doc = App.openDocument(path or self.path)
         self.doc.UndoMode = 1
         self.drawing = remove_drawing_pages(self.doc) or self.drawing
         self.doc.recompute()
         self.model = Model(self.doc)
         self.model.add_hidden_props()           # boards saved before hiding existed (T28)
+
+    def _write_floor_copy(self):
+        """Write <model>.floor.FCStd atomically from the live document at the floor (A38)."""
+        floor_path = generation(self.path)["floor_file"]
+        base, ext = os.path.splitext(floor_path)
+        tmp = base + ".tmp" + ext
+        try:
+            self.doc.saveCopy(tmp)
+            os.replace(tmp, floor_path)
+        except Exception:
+            if os.path.exists(tmp):
+                try:
+                    os.remove(tmp)
+                except OSError:
+                    pass
+            raise
+        self.floor_copy = {"sha256": sha256(floor_path), "ops": self.undo_floor}
 
     def _open_existing(self):
         self._load_file()
@@ -383,6 +403,11 @@ class Session:
         self.session_base = len(self.applied)
         self.rev_ops = {self.rev: list(self.applied)}
         self.doc.clearUndos()
+        if self.external:
+            self._write_floor_copy()
+        else:
+            fc = (j or {}).get("floor_copy")
+            self.floor_copy = dict(fc) if isinstance(fc, dict) else None
         self.file_sig = self.disk_sig()
 
     def disk_sig(self):
@@ -469,6 +494,7 @@ class Session:
         self.ids.seed_native(self.doc)
         self.applied = kept
         self.undo_floor = self.session_base = len(kept)
+        self._write_floor_copy()
         self.external = False                   # the journal written below names this file
         self.dirty = False
         self.dropped += gone
@@ -486,12 +512,15 @@ class Session:
                 "dropped": [d["op"] for d in gone]}     # no "rev": the reply's is the session's (open_reply)
 
     def _journal(self, rev, file_sha):
-        return {"format": JOURNAL_FORMAT, "rev": rev, "file_sha256": file_sha,
-                "model": os.path.basename(self.path), "name": os.path.splitext(os.path.basename(self.path))[0],
-                "ops": [e["op"] for e in self.applied],
-                "status": [{k: e[k] for k in ("status", "changed", "message", "ms") if k in e} for e in self.applied],
-                "floor": self.undo_floor, "dropped": self.dropped,
-                "reserved_ids": sorted(self.ids.reserved), "id_owners": self.ids.owners}
+        j = {"format": JOURNAL_FORMAT, "rev": rev, "file_sha256": file_sha,
+             "model": os.path.basename(self.path), "name": os.path.splitext(os.path.basename(self.path))[0],
+             "ops": [e["op"] for e in self.applied],
+             "status": [{k: e[k] for k in ("status", "changed", "message", "ms") if k in e} for e in self.applied],
+             "floor": self.undo_floor, "dropped": self.dropped,
+             "reserved_ids": sorted(self.ids.reserved), "id_owners": self.ids.owners}
+        if self.floor_copy is not None:
+            j["floor_copy"] = dict(self.floor_copy)
+        return j
 
     # ----- applying ops -----
     def _apply(self, op):
@@ -512,11 +541,31 @@ class Session:
         self.applied.append(entry)
 
     def _rebuild(self, ops):
-        self._new_doc()
-        self.applied = []
-        self.session_base = 0
-        self.undo_floor = 0
-        for op in ops:
+        if self.undo_floor == 0:
+            self._new_doc()
+            self.applied = []
+            self.session_base = 0
+            self.undo_floor = 0
+            for op in ops:
+                self._apply(op)
+            return
+        floor_path = generation(self.path)["floor_file"] if self.path else None
+        fc = self.floor_copy
+        try:
+            floor_sha = sha256(floor_path) if floor_path and os.path.exists(floor_path) else None
+        except OSError:
+            floor_sha = None
+        if not (isinstance(fc, dict) and floor_sha is not None
+                and fc.get("ops") == self.undo_floor and fc.get("sha256") == floor_sha):
+            raise OpError("can't undo past the FreeCAD edit: its copy is missing")
+        if self.doc is not None:
+            App.closeDocument(self.doc.Name)
+            self.doc = None
+        self._load_file(floor_path)
+        self.doc.clearUndos()
+        self.applied = list(self.applied[:self.undo_floor])
+        self.session_base = self.undo_floor
+        for op in ops[self.undo_floor:]:
             self._apply(op)
 
     def sync(self, ops, reserved_ids=()):
@@ -635,7 +684,7 @@ class Session:
             raise
         self.dirty = False
         self.file_sig = self.disk_sig()
-        self.rev_ops[self.rev] = list(self.applied)
+        self.rev_ops[self.rev] = [e for e in self.applied if e["status"] == "ok"]   # what the file holds
         for old in sorted(self.rev_ops)[:-50]:        # the last 50 revisions are plenty for FreeCAD's open copy
             del self.rev_ops[old]
         self.external = False   # the file is exactly our journal again; the undo floor stays (the journal keeps it)
