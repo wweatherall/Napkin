@@ -36,7 +36,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H085 — T83: the Arc tool (2-Point and Centre arcs, exact in FreeCAD, splitting faces)](handoff/H085-t83-arc-tool.md) — status: queued (after H052); for: either
 - [H086 — T83 step 2: an arc on a corner is tangent to both edges (rounded corners)](handoff/H086-t83-arc-corner-tangent.md) — status: queued (after H085); for: either
 - [H087 — A38: a rebuild keeps FreeCAD's edits (the floor copy)](handoff/H087-floor-copy.md) — status: open; for: gemini
-- [H088 — integrate.py and job.py show the tests' progress as it happens](handoff/H088-live-test-output.md) — status: open; for: gemini
+- [H088 — integrate.py and job.py show the tests' progress as it happens](handoff/H088-live-test-output.md) — status: answered; for: gemini
 
 <!-- end of open list -->
 
