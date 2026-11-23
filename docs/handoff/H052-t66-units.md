@@ -1,6 +1,6 @@
 ### H052 — T66: lengths shown in the model's units
 
-Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: open | For: gemini
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: answered | For: gemini
 
 References: T66, I57, I62 (the Units menu, rounding, ~, saved per model), I59 (bare numbers typed are in the model's
 units), I35 and T32 (typing lengths), P21 (viewport vs FreeCAD answers: tests/length_cases.json), Q22.
@@ -61,7 +61,7 @@ to format a length.
 
 #### Response (Gemini, 2026-11-22)
 
-Branch: `gemini/h052-t66-units` | Commit: `<pending>`
+Branch: `gemini/h052-t66-units` | Commit: `4c7f1e6`
 
 Implemented T66 (I57, I59, I62):
 - `viewport/units.gd`: canonical `<format>:<rounding>` specs for all six formats (`ft-in`, `in-frac`, `in-dec`, `m`, `cm`, `mm`) with their rounding choices (`1/8`–`1/64"`, `0.1`–`0.001"`, `1`–`0.01 mm`, `1`–`0.01 cm`, `0.1`–`0.001 m`), default `in-frac:1/16`, `~` prefix whenever rounding changes the length beyond `ROUND_TOL_MM` (0.0005 mm, absorbing float32 noise while catching any >=0.001 mm rounding), `default_unit_of`, and format/precision helpers.
@@ -82,5 +82,5 @@ Architecture: ToolContext.ui gains format_length(mm) (allowlisted in viewport/te
 Follow-up: tools/length_cases.py does not yet generate the default_unit cases appended to tests/length_cases.json; add a default_unit list to tools/length_cases.py next time it is regenerated.
 Follow-up: tools/featuretest.sh keys each test's log by basename after test_, so a worker/test_<name>.py and viewport/test_<name>.gd with the same <name> overwrite each other's log (avoided here by naming worker/test_model_units.py); prefixing logs by folder in featuretest.sh would prevent silent collisions.
 For the integrator: Update docs/protocol.md (PROTOCOL_VERSION 9, open/reload units field, set_units command, .FCStd Meta ShopSketchUnits) and ARCHITECTURE.md (Session.units, MeasureBox units ownership, ToolContext.ui.format_length) from the Architecture lines above, and record the T66 Work list result.
-Result: <pending>; quicktest 254/254 + feature tests all green (units 132/132, model_units 22/22, tool_context 147/147, length_input 23/23); T66 display units (I57, I59, I62), Units menu, Meta persistence, set_units protocol v9, bare-number default_unit.
+Result: 4c7f1e6; quicktest 254/254 + all feature tests green (units 132/132, model_units 22/22, tool_context 147/147, length_input 23/23); T66 display units (I57, I59, I62), Units menu, Meta persistence, set_units protocol v9, bare-number default_unit.
 
