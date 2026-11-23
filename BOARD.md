@@ -3,7 +3,7 @@
 "Check the board" sends you here. Only the integrator edits this file; the job table is built from docs/handoff/
 and the job queue.
 
-Order: H080, H081, H083, H052
+Order: H083, H052, H085, H086
 
 ## If you're not the integrator
 
@@ -47,8 +47,10 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H083 | either | **Ready** | T88 step 6: Move moves to ToolContext, and the legacy setup goes | [H083](docs/handoff/H083-t88-move-to-toolcontext.md) |  |
+| H083 | either | In progress (codex since 20:08) | T88 step 6: Move moves to ToolContext, and the legacy setup goes | [H083](docs/handoff/H083-t88-move-to-toolcontext.md) |  |
 | H052 | either | Queued | T66: lengths shown in the model's units | [H052](docs/handoff/H052-t66-units.md) | T88's tool moves |
+| H085 | either | Queued | T83: the Arc tool (2-Point and Centre arcs, exact in FreeCAD, splitting faces) | [H085](docs/handoff/H085-t83-arc-tool.md) | H052 |
+| H086 | either | Queued | T83 step 2: an arc on a corner is tangent to both edges (rounded corners) | [H086](docs/handoff/H086-t83-arc-corner-tangent.md) | H085 |
 
 <!-- end of job table -->
 
