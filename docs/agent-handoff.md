@@ -34,6 +34,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H096 — Pushing one cell of a split profile keeps the rest of the profile on screen (H092 finding 9)](handoff/H096-region-push-keeps-profile.md) — status: open; for: either
 - [H097 — T110: test helpers that make a failure-path check a few lines](handoff/H097-failure-path-test-helpers.md) — status: queued (after H096); for: either
 - [H109 — T113 step 2: what a rejection takes with it moves to document.gd, and main's document pass-throughs go](handoff/H109-t113-rejections.md) — status: queued (after H096, H094); for: either
+- [H118 — For the next integrator session: where things stand](handoff/H118-integrator-state.md) — status: open; for: the integrator
 
 <!-- end of open list -->
 
