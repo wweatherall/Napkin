@@ -88,7 +88,7 @@ check("a response with neither gives none of either",
       integrate.follow_ups(ENTRY) == [] and integrate.for_integrator(ENTRY) == [])
 
 text = ENTRY.format(n="060", status="answered") + ("\nResponse: done.\n\nArchitecture: session.py saves generations\n"
-                                                   "- Architecture: the open reply gains recovered  \n"
+                                                   "- Architecture: the open reply gains recovered  \n\n"
                                                    "A mention mid-line, `Architecture: <what>`, isn't one.\n")
 check("Architecture lines (P28) parse with and without '- '; a mention mid-line isn't one",
       integrate.architecture(text) == ["session.py saves generations", "the open reply gains recovered"],

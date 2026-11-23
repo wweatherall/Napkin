@@ -9,6 +9,7 @@ and an open list this script builds from the folder, between its two marker line
                                            section before "## Archived") into its own file, then rebuild the list;
                                            an entry that has a file and was answered inline (on a branch made
                                            before T77) updates its file, if only responses were added
+  python3 tools/handoff.py check [H037 ...]  validate Touches (all open and queued entries by default)
   python3 tools/handoff.py overlaps         list files two open jobs both touch (P11; queued jobs don't count); exit 1 if any
   python3 tools/handoff.py archive H037    move the entry to the bottom of docs/handoff-archive.md, word for word,
                                            and add its line under "Archived" (outcome: its Resolution line)
@@ -17,6 +18,7 @@ A new entry on a branch is docs/handoff/H-new-N-slug.md with "### H-new-N — Su
 number is given at merge (tools/number_ids.py)."""
 import os
 import re
+import subprocess
 import sys
 from fnmatch import fnmatchcase
 
@@ -216,6 +218,87 @@ def touches_named(body):
     return out
 
 
+# The linter also sees tokens the overlap parser cannot use, such as bare file names and globs.
+TOUCHES_PARAGRAPH = re.compile(r"^Touches:([^\n]*(?:\n(?![^\S\n]*$)[^\n]+)*)", re.M)
+TOUCHES_WORD = re.compile(
+    r"(?<![\w/.*-])((?:[\w.*-]+/)+[\w.*-]*|[\w.-]+\.(?:gd|py|sh|md|json|tscn|cfg)\b"
+    r"|README\.txt\b|[\w.*-]*\*[\w.*-]*)(?![\w/*-]|\.[\w.*-])"
+)
+NEW_BEFORE = re.compile(r"\ba new\s+`?$", re.I)
+NEW_AFTER = re.compile(r"^`?\s*\(new\)", re.I)
+
+
+def touches_problems(body, exists):
+    """Yield (problem, word) pairs from the brief's Touches paragraph."""
+    paragraph = TOUCHES_PARAGRAPH.search(body)
+    if not paragraph:
+        return
+    text = NOT_ASIDE.sub("", " ".join(paragraph[1].splitlines()))
+    for sentence in re.split(r"(?<=[.;])(?=\s+[A-Z(])", text):
+        if SKIP.match(sentence.strip()):
+            continue
+        for match in TOUCHES_WORD.finditer(sentence):
+            word = match[1].rstrip(".")
+            if "*" in word:
+                yield "glob", word
+            elif "/" not in word and word not in TOP:
+                yield "bare file name", word
+            elif not (
+                NEW_BEFORE.search(sentence[:match.start()])
+                or NEW_AFTER.match(sentence[match.end():])
+                or exists(word)
+            ):
+                yield "path does not exist", word
+
+
+def staged_briefs(root):
+    """Yield staged handoff text and a predicate for paths in the proposed commit."""
+    def git(*args):
+        return subprocess.check_output(("git", *args), cwd=root).decode("utf-8")
+
+    changed = git("diff", "--cached", "--no-renames", "--diff-filter=AM", "--name-only", "-z", "--", FOLDER)
+    paths = set(git("ls-files", "-z").split("\0"))
+    for path in tuple(paths):
+        folder = os.path.dirname(path)
+        while folder and folder not in paths:
+            paths.add(folder)
+            folder = os.path.dirname(folder)
+
+    def exists(word):
+        return word.rstrip("/") in paths
+
+    for path in changed.split("\0"):
+        if os.path.dirname(path) == FOLDER and path.endswith(".md"):
+            yield os.path.basename(path), git("show", f":{path}"), exists
+
+
+def check_touches(root, ids=(), staged=False):
+    """Return diagnostics for selected briefs, or for open and queued briefs with no IDs."""
+    if staged:
+        briefs = staged_briefs(root)
+    else:
+        def exists(path):
+            return os.path.exists(os.path.join(root, path))
+
+        briefs = ((name, open(os.path.join(root, FOLDER, name), encoding="utf-8").read(), exists)
+                  for name, _, _ in entries(root))
+    problems = []
+    for name, body, exists in briefs:
+        match = ID.match(name)
+        if not match:
+            continue
+        hid = match[0]
+        if ids:
+            if hid not in ids:
+                continue
+        else:
+            meta = next((line for line in body.splitlines() if line.startswith("Author:")), "")
+            if not re.search(r"(?:^| \| )Status: (?:open|queued)(?=\s|$)", meta):
+                continue
+        problems.extend(f"{hid}: Touches: {problem}: {word}" for problem, word in touches_problems(body, exists))
+    return problems
+
+
 def _covers(a, b):
     """Does path a include path b (equal, a folder of it, or a glob over it)?"""
     if a == b:
@@ -279,6 +362,12 @@ def main():
                 sys.exit(1)
         elif write_list(root):
             print(f"rebuilt the open list in {HANDOFF}")
+    elif args[:1] == ["check"]:
+        staged = args[1:] == ["--staged"]
+        problems = check_touches(root, () if staged else args[1:], staged=staged)
+        for problem in problems:
+            print(problem)
+        sys.exit(bool(problems))
     elif args[:1] == ["overlaps"]:
         found = overlaps(root)
         for path, ids in found:

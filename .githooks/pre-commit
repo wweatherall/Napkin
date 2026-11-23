@@ -11,6 +11,7 @@ if git diff --cached --name-only | grep -qx "docs/decision-log.md\|docs/decision
 fi
 # The handoff's open list is built from docs/handoff/ (T77): rebuild it and stage it, so a hand edit can't disagree.
 if git diff --cached --name-only | grep -q "^docs/handoff/\|^docs/agent-handoff.md$"; then
+  python3 tools/handoff.py check --staged || exit 1
   python3 tools/handoff.py list >/dev/null || exit 1
   git add docs/agent-handoff.md
   python3 tools/handoff.py list --check || exit 1

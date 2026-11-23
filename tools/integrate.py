@@ -448,11 +448,10 @@ def result_line(text):
     return (found[-1][0][:7], found[-1][1]) if found else None
 
 
-FOLLOW_UP = re.compile(r"(?m)^[-*]?\s*Follow-up:\s*(.+?)\s*$")
-FOR_INTEGRATOR = re.compile(r"(?m)^[-*]?\s*For the integrator:\s*(.+?)\s*$")
-ARCHITECTURE_LINE = re.compile(r"(?m)^[-*]?\s*Architecture:\s*(.+?)\s*$")
-CHANGED = re.compile(r"(?m)^[-*]?\s*Changed from the brief:\s*(.+?)\s*$")
-RESPONSE_HEADING = re.compile(r"(?m)^(?:#{1,6}\s+|\*\*)?Response\b")
+RESPONSE_FIELD = re.compile(
+    r"^[ \t]*[-*]?[ \t]*(Follow-up|For the integrator|Architecture|Changed from the brief|Result):[ \t]*(.*)"
+)
+RESPONSE_HEADING = re.compile(r"(?m)^(?:#{1,6}[ \t]+Response\b|\*\*Response\b|Response (?:—|from\b))")
 FOLLOW_UPS = "docs/follow-ups.md"
 FOLLOW_UPS_HEADER = """# Follow-ups
 
@@ -466,19 +465,40 @@ or that turns it into a Work list item. `python3 tools/startup.py` lists the ope
 FOLLOW_UP_ROW = re.compile(r"^- (\S+) \([^)]*\): (.+?)\s*$")
 
 
+def response_values(text, field):
+    """Join each field's continuation lines up to a blank line or the next field."""
+    values = []
+    parts = []
+    active = False
+    for line in (text or "").splitlines():
+        match = RESPONSE_FIELD.match(line)
+        if match or not line.strip():
+            if parts:
+                values.append(" ".join(parts))
+                parts = []
+            active = bool(match and match[1] == field)
+            if active and match[2].strip():
+                parts.append(match[2].strip())
+        elif active:
+            parts.append(line.strip())
+    if parts:
+        values.append(" ".join(parts))
+    return values
+
+
 def follow_ups(text):
     """A response's "Follow-up: <what>" lines (a leading "- " allowed)."""
-    return FOLLOW_UP.findall(text or "")
+    return response_values(text, "Follow-up")
 
 
 def for_integrator(text):
     """A response's "For the integrator: <what>" lines."""
-    return FOR_INTEGRATOR.findall(text or "")
+    return response_values(text, "For the integrator")
 
 
 def architecture(text):
     """A response's "Architecture: <what>" lines (P28): what the change does to the map or the protocol."""
-    return ARCHITECTURE_LINE.findall(text or "")
+    return response_values(text, "Architecture")
 
 
 def _strip_fenced_blocks(text):
@@ -506,7 +526,7 @@ def _response_body(text):
 
 def changed_from_brief(text):
     """A response's "Changed from the brief: <what>" lines (P44), scoped to the response and outside code blocks."""
-    return CHANGED.findall(_response_body(text))
+    return response_values(_response_body(text), "Changed from the brief")
 
 
 def open_follow_ups(text):
