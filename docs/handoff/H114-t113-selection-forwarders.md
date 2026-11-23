@@ -1,6 +1,6 @@
 ### H114 — T113 step 4d: main.gd's selection pass-throughs go; callers use m.sel
 
-Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: open | For: either
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: answered | For: either
 
 References: T113, P45, T41, A33b.
 
@@ -33,3 +33,19 @@ Checks: test_tool_context.gd, test_selection.gd and the quick tests listed; `gre
 finds nothing; `wc -l viewport/main.gd` before and after.
 
 Run the feature tests while building (`tools/featuretest.sh`), the quick test after each change, then `python3 tools/job.py test`. End your response with a Result line; leftovers as Follow-up lines; the folder-guide change (viewport/CLAUDE.md's Files list) as a For the integrator line.
+
+#### Response — Gemini (2026-11-23)
+
+- **Branch / commit:** `gemini/h114-t113-selection-forwarders` @ `c9236ec`
+- **What changed:** Removed all 16 selection/presenter method forwarders (`unit_of`, `in_context`, `edit_blocked`, `context_assembly`, `enter_context_of`, `leave_context`, `set_selection`, `hidden_boards`, `is_hidden`, `hide_selected`, `unhide`, `toggle_hidden_geometry`, `make_assembly`, `_siblings_of`, `_linked_op`, `unit_tris`) from `viewport/main.gd` (`wc -l`: 1803 → 1783 lines, -20 lines). Updated callers in `viewport/main.gd` (`_update_tip`, `_show_siblings`, `_reset_model_state`), `viewport/keys.gd`, `viewport/menus.gd` (`run`: all selection menu actions, so no forwarder had to stay), and the 7 quick tests (`selection.gd`, `hide.gd`, `assembly.gd`, `assembly_row.gd`, `linked.gd`, `properties.gd`, `undo.gd`) to call `m.sel.*` directly. `tool_context.gd`, `presenter.gd`, `inference.gd`, and `test_tool_context.gd` already called `sel.*` / `pres.unit_tris` directly.
+- **Verified:**
+  - `grep -n "func unit_of" viewport/main.gd` → empty; grep across `viewport/`, `tools/`, `tests/` finds no remaining `m.<forwarder>` calls.
+  - `tools/featuretest.sh`: all 35 suites passed (`SELECTION TESTS: 47 passed, 0 failed`, `TOOL CONTEXT TESTS: 148 passed, 0 failed`).
+  - `python3 tools/job.py test` on clean `c9236ec`: passed (`QUICK 295 passed, 0 failed`, all 35 feature suites passed).
+  - `tools/fulltest.sh`: passed (all 6 recorded suites match `tests/reference/` as `same`, targeted suites and all 35 feature suites passed).
+- **IDs added:** none.
+- **Open questions:** none.
+
+Architecture: ARCHITECTURE.md (`viewport/main.gd` and `viewport/presenter.gd` rows): remove the note that Main forwards `unit_tris` and record that Main's 16 selection/presenter method forwarders were removed (callers use `m.sel.*` and `m.pres.unit_tris`; only selection property forwarders remain on Main).
+For the integrator: Update `viewport/CLAUDE.md` Files list (`selection.gd` and `presenter.gd` rows) so it says main.gd no longer forwards the selection/presenter methods (`unit_of`, `set_selection`, `hide_selected`, `unit_tris`, etc.) and callers use `m.sel.*` / `m.pres.unit_tris` (property forwarders like `m.selection` and `m.context` still remain).
+Result: c9236ec; quicktest 295/295, fulltest 6/6 reference same, 35/35 feature tests (selection 47/47, tool_context 148/148); removed all 16 selection/presenter method forwarders from viewport/main.gd (1803 -> 1783 lines) and updated main.gd, keys.gd, menus.gd and 7 quick tests to call m.sel.* directly
