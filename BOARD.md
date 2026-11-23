@@ -3,7 +3,7 @@
 "Check the board" sends you here. Only the integrator edits this file; the job table is built from docs/handoff/
 and the job queue.
 
-Order: H083, H052, H085, H086, H087, H088
+Order: H083, H052, H085, H086, H087, H090, H091
 
 ## If you're not the integrator
 
@@ -52,6 +52,8 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 | H085 | either | Queued | T83: the Arc tool (2-Point and Centre arcs, exact in FreeCAD, splitting faces) | [H085](docs/handoff/H085-t83-arc-tool.md) | H052 |
 | H086 | either | Queued | T83 step 2: an arc on a corner is tangent to both edges (rounded corners) | [H086](docs/handoff/H086-t83-arc-corner-tangent.md) | H085 |
 | H087 | Gemini | **Done**: for review (gemini) | A38: a rebuild keeps FreeCAD's edits (the floor copy) | [H087](docs/handoff/H087-floor-copy.md) |  |
+| H090 | either | **Ready** | T59 step 1: a cut made to a pocket's floor stays tied to it (the worker side) | [H090](docs/handoff/H090-t59-cut-to-pocket-floor.md) |  |
+| H091 | Gemini | **Ready** | integrate.py keeps main's Order line, job table and Notes on a clean BOARD.md merge too | [H091](docs/handoff/H091-board-notes-on-clean-merge.md) |  |
 
 <!-- end of job table -->
 
