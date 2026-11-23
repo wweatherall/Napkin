@@ -11,6 +11,9 @@ protocol (update it in the same commit when you change either). Tools have their
 - `keys.gd` (T75): the keyboard, `m.keys`: shortcuts, tool keys (`m.tool_keys`, from each tool's `TOOL`), Esc, Enter, Delete / Backspace (I48), typed
   characters, Tab / ⌥ for Push/Pull. main's `_input` / `_unhandled_input` stay the entry points (tests call
   `m._unhandled_input`) and hand it key presses.
+- `camera_rig.gd` (T113): the camera, `m.camera_rig`: orbit, pan, zoom (mouse and trackpad) and the live trackpad and
+  wheel tunables. main dispatches camera input to it and owns the scene Camera3D (`m.cam`); tests set a view through
+  `m.camera_rig` (`target`, `yaw`, `pitch`, `dist`, then `update_camera()`).
 - `measure_box.gd` (T75): the measurements box, `m.measure`: typed text (`vcb`), `typing`, the box itself, typed
   values (`apply`) and `length` requests FreeCAD works out. main forwards the old names (`m.vcb`, `m.apply_vcb()`,
   `m._update_vcb()`, ...).

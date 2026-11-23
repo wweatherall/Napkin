@@ -1,6 +1,6 @@
 ### H110 — T113 step 3: the menus move out of main.gd into menus.gd
 
-Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: queued (after H103, H101) | For: either
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: open | For: either
 
 References: T113, P45, A30, A34, I62.
 
