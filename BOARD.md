@@ -3,7 +3,7 @@
 "Check the board" sends you here. Only the integrator edits this file; the job table is built from docs/handoff/
 and the job queue.
 
-Order: H083, H099, H052, H085, H086, H093, H098, H094, H096, H097
+Order: H083, H101, H052, H085, H086, H093, H098, H094, H096, H097
 
 ## If you're not the integrator
 
@@ -47,7 +47,8 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H083 | either | Returned: **Ready** for Gemini (resumes codex/h083-t88-move-to-toolcontext) | T88 step 6: Move moves to ToolContext, and the legacy setup goes | [H083](docs/handoff/H083-t88-move-to-toolcontext.md) |  |
+| H083 | either | In progress (gemini since 22:21) | T88 step 6: Move moves to ToolContext, and the legacy setup goes | [H083](docs/handoff/H083-t88-move-to-toolcontext.md) |  |
+| H101 | Codex | Queued | T88 after H083: Codex checks and tidies the Move migration as built (no behaviour change) | [H101](docs/handoff/H101-t88-codex-checks-move.md) | H083 |
 | H052 | either | Queued | T66: lengths shown in the model's units | [H052](docs/handoff/H052-t66-units.md) | T88's tool moves |
 | H085 | either | Queued | T83: the Arc tool (2-Point and Centre arcs, exact in FreeCAD, splitting faces) | [H085](docs/handoff/H085-t83-arc-tool.md) | H052 |
 | H086 | either | Queued | T83 step 2: an arc on a corner is tangent to both edges (rounded corners) | [H086](docs/handoff/H086-t83-arc-corner-tangent.md) | H085 |
