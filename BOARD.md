@@ -45,7 +45,6 @@ You're the integrator only if William said so in this session (P16) and you hold
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H072 | either | **Ready** | T88 step 3: Circle moves to ToolContext | [H072](docs/handoff/H072-t88-circle-to-toolcontext.md) |  |
 | H073 | either | **Ready** | Two merge traps the tools cause: placeholders in prose, and BOARD.md's instructions lost | [H073](docs/handoff/H073-integrator-tool-traps.md) |  |
 | H052 | either | Queued | T66: lengths shown in the model's units | [H052](docs/handoff/H052-t66-units.md) | T88's tool moves |
 

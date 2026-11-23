@@ -32,7 +32,6 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 - [H052 — T66: lengths shown in the model's units](handoff/H052-t66-units.md) — status: queued (after T88's tool moves); for: either
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
-- [H072 — T88 step 3: Circle moves to ToolContext](handoff/H072-t88-circle-to-toolcontext.md) — status: open; for: either
 - [H073 — Two merge traps the tools cause: placeholders in prose, and BOARD.md's instructions lost](handoff/H073-integrator-tool-traps.md) — status: open; for: either
 - [H074 — For the next integrator session: where things stand](handoff/H074-integrator-state.md) — status: open; for: the integrator
 
@@ -69,6 +68,7 @@ H036 (T75) is open from main. It touches viewport files only, so it runs alongsi
 
 Full entries in [handoff-archive.md](handoff-archive.md).
 
+- H072 — T88 step 3: Circle moves to ToolContext. Resolved: merged into main by the integrator, 2026-11-22.
 - H069 — Three timing-sensitive tests that fail under load. Resolved: merged into main by the integrator, 2026-11-22.
 - H070 — Trim CLAUDE.md and AGENTS.md to what a session needs. Resolved: merged into main by the integrator, 2026-11-22.
 - H071 — T88 step 2: Select moves to ToolContext. Resolved: merged into main by the integrator, 2026-11-22.
