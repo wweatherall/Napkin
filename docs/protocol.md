@@ -314,6 +314,8 @@ Journal fields added by T67 (H059): `reserved_ids` (sorted strings: every ID res
 
 Journal fields added by T64 (A36): `floor` (undo stops here: ops before it can't be taken back, A25; kept across saves and sessions), `dropped` (`[{op, after_rev, at}]`: actions an outside save didn't hold, for T65), `outside_sha256` (written the moment an outside save is seen; opening a file with that sha opens it external instead of recovering, A32).
 
+Journal field added by A38 (H087): `floor_copy` (`{sha256, ops}`: the sha256 of `<model>.floor.FCStd`, a copy of the document as it stood at the undo floor, and the floor it was written at); optional, written only when the floor came from a FreeCAD change. A journal without it reads as no copy: undoing past the floor then needs a rebuild that is refused (`can't undo past the FreeCAD edit: its copy is missing`) rather than one that would drop FreeCAD's change.
+
 ### `status.json`, `views.json`, startup port file
 
 `status.json` contains exactly the StatusResult inside the latest sync reply, without the outer ok/cmd/seq/wall_ms/outdir fields. Example: `{"oplog":"live","total_ms":0.1,"export_ms":0.8,"how":"nothing","ops":[],"rev":4,"model":"/tmp/chair.FCStd"}`. Source: [worker/serve.py](../worker/serve.py):`run_sync`.
