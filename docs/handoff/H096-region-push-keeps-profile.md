@@ -1,6 +1,6 @@
 ### H096 — Pushing one cell of a split profile keeps the rest of the profile on screen (H092 finding 9)
 
-Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: queued (after H083) | For: either
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: open | For: either
 
 References: T82 / H046 (Line splits faces; a push takes the cell under the cursor, `target.region`), I51, H092
 finding 9.
