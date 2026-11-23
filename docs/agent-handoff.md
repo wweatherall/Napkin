@@ -42,7 +42,6 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H103 — T111 step 2: preferences wired in: ⌘, opens the file, saving it applies the feel tunables and the default units](handoff/H103-t111-preferences-wired.md) — status: open; for: gemini
 - [H104 — Integrator tools: `job.py reassign`, a quieter watch, a short result at merge](handoff/H104-integrator-tool-fixes.md) — status: open; for: gemini
 - [H105 — integrate.py stops for a response's `Changed from the brief:` lines (P44)](handoff/H105-integrate-shows-brief-changes.md) — status: queued (after H104); for: gemini
-- [H106 — For the next integrator session: where things stand](handoff/H106-integrator-state.md) — status: open; for: the integrator
 
 <!-- end of open list -->
 
@@ -50,6 +49,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 Full entries in [handoff-archive.md](handoff-archive.md).
 
+- H106 — For the next integrator session: where things stand. Resolved: see the archive
 - H052 — T66: lengths shown in the model's units. Resolved: merged into main by the integrator, 2026-11-22.
 - H102 — T111 step 1: the preferences file, read, checked and watched (a module and its tests; nothing wired yet). Resolved: merged into main by the integrator, 2026-11-22.
 - H083 — T88 step 6: Move moves to ToolContext, and the legacy setup goes. Resolved: merged into main by the integrator, 2026-11-22.

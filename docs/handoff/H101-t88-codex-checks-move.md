@@ -14,9 +14,8 @@ there: the aliases, `_make_tools`, the guides body), viewport/tool_geometry.gd, 
 viewport/tests/quick/move.gd. Not the worker, not docs/protocol.md, ARCHITECTURE.md or the folder guides
 (write those as "Architecture:" / "For the integrator:" lines).
 
-Start: your old worktree `/Users/Will/Sites/fretchup-h083` was moved to `/Users/Will/Sites/fretchup-jobs/h083`
-and handed to Gemini (your uncommitted work was committed unchanged as 0167c59 on
-`codex/h083-t88-move-to-toolcontext`). Don't work there. Take this job with `python3 tools/job.py take --as
+Start: your old worktree and its branch were handed to Gemini (your uncommitted work was committed unchanged as
+0167c59) and removed when H083 merged; 0167c59 is still in main's history. Take this job with `python3 tools/job.py take --as
 codex` once it is Ready: it starts a fresh branch from main, which by then holds H083 as merged.
 
 Request:
