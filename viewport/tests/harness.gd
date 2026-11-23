@@ -205,7 +205,7 @@ func _fresh(name: String, ops := [], own_file := false) -> void:
 		while not m.opened and Time.get_ticks_msec() - t0 < 20000: await _frames(1)
 	else:
 		m._reset_model_state()
-	m.new_board = false; m._update_toggles(); m.grid_snap = true
+	m.new_board = false; m.ui.update_toggles(); m.grid_snap = true
 	m.ops.append_array(ops)
 	m._restore_counters()
 	m.sync()

@@ -4891,3 +4891,52 @@ For the integrator: Update the Files list in `viewport/CLAUDE.md` to show that `
 Result: 5e72659; feature tests passed, gate passed with 295 quick checks and six reference matches, job.py test passed; moved wood rendering and grain controls into appearance.gd and removed 48 lines from main.gd
 
 Resolution: merged into main by the integrator, 2026-11-23.
+
+### H111 — T113 step 4a: building the interface moves out of main.gd into ui.gd
+
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: resolved | For: either
+
+References: T113, P45, T24.
+
+Touches: viewport/ui.gd (new), viewport/main.gd (`_c`, `_box`, `_make_theme`, `_segments`, `_make_ui`,
+`_update_toggles`, `_update_saved`, and the `ui_*` vars they set), viewport/measure_box.gd,
+viewport/tests.gd, viewport/tests/harness.gd. Not property_panel.gd.
+
+Why (P45, T113): main.gd (~2,130 lines) is the file every job meets; moving whole sections out lets jobs run side by side and makes it easier to read. Behaviour unchanged: nothing William would notice changes, no message, file or saving changes. A filler job: Ready when nothing else holds its files.
+
+Rules for every T113 step (each says what it is for, P44):
+- Move the code, don't rewrite it: same names minus the leading `_` where callers outside the new file now need them, same comments, so `git diff --color-moved` shows a move and review is quick.
+- No forwarders left in main.gd for the moved names (the point is a thinner main): callers, tests included, call the new object. Keep a forwarder only where a caller can't be changed in this job (say which in your response).
+- The new file is a plain `RefCounted` (or `Node` if it needs `_process`/timers/dialogs as children) made in main like `keys` and `measure` (`load("res://<file>.gd").new()`, given `self`), no `class_name` (viewport/CLAUDE.md).
+
+Today (checked 2026-11-22): main.gd ~435-630 builds the theme, toolbar and panels once at start;
+measure_box.gd calls `m._box` / `m._c`; tests.gd and harness.gd call `m._update_toggles`. Many files read
+main's `ui_sync`, `ui_status` and the like.
+
+Request: ui.gd as `m.ui` builds them and keeps `_update_toggles` / `_update_saved`. The labels other code
+writes to (`ui_sync`, …) may stay as vars on main that ui.gd fills in, so their many writers needn't change in
+this job: your call, say which.
+
+Cases that must still work: the window looks the same (compare a screenshot before and after in your
+response: `--write-movie` one frame, or the quick test's own); the gate with no change to tests/reference/.
+
+Checks: the quick test; `wc -l viewport/main.gd` before and after.
+
+Run the feature tests while building (`tools/featuretest.sh`), the quick test after each change, then `python3 tools/job.py test`. End your response with a Result line; leftovers as Follow-up lines; the folder-guide change (viewport/CLAUDE.md's Files list) as a For the integrator line.
+
+#### Response — Codex, 2026-11-23
+
+Branch: `codex/h111-t113-ui`. Code commit: `d3719f8`.
+
+`main.gd` went from 2,035 to 1,851 lines. Main retains the labels `ui_hint`, `ui_sync`, `ui_tip`, and `ui_saved`, the `saved_shown` test history, and the Properties panel reference, which the UI controller fills or updates. Main has two compatibility members for files outside Touches. The native Grid snap and New board commands in `menus.gd` use `_update_toggles()`, and `tests/quick/registry.gd` reads `_tool_buttons`.
+
+Verified: feature tests, quick tests, the gate, and `job.py test` passed. The gate ran 295 quick viewport checks and six recorded suites that matched their references. The reference files are unchanged. ImageMagick measured 0 differing pixels across the 1280 × 800 light-mode startup frames recorded before and after with Godot's `--write-movie`. The frames are in `scratch/h111/before/window00000000.png` and `scratch/h111/after/window00000000.png`.
+
+Decision IDs added: none. Open questions: none.
+
+Architecture: Add `viewport/ui.gd` (`m.ui`, RefCounted) to the module map. It builds the viewport theme, toolbar, Properties panel, status bar and cursor tooltip. It owns the palette and toolbar button tables and updates toggle buttons and the save indicator. Main still owns the scene nodes, the label references (`ui_hint`, `ui_sync`, `ui_tip`, `ui_saved`), the saved-indicator test history and the Properties panel reference. MeasureBox still owns measurements and uses `m.ui` for styling. Toolbar actions continue through `m.menus.run(tag)`.
+For the integrator: Add `ui.gd` to the Files list in `viewport/CLAUDE.md` for the viewport theme, toolbar, Properties panel construction, status bar, tooltip and save indicator. Update the main and MeasureBox entries to name `m.ui`.
+Follow-up: When their callers are in scope, change the native menu commands to call `m.ui.update_toggles()` and the registry quick test to read `m.ui.tool_buttons`, then remove main's compatibility members.
+Result: d3719f8; feature tests, quick test, gate (295 quick checks and six reference matches), job.py test and pixel-identical light-mode startup frames; moved interface construction and toggle and save-indicator updates into ui.gd, reducing main.gd by 184 lines.
+
+Resolution: merged into main by the integrator, 2026-11-23.
