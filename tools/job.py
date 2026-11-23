@@ -380,7 +380,8 @@ def _take(cwd, agent, session, now=None, out=print):
             return None, "refused"
         n = len(jobs_taken(st, session))
         if n >= MAX_JOBS:
-            out(f"refused: this session has done {n} jobs: tell William it's ready for a /clear (P27)")
+            out(f"refused: this session ({session}) has done {n} jobs ({', '.join(jobs_taken(st, session))}): "
+                f"tell William it's ready for a /clear (P27); if you didn't take them, the name was used before: pick a new one")
             return None, "refused"
         job, why = takeable(root, st, agent, jobs, order)
         for w in why:
@@ -739,7 +740,7 @@ def reassign_job(cwd, jid, to_agent, notes=None, now=None, out=print):
             wt_real = os.path.realpath(wt)
             if not wt_real.startswith(jobs_dir + os.sep):
                 if os.path.isdir(wt_real):
-                    if os.path.exists(target):
+                    if os.path.exists(target):   # git worktree move into an existing folder nests the worktree inside it (exit 0)
                         out(f"refused: couldn't move worktree {wt_real} to {target}: target already exists")
                         return False
                     os.makedirs(jobs_dir, exist_ok=True)
