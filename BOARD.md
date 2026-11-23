@@ -4,7 +4,7 @@ William says "check the board": this file tells each agent what to do next. The 
 /Users/Will/Sites/fretchup, P16) keeps it; nobody else edits it. Jobs run through the queue (P24, `tools/job.py`):
 the table below is built from docs/handoff/ and the queue's live state; the integrator keeps the Order line.
 
-Order: H073, H075, H052
+Order: H076, H077, H078, H079, H052
 
 ## If you're not the integrator
 
@@ -45,6 +45,10 @@ You're the integrator only if William said so in this session (P16) and you hold
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
+| H076 | either | **Ready** | T102: the tests refuse to run in the main checkout for a session that holds a job | [H076](docs/handoff/H076-wrong-checkout-guard.md) |  |
+| H077 | either | **Ready** | T103: integrate.py's main() split into named steps | [H077](docs/handoff/H077-split-integrate-main.md) |  |
+| H078 | Claude | **Ready** | T104: the worker's instructions, cheap to read | [H078](docs/handoff/H078-readable-worker-rules.md) |  |
+| H079 | either | **Ready** | T88 step 5: Push/Pull moves to ToolContext | [H079](docs/handoff/H079-t88-push-to-toolcontext.md) |  |
 | H052 | either | Queued | T66: lengths shown in the model's units | [H052](docs/handoff/H052-t66-units.md) | T88's tool moves |
 
 <!-- end of job table -->
@@ -53,4 +57,5 @@ Done since the board started: H033 (T74 + T77), H034 (T76), H035 (T44), T56 (sta
 
 ## Notes
 
-- T88: steps 1-3 (Paint H065, Select H071, Circle H072) merged; step 4 (Rectangle) is H075; Push/Pull (step 5) after it (they share tool_context.gd).
+- T88: steps 1-4 (Paint H065, Select H071, Circle H072, Rectangle H075) merged; step 5 (Push/Pull) is H079; Move (step 6) after it.
+- H076, H077, H078 and H079 touch different files and can run side by side. H078 (for Claude) may edit this board's sections above "## Jobs".
