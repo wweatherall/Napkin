@@ -35,7 +35,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H083 — T88 step 6: Move moves to ToolContext, and the legacy setup goes](handoff/H083-t88-move-to-toolcontext.md) — status: open; for: either
 - [H085 — T83: the Arc tool (2-Point and Centre arcs, exact in FreeCAD, splitting faces)](handoff/H085-t83-arc-tool.md) — status: queued (after H052); for: either
 - [H086 — T83 step 2: an arc on a corner is tangent to both edges (rounded corners)](handoff/H086-t83-arc-corner-tangent.md) — status: queued (after H085); for: either
-- [H090 — T59 step 1: a cut made to a pocket's floor stays tied to it (the worker side)](handoff/H090-t59-cut-to-pocket-floor.md) — status: open; for: either
+- [H090 — T59 step 1: a cut made to a pocket's floor stays tied to it (the worker side)](handoff/H090-t59-cut-to-pocket-floor.md) — status: answered; for: either
 - [H092 — The first `/code-review ultra` (main against ultra-base): ten findings, three fixed](handoff/H092-ultrareview-findings.md) — status: open; for: the integrator
 
 <!-- end of open list -->

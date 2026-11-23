@@ -1,6 +1,6 @@
 ### H090 — T59 step 1: a cut made to a pocket's floor stays tied to it (the worker side)
 
-Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: open | For: either
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: answered | For: either
 
 References: T59, I26b (the rules: a cut made up to a face stays tied to it; it detaches when you push that face
 again or type its length; if the face goes, the length is kept), I40 (a typed distance stays a measurement),
@@ -88,8 +88,14 @@ response with a Result line; leftovers as Follow-up lines; anything for the merg
 
 Response — Gemini (worker, gemini-oak), 2026-11-22:
 
-- Branch: `gemini/h090-t59-cut-to-pocket-floor`.
-- Changes: implemented pocket-floor cut ties in `worker/push.py` (`to_face` validation, `_find_floor_cutter`, `tie_to_floor` expression, `SSTiedTo` property on creation, `_detach_floor_cuts` on face push without `region`), plus `worker/scenario/99_cut_ties.py` and `worker/test_cut_ties.py`.
+- Branch: `gemini/h090-t59-cut-to-pocket-floor`, implementation commit `5389d8a` (merged `main` at `f250363`).
+- Changes: implemented pocket-floor cut ties in `worker/push.py` (`to_face` validation returning `OpError("to_face is only for a cut into a board")` outside cuts into a board or with `through`/`edge_fit`/`resize_stock`/`body`; `_find_floor_cutter` searching every `Part::Cut` in the board container's Group including Draft arrays, skipping `SSThrough` and `LengthRev` expressions; `tie_to_floor` FreeCAD expression using container-frame base `Shape.BoundBox` levels `* 1mm + floor.LengthFwd`; `SSTiedTo` always added on creation; `_detach_floor_cuts` clearing the expression keeping `LengthFwd` and clearing `SSTiedTo` on face pushes without `region`, with undo restoring both), plus `worker/scenario/99_cut_ties.py` and `worker/test_cut_ties.py`.
+- Verified: `python3 tools/job.py test` on `f250363` (`CUT TIES TESTS: 25 passed, 0 failed`, `SCENARIO TESTS: 570 passed, 0 failed`, all 33 feature suites passed with 0 failures, `viewport: QUICK 240 passed, 0 failed in 18.0 s`).
+- IDs added: none. Open questions: none.
 
 Architecture: `push_pull` op adds optional `"to_face": {"normal": [x, y, z], "point": [x, y, z]}` (world mm, valid only on a cut into a board with `distance < 0` and without `through`/`edge_fit`/`resize_stock`/`body`; otherwise `OpError("to_face is only for a cut into a board")`), tying the new cut extrusion's `LengthFwd` by FreeCAD expression to the matching `Part::Cut` extrusion cutter's floor in the container's frame (`Shape.BoundBox` level difference `* 1mm + floor.LengthFwd`, excluding `SSThrough` and `LengthRev` expressions). Pushing a tied cutter's floor face again (no `region`) clears its `LengthFwd` expression while keeping its current value and clears `SSTiedTo`; undo restores both. `PROTOCOL_VERSION` is unchanged until T59 step 2 sends `to_face`.
 Architecture: draw-on-face extrusions in `worker/push.py` always add `SSTiedTo` (`App::PropertyString`) on creation (`<floor cutter SSOp>` when tied, `""` when untied); FreeCAD's expression engine owns updating tied depths on recompute.
+Follow-up: T59 step 2 (Push/Pull tool sending `to_face` on face-behind snap, dropping it on typed length per I40, bumping `PROTOCOL_VERSION`, quick-test step) waits for H083 and H052.
+Follow-up: T59 later: tying a cut to another board's face, and keeping the length with a note when a floor cutter is deleted in FreeCAD (I26b).
+For the integrator: fold the `Architecture:` lines above into `ARCHITECTURE.md` (`worker/push.py` and `SSTiedTo` property) and `docs/protocol.md` (`push_pull`'s optional `to_face` field); `PROTOCOL_VERSION` stays unchanged until T59 step 2.
+Result: 5389d8a; CUT TIES 25/25, SCENARIO 570/570, quick test passed (240/240 UI + all 33 feature suites); added to_face pocket-floor cut ties, SSTiedTo property, face-push detach with undo restore, and scenario/unit tests
