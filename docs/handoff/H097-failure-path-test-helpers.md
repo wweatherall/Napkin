@@ -1,6 +1,6 @@
 ### H097 — T110: test helpers that make a failure-path check a few lines
 
-Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: queued (after H094) | For: either
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: queued (after H096) | For: either
 
 References: T110, P42 (briefs for saving, reloading or worker-link jobs list what can fail, each case with its
 named check; this job makes those checks cheap), H092 (the ultra review: seven of ten findings on failure

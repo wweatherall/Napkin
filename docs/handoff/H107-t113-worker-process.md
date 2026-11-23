@@ -1,6 +1,6 @@
 ### H107 — T113 step 1a: the FreeCAD worker's process moves out of main.gd into worker_process.gd
 
-Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: queued (after H094) | For: either
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: open | For: either
 
 References: T113, P45, A27, W13, A35, T47, viewport/CLAUDE.md "Worker (W13)".
 
@@ -18,9 +18,9 @@ Rules for every T113 step (each says what it is for, P44):
 - No forwarders left in main.gd for the moved names (the point is a thinner main): callers, tests included, call the new object. Keep a forwarder only where a caller can't be changed in this job (say which in your response).
 - The new file is a plain `RefCounted` (or `Node` if it needs `_process`/timers/dialogs as children) made in main like `keys` and `measure` (`load("res://<file>.gd").new()`, given `self`), no `class_name` (viewport/CLAUDE.md).
 
-Today (checked 2026-11-22): main.gd lines ~1343-1611 hold the worker's process: FREECAD_CANDIDATES,
+Today (checked 2026-11-22; the function list rechecked 2026-11-23 after H093, H110-H114): main.gd lines ~1343-1611 hold the worker's process: FREECAD_CANDIDATES,
 WORKER_MAX_RESTARTS, `freecad_path`, `worker_script`, `worker_log`, `worker_port`, `worker_pid`, `_port_file`,
-`_worker_restarts`, `_worker_check`, `_first_open`, `lifecycle_test`, `PROTOCOL_VERSION` (9), and `_free_port`,
+`_worker_restarts`, `_worker_check`, `_first_open`, `lifecycle_test`, `PROTOCOL_VERSION` (11 since H094), and `_free_port`,
 `_worker_files`, `_worker_identity`, `_port_free`, `_probe_worker`, `_worker_of`, `_hello`, `_pick_worker`,
 `_start_worker`, `_await_port_file`, `_watch_worker` (called from `_process`), `_say_worker`, `_send_open`,
 `_on_link_down`, `_on_link_up`, `_shutdown_worker` (called from `_exit_tree` and `_close_now`). `_log_worker`
