@@ -35,6 +35,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H080 — T105: job.py done reuses a quick-test pass across handoff-only commits](handoff/H080-done-reuses-quick-pass.md) — status: open; for: either
 - [H081 — T106: the test scripts show progress and keep their output in the job's scratch/](handoff/H081-test-progress-and-scratch.md) — status: open; for: either
 - [H083 — T88 step 6: Move moves to ToolContext, and the legacy setup goes](handoff/H083-t88-move-to-toolcontext.md) — status: open; for: either
+- [H084 — For the next integrator session: where things stand](handoff/H084-integrator-state.md) — status: open; for: the integrator
 
 <!-- end of open list -->
 
