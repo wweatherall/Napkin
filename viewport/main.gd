@@ -1435,7 +1435,7 @@ func _port_free(p: int) -> bool:
 
 # The window <-> worker protocol's version (docs/protocol.md): bump it when a message or shared-file field changes.
 # The worker reports its own (worker/serve.py PROTOCOL_VERSION) in hello; a worker speaking another isn't shared.
-const PROTOCOL_VERSION := 7
+const PROTOCOL_VERSION := 8
 
 
 func _probe_worker(p: int) -> String:
