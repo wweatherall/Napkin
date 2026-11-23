@@ -18,6 +18,10 @@ Architecture: lines, the response) and CLAUDE.md (commit trailers); this page sa
   once on the first new event (a job done, a job stale: its deadline passed, check its branch and worktree; a
   worker waiting on William; a job returned; the queue empty while a worker waits on `take --wait`: check in with William). Start
   it again after each. After a context clear, re-arm it.
+- A worker's question (T114) shows as `waiting: H0NN asks the integrator (scope): <q>` or `waiting: H0NN asks
+  William: <q>`. Answer a scope question with `python3 tools/job.py answer H0NN "<text>"`; relay William's answer
+  with `--from william` (he can run it himself). The worker's background `wait` prints it; answers sent before
+  it reads them arrive together, in recorded order (P47).
 - `python3 tools/job.py status` shows the queue; `python3 tools/job.py board` rebuilds the board's job table (the
   commit hook does it on main).
 

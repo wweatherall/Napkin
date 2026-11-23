@@ -34,7 +34,10 @@ worktree (T102).
    stops them and prints HUNG, and the fix is yours (P40); `python3 tools/job.py check` lists your processes.
    Quick test (`tools/quicktest.sh`) after every change; commit when it passes. Set no timer: after 30 minutes
    with no commit, test or job.py command, the integrator is told (P24).
-5. A question for William: ask in chat and run `python3 tools/job.py wait "<the question>"`.
+5. To touch a file or function outside Touches, ask the integrator: `python3 tools/job.py wait --scope
+   "<the question>"`. For behaviour, wording or what is saved, ask William in chat and run `python3 tools/job.py
+   wait "<the question>"`. Run either in the background; on a timeout run the same command again. Quote the
+   answer in your response (T114).
 6. Append your response to the entry, dated and signed: branch, commit, what you verified, IDs you added, open
    questions. Then a line each: `Changed from the brief: <what it said>; <what you did>; <why>` per departure
    (P44); `Architecture: <what>`; `Follow-up: <what>` per thing left; `For the integrator:
