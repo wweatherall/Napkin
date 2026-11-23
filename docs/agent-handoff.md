@@ -36,6 +36,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H085 — T83: the Arc tool (2-Point and Centre arcs, exact in FreeCAD, splitting faces)](handoff/H085-t83-arc-tool.md) — status: queued (after H052); for: either
 - [H086 — T83 step 2: an arc on a corner is tangent to both edges (rounded corners)](handoff/H086-t83-arc-corner-tangent.md) — status: queued (after H085); for: either
 - [H087 — A38: a rebuild keeps FreeCAD's edits (the floor copy)](handoff/H087-floor-copy.md) — status: open; for: gemini
+- [H-new-1 — The first `/code-review ultra` (main against ultra-base): ten findings, three fixed](handoff/H-new-1-ultrareview-findings.md) — status: open; for: the integrator
 
 <!-- end of open list -->
 
