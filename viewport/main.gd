@@ -1831,6 +1831,7 @@ func _reset_model_state() -> void:
 
 # ---------------- preferences (I63, T111) ----------------
 const PREFERENCES_PATH := "user://preferences.json"
+const PREFERENCES_KEY := KEY_MASK_META | KEY_COMMA
 var preferences_path := PREFERENCES_PATH
 var prefs := Preferences.new()
 var _prefs_timer: Timer
@@ -1945,7 +1946,7 @@ func _make_menus() -> void:
 	if NativeMenu.has_system_menu(NativeMenu.APPLICATION_MENU_ID):
 		var app_menu := NativeMenu.get_system_menu(NativeMenu.APPLICATION_MENU_ID)
 		if app_menu.is_valid():
-			NativeMenu.add_item(app_menu, "Preferences…", _menu, Callable(), "preferences", KEY_MASK_META | KEY_COMMA)
+			NativeMenu.add_item(app_menu, "Preferences…", _menu, Callable(), "preferences", PREFERENCES_KEY)
 	var main_menu := NativeMenu.get_system_menu(NativeMenu.MAIN_MENU_ID)
 	var spec := [
 		["File", [["New Window", "newwindow", KEY_MASK_META | KEY_MASK_SHIFT | KEY_N], ["New…", "new", KEY_MASK_META | KEY_N],

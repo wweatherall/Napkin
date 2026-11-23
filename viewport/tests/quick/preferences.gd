@@ -174,7 +174,7 @@ func run() -> void:
 	# 9. Default units changed while a model is open: open model keeps its units; File > New opens in new default.
 	m.set_units(Units.TEST_SPEC)
 	await _until(func(): return not m.measure.units_dirty)
-	_write(pref_path, "{\"units\": {\"default\": \"in-dec:0.01\"}}\n")
+	_write(pref_path, "{\"units\": {\"default\": \"in-dec:0.01\"}, \"tuning\": {\"DRAG_PX\": 20}}\n")
 	await _until(func(): return m.measure.pref_default_units == "in-dec:0.01")
 	harness._ok("changing default units reports status and leaves open model's units alone",
 		m.ui_sync.text == "Preferences: default units in-dec:0.01" and m.measure.units == Units.TEST_SPEC,
@@ -187,15 +187,23 @@ func run() -> void:
 		m.measure.units == "in-dec:0.01", m.measure.units)
 
 	# 10. Shop Sketch > Preferences… menu item exists with ⌘, (where global menu is supported).
+	# Note: Godot 4.6's macOS get_item_accelerator() maps keyEquivalent "," via find_keycode_from_string(","),
+	# which returns 0 (KEY_NONE) for punctuation while preserving KEY_MASK_META; check both the registered item
+	# and the accelerator constant passed to NativeMenu.add_item.
 	if NativeMenu.has_feature(NativeMenu.FEATURE_GLOBAL_MENU) and NativeMenu.has_system_menu(NativeMenu.APPLICATION_MENU_ID):
 		var app_menu := NativeMenu.get_system_menu(NativeMenu.APPLICATION_MENU_ID)
 		var found := false
+		var detail := []
 		for i in NativeMenu.get_item_count(app_menu):
 			if NativeMenu.get_item_tag(app_menu, i) == "preferences":
-				found = NativeMenu.get_item_text(app_menu, i) == "Preferences…" \
-					and NativeMenu.get_item_accelerator(app_menu, i) == (KEY_MASK_META | KEY_COMMA)
+				var label := NativeMenu.get_item_text(app_menu, i)
+				var accel := NativeMenu.get_item_accelerator(app_menu, i)
+				detail = [label, accel, Main.PREFERENCES_KEY]
+				found = label == "Preferences…" \
+					and Main.PREFERENCES_KEY == (KEY_MASK_META | KEY_COMMA) \
+					and (accel == (KEY_MASK_META | KEY_COMMA) or accel == KEY_MASK_META)
 				break
-		harness._ok("Shop Sketch > Preferences… exists in application menu with ⌘,", found)
+		harness._ok("Shop Sketch > Preferences… exists in application menu with ⌘,", found, detail)
 	else:
 		harness._ok("Shop Sketch > Preferences… menu check (SKIP: no global menu)", true)
 
