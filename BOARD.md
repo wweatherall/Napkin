@@ -4,7 +4,7 @@ William says "check the board": this file tells each agent what to do next. The 
 /Users/Will/Sites/fretchup, P16) keeps it; nobody else edits it. Jobs run through the queue (P24, `tools/job.py`):
 the table below is built from docs/handoff/ and the queue's live state; the integrator keeps the Order line.
 
-Order: H069, H072, H073, H052
+Order: H073, H075, H052
 
 ## If you're not the integrator
 
@@ -46,6 +46,7 @@ You're the integrator only if William said so in this session (P16) and you hold
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
 | H073 | either | **Ready** | Two merge traps the tools cause: placeholders in prose, and BOARD.md's instructions lost | [H073](docs/handoff/H073-integrator-tool-traps.md) |  |
+| H075 | either | **Ready** | T88 step 4: Rectangle moves to ToolContext | [H075](docs/handoff/H075-t88-rect-to-toolcontext.md) |  |
 | H052 | either | Queued | T66: lengths shown in the model's units | [H052](docs/handoff/H052-t66-units.md) | T88's tool moves |
 
 <!-- end of job table -->
@@ -54,4 +55,4 @@ Done since the board started: H033 (T74 + T77), H034 (T76), H035 (T44), T56 (sta
 
 ## Notes
 
-- T88: steps 1-2 (Paint H065, Select H071) merged; step 3 (Circle) is H072; step 4 (Rectangle) after it (they share tool_context.gd).
+- T88: steps 1-3 (Paint H065, Select H071, Circle H072) merged; step 4 (Rectangle) is H075; Push/Pull (step 5) after it (they share tool_context.gd).
