@@ -1,6 +1,6 @@
 ### H107 — T113 step 1a: the FreeCAD worker's process moves out of main.gd into worker_process.gd
 
-Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: open | For: either
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: answered | For: either
 
 References: T113, P45, A27, W13, A35, T47, viewport/CLAUDE.md "Worker (W13)".
 
@@ -58,3 +58,14 @@ Run the feature tests while building (`tools/featuretest.sh`), the quick test af
 
 Architecture: `viewport/worker_process.gd` (`m.worker`) owns worker discovery, process and port selection, startup, restart, shutdown and worker logging.
 Architecture: `main.gd` owns model opening and reconnect handling, and defines the viewport protocol version. `worker_client.gd` owns the socket.
+
+Implemented in `0b02f30` on `codex/h107-t113-worker-process`. `wc -l viewport/main.gd` went from 1,857 to 1,610.
+Main keeps `_send_open`, `_on_link_down` and `_on_link_up` for model and window handling. The lifecycle suite still reads `worker_pid` and `worker_port` through Main, and the test dispatcher still reads `lifecycle_test` there.
+
+Verified the feature tests and the gate. The gate passed 303 quick checks, the targeted suites and all six reference comparisons. Headless checks passed for the sixth restart refusal, external port ownership and the error when a worker exits without a port file. `job.py test` passed on the implementation commit. Decision IDs added: none. Open questions: none.
+
+Changed from the brief: The move listed `_first_open`; it stays beside Main's model-open handling because it controls whether to adopt the model's saved history.
+Changed from the brief: The move called for preserving function bodies; extracted the existing restart count into `_can_restart()` so the sixth attempt can be checked headlessly.
+Follow-up: When the lifecycle suite and test dispatcher are in scope, point them at `m.worker` and remove Main's three compatibility getters.
+For the integrator: Update the Files list and Worker (W13) paths in viewport/CLAUDE.md for worker_process.gd.
+Result: 0b02f30; gate passed with 303 quick checks and all six reference comparisons, job.py test and three headless checks passed; moved FreeCAD process and port management into worker_process.gd.
