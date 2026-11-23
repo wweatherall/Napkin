@@ -253,10 +253,10 @@ func _test_hold_ms_and_infer_release() -> void:
 	write_text(p2, "{\"tuning\": {\"INFER_DEG\": 20, \"RELEASE_DEG\": 12}}\n")
 	var r3 := prefs2.load_from(p2)
 	check("INFER_DEG > RELEASE_DEG: INFER_DEG applies (20)", is_equal_approx(r3["values"]["tuning"]["INFER_DEG"], 20.0))
-	check("INFER_DEG > RELEASE_DEG: RELEASE_DEG keeps 12", is_equal_approx(r3["values"]["tuning"]["RELEASE_DEG"], 12.0))
+	check("INFER_DEG > RELEASE_DEG: RELEASE_DEG rises to INFER_DEG (20), never below it", is_equal_approx(r3["values"]["tuning"]["RELEASE_DEG"], 20.0))
 	check("INFER_DEG > RELEASE_DEG: exact problem",
 		r3["problems"] == ["preferences.json: RELEASE_DEG must be at least INFER_DEG (20)"])
-	check("INFER_DEG > RELEASE_DEG: changed only INFER_DEG", r3["changed"] == ["INFER_DEG"])
+	check("INFER_DEG > RELEASE_DEG: changed INFER_DEG and RELEASE_DEG", r3["changed"] == ["INFER_DEG", "RELEASE_DEG"])
 
 	# Omitting RELEASE_DEG while raising INFER_DEG over default 12
 	var prefs3 := Preferences.new()
@@ -272,7 +272,7 @@ func _test_hold_ms_and_infer_release() -> void:
 	check("INFER_DEG == RELEASE_DEG passes", r5["problems"].is_empty()
 		and is_equal_approx(r5["values"]["tuning"]["INFER_DEG"], 20.0)
 		and is_equal_approx(r5["values"]["tuning"]["RELEASE_DEG"], 20.0))
-	check("fixing RELEASE_DEG reports RELEASE_DEG changed", r5["changed"] == ["RELEASE_DEG"])
+	check("RELEASE_DEG already at INFER_DEG: nothing changed", r5["changed"].is_empty())
 
 
 func _test_unknown_keys_and_sections() -> void:

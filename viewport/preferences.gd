@@ -125,9 +125,10 @@ func load_from(path: String) -> Dictionary:
 						next_tuning[k] = prev_tuning[k]
 						if k == "RELEASE_DEG":
 							release_ok = false
-			if release_ok and float(next_tuning["RELEASE_DEG"]) < float(next_tuning["INFER_DEG"]):
-				problems.append("preferences.json: RELEASE_DEG must be at least INFER_DEG (%s)" % _fmt_num(float(next_tuning["INFER_DEG"])))
-				next_tuning["RELEASE_DEG"] = prev_tuning["RELEASE_DEG"]
+			if float(next_tuning["RELEASE_DEG"]) < float(next_tuning["INFER_DEG"]):
+				if release_ok:	# a RELEASE_DEG already refused has its own problem
+					problems.append("preferences.json: RELEASE_DEG must be at least INFER_DEG (%s)" % _fmt_num(float(next_tuning["INFER_DEG"])))
+				next_tuning["RELEASE_DEG"] = next_tuning["INFER_DEG"]	# never below INFER_DEG: an axis would let go before it sticks
 	else:
 		next_tuning = DEFAULTS["tuning"].duplicate(true)
 
