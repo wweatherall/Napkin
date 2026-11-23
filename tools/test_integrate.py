@@ -492,5 +492,47 @@ check("a failing gate says the verdict, prints the last 2000 chars of output, an
       and sh(root, "git", "rev-parse", "HEAD").stdout == head0, (verdict_idx, lines[-10:]))
 shutil.rmtree(root)
 
+# 9. Result step prints one short line per item (cut to 160 chars with … if longer), then the commit's oneline,
+#    instead of the word diff of the whole Work list row (H104).
+root = repo()
+old_history = "Long pre-existing T1 history paragraph that should not be reprinted at merge."
+write(root, "docs/decision-log.md",
+      f"# Log\n\n## Work list\n\n| # | Item | Status | Notes |\n|---|---|---|---|\n"
+      f"| T1 | a | Open | {old_history} |\n"
+      f"| T2 | b | Open | |\n")
+sh(root, "git", "add", "-A"); sh(root, "git", "commit", "-qm", "long history row")
+sh(root, "git", "checkout", "-qb", "agent/long-result")
+long_text = "tests 50/50; " + ("detailed summary of many changes " * 7).strip()
+short_text = "tests 3/3; short fix"
+assert len(long_text) > 160
+write(root, "docs/handoff/H081-long.md",
+      f"### H081 — T1: long result\n\nAuthor: Gemini | Status: answered\n\n"
+      f"Result: 1111aaa; {long_text}\n")
+write(root, "docs/handoff/H082-short.md",
+      f"### H082 — T2: short result\n\nAuthor: Gemini | Status: answered\n\n"
+      f"Result: 2222bbb; {short_text}\n")
+sh(root, "git", "add", "-A"); sh(root, "git", "commit", "-qm", "H081 + H082 results")
+sh(root, "git", "checkout", "-q", "main")
+integrator.take(integrator.lock_path(root), "tester", out=lambda *a: None)
+rc, said = run_integrate("agent/long-result", "--as", "tester", "--no-gate")
+merge_sha = sh(root, "git", "rev-parse", "--short", "HEAD~1").stdout.strip()
+result_oneline = sh(root, "git", "log", "--oneline", "-1").stdout.strip()
+expected_long_cut = (long_text + ".")[:159] + "…"
+expected_long_line = f"T1 (H081): Result (1111aaa, merged {merge_sha}): {expected_long_cut}"
+expected_short_line = f"T2 (H082): Result (2222bbb, merged {merge_sha}): {short_text}."
+out_lines = said.splitlines()
+check("result step prints a long Result cut to 160 chars with … and a short Result intact",
+      rc == 0 and expected_long_line in out_lines and expected_short_line in out_lines
+      and len(expected_long_cut) == 160, (said, expected_long_line, expected_short_line))
+check("result step prints the commit's oneline after the summary lines, with no word diff or old row text",
+      f"integrate: committed {result_oneline}" in out_lines
+      and out_lines.index(expected_long_line) < out_lines.index(f"integrate: committed {result_oneline}")
+      and "{+" not in said and old_history not in said, said)
+log_now = open(os.path.join(root, "docs/decision-log.md")).read()
+check("the result commit itself still writes the full uncut Result text to the Work list row",
+      f"Result (1111aaa, merged {merge_sha}): {long_text}." in log_now
+      and f"Result (2222bbb, merged {merge_sha}): {short_text}." in log_now, log_now)
+shutil.rmtree(root)
+
 print(f"INTEGRATE TESTS: {sum(RESULTS)} passed, {len(RESULTS) - sum(RESULTS)} failed")
 raise SystemExit(0 if all(RESULTS) else 1)   # a failed check fails the run, not only its summary
