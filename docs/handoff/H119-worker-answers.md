@@ -1,6 +1,6 @@
 ### H119 — T114: a worker's question is answered through the queue (scope to the integrator, behaviour to William)
 
-Author: Claude (integrator, fretchup-73) | Date: 2026-11-23 | Status: open | For: either
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-23 | Status: answered | For: either
 
 References: T114, P24 (the queue), P45 (Touches), P01 (behaviour is William's), P39 (no timed check-ins).
 
@@ -54,3 +54,23 @@ event lines (~816-850) → `take`'s print of the handoff (for a resumed job).
 
 Run `python3 tools/test_job.py` while building, then `python3 tools/job.py test`. End your response with a
 Result line; leftovers as Follow-up lines; anything for the merge as For the integrator lines.
+
+#### Response — Codex, 2026-11-23
+
+Branch `codex/h119-worker-answers`, implementation `5b6bb12`. All quick-test feature suites and 303
+viewport checks passed on that commit, including 157 queue checks and 61 decision-log checks. Named
+checks cover routing, timeout and retry, return and reassignment, refusal, ordered follow-ups, file
+holds and lock contention.
+
+Decision P-new-1 records William's “Yes. That is perfect” after confirming the worker sees answers in the
+order the queue records them. If both are unread at the next poll, the worker receives both together.
+No open questions.
+
+Changed from the brief: The first answer resumes the worker's deadline. Further answers are accepted while the job still holds an unread answer, as William approved.
+Changed from the brief: Updated the placeholder output assertion in tools/test_log.py under P46. The fixture now starts from the copied log's next process ID, so the required decision row can coexist with the assertion.
+Changed from the brief: Extended the tools/job.py edits to the take output and waiting refresh so a resumed worker receives pending answers and the background wait process itself cannot end the wait.
+
+For the integrator: BOARD.md step 5 can say “For work outside Touches, run `python3 tools/job.py wait --scope "<question>"` to ask the integrator. For behaviour, wording or what is saved, ask William in chat and run `python3 tools/job.py wait "<question>"`. Run either in the background. On timeout, run the same command again. Quote the answer in your response.”
+For the integrator: In docs/integrator.md describe both queue-watch notifications. For a scope question, reply with `python3 tools/job.py answer H0NN "<text>"`. For a behaviour question, relay William's answer with `python3 tools/job.py answer H0NN "<text>" --from william`. William can also run the latter command directly. Unread follow-ups are delivered in recorded order.
+For the integrator: H096 was still waiting in the old format at verification. After H119 merges, its worker can merge main and run `job.py wait --scope` with the original question so it is routed as scope and can receive the queue answer.
+Result: 5b6bb12; job.py test passed with 303 viewport, 157 queue and 61 log checks and all feature suites passing; workers receive integrator and William answers through the queue in recorded order.
