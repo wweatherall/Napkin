@@ -63,3 +63,18 @@ Run the feature tests while building (`tools/featuretest.sh`), the quick test af
 tools/job.py test`. End your response with a Result line; leftovers as Follow-up lines; the protocol change as
 an `Architecture:` line; viewport/tools/CLAUDE.md's Push/Pull line (it should mention `to_face`) as a For the
 integrator line.
+
+#### Response — 2026-11-23, Codex
+
+Branch `codex/h121-push-sends-to-face`. Pointer cuts from a profile or drawn region on a board record the
+face-behind snap as `to_face`. The quick scenario checks the world-mm floor reference, a depth edit that
+moves both pockets, undo and redo, typed depth, a through-cut, a positive push and an unsnapped cut.
+No decision IDs added. No open questions.
+
+Architecture: Wire protocol 12 starts sending the existing `push_pull.to_face` field on eligible pointer cuts.
+The viewport sends the starting face normal and the world-mm point directly behind the grab when it snaps
+to an interior face. Update the protocol version history and the `push_pull` field description in
+`docs/protocol.md`.
+
+For the integrator: Update the Push/Pull entry in `viewport/tools/CLAUDE.md` to mention `to_face` for
+pointer cuts snapped to an interior face and the measured depth used for typed cuts.

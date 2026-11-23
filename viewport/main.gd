@@ -1077,7 +1077,7 @@ var lifecycle_test: bool:
 
 # The window <-> worker protocol's version (docs/protocol.md): bump it when a message or shared-file field changes.
 # The worker reports its own (worker/serve.py PROTOCOL_VERSION) in hello; a worker speaking another isn't shared.
-const PROTOCOL_VERSION := 11
+const PROTOCOL_VERSION := 12
 
 
 func _send_open() -> void:
