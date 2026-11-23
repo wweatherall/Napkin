@@ -534,9 +534,28 @@ def wait(cwd, question, jid=None, now=None, out=print):
     return with_job(cwd, jid, out, go)
 
 
-def run_quick(top):
-    r = subprocess.run(QUICKTEST, cwd=top, capture_output=True, text=True)
-    return r.returncode == 0, (r.stdout + r.stderr).strip().split("\n")[-1:]
+PROGRESS_PREFIXES = ("gate: ", "quick: ", "full: ")
+
+
+def stream_command(cmd, cwd, out=print):
+    """Run cmd with stderr merged into stdout, relaying progress lines live and returning (rc, full output)."""
+    lines = []
+    with subprocess.Popen(cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1) as p:
+        for line in p.stdout:
+            lines.append(line)
+            if line.startswith(PROGRESS_PREFIXES):
+                text = line.rstrip("\r\n")
+                if out is print:
+                    print(text, flush=True)
+                else:
+                    out(text)
+        rc = p.wait()
+    return rc, "".join(lines)
+
+
+def run_quick(top, out=print):
+    rc, output = stream_command(QUICKTEST, top, out=out)
+    return rc == 0, output.strip().split("\n")[-1:]
 
 
 def test(cwd, jid=None, out=print):
@@ -546,7 +565,7 @@ def test(cwd, jid=None, out=print):
         return None
     head = git(top, "rev-parse", "HEAD").stdout.strip()
     clean = not git(top, "status", "--porcelain").stdout.strip()
-    ok, tail = run_quick(top)
+    ok, tail = run_quick(top, out=out)
     now = time.time()
 
     def go(st, k, j):

@@ -340,5 +340,96 @@ check("a failed gate stops before the map pause and every finishing step",
       and not os.path.exists(integrate.state_file(root)), said + str(calls))
 shutil.rmtree(root)
 
+# 8. Live gate progress streaming (H088): progress lines arrive before the gate ends; non-progress lines are held
+#    until the failure tail; verdict and the 2000-char failure tail stay as before.
+def run_integrate_live(repo_root, args, release_on, release_path):
+    env = dict(os.environ, RELEASE=release_path)
+    p = subprocess.Popen([sys.executable, os.path.join(HERE, "integrate.py"), *args],
+                         cwd=repo_root, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
+    lines, before_release, alive = [], None, False
+    for raw in p.stdout:
+        line = raw.rstrip("\r\n")
+        lines.append(line)
+        if before_release is None and line == release_on:
+            alive = p.poll() is None
+            before_release = list(lines)
+            open(release_path, "w").close()
+    rc = p.wait(timeout=15)
+    return rc, lines, before_release, alive
+
+
+root = ordered_repo()
+release = os.path.join(root, ".release-pass")
+write(root, "tools/gate.sh", """#!/bin/bash
+echo "noise before"
+echo "gate: quick test started"
+echo "quick: parse started"
+for ((i=0; i<100; i++)); do [ -f "$RELEASE" ] && break; sleep 0.05; done
+if [ ! -f "$RELEASE" ]; then echo "STUB TIMED OUT"; exit 2; fi
+echo "noise middle"
+echo "quick: parse passed in 1 s"
+echo "gate: quick test passed in 1 s"
+echo "gate: full test started"
+echo "full: viewport suites started"
+echo "full: viewport suites passed in 1 s"
+echo "gate: full test passed in 1 s"
+echo "GATE PASS: stub passed"
+""")
+os.chmod(os.path.join(root, "tools/gate.sh"), 0o755)
+sh(root, "git", "add", "tools/gate.sh"); sh(root, "git", "commit", "-qm", "live gate stub")
+rc, lines, before_release, alive = run_integrate_live(
+    root, ["agent/ordered", "--as", "tester", "--impact", "fixture"], "quick: parse started", release)
+expected_progress = [
+    "gate: quick test started",
+    "quick: parse started",
+    "quick: parse passed in 1 s",
+    "gate: quick test passed in 1 s",
+    "gate: full test started",
+    "full: viewport suites started",
+    "full: viewport suites passed in 1 s",
+    "gate: full test passed in 1 s",
+]
+got_progress = [l for l in lines if l.startswith(("gate: ", "quick: ", "full: "))]
+check("run_gate relays the first progress line before the gate ends",
+      rc == 0 and alive and before_release is not None and "gate: quick test started" in before_release,
+      (rc, alive, before_release, lines))
+check("run_gate relays gate:, quick: and full: progress lines in order, then says the verdict",
+      got_progress == expected_progress and "integrate: GATE PASS: stub passed" in lines
+      and lines.index(expected_progress[-1]) < lines.index("integrate: GATE PASS: stub passed"), lines)
+check("run_gate does not print non-progress lines live on a passing gate",
+      "noise before" not in lines and "noise middle" not in lines, lines)
+shutil.rmtree(root)
+
+root = ordered_repo()
+release = os.path.join(root, ".release-fail")
+write(root, "tools/gate.sh", f"""#!/bin/bash
+echo "early-marker-trimmed"
+"{sys.executable}" -c 'print("x" * 2100)'
+echo "noise before fail"
+echo "quick: parse started"
+for ((i=0; i<100; i++)); do [ -f "$RELEASE" ] && break; sleep 0.05; done
+if [ ! -f "$RELEASE" ]; then echo "STUB TIMED OUT"; exit 2; fi
+echo "stderr-detail-line" >&2
+echo "quick: parse failed in 1 s"
+echo "GATE FAIL: stub failed"
+exit 1
+""")
+os.chmod(os.path.join(root, "tools/gate.sh"), 0o755)
+sh(root, "git", "add", "tools/gate.sh"); sh(root, "git", "commit", "-qm", "failing live gate stub")
+head0 = sh(root, "git", "rev-parse", "HEAD").stdout
+rc, lines, before_release, alive = run_integrate_live(
+    root, ["agent/ordered", "--as", "tester", "--impact", "fixture"], "quick: parse started", release)
+verdict_idx = lines.index("integrate: GATE FAIL: stub failed") if "integrate: GATE FAIL: stub failed" in lines else -1
+tail_text = "\n".join(lines[verdict_idx + 1:]) if verdict_idx >= 0 else ""
+check("a failing gate streams progress live without leaking non-progress lines first",
+      rc == 1 and alive and before_release is not None
+      and "noise before fail" not in before_release and "early-marker-trimmed" not in before_release,
+      (rc, alive, before_release, lines))
+check("a failing gate says the verdict, prints the last 2000 chars of output, and leaves the merge uncommitted",
+      verdict_idx >= 0 and "noise before fail" in tail_text and "stderr-detail-line" in tail_text
+      and "early-marker-trimmed" not in tail_text and lines[-1] == "integrate: the merge is left uncommitted"
+      and sh(root, "git", "rev-parse", "HEAD").stdout == head0, (verdict_idx, lines[-10:]))
+shutil.rmtree(root)
+
 print(f"INTEGRATE TESTS: {sum(RESULTS)} passed, {len(RESULTS) - sum(RESULTS)} failed")
 raise SystemExit(0 if all(RESULTS) else 1)   # a failed check fails the run, not only its summary

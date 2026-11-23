@@ -530,7 +530,7 @@ class Integration:
     exit_code: int | None = None
 
     def say(self, text):
-        print("integrate: " + text)
+        print("integrate: " + text, flush=True)
 
     def stop(self, code):
         self.exit_code = code
@@ -729,11 +729,12 @@ def rebuild_and_check(s):
 def run_gate(s):
     root, argv, say = s.root, s.argv, s.say
     if "--no-gate" not in argv:
-        gate = subprocess.run([os.path.join(root, "tools", "gate.sh") if os.path.exists(os.path.join(root, "tools", "gate.sh")) else os.path.join(HERE, "gate.sh")], cwd=root, capture_output=True, text=True)
-        verdict = (gate.stdout.strip().split("\n") or [""])[-1]
+        gate = os.path.join(root, "tools", "gate.sh") if os.path.exists(os.path.join(root, "tools", "gate.sh")) else os.path.join(HERE, "gate.sh")
+        rc, output = job.stream_command([gate], root)
+        verdict = (output.strip().split("\n") or [""])[-1]
         say(verdict)
-        if gate.returncode != 0:
-            print(gate.stdout[-2000:]); say("the merge is left uncommitted"); return s.stop(1)
+        if rc != 0:
+            print(output[-2000:], flush=True); say("the merge is left uncommitted"); return s.stop(1)
     return s
 
 

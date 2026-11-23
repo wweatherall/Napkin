@@ -493,5 +493,101 @@ for w in [l.split()[1] for l in sh(root, "git", "worktree", "list", "--porcelain
           if l.startswith("worktree ")][1:]:
     sh(root, "git", "worktree", "remove", "--force", w)
 shutil.rmtree(base)
+
+# --- live progress streaming from run_quick / job.py test (H088) ---
+base, root = repo()
+run(job.take, root, "claude", "live1")
+wt = os.path.realpath(job.worktree_for(root, "H001"))
+os.makedirs(os.path.join(wt, "tools"), exist_ok=True)
+
+
+def run_job_test_live(worktree, release_on, release_path):
+    env = dict(os.environ, RELEASE=release_path)
+    p = subprocess.Popen([sys.executable, os.path.join(HERE, "job.py"), "test"],
+                         cwd=worktree, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
+    lines, before_release, alive = [], None, False
+    for raw in p.stdout:
+        line = raw.rstrip("\r\n")
+        lines.append(line)
+        if before_release is None and line == release_on:
+            alive = p.poll() is None
+            before_release = list(lines)
+            open(release_path, "w").close()
+    rc = p.wait(timeout=15)
+    return rc, lines, before_release, alive
+
+
+qstub = os.path.join(wt, "tools", "quicktest.sh")
+release = os.path.join(base, "release-pass")
+open(qstub, "w").write("""#!/bin/bash
+echo "noise before"
+echo "quick: parse started"
+for ((i=0; i<100; i++)); do [ -f "$RELEASE" ] && break; sleep 0.05; done
+if [ ! -f "$RELEASE" ]; then echo "STUB TIMED OUT"; exit 2; fi
+echo "noise middle"
+echo "quick: parse passed in 1 s"
+echo "features: ok | viewport: QUICK 1 passed, 0 failed"
+""")
+os.chmod(qstub, 0o755)
+rc, lines, before_release, alive = run_job_test_live(wt, "quick: parse started", release)
+check("job.py test relays the first progress line before the quick test ends",
+      rc == 0 and alive and before_release == ["quick: parse started"], (rc, alive, before_release, lines))
+check("job.py test relays progress lines, skips non-progress lines, and prints the pass verdict",
+      lines[:2] == ["quick: parse started", "quick: parse passed in 1 s"]
+      and "noise before" not in lines and "noise middle" not in lines
+      and lines[-1].startswith("quick test passed on ")
+      and lines[-1].endswith(": features: ok | viewport: QUICK 1 passed, 0 failed"), lines)
+
+release = os.path.join(base, "release-fail")
+open(qstub, "w").write("""#!/bin/bash
+echo "noise before fail"
+echo "quick: parse started"
+for ((i=0; i<100; i++)); do [ -f "$RELEASE" ] && break; sleep 0.05; done
+if [ ! -f "$RELEASE" ]; then echo "STUB TIMED OUT"; exit 2; fi
+echo "stderr detail" >&2
+echo "quick: parse failed in 1 s"
+echo "QUICK FAIL: stub broke" >&2
+exit 1
+""")
+os.chmod(qstub, 0o755)
+rc, lines, before_release, alive = run_job_test_live(wt, "quick: parse started", release)
+check("a failing quick test still streams progress live and prints the failure verdict",
+      rc == 1 and alive and before_release == ["quick: parse started"]
+      and lines[:2] == ["quick: parse started", "quick: parse failed in 1 s"]
+      and "noise before fail" not in lines and "stderr detail" not in lines
+      and lines[-1].startswith("QUICK TEST FAILED on ")
+      and lines[-1].endswith(": QUICK FAIL: stub broke"), (rc, alive, before_release, lines))
+
+_qt = job.QUICKTEST
+pass_stub = os.path.join(base, "pass-stub.sh")
+open(pass_stub, "w").write('#!/bin/bash\necho "noise"\necho "quick: parse started"\necho "quick: parse passed in 1 s"\necho "verdict line"\n')
+os.chmod(pass_stub, 0o755)
+fail_stub = os.path.join(base, "fail-stub.sh")
+open(fail_stub, "w").write('#!/bin/bash\necho "noise"\necho "quick: parse started"\necho "quick: parse failed in 1 s"\necho "fail verdict" >&2\nexit 1\n')
+os.chmod(fail_stub, 0o755)
+try:
+    job.QUICKTEST = [pass_stub]
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        res_ok = job.run_quick(wt)
+    check("run_quick keeps its (ok, [last line]) return value and prints only progress lines",
+          res_ok == (True, ["verdict line"])
+          and buf.getvalue().splitlines() == ["quick: parse started", "quick: parse passed in 1 s"],
+          (res_ok, buf.getvalue()))
+    job.QUICKTEST = [fail_stub]
+    seen = []
+    res_fail = job.run_quick(wt, out=seen.append)
+    check("run_quick returns (False, [last line]) on a failing stub and relays progress to out",
+          res_fail == (False, ["fail verdict"])
+          and seen == ["quick: parse started", "quick: parse failed in 1 s"],
+          (res_fail, seen))
+    job.QUICKTEST = ["true"]
+    res_empty = job.run_quick(wt)
+    check("run_quick with empty output still returns (True, [''])", res_empty == (True, [""]), res_empty)
+finally:
+    job.QUICKTEST = _qt
+
+sh(root, "git", "worktree", "remove", "--force", wt)
+shutil.rmtree(base)
 print(f"JOB TESTS: {sum(RESULTS)} passed, {len(RESULTS) - sum(RESULTS)} failed")
 sys.exit(0 if all(RESULTS) else 1)
