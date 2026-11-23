@@ -3,20 +3,68 @@
 # when tests/known_failures.txt lists it (each line: the check's name as the quick test prints it, then "# T<n>"
 # naming the Work list item that fixes it). The full test must pass outright.
 #   tools/gate.sh          exit 0 = GATE PASS
+# The other test entry points source these helpers before running their own checks.
+set_test_tmpdir() {
+  if [ -f .git ] && [ -f "$(git rev-parse --git-dir)/commondir" ]; then
+    local scratch="$(pwd -P)/scratch" requested
+    mkdir -p "$scratch" || return 1
+    requested=$(cd "${TMPDIR:-/tmp}" 2>/dev/null && pwd -P)
+    case "$requested/" in
+      "$scratch/"*) export TMPDIR="$requested" ;;
+      *) export TMPDIR="$scratch" ;;
+    esac
+  fi
+  # In the main checkout, leave the caller's environment alone. With TMPDIR unset,
+  # gate historically uses /tmp and its children use Darwin's per-user temp folder.
+  TEST_TMPDIR=${TMPDIR:-${1:-$(getconf DARWIN_USER_TEMP_DIR 2>/dev/null || echo /tmp)}}
+  [[ "$TEST_TMPDIR" = /* ]] || TEST_TMPDIR="$PWD/$TEST_TMPDIR"
+}
+
+run_stage() {
+  local label=$1 start=$SECONDS rc verdict=passed
+  shift
+  echo "$label started"
+  "$@"
+  rc=$?
+  [ "$rc" -eq 0 ] || verdict=failed
+  echo "$label $verdict in $((SECONDS - start)) s"
+  return "$rc"
+}
+
+run_features() {
+  tools/featuretest.sh "$1/feature" > "$1/feature.log" 2>&1
+}
+
+if [[ ${BASH_SOURCE[0]} != "$0" ]]; then return 0; fi
+
 cd "$(git rev-parse --show-toplevel 2>/dev/null || echo "$(dirname "$0")/..")" || exit 2   # the checkout you run it in
 # Only exit on the guard's refusal; an unavailable helper must not block tests.
 python3 tools/job.py guard-checkout
 [ $? -eq 1 ] && exit 1
-OUT=$(mktemp -d "${TMPDIR:-/tmp}/shopsketch-gate.XXXXXX")
+set_test_tmpdir /tmp || exit 1
+OUT=$(mktemp -d "${TEST_TMPDIR%/}/shopsketch-gate.XXXXXX") || exit 1
 KNOWN=tests/known_failures.txt
 START=$SECONDS
-tools/quicktest.sh > "$OUT/quick.log" 2>&1; QRC=$?
+# Keep the complete child log and forward its progress as each line arrives.
+run_logged() {
+  local log=$1 line
+  shift
+  "$@" 2>&1 | tee "$log" | while IFS= read -r line; do
+    case "$line" in "quick: "*|"full: "*) echo "$line" ;; esac
+  done
+  local statuses=("${PIPESTATUS[@]}")
+  [ "${statuses[1]}" -eq 0 ] || return 1
+  return "${statuses[0]}"
+}
+run_stage "gate: quick test" run_logged "$OUT/quick.log" tools/quicktest.sh
+QRC=$?
 # A successful quick run already parsed every script and checked every feature. Reuse those checks.
 # After any quick failure, retain fulltest's independent parse and feature checks.
 FULL_ARGS=()
 if [ $QRC -eq 0 ] && grep -qE "^features:.*\| viewport: QUICK" "$OUT/quick.log" &&
    ! grep -q "SCRIPT ERROR" "$OUT/quick.log"; then FULL_ARGS=(--gate-ui-only); fi
-tools/fulltest.sh "${FULL_ARGS[@]}" > "$OUT/full.log" 2>&1; FRC=$?
+run_stage "gate: full test" run_logged "$OUT/full.log" tools/fulltest.sh "${FULL_ARGS[@]}"
+FRC=$?
 NEW=0; KNOWN_SEEN=0
 while IFS= read -r line; do
   name=$(echo "$line" | sed -E 's/^QUICK FAIL (\[[^]]*\] [^<[{]*[^ <[{]).*/\1/; s/ +$//')

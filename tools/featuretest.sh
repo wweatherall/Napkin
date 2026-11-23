@@ -36,8 +36,11 @@ if [ "$1" = "--list" ]; then
   exit 0
 fi
 
-OUT=${1:-$(mktemp -d -t shopsketch-feature)}
-mkdir -p "$OUT"
+. tools/gate.sh || exit 1
+set_test_tmpdir || exit 1
+OUT=$1
+if [ -z "$OUT" ]; then OUT=$(mktemp -d "${TEST_TMPDIR%/}/shopsketch-feature.XXXXXX") || exit 1; fi
+mkdir -p "$OUT" || exit 1
 PIDS=()
 for t in "${TESTS[@]}"; do
   IFS='|' read -r name cmd <<< "$t"
