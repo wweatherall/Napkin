@@ -3,7 +3,7 @@
 "Check the board" sends you here. Only the integrator edits this file; the job table is built from docs/handoff/
 and the job queue.
 
-Order: H083, H052, H085, H086
+Order: H083, H052, H085, H086, H087, H088
 
 ## If you're not the integrator
 
