@@ -42,7 +42,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H052 — T66: lengths shown in the model's units](handoff/H052-t66-units.md) — status: queued (after T88's tool moves); for: either
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
 - [H077 — T103: integrate.py's main() split into named steps](handoff/H077-split-integrate-main.md) — status: open; for: either
-- [H078 — T104: the worker's instructions, cheap to read](handoff/H078-readable-worker-rules.md) — status: open; for: Claude
+- [H078 — T104: the worker's instructions, cheap to read](handoff/H078-readable-worker-rules.md) — status: answered; for: Claude
 - [H079 — T88 step 5: Push/Pull moves to ToolContext](handoff/H079-t88-push-to-toolcontext.md) — status: open; for: either
 
 <!-- end of open list -->
