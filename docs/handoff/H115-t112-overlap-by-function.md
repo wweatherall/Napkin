@@ -1,6 +1,6 @@
 ### H115 — T112: the queue checks overlap by function (P45)
 
-Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: queued (after H104) | For: Codex
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: open | For: Codex
 
 References: P45 (replaces P11), T112, T113 (H107-H114, the jobs this lets run side by side).
 

@@ -1,6 +1,6 @@
 ### H105 — integrate.py stops for a response's `Changed from the brief:` lines (P44)
 
-Author: Claude (integrator, fretchup-74) | Date: 2026-11-22 | Status: queued (after H104) | For: gemini
+Author: Claude (integrator, fretchup-74) | Date: 2026-11-22 | Status: open | For: gemini
 
 References: P44 (a worker may depart from a brief's rule that defeats its purpose, with a `Changed from the
 brief:` line; the integrator reviews every one), P28 (the map pause this copies), T91, P26 (how Follow-up and

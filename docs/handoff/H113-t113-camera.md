@@ -1,6 +1,6 @@
 ### H113 — T113 step 4c: the camera (orbit, pan, zoom, trackpad) moves out of main.gd into camera_rig.gd
 
-Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: queued (after H103) | For: either
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: open | For: either
 
 References: T113, P45, Q4, I63 (the feel tunables, wired by H103).
 

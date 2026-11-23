@@ -1,6 +1,6 @@
 ### H093 — Outside saves: a failed reload asks, a worker lost mid-reload reloads again, and a question the actions overtook closes (H092 findings 2 and 5, A39)
 
-Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: queued (after H083) | For: either
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: open | For: either
 
 References: A36 and T64 (outside saves), A39 (William, 2026-11-22: when the pending actions land while the
 question is open, FreeCAD's version is taken, the question closes and the window says so), H092 (the ultra

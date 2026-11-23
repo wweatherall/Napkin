@@ -35,7 +35,9 @@ protocol (update it in the same commit when you change either). Tools have their
 - `appearance.gd` (T88 step 1): the wood library, the current Paint wood and the paint command; Main keeps wood
   rendering, the Wood menu and T (grain), and forwards `wood_library` / `wood_keys` / `paint_material`.
 - `preferences.gd` (I63, T111): reads, checks and watches the preferences JSON (the default units and the feel
-  tunables); standalone, the caller passes the path; tests make their own file. Not wired in yet (H103).
+  tunables); standalone, the caller passes the path; tests make their own file. main.gd loads and watches it outside
+  test mode (H103); code reads the live tunables (`Inference.snap_px`, `Tool.drag_px`, ...), never the constants,
+  which stay the built-in defaults. A test that changes them puts the defaults back (`_apply_preferences(DEFAULTS)`).
 - `units.gd`: lengths. `evaluate_length` / `evaluate_pair` give FreeCAD's answer for a typed length at once (a
   port of `worker/length_input.py`; what it declines goes to FreeCAD); `format_length` for showing lengths.
 - `worker_client.gd`: TCP framing, reconnect. `tests.gd`: small test-mode dispatcher; `tests/harness.gd`: shared input, timing and assertions;

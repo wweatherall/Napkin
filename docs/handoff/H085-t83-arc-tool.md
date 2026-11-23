@@ -1,6 +1,6 @@
 ### H085 — T83: the Arc tool (2-Point and Centre arcs, exact in FreeCAD, splitting faces)
 
-Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: queued (after H052) | For: either
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: open | For: either
 
 References: T83, I60 (the gesture, William's call), I49 (arcs exact in FreeCAD), I51 (lines split faces; arcs the
 same), I58 (the Line tool's chain), I59 and T66 (typed lengths, as H052 leaves them), I43 (press-and-drag or
