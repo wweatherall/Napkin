@@ -567,7 +567,7 @@ static func _rect_pts(origin: Vector3, x: Vector3, y: Vector3, du: float, dv: fl
 func _update_tip(screen: Vector2) -> void:
 	if ui_tip == null: return
 	var txt: String = tools[tool].tip()
-	var n := _siblings_of(hover_body).size()
+	var n := sel.siblings_of(hover_body).size()
 	if n > 0:
 		txt = ((txt + "\n") if txt != "" else "") + "changes %d linked board%s" % [n + 1, "" if n == 0 else "s"]
 	ui_tip.visible = txt != ""
@@ -577,8 +577,8 @@ func _update_tip(screen: Vector2) -> void:
 
 # ---------------- selection and context (selection.gd, A33b, T41) ----------------
 # What a click stands for, the entered assembly or array, hidden boards and the board under the cursor live in
-# selection.gd (`m.sel`); it adds hide / assembly / unlink ops through the document. These names forward to it, so
-# tools and tests keep writing m.selection, m.unit_of(...). main draws what its signals say.
+# selection.gd (`m.sel`); it adds hide / assembly / unlink ops through the document. These properties forward to it,
+# while callers use m.sel.* directly for its methods. main draws what its signals say.
 const Selection := preload("res://selection.gd")
 var sel: Selection = Selection.new()
 var selection: Array:
@@ -618,26 +618,6 @@ func _make_selection() -> void:
 	sel.hidden_changed.connect(_on_hidden_changed)
 	sel.links_changed.connect(pres.forget_siblings)
 	sel.say.connect(_say_status)
-
-
-func unit_of(bid: String) -> Dictionary: return sel.unit_of(bid)
-func in_context(bid: String) -> bool: return sel.in_context(bid)
-func edit_blocked(bid: String) -> bool: return sel.edit_blocked(bid)
-func context_assembly() -> String: return sel.context_assembly()
-func enter_context_of(bid: String) -> void: sel.enter_context_of(bid)
-func leave_context() -> void: sel.leave_context()
-func set_selection(ids: Array) -> void: sel.set_selection(ids)
-func hidden_boards() -> Dictionary: return sel.hidden_boards()
-func is_hidden(bid: String) -> bool: return sel.is_hidden(bid)
-func hide_selected() -> void: sel.hide_selected()
-func unhide(which: String) -> void: sel.unhide(which)
-func toggle_hidden_geometry() -> void: sel.toggle_hidden_geometry()
-func make_assembly() -> void: sel.make_assembly()
-func _siblings_of(bid: String) -> Array: return sel.siblings_of(bid)
-func _linked_op(kind: String) -> void: sel.linked_op(kind)
-
-
-func unit_tris(unit: Dictionary) -> PackedVector3Array: return pres.unit_tris(unit)
 
 
 func _on_context_changed() -> void:
@@ -727,7 +707,7 @@ func _turn_grain() -> void:
 
 func _show_siblings(bid: String) -> void:
 	hover_body = bid
-	pres.show_siblings(_siblings_of(bid) if tool_info.get(tool, {}).get("show_links", false) else [])
+	pres.show_siblings(sel.siblings_of(bid) if tool_info.get(tool, {}).get("show_links", false) else [])
 
 
 func _say_status(txt: String) -> void:
@@ -1583,7 +1563,7 @@ func switch_model(path: String, fresh := false) -> void:
 func _reset_model_state() -> void:
 	properties_seq = -1
 	properties_request += 1
-	set_selection([])
+	sel.set_selection([])
 	doc.reset()                     # a reply still on its way belongs to the old model: it's ignored
 	measure.reset_for_model()
 	pres.reset()
