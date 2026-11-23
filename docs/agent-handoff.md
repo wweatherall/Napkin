@@ -35,7 +35,6 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H079 — T88 step 5: Push/Pull moves to ToolContext](handoff/H079-t88-push-to-toolcontext.md) — status: open; for: either
 - [H080 — T105: job.py done reuses a quick-test pass across handoff-only commits](handoff/H080-done-reuses-quick-pass.md) — status: open; for: either
 - [H081 — T106: the test scripts show progress and keep their output in the job's scratch/](handoff/H081-test-progress-and-scratch.md) — status: open; for: either
-- [H082 — For the next integrator session: where things stand](handoff/H082-integrator-state.md) — status: open; for: the integrator
 
 <!-- end of open list -->
 
@@ -43,6 +42,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 Full entries in [handoff-archive.md](handoff-archive.md).
 
+- H082 — For the next integrator session: where things stand. Resolved: see the archive
 - H078 — T104: the worker's instructions, cheap to read. Resolved: merged into main by the integrator, 2026-11-22.
 - H077 — T103: integrate.py's main() split into named steps. Resolved: merged into main by the integrator, 2026-11-22.
 - H076 — T102: the tests refuse to run in the main checkout for a session that holds a job. Resolved: merged into main by the integrator, 2026-11-22.
