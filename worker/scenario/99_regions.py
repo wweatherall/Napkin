@@ -11,7 +11,7 @@ requires = ("99_lines.py",)
 
 def run(ctx):
     viewport = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "viewport"))
-    output = os.path.join(ctx.TESTDIR, "region-predictions.json")
+    output = os.path.abspath(os.path.join(ctx.TESTDIR, "region-predictions.json"))  # Godot runs in viewport/ (H069)
     result = subprocess.run(["/Applications/Godot.app/Contents/MacOS/Godot", "--headless", "--path", viewport,
                              "--script", "res://test_regions.gd", "--", "--regions-output=" + output],
                             capture_output=True, text=True, timeout=30)

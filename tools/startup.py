@@ -54,7 +54,7 @@ def is_agent_branch(name):
     if name in ("main", "small-fixes", "origin") or name.endswith("/HEAD"):  # "origin" is origin/HEAD, shortened
         return False
     if name.startswith("origin/"):
-        return name[7:].startswith(("claude/", "codex/"))
+        return name[7:].startswith(("claude/", "codex/", "gemini/"))
     return True
 
 
@@ -72,7 +72,7 @@ def agent_branches(refs):
     return shown, hidden
 
 
-BRANCH = re.compile(r"(?<![\w/.-])((?:claude|codex)/[\w.-]*[\w])")
+BRANCH = re.compile(r"(?<![\w/.-])((?:claude|codex|gemini)/[\w.-]*[\w])")
 
 
 def gone_branches(entries, names):
