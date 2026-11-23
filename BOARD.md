@@ -3,7 +3,7 @@
 "Check the board" sends you here. Only the integrator edits this file; the job table is built from docs/handoff/
 and the job queue.
 
-Order: H103, H104, H105, H085, H086, H093, H098, H094, H096, H097, H101
+Order: H103, H104, H105, H085, H086, H093, H098, H094, H096, H097, H101, H107, H108, H109, H110, H111, H112, H113, H114
 
 ## If you're not the integrator
 
@@ -62,6 +62,14 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 | H096 | either | Queued | Pushing one cell of a split profile keeps the rest of the profile on screen (H092 finding 9) | [H096](docs/handoff/H096-region-push-keeps-profile.md) | H083 |
 | H097 | either | Queued | T110: test helpers that make a failure-path check a few lines | [H097](docs/handoff/H097-failure-path-test-helpers.md) | H094 |
 | H101 | Codex | Queued | T88 after H083: Codex checks and tidies the Move migration as built (no behaviour change) | [H101](docs/handoff/H101-t88-codex-checks-move.md) | H083; then whenever no job holds the tool files |
+| H107 | either | Queued | T113 step 1a: the FreeCAD worker's process moves out of main.gd into worker_process.gd | [H107](docs/handoff/H107-t113-worker-process.md) | H094 |
+| H108 | either | Queued | T113 step 1b: the closing and outside-save dialogs move out of main.gd into save_prompts.gd | [H108](docs/handoff/H108-t113-save-prompts.md) | H107 |
+| H109 | either | Queued | T113 step 2: what a rejection takes with it moves to document.gd, and main's document pass-throughs go | [H109](docs/handoff/H109-t113-rejections.md) | H096, H094 |
+| H110 | either | Queued | T113 step 3: the menus move out of main.gd into menus.gd | [H110](docs/handoff/H110-t113-menus.md) | H103, H101 |
+| H111 | either | Queued | T113 step 4a: building the interface moves out of main.gd into ui.gd | [H111](docs/handoff/H111-t113-ui.md) | H110 |
+| H112 | either | Queued | T113 step 4b: wood rendering moves from main.gd to appearance.gd | [H112](docs/handoff/H112-t113-wood.md) | H101, H110 |
+| H113 | either | Queued | T113 step 4c: the camera (orbit, pan, zoom, trackpad) moves out of main.gd into camera_rig.gd | [H113](docs/handoff/H113-t113-camera.md) | H103 |
+| H114 | either | Queued | T113 step 4d: main.gd's selection pass-throughs go; callers use m.sel | [H114](docs/handoff/H114-t113-selection-forwarders.md) | H101 |
 
 <!-- end of job table -->
 

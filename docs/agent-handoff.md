@@ -42,6 +42,14 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H103 — T111 step 2: preferences wired in: ⌘, opens the file, saving it applies the feel tunables and the default units](handoff/H103-t111-preferences-wired.md) — status: open; for: gemini
 - [H104 — Integrator tools: `job.py reassign`, a quieter watch, a short result at merge](handoff/H104-integrator-tool-fixes.md) — status: open; for: gemini
 - [H105 — integrate.py stops for a response's `Changed from the brief:` lines (P44)](handoff/H105-integrate-shows-brief-changes.md) — status: queued (after H104); for: gemini
+- [H107 — T113 step 1a: the FreeCAD worker's process moves out of main.gd into worker_process.gd](handoff/H107-t113-worker-process.md) — status: queued (after H094); for: either
+- [H108 — T113 step 1b: the closing and outside-save dialogs move out of main.gd into save_prompts.gd](handoff/H108-t113-save-prompts.md) — status: queued (after H107); for: either
+- [H109 — T113 step 2: what a rejection takes with it moves to document.gd, and main's document pass-throughs go](handoff/H109-t113-rejections.md) — status: queued (after H096, H094); for: either
+- [H110 — T113 step 3: the menus move out of main.gd into menus.gd](handoff/H110-t113-menus.md) — status: queued (after H103, H101); for: either
+- [H111 — T113 step 4a: building the interface moves out of main.gd into ui.gd](handoff/H111-t113-ui.md) — status: queued (after H110); for: either
+- [H112 — T113 step 4b: wood rendering moves from main.gd to appearance.gd](handoff/H112-t113-wood.md) — status: queued (after H101, H110); for: either
+- [H113 — T113 step 4c: the camera (orbit, pan, zoom, trackpad) moves out of main.gd into camera_rig.gd](handoff/H113-t113-camera.md) — status: queued (after H103); for: either
+- [H114 — T113 step 4d: main.gd's selection pass-throughs go; callers use m.sel](handoff/H114-t113-selection-forwarders.md) — status: queued (after H101); for: either
 
 <!-- end of open list -->
 
