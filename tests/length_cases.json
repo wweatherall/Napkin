@@ -10000,6 +10000,111 @@
 {
 "text": "(2') * .8ft / (7.77 in) / 2 7/8ft*2 1/8'",
 "mm": null
+},
+{
+"text": "12",
+"default_unit": "in",
+"mm": 304.79999999999995
+},
+{
+"text": "0.75",
+"default_unit": "in",
+"mm": 19.049999999999997
+},
+{
+"text": "3/4",
+"default_unit": "in",
+"mm": 19.049999999999997
+},
+{
+"text": "2 + 3",
+"default_unit": "in",
+"mm": 127.0
+},
+{
+"text": "(24 - 2) / 4",
+"default_unit": "in",
+"mm": 139.7
+},
+{
+"text": "-6",
+"default_unit": "in",
+"mm": -152.39999999999998
+},
+{
+"text": "0",
+"default_unit": "in",
+"mm": 0.0
+},
+{
+"text": "19mm",
+"default_unit": "in",
+"mm": 19.0
+},
+{
+"text": "1ft",
+"default_unit": "in",
+"mm": 304.79999999999995
+},
+{
+"text": "1' 6\"",
+"default_unit": "in",
+"mm": 457.19999999999993
+},
+{
+"text": "1 1/2\"",
+"default_unit": "in",
+"mm": 38.099999999999994
+},
+{
+"text": "8' 3 1/4\"",
+"default_unit": "in",
+"mm": 2520.95
+},
+{
+"text": "99 1/4\"",
+"default_unit": "in",
+"mm": 2520.95
+},
+{
+"text": "99.25\"",
+"default_unit": "in",
+"mm": 2520.95
+},
+{
+"text": "1in + 5mm",
+"default_unit": "in",
+"mm": 30.4
+},
+{
+"text": "1/0",
+"default_unit": "in",
+"mm": null
+},
+{
+"text": "2 + 19mm",
+"default_unit": "in",
+"mm": 21.0
+},
+{
+"text": "2",
+"default_unit": "cm",
+"mm": 20.0
+},
+{
+"text": "12.5",
+"default_unit": "cm",
+"mm": 125.0
+},
+{
+"text": "1.5",
+"default_unit": "m",
+"mm": 1500.0
+},
+{
+"text": "0.25",
+"default_unit": "m",
+"mm": 250.0
 }
 ]
 }

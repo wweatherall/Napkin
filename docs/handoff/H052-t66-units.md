@@ -59,3 +59,28 @@ and `open_reply` → session.py `_open_existing`, `save` (the Meta write), `_reb
 the saved units (as it owns rev); the window owns what's shown and sends the choice; tools only ask ToolContext
 to format a length.
 
+#### Response (Gemini, 2026-11-22)
+
+Branch: `gemini/h052-t66-units` | Commit: `<pending>`
+
+Implemented T66 (I57, I59, I62):
+- `viewport/units.gd`: canonical `<format>:<rounding>` specs for all six formats (`ft-in`, `in-frac`, `in-dec`, `m`, `cm`, `mm`) with their rounding choices (`1/8`–`1/64"`, `0.1`–`0.001"`, `1`–`0.01 mm`, `1`–`0.01 cm`, `0.1`–`0.001 m`), default `in-frac:1/16`, `~` prefix whenever rounding changes the length beyond `ROUND_TOL_MM` (0.0005 mm, absorbing float32 noise while catching any >=0.001 mm rounding), `default_unit_of`, and format/precision helpers.
+- `viewport/measure_box.gd`: owns the window's display units, last-used persistence in `user://settings.cfg` (`[units] last`, disabled in `test_mode` unless a test sets `settings_path`), immediate UI updates, `set_units` send/reply/reconnect/open-race/reload handling, `default_unit` for both local `Units.evaluate_*` and worker `length` requests (I59), and removes the hardcoded `" mm"` suffix from `ui_value`.
+- `viewport/tool_context.gd` & `viewport/tools/*_tool.gd`: added `ctx.ui.format_length(mm)` (allowlisted in `viewport/test_tool_context.gd`); `rect_tool.gd`, `circle_tool.gd`, `line_tool.gd`, `push_tool.gd`, and `move_tool.gd` format `vcb_value()` (and Move's `tip()`) through `ctx.ui.format_length`.
+- `viewport/main.gd`: added the top-level `Units` menu (`_units_menu_rid`, format + active format's rounding choices with radio checks), wired `measure` into `_on_open`, `_on_reloaded`, `_on_worker` (`set_units`), `_on_link_up`, `_outside_choice`, and `_reset_model_state`, and bumped `PROTOCOL_VERSION` 8 → 9.
+- `worker/session.py` & `worker/serve.py`: `Session.units` (validated against `UNIT_SPECS`, unreadable/absent reads as `None` per I62), persisted in `doc.Meta["ShopSketchUnits"]` on every `Session.save` (with rollback on failed save), preserved across `_rebuild` (both empty and floor-copy), updated from FreeCAD's file on `reload_outside`, exposed on `open` / `reload` replies as optional `"units"`, and updated via `cmd: "set_units"` (which queues a save without an undoable op); bumped `PROTOCOL_VERSION` 8 → 9.
+- Tests: `viewport/test_units.gd` (132 passed: every format/rounding/`~`, round-trip via `parse_length` & `evaluate_length`, FreeCAD `tests/length_cases.json` agreement with 21 new `default_unit` cases in `in`/`cm`/`m`, and `MeasureBox` lifecycle including link-drop reconnect, open race, reload, settings.cfg, and `default_unit`), `worker/test_model_units.py` (22 passed: `set_units` + `flush` + reopen, >20-op rebuild and floor-copy rebuild, undo invariance, pre-T66 and `"furlongs"` files, outside-save `reload` vs `keep_mine`, and FreeCAD `length_input` round-trip), `worker/test_length_input.py` (23 passed across all 2,521 table cases), `viewport/test_tool_context.gd` (147 passed), and `viewport/tests/quick/units.gd` (254/254 quick checks passing).
+
+IDs added: none (builds I57, I59, I62).
+Open questions: none.
+
+Architecture: Protocol version bumped 8 → 9 (worker/serve.py, viewport/main.gd).
+Architecture: open and reload replies carry optional units: string (canonical '<format>:<rounding>' from doc.Meta['ShopSketchUnits'], omitted when unset or unreadable, I57/I62).
+Architecture: New worker command set_units ({cmd:'set_units', model, units, seq} → {ok, cmd:'set_units', model, units, rev, seq}) updates Session.units without an undoable op and queues an autosave.
+Architecture: .FCStd Meta stores ShopSketchUnits beside ShopSketchRev on every Session.save; Session owns saved units across rebuilds (_new_doc and floor-copy _load_file), and reload_outside reads Meta from FreeCAD's file.
+Architecture: ToolContext.ui gains format_length(mm) (allowlisted in viewport/test_tool_context.gd); viewport/measure_box.gd owns display units, last-used user://settings.cfg persistence, set_units sync/reconnect, and default_unit for typed lengths; tools format vcb_value (and Move's tip) only through ctx.ui.format_length.
+Follow-up: tools/length_cases.py does not yet generate the default_unit cases appended to tests/length_cases.json; add a default_unit list to tools/length_cases.py next time it is regenerated.
+Follow-up: tools/featuretest.sh keys each test's log by basename after test_, so a worker/test_<name>.py and viewport/test_<name>.gd with the same <name> overwrite each other's log (avoided here by naming worker/test_model_units.py); prefixing logs by folder in featuretest.sh would prevent silent collisions.
+For the integrator: Update docs/protocol.md (PROTOCOL_VERSION 9, open/reload units field, set_units command, .FCStd Meta ShopSketchUnits) and ARCHITECTURE.md (Session.units, MeasureBox units ownership, ToolContext.ui.format_length) from the Architecture lines above, and record the T66 Work list result.
+Result: <pending>; quicktest 254/254 + feature tests all green (units 132/132, model_units 22/22, tool_context 147/147, length_input 23/23); T66 display units (I57, I59, I62), Units menu, Meta persistence, set_units protocol v9, bare-number default_unit.
+

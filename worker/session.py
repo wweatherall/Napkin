@@ -192,6 +192,23 @@ def file_rev(path):
     return int(m.group(1)) if m else None
 
 
+# Display units saved in doc.Meta["ShopSketchUnits"] (I57, I62): canonical "<format>:<rounding>" strings.
+# Unrecognized or absent values read as None so opening never fails (I62).
+UNIT_SPECS = {
+    "ft-in:1/8", "ft-in:1/16", "ft-in:1/32", "ft-in:1/64",
+    "in-frac:1/8", "in-frac:1/16", "in-frac:1/32", "in-frac:1/64",
+    "in-dec:0.1", "in-dec:0.01", "in-dec:0.001",
+    "m:0.1", "m:0.01", "m:0.001",
+    "cm:1", "cm:0.1", "cm:0.01",
+    "mm:1", "mm:0.1", "mm:0.01",
+}
+
+
+def parse_units(value):
+    """Return the canonical units string if valid, else None (absent or unreadable never stops open, I62)."""
+    return value if isinstance(value, str) and value in UNIT_SPECS else None
+
+
 def keep_aside(path, aside, kept):
     """Move path out of the way to aside, unless a file with the same bytes is among kept (then it's no loss)."""
     if not os.path.exists(path):
@@ -324,6 +341,7 @@ class Session:
         self.floor_copy = None     # {"sha256", "ops"} of <model>.floor.FCStd when the floor came from FreeCAD (A38)
         self.external = False
         self.rev = 0
+        self.units = None          # saved display units (doc.Meta["ShopSketchUnits"], I57); kept across rebuilds
         self.dirty = False
         self.drawing = False
         self.session_base = 0
@@ -377,6 +395,7 @@ class Session:
     def _open_existing(self):
         self._load_file()
         self.rev = int(self.doc.Meta.get("ShopSketchRev", "0") or 0)
+        self.units = parse_units(self.doc.Meta.get("ShopSketchUnits"))
         self.file_sha = sha256(self.path)
         jp = journal_path(self.path)
         j = None
@@ -498,6 +517,7 @@ class Session:
         self.dropped += gone
         file_meta_rev = int(self.doc.Meta.get("ShopSketchRev", "0") or 0)
         self.rev = max(self.rev, file_meta_rev)       # our next save goes on counting up
+        self.units = parse_units(self.doc.Meta.get("ShopSketchUnits"))
         self.file_sha = sha256(self.path)
         self.rev_ops = {file_meta_rev: list(kept)}
         self.doc.clearUndos()
@@ -655,6 +675,19 @@ class Session:
             wood.write_library(os.path.join(outdir, "materials.json"))
         return round((time.perf_counter() - t0) * 1000, 1)
 
+    def set_units(self, units):
+        """Set the model's display units (I57): not an op (undo leaves it), saved in Meta on the next save."""
+        parsed = parse_units(units)
+        if parsed is None:
+            raise OpError(f"unknown units '{units}'")
+        missing_on_disk = bool(self.path) and not os.path.exists(self.path)
+        meta_matches = self.doc is not None and self.doc.Meta.get("ShopSketchUnits") == parsed
+        changed = parsed != self.units or not meta_matches or missing_on_disk
+        self.units = parsed
+        if changed:
+            self.dirty = True
+        return changed
+
     def save(self, outdir=None):
         """Atomic autosave: write a copy beside the file, then swap it in. With a drawing wanted, the
         copy gets a fresh TechDraw page (the live document never carries one)."""
@@ -665,15 +698,17 @@ class Session:
             write_glb(self.model, os.path.join(outdir, "model.glb"))     # the whole model, for renders (A07)
         self.rev += 1
         meta = self.doc.Meta
+        prev_meta = dict(meta)
         meta["ShopSketchRev"] = str(self.rev)
+        if self.units is not None:
+            meta["ShopSketchUnits"] = self.units
         self.doc.Meta = meta
         g = generation(self.path)
         try:
             self._write(g, outdir)
         except Exception:
             self.rev -= 1           # a failed save leaves the revision where it was: the retry saves this one (T79)
-            meta["ShopSketchRev"] = str(self.rev)
-            self.doc.Meta = meta
+            self.doc.Meta = prev_meta
             for k in ("saving_file", "saving_journal"):
                 try:
                     os.remove(g[k])

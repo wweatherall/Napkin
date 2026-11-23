@@ -11,7 +11,7 @@ func reset() -> void:
 func busy() -> bool: return not state.is_empty()
 func hint() -> String: return "Line: click points to chain lines, click the start to close; Esc ends; drag for one line"
 func vcb_label() -> String: return "Length"
-func vcb_value() -> String: return DISTANCE_DISPLAY_FORMAT % state.a.distance_to(state.b) if busy() else ""
+func vcb_value() -> String: return ctx.ui.format_length(state.a.distance_to(state.b)) if busy() else ""
 
 func mouse_moved(screen: Vector2) -> void:
 	press_moved(screen)

@@ -18,11 +18,12 @@ import json
 table = json.load(open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), 'tests', 'length_cases.json')))
 changed = []
 for case in table['cases']:
-    try: got = evaluate(case['text'])
+    du = case.get('default_unit', 'mm')
+    try: got = evaluate(case['text'], du)
     except Exception: got = None
     want = case['mm']
     if (got is None) != (want is None) or (got is not None and abs(got - want) > 1e-9 * max(1.0, abs(want))):
-        changed.append((case['text'], got, want))
+        changed.append((case['text'], du, got, want))
 assert not changed, changed[:10]
 passed += 1
 print('LENGTH TESTS: %d passed, 0 failed (FreeCAD matches all %d table cases)' % (passed+1, len(table['cases'])))

@@ -112,10 +112,10 @@ func vcb_label() -> String:
 func vcb_value() -> String:
 	if not state.get("active", false): return ""
 	if mirror and state.get("mir_face", "") != "":
-		return DISTANCE_DISPLAY_FORMAT % absf((state["ref"] - state["mir_p"]).dot(state["mir_n"]))
+		return ctx.ui.format_length(absf((state["ref"] - state["mir_p"]).dot(state["mir_n"])))
 	if mirror and state.has("mir_c"):
-		return DISTANCE_DISPLAY_FORMAT % _mirror_face_gap(state["mir_ax"], state["mir_c"])
-	return DISTANCE_DISPLAY_FORMAT % state["vec"].length()
+		return ctx.ui.format_length(_mirror_face_gap(state["mir_ax"], state["mir_c"]))
+	return ctx.ui.format_length(state["vec"].length())
 
 
 func tip() -> String:
@@ -124,10 +124,11 @@ func tip() -> String:
 	if state.get("active", false) and mirror and state.has("mir_c"):
 		var g := _mirror_face_gap(state["mir_ax"], state["mir_c"])
 		var col: String = ["red", "green", "blue"][state["mir_ax"]]
-		return "Mirror%s (%s plane)\nface → plane  %d mm\nface → mirrored face  %d mm" % [" + copy" if copy else "", col, g, 2.0 * g]
+		return "Mirror%s (%s plane)\nface → plane  %s\nface → mirrored face  %s" % [" + copy" if copy else "", col,
+			ctx.ui.format_length(g), ctx.ui.format_length(2.0 * g)]
 	if state.get("active", false):
 		var k: String = state.get("kind", "")
-		return "%s  %d mm%s" % ["Copy +" if copy else "Move", state["vec"].length(), ("\n" + k) if k != "" else ""]
+		return "%s  %s%s" % ["Copy +" if copy else "Move", ctx.ui.format_length(state["vec"].length()), ("\n" + k) if k != "" else ""]
 	if last_oid != "" and copy:
 		return "type 5x or /5 for more copies"
 	if copy or mirror:

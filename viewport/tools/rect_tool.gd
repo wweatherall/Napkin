@@ -66,7 +66,7 @@ func vcb_label() -> String:
 
 
 func vcb_value() -> String:
-	return DIMENSIONS_DISPLAY_FORMAT % [absf(state["du"]), absf(state["dv"])] if state.get("active", false) else ""
+	return "%s, %s" % [ctx.ui.format_length(absf(state["du"])), ctx.ui.format_length(absf(state["dv"]))] if state.get("active", false) else ""
 
 
 func _rect_drag(screen: Vector2) -> void:

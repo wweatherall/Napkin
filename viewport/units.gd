@@ -240,28 +240,93 @@ static func _primary(tokens: Array, at: Array) -> Array:
 					return [sin(r) if tok[1] == "sin" else cos(r) if tok[1] == "cos" else tan(r), 0]
 	return []
 
-static func format_length(mm: float, system: String, precision: int = 16) -> String:
-	# precision is the imperial fraction denominator: 16 (default), 32, or 64.
-	# Metric always displays 0.1 mm. Invalid system/precision/nonfinite => empty.
-	if not is_finite(mm): return ""
-	if system in ["metric", "mm"]:
-		var rounded := snappedf(mm, 0.1)
-		if is_zero_approx(rounded): rounded = 0.0
-		var s := "%.1f" % rounded
-		if s.ends_with(".0"): s = s.left(-2)
-		return s + " mm"
-	if system not in ["imperial", "in"] or precision not in [16, 32, 64]: return ""
-	var ticks := roundi(absf(mm) / 25.4 * precision)
-	# int conversion is explicit to avoid integer-division warnings in strict builds.
-	var feet := int(float(ticks) / float(12 * precision))
-	var rest := ticks % (12 * precision)
-	var inches := int(float(rest) / float(precision))
-	var numerator := rest % precision
-	var denominator := precision
+# ---------- display formatting (I57, I59, I62) ----------
+## Canonical display unit specs: "<format>:<rounding>". Saved in doc.Meta["ShopSketchUnits"] and settings.cfg.
+## Default (I57): fractional inches at 1/16". Tests start in mm:0.1 so existing bare-number mm suites stay unchanged.
+const DEFAULT_SPEC := "in-frac:1/16"
+const TEST_SPEC := "mm:0.1"
+const ROUND_TOL_MM := 0.0005  # absorbs float32 mesh/ray noise (~1e-4 mm) while catching any real >=0.001 mm rounding
+
+const FORMAT_ORDER := ["ft-in", "in-frac", "in-dec", "m", "cm", "mm"]
+const FORMATS := {
+	"ft-in": {"label": "Feet and inches (8' 3 1/4\")", "unit": "in", "default": "1/16", "precisions": ["1/8", "1/16", "1/32", "1/64"]},
+	"in-frac": {"label": "Inches as fractions (99 1/4\")", "unit": "in", "default": "1/16", "precisions": ["1/8", "1/16", "1/32", "1/64"]},
+	"in-dec": {"label": "Inches as decimals (99.25\")", "unit": "in", "default": "0.01", "precisions": ["0.1", "0.01", "0.001"]},
+	"m": {"label": "Metric — m", "unit": "m", "default": "0.001", "precisions": ["0.1", "0.01", "0.001"]},
+	"cm": {"label": "Metric — cm", "unit": "cm", "default": "0.1", "precisions": ["1", "0.1", "0.01"]},
+	"mm": {"label": "Metric — mm", "unit": "mm", "default": "0.1", "precisions": ["1", "0.1", "0.01"]},
+}
+
+
+static func parse_spec(spec: String) -> Dictionary:
+	"""Validate a canonical '<format>:<rounding>' string. Returns {ok, spec, format, precision, unit} or {ok: false}."""
+	var parts := spec.strip_edges().split(":", true)
+	if parts.size() != 2: return {"ok": false}
+	var fmt: String = parts[0]
+	var prec: String = parts[1]
+	if not FORMATS.has(fmt): return {"ok": false}
+	var info: Dictionary = FORMATS[fmt]
+	if prec not in info["precisions"]: return {"ok": false}
+	return {"ok": true, "spec": fmt + ":" + prec, "format": fmt, "precision": prec, "unit": info["unit"]}
+
+
+static func default_unit_of(spec: String) -> String:
+	"""The unit a bare typed number takes for this display spec (I59)."""
+	var parsed := parse_spec(spec)
+	return parsed["unit"] if parsed.ok else FORMATS[parse_spec(DEFAULT_SPEC)["format"]]["unit"]
+
+
+static func precision_label(fmt: String, prec: String) -> String:
+	if fmt in ["ft-in", "in-frac", "in-dec"]: return prec + "\""
+	return prec + " " + fmt
+
+
+static func with_format(spec: String, new_fmt: String) -> String:
+	"""Switch format, keeping the current rounding if the new format offers it, else its default."""
+	if not FORMATS.has(new_fmt): return DEFAULT_SPEC
+	var cur := parse_spec(spec)
+	var prec: String = cur["precision"] if cur.ok and cur["precision"] in FORMATS[new_fmt]["precisions"] else FORMATS[new_fmt]["default"]
+	return new_fmt + ":" + prec
+
+
+static func with_precision(spec: String, new_prec: String) -> String:
+	"""Switch rounding within the current format."""
+	var cur := parse_spec(spec)
+	if not cur.ok: cur = parse_spec(DEFAULT_SPEC)
+	var fmt: String = cur["format"]
+	if new_prec not in FORMATS[fmt]["precisions"]: return cur["spec"]
+	return fmt + ":" + new_prec
+
+
+static func _resolve_spec(system_or_spec: String, precision: int) -> Dictionary:
+	var parsed := parse_spec(system_or_spec)
+	if parsed.ok: return parsed
+	if system_or_spec in ["metric", "mm"] and precision == 0:
+		return parse_spec("mm:0.1")
+	if system_or_spec in ["imperial", "in"]:
+		var denom := 16 if precision == 0 else precision
+		return parse_spec("ft-in:1/%d" % denom)
+	if FORMATS.has(system_or_spec) and precision == 0:
+		return parse_spec(system_or_spec + ":" + FORMATS[system_or_spec]["default"])
+	return {"ok": false}
+
+
+static func _format_fraction_inches(mm: float, denom: int, with_feet: bool) -> String:
+	var ticks := roundi(absf(mm) / 25.4 * float(denom) + 1e-9)
+	var rounded_mm := float(ticks) * 25.4 / float(denom)
+	if mm < 0.0 and ticks > 0: rounded_mm = -rounded_mm
+	var approx := absf(mm - rounded_mm) > ROUND_TOL_MM
+	var feet := 0
+	var rest := ticks
+	if with_feet:
+		feet = floori(float(ticks) / float(12 * denom))
+		rest = ticks % (12 * denom)
+	var inches := floori(float(rest) / float(denom))
+	var numerator := rest % denom
+	var denominator := denom
 	while numerator > 0 and numerator % 2 == 0:
-		numerator = int(float(numerator) / 2.0)
-		denominator = int(float(denominator) / 2.0)
-	# Under an inch reads 3/4", not 0 3/4".
+		numerator = floori(float(numerator) / 2.0)
+		denominator = floori(float(denominator) / 2.0)
 	var result := str(inches)
 	if numerator > 0:
 		var fraction := "%d/%d" % [numerator, denominator]
@@ -269,4 +334,40 @@ static func format_length(mm: float, system: String, precision: int = 16) -> Str
 	result += "\""
 	if feet > 0: result = "%d' %s" % [feet, result]
 	if mm < 0.0 and ticks > 0: result = "-" + result
-	return result
+	return ("~" + result) if approx else result
+
+
+static func _format_decimal(mm: float, factor: float, suffix: String, prec: String) -> String:
+	var dot := prec.find(".")
+	var dec := 0 if dot < 0 else (prec.length() - dot - 1)
+	var scale := pow(10.0, float(dec))
+	var val := mm / factor
+	var steps: float = round(absf(val) * scale + 1e-9)
+	var rounded_abs: float = steps / scale
+	var rounded_mm: float = (-rounded_abs if (val < 0.0 and steps > 0.0) else rounded_abs) * factor
+	var approx := absf(mm - rounded_mm) > ROUND_TOL_MM
+	var s := ("%.*f" % [dec, rounded_abs]) if dec > 0 else ("%.0f" % rounded_abs)
+	if dec > 0:
+		while s.ends_with("0"): s = s.left(-1)
+		if s.ends_with("."): s = s.left(-1)
+	var result := ("-" if (val < 0.0 and steps > 0.0) else "") + s + suffix
+	return ("~" + result) if approx else result
+
+
+static func format_length(mm: float, system_or_spec: String = DEFAULT_SPEC, precision: int = 0) -> String:
+	"""Format a length in mm for display (I57). Accepts a canonical spec ('ft-in:1/16', 'in-frac:1/16',
+	'in-dec:0.01', 'm:0.001', 'cm:0.1', 'mm:0.1') or legacy ('metric'/'imperial', denom). Prepends '~' when
+	rounding changed the length beyond ROUND_TOL_MM. Non-finite or invalid spec => ''."""
+	if not is_finite(mm): return ""
+	var spec := _resolve_spec(system_or_spec, precision)
+	if not spec.ok: return ""
+	var fmt: String = spec["format"]
+	var prec: String = spec["precision"]
+	match fmt:
+		"ft-in": return _format_fraction_inches(mm, int(prec.substr(2)), true)
+		"in-frac": return _format_fraction_inches(mm, int(prec.substr(2)), false)
+		"in-dec": return _format_decimal(mm, 25.4, "\"", prec)
+		"m": return _format_decimal(mm, 1000.0, " m", prec)
+		"cm": return _format_decimal(mm, 10.0, " cm", prec)
+		"mm": return _format_decimal(mm, 1.0, " mm", prec)
+	return ""
