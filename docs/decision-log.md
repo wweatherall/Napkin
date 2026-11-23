@@ -49,7 +49,7 @@ One subject per decision; the Decisions column is generated.
 | Feedback | The confirmation wave and what colours mean. | I06, W01, W02, W03, W04, W05, W06, W07, W08, W09 |
 | Materials | Wood cards, grain and painting. | A05, I33, M01, M02, M03, M04 |
 | Output | Drawings, cut lists and renders. | A07, D01, D02, P06 |
-| Process | How the agents work, test, merge and record decisions. | P01, P02, P03, P07, P09, P10, P11, P14, P15, P16, P17, P18, P19, P20, P21, P22, P23, P24, P25, P26, P28, P29, P31, P32, P33, P34, P35, P36, P37, P38, P39, P40, P41, P42, P43 |
+| Process | How the agents work, test, merge and record decisions. | P01, P02, P03, P07, P09, P10, P11, P14, P15, P16, P17, P18, P19, P20, P21, P22, P23, P24, P25, P26, P28, P29, P31, P32, P33, P34, P35, P36, P37, P38, P39, P40, P41, P42, P43, P44 |
 
 ## Principles
 
@@ -68,7 +68,7 @@ Each states one idea; Explains (generated) lists the decisions that name it. Wil
 | G09 | Never lose work: always saved, atomically, and undo crosses sessions without hiding changes made in FreeCAD. | Active | A24, A25, A27, A28, A32, A36, A37, A39, I54, I55, U01, U02, U03, W13 | 2026-11-22 |
 | G10 | A rejected action says why and leaves nothing behind. | Active | A23, I06, I08, W06 | 2026-11-22 |
 | G11 | Nothing rests on memory: every decision is logged, every behaviour has a named test, and every prediction of FreeCAD's answer is checked against FreeCAD. | Active | A38, I51, P01, P02, P03, P07, P09, P18, P21, P23, P26, P28, P29, P31, P32, P33, P34, P35, P36 | 2026-11-22 |
-| G12 | Work splits by files, and one integrator merges, numbers and keeps the records. | Active | A31, A33b, A34, A35, P10, P11, P14, P15, P16, P17, P18, P19, P20, P22, P24, P25, P26, P28, P29, P31, P32, P33, P34, P35, P36, P37, P38, P39, P40, P41, P42, P43 | 2026-11-22 |
+| G12 | Work splits by files, and one integrator merges, numbers and keeps the records. | Active | A31, A33b, A34, A35, P10, P11, P14, P15, P16, P17, P18, P19, P20, P22, P24, P25, P26, P28, P29, P31, P32, P33, P34, P35, P36, P37, P38, P39, P40, P41, P42, P43, P44 | 2026-11-22 |
 | G13 | Show what an edit will change before it does. | Active | I28 | 2026-11-22 |
 
 ## Decisions
@@ -285,6 +285,7 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | P41 | H059 includes the direct ID allocation sites in viewport/tools/, selection.gd and main.gd and affected tests; changes in those production files are limited to replacing ID allocation with the document allocator (William, relaying the integrator's scope clarification). | Active |  |  | G12 |  | 2026-11-22 |
 | P42 | A brief for a job that touches saving, reloading or the worker link has a 'What can fail' section, written by the integrator: each step that can fail (a file missing or unreadable, the worker gone, a reply late or out of order, a dialog open while replies arrive), what should happen, and the named check that proves it. The worker may add cases, not drop any; the review checks each case has its check. | Active |  | William, 2026-11-22 (through fretchup-f9, confirmed here): seven of the first ultra review's ten findings (H092) were failure paths of the outside-save code, which had passed review and the gate; the builder's tests covered only the cases the builder thought of. | G12 | docs/integrator.md (Writing jobs, Review and merge); docs/agent-handoff.md entry template | 2026-11-22 |
 | P43 | The integrator doesn't run a light /code-review on every merge; review stays as docs/integrator.md says (the integrator's own review, the gate, P42's What-can-fail checks), and William runs the ultra review himself as features land (H092). | Active |  | William, 2026-11-22: answered the integrator's proposal (H074) no. | G12 | docs/integrator.md (Review and merge) | 2026-11-22 |
+| P44 | A brief's rule says what it's for as well as what to do. A worker may depart from a rule when following it to the letter would defeat its purpose or break something the code relies on: it does what serves the purpose and adds a 'Changed from the brief:' line to its response (what the brief said, what it did, why); the integrator reviews every one. Not for anything William would notice (behaviour, visible wording, what is saved: ask him), and never to drop a 'What can fail' case or a check, only to change how one is met. | Active |  | William, 2026-11-22: H102's brief had a rule that left RELEASE_DEG below INFER_DEG (an axis would let go before it sticks); the worker built it as written and tested it. Exact briefs carry the integrator's mistakes exactly; a stated purpose lets the worker catch them. | G12 | BOARD.md (worker step 3, step 6), AGENTS.md, docs/agent-handoff.md (entry template), docs/integrator.md (Writing jobs, Review and merge) | 2026-11-22 |
 
 ## Open questions
 

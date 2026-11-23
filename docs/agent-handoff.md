@@ -160,12 +160,13 @@ References: decision IDs, files, commits, or tests.
 
 Touches: the files this job expects to change (P11).
 
-Finding or request: ...
+Finding or request: ... Each rule says what it's for ("RELEASE_DEG never below INFER_DEG, so an axis can't let
+go before it sticks"), so the worker can tell when the letter defeats it (P44).
 
 What can fail (a job touching saving, reloading or the worker link, P42): each step that can fail (a file
 missing or unreadable, the worker gone, a reply late or out of order, a dialog open while replies arrive), what
 should happen, and the named check that proves it. The worker may add cases, not drop any.
 
-Response — Author, YYYY-MM-DD: ...
+Response — Author, YYYY-MM-DD: ... (a `Changed from the brief:` line per departure, P44)
 
 Resolution: ...

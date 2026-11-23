@@ -22,7 +22,8 @@ Architecture: lines, the response) and CLAUDE.md (commit trailers); this page sa
   commit hook does it on main).
 
 ## Review and merge
-- Review every done job (Codex's `codex/*` branches too). For a brief with a "What can fail" section, check that each case
+- Review every done job (Codex's `codex/*` branches too). Read each `Changed from the brief:` line first (P44):
+  accept it, or return the job; one that changes what William would notice goes to him. For a brief with a "What can fail" section, check that each case
   listed there has its named check, and that the check fails without the change where it can (P42). Merge what's good with
   `python3 tools/integrate.py <branch> --as <name> --push` (P20). It runs the gate, `tools/gate.sh` (P18); flags
   files the branch changed outside its job's Touches list; renumbers a PROTOCOL_VERSION bump on top if main moved
@@ -60,6 +61,10 @@ Architecture: lines, the response) and CLAUDE.md (commit trailers); this page sa
 - A brief that has the worker clear a follow-up lists docs/follow-ups.md on its Touches and asks for it in the
   code commit, before the quick test: `job.py done` reuses a pass only across commits that change the handoff
   (H091's worker found "in your last commit" clashed with both).
+- Every rule in a brief says what it's for, in a clause: the invariant it keeps or the case it prevents (P44).
+  Before writing a rule that sets one value of a linked pair or group (two angles, a range, a count and its
+  list), check the state it leaves the others in. The worker may depart from a rule whose letter defeats its
+  purpose, with a `Changed from the brief:` line.
 - Make a brief exact: its scope, the exact wording of any message, the cases that must still work (H076 is the
   model; workers said its precision let them build it without guessing). Check every claim it makes about how
   the code works today against the code before marking it Ready: H077's brief stated an order of steps opposite

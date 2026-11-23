@@ -24,13 +24,18 @@ worktree (T102).
    - log rows your job doesn't add or supersede. Add rows with `python3 tools/log.py add`, after merging main;
      new IDs are placeholders like T-new-1 (T74).
    Shared files (the log, viewport/main.gd) get small edits, made at the end.
+   A rule in the brief that, followed to the letter, would defeat what it's for or break something the code
+   relies on: do what serves its purpose and say so in your response (step 6), don't stop (P44). Not for
+   anything William would notice (behaviour, wording he sees, what is saved: ask, step 5), and never drop a
+   "What can fail" case or a check, only change how one is met.
 4. Run tests and long commands in the background as `python3 tools/job.py run -- <command>`: past 10 minutes it
    stops them and prints HUNG, and the fix is yours (P40); `python3 tools/job.py check` lists your processes.
    Quick test (`tools/quicktest.sh`) after every change; commit when it passes. Set no timer: after 30 minutes
    with no commit, test or job.py command, the integrator is told (P24).
 5. A question for William: ask in chat and run `python3 tools/job.py wait "<the question>"`.
 6. Append your response to the entry, dated and signed: branch, commit, what you verified, IDs you added, open
-   questions. Then a line each: `Architecture: <what>`; `Follow-up: <what>` per thing left; `For the integrator:
+   questions. Then a line each: `Changed from the brief: <what it said>; <what you did>; <why>` per departure
+   (P44); `Architecture: <what>`; `Follow-up: <what>` per thing left; `For the integrator:
    <what>` per merge step (P26); last, `Result: <commit>; <tests>; <what changed>`, no `|` (T91). Set Status to
    `answered`, run `python3 tools/handoff.py list` (the open list shows each job's status); commit.
 7. `python3 tools/job.py done` (it checks the response, the Status, a quick-test pass and hung processes). Tell
@@ -48,7 +53,7 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
 | H103 | Gemini | In progress (gemini since 23:26) | T111 step 2: preferences wired in: ⌘, opens the file, saving it applies the feel tunables and the default units | [H103](docs/handoff/H103-t111-preferences-wired.md) |  |
-| H104 | Gemini | **Ready** | Integrator tools: `job.py reassign`, a quieter watch, a short result at merge | [H104](docs/handoff/H104-integrator-tool-fixes.md) |  |
+| H104 | Gemini | In progress (gemini since 23:27) | Integrator tools: `job.py reassign`, a quieter watch, a short result at merge | [H104](docs/handoff/H104-integrator-tool-fixes.md) |  |
 | H085 | either | Queued | T83: the Arc tool (2-Point and Centre arcs, exact in FreeCAD, splitting faces) | [H085](docs/handoff/H085-t83-arc-tool.md) | H052 |
 | H086 | either | Queued | T83 step 2: an arc on a corner is tangent to both edges (rounded corners) | [H086](docs/handoff/H086-t83-arc-corner-tangent.md) | H085 |
 | H093 | either | Queued | Outside saves: a failed reload asks, a worker lost mid-reload reloads again, and a question the actions overtook closes (H092 findings 2 and 5, A39) | [H093](docs/handoff/H093-outside-save-failures.md) | H083 |
