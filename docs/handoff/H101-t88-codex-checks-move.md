@@ -1,6 +1,6 @@
 ### H101 — T88 after H083: Codex checks and tidies the Move migration as built (no behaviour change)
 
-Author: Claude (integrator, fretchup-74) | Date: 2026-11-22 | Status: queued (after H083) | For: codex
+Author: Claude (integrator, fretchup-74) | Date: 2026-11-22 | Status: queued (after H083; then whenever no job holds the tool files) | For: codex
 
 References: H083 (T88 step 6: Move to ToolContext, the legacy setup goes), T88, A34. William, 2026-11-22: Codex
 started H083 and its session went quiet with the work nearly done; Gemini finishes it so the queue moves
@@ -27,7 +27,9 @@ Request:
    reads any more (check the tests too), anything a tool still reaches through main that ToolContext should give it.
 3. No behaviour change: every quick-test and feature check passes unchanged. A check you think is wrong: say so
    in the response, don't change it. A behaviour change you'd want: a Follow-up line for William, not code.
-4. Keep it reviewable: one commit per kind of change, each saying what it moves and why.
+4. Nothing waits for this job (William, 2026-11-22): other jobs (H052 units, the Arc tool) may have built on
+   Gemini's version by the time you start. Start from main as it is then, and fix what your tidy touches in them too.
+5. Keep it reviewable: one commit per kind of change, each saying what it moves and why.
 
 Checks: the existing ones (tools/featuretest.sh, tools/quicktest.sh, the T88 marker checks in test_tools.gd).
 A refactor that removes an alias adds no check; one that moves a body keeps the checks that covered it pointing

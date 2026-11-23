@@ -1,6 +1,6 @@
 ### H052 — T66: lengths shown in the model's units
 
-Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: queued (after T88's tool moves) | For: either
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: queued (after H083) | For: either
 
 References: T66, I57 (the Units menu, rounding, ~, saved per model), I59 (bare numbers typed are in the model's
 units), I35 and T32 (typing lengths), P21 (viewport vs FreeCAD answers: tests/length_cases.json), Q22.
