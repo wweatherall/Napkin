@@ -56,7 +56,6 @@ shows the queue; `python3 tools/job.py board` rebuilds the table (the commit hoo
 | H069 | either | **Ready** | Three timing-sensitive tests that fail under load | [H069](docs/handoff/H069-flaky-timing-tests.md) |  |
 | H072 | either | **Ready** | T88 step 3: Circle moves to ToolContext | [H072](docs/handoff/H072-t88-circle-to-toolcontext.md) |  |
 | H052 | either | Queued | T66: lengths shown in the model's units | [H052](docs/handoff/H052-t66-units.md) | T88's tool moves |
-| H070 | Claude | **Done**: for review (claude) | Trim CLAUDE.md and AGENTS.md to what a session needs | [H070](docs/handoff/H070-trim-instructions.md) |  |
 
 <!-- end of job table -->
 
