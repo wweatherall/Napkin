@@ -8,6 +8,8 @@
   Ready and you can't wait in the background: say so and stop.
 - Work only in the job's worktree; never switch branches in /Users/Will/Sites/fretchup (Claude's). Merge main into
   an open job's branch at least daily. Merge into main or push only when William asks.
+- A brief's rule that, followed to the letter, would defeat its purpose: do what serves it and add a
+  `Changed from the brief:` line to your response (BOARD.md step 3, P44); not for behaviour, which is William's (next line).
 - Behaviour choices are William's: ask, one question at a time, with a recommendation. Log each answer (names,
   keys, defaults and wording too) as its own row, `python3 tools/log.py add` (P01, P09). Active decisions govern.
 - Commit with `git -c core.hooksPath=.githooks commit`; watched code needs `Architecture-Impact: in the handoff -
