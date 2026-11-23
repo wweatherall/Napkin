@@ -46,7 +46,7 @@ func run() -> void:
 		[m.ops.size(), n_ops, m.ui_sync.text])
 	await harness._wait_confirm()
 	# Esc (T31): the gesture first, then the selection
-	m.set_selection([harness.id("b1")])
+	m.sel.set_selection([harness.id("b1")])
 	await harness._key(KEY_R)
 	await harness._drag_to(Vector3(500, 0, 0), 4); await harness._press()
 	await harness._drag_to(Vector3(540, 30, 0), 4)

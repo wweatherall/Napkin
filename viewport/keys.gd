@@ -27,8 +27,8 @@ func press(e: InputEventKey) -> void:
 	match e.keycode:
 		KEY_ESCAPE:                        # the gesture first, then the selection, then the assembly you're in (T31)
 			if m.tools[m.tool].in_gesture() or box.vcb != "": m.set_tool(m.tool)
-			elif not m.selection.is_empty(): m.set_selection([])
-			elif m.context != "": m.leave_context()
+			elif not m.selection.is_empty(): m.sel.set_selection([])
+			elif m.context != "": m.sel.leave_context()
 			else: m.set_tool(m.tool)
 			return
 		KEY_ENTER, KEY_KP_ENTER: box.apply(); return
@@ -39,7 +39,7 @@ func press(e: InputEventKey) -> void:
 				var grabbed: Dictionary = m.tools["move"].state       # mid-move: what's being moved goes
 				if grabbed.get("cut", {}).is_empty():                 # (a hole being moved: deleting holes isn't built)
 					var ids: Array = grabbed.get("unit", {}).get("bodies", [grabbed.get("body", "")])
-					m.set_tool("move"); m.set_selection(ids); m.sel.delete_selected()
+					m.set_tool("move"); m.sel.set_selection(ids); m.sel.delete_selected()
 			else: m.menus.run("delete")
 			return
 	var ch := char(e.unicode) if e.unicode > 0 else ""

@@ -27,8 +27,8 @@ func run() -> void:
 	var copy_b: String = row[2]
 	m.set_tool("push")
 	await harness._drag_to(Vector3(325, 25, 18), 4)
-	harness._ok("hovering a copy tints its 3 siblings and the tooltip counts 4", m._siblings_of(copy_b).size() == 3 and m.ui_tip.text.contains("changes 4 linked boards"),
-		[m.hover_body, m._siblings_of(copy_b), m.ui_tip.text])
+	harness._ok("hovering a copy tints its 3 siblings and the tooltip counts 4", m.sel.siblings_of(copy_b).size() == 3 and m.ui_tip.text.contains("changes 4 linked boards"),
+		[m.hover_body, m.sel.siblings_of(copy_b), m.ui_tip.text])
 	await harness._view(Vector3(350, 25, 18), -25, -50, 0.8)          # close enough that the start isn't within snapping range
 	await harness._rect(Vector3(338, 18, 18), Vector3(358, 38, 18), "20,20")
 	await harness._push(Vector3(348, 28, 18), Vector3(348, 28, 8), "-18")

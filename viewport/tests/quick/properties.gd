@@ -12,7 +12,7 @@ func run() -> void:
 	# Native property panel: inspect -> expression edit -> updated geometry -> undo.
 	await harness._fresh("properties", harness._plank(1, Vector3.ZERO, Vector3(100, 50, 20)))
 	m.properties_panel.show()
-	m.set_selection([harness.id("b1")])
+	m.sel.set_selection([harness.id("b1")])
 	await harness._wait_properties()
 	await harness._shot("properties_board")
 	var snapshot: Dictionary = m.properties_panel.data
@@ -51,7 +51,7 @@ func run() -> void:
 	fit_scene.append_array(target_board)
 	await harness._fresh("plane_fit",fit_scene)
 	m.set_tool("select")
-	m.set_selection([harness.id("b1")])
+	m.sel.set_selection([harness.id("b1")])
 	await harness._wait_properties()
 	await harness._view(Vector3(55,30,65), -32,-25,0.45)
 	var panel = m.properties_panel
