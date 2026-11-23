@@ -607,6 +607,7 @@ func _make_ui() -> void:
 	srow.add_child(ui_hint); srow.add_child(ui_sync); srow.add_child(ui_saved)
 	measure.name = "MeasureBox"
 	measure.m = self
+	measure.init_units("" if test_mode else SETTINGS, Units.TEST_SPEC if test_mode else Units.DEFAULT_SPEC)
 	add_child(measure)
 	measure.build(srow)
 	# tooltip by the cursor
@@ -1033,6 +1034,7 @@ func _on_open(resp: Dictionary) -> void:
 	var adopt := not (test_mode and not heavy_test and _first_open)   # tests start clean; a model opened later (switch_model) adopts its history
 	_first_open = false
 	doc.on_opened(resp, adopt)
+	measure.on_opened(resp, adopt)
 	if not adopt: return
 	_rebuild_rect_drafts()
 	sync()
@@ -1154,6 +1156,9 @@ func _on_worker(resp: Dictionary) -> void:
 		return
 	if resp.get("cmd", "") == "keep_mine":
 		doc.on_keep_mine_reply(resp)
+		return
+	if resp.get("cmd", "") == "set_units":
+		measure.on_set_units_reply(resp)
 		return
 	if not resp.get("cmd", "") in ["sync", "replay"]:   # flush, hello, bye, quit, or an error for some other request:
 		if not resp.get("ok", false):                    # never sync state (T70)
@@ -1409,7 +1414,7 @@ func _port_free(p: int) -> bool:
 
 # The window <-> worker protocol's version (docs/protocol.md): bump it when a message or shared-file field changes.
 # The worker reports its own (worker/serve.py PROTOCOL_VERSION) in hello; a worker speaking another isn't shared.
-const PROTOCOL_VERSION := 8
+const PROTOCOL_VERSION := 9
 
 
 func _probe_worker(p: int) -> String:
@@ -1568,6 +1573,7 @@ func _on_link_down() -> void:
 func _on_link_up(first: bool) -> void:
 	if first: return
 	doc.on_link_up()
+	measure.on_link_up()
 
 
 var _worker_shut := false
@@ -1725,7 +1731,9 @@ func _ask_outside() -> void:
 
 func _outside_choice(choice: String) -> void:
 	if doc.outside.is_empty(): return       # settled meanwhile (the actions landed and it reloaded)
-	if choice == "mine": doc.send_keep_mine()
+	if choice == "mine":
+		measure.flush_units_if_dirty()
+		doc.send_keep_mine()
 	else: doc.send_reload()
 
 
@@ -1741,6 +1749,7 @@ func _log_worker(line: String) -> void:
 
 func _on_reloaded(resp: Dictionary) -> void:
 	"""FreeCAD's save is on screen, with the wave over the boards it changed."""
+	measure.on_reloaded(resp)
 	pres._states.clear(); pres._state_lru.clear()     # remembered states are of the file before FreeCAD's save
 	var data = JSON.parse_string(FileAccess.get_file_as_string(String(resp.get("outdir", out_dir)).path_join("bodies.json")))
 	reload_waves = []
@@ -1834,6 +1843,7 @@ func _reset_model_state() -> void:
 	properties_request += 1
 	set_selection([])
 	doc.reset()                     # a reply still on its way belongs to the old model: it's ignored
+	measure.reset_for_model()
 	pres.reset()
 	reject_note = ""
 	tools["move"].last_oid = ""; tools["move"].memo.clear()
@@ -1872,6 +1882,47 @@ func _make_menus() -> void:
 				NativeMenu.add_item(rid, it[0], _menu, Callable(), it[1], it[2])
 		NativeMenu.add_submenu_item(main_menu, m[0], rid)
 	_update_menu_checks()
+	_build_units_menu()
+
+
+var _units_menu_rid := RID()
+
+
+func _build_units_menu() -> void:
+	"""The Units menu (I57): display format and rounding, saved per model."""
+	if not NativeMenu.has_feature(NativeMenu.FEATURE_GLOBAL_MENU) or _units_menu_rid.is_valid(): return
+	var bar := NativeMenu.get_system_menu(NativeMenu.MAIN_MENU_ID)
+	_units_menu_rid = NativeMenu.create_menu()
+	NativeMenu.add_submenu_item(bar, "Units", _units_menu_rid)
+	_update_units_menu()
+
+
+func _update_units_menu() -> void:
+	if not _units_menu_rid.is_valid(): return
+	NativeMenu.clear(_units_menu_rid)
+	var cur := Units.parse_spec(measure.units)
+	var fmt: String = cur["format"] if cur.ok else "in-frac"
+	var prec: String = cur["precision"] if cur.ok else "1/16"
+	for f in Units.FORMAT_ORDER:
+		if f == "m": NativeMenu.add_separator(_units_menu_rid)
+		var i := NativeMenu.add_radio_check_item(_units_menu_rid, Units.FORMATS[f]["label"], _on_units_menu, Callable(), "format:" + f)
+		NativeMenu.set_item_checked(_units_menu_rid, i, f == fmt)
+	NativeMenu.add_separator(_units_menu_rid)
+	var hdr := NativeMenu.add_item(_units_menu_rid, "Rounding")
+	NativeMenu.set_item_disabled(_units_menu_rid, hdr, true)
+	for p in Units.FORMATS[fmt]["precisions"]:
+		var i := NativeMenu.add_radio_check_item(_units_menu_rid, Units.precision_label(fmt, p), _on_units_menu, Callable(), "prec:" + p)
+		NativeMenu.set_item_checked(_units_menu_rid, i, p == prec)
+
+
+func _on_units_menu(tag) -> void:
+	var s := String(tag)
+	if s.begins_with("format:"): measure.set_format(s.substr(7))
+	elif s.begins_with("prec:"): measure.set_precision(s.substr(5))
+
+
+func set_units(spec: String) -> bool:
+	return measure.set_units(spec, true)
 
 
 func _update_menu_checks() -> void:

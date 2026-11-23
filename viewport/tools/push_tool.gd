@@ -57,7 +57,7 @@ func typed(txt: String) -> void:
 
 
 func vcb_value() -> String:
-	return DISTANCE_DISPLAY_FORMAT % state["dist"] if state.get("active", false) else ""
+	return ctx.ui.format_length(state["dist"]) if state.get("active", false) else ""
 
 
 func tip() -> String:

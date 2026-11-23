@@ -9,7 +9,7 @@ import length_input
 
 # The window <-> worker protocol's version (docs/protocol.md): bump it when a message or shared-file field changes.
 # Reported in hello; a window whose PROTOCOL_VERSION (viewport/main.gd) differs starts its own worker.
-PROTOCOL_VERSION = 8
+PROTOCOL_VERSION = 9
 
 
 def run_sync(session, req):
@@ -48,6 +48,8 @@ def open_reply(s, seq):
     resp = {"ok": True, "cmd": "open", "model": s.path, "rev": s.rev, "ops": [e["op"] for e in s.applied],
             "undo_floor": s.undo_floor, "external": s.external, "seq": seq,
             "reserved_ids": sorted(s.ids.reserved)}
+    if s.units is not None:
+        resp["units"] = s.units
     if s.recovered:
         resp["recovered"], s.recovered = s.recovered, None
     return resp
@@ -59,11 +61,14 @@ def serve(port):
       {"cmd": "hello"} -> {"ok", "cmd": "hello", "app": "shopsketch", "protocol": PROTOCOL_VERSION,
                            "worker": <md5 of the worker's scripts>, "pid"}
       {"cmd": "open", "model": ".../model.FCStd", "fresh": false}
-          -> {"ok", "cmd": "open", "ops", "undo_floor", "external", "rev", "recovered"?}
+          -> {"ok", "cmd": "open", "ops", "undo_floor", "external", "rev", "units"?, "recovered"?}
+             units: canonical display units from doc.Meta["ShopSketchUnits"] when valid (omitted when unset/unreadable, I57/I62)
              recovered: {"from": "new"|"prev", "rev", "why"} once, when opening found a save that stopped part way
              and put the newest whole pair in place (A32)
           -> {"ok": false, "cmd": "open", "error": "already_open", "model"} when another window has it; that window
              is sent {"cmd": "focus", "model"} so it can come to the front
+      {"cmd": "set_units", "model": "...", "units": "in-frac:1/16", "seq": n}
+          -> {"ok", "cmd": "set_units", "model", "units", "rev", "seq"} (schedules save; not an undoable op, I57)
       {"cmd": "sync", "model": "...", "oplog": {...}, "outdir": "...", "seq": n, "drawing": false}
           -> {"ok", "cmd": "sync", "result": {...status...}, "outdir" (bodies.json, meshes/), "seq", "wall_ms"}
       {"cmd": "replay", ...}  same as sync on a fresh document (one-shot rebuild)
@@ -306,6 +311,17 @@ def serve(port):
                 if saves["failed"]:
                     raise OpError(saves["failed"][0]["error"])
                 resp = {"ok": True, "cmd": "keep_mine", "model": path, "aside": aside, "rev": s.rev, "seq": seq}
+            elif cmd == "set_units":                # display units saved in the model's Meta (I57, I62)
+                path = os.path.abspath(req["model"])
+                if claim(conn, path) is not None:
+                    raise OpError(f"{os.path.basename(path)} is open in another window")
+                s = session_for(path)
+                changed = s.set_units(req.get("units"))
+                next_rev = s.rev + (1 if s.dirty else 0)
+                resp = {"ok": True, "cmd": "set_units", "model": path, "units": s.units, "rev": next_rev, "seq": seq}
+                if changed or s.dirty:
+                    od = to_save.get(path, (s, None))[1]
+                    after = (s, od)
             elif cmd == "inspect_properties":         # the Properties panel's snapshot of one piece (T46)
                 model = os.path.abspath(req["model"])
                 if claim(conn, model) is not None:

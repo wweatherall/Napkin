@@ -91,7 +91,9 @@ class ProfilePresenter:
 class FakeMeasure:
 	var updates := 0
 	var vcb := ""
+	var unit_spec := "mm:1"
 	func update() -> void: updates += 1
+	func format_length(mm: float) -> String: return load("res://units.gd").format_length(mm, unit_spec)
 
 
 class FakeClient:
@@ -120,7 +122,7 @@ const ALLOW := {
 	"document": ["next_id", "op", "append", "remove", "sync"],
 	"view": ["preview", "mirror_preview", "clear_preview", "marker", "hide_marker", "guides", "clear_guides", "selection_box",
 			 "clear_selection_box", "face_highlight", "clear_face_highlight", "register_profile", "register_line", "present_draft"],
-	"ui": ["typed_text", "refresh_measurements", "refresh_tip", "clear_rejection", "new_board"],
+	"ui": ["typed_text", "format_length", "refresh_measurements", "refresh_tip", "clear_rejection", "new_board"],
 	"paint": ["current_name", "apply"],
 }
 
@@ -498,7 +500,7 @@ func _initialize() -> void:
 	cinfer.ray_at = Vector3(10 + 30.25, 20, 0)
 	circle.mouse_moved(Vector2(50, 0))
 	check("Circle's radius comes from the ray on the centre's plane", circle.busy() and absf(circle.state["radius"] - 30.25) < 1e-4
-		and circle.vcb_value() == "30" and cmeasure.updates == 1, circle.state)
+		and circle.vcb_value() == "~30 mm" and cmeasure.updates == 1, [circle.state, circle.vcb_value()])
 	check("Circle previews its disc in the profile style with a 64-segment outline", overlay.mesh != null and overlay_lines.mesh != null
 		and calls.any(func(c): return c == ["tri", 62 * 3, mats["profile"]]) and calls.any(func(c): return c == ["lines", 128, Color(0.1, 0.2, 0.6)]))
 	var c_count: int = doc.ops.size(); var c_seq: int = doc.seq
@@ -548,7 +550,7 @@ func _initialize() -> void:
 		and absf(rect.state["du"] - 30.25) < 1e-5 and absf(rect.state["dv"] - 40.125) < 1e-5, rect.state)
 	check("Rectangle previews two triangles and four edges in the profile style and updates dimensions",
 		overlay.mesh != null and overlay_lines.mesh != null and rmeasure.updates == 1
-		and rect.vcb_label() == "Dimensions" and rect.vcb_value() == "30, 40"
+		and rect.vcb_label() == "Dimensions" and rect.vcb_value() == "~30 mm, ~40 mm"
 		and calls.any(func(c): return c == ["tri", 6, mats["profile"]])
 		and calls.any(func(c): return c == ["lines", 8, Color(0.1, 0.2, 0.6)]))
 	var r_seq: int = doc.seq

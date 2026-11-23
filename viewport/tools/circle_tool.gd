@@ -55,7 +55,7 @@ func vcb_label() -> String:
 
 
 func vcb_value() -> String:
-	return DISTANCE_DISPLAY_FORMAT % state["radius"] if busy() else ""
+	return ctx.ui.format_length(state["radius"]) if busy() else ""
 
 
 func _radius_drag(screen: Vector2) -> void:
