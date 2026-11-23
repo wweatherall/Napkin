@@ -9,6 +9,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 import time
 from unittest.mock import patch
 
@@ -223,13 +224,13 @@ check("check beats", "H001: beat" in out, out)
 
 # --- wait ---
 wt3 = os.path.realpath(job.worktree_for(root, "H003"))
-r, out = run(job.wait, wt3, "which name?", now=now)
+r, out = run(job.wait, wt3, "which name?", now=now, wait=0)
 j = state(root)["jobs"]["H003"]
 check("wait marks the job waiting on William", j["state"] == "waiting" and j["question"] == "which name?", out)
 check("a waiting job is never stale", not job.stale(j, job.activity(root, j, far, procs=[]), far))
 run(job.beat, wt3, now=now + 5)
 check("the next beat turns the switch back on", state(root)["jobs"]["H003"]["state"] == "in progress")
-run(job.wait, wt3, "again?", now=now + 10)
+run(job.wait, wt3, "again?", now=now + 10, wait=0)
 open(os.path.join(wt3, "b.txt"), "w").write("b\n")
 commit(wt3, "answer came", when=now + 100)
 j = state(root)["jobs"]["H003"]
@@ -354,7 +355,7 @@ job.watch(root, once=True, out=lines_stale_w.append, now=far + job.WORKER_WAIT +
 check("watch ignores and drops a stale waiting_workers entry (older than WORKER_WAIT + WATCH_POLL)",
       "queue empty for Codex" not in "\n".join(lines_stale_w)
       and "c-wait" not in state(root)["waiting_workers"], (lines_stale_w, state(root)["waiting_workers"]))
-run(job.wait, wt3, "a or b?", now=now + 500)
+run(job.wait, wt3, "a or b?", now=now + 500, wait=0)
 lines2 = []
 job.watch(root, once=True, out=lines2.append, now=far)
 check("watch reports a job waiting on William", any("waiting: H003 asks William: a or b?" in l for l in lines2), lines2)
@@ -763,7 +764,7 @@ check("reassign with uncounted fallback session succeeds with no error and no re
 # 4. Reassign of a waiting job is allowed; reassign of done or merged jobs is refused.
 r_w, _ = run(job.take, root, "claude", "s-wait", now=now0 + 500)
 wt_w = state(root)["jobs"][r_w]["worktree"]
-run(job.wait, wt_w, "question?", now=now0 + 510)
+run(job.wait, wt_w, "question?", now=now0 + 510, wait=0)
 r_w_re, out_w_re = run(job.reassign_job, root, r_w, "gemini", now=now0 + 520)
 check("reassign of a waiting job is allowed", r_w_re and state(root)["jobs"][r_w]["agent"] == "gemini", out_w_re)
 
@@ -840,6 +841,169 @@ r_to, out_to = run(job.take_wait, root, "gemini", "gem-timeout", wait=10, poll=5
                    sleep=lambda s: clock_t.__setitem__(0, clock_t[0] + s), clock=lambda: clock_t[0])
 check("take --wait removes waiting_workers entry when it stops at WORKER_WAIT",
       r_to is None and "gem-timeout" not in state(root)["waiting_workers"], (r_to, state(root)["waiting_workers"]))
+
+# --- Answers through the queue (H119) ---
+answer_base, answer_root = repo()
+answer_jid, _ = run(job.take, answer_root, "claude", "answer-worker")
+answer_wt = job.worktree_for(answer_root, answer_jid)
+answer_path = job.state_path(answer_root)
+answer_clock = [time.time() + 1]
+asked_jobs, asked_order = job.main_view(answer_root)
+
+
+def tick(seconds):
+    answer_clock[0] += seconds
+
+
+def ask(question, *, sleep=tick, wait=10, scope=False):
+    return run(job.wait, answer_wt, question, wait=wait, poll=5, sleep=sleep,
+               clock=lambda: answer_clock[0], scope=scope)
+
+
+def reply(text, source="integrator"):
+    return run(job.answer, answer_root, answer_jid, text, source=source, now=answer_clock[0])
+
+
+def answer_during_poll(seconds):
+    tick(seconds)
+    pending = state(answer_root)
+    now = answer_clock[0] + job.DEADLINE + 1
+    events = job.conditions(answer_root, pending, asked_jobs, asked_order, now,
+                            procs={answer_jid: [(123, 1, "python3 tools/job.py wait --scope")]})
+    other, skipped = job.takeable(answer_root, pending, "claude", asked_jobs, asked_order, claims={})
+    check("waiting in the background keeps the deadline paused and the files held",
+          pending["jobs"][answer_jid]["state"] == "waiting"
+          and not any(key[0] == "stale" for key in events)
+          and any(f"H002: overlaps {answer_jid}" in line for line in skipped), (events, other, skipped))
+    _, status = run(job.status, answer_root, now=answer_clock[0])
+    expected = f"waiting: {answer_jid} asks the integrator (scope): may I edit the helper?"
+    check("watch and status route scope questions to the integrator",
+          expected in events.values() and expected in status, (events, status))
+    reply("yes, edit the helper")
+
+
+before = answer_clock[0]
+lock_calls[0] = 0
+with patch.object(job, "locked", spy_locked):
+    ok, out = ask("may I edit the helper?", sleep=answer_during_poll, scope=True)
+check("an answer received during the wait is printed within one poll",
+      ok and out.endswith("answer from integrator: yes, edit the helper") and answer_clock[0] == before + 5, out)
+check("answer and poll both use the shared state lock",
+      lock_calls[0] == 4 and not state(answer_root)["jobs"][answer_jid].get("answers"), out)
+check("answer resumes the job and beats at the time of delivery",
+      state(answer_root)["jobs"][answer_jid]["state"] == "in progress"
+      and state(answer_root)["jobs"][answer_jid]["beat"] == answer_clock[0], state(answer_root))
+
+ok, out = ask("which label?")
+check("timeout reports how to retry and leaves the job waiting",
+      not ok and out.endswith("no answer yet: run job.py wait again to keep waiting")
+      and state(answer_root)["jobs"][answer_jid]["state"] == "waiting", out)
+_, status = run(job.status, answer_root, now=answer_clock[0])
+check("status routes a plain question to William", f"waiting: {answer_jid} asks William: which label?" in status, status)
+answer_cli = sh(answer_root, sys.executable, os.path.join(HERE, "job.py"),
+                "answer", answer_jid.lower(), "use Grain", "--from", "william")
+event_count = len(state(answer_root)["events"])
+before = answer_clock[0]
+ok, out = ask("which label?")
+check("a retry reads William's stored answer immediately without re-asking",
+      answer_cli.returncode == 0 and ok and out == "answer from William: use Grain"
+      and answer_clock[0] == before and len(state(answer_root)["events"]) == event_count, (out, answer_cli))
+
+# Force an answer to contend with a poll that already holds the state lock.
+poll_holds_lock = threading.Event()
+answer_entering_lock = threading.Event()
+answer_finished = threading.Event()
+answer_result = []
+
+
+polls = []
+
+
+def concurrent_answer():
+    if poll_holds_lock.wait(5):
+        answer_result.append(reply("safe after contention"))
+    answer_finished.set()
+
+
+def contested_sleep(seconds):
+    tick(seconds)
+    polls.append(seconds)
+    if len(polls) > 1:
+        assert answer_finished.wait(5)
+
+
+@contextlib.contextmanager
+def competing_lock(path):
+    writer = threading.current_thread() is answering
+    if writer:
+        answer_entering_lock.set()
+    with orig_locked(path) as st:
+        if len(polls) == 1 and not writer:
+            poll_holds_lock.set()
+            assert answer_entering_lock.wait(5)
+            assert not answer_finished.is_set()
+        yield st
+
+
+answering = threading.Thread(target=concurrent_answer)
+with patch.object(job, "locked", competing_lock):
+    answering.start()
+    try:
+        ok, out = ask("can the answer race the poll?", sleep=contested_sleep)
+    finally:
+        answering.join(5)
+check("a concurrent answer survives a poll that already held the lock",
+      ok and out.endswith("answer from integrator: safe after contention")
+      and len(polls) == 2 and len(answer_result) == 1 and answer_result[0][0], (out, polls, answer_result))
+
+ask("any other direction?", wait=0)
+first, _ = reply("first submission", source="william")
+tick(1)
+second, _ = reply("second submission")
+ok, out = ask("any other direction?")
+check("two unread answers are delivered in the order the queue recorded them",
+      first and second and ok and out.splitlines() == [
+          "answer from William: first submission", "answer from integrator: second submission"
+      ], out)
+
+unchanged = state(answer_root)
+ok, out = reply("extra")
+missing, missing_out = run(job.answer, answer_root, "H999", "extra")
+check("answer refuses both an unknown job and a job without an open question without changing state",
+      not missing and "isn't in the queue" in missing_out and not ok
+      and "not waiting for an answer" in out and unchanged == state(answer_root), (out, missing_out))
+
+for transfer in ("return", "reassign"):
+    ask(f"{transfer} scope?", wait=0, scope=True)
+    reply(f"{transfer} approved")
+    if transfer == "return":
+        run(job.return_job, answer_root, answer_jid, "resume work")
+        agent = "claude"
+    else:
+        run(job.reassign_job, answer_root, answer_jid, "gemini")
+        agent = "gemini"
+    check(f"{transfer} leaves the unread answer on the job",
+          state(answer_root)["jobs"][answer_jid].get("answers"), state(answer_root))
+    resumed, out = run(job.take, answer_root, agent, f"worker-after-{transfer}")
+    check(f"take prints the handoff and delivers the unread answer after {transfer}",
+          resumed == answer_jid and f"### {answer_jid}" in out
+          and out.endswith(f"answer from integrator: {transfer} approved")
+          and not state(answer_root)["jobs"][answer_jid].get("answers"), out)
+
+cli = io.StringIO()
+with patch.object(job.os, "getcwd", return_value=answer_wt), patch.object(job, "WORKER_WAIT", 0):
+    with contextlib.redirect_stdout(cli):
+        rc = job.main(["wait", "--scope", "CLI scope?"])
+check("job.py wait CLI accepts --scope before the question",
+      rc == 1 and f"waiting: {answer_jid} asks the integrator (scope): CLI scope?" in cli.getvalue(), cli.getvalue())
+default_answer = sh(answer_root, sys.executable, os.path.join(HERE, "job.py"),
+                    "answer", answer_jid, "CLI approval")
+ok, out = ask("CLI scope?", scope=True)
+check("job.py answer CLI defaults to integrator",
+      default_answer.returncode == 0 and ok and out == "answer from integrator: CLI approval",
+      (default_answer, out))
+
+shutil.rmtree(answer_base)
 
 for w in [l.split()[1] for l in sh(root, "git", "worktree", "list", "--porcelain").stdout.split("\n")
           if l.startswith("worktree ")][1:]:

@@ -195,13 +195,14 @@ def tunable_checks():
 
 def placeholder_checks():
     root = repo("claude/ph")
-    open(os.path.join(root, "CLAUDE.md"), "w").write(f"Rule P{NEW}1 says so (written before its row exists).\n")
+    next_process_id = log.next_id(root, "P", False)
+    open(os.path.join(root, "CLAUDE.md"), "w").write(f"Rule {next_process_id} says so (written before its row exists).\n")
     live = text(root).replace("\n## Work list", f"\nSee T{NEW}4 in prose.\n\n## Work list", 1)
     open(os.path.join(root, s.LIVE), "w").write(live)
     git(root, "add", "."); git(root, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "mentions")
     row = log.add(root, "P", "A process rule.", {"subject": "Process", "principles": "—"}, today=TODAY)
-    check("placeholder: one only mentioned in another file doesn't count (P{NEW}1 comes first)".replace("{NEW}", NEW),
-          row.startswith(f"| P{NEW}1 |"))
+    check("placeholder: one only mentioned in another file doesn't count",
+          row.startswith(f"| {next_process_id} |"))
     row = log.add(root, "T", "An item.", {"covers": "T9"})
     check("placeholder: one only mentioned in the log's prose doesn't count either", row.startswith(f"| T{NEW}1 |"))
     row = log.add(root, "T", "Another.", {"covers": "T9"})

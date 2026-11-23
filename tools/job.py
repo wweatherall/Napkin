@@ -24,8 +24,10 @@ Worker (run in your job's worktree unless it says otherwise):
   python3 tools/job.py check    lists the processes started from your worktree (Godot, freecadcmd, the test
                                 scripts) with their age, flags any that look hung, and beats
   python3 tools/job.py test     runs tools/quicktest.sh and records the result for the latest commit
-  python3 tools/job.py wait "<question>"
-                                you're waiting on William: pauses the switch until your next beat
+  python3 tools/job.py wait [--scope] "<question>"
+                                ask William, or use --scope to ask the integrator about work outside Touches.
+                                Run in the background. The switch is paused until an answer or a beat.
+                                If it times out, run the same wait command again to keep waiting.
   python3 tools/job.py done     refuses unless the handoff has your response and Status answered, the tree is
                                 committed, and the quick test passed. After handoff-only commits it checks the open
                                 list and bookkeeping to reuse a clean pass. Otherwise it runs any missing quick test.
@@ -38,6 +40,9 @@ Integrator:
                                 one line per event (done, stale, waiting, returned, queue empty while a worker waits),
                                 and keeps running: run it under your watcher (Monitor). --next: stays quiet about
                                 what's true now and stops after the first new event (one wake; run it in the background)
+  python3 tools/job.py answer <id> "<text>" [--from integrator|william]
+                                deliver an answer through the queue and resume the worker's deadline
+                                follow-ups are accepted until the worker reads the answers
   python3 tools/job.py return <id> "<notes>"
                                 put a reviewed job back on the queue; the next worker continues its branch
   python3 tools/job.py reassign <id> --to claude|codex|gemini ["<notes>"]
@@ -64,9 +69,9 @@ import handoff
 
 DEADLINE = 30 * 60          # seconds with no beat before a job in progress is stale (P24, tunable)
 HUNG_AFTER = 10 * 60        # a process from the worktree older than this looks hung (tunable)
-WATCH_POLL = 20             # seconds between watch's looks at the queue, and take --wait's (tunable)
+WATCH_POLL = 20             # seconds between watch, take --wait and wait polls (tunable)
 MAX_JOBS = 1                # jobs one session takes before it asks William for a /clear (P37, was 3 under P27; tunable)
-WORKER_WAIT = 20 * 60       # seconds take --wait looks for a job before it stops (P27, tunable)
+WORKER_WAIT = 20 * 60       # seconds a worker waits for a job or an answer before timing out (P27, tunable)
 QUICKTEST = ["tools/quicktest.sh"]
 AGENTS = ("claude", "codex", "gemini")
 BOARD = "BOARD.md"
@@ -306,8 +311,10 @@ def activity(root, job, now, procs=None):
 
 def refresh(root, job, now, procs=None):
     """A commit after a wait is a beat: the switch is back on. Returns the job's last activity."""
-    act = activity(root, job, now, procs)
-    if job.get("state") == "waiting" and act > job.get("since", now):
+    waiting = job.get("state") == "waiting"
+    # The background wait command is itself a process in the worktree.
+    act = activity(root, job, now, [] if waiting else procs)
+    if waiting and act > job.get("since", now):
         job["state"] = "in progress"
     return act
 
@@ -411,6 +418,7 @@ def _take(cwd, agent, session, now=None, out=print):
         st["jobs"][job["id"]] = {**{k: prev[k] for k in ("notes", "returned") if k in prev},
                                  "state": "in progress", "agent": agent, "session": session, "branch": branch,
                                  "worktree": wt, "handoff": job["name"], "taken": now, "beat": now}
+        answers = prev.get("answers", []) if prev.get("state") == "returned" else []
         st.get("waiting_workers", {}).pop(session, None)
         event(st, "taken", job["id"], f"{agent} ({session}) took {job['id']}", now)
         if counted(session):
@@ -427,6 +435,7 @@ def _take(cwd, agent, session, now=None, out=print):
     if counted(session):
         out(f"job {n} of {MAX_JOBS} for this session (P27)")
     out(open(os.path.join(wt, handoff.FOLDER, job["name"]), encoding="utf-8").read())
+    print_answers(answers, out)
     return job["id"], None
 
 
@@ -543,15 +552,88 @@ def check(cwd, jid=None, now=None, out=print):
     return hung
 
 
-def wait(cwd, question, jid=None, now=None, out=print):
-    now = now or time.time()
+def print_answers(answers, out):
+    for answer in answers:
+        out(f"answer from {answer['from']}: {answer['text']}")
 
-    def go(st, k, j):
-        j.update(state="waiting", question=question, since=now, beat=now)
-        event(st, "waiting", k, question, now)
-        out(f"{k}: waiting on William; the switch is paused until your next beat. Ask him in chat: {question}")
-        return k
-    return with_job(cwd, jid, out, go)
+
+def who_is_asked(job):
+    return "the integrator (scope)" if job.get("question_kind") == "scope" else "William"
+
+
+def waiting_line(jid, job):
+    return f"waiting: {jid} asks {who_is_asked(job)}: {job.get('question', '')}"
+
+
+def wait(cwd, question, jid=None, now=None, out=print, *, scope=False, wait=None, poll=None,
+         sleep=time.sleep, clock=time.time):
+    wait = WORKER_WAIT if wait is None else wait
+    poll = WATCH_POLL if poll is None else poll
+    start = clock() if now is None else now
+    deadline = clock() + wait
+    kind = "scope" if scope else "behaviour"
+
+    def register(st, k, j):
+        if j.get("state") not in WORKING:
+            out(f"refused: {k} is {j.get('state')}")
+            return None
+        answers = j.pop("answers", [])
+        if answers:
+            return k, j["taken"], j.get("session"), j.get("since"), answers
+        if (j.get("state"), j.get("question"), j.get("question_kind", "behaviour")) != ("waiting", question, kind):
+            j.update(state="waiting", question=question, question_kind=kind, since=start, beat=start)
+            event(st, "waiting", k, question, start)
+        out(waiting_line(k, j))
+        return k, j["taken"], j.get("session"), j.get("since"), []
+
+    registered = with_job(cwd, jid, out, register)
+    if registered is None:
+        return False
+    k, taken, session, since, answers = registered
+    if answers:
+        print_answers(answers, out)
+        return True
+    sys.stdout.flush()
+
+    path = state_path(cwd)
+    while True:
+        left = deadline - clock()
+        if left > 0:
+            sleep(min(poll, left))
+        with locked(path) as st:
+            j = st["jobs"].get(k, {})
+            if (j.get("taken"), j.get("session"), j.get("since")) != (taken, session, since):
+                out(f"{k}: this wait has ended")
+                return False
+            answers = j.pop("answers", [])
+            if not answers and j.get("state") != "waiting":
+                out(f"{k}: this wait has ended")
+                return False
+        if answers:
+            print_answers(answers, out)
+            return True
+        if clock() >= deadline:
+            out("no answer yet: run job.py wait again to keep waiting")
+            return False
+
+
+def answer(cwd, jid, text, source="integrator", now=None, out=print):
+    now = time.time() if now is None else now
+    with locked(state_path(cwd)) as st:
+        j = st["jobs"].get(jid)
+        if j is None:
+            out(f"refused: {jid} isn't in the queue")
+            return False
+        state = j.get("state")
+        if state != "waiting" and not (state == "in progress" and j.get("answers")):
+            out(f"refused: {jid} is {state}, not waiting for an answer")
+            return False
+        who = "William" if source == "william" else "integrator"
+        j.setdefault("answers", []).append({"from": who, "text": text})
+        j.update(state="in progress", beat=now)
+        event(st, "answered", jid, text, now)
+    out(f"{jid}: answer from {who} recorded")
+    return True
 
 
 PROGRESS_PREFIXES = ("gate: ", "quick: ", "full: ")
@@ -814,7 +896,7 @@ def live_label(job, act, now):
             return f"**Stale** ({who}, no beat since {hhmm(act)})"
         return f"In progress ({who} since {hhmm(job.get('taken'))})"
     if s == "waiting":
-        return f"Waiting on William ({who}): {job.get('question', '')}"
+        return f"Waiting on {who_is_asked(job)} ({who}): {job.get('question', '')}"
     if s == "done":
         return f"**Done**: for review ({who})"
     if s == "returned":
@@ -844,7 +926,7 @@ def conditions(root, st, jobs, order, now, procs=None):
         elif s in WORKING:
             act = refresh(root, j, now, (procs or {}).get(k))
             if j["state"] == "waiting":
-                out[("waiting", k, j.get("since"))] = f"waiting: {k} asks William: {j.get('question')}"
+                out[("waiting", k, j.get("since"))] = waiting_line(k, j)
             elif stale(j, act, now):
                 out[("stale", k, act)] = (f"stale: {k} ({j.get('agent')}) no beat since {hhmm(act)}: check "
                                           f"{j.get('branch')} in {j.get('worktree')}")
@@ -890,7 +972,8 @@ def status(cwd, out=print, now=None):
             act = refresh(root, j, now)
             left = DEADLINE - (now - act)
             extra = f"; deadline in {int(left // 60)} min" if j.get("state") == "in progress" and left > 0 else ""
-            out(f"{k}: {live_label(j, act, now)}; {j.get('branch')}; last sign of life {hhmm(act)}{extra}")
+            label = waiting_line(k, j) if j.get("state") == "waiting" else f"{k}: {live_label(j, act, now)}"
+            out(f"{label}; {j.get('branch')}; last sign of life {hhmm(act)}{extra}")
         if not live:
             out("no job in progress")
         for agent in AGENTS:
@@ -964,8 +1047,21 @@ def main(argv):
         return run(cwd, argv[argv.index("--") + 1:], int(lim) if lim else None)
     if cmd == "test":
         return 0 if test(cwd, opt("--job")) else 1
-    if cmd == "wait" and len(argv) >= 2:
-        return 0 if wait(cwd, argv[1], opt("--job")) else 1
+    if cmd == "wait":
+        args = argv[1:]
+        scope = args[:1] == ["--scope"]
+        if scope:
+            args = args[1:]
+        if len(args) != 1 and not (len(args) == 3 and args[1] == "--job"):
+            print('usage: job.py wait [--scope] "<question>"')
+            return 2
+        return 0 if wait(cwd, args[0], args[2] if len(args) == 3 else None, scope=scope) else 1
+    if cmd == "answer":
+        source = argv[4] if len(argv) == 5 and argv[3] == "--from" else "integrator" if len(argv) == 3 else None
+        if source not in ("integrator", "william"):
+            print('usage: job.py answer <id> "<text>" [--from integrator|william]')
+            return 2
+        return 0 if answer(cwd, argv[1].upper(), argv[2], source) else 1
     if cmd == "done":
         return 0 if done(cwd, opt("--job")) else 1
     if cmd == "status":

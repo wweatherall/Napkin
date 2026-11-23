@@ -9,3 +9,5 @@ Follow [AGENTS.md](AGENTS.md) (written for Codex; every rule applies to you) wit
   `gemini-juniper-1123-0705`), the same for the whole session. The time keeps it new: a name an earlier session
   used has its jobs counted against you (MAX_JOBS) and `take` refuses.
 - Nothing notifies Claude or Codex: when your job is done (`python3 tools/job.py done`), tell William.
+- Follow [AGENTS.md](AGENTS.md) when asking a question. Use `job.py wait --scope` for the integrator and
+  plain `job.py wait` for William. Run either in the background and quote the answer in your response.
