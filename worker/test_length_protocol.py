@@ -2,7 +2,7 @@
 """Real worker socket: length replies are isolated from model sync."""
 import json, os, socket, subprocess, tempfile, time
 from pathlib import Path
-with tempfile.TemporaryDirectory() as tmp:
+with tempfile.TemporaryDirectory(dir=os.environ.get('TESTDIR') if os.path.isdir(os.environ.get('TESTDIR', '')) else None) as tmp:
     with open(Path(tmp)/'worker.log','w') as log:
         proc=subprocess.Popen(['/Applications/FreeCAD.app/Contents/Resources/bin/freecadcmd',str(Path(__file__).resolve().with_name('replay.py'))],env=dict(os.environ,SERVE_PORT='0',SERVE_PORT_FILE=str(Path(tmp)/'worker.port')),stdout=log,stderr=log)
         try:

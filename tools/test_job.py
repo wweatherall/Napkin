@@ -493,5 +493,158 @@ for w in [l.split()[1] for l in sh(root, "git", "worktree", "list", "--porcelain
           if l.startswith("worktree ")][1:]:
     sh(root, "git", "worktree", "remove", "--force", w)
 shutil.rmtree(base)
+
+# --- live progress streaming from run_quick / job.py test (H088) ---
+base, root = repo()
+run(job.take, root, "claude", "live1")
+wt = os.path.realpath(job.worktree_for(root, "H001"))
+os.makedirs(os.path.join(wt, "tools"), exist_ok=True)
+
+
+def run_job_test_live(worktree, release_on, release_path):
+    env = dict(os.environ, RELEASE=release_path)
+    p = subprocess.Popen([sys.executable, os.path.join(HERE, "job.py"), "test"],
+                         cwd=worktree, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
+    lines, before_release, alive = [], None, False
+    for raw in p.stdout:
+        line = raw.rstrip("\r\n")
+        lines.append(line)
+        if before_release is None and line == release_on:
+            alive = p.poll() is None
+            before_release = list(lines)
+            open(release_path, "w").close()
+    rc = p.wait(timeout=15)
+    return rc, lines, before_release, alive
+
+
+qstub = os.path.join(wt, "tools", "quicktest.sh")
+release = os.path.join(base, "release-pass")
+open(qstub, "w").write("""#!/bin/bash
+echo "noise before"
+echo "quick: parse started"
+for ((i=0; i<100; i++)); do [ -f "$RELEASE" ] && break; sleep 0.05; done
+if [ ! -f "$RELEASE" ]; then echo "STUB TIMED OUT"; exit 2; fi
+echo "noise middle"
+echo "quick: parse passed in 1 s"
+echo "features: ok | viewport: QUICK 1 passed, 0 failed"
+""")
+os.chmod(qstub, 0o755)
+rc, lines, before_release, alive = run_job_test_live(wt, "quick: parse started", release)
+check("job.py test relays the first progress line before the quick test ends",
+      rc == 0 and alive and before_release == ["quick: parse started"], (rc, alive, before_release, lines))
+check("job.py test relays progress lines, skips non-progress lines, and prints the pass verdict",
+      lines[:2] == ["quick: parse started", "quick: parse passed in 1 s"]
+      and "noise before" not in lines and "noise middle" not in lines
+      and lines[-1].startswith("quick test passed on ")
+      and lines[-1].endswith(": features: ok | viewport: QUICK 1 passed, 0 failed"), lines)
+
+release = os.path.join(base, "release-fail")
+open(qstub, "w").write("""#!/bin/bash
+echo "noise before fail"
+echo "quick: parse started"
+for ((i=0; i<100; i++)); do [ -f "$RELEASE" ] && break; sleep 0.05; done
+if [ ! -f "$RELEASE" ]; then echo "STUB TIMED OUT"; exit 2; fi
+echo "stderr detail" >&2
+echo "quick: parse failed in 1 s"
+echo "QUICK FAIL: stub broke" >&2
+exit 1
+""")
+os.chmod(qstub, 0o755)
+rc, lines, before_release, alive = run_job_test_live(wt, "quick: parse started", release)
+check("a failing quick test still streams progress live and prints the failure verdict",
+      rc == 1 and alive and before_release == ["quick: parse started"]
+      and lines[:2] == ["quick: parse started", "quick: parse failed in 1 s"]
+      and "noise before fail" not in lines and "stderr detail" not in lines
+      and lines[-1].startswith("QUICK TEST FAILED on ")
+      and lines[-1].endswith(": QUICK FAIL: stub broke"), (rc, alive, before_release, lines))
+
+_qt = job.QUICKTEST
+pass_stub = os.path.join(base, "pass-stub.sh")
+open(pass_stub, "w").write('#!/bin/bash\necho "noise"\necho "quick: parse started"\necho "quick: parse passed in 1 s"\necho "verdict line"\n')
+os.chmod(pass_stub, 0o755)
+fail_stub = os.path.join(base, "fail-stub.sh")
+open(fail_stub, "w").write('#!/bin/bash\necho "noise"\necho "quick: parse started"\necho "quick: parse failed in 1 s"\necho "fail verdict" >&2\nexit 1\n')
+os.chmod(fail_stub, 0o755)
+try:
+    job.QUICKTEST = [pass_stub]
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        res_ok = job.run_quick(wt)
+    check("run_quick keeps its (ok, [last line]) return value and prints only progress lines",
+          res_ok == (True, ["verdict line"])
+          and buf.getvalue().splitlines() == ["quick: parse started", "quick: parse passed in 1 s"],
+          (res_ok, buf.getvalue()))
+    job.QUICKTEST = [fail_stub]
+    seen = []
+    res_fail = job.run_quick(wt, out=seen.append)
+    check("run_quick returns (False, [last line]) on a failing stub and relays progress to out",
+          res_fail == (False, ["fail verdict"])
+          and seen == ["quick: parse started", "quick: parse failed in 1 s"],
+          (res_fail, seen))
+    job.QUICKTEST = ["true"]
+    res_empty = job.run_quick(wt)
+    check("run_quick with empty output still returns (True, [''])", res_empty == (True, [""]), res_empty)
+finally:
+    job.QUICKTEST = _qt
+
+sh(root, "git", "worktree", "remove", "--force", wt)
+shutil.rmtree(base)
+
+# --- job worktrees live in <checkout>-jobs/<id> (H099) ---
+base, root = repo()
+jobs_dir = os.path.join(os.path.dirname(root), f"{os.path.basename(root)}-jobs")
+check("worktree_for puts jobs in <checkout>-jobs/<id>",
+      job.worktree_for(root, "H001") == os.path.join(jobs_dir, "h001"),
+      job.worktree_for(root, "H001"))
+check("fresh fixture repo starts with no -jobs folder", not os.path.exists(jobs_dir))
+r, out = run(job.take, root, "claude", "h99-new")
+wt_new = os.path.realpath(job.worktree_for(root, "H001"))
+check("take makes the -jobs folder when missing and puts the worktree inside it",
+      r == "H001" and os.path.isdir(jobs_dir) and os.path.isdir(wt_new)
+      and state(root)["jobs"]["H001"]["worktree"] == wt_new, out)
+r, out = run(job.merged, root, "claude/h001-first-job")
+check("merged removes only the job's worktree and leaves the empty -jobs folder",
+      r == "H001" and not os.path.exists(wt_new) and os.path.isdir(jobs_dir) and os.listdir(jobs_dir) == [],
+      (r, os.path.exists(wt_new), os.path.isdir(jobs_dir),
+       os.listdir(jobs_dir) if os.path.isdir(jobs_dir) else None, out))
+
+old_wt = os.path.join(os.path.dirname(root), f"{os.path.basename(root)}-h003")
+sh(root, "git", "worktree", "add", "-q", old_wt, "-b", "claude/h003-third-job", "main")
+old_wt = os.path.realpath(old_wt)
+new_wt = os.path.realpath(job.worktree_for(root, "H003"))
+with job.locked(job.state_path(root)) as st:
+    st["jobs"]["H003"] = {
+        "state": "returned", "agent": "claude", "session": None,
+        "branch": "claude/h003-third-job", "worktree": old_wt,
+        "handoff": "H003-third-job.md", "taken": time.time(), "beat": time.time(),
+        "returned": time.time(), "notes": "keep old sibling path",
+    }
+r, out = run(job.take, root, "claude", "h99-old")
+check("retaking a job with an old-style recorded worktree keeps that path",
+      r == "H003" and state(root)["jobs"]["H003"]["worktree"] == old_wt
+      and os.path.isdir(old_wt) and not os.path.exists(new_wt), out)
+hp = os.path.join(old_wt, "docs", "handoff", "H003-third-job.md")
+body = open(hp).read()
+open(hp, "w").write(body.replace("Status: open", "Status: answered") + "\nResponse: done.\n")
+commit(old_wt, "answered in old worktree")
+_qt = job.QUICKTEST
+try:
+    job.QUICKTEST = ["true"]
+    r_test, out_test = run(job.test, old_wt)
+    r_done, out_done = run(job.done, old_wt)
+finally:
+    job.QUICKTEST = _qt
+check("test and done use the old-style recorded worktree, not the new -jobs path",
+      r_test is True and r_done is True and state(root)["jobs"]["H003"]["state"] == "done"
+      and state(root)["jobs"]["H003"]["worktree"] == old_wt and not os.path.exists(new_wt),
+      (r_test, out_test, r_done, out_done))
+sh(root, "git", "merge", "-q", "claude/h003-third-job")
+r_merged, out_merged = run(job.merged, root, "claude/h003-third-job")
+check("merged removes the old-style recorded worktree and leaves -jobs intact",
+      r_merged == "H003" and not os.path.exists(old_wt) and not os.path.exists(new_wt)
+      and state(root)["jobs"]["H003"]["state"] == "merged" and os.path.isdir(jobs_dir),
+      (r_merged, out_merged))
+shutil.rmtree(base)
+
 print(f"JOB TESTS: {sum(RESULTS)} passed, {len(RESULTS) - sum(RESULTS)} failed")
 sys.exit(0 if all(RESULTS) else 1)

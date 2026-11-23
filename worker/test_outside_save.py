@@ -312,6 +312,7 @@ wait_outside(m6)
 r = ask({"cmd": "reload", "model": m6, "outdir": m6 + "-out"}, "reload")
 check("the actions saved after the revision FreeCAD opened are dropped",
       r and [o["id"] for o in r["ops"]] == ["r1", "pp1"] and [o["id"] for o in r["dropped"]] == ["r2", "pp2"], r)
+check("the reload's rev is the session's (2), not the older file's", r and r["rev"] == 2, r and r.get("rev"))
 
 # 7. An undo since the revision FreeCAD opened: the reload keeps that revision's ops (the undone one is back), and
 #    only what's new since counts as dropped.
@@ -331,7 +332,37 @@ r = ask({"cmd": "reload", "model": m7, "outdir": m7 + "-out"}, "reload")
 check("after an undo the reload keeps the revision's own ops and drops only the newer ones",
       r and [o["id"] for o in r["ops"]] == ["r1", "pp1", "r2", "pp2"] and [o["id"] for o in r["dropped"]] == ["r3", "pp3"]
       and r["changed"] == ["b2"] and r["removed"] == ["b3"], r)
-w.ask({"cmd": "quit"}, "quit")
+
+# 7b. A rejected action in the saved revision (H092 finding 7): a reload keeps only the ops that worked, as opening
+#     and the .prev journal do, so the window isn't left with a failed op below the undo floor.
+m7b = fresh_model("rejected")
+opened(m7b)
+bad = {"id": "bad1", "type": "push_pull", "target": {"rect": "r1"}, "distance": 0}
+sync(w, m7b, board_ops(300) + [bad], 1)
+ask({"cmd": "flush", "model": m7b}, "flush")
+freecad_save(m7b)
+wait_outside(m7b)
+r = ask({"cmd": "reload", "model": m7b, "outdir": m7b + "-out"}, "reload")
+check("a reload of a revision with a rejected action keeps only the ops that worked",
+      r and [o["id"] for o in r["ops"]] == ["r1", "pp1"] and r["undo_floor"] == 2 and r["dropped"] == [], r)
+
+# 8. A held model with unsaved actions whose file is then deleted: the window closing (its save keeps both, and
+#    the copy aside fails) is a failed save, not the end of the worker for every window.
+m8 = fresh_model("deleted")
+opened(m8)
+sync(w, m8, board_ops(300), 1)
+ask({"cmd": "flush", "model": m8}, "flush")
+freecad_save(m8)
+wait_outside(m8)
+sync(w, m8, board_ops(300) + second(200), 2)       # held: these wait, unsaved
+os.remove(m8)
+w.close()
+time.sleep(0.5)
+check("a held model's file deleted and its window closed: the worker keeps running", proc.poll() is None,
+      proc.poll())
+w = Window(port)
+q = w.ask({"cmd": "quit", "seq": 99}, "quit")
+check("and still answers the next window", q is not None, q)
 proc.wait(30)
 
 print(f"OUTSIDE SAVE TESTS: {R[0]} passed, {R[1]} failed", flush=True)

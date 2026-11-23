@@ -3212,3 +3212,590 @@ Follow-up: integrate.py and job.py test capture the scripts' output until exit. 
 Result: 8c4ab15; 43/43 harness checks, quick 240/240, gate passed in 83 s; the test scripts report live stage timings and keep job output in the worktree's scratch folder.
 
 Resolution: merged into main by the integrator, 2026-11-22.
+
+### H089 — For the next integrator session: where things stand
+
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: open | For: the integrator
+
+References: docs/integrator.md, BOARD.md, tools/startup.py, GEMINI.md.
+
+Touches: nothing (a note). Archive it once read: `python3 tools/handoff.py archive H0NN`.
+
+Taking over: `python3 tools/integrator.py take fretchup-73` (a /clear keeps the name; another name needs
+`--william`), then `python3 tools/startup.py`, then re-arm the watch (docs/integrator.md). A watch from before the
+clear may still be running; a second one is harmless.
+
+Done this session (2026-11-22, night; main pushed): merged H080 (T105) and H081 (T106, map line written); small
+fixes merged: the queue takes Gemini (`--as gemini`, `gemini/` branches, GEMINI.md = AGENTS.md plus its
+differences), 99_regions.py's absolute output path, test_length_protocol.py under TESTDIR. William's calls logged:
+I60 (Arc tool: A, 2-Point and Centre, A again switches; arcs don't chain), I61 (an arc on a corner is tangent),
+T108 (FreeCAD fillet, after edge selection), T109 (loops of lines and arcs make a face), A38 (the floor copy
+beside the model).
+
+The queue:
+- H083 (T88 step 6, Codex) is stale since 20:13: Codex ran out of tokens with uncommitted work in
+  ../fretchup-h083. William's answer to its question (line.gd yes, test_log.py no, drop its A-new-1 row) was
+  given to it. Leave it for Codex to resume; don't return it (the work isn't committed).
+- Queued behind H083: H052 (T66 units), then H085 (Arc tool), then H086 (tangent corners).
+- For Gemini (Gemini 4 Neon; William has it for a while): H087 (A38, worker/session.py) and H088 (integrate.py /
+  job.py relay test progress live). Ready, no overlaps. Review them like Codex's branches.
+
+The ultra review: the diff limit is 8,000 lines / 500 files. A local branch `ultra-base` at 2483a3b (H064's merge,
+13:09) gives 7,761 lines to main; William runs `/ultrareview ultra-base` himself from the main checkout. When the
+findings arrive, turn them into jobs and clear the ultra-review follow-up in docs/follow-ups.md. Still waiting on
+William from earlier: a light /code-review on every merge.
+
+### H088 — integrate.py and job.py show the tests' progress as it happens
+
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: resolved | For: gemini
+
+References: T106 / H081 (the test scripts print a line as each stage starts and ends), P40 (a slow run must be
+told from a hung one), the H081 follow-up in docs/follow-ups.md ("integrate.py and job.py test capture the
+scripts' output until exit"; clear that line in your last commit).
+
+Touches: tools/integrate.py (`run_gate`), tools/job.py (`run_quick`), tools/test_integrate.py, tools/test_job.py.
+Not the test scripts themselves (gate.sh, quicktest.sh, fulltest.sh) or ARCHITECTURE.md.
+
+Today: integrate.py `run_gate` runs tools/gate.sh with `subprocess.run(..., capture_output=True)`, then prints
+only the last line (the verdict) and, on a failure, the last 2000 characters. job.py `run_quick` runs
+`QUICKTEST` the same way and keeps the last line. So nothing shows until the run ends (80 s for the gate).
+
+Request: run them with `subprocess.Popen` (stdout piped, stderr merged into it, text, line-buffered) and, as each
+line arrives, print it at once when it is a progress line: it starts with `gate: `, `quick: ` or `full: ` (the
+forms H081's `run_stage` prints: "<label> started", "<label> passed in N s", "<label> failed in N s"); keep
+every line. When it ends, everything after stays as today: `run_gate` says the verdict (the last line), and on
+a failure prints the last 2000 characters of the whole output; `run_quick` returns the same `(ok, last line)`.
+Print with flush, so a caller reading this script's output sees each line as it comes. job.py's `QUICKTEST` stays
+a list its tests can replace.
+
+Checks: in test_integrate.py and test_job.py, a stub in place of the gate / quick test (a small shell script
+that prints "quick: parse started", sleeps 1 s, prints "quick: parse passed in 1 s", then a verdict line):
+the first progress line reaches the caller before the stub ends (read the output while it runs, as
+tools/test_featuretest.py's "gate stages arrive live and in order" check does); lines that aren't progress
+lines are not printed live; the verdict and the failure tail are as before (a failing stub); `run_quick`'s
+return value is unchanged.
+
+Reading path: integrate.py `run_gate` (and the `say` it uses), job.py `run_quick` and `test` (who reads its
+result), then tools/test_featuretest.py around its live-arrival check (how H081 tested the same thing for the
+shell scripts). Who owns what: the shell scripts own what they print; these two only relay it.
+
+Run `python3 tools/test_integrate.py` and `python3 tools/test_job.py` while building, then
+`python3 tools/job.py test`. End your response with a Result line; leftovers as Follow-up lines; anything for the
+merge as For the integrator lines.
+
+Response — Gemini (worker, gemini-neon), 2026-11-22:
+
+- Branch: `gemini/h088-live-test-output`, implementation commit `a2ca952`.
+- Changes: added `job.stream_command` (`subprocess.Popen` with `stdout=subprocess.PIPE`, `stderr=subprocess.STDOUT`, `text=True`, `bufsize=1`) to relay lines starting with `gate: `, `quick: `, or `full: ` immediately with `flush=True` while capturing all output. Wired `job.run_quick` (keeping `QUICKTEST` replaceable and its `(ok, [last line])` return value; `job.test` passes `out=out`) and `integrate.run_gate` (also flushing `Integration.say` and the 2000-char failure tail). Cleared the H081 follow-up line from `docs/follow-ups.md` as requested in References.
+- Verified: `python3 tools/test_integrate.py` (51 passed, 0 failed), `python3 tools/test_job.py` (107 passed, 0 failed), and `python3 tools/job.py test` on `a2ca952` (all feature suites passed, `QUICK 240 passed, 0 failed in 24.0 s`; observed `quick: parse started` streaming live before completion).
+- IDs added: none. Open questions: none.
+- Note on `docs/follow-ups.md`: touched to clear the H081 follow-up line as requested in References (not listed on the Touches line).
+
+For the integrator: `docs/follow-ups.md` was edited solely to clear the H081 follow-up line requested in References; no `ARCHITECTURE.md` or `docs/protocol.md` changes needed.
+Result: a2ca952; test_integrate.py 51/51, test_job.py 107/107, quick test passed (240/240 UI + all feature suites); integrate.py run_gate and job.py run_quick stream gate:/quick:/full: progress lines live with flush while keeping full output for verdicts and failure tails, and cleared the H081 follow-up
+
+Resolution: merged into main by the integrator, 2026-11-22.
+
+### H087 — A38: a rebuild keeps FreeCAD's edits (the floor copy)
+
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: resolved | For: gemini
+
+References: A38 (William's call, 2026-11-22), A23 (sync), A32 (save generations), A36 and T64 (outside saves),
+T10 (rebuild past 20 undo steps), the H063 follow-up in docs/follow-ups.md (clear that line in your last commit).
+
+Touches: worker/session.py, a new worker/test_floor_copy.py. Not serve.py, the viewport, the journal's existing
+fields (add one, below), ARCHITECTURE.md or the folder guides: write what changes as "Architecture:" lines and
+guide changes as "For the integrator:" lines.
+
+The bug, today: `Session.sync` (session.py) calls `_rebuild(ops)` when the ops to take back go below
+`session_base` or past FreeCAD's undo depth (`n_undo > self.doc.UndoCount`). `_rebuild` starts from
+`_new_doc()` (an empty document) and replays every op. When `undo_floor > 0` the first `undo_floor` ops came from
+a file FreeCAD changed (`_open_existing` with `external`, or `reload_outside`), so replaying them from empty
+loses FreeCAD's change. (`sync` already refuses `k < undo_floor`; the loss is a rebuild with `k >= undo_floor`.)
+
+Request (A38):
+1. The floor copy: `<model>.floor.FCStd` beside the model (add `"floor_file"` to `generation()`'s dict, beside
+   the other names). Write it with `self.doc.saveCopy(...)`, atomically (write a temp name, then `os.replace`),
+   at the two moments the floor is set from a FreeCAD change: in `_open_existing` when `self.external` is true
+   (after `_load_file`, before any op is applied: the document then is exactly the floor), and in
+   `reload_outside` right after `_load_file`. Record it in the journal as one new field, `"floor_copy":
+   {"sha256": <of the copy>, "ops": <undo_floor>}`, written by `_journal`; a journal without it reads as no copy.
+2. `_rebuild(ops)`: when `undo_floor == 0`, as today. When `undo_floor > 0` and the floor copy exists, its
+   sha256 matches the journal's `floor_copy.sha256` and `floor_copy.ops == undo_floor`: open the copy as the
+   live document (as `_load_file` does, but from the copy's path; closing the old document first), set
+   `applied` to the first `undo_floor` entries of the current `applied` (they're what the copy holds), apply
+   `ops[undo_floor:]`, and keep `undo_floor` and `session_base = undo_floor`. Saving must still write the model's
+   own path: `save` uses `saveCopy` to `self.path` today, so check it stays that way and say so. Otherwise (no
+   copy, or it doesn't match): raise OpError("can't undo past the FreeCAD edit: its copy is missing") and leave
+   the document as it was, instead of rebuilding from empty.
+3. A model never edited in FreeCAD writes no floor copy and rebuilds exactly as today.
+
+Cases that must still work: every existing worker test (test_generations.py's undo-floor checks, the outside-save
+tests, test_scenario.py), saving and recovery of the other generation files (A32), the journal's other fields
+unchanged.
+
+Checks (worker/test_floor_copy.py, run by freecadcmd like the other worker tests; `TESTDIR` for outputs):
+- a model with 3 boards, saved; then changed outside Shop Sketch (open it with FreeCAD's API, add a cube with a
+  label you can find, save); reopened in a Session: the floor copy exists and its sha matches the journal;
+- then 25 new ops (more than FreeCAD's 20 undo steps), then `sync` back to the first 2 of those (a rebuild):
+  the cube is still there and the boards are as expected;
+- the same through `reload_outside` (an outside save while the session is open);
+- the floor copy deleted (or its sha changed) and the same sync: OpError with the exact message, and the
+  document unchanged;
+- a model never edited outside: no floor copy file, and a rebuild past 20 steps works as today.
+
+Reading path: session.py `Session.__init__` → `_open_existing` (how the floor and `session_base` are set from the
+journal) → `reload_outside` (the other way the floor is set) → `_journal` (what's saved) → `sync` (when it
+rebuilds) → `_rebuild` → `save` and `_write` (saving writes `self.path`). Who owns what: Session owns
+the live document, `applied`, the floor and the journal; serve.py only calls `sync` and `save`; the floor copy is
+Session's alone.
+
+Worker rules to know (worker/CLAUDE.md, "FreeCAD rules"): `freecadcmd` passes the script as `sys.argv[1]` (paths
+through environment variables); when a script raises, freecadcmd runs it a second time (read the first error).
+
+Run the feature tests while building (`tools/featuretest.sh`), then `python3 tools/job.py test` (the quick
+test). End your response with a Result line; leftovers as Follow-up lines; anything for the merge as For the
+integrator lines.
+
+### Response — Gemini (worker, gemini-cedar), 2026-11-22
+
+Branch `gemini/h087-floor-copy`, implementation commit `60b429c` (branched from `main` `3120b76`).
+
+Implemented A38 in `worker/session.py` and added `worker/test_floor_copy.py` (and cleared the H063 rebuild follow-up in `docs/follow-ups.md`):
+- Added `"floor_file": base + ".floor" + ext` (`<model>.floor.FCStd`) to `generation()`.
+- Added `Session._write_floor_copy()` to write `<model>.floor.FCStd` atomically via `self.doc.saveCopy(<model>.floor.tmp.FCStd)` + `os.replace(...)` and record `self.floor_copy = {"sha256": <hex>, "ops": self.undo_floor}` in `_open_existing()` when `self.external` is true and in `reload_outside()` right after `_load_file()`. On normal opens (`not self.external`), `self.floor_copy` is read from the journal's `floor_copy` field (or `None` if absent). `Session._journal()` writes `"floor_copy"` only when `self.floor_copy` is set; all existing journal fields are unchanged.
+- Updated `Session._load_file(path=None)` to accept an explicit file path, and updated `Session._rebuild(ops)` so `undo_floor == 0` stays unchanged while `undo_floor > 0` verifies `<model>.floor.FCStd` exists and matches `floor_copy` (`sha256` and `ops == undo_floor`), closes the old document, opens `<model>.floor.FCStd`, clears undos, keeps `applied[:undo_floor]`, `undo_floor`, and `session_base = undo_floor`, and replays `ops[undo_floor:]`. When the floor copy is missing, modified, or unrecorded in the journal, `_rebuild` raises `OpError("can't undo past the FreeCAD edit: its copy is missing")` before closing or modifying the live document.
+- Checked `Session.save()` and `_write()`: saving continues to call `self.doc.saveCopy(g["saving_file"])` and rename to `g["file"]` (`self.path`), using `self.path` for `write_gui_document`, so saving after a floor-copy rebuild writes the model's own path and leaves `<model>.floor.FCStd` byte-for-byte untouched (verified in `worker/test_floor_copy.py`).
+
+Verified with `tools/featuretest.sh` and `python3 tools/job.py test` on `60b429c`: `FLOOR COPY TESTS: 21 passed, 0 failed` (covering external edit on reopen, 25 ops + rebuild, saving after rebuild, rebuild across restart, `reload_outside` + 25 ops + rebuild, deleted/tampered floor copy and legacy journal without `floor_copy` raising the exact `OpError` with document unchanged, and never-edited models writing no floor copy), all 32 feature suites passed (including `GENERATION TESTS: 34/34`, `OUTSIDE SAVE TESTS: 26/26`, `NATIVE TESTS: 83/83`, `SCENARIO TESTS: 535/535`), and `viewport: QUICK 240 passed, 0 failed in 20.8 s`. No new decision IDs added; no open questions.
+
+Architecture: `worker/session.py` `generation()` adds `"floor_file"` (`<model>.floor.FCStd`) beside the model; `Session._write_floor_copy()` writes it atomically (`saveCopy` to a temp name + `os.replace`) when the undo floor is set from FreeCAD (`_open_existing` when `self.external`, and `reload_outside` right after `_load_file`). Models never edited in FreeCAD write no floor copy.
+Architecture: the journal (`<model>.shopsketch.json`) gains one optional field `"floor_copy": {"sha256": <hex>, "ops": <undo_floor>}` written by `Session._journal()`; a journal without it reads as no copy, and all existing journal fields are unchanged.
+Architecture: `Session._rebuild(ops)` starts from `<model>.floor.FCStd` when `undo_floor > 0` and the file's sha256 and `ops` match `floor_copy`, keeping `applied[:undo_floor]`, `undo_floor`, and `session_base = undo_floor`, then replaying `ops[undo_floor:]`; if the copy is missing or mismatched it raises `OpError("can't undo past the FreeCAD edit: its copy is missing")` and leaves the document unchanged. `Session.save()` still writes via `saveCopy` to `self.path` (not the floor copy). `Session` alone owns the floor copy; no protocol or viewport changes.
+For the integrator: update `ARCHITECTURE.md` with the `Architecture:` lines above (`<model>.floor.FCStd`, journal `floor_copy`, `Session._rebuild`).
+For the integrator: update `worker/CLAUDE.md` ("Sync, undo, saving") to note `<model>.floor.FCStd` and the journal's `floor_copy` field for A38 rebuilds.
+For the integrator: update `A38`'s "Where in the code" in `docs/decision-log.md` from `Not built: worker/session.py _rebuild (job H087)` to `Built (H087): worker/session.py generation() floor_file, _write_floor_copy(), _open_existing(), reload_outside(), _journal() floor_copy, _rebuild(); worker/test_floor_copy.py`.
+Result: 60b429c; 21/21 floor copy checks, 32 feature suites, 240/240 quick viewport checks passed; A38 floor copy (<model>.floor.FCStd and journal floor_copy) keeps FreeCAD edits across rebuilds past 20 undo steps or below session_base.
+
+Resolution: merged into main by the integrator, 2026-11-22.
+
+### H091 — integrate.py keeps main's Order line, job table and Notes on a clean BOARD.md merge too
+
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: resolved | For: gemini
+
+References: H073 (`settle_board`: in a BOARD.md conflict main's Order line, "## Jobs" and "## Notes" stay), the
+H073 follow-up in docs/follow-ups.md ("a BOARD.md that git merges without a conflict still takes the branch's
+edits to Notes or the table as they are"; clear that line in your last commit), P16 (only the integrator edits
+BOARD.md).
+
+Touches: tools/integrate.py (`settle_conflicts`, and the docstring paragraph about BOARD.md near the top),
+tools/test_integrate.py. Not tools/job.py, BOARD.md itself, or docs/integrator.md (a wording change there goes in
+a "For the integrator:" line).
+
+Today: `settle_conflicts` calls `settle_board` only when BOARD.md is in `s.conflicts`. When git merges BOARD.md
+without a conflict (say the branch edited a line of the Notes that main didn't touch), the merge takes the
+branch's edit. The job table is rebuilt later anyway (`rebuild_and_check` runs `job.board`), but the Order line
+and the Notes aren't. The Touches check (`check_touches`) flags BOARD.md as outside the job's list, and that's
+all.
+
+Request: in `settle_conflicts`, when BOARD.md is not in the conflicts but the branch changed it (`git diff
+--quiet <base> <branch> -- BOARD.md` says it differs), take the merged file in the working tree and put back
+main's (HEAD's) Order line and its "Jobs" and "Notes" sections, using `board_sections` (`BOARD_OURS`), keeping
+every other section as git merged it. Write it only if that changes the file, and then say exactly:
+`kept main's Order line, job table and Notes in BOARD.md (the branch had changed <what>)`, where `<what>` lists
+the parts that differed, from `the Order line`, `the job table` and `the Notes`, joined with ", ". If nothing
+differed, say nothing and leave the file. The conflict path stays as it is. This runs before `git add -A` at
+the end of `settle_conflicts`, like the conflict path.
+
+Cases that must still work: every check in test_integrate.py (section 6, the conflict merges, among them); a
+branch that doesn't touch BOARD.md (nothing said, file untouched); a branch whose only BOARD.md change is in
+another section (the worker steps): kept, nothing said.
+
+Checks (tools/test_integrate.py, beside section 6, with the same BOARD fixture and `run_integrate`):
+- a branch that changes only the Notes ("- one" to "- branch's note"), main unchanged: the merge has "- one", and
+  the message names "the Notes";
+- a branch that changes the Order line and a worker step, while main changes the Notes: no conflict; the merge
+  has main's Order line and Notes and the branch's worker step, and the message names "the Order line" only;
+- a branch that changes only a worker step: the step is merged, no "kept main's" message;
+- the conflict path unchanged (the existing checks).
+
+Reading path: integrate.py's docstring (step order), `merge_branch` → `settle_conflicts` (how the conflict path
+reads HEAD, base and branch with `git show`) → `board_sections` and `settle_board` → `rebuild_and_check` (the
+table is rebuilt after) → test_integrate.py section 6. Who owns what: BOARD.md's Order line, table and Notes are
+the integrator's (main's); the other sections can come from a branch.
+
+Run `python3 tools/test_integrate.py` while building, then `python3 tools/job.py test`. End your response with a
+Result line; leftovers as Follow-up lines; anything for the merge as For the integrator lines.
+
+#### Response (Gemini, 2026-11-22)
+
+- Branch: `gemini/h091-board-notes-on-clean-merge`
+- Commit: `0edd60b`
+- Changes:
+  - `tools/integrate.py`: added `BOARD_PART_NAMES` and `keep_board_ours()` using `board_sections` / `BOARD_OURS`, wired into `settle_conflicts` before `git add -A` when `BOARD.md` is not in `conflicts` and `git diff --quiet <base> <branch> -- BOARD.md` differs. Writes the file and reports `kept main's Order line, job table and Notes in BOARD.md (the branch had changed <what>)` only when HEAD's Order line, job table or Notes actually differed from the merged file; leaves the conflict path unchanged. Updated the `BOARD.md` docstring paragraph near the top.
+  - `tools/test_integrate.py`: added section 6b beside section 6 covering clean merges where the branch changes only Notes, Order+Jobs+Notes, Order+worker step while main changes Notes, only a worker step, or doesn't touch `BOARD.md`.
+  - `docs/follow-ups.md`: cleared the H073 follow-up line as requested in References (note for the Touches check: edited solely for that requested follow-up removal).
+- Verified:
+  - `python3 tools/test_integrate.py`: `INTEGRATE TESTS: 56 passed, 0 failed`.
+  - `python3 tools/job.py test` on `0edd60b`: quick test passed (`INTEGRATE TESTS: 56 passed, 0 failed`, all feature suites 0 failed, `viewport: QUICK 240 passed, 0 failed`).
+- IDs added: none.
+- Open questions: none.
+
+Result: 0edd60b; tools/test_integrate.py 56/56, quick test passed; integrate.py keeps main's Order line, job table and Notes on clean BOARD.md merges too, and clears the H073 follow-up
+
+Resolution: merged into main by the integrator, 2026-11-22.
+
+### H092 — The first `/code-review ultra` (main against ultra-base): ten findings, three fixed
+
+Author: Claude (worker, session 01SF8AMM) | Date: 2026-11-22 | Status: resolved | For: the integrator
+
+References: A36, T64, T65, G09 (outside saves); A32 (save generations); A23 (sync); H059 (reserved IDs); I51 and
+the region push (H046/T82); P22 (small fixes); the 2026-11-22 integrator follow-up in docs/follow-ups.md (the
+ultra review William was going to send off: he ran it himself, `/ultrareview ultra-base`, 110 files, +6592 −1169).
+
+Touches: nothing yet. Each finding below that isn't fixed is a job for you to write (or a question for William).
+
+Fixed on `small-fixes` (bd88639, quick test passed, worker/test_outside_save.py 29/29; both new checks fail
+without the fixes): findings 1, 3 and 10. They're listed for William at the end of this session. This entry is
+committed on the same branch, so merging `small-fixes` brings it in.
+
+The other six findings are about reload or ID behaviour, so they aren't small fixes. For each one I read the code
+the reviewer names and it does what they say. I haven't reproduced any of them in a run.
+
+Finding or request:
+
+1. **Fixed.** worker/serve.py save_pending ran `outside()` / `keep_both()` before its per-model `try`, and
+   `watch()` had no `try`. A held model whose file was deleted took the worker down for every window once its
+   window closed (copy2 FileNotFoundError out of serve()). Now that's a `save_failed`, and watch() logs and
+   carries on.
+2. **Open: a failed reload leaves the model held for good.** serve.py `reload`: `info = s.reload_outside()`
+   runs before `held.pop(path)`. If it raises (FreeCAD's file won't open, board_marks throws), the path stays
+   held. Meanwhile document.gd on_reload_reply clears `outside` on the error and carries on syncing. The timer
+   skips held models, and hold() only tells the window once, so autosave is silently off until flush, bye or
+   quit. Also, `reload_outside` closes `self.doc` before `_load_file()`, so a failed load leaves the session on
+   a closed document. Recommended: on a failed reload, keep the window in its waiting/ask state (don't clear
+   `outside`), so the user can still choose. In session.py, open the new document before closing the old one,
+   so a failure leaves the old one live. Touches session.py, serve.py, document.gd.
+3. **Fixed.** reload_outside returned `"rev": frev`, which overwrote open_reply's session rev in the reload
+   reply. For a plain FreeCAD file that had no ShopSketchRev yet, that was null, and `int(null)` failed in
+   on_reload_reply. Now the reply's rev is the session's, as serve.py's protocol note already said.
+4. **Open, William's call: "Keep Shop Sketch's" can be overridden by a reload that's already out.**
+   main.gd `_outside_choice` checks only `doc.outside.is_empty()`. If the delayed sync answers while the dialog
+   is open, on_sync_reply sends the reload. A later "Keep Shop Sketch's" then loses to it: FreeCAD's version is
+   adopted, the window's actions go to the journal, and the status says "took FreeCAD's save". (Only the
+   non-blocking ConfirmationDialog path can do this, i.e. without FEATURE_NATIVE_DIALOG.) Recommended: while the
+   dialog is open, on_sync_reply doesn't send the reload, so the user's answer decides. Ask William, since this
+   is A36's flow.
+5. **Open: the window stalls if the worker dies mid-reload.** document.gd on_link_up (the `outside` branch)
+   sets dirty and `outside_seq = -1` but sends nothing. The OUTSIDE_SAVE_WAIT timer was never started (an idle
+   window sends the reload straight away), so nothing asks. The next edit's sync builds on FreeCAD's file, which
+   A36 means to prevent. Recommended: on link up with `outside` pending, send the reload again, or emit
+   `outside_waiting` so the timer and the dialog run. Related to the H063 follow-up (a crash during an
+   outside-save wait).
+6. **Open: an older FreeCAD copy can lose every action.** session.py save keeps `rev_ops` for the last 50
+   revisions only (`sorted(self.rev_ops)[:-50]`), and every autosave uses one. `_open_existing` resets it to the
+   current rev, so a reopen or worker restart forgets the rest. The `.prev` journal covers one revision. Past
+   that, `_file_ops` returns [] and the reload drops every action, including the rects and lines FreeCAD's file
+   holds natively, so they vanish from the view. Recommended: when the revision isn't known, keep the ops
+   (or ask) instead of dropping all of them. Keeping the window's ops whose IDs exist in the file
+   (SSLineId / board names) would be the cheap route. A38's floor copy (H087) is nearby: check before writing
+   this job.
+7. **Open, narrow: a rejected op can come back after a reload.** session.py:638 stores `list(self.applied)`,
+   failed ops included. `_open_existing` and the `.prev` branch keep only ok ops. A reload from such a revision
+   puts the failed op back below `undo_floor`. The window then removes it, and every sync after that fails
+   with "can't take back ops before N" until the model is reopened. Recommended (a few lines, but it changes what
+   a reload restores, so I left it to you): store only ok ops in `rev_ops`, as the other two paths do, with a
+   check in test_outside_save.py.
+8. **Open: Redo can block all syncing.** document.gd next_id adds a new ID to `reserved_ids` before any sync
+   carries its op. Draw something while a sync is in flight, Undo before it answers, then Redo. The worker has
+   the ID reserved with no owner, and IdRegistry.accept (session.py:76) refuses it ("ID already reserved") on
+   every sync while that op is in the list. Recommended: let the first op that creates an unowned reservation
+   claim it. That touches the H059 follow-up (reserving every string) too, so maybe one job for both.
+9. **Open: pushing one cell hides the rest of the shape.** document.gd consumed_rects counts any push_pull
+   with `target.rect`, region pushes included, and presenter.gd present_draft drops `op.target.rect`'s draft.
+   Push one cell of a free rectangle or circle that a Line splits, and the other cells vanish from the view and
+   can't be picked, though FreeCAD still has them. Recommended: a push whose target has a `region` neither
+   consumes nor drops its source profile, in both places, with a quick-test step. Viewport only.
+10. **Fixed.** push.py built a region-only target's face twice (one OCC common plus one cut per hole each
+    time). Now once.
+
+For the integrator: merge `small-fixes` (bd88639 and this entry's commit) when the gate passes, as P22 says.
+For the integrator: write jobs for findings 2, 5, 6, 8 and 9; ask William about 4 (A36's dialog) and whether 7 is a small fix.
+Follow-up: the ultra review found ten bugs in a 6.6k-line diff. The 2026-11-22 follow-up about running one can be cleared once you've read this.
+
+Response — Claude (integrator, fretchup-73), 2026-11-22: small-fixes merged (8d4376d, findings 1, 3, 10).
+Finding 7 fixed on small-fixes too, as a small fix (William: "You can fix 7"; merged 1c09ec2, a check in
+test_outside_save.py that fails without it). Finding 4 went to William: A39 (the question closes when the actions
+land). Jobs: H093 (findings 2 and 5, and A39), H094 (finding 6), H095 (finding 8), H096 (finding 9).
+
+Resolution: all ten findings fixed or made jobs (H093-H096).
+
+### H090 — T59 step 1: a cut made to a pocket's floor stays tied to it (the worker side)
+
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: resolved | For: either
+
+References: T59, I26b (the rules: a cut made up to a face stays tied to it; it detaches when you push that face
+again or type its length; if the face goes, the length is kept), I40 (a typed distance stays a measurement),
+I24 (`through_all`: the same idea for a cut to the back face, done with FreeCAD expressions), A03 (faces by
+geometry), G04.
+
+Touches: worker/push.py, a new worker/scenario/99_cut_ties.py, a new worker/test_cut_ties.py. Not the viewport
+(step 2 is the Push/Pull tool sending the new field; it waits for H083), not plane_fit.py, not serve.py's
+`PROTOCOL_VERSION` (step 2 bumps it, when a window first sends the field), not ARCHITECTURE.md or
+docs/protocol.md: write the new op field and the new cutter property as `Architecture:` lines.
+
+Today: Push/Pull's "face behind" snap (push_tool.gd `_snap_to_face_behind`) sets the distance exactly to a
+pocket's floor, but the op carries only the number, so the worker makes an ordinary cutter of that length. Make
+the first pocket deeper (its extrusion's `LengthFwd` in the Properties panel, or in FreeCAD) and the second
+pocket stays at the old depth. The back face already follows (`"through": true`, `through_all`).
+
+Request:
+1. A new optional field on a `push_pull` op: `"to_face": {"normal": [x, y, z], "point": [x, y, z]}`, world mm,
+   the floor's outward normal (it faces the same way as the face the cut starts on) and a point on that floor
+   inside the new cut's outline. Valid only on a cut into a board (`distance < 0`, the cut lands in a board:
+   the "draw-on-face edit" branch of `op_push_pull`) and not with `"through"`; anywhere else: OpError("to_face
+   is only for a cut into a board").
+2. In that branch, after `self.extrusion(...)` and before `self.boolean(...)`: find the cutter whose floor it is.
+   In the board's frame (`fr.pt`, `fr.dir`), look through the cutters of every Part::Cut in the container's
+   Group (`self.tools_of(b)`; for a Draft array, its `Base`). The one wanted is a Part::Extrusion, not
+   `SSThrough`, whose `Dir` equals the new cut's direction (both axis-aligned, within 1e-6), with no
+   `LengthRev` expression, and whose far end (its base plane's level along that axis, moved `LengthFwd` along
+   `Dir`) is at the point's level within `TOL`, with the point on its shape (`t.Shape.isInside(p, TOL, True)`;
+   for an array, the array's shape). More than one: the first in the Group's order. None (the face behind is
+   the board's own shape, a step, not a pocket): no tie, the cut is the plain distance it is today.
+3. Tied: give the new extrusion its `LengthFwd` as an expression, built the way `through_all` builds its
+   expressions (base planes' `Shape.BoundBox` levels in the container's frame, `* 1mm`), so that it is always
+   (the new cut's base level − the floor cutter's base level, signed along the cut) + the floor cutter's
+   `LengthFwd`. Mark it on creation: `add_props(ext, SSOp=oid, SSTiedTo=<the floor cutter's SSOp>)` (always
+   add the property, `""` when untied, so a later detach only changes a value: worker/CLAUDE.md, "FreeCAD
+   rules"). Its distance comes from the expression; the op's `distance` is the viewport's prediction and is
+   not checked against it.
+4. Detach (I26b: pushing that same face again): in `op_push_pull`, when the target is a board's `face` (no
+   `region`), before anything else: if the face is the floor of a tied cutter on that board (its point at the
+   cutter's far end, on its shape, the face's normal opposite the cutter's `Dir`), clear that cutter's
+   expression keeping its current value (read `LengthFwd`, `setExpression("LengthFwd", None)`, set it back) and
+   set its `SSTiedTo` to `""`; then the push goes on as today. The same op's undo brings the tie back.
+5. A floor cutter made deeper or shallower: the tied cut follows on the next recompute,
+   with nothing of Shop Sketch's in between (it's FreeCAD's expression, as for I24). A tie to a tie (a third
+   pocket to the second's floor) works the same way and needs nothing more.
+
+Cases that must still work: every existing worker test and scenario step (20_push.py's through-cuts, 90_mirrored_hole.py,
+99_circle.py, 99_regions.py), the plane-fit pushes (97_plane_fit_refit.py), and an op without `to_face`
+behaving exactly as today.
+
+Checks (scenario/99_cut_ties.py, on the fixture's `bottom` board, 564 × 400 × 18 at x 18–582, y 0–400, z 0–18,
+with its through-hole at x 280–320, y 180–220; and worker/test_cut_ties.py for what doesn't fit a scenario step):
+- pocket A: a 100 × 60 rect on bottom's top at [60, 60, 18], cut −6; pocket B: a 100 × 40 rect at [120, 80, 18]
+  (it overlaps A for x 120–160), cut −6 with `to_face` {normal [0, 0, 1], point [140, 100, 12]}: B's extrusion
+  has a `LengthFwd` expression and `SSTiedTo` = A's op id; the volume is as for two plain 6 mm pockets;
+- then A's extrusion made 10 deep with a `property_edit` (`LengthFwd`, `"10mm"`, as 20_push.py's step 2b does):
+  B is 10 deep too (the volume, and B's `LengthFwd` 10);
+- pushing B's floor (face {normal [0, 0, 1], point [200, 100, 12]}) by −2: B is untied (no expression,
+  `SSTiedTo` empty, `LengthFwd` 6) and the floor 2 mm deeper (A's and B's floors are one refined face, so A's
+  part goes down too); its undo brings the tie back, and A made 10 deep then takes B with it again;
+- a third pocket C to B's floor: A made 10 deep takes B and C;
+- `to_face` on a point that lies on no pocket's floor (the board's back face is for `through`; use a point in
+  the open, [400, 300, 12]): the cut is a plain 6 mm, untied, and no error;
+- `to_face` with a positive distance, and with `through`: OpError with the exact message;
+- the model saved and reopened: the ties are still there (the expression and `SSTiedTo`), and A made 10 deep
+  still takes B.
+
+Reading path: push.py `op_push_pull` (the order of its early returns, then the "draw-on-face edit" branch at
+the end) → `through_all` (how an expression refers to base planes in the container's frame) → model.py
+`extrusion`, `boolean`, `tools_of`, `is_cut_run`, `edit_frame` → move.py `cutter_of` (how a hole is found by its
+cutter's `SSOp`, arrays included) → scenario/20_push.py steps 2 and 2b (a FreeCAD value edited and a through-hole
+following). Who owns what: the cutter owns its depth (FreeCAD's expression); Shop Sketch only writes the tie at
+the cut and clears it at the detach; nothing in the worker recomputes a tie by hand (unlike plane_fit's refit).
+
+Worker rules to know (worker/CLAUDE.md): properties on creation only; when a freecadcmd script raises it runs a
+second time (read the first error); `TESTDIR` for outputs.
+
+Next (step 2, queued after H083 and H052, which touch push_tool.gd): the Push/Pull tool sends `to_face` when the
+"face behind" snap places the cut, drops it when a length is typed (I40), and bumps `PROTOCOL_VERSION` on both
+sides; a quick-test step. Left for T59 after that (follow-ups): a tie to another board's face, and a floor
+deleted in FreeCAD (I26b's "the length is kept, with a note").
+
+Run the feature tests while building (`tools/featuretest.sh`), then `python3 tools/job.py test`. End your
+response with a Result line; leftovers as Follow-up lines; anything for the merge as For the integrator lines.
+
+Response — Gemini (worker, gemini-oak), 2026-11-22:
+
+- Branch: `gemini/h090-t59-cut-to-pocket-floor`, implementation commit `5389d8a` (merged `main` at `f250363`).
+- Changes: implemented pocket-floor cut ties in `worker/push.py` (`to_face` validation returning `OpError("to_face is only for a cut into a board")` outside cuts into a board or with `through`/`edge_fit`/`resize_stock`/`body`; `_find_floor_cutter` searching every `Part::Cut` in the board container's Group including Draft arrays, skipping `SSThrough` and `LengthRev` expressions; `tie_to_floor` FreeCAD expression using container-frame base `Shape.BoundBox` levels `* 1mm + floor.LengthFwd`; `SSTiedTo` always added on creation; `_detach_floor_cuts` clearing the expression keeping `LengthFwd` and clearing `SSTiedTo` on face pushes without `region`, with undo restoring both), plus `worker/scenario/99_cut_ties.py` and `worker/test_cut_ties.py`.
+- Verified: `python3 tools/job.py test` on `f250363` (`CUT TIES TESTS: 25 passed, 0 failed`, `SCENARIO TESTS: 570 passed, 0 failed`, all 33 feature suites passed with 0 failures, `viewport: QUICK 240 passed, 0 failed in 18.0 s`).
+- IDs added: none. Open questions: none.
+
+Architecture: `push_pull` op adds optional `"to_face": {"normal": [x, y, z], "point": [x, y, z]}` (world mm, valid only on a cut into a board with `distance < 0` and without `through`/`edge_fit`/`resize_stock`/`body`; otherwise `OpError("to_face is only for a cut into a board")`), tying the new cut extrusion's `LengthFwd` by FreeCAD expression to the matching `Part::Cut` extrusion cutter's floor in the container's frame (`Shape.BoundBox` level difference `* 1mm + floor.LengthFwd`, excluding `SSThrough` and `LengthRev` expressions). Pushing a tied cutter's floor face again (no `region`) clears its `LengthFwd` expression while keeping its current value and clears `SSTiedTo`; undo restores both. `PROTOCOL_VERSION` is unchanged until T59 step 2 sends `to_face`.
+Architecture: draw-on-face extrusions in `worker/push.py` always add `SSTiedTo` (`App::PropertyString`) on creation (`<floor cutter SSOp>` when tied, `""` when untied); FreeCAD's expression engine owns updating tied depths on recompute.
+Follow-up: T59 step 2 (Push/Pull tool sending `to_face` on face-behind snap, dropping it on typed length per I40, bumping `PROTOCOL_VERSION`, quick-test step) waits for H083 and H052.
+Follow-up: T59 later: tying a cut to another board's face, and keeping the length with a note when a floor cutter is deleted in FreeCAD (I26b).
+For the integrator: fold the `Architecture:` lines above into `ARCHITECTURE.md` (`worker/push.py` and `SSTiedTo` property) and `docs/protocol.md` (`push_pull`'s optional `to_face` field); `PROTOCOL_VERSION` stays unchanged until T59 step 2.
+Result: 5389d8a; CUT TIES 25/25, SCENARIO 570/570, quick test passed (240/240 UI + all 33 feature suites); added to_face pocket-floor cut ties, SSTiedTo property, face-push detach with undo restore, and scenario/unit tests
+
+Resolution: merged into main by the integrator, 2026-11-22.
+
+### H095 — Redo after undoing an action that never reached the worker no longer blocks every sync (H092 finding 8)
+
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: resolved | For: either
+
+References: T67 / H059 (IDs that never collide: `next_id`, `reserved_ids`, `IdRegistry`), H092 finding 8, the
+integrator follow-up in docs/follow-ups.md about reserving every string (not this job: leave it).
+
+Touches: worker/session.py (`IdRegistry.accept` only), worker/test_branch_ids.py. Not the viewport, not the
+protocol (nothing on the wire changes). It touches a different part of session.py from H093 and H094 (queued); it runs first.
+
+Today (checked 2026-11-22): document.gd `next_id` reserves a new ID locally at once, and every sync sends
+`reserved_ids`. Draw something while a sync is in flight (the new op only marks `dirty`), then Undo before the
+answer: the next sync carries the ID in `reserved_ids` but no op that creates it, so the worker reserves it with
+no owner. Redo puts the op back, and `IdRegistry.accept` refuses it on every sync while that op is in the list:
+`ID already reserved: <id>` (session.py, `if identity in self.reserved and identity not in owners`). The window
+can't sync again until the op is removed.
+
+Request: in `IdRegistry.accept`, a modern ID that is reserved but has no owner is claimed by the first op that
+creates it: its owner is recorded and the sync goes on. Still refused, as today: a modern ID created twice in
+one op list (`ID collision`) and one whose recorded owner differs (`ID collision`). The `ID already reserved`
+error goes away; say in your response whether anything else relied on it (grep: nothing in the tests did on
+2026-11-22). Legacy IDs unchanged.
+
+Checks (worker/test_branch_ids.py): a session; sync [rect r, push p] with `reserved_ids` also holding a new
+board ID B no op creates (the undone action); then sync the same ops plus a push that creates B: ok, B's owner is
+that push; then the same op list again: ok; then a different op creating B (another type, or another op id with
+`body: B`): `ID collision`. Every existing check still passes.
+
+Reading path: viewport/document.gd `next_id` → `oplog` (what a sync sends) → `undo` / `redo`; worker
+session.py `creations` → `IdRegistry.accept` → `Session.sync` (where accept runs). Who owns what: the window
+allocates IDs; the worker's registry is the document's memory of them.
+
+Run the feature tests while building (`tools/featuretest.sh`), then `python3 tools/job.py test`. End your
+response with a Result line; leftovers as Follow-up lines; anything for the merge as For the integrator lines.
+
+Response — Gemini (gemini-spark), 2026-11-22:
+- Branch: `gemini/h095-redo-unowned-id`, code commit `9430a3c`.
+- Change: removed the `if identity in self.reserved and identity not in owners: raise OpError(f"ID already reserved: {identity}")` check in `worker/session.py` (`IdRegistry.accept`). The first op creating an unowned reserved modern ID now claims it and records its owner; duplicate creations in one op list and creations whose recorded owner differs still raise `ID collision`. Legacy IDs are unchanged.
+- What relied on `ID already reserved`: grep found no code or test referencing the message string, but one existing check in `worker/test_branch_ids.py` (`rejects('a reservation without a claim is never reassigned', ...)`) relied on it via bare `except OpError:`. Updated that check to verify claiming an unowned reservation and rejecting reassignment with `ID collision`, kept every other existing check, and added the `Session.sync` redo/collision checks (including duplicate creation of an unowned reserved ID in one op list). Outside tests, only `docs/protocol.md` (line 187, Ops section) mentions `ID already reserved` (left untouched per P28).
+- Verified: `tools/featuretest.sh` (33/33 suites passed; `BRANCH IDS TESTS: 16 passed, 0 failed`) and `python3 tools/job.py test` on `9430a3c` (all 33 feature suites passed, `QUICK 240 passed, 0 failed`).
+- IDs added: none. Open questions: none.
+
+Architecture: docs/protocol.md (Ops section): remove `ID already reserved` from the worker's sync ID-refusal errors; `IdRegistry.accept` now lets the first op creating an unowned reserved modern ID claim and record ownership of it, while still refusing duplicate creations in one op list or a different recorded owner with `ID collision` (wire protocol and `ARCHITECTURE.md` unchanged).
+For the integrator: remove `/ ID already reserved` from `docs/protocol.md` (Ops section, line 187) at merge.
+Result: 9430a3c; branch_ids 16/16, feature tests 33/33, quick test 240/240 passed; IdRegistry.accept lets the first op creating an unowned reserved modern ID claim it while keeping ID collision checks
+
+Resolution: merged into main by the integrator, 2026-11-22.
+
+### H100 — For the next integrator session: where things stand
+
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: open | For: the integrator
+
+References: docs/integrator.md, BOARD.md, tools/startup.py.
+
+Touches: nothing (a note). Archive it once read: `python3 tools/handoff.py archive H0NN`.
+
+Taking over: `python3 tools/integrator.py take fretchup-73` (a /clear keeps the name; another name needs
+`--william`), then `python3 tools/startup.py`, then re-arm the watch (`python3 -u tools/job.py watch --next`,
+Bash run_in_background). A watch from before the clear may still be running; a second one is harmless.
+
+Done this session (2026-11-22, late; main pushed): merged H088, H087 (+ protocol 8 for the journal's
+floor_copy), H091, H090 (T59 step 1), H095, and small-fixes twice (ultra review findings 1, 3, 10 by
+fretchup-f9; finding 7 by me). Wrote H090, H091, H093-H099. Logged A39 (outside-save question closes when the
+actions land), P42 (briefs for saving/reload/worker-link jobs list what can fail, each with a check; the review
+checks each), T110 (failure-path test helpers, job H097).
+
+The queue:
+- H099 (Gemini, in progress since 22:09): job worktrees in `~/Sites/fretchup-jobs/<id>`. When it merges, remind
+  William: Gemini's `~/.gemini/antigravity-cli/settings.json` can then trust only `/Users/Will/Sites/fretchup`
+  and `/Users/Will/Sites/fretchup-jobs`, with `allowNonWorkspaceAccess` off (he gave it wider access earlier;
+  I checked then that it hadn't touched anything outside its worktrees).
+- H083 (Codex, stale since 20:13, uncommitted work in ../fretchup-h083): leave it for Codex to resume.
+  Behind it: H052, H085, H086 (in that order), H093 (main.gd) and H096 (presenter.gd). H094 waits for H093; H097
+  for H094.
+- H098: William's one-off trial. When H093 is done, set H098's For to an agent other than H093's builder and
+  make it Ready; H093 merges only after H098 is in. H098 keeps only the checks that find a bug (William), each
+  behind `BREAK_H093=1`. Then: if it found something H093's brief missed, propose to William that it become a
+  step for P42 jobs; if nothing, tell him it cost one small job.
+- T59 step 2 (Push/Pull sends `to_face`, protocol bump) is to be written once H083 and H052 are in.
+
+Small fixes merged this session, to list for William (P22): the worker survives an unreadable model file in
+save/watch; the reload reply's rev is the session's; a region push builds its face once; a saved revision's op
+list keeps only the ops that worked (finding 7).
+
+Still open with William: a light `/code-review` on every merge (docs/follow-ups.md).
+
+### H099 — Job worktrees live in one folder, `<checkout>-jobs/<id>`, so a sandbox can trust just that folder
+
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: resolved | For: gemini
+
+References: Gemini's feedback, 2026-11-22: each job's worktree is a sibling folder (`/Users/Will/Sites/fretchup-h090`),
+outside the main checkout, so its sandbox blocked every command there; William had to give it access outside its
+workspace and trust all of ~/Sites. P24 / T102 (the wrong-checkout guard), P25 (scratch/ inside the worktree),
+P37.
+
+Touches: tools/job.py (`worktree_for` and the usage text at the top), tools/test_job.py, BOARD.md's worker
+steps (only the path in its "If you're not the integrator" paragraph: the integrator normally owns BOARD.md, and
+allows this one line). Not integrate.py (it removes the worktree that job.py recorded), not startup.py (it lists
+whatever `git worktree list` says), not the standing small-fixes worktree (it stays where it is), not
+AGENTS.md / GEMINI.md / CLAUDE.md (they don't name the path; say so if you find one that does).
+
+Today (checked 2026-11-22): `job.py worktree_for(root, jid)` returns
+`os.path.join(os.path.dirname(root), f"{os.path.basename(root)}-{jid.lower()}")`, a sibling of the main checkout
+(`/Users/Will/Sites/fretchup-h090`). `take` records it in the queue state (`worktree`); a job taken again
+(returned, or resumed) uses the recorded path (`prev.get("worktree") or worktree_for(...)`). BOARD.md tells
+workers to run `cd /Users/Will/Sites/fretchup-<id> && ...`. The usage text says `makes ../fretchup-<id>`.
+
+Request:
+1. `worktree_for(root, jid)` returns `<dirname(root)>/<basename(root)>-jobs/<id lowercase>`
+   (`/Users/Will/Sites/fretchup-jobs/h099`). `take` makes the `-jobs` folder if it isn't there. A job whose state
+   already records a worktree (H083 today, at `/Users/Will/Sites/fretchup-h083`) keeps it: nothing moves.
+2. The usage text and BOARD.md's path line say the new place: `cd /Users/Will/Sites/fretchup-jobs/<id> && ...`.
+3. Nothing else changes: branch names, the scratch folder inside the worktree, the wrong-checkout guard
+   (quicktest.sh / gate.sh read the recorded worktree: check they don't build the path themselves, and say so).
+
+What can fail (P42: this touches where a job's files live):
+- The `-jobs` folder missing: `take` makes it (check: a fresh fixture repo with no `-jobs` folder; `take` works).
+- A job taken before this change (its state records the old sibling path): `take` of it again, `done`, `test`
+  and `merged` use the recorded path, not the new one (check: a fixture state with an old-style `worktree`).
+- The `-jobs` folder left empty after the last job merges: it stays (harmless); `merged` removes only the job's
+  own worktree (check: after `merged`, the folder exists and holds nothing of that job).
+
+Cases that must still work: every check in tools/test_job.py and tools/test_integrate.py; the worktree tests
+there that call `job.worktree_for` (they follow the function, so they should pass unchanged: say if one needed
+editing).
+
+Checks (tools/test_job.py): `worktree_for(root, "H001")` is `<dirname(root)>/<basename(root)>-jobs/h001`; the
+three "What can fail" checks above.
+
+For William, after the merge (put it as a "For the integrator:" line too): Gemini's sandbox can then trust only
+`/Users/Will/Sites/fretchup` and `/Users/Will/Sites/fretchup-jobs`, with `allowNonWorkspaceAccess` off, in
+`~/.gemini/antigravity-cli/settings.json`. Don't edit that file yourself.
+
+Reading path: job.py `worktree_for` → `take` (where the worktree is made and recorded; the `prev` branch for a
+job taken again) → `with_job` / `test` / `done` (how the worktree is found from the state) → `merged` (what's
+removed) → tools/test_job.py's fixtures (`repo()`, the worktree checks). Who owns what: job.py makes, records and
+removes job worktrees; integrate.py and the test scripts only use the recorded path.
+
+Run `python3 tools/test_job.py` and `python3 tools/test_integrate.py` while building, then
+`python3 tools/job.py test`. End your response with a Result line; leftovers as Follow-up lines; anything for
+the merge as For the integrator lines.
+
+Response — Gemini (worker, gemini-maple), 2026-11-22:
+
+- Branch: `gemini/h099-job-worktrees-one-folder`
+- Commit: `d7ace4e` (`H099: put job worktrees under <checkout>-jobs/<id>`)
+- What changed:
+  - `tools/job.py`: `worktree_for(root, jid)` now returns `<dirname(root)>/<basename(root)>-jobs/<jid.lower()>`; `_take` ensures `os.makedirs(os.path.dirname(wt), exist_ok=True)` before `git worktree add` for both new and returned jobs; usage text updated to `../fretchup-jobs/<id>`. Existing jobs with a recorded `worktree` keep it unchanged across `take` (returned), `test`, `done`, and `merged`.
+  - `BOARD.md`: updated the worker steps path line to `cd /Users/Will/Sites/fretchup-jobs/<id> && ...`.
+  - `tools/test_job.py`: added 7 checks covering `worktree_for`, missing `-jobs` folder creation on `take`, `merged` removing only the job's worktree and leaving the empty `-jobs` folder, and old-style recorded `worktree` paths across `take` (returned), `test`, `done`, and `merged`.
+- Checked as requested:
+  - `AGENTS.md`, `GEMINI.md`, and `CLAUDE.md` do not name the job worktree path.
+  - `tools/quicktest.sh` and `tools/gate.sh` only call `python3 tools/job.py guard-checkout` (which reads the recorded `worktree` from queue state) and never construct a worktree path themselves.
+  - Every existing check in `tools/test_job.py` and `tools/test_integrate.py` passed unchanged without needing any edits.
+- Verified:
+  - `python3 tools/test_job.py`: 114 passed, 0 failed
+  - `python3 tools/test_integrate.py`: 56 passed, 0 failed
+  - `python3 tools/job.py test` on `d7ace4e`: passed (all feature suites + `QUICK 240 passed, 0 failed`)
+- IDs added: none
+- Open questions: none
+
+For the integrator: after merging H099, let William know Gemini's sandbox can trust only `/Users/Will/Sites/fretchup` and `/Users/Will/Sites/fretchup-jobs`, with `allowNonWorkspaceAccess` off, in `~/.gemini/antigravity-cli/settings.json`.
+Result: d7ace4e; tools/test_job.py 114/114, tools/test_integrate.py 56/56, quick test passed (240 viewport and all feature suites); job worktrees now live under <checkout>-jobs/<id> while keeping existing recorded paths
+
+Resolution: merged into main by the integrator, 2026-11-22.

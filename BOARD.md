@@ -3,12 +3,12 @@
 "Check the board" sends you here. Only the integrator edits this file; the job table is built from docs/handoff/
 and the job queue.
 
-Order: H080, H081, H083, H052
+Order: H083, H099, H052, H085, H086, H093, H098, H094, H096, H097
 
 ## If you're not the integrator
 
 You're a worker: one job, then stop. Only the integrator merges or pushes (P16). Each shell command starts in the
-main checkout: read there, but run everything else as `cd /Users/Will/Sites/fretchup-<id> && ...`, in your job's
+main checkout: read there, but run everything else as `cd /Users/Will/Sites/fretchup-jobs/<id> && ...`, in your job's
 worktree (T102).
 
 1. `python3 tools/job.py take --as claude` (or `--as codex`) makes your job's worktree and branch and prints its
@@ -32,7 +32,7 @@ worktree (T102).
 6. Append your response to the entry, dated and signed: branch, commit, what you verified, IDs you added, open
    questions. Then a line each: `Architecture: <what>`; `Follow-up: <what>` per thing left; `For the integrator:
    <what>` per merge step (P26); last, `Result: <commit>; <tests>; <what changed>`, no `|` (T91). Set Status to
-   `answered`; commit.
+   `answered`, run `python3 tools/handoff.py list` (the open list shows each job's status); commit.
 7. `python3 tools/job.py done` (it checks the response, the Status, a quick-test pass and hung processes). Tell
    William "ready for review: <ID>" and stop: one job a session (P37). Don't take the integrator lock.
 
@@ -47,8 +47,14 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H083 | either | **Ready** | T88 step 6: Move moves to ToolContext, and the legacy setup goes | [H083](docs/handoff/H083-t88-move-to-toolcontext.md) |  |
+| H083 | either | Returned: **Ready** for Gemini (resumes codex/h083-t88-move-to-toolcontext) | T88 step 6: Move moves to ToolContext, and the legacy setup goes | [H083](docs/handoff/H083-t88-move-to-toolcontext.md) |  |
 | H052 | either | Queued | T66: lengths shown in the model's units | [H052](docs/handoff/H052-t66-units.md) | T88's tool moves |
+| H085 | either | Queued | T83: the Arc tool (2-Point and Centre arcs, exact in FreeCAD, splitting faces) | [H085](docs/handoff/H085-t83-arc-tool.md) | H052 |
+| H086 | either | Queued | T83 step 2: an arc on a corner is tangent to both edges (rounded corners) | [H086](docs/handoff/H086-t83-arc-corner-tangent.md) | H085 |
+| H093 | either | Queued | Outside saves: a failed reload asks, a worker lost mid-reload reloads again, and a question the actions overtook closes (H092 findings 2 and 5, A39) | [H093](docs/handoff/H093-outside-save-failures.md) | H083 |
+| H094 | either | Queued | A reload from a revision Shop Sketch no longer remembers keeps the ops that file holds (H092 finding 6) | [H094](docs/handoff/H094-reload-unknown-revision.md) | H093 |
+| H096 | either | Queued | Pushing one cell of a split profile keeps the rest of the profile on screen (H092 finding 9) | [H096](docs/handoff/H096-region-push-keeps-profile.md) | H083 |
+| H097 | either | Queued | T110: test helpers that make a failure-path check a few lines | [H097](docs/handoff/H097-failure-path-test-helpers.md) | H094 |
 
 <!-- end of job table -->
 
@@ -56,5 +62,6 @@ Done since the board started: H033 (T74 + T77), H034 (T76), H035 (T44), T56 (sta
 
 ## Notes
 
+- H093 merges only after H098 (the break-it trial, William's request): H098 goes to an agent other than H093's builder.
 - T88: steps 1-5 (Paint H065, Select H071, Circle H072, Rectangle H075, Push/Pull H079) merged; step 6 (Move, and the legacy setup's removal) is H083. H052 (T66 units) waits for it.
 - H080, H081 and H083 touch different files and can run side by side.

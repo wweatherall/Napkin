@@ -31,8 +31,10 @@ marked Superseded (never deleted). Ask William before countermanding an Active d
   you leave Codex something, tell William.
 - The integrator is the one Claude session William named, holding the lock (P16, P19); only it merges and pushes,
   and its work is in `docs/integrator.md`. Every other session is a worker: "check the board" means follow
-  `BOARD.md`. Codex reads `AGENTS.md`; keep it in step.
-- Commit with `git -c core.hooksPath=.githooks commit`. A commit changing watched code says `Architecture-Impact:
+  `BOARD.md`. Codex reads `AGENTS.md` and Gemini `GEMINI.md` (AGENTS.md plus its differences); keep them in step.
+- Commit with `git -c core.hooksPath=.githooks commit`. Watched code (`tools/check_architecture.py` `watched`):
+  the .py, .gd, .godot and .tscn files under worker/ and viewport/, except tests (`test_*`, `tests.gd`,
+  `test_load.py`), plus `tools/build_app.sh`. A commit changing watched code says `Architecture-Impact:
   in the handoff - H0NN` (that entry's `Architecture:` lines committed) or `Architecture-Impact: none - <specific
   reason>`, which the reviewer checks.
 - Scratch files and logs go in `scratch/` inside your worktree, never /private/tmp (P25).

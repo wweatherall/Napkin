@@ -2,9 +2,9 @@
 """The job queue (P24): a worker takes a job and says done; a dead man's switch flags one gone quiet.
 
 Worker (run in your job's worktree unless it says otherwise):
-  python3 tools/job.py take [--as claude|codex] [--session <name>] [--wait]
+  python3 tools/job.py take [--as claude|codex|gemini] [--session <name>] [--wait]
                                 the first Ready job for you (in the board's order) whose files don't overlap a job
-                                in progress: makes ../fretchup-<id> and <agent>/<id>-<slug> from main, marks it in
+                                in progress: makes ../fretchup-jobs/<id> and <agent>/<id>-<slug> from main, marks it in
                                 progress and prints the handoff. A returned job comes first and resumes its branch.
                                 One job at a time per session, at most MAX_JOBS per session (P37): then a /clear,
                                 which gives a Claude session a new CLAUDE_CODE_SESSION_ID. Run it anywhere in the
@@ -65,7 +65,7 @@ WATCH_POLL = 20             # seconds between watch's looks at the queue, and ta
 MAX_JOBS = 1                # jobs one session takes before it asks William for a /clear (P37, was 3 under P27; tunable)
 WORKER_WAIT = 20 * 60       # seconds take --wait looks for a job before it stops (P27, tunable)
 QUICKTEST = ["tools/quicktest.sh"]
-AGENTS = ("claude", "codex")
+AGENTS = ("claude", "codex", "gemini")
 BOARD = "BOARD.md"
 START = "<!-- job table: built by tools/job.py board from docs/handoff/ and the queue; don't edit by hand -->"
 END = "<!-- end of job table -->"
@@ -348,7 +348,7 @@ def guard_checkout(cwd, out=print):
 
 
 def worktree_for(root, jid):
-    return os.path.join(os.path.dirname(root), f"{os.path.basename(root)}-{jid.lower()}")
+    return os.path.join(os.path.dirname(root), f"{os.path.basename(root)}-jobs", jid.lower())
 
 
 def counted(session):
@@ -388,12 +388,14 @@ def _take(cwd, agent, session, now=None, out=print):
         if prev.get("state") == "returned":
             branch, wt = prev["branch"], prev.get("worktree") or worktree_for(root, job["id"])
             if not os.path.isdir(wt):
+                os.makedirs(os.path.dirname(wt), exist_ok=True)
                 r = git(root, "worktree", "add", wt, branch)
                 if r.returncode:
                     out(f"refused: couldn't make the worktree: {r.stderr.strip()}")
                     return None, "refused"
         else:
             branch, wt = f"{agent}/{job['id'].lower()}-{job['slug']}", worktree_for(root, job["id"])
+            os.makedirs(os.path.dirname(wt), exist_ok=True)
             r = git(root, "worktree", "add", wt, "-b", branch, "main")
             if r.returncode:
                 out(f"refused: couldn't make the worktree: {r.stderr.strip()}")
@@ -534,9 +536,28 @@ def wait(cwd, question, jid=None, now=None, out=print):
     return with_job(cwd, jid, out, go)
 
 
-def run_quick(top):
-    r = subprocess.run(QUICKTEST, cwd=top, capture_output=True, text=True)
-    return r.returncode == 0, (r.stdout + r.stderr).strip().split("\n")[-1:]
+PROGRESS_PREFIXES = ("gate: ", "quick: ", "full: ")
+
+
+def stream_command(cmd, cwd, out=print):
+    """Run cmd with stderr merged into stdout, relaying progress lines live and returning (rc, full output)."""
+    lines = []
+    with subprocess.Popen(cmd, cwd=cwd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1) as p:
+        for line in p.stdout:
+            lines.append(line)
+            if line.startswith(PROGRESS_PREFIXES):
+                text = line.rstrip("\r\n")
+                if out is print:
+                    print(text, flush=True)
+                else:
+                    out(text)
+        rc = p.wait()
+    return rc, "".join(lines)
+
+
+def run_quick(top, out=print):
+    rc, output = stream_command(QUICKTEST, top, out=out)
+    return rc == 0, output.strip().split("\n")[-1:]
 
 
 def test(cwd, jid=None, out=print):
@@ -546,7 +567,7 @@ def test(cwd, jid=None, out=print):
         return None
     head = git(top, "rev-parse", "HEAD").stdout.strip()
     clean = not git(top, "status", "--porcelain").stdout.strip()
-    ok, tail = run_quick(top)
+    ok, tail = run_quick(top, out=out)
     now = time.time()
 
     def go(st, k, j):
@@ -825,7 +846,7 @@ def main(argv):
     if cmd == "take":
         agent = (opt("--as") or default_agent() or "").lower()
         if agent not in AGENTS:
-            print("say who you are: job.py take --as claude|codex")
+            print("say who you are: job.py take --as claude|codex|gemini")
             return 2
         session = opt("--session") or default_session(agent)
         if "--wait" in argv:

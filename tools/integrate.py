@@ -36,8 +36,9 @@ Run in the main checkout, on main, clean, holding the integrator lock (tools/int
    the code), then `integrate.py --continue --as <name> [--push [--yes]]` does steps 6-9. A refused merge commit
    (the architecture hook) is left the same way: stage the map or give --impact, then --continue
 BOARD.md's job table is generated (tools/job.py board): a conflict in it is settled by rebuilding it. In a BOARD.md
-conflict main's Order line, "## Jobs" section (the table) and "## Notes" (the integrator's) are kept; any other
-section the branch alone changed is the branch's; both changing one stops the merge (H073).
+conflict — or a clean BOARD.md merge where the branch changed BOARD.md (H091) — main's Order line, "## Jobs"
+section (the table) and "## Notes" (the integrator's) are kept; any other section the branch alone changed is the
+branch's; both changing one stops the merge (H073).
 What it leaves to the integrator: reviewing the branch first, and a Result line a response didn't give."""
 from dataclasses import dataclass, field
 import json
@@ -310,6 +311,7 @@ def set_status(root, tid, status):
 
 
 BOARD_OURS = ("Jobs", "Notes")       # the integrator's sections of BOARD.md (with its Order line): main's always
+BOARD_PART_NAMES = {"Jobs": "the job table", "Notes": "the Notes"}
 
 
 def board_sections(text):
@@ -349,6 +351,38 @@ def settle_board(ours, base, theirs):
             out.insert(at, (h, theirs_body))
     text = "\n".join(body for _, body in out)
     return text.replace("\0order", order or ""), clashes
+
+
+def keep_board_ours(ours, merged):
+    """Put main's Order line and BOARD_OURS sections back into a cleanly merged BOARD.md (H091).
+    Returns (text, [part names that differed])."""
+    (o_secs, o_order), (m_secs, m_order) = board_sections(ours), board_sections(merged)
+    od, md = dict(o_secs), dict(m_secs)
+    changed = (["the Order line"] if m_order != o_order else []) + [
+        BOARD_PART_NAMES[h] for h in BOARD_OURS if md.get(h) != od.get(h)
+    ]
+    if not changed:
+        return merged, []
+    out = []
+    for h, body in m_secs:
+        if h in BOARD_OURS:
+            if h in od:
+                out.append((h, od[h]))
+        else:
+            out.append((h, body))
+    for i, (h, body) in enumerate(o_secs):
+        if h in BOARD_OURS and h not in md:
+            after = next((j for j in range(i - 1, -1, -1) if o_secs[j][0] in [x for x, _ in out]), None)
+            at = [x for x, _ in out].index(o_secs[after][0]) + 1 if after is not None else len(out)
+            out.insert(at, (h, body))
+    if o_order is not None and m_order is None and out and out[0][0] == "":
+        out[0] = ("", out[0][1].rstrip("\n") + "\n\n\0order\n")
+    text = "\n".join(body for _, body in out)
+    if o_order is None:
+        text = text.replace("\0order\n", "").replace("\0order", "")
+    else:
+        text = text.replace("\0order", o_order)
+    return text, changed
 
 
 def settle_handoff(root, branch):
@@ -530,7 +564,7 @@ class Integration:
     exit_code: int | None = None
 
     def say(self, text):
-        print("integrate: " + text)
+        print("integrate: " + text, flush=True)
 
     def stop(self, code):
         self.exit_code = code
@@ -642,6 +676,15 @@ def settle_conflicts(s):
                 "(the merge is left in progress)"); return s.stop(1)
         open(os.path.join(root, job.BOARD), "w", encoding="utf-8").write(text)
         say("settled BOARD.md (main's Order line, job table and Notes, the branch's other sections; the table is rebuilt below)")
+    elif git("diff", "--quiet", base, branch, "--", job.BOARD, root=root).returncode != 0:
+        bpath = os.path.join(root, job.BOARD)
+        ours_r = git("show", f"HEAD:{job.BOARD}", root=root)
+        if ours_r.returncode == 0 and os.path.isfile(bpath):
+            merged = open(bpath, encoding="utf-8").read()
+            text, changed = keep_board_ours(ours_r.stdout, merged)
+            if text != merged:
+                open(bpath, "w", encoding="utf-8").write(text)
+                say(f"kept main's Order line, job table and Notes in BOARD.md (the branch had changed {', '.join(changed)})")
     # Before staging anything: staging clears git's "unmerged" mark even with conflict markers still in a file.
     left = [f for f in conflicts if f not in (handoff.HANDOFF, LOG, ARCHIVE, job.BOARD)]
     if left:
@@ -729,11 +772,12 @@ def rebuild_and_check(s):
 def run_gate(s):
     root, argv, say = s.root, s.argv, s.say
     if "--no-gate" not in argv:
-        gate = subprocess.run([os.path.join(root, "tools", "gate.sh") if os.path.exists(os.path.join(root, "tools", "gate.sh")) else os.path.join(HERE, "gate.sh")], cwd=root, capture_output=True, text=True)
-        verdict = (gate.stdout.strip().split("\n") or [""])[-1]
+        gate = os.path.join(root, "tools", "gate.sh") if os.path.exists(os.path.join(root, "tools", "gate.sh")) else os.path.join(HERE, "gate.sh")
+        rc, output = job.stream_command([gate], root)
+        verdict = (output.strip().split("\n") or [""])[-1]
         say(verdict)
-        if gate.returncode != 0:
-            print(gate.stdout[-2000:]); say("the merge is left uncommitted"); return s.stop(1)
+        if rc != 0:
+            print(output[-2000:], flush=True); say("the merge is left uncommitted"); return s.stop(1)
     return s
 
 

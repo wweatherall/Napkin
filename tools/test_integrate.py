@@ -252,6 +252,67 @@ check("board merge: both editing the same section stops it, nothing committed",
 sh(root, "git", "merge", "--abort")
 shutil.rmtree(root)
 
+# 6b. A clean BOARD.md merge (H091): main's Order line, job table and Notes still stay when git merges without conflict.
+root = repo()
+write(root, "BOARD.md", BOARD); sh(root, "git", "add", "-A"); sh(root, "git", "commit", "-qm", "board")
+sh(root, "git", "checkout", "-qb", "agent/clean-notes")
+write(root, "BOARD.md", BOARD.replace("- one", "- branch's note"))
+sh(root, "git", "commit", "-qam", "branch edits notes cleanly")
+sh(root, "git", "checkout", "-q", "main")
+integrator.take(integrator.lock_path(root), "tester", out=lambda *a: None)
+rc, said = run_integrate("agent/clean-notes", "--as", "tester", "--no-gate")
+board = open(os.path.join(root, "BOARD.md")).read()
+check("board clean merge: branch changing only Notes keeps main's Notes and names the Notes",
+      rc == 0 and "- one" in board and "- branch's note" not in board and "settled BOARD.md" not in said
+      and "kept main's Order line, job table and Notes in BOARD.md (the branch had changed the Notes)" in said,
+      said + board)
+
+sh(root, "git", "checkout", "-qb", "agent/clean-all")
+write(root, "BOARD.md", BOARD.replace("Order: H001", "Order: H001, H099")
+      .replace("| H001 |", "| H001 |\n| H099 |").replace("- one", "- branch's note"))
+sh(root, "git", "commit", "-qam", "branch edits order, table and notes cleanly")
+sh(root, "git", "checkout", "-q", "main")
+rc, said = run_integrate("agent/clean-all", "--as", "tester", "--no-gate")
+board = open(os.path.join(root, "BOARD.md")).read()
+check("board clean merge: branch changing Order, job table and Notes keeps main's and names all three",
+      rc == 0 and board == BOARD and "settled BOARD.md" not in said
+      and "kept main's Order line, job table and Notes in BOARD.md (the branch had changed the Order line, the job table, the Notes)" in said,
+      said + board)
+
+sh(root, "git", "checkout", "-qb", "agent/order-and-step")
+write(root, "BOARD.md", BOARD.replace("Order: H001", "Order: H001, H099")
+      .replace("1. Take a job.", "1. Take a job, then read its Notes."))
+sh(root, "git", "commit", "-qam", "branch edits order and worker step")
+sh(root, "git", "checkout", "-q", "main")
+write(root, "BOARD.md", BOARD.replace("- one", "- main's note"))
+sh(root, "git", "commit", "-qam", "main edits notes")
+rc, said = run_integrate("agent/order-and-step", "--as", "tester", "--no-gate")
+board = open(os.path.join(root, "BOARD.md")).read()
+check("board clean merge: branch changing Order and a worker step while main changes Notes keeps main's Order and Notes and the branch's step, naming only the Order line",
+      rc == 0 and "Order: H001\n" in board and "Order: H001, H099" not in board and "- main's note" in board
+      and "1. Take a job, then read its Notes." in board and "settled BOARD.md" not in said
+      and "kept main's Order line, job table and Notes in BOARD.md (the branch had changed the Order line)" in said,
+      said + board)
+
+sh(root, "git", "checkout", "-qb", "agent/only-step")
+write(root, "BOARD.md", board.replace("1. Take a job, then read its Notes.", "1. Take a job, read Notes, run tests."))
+sh(root, "git", "commit", "-qam", "branch edits only worker step")
+sh(root, "git", "checkout", "-q", "main")
+rc, said = run_integrate("agent/only-step", "--as", "tester", "--no-gate")
+board2 = open(os.path.join(root, "BOARD.md")).read()
+check("board clean merge: branch changing only a worker step merges it with no kept-main message",
+      rc == 0 and "1. Take a job, read Notes, run tests." in board2 and "kept main's" not in said
+      and "settled BOARD.md" not in said, said + board2)
+
+sh(root, "git", "checkout", "-qb", "agent/no-board")
+write(root, "notes.md", "other change\n")
+sh(root, "git", "commit", "-qam", "branch does not touch BOARD.md")
+sh(root, "git", "checkout", "-q", "main")
+rc, said = run_integrate("agent/no-board", "--as", "tester", "--no-gate")
+check("board clean merge: branch not touching BOARD.md leaves it untouched and says nothing",
+      rc == 0 and open(os.path.join(root, "BOARD.md")).read() == board2 and "kept main's" not in said, said)
+shutil.rmtree(root)
+
 # 7. Trace the actual steps through main(), including the map pause and --continue. The names below are
 #    the documented order, independent of the production tuples. Wrappers still run each step's real work.
 MERGE_ORDER = ["check_start", "prepare_log", "merge_branch", "settle_conflicts", "check_touches", "number_entries",
@@ -338,6 +399,97 @@ check("a failed gate stops before the map pause and every finishing step",
       rc == 1 and calls == MERGE_ORDER[:-1] and "GATE FAIL" in said
       and sh(root, "git", "rev-parse", "HEAD").stdout == head0
       and not os.path.exists(integrate.state_file(root)), said + str(calls))
+shutil.rmtree(root)
+
+# 8. Live gate progress streaming (H088): progress lines arrive before the gate ends; non-progress lines are held
+#    until the failure tail; verdict and the 2000-char failure tail stay as before.
+def run_integrate_live(repo_root, args, release_on, release_path):
+    env = dict(os.environ, RELEASE=release_path)
+    p = subprocess.Popen([sys.executable, os.path.join(HERE, "integrate.py"), *args],
+                         cwd=repo_root, env=env, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1)
+    lines, before_release, alive = [], None, False
+    for raw in p.stdout:
+        line = raw.rstrip("\r\n")
+        lines.append(line)
+        if before_release is None and line == release_on:
+            alive = p.poll() is None
+            before_release = list(lines)
+            open(release_path, "w").close()
+    rc = p.wait(timeout=15)
+    return rc, lines, before_release, alive
+
+
+root = ordered_repo()
+release = os.path.join(root, ".release-pass")
+write(root, "tools/gate.sh", """#!/bin/bash
+echo "noise before"
+echo "gate: quick test started"
+echo "quick: parse started"
+for ((i=0; i<100; i++)); do [ -f "$RELEASE" ] && break; sleep 0.05; done
+if [ ! -f "$RELEASE" ]; then echo "STUB TIMED OUT"; exit 2; fi
+echo "noise middle"
+echo "quick: parse passed in 1 s"
+echo "gate: quick test passed in 1 s"
+echo "gate: full test started"
+echo "full: viewport suites started"
+echo "full: viewport suites passed in 1 s"
+echo "gate: full test passed in 1 s"
+echo "GATE PASS: stub passed"
+""")
+os.chmod(os.path.join(root, "tools/gate.sh"), 0o755)
+sh(root, "git", "add", "tools/gate.sh"); sh(root, "git", "commit", "-qm", "live gate stub")
+rc, lines, before_release, alive = run_integrate_live(
+    root, ["agent/ordered", "--as", "tester", "--impact", "fixture"], "quick: parse started", release)
+expected_progress = [
+    "gate: quick test started",
+    "quick: parse started",
+    "quick: parse passed in 1 s",
+    "gate: quick test passed in 1 s",
+    "gate: full test started",
+    "full: viewport suites started",
+    "full: viewport suites passed in 1 s",
+    "gate: full test passed in 1 s",
+]
+got_progress = [l for l in lines if l.startswith(("gate: ", "quick: ", "full: "))]
+check("run_gate relays the first progress line before the gate ends",
+      rc == 0 and alive and before_release is not None and "gate: quick test started" in before_release,
+      (rc, alive, before_release, lines))
+check("run_gate relays gate:, quick: and full: progress lines in order, then says the verdict",
+      got_progress == expected_progress and "integrate: GATE PASS: stub passed" in lines
+      and lines.index(expected_progress[-1]) < lines.index("integrate: GATE PASS: stub passed"), lines)
+check("run_gate does not print non-progress lines live on a passing gate",
+      "noise before" not in lines and "noise middle" not in lines, lines)
+shutil.rmtree(root)
+
+root = ordered_repo()
+release = os.path.join(root, ".release-fail")
+write(root, "tools/gate.sh", f"""#!/bin/bash
+echo "early-marker-trimmed"
+"{sys.executable}" -c 'print("x" * 2100)'
+echo "noise before fail"
+echo "quick: parse started"
+for ((i=0; i<100; i++)); do [ -f "$RELEASE" ] && break; sleep 0.05; done
+if [ ! -f "$RELEASE" ]; then echo "STUB TIMED OUT"; exit 2; fi
+echo "stderr-detail-line" >&2
+echo "quick: parse failed in 1 s"
+echo "GATE FAIL: stub failed"
+exit 1
+""")
+os.chmod(os.path.join(root, "tools/gate.sh"), 0o755)
+sh(root, "git", "add", "tools/gate.sh"); sh(root, "git", "commit", "-qm", "failing live gate stub")
+head0 = sh(root, "git", "rev-parse", "HEAD").stdout
+rc, lines, before_release, alive = run_integrate_live(
+    root, ["agent/ordered", "--as", "tester", "--impact", "fixture"], "quick: parse started", release)
+verdict_idx = lines.index("integrate: GATE FAIL: stub failed") if "integrate: GATE FAIL: stub failed" in lines else -1
+tail_text = "\n".join(lines[verdict_idx + 1:]) if verdict_idx >= 0 else ""
+check("a failing gate streams progress live without leaking non-progress lines first",
+      rc == 1 and alive and before_release is not None
+      and "noise before fail" not in before_release and "early-marker-trimmed" not in before_release,
+      (rc, alive, before_release, lines))
+check("a failing gate says the verdict, prints the last 2000 chars of output, and leaves the merge uncommitted",
+      verdict_idx >= 0 and "noise before fail" in tail_text and "stderr-detail-line" in tail_text
+      and "early-marker-trimmed" not in tail_text and lines[-1] == "integrate: the merge is left uncommitted"
+      and sh(root, "git", "rev-parse", "HEAD").stdout == head0, (verdict_idx, lines[-10:]))
 shutil.rmtree(root)
 
 print(f"INTEGRATE TESTS: {sum(RESULTS)} passed, {len(RESULTS) - sum(RESULTS)} failed")

@@ -22,7 +22,8 @@ Architecture: lines, the response) and CLAUDE.md (commit trailers); this page sa
   commit hook does it on main).
 
 ## Review and merge
-- Review every done job (Codex's `codex/*` branches too). Merge what's good with
+- Review every done job (Codex's `codex/*` branches too). For a brief with a "What can fail" section, check that each case
+  listed there has its named check, and that the check fails without the change where it can (P42). Merge what's good with
   `python3 tools/integrate.py <branch> --as <name> --push` (P20). It runs the gate, `tools/gate.sh` (P18); flags
   files the branch changed outside its job's Touches list; renumbers a PROTOCOL_VERSION bump on top if main moved
   on meanwhile (A35); removes the job's worktree and branch and marks it merged; with --push it stops before
@@ -54,6 +55,11 @@ Architecture: lines, the response) and CLAUDE.md (commit trailers); this page sa
   claimed job's: two whose lists overlap don't run at once (tell William before starting one that does).
 - The shared hot spots (the decision log's Work list, the handoff, viewport/main.gd, the map) stay small edits
   made once the work is done.
+- A job touching saving, reloading or the worker link gets a "What can fail" section in its brief (P42; the
+  entry template has it): you write it, from reading the code, since you aren't the builder.
+- A brief that has the worker clear a follow-up lists docs/follow-ups.md on its Touches and asks for it in the
+  code commit, before the quick test: `job.py done` reuses a pass only across commits that change the handoff
+  (H091's worker found "in your last commit" clashed with both).
 - Make a brief exact: its scope, the exact wording of any message, the cases that must still work (H076 is the
   model; workers said its precision let them build it without guessing). Check every claim it makes about how
   the code works today against the code before marking it Ready: H077's brief stated an order of steps opposite
