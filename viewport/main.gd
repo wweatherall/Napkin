@@ -17,7 +17,7 @@ const SNAP_PX := Inference.SNAP_PX
 # names forward to it, so tools and tests can keep writing m.ops, m.counters, m.seq.
 const Document := preload("res://document.gd")
 var doc: Document = Document.new()
-var appearance = preload("res://appearance.gd").new(doc)
+var appearance = load("res://appearance.gd").new(doc, _beside_project)
 var ops: Array:
 	get: return doc.ops
 	set(v): doc.ops = v
@@ -225,6 +225,8 @@ static func plane_basis(n: Vector3) -> Array: return Geo.plane_basis(n)
 # ---------------- setup ----------------
 func _ready() -> void:
 	appearance.status.connect(_say_status)
+	appearance.wood_selected.connect(menus.update_wood_checks)
+	appearance.wood_selected.connect(func(_key: String): set_tool("paint"))
 	_make_presenter()
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--oplog="): oplog_path = a.substr(8)
@@ -884,71 +886,21 @@ func _edit_property(change: Dictionary) -> void:
 	properties_panel.message("Applying property…")
 	sync()
 
-# ---------------- wood (T15, M03) ----------------
-# The worker writes materials.json (the library) beside bodies.json; each board's material, grain and across
-# directions come in bodies.json. Textures live in materials/textures beside the project (or in the app bundle).
-const WOOD := preload("res://wood.gdshader")
-# Compatibility aliases for remaining render/menu consumers.
+# The Wood menu in menus.gd still uses these names.
 var wood_library: Dictionary:
 	get: return appearance.wood_library
 var wood_keys: Array:
 	get: return appearance.wood_keys
-var body_material := {}             # board id -> material key
 var paint_material: String:
 	get: return appearance.paint_material
-	set(v): appearance.paint_material = v
-var _wood_tex := {}                 # texture file -> ImageTexture
-
-
-func _load_wood_library(dir: String) -> void:
-	if appearance.load_library(dir): menus.build_materials_menu()
-
-
-func _wood_texture(file: String) -> Texture2D:
-	if not _wood_tex.has(file):
-		var img := Image.load_from_file(_beside_project("materials/textures/" + file))
-		if img == null or img.is_empty():
-			_wood_tex[file] = null
-		else:
-			img.generate_mipmaps()
-			_wood_tex[file] = ImageTexture.create_from_image(img)
-	return _wood_tex[file]
-
-
-func _wood_material(bid: String, b: Dictionary, base: Color) -> ShaderMaterial:
-	var e: Dictionary = wood_library.get(b.get("material", ""), {})
-	if e.is_empty(): return null
-	var side := _wood_texture(e["texture"]); var end := _wood_texture(e["end_texture"])
-	if side == null or end == null: return null
-	var sm := ShaderMaterial.new(); sm.shader = WOOD
-	sm.set_shader_parameter("side_tex", side); sm.set_shader_parameter("end_tex", end)
-	var g: Array = b.get("grain", [1, 0, 0]); var a: Array = b.get("across", [0, 1, 0])
-	sm.set_shader_parameter("grain", m2g(Vector3(g[0], g[1], g[2])))
-	sm.set_shader_parameter("across", m2g(Vector3(a[0], a[1], a[2])))
-	sm.set_shader_parameter("side_size", float(e["size_mm"]) / 1000.0)
-	sm.set_shader_parameter("side_grain_v", e["grain"] == "v")
-	sm.set_shader_parameter("end_size", float(e["end_size_mm"]) / 1000.0)
-	var et := end.get_size()
-	sm.set_shader_parameter("end_aspect", et.y / maxf(et.x, 1.0))
-	var h := hash(bid)
-	sm.set_shader_parameter("offset", Vector2(float(h & 1023) / 1024.0, float((h >> 10) & 1023) / 1024.0))
-	sm.set_shader_parameter("base_color", base)
-	return sm
 
 
 func set_paint_material(k: String) -> void:
-	if not appearance.select_wood(k): return
-	menus.update_wood_checks(k)
-	set_tool("paint")
+	appearance.set_paint_material(k)
 
 
 func _turn_grain() -> void:
-	var bid := hover_body
-	if bid == "" or body_material.get(bid, "") == "":
-		_say_status("Point at a painted board to turn its grain"); return
-	ops.append({"id": doc.next_id("tg"), "type": "turn_grain", "targets": [bid]})
-	sync()
-	_say_status("%s: grain turned 90°" % doc.board_name(bid))
+	appearance.turn_grain(hover_body)
 
 
 # ---------------- linked boards (T12: A22c, I28, Q28, Q29) ----------------
@@ -1189,8 +1141,8 @@ func _apply_confirmed(dir: String, key: String) -> void:
 func _on_boards_read(data: Array, dir: String) -> void:
 	"""bodies.json, before the presenter builds from it: what each board belongs to, and its wood."""
 	sel.set_boards(data)
-	if wood_library.is_empty(): _load_wood_library(dir)
-	for b in data: body_material[b["id"]] = b.get("material", "")
+	if appearance.wood_library.is_empty() and appearance.load_library(dir): menus.build_materials_menu()
+	appearance.set_boards(data)
 	pres.forget_siblings()
 
 

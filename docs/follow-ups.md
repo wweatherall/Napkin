@@ -24,3 +24,4 @@ or that turns it into a Work list item. `python3 tools/startup.py` lists the ope
 - H086 (2026-11-23): a typed corner radius too big for the two edges (`_fillet` returns empty) does nothing and says nothing; a status line like the chord's "Radius must be at least half the chord" would tell the user why.
 - H105 (2026-11-23): integrate.py `RESPONSE_HEADING` also matches a brief's own line starting `Response:` (briefs say "Response: a table of..."), so `Changed from the brief:` scoping can start inside the brief; anchor it to a heading (`#### Response` or `Response —`/`Response from`).
 - H110 (2026-11-23): When the model quick test and shell suite can be edited, have them read the menu RIDs from `m.menus` and remove main's compatibility getter.
+- H112 (2026-11-23): Point the native Wood menu at `m.appearance` and remove its five Main forwarders when `menus.gd` is in scope.
