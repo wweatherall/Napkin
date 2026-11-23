@@ -462,6 +462,146 @@ func _init() -> void:
 	d.reset()
 	check("switching models forgets an outside save", d.outside.is_empty() and d.dropped.is_empty())
 
+	# --- H098 break-it trial checks (only run with BREAK_H093=1; keep only failures) ---
+	var break_h093_names := [
+		"outside_save with rev null reloads instead of aborting",
+		"retrying a failed reload keeps actions drawn after the first reload left",
+		"a failed sync while waiting on an outside save does not auto-reload or close the question",
+		"a failed keep_mine keeps the outside save pending instead of syncing on a held model",
+		"reconnecting while keep_mine is in flight retries keep_mine instead of syncing over FreeCAD's file",
+		"a late reload reply after keep_mine cannot hijack the pending keep_mine",
+		"a second outside_save while a reload is out is reloaded after the first finishes",
+		"a second outside_save while sync is held keeps sync held",
+		"a second outside_save while keep_mine is in flight reloads once keep_mine lands",
+		"begin_close does not close immediately when unsynced actions are held after a failed reload",
+	]
+	if OS.get_environment("BREAK_H093") != "1":
+		for name in break_h093_names:
+			print("SKIP %s (BREAK_H093)" % name)
+	else:
+		# 1. outside_save with rev: null (unreadable or foreign FreeCAD file)
+		t = make(); d = t[0]; c = t[1]; seen = t[2]
+		d.on_opened({"ok": true, "rev": 2, "ops": [op("r1")]}, true)
+		d.on_outside_save({"cmd": "outside_save", "model": d.model_path, "rev": null, "unsaved": false})
+		check(break_h093_names[0],
+			not d.outside.is_empty() and c.last().get("cmd", "") == "reload")
+
+		# 2. retrying a failed reload preserves actions drawn after the first reload left
+		t = make(); d = t[0]; c = t[1]; seen = t[2]
+		d.on_opened({"ok": true, "rev": 2, "ops": [op("r1")]}, true)
+		d.on_outside_save({"cmd": "outside_save", "model": d.model_path, "rev": 2, "unsaved": false})
+		var first_rl: Dictionary = c.last()
+		d.ops.append(op("r2")); d.sync()
+		d.on_reload_reply({"ok": false, "cmd": "reload", "seq": first_rl["seq"], "error": "Invalid project file"})
+		d.send_reload()
+		d.on_reload_reply({"ok": true, "cmd": "reload", "seq": c.last()["seq"], "rev": 2, "ops": [op("r1")],
+			"undo_floor": 1, "dropped": []})
+		check(break_h093_names[1],
+			d.ops.map(func(o): return o["id"]) == ["r1", "r2"] and c.last().get("cmd", "") == "sync"
+			and c.last()["oplog"]["ops"].map(func(o): return o["id"]) == ["r1", "r2"])
+
+		# 3. failed sync while waiting on an outside save does not auto-reload or close the question
+		t = make(); d = t[0]; c = t[1]; seen = t[2]
+		var landed := [0]
+		d.outside_actions_landed.connect(func(): landed[0] += 1)
+		d.on_opened({"ok": true, "rev": 1, "ops": [op("r1")]}, true)
+		d.ops.append(op("r2")); d.sync()
+		var fail_sync_seq: int = d.seq
+		d.on_outside_save({"cmd": "outside_save", "model": d.model_path, "rev": 1, "unsaved": true})
+		d.on_sync_reply({"ok": false, "cmd": "sync", "seq": fail_sync_seq, "error": "OpError: boom"})
+		check(break_h093_names[2],
+			landed[0] == 0 and c.last().get("cmd", "") != "reload" and d.outside_seq == -1)
+
+		# 4. failed keep_mine keeps the outside save pending and sync held
+		t = make(); d = t[0]; c = t[1]; seen = t[2]
+		d.on_opened({"ok": true, "rev": 1, "ops": [op("r1")]}, true)
+		d.ops.append(op("r2")); d.sync()
+		d.on_outside_save({"cmd": "outside_save", "model": d.model_path, "rev": 1, "unsaved": true})
+		d.on_link_up()
+		d.send_keep_mine()
+		var km_reqs: Array = c.sent.filter(func(x): return x["cmd"] == "keep_mine")
+		d.on_keep_mine_reply({"ok": false, "cmd": "keep_mine", "seq": km_reqs.back()["seq"],
+			"error": "PermissionError: read-only"})
+		var sent_after_km_fail: int = c.sent.size()
+		d.ops.append(op("r3")); d.sync()
+		check(break_h093_names[3],
+			not d.outside.is_empty() and c.sent.size() == sent_after_km_fail)
+
+		# 5. worker lost while keep_mine is in flight
+		t = make(); d = t[0]; c = t[1]; seen = t[2]
+		d.on_opened({"ok": true, "rev": 1, "ops": [op("r1")]}, true)
+		d.ops.append(op("r2")); d.sync()
+		d.on_outside_save({"cmd": "outside_save", "model": d.model_path, "rev": 1, "unsaved": true})
+		d.send_keep_mine()
+		var before_reconn: int = c.sent.size()
+		d.on_link_up()
+		var sent_on_reconn: Array = c.sent.slice(before_reconn)
+		check(break_h093_names[4],
+			not sent_on_reconn.is_empty() and sent_on_reconn[0]["cmd"] == "keep_mine")
+
+		# 6. late reload reply after keep_mine cannot hijack the pending keep_mine
+		t = make(); d = t[0]; c = t[1]; seen = t[2]
+		var late_reloads: Array = []
+		var late_kept: Array = []
+		d.reloaded.connect(func(r): late_reloads.append(r))
+		d.kept_mine.connect(func(r): late_kept.append(r))
+		d.on_opened({"ok": true, "rev": 1, "ops": [op("r1"), op("r2")]}, true)
+		d.on_outside_save({"cmd": "outside_save", "model": d.model_path, "rev": 1, "unsaved": false})
+		var rl_for_km: int = c.last()["seq"]
+		d.on_reload_reply({"ok": false, "cmd": "reload", "seq": rl_for_km, "error": "Invalid project file"})
+		d.send_keep_mine()
+		var km_sent: Dictionary = c.last()
+		d.on_reload_reply({"ok": true, "cmd": "reload", "seq": rl_for_km, "rev": 1, "ops": [op("r1")],
+			"undo_floor": 1, "dropped": [op("r2")]})
+		d.on_keep_mine_reply({"ok": true, "cmd": "keep_mine", "seq": km_sent["seq"],
+			"aside": "/tmp/a.FCStd", "rev": 2})
+		check(break_h093_names[5],
+			late_reloads.is_empty() and d.ops.size() == 2 and late_kept.size() == 1)
+
+		# 7. second outside_save while a reload is in flight
+		t = make(); d = t[0]; c = t[1]; seen = t[2]
+		d.on_opened({"ok": true, "rev": 1, "ops": [op("r1")]}, true)
+		d.on_outside_save({"cmd": "outside_save", "model": d.model_path, "rev": 1, "unsaved": false})
+		var rl_first: int = c.last()["seq"]
+		d.on_outside_save({"cmd": "outside_save", "model": d.model_path, "rev": 2, "unsaved": false})
+		d.on_reload_reply({"ok": true, "cmd": "reload", "seq": rl_first, "rev": 1, "ops": [op("r1")], "undo_floor": 1})
+		check(break_h093_names[6],
+			c.sent.filter(func(x): return x["cmd"] == "reload").size() == 2 or not d.outside.is_empty())
+
+		# 8. second outside_save while hold_sync is set with pending actions
+		t = make(); d = t[0]; c = t[1]; seen = t[2]
+		d.on_opened({"ok": true, "rev": 1, "ops": [op("r1")]}, true)
+		d.on_outside_save({"cmd": "outside_save", "model": d.model_path, "rev": 1, "unsaved": false})
+		d.on_reload_reply({"ok": false, "cmd": "reload", "seq": c.last()["seq"], "error": "Invalid project file"})
+		d.ops.append(op("r2")); d.sync()
+		d.on_outside_save({"cmd": "outside_save", "model": d.model_path, "rev": 1, "unsaved": true})
+		var before_r3: int = c.sent.size()
+		d.ops.append(op("r3")); d.sync()
+		check(break_h093_names[7],
+			c.sent.slice(before_r3).all(func(x): return x["cmd"] != "sync"))
+
+		# 9. second outside_save while keep_mine is in flight
+		t = make(); d = t[0]; c = t[1]; seen = t[2]
+		d.on_opened({"ok": true, "rev": 1, "ops": [op("r1")]}, true)
+		d.on_outside_save({"cmd": "outside_save", "model": d.model_path, "rev": 1, "unsaved": false})
+		d.on_reload_reply({"ok": false, "cmd": "reload", "seq": c.last()["seq"], "error": "Invalid project file"})
+		d.send_keep_mine()
+		var km_only_seq: int = c.last()["seq"]
+		d.on_outside_save({"cmd": "outside_save", "model": d.model_path, "rev": 2, "unsaved": false})
+		d.on_keep_mine_reply({"ok": true, "cmd": "keep_mine", "seq": km_only_seq,
+			"aside": "/tmp/a.FCStd", "rev": 2})
+		check(break_h093_names[8],
+			c.last().get("cmd", "") == "reload")
+
+		# 10. begin_close when unsynced actions are held after a failed reload
+		t = make(); d = t[0]; c = t[1]; seen = t[2]
+		d.on_opened({"ok": true, "rev": 2, "ops": [op("r1")]}, true)
+		d.on_outside_save({"cmd": "outside_save", "model": d.model_path, "rev": 2, "unsaved": false})
+		d.on_reload_reply({"ok": false, "cmd": "reload", "seq": c.last()["seq"], "error": "Invalid project file"})
+		d.ops.append(op("r2")); d.sync()
+		check(break_h093_names[9],
+			not d.begin_close())
+
 	for n in made: n.free()
 	print("DOCUMENT TESTS: %d passed, %d failed" % [passed, failed])
 	quit(1 if failed > 0 else 0)

@@ -90,3 +90,42 @@ func run() -> void:
 	harness._ok("the reload status explains why the question closed",
 		m.ui_sync.text.ends_with(" (Shop Sketch's actions landed while you were deciding, so the question closed)"),
 		m.ui_sync.text)
+
+	# H098 break-it trial checks (only run with BREAK_H093=1; keep only failures)
+	var break_h093_names := [
+		"switching models clears an open outside-save question so a later question still asks",
+		"an unreadable outside save on disk asks the window with the worker's error",
+	]
+	if OS.get_environment("BREAK_H093") != "1":
+		for name in break_h093_names:
+			print("SKIP %s (BREAK_H093)" % name)
+	else:
+		# 1. Switching/reopening a model while the outside-save question is open leaves it stuck
+		m.outside_asked.clear()
+		m.doc.outside = {"rev": m.saved_rev, "unsaved": true}
+		m._ask_outside()
+		m.switch_model(model, true)
+		await _until(func(): return m.opened, 10000)
+		m.outside_asked.clear()
+		m.doc.outside = {"rev": m.saved_rev, "unsaved": true}
+		m._ask_outside()
+		harness._ok(break_h093_names[0],
+			m.outside_asked.size() == 1, [m.outside_asked, m._outside_question_model])
+		m._dismiss_outside_question()
+		m.doc.outside = {}
+		m.outside_asked.clear()
+
+		# 2. Real unreadable outside save on disk asks the window end-to-end
+		await harness._fresh("outside_save_broken", planks, true)
+		await _until(func(): return m.pending_rev > 0 and m.saved_rev >= m.pending_rev)
+		var broken_model: String = m.model_path
+		m.outside_asked.clear()
+		var bad_tmp := broken_model + ".invalid"
+		var f := FileAccess.open(bad_tmp, FileAccess.WRITE)
+		f.store_string("invalid FCStd")
+		f.close()
+		DirAccess.rename_absolute(bad_tmp, broken_model)
+		await _until(func(): return not m.outside_asked.is_empty(), 4000)
+		harness._ok(break_h093_names[1],
+			m.outside_asked.size() == 1 and String(m.outside_asked[0]).begins_with("couldn't open FreeCAD's save:"),
+			m.outside_asked)

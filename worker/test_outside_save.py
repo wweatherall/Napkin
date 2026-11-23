@@ -404,5 +404,109 @@ q = w.ask({"cmd": "quit", "seq": 99}, "quit")
 check("and still answers the next window", q is not None, q)
 proc.wait(30)
 
+# H098 break-it trial checks (only run with BREAK_H093=1; keep only failures)
+BREAK_H093_NAMES = [
+    "after a deleted outside save fails reload, Keep Shop Sketch's still saves ours",
+    "an outside save with corrupt Document.xml fails reload instead of wiping the model",
+    "a reload failure while writing the floor copy leaves the live document intact",
+    "a retried reload on a new worker after a crash drops post-rev ops and keeps the rev",
+]
+if os.environ.get("BREAK_H093") != "1":
+    for _name in BREAK_H093_NAMES:
+        print(f"SKIP {_name} (BREAK_H093)", flush=True)
+else:
+    import zipfile
+    proc, port = start_worker()
+    w = Window(port)
+
+    # 1. Deleted file while held: reload fails, then Keep Shop Sketch's still saves ours
+    m_del = fresh_model("deleted_keep_mine")
+    out_del = m_del + "-out"
+    os.makedirs(out_del, exist_ok=True)
+    opened(m_del)
+    ops_del = board_ops(300)
+    sync(w, m_del, ops_del, 1)
+    ask({"cmd": "flush", "model": m_del}, "flush")
+    freecad_save(m_del)
+    wait_outside(m_del)
+    ops_del += second(200)
+    sync(w, m_del, ops_del, 2)
+    os.remove(m_del)
+    r_del = ask({"cmd": "reload", "model": m_del, "outdir": out_del}, "reload")
+    k_del = ask({"cmd": "keep_mine", "model": m_del, "outdir": out_del}, "keep_mine")
+    check(BREAK_H093_NAMES[0],
+          r_del and not r_del["ok"] and k_del and k_del["ok"] and os.path.exists(m_del)
+          and journal(m_del)["ops"] == ops_del, (r_del, k_del))
+
+    # 2. Valid zip with corrupt Document.xml: reload must fail instead of wiping the model
+    m_xml = fresh_model("corrupt_xml")
+    out_xml = m_xml + "-out"
+    os.makedirs(out_xml, exist_ok=True)
+    opened(m_xml)
+    sync(w, m_xml, board_ops(300), 1)
+    ask({"cmd": "flush", "model": m_xml}, "flush")
+    bad_zip = m_xml + ".badxml"
+    with zipfile.ZipFile(bad_zip, "w") as z:
+        z.writestr("Document.xml", "<<<not xml>>>")
+    os.replace(bad_zip, m_xml)
+    wait_outside(m_xml)
+    r_xml = ask({"cmd": "reload", "model": m_xml, "outdir": out_xml}, "reload")
+    check(BREAK_H093_NAMES[1], r_xml and not r_xml["ok"], r_xml)
+
+    # 3. Reload failure while writing the floor copy leaves the live document intact
+    m_flr = fresh_model("floor_fail")
+    out_flr = m_flr + "-out"
+    os.makedirs(out_flr, exist_ok=True)
+    opened(m_flr)
+    ops_flr = board_ops(300)
+    sync(w, m_flr, ops_flr, 1)
+    ask({"cmd": "flush", "model": m_flr}, "flush")
+    freecad_save(m_flr)
+    wait_outside(m_flr)
+    ops_flr += second(200)
+    sync(w, m_flr, ops_flr, 2)
+    flr_path = os.path.splitext(m_flr)[0] + ".floor.FCStd"
+    os.mkdir(flr_path)
+    r_flr = ask({"cmd": "reload", "model": m_flr, "outdir": out_flr}, "reload")
+    os.rmdir(flr_path)
+    k_flr = ask({"cmd": "keep_mine", "model": m_flr, "outdir": out_flr}, "keep_mine")
+    km_ops = journal(m_flr)["ops"] if k_flr and k_flr.get("ok") else []
+    s_flr = ask({"cmd": "sync", "model": m_flr, "outdir": out_flr,
+                 "oplog": {"format": "oplog/0.1", "units": "mm", "ops": ops_flr}}, "sync")
+    b1_t = thickness(out_flr, "b1") if os.path.exists(os.path.join(out_flr, "bodies.json")) else None
+    b2_t = thickness(out_flr, "b2") if os.path.exists(os.path.join(out_flr, "bodies.json")) else None
+    check(BREAK_H093_NAMES[2],
+          r_flr and not r_flr["ok"] and k_flr and k_flr["ok"] and km_ops == ops_flr
+          and s_flr and s_flr["ok"] and b1_t == 18.0 and b2_t == 18.0,
+          (r_flr, k_flr, len(km_ops), b1_t, b2_t))
+
+    # 4. Worker crash mid-reload: retried reload on a new worker (without open) drops post-rev ops and keeps rev
+    m_cr = fresh_model("crash_mid_reload")
+    out_cr = m_cr + "-out"
+    os.makedirs(out_cr, exist_ok=True)
+    opened(m_cr)
+    sync(w, m_cr, board_ops(300), 1)
+    ask({"cmd": "flush", "model": m_cr}, "flush")
+    rev1_cr = m_cr + ".rev1"
+    shutil.copy2(m_cr, rev1_cr)
+    sync(w, m_cr, board_ops(300) + second(200), 2)
+    ask({"cmd": "flush", "model": m_cr}, "flush")
+    freecad_save(rev1_cr)
+    os.replace(rev1_cr, m_cr)
+    wait_outside(m_cr)
+    proc.kill()
+    proc.wait(30)
+    w.close()
+    proc, port = start_worker()
+    w = Window(port)
+    r_cr = ask({"cmd": "reload", "model": m_cr, "outdir": out_cr}, "reload")
+    check(BREAK_H093_NAMES[3],
+          r_cr and r_cr["ok"] and [o["id"] for o in r_cr["ops"]] == ["r1", "pp1"]
+          and r_cr["undo_floor"] == 2 and [o["id"] for o in r_cr["dropped"]] == ["r2", "pp2"]
+          and r_cr["rev"] >= 2 and thickness(out_cr, "b1") == 30.0 and thickness(out_cr, "b2") is None,
+          r_cr)
+    w.ask({"cmd": "quit", "seq": 999}, "quit")
+    proc.wait(30)
+
 print(f"OUTSIDE SAVE TESTS: {R[0]} passed, {R[1]} failed", flush=True)
 sys.exit(1 if R[1] else 0)
