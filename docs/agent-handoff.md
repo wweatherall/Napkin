@@ -154,6 +154,10 @@ Touches: the files this job expects to change (P11).
 
 Finding or request: ...
 
+What can fail (a job touching saving, reloading or the worker link, P42): each step that can fail (a file
+missing or unreadable, the worker gone, a reply late or out of order, a dialog open while replies arrive), what
+should happen, and the named check that proves it. The worker may add cases, not drop any.
+
 Response — Author, YYYY-MM-DD: ...
 
 Resolution: ...

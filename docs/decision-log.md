@@ -49,7 +49,7 @@ One subject per decision; the Decisions column is generated.
 | Feedback | The confirmation wave and what colours mean. | I06, W01, W02, W03, W04, W05, W06, W07, W08, W09 |
 | Materials | Wood cards, grain and painting. | A05, I33, M01, M02, M03, M04 |
 | Output | Drawings, cut lists and renders. | A07, D01, D02, P06 |
-| Process | How the agents work, test, merge and record decisions. | P01, P02, P03, P07, P09, P10, P11, P14, P15, P16, P17, P18, P19, P20, P21, P22, P23, P24, P25, P26, P28, P29, P31, P32, P33, P34, P35, P36, P37, P38, P39, P40, P41 |
+| Process | How the agents work, test, merge and record decisions. | P01, P02, P03, P07, P09, P10, P11, P14, P15, P16, P17, P18, P19, P20, P21, P22, P23, P24, P25, P26, P28, P29, P31, P32, P33, P34, P35, P36, P37, P38, P39, P40, P41, P42 |
 
 ## Principles
 
@@ -68,7 +68,7 @@ Each states one idea; Explains (generated) lists the decisions that name it. Wil
 | G09 | Never lose work: always saved, atomically, and undo crosses sessions without hiding changes made in FreeCAD. | Active | A24, A25, A27, A28, A32, A36, A37, A39, I54, I55, U01, U02, U03, W13 | 2026-11-22 |
 | G10 | A rejected action says why and leaves nothing behind. | Active | A23, I06, I08, W06 | 2026-11-22 |
 | G11 | Nothing rests on memory: every decision is logged, every behaviour has a named test, and every prediction of FreeCAD's answer is checked against FreeCAD. | Active | A38, I51, P01, P02, P03, P07, P09, P18, P21, P23, P26, P28, P29, P31, P32, P33, P34, P35, P36 | 2026-11-22 |
-| G12 | Work splits by files, and one integrator merges, numbers and keeps the records. | Active | A31, A33b, A34, A35, P10, P11, P14, P15, P16, P17, P18, P19, P20, P22, P24, P25, P26, P28, P29, P31, P32, P33, P34, P35, P36, P37, P38, P39, P40, P41 | 2026-11-22 |
+| G12 | Work splits by files, and one integrator merges, numbers and keeps the records. | Active | A31, A33b, A34, A35, P10, P11, P14, P15, P16, P17, P18, P19, P20, P22, P24, P25, P26, P28, P29, P31, P32, P33, P34, P35, P36, P37, P38, P39, P40, P41, P42 | 2026-11-22 |
 | G13 | Show what an edit will change before it does. | Active | I28 | 2026-11-22 |
 
 ## Decisions
@@ -280,6 +280,7 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | P39 | The integrator has no timed check-ins: it is woken only by the queue, with job.py watch --next run in the background (one wake on the first new event: done, stale, waiting, returned, queue empty), started again after each. | Active |  | Your call, 2026-11-22: the 20-minute check-in re-read the integrator's whole context each time and used up your usage. | G12 | tools/job.py watch(until_new); tools/startup.py's reminder; docs/handoff/H050-integrator-state.md; checks: tools/test_job.py, tools/test_startup.py | 2026-11-22 |
 | P40 | A worker deals with its own hung processes; the integrator hears only of a worker that has gone quiet. Workers run tests and long commands through job.py run, which stops one past HUNG_AFTER (10 min) with every process it started and says HUNG, so the worker is always woken; job.py done refuses while a worktree process looks hung. Workers set no check-in timer (the 20-minute CronCreate is gone); the 30-minute dead man's switch stays. | Active | Refines P24 (the dead man's switch) | Your call, 2026-11-22: a hung test in the background shouldn't need you or the integrator; timers cost usage. | G12 | tools/job.py run(), done(); BOARD.md step 3, AGENTS.md; checks: tools/test_job.py | 2026-11-22 |
 | P41 | H059 includes the direct ID allocation sites in viewport/tools/, selection.gd and main.gd and affected tests; changes in those production files are limited to replacing ID allocation with the document allocator (William, relaying the integrator's scope clarification). | Active |  |  | G12 |  | 2026-11-22 |
+| P42 | A brief for a job that touches saving, reloading or the worker link has a 'What can fail' section, written by the integrator: each step that can fail (a file missing or unreadable, the worker gone, a reply late or out of order, a dialog open while replies arrive), what should happen, and the named check that proves it. The worker may add cases, not drop any; the review checks each case has its check. | Active |  | William, 2026-11-22 (through fretchup-f9, confirmed here): seven of the first ultra review's ten findings (H092) were failure paths of the outside-save code, which had passed review and the gate; the builder's tests covered only the cases the builder thought of. | G12 | docs/integrator.md (Writing jobs, Review and merge); docs/agent-handoff.md entry template | 2026-11-22 |
 
 ## Open questions
 
@@ -331,6 +332,7 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | T106 | The test scripts report progress and keep their output in the job: gate.sh, quicktest.sh and fulltest.sh print a line as each stage starts and ends (with its time), and in a job's worktree every script's temporary output goes under its scratch/ (honouring TMPDIR), not the system temporary folder. | Open | P25, P40 | From a Codex worker's feedback, 2026-11-22: the gate buffers its output until it ends, so progress looks like a hang; some harness output landed in the system temporary folder despite TMPDIR. William: add what you think, 2026-11-22. Job: H081. Result (8c4ab15, merged d0ad19e): 43/43 harness checks, quick 240/240, gate passed in 83 s; the test scripts report live stage timings and keep job output in the worktree's scratch folder. |
 | T108 | Fillet tool: round a board's edges with FreeCAD's own fillet (exact, editable), once edges can be selected. | Open | I61 | William, 2026-11-22: 'there's like an amazing fillet tool that I feel like we could just get for free once we got selection done, so save that for later'. After edge selection. |
 | T109 | Loops of lines and arcs: drawings that meet end to end and close (lines and arcs mixed, on the ground or on a face) make a face, pushable like a closed Line outline. | Open | I49, I51, I60 | William, 2026-11-22: add to the to-dos. After T83 (H085). |
+| T110 | Test helpers for failure paths: hold a worker reply back, drop and restore the worker link, make the next save fail, replace a model file with unreadable bytes, as short calls in worker tests (worker/test_*.py) and viewport/test_document.gd, so each case in a brief's 'What can fail' section is a short check. | Open | P42 | William, 2026-11-22: add it, after the jobs already queued. Brief to write. |
 
 ## Tunables
 
