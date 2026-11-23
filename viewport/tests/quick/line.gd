@@ -120,6 +120,53 @@ func run() -> void:
 	var exact_area := PI*1600-small if same_side else small
 	harness._ok("a split circular face keeps its exact native arc", m.ops.back().target.has("region") and absf(harness._bodies().get(harness.id("b1"), {}).get("volume_mm3",0.0) - (PI*1600*20+exact_area*10)) < 0.1, harness._bodies())
 
+	# H096: pushing one cell of a split free profile keeps the rest of the profile on screen (including undo/redo).
+	await harness._fresh("line_split_profile")
+	await harness._view(Vector3(100, 100, 0), -30, -50, 1.0)
+	await harness._rect(Vector3.ZERO, Vector3(120, 120, 0), "200,200")
+	var split_rect: String = harness.id("r1")
+	await harness.get_tree().physics_frame
+	await _segment(Vector3(100, 0, 0), Vector3(100, 200, 0))
+	await harness._wait_confirm()
+	var split_draft: Node = m.drafts.get(split_rect)
+	await harness._push(Vector3(50, 100, 0), Vector3(50, 100, 40), "20")
+	await harness._wait_wave()
+	bodies = harness._bodies()
+	harness._ok("pushing one cell of a split profile makes only that cell's board",
+		m.ops.back().target.get("rect", "") == split_rect and m.ops.back().target.has("region")
+		and bodies.has(harness.id("b1")) and absf(bodies.get(harness.id("b1"), {}).get("volume_mm3", 0.0) - 400000) < 0.1, bodies)
+	harness._ok("pushing one cell keeps the split profile's draft", m.drafts.has(split_rect) and m.drafts[split_rect] == split_draft, m.drafts.keys())
+	await harness._key(KEY_P)
+	await harness._drag_to(Vector3(150, 100, 0), 4)
+	var other_hover: Dictionary = m.tools.push.hover
+	harness._ok("Push/Pull hover over the remaining cell finds its region",
+		other_hover.get("rect", "") == split_rect and other_hover.has("region")
+		and absf(other_hover.get("region", {}).get("area", 0.0) - 20000) < 0.1, other_hover)
+	await harness._push(Vector3(150, 100, 0), Vector3(150, 100, 40), "20")
+	await harness._wait_wave()
+	bodies = harness._bodies()
+	harness._ok("pushing the second cell makes a second board",
+		bodies.has(harness.id("b1")) and bodies.has(harness.id("b2"))
+		and absf(bodies.get(harness.id("b2"), {}).get("volume_mm3", 0.0) - 400000) < 0.1 and m.drafts.has(split_rect), bodies)
+	m.undo()
+	await harness._wait_wave()
+	m.undo()
+	await harness._wait_wave()
+	harness._ok("undoing both cell pushes leaves the original profile draft intact",
+		harness._bodies().is_empty() and m.drafts.has(split_rect) and m.drafts[split_rect] == split_draft, [harness._bodies().keys(), m.drafts.keys()])
+	m.redo()
+	await harness._wait_wave()
+	bodies = harness._bodies()
+	await harness._key(KEY_P)
+	await harness._drag_to(Vector3(150, 100, 0), 4)
+	var redo_hover: Dictionary = m.tools.push.hover
+	harness._ok("redoing the first cell push keeps the profile draft and remaining cell pickable",
+		bodies.has(harness.id("b1")) and not bodies.has(harness.id("b2"))
+		and absf(bodies.get(harness.id("b1"), {}).get("volume_mm3", 0.0) - 400000) < 0.1
+		and m.drafts.has(split_rect) and m.drafts[split_rect] == split_draft
+		and redo_hover.get("rect", "") == split_rect and redo_hover.has("region")
+		and absf(redo_hover.get("region", {}).get("area", 0.0) - 20000) < 0.1, [bodies, m.drafts.keys(), redo_hover])
+
 func _segment(a: Vector3, b: Vector3) -> void:
 	await harness._key(KEY_L)
 	# Pick the top side of the boundary, then snap to the exact edge; the edge has two visible normals.

@@ -169,6 +169,12 @@ func _init() -> void:
 	d2.on_opened({"ok": true, "rev": 2, "ops": [op("r1")]}, false)
 	check("a test's first open doesn't adopt the history", d2.ops.is_empty() and d2.opened and d2.saved_rev == 2)
 	check("consumed rects", d.consumed_rects() == {"r1": true})
+	var t_reg := make(); var d_reg = t_reg[0]
+	d_reg.ops = [op("r1"), {"id": "pp1", "type": "push_pull", "body": "b1",
+		"target": {"rect": "r1", "region": {"outline": [[0, 0, 0], [100, 0, 0], [100, 200, 0], [0, 200, 0]], "holes": [], "lines": ["r2"], "normal": [0, 0, 1]}}}]
+	check("region push leaves consumed_rects empty", d_reg.consumed_rects().is_empty())
+	d_reg.ops.append({"id": "pp2", "type": "push_pull", "body": "b2", "target": {"rect": "r1"}})
+	check("whole-profile push still consumes its rect", d_reg.consumed_rects() == {"r1": true})
 
 	# --- undo floor ---
 	d.undo()

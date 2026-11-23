@@ -145,7 +145,7 @@ func present_draft(op: Dictionary, pieces: Array, wave: Dictionary) -> void:
 			for old in m.bodies_root.find_children(id, "MeshInstance3D", true, false):
 				old.visible = false
 
-	if op.type == "push_pull": drop_draft(op.target.get("rect", ""))
+	if op.type == "push_pull" and not op.target.has("region"): drop_draft(op.target.get("rect", ""))
 	var bodies: Array = wave.bodies
 	begin_wave(op.id, wave.origin, wave.tris, wave.is_new, bodies[0] if op.type == "push_pull" or op.has("cut") else bodies)
 	if wave.attach == "drafts":
@@ -465,7 +465,7 @@ func forget_op(op: Dictionary, ops: Array, used: Dictionary) -> void:
 		if op.has("body"):
 			body_tris.erase(op["body"]); body_verts.erase(op["body"]); body_edges.erase(op["body"])
 		var rid: String = op["target"].get("rect", "")
-		if rid != "":
+		if rid != "" and not op["target"].has("region"):
 			for r in ops:
 				if r["id"] == rid and not used.has(rid):
 					rects.erase(rid); register_rect(r)
