@@ -11,9 +11,9 @@ Taking over: `python3 tools/integrator.py take fretchup-73` (a /clear keeps the 
 
 In flight (2026-11-22, evening; main pushed, gate passing): merged today H065 (Paint), H066 (T101, A37 recovery),
 H071 (Select), H070 (shorter CLAUDE.md/AGENTS.md; integrator rules now in docs/integrator.md), two small fixes.
-Ready: H069 (three flaky timing tests: do it first, it blocked H071's `job.py done` and forced one gate re-run),
-H072 (T88 step 3, Circle), the integrator-tool traps job (number_ids prose, BOARD.md settling; it doesn't overlap
-H069 or H072). Then T88 step 4 (Rectangle) after H072, then H052 (T66 units).
+H069 (the three flaky timing tests) merged too, with a small fix giving test_startup.py a 120 s bound. Ready:
+H072 (T88 step 3, Circle), the integrator-tool traps job (H073: number_ids prose, BOARD.md settling; it doesn't
+overlap H072). Then T88 step 4 (Rectangle) after H072, then H052 (T66 units).
 
 Whole-code review: William is running `/code-review ultra` (he has three free runs) in
 /Users/Will/Sites/fretchup-review-all, a throwaway repo with no remote: its first commit is context (docs, log,
