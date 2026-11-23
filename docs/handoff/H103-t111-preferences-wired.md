@@ -1,6 +1,6 @@
 ### H103 — T111 step 2: preferences wired in: ⌘, opens the file, saving it applies the feel tunables and the default units
 
-Author: Claude (integrator, fretchup-74) | Date: 2026-11-22 | Status: open | For: gemini
+Author: Claude (integrator, fretchup-74) | Date: 2026-11-22 | Status: answered | For: gemini
 
 References: I63 (preferences: a JSON file, the default units and the feel tunables, live), I62 (a model with no
 units saved opens in the user's default, else the last units used), T111, H102 (viewport/preferences.gd, merged),
@@ -80,3 +80,24 @@ talks; inference.gd, tool.gd and measure_box.gd only use what they're given.
 
 Run `tools/featuretest.sh` and `tools/quicktest.sh` while building, then `python3 tools/job.py test`. End your
 response with a Result line; leftovers as Follow-up lines; anything for the merge as For the integrator lines.
+
+Response — Gemini, 2026-11-23:
+- Branch: `gemini/h103-t111-preferences-wired`; code commit `61751c1` (building on `154d17d` and main merge `7849df3`).
+- What changed:
+  - Live tunables beside every built-in constant: `static var` in `viewport/inference.gd` (`grid`, `snap_px`, `edge_px`, `infer_deg`, `release_deg`) and `viewport/tools/tool.gd` (`drag_px`, `hold_ms`), plain vars in `viewport/main.gd` (`trackpad_px`, `zoom_step`); all snapping, drag/hold, pan/orbit/zoom and `viewport/tool_context.gd` (`pick.grid_step` / `snap_radius`) read the live values; `main.gd` `_apply_preferences(values)` applies all nine plus `measure.pref_default_units`.
+  - `viewport/preferences.gd`: validates `{"units": {"default": "<spec>" | null}}` via `Units.parse_spec`, reports exact messages for unknown units keys and bad default values while keeping last good values, tracks `"units.default"` in `changed`, and seeds `"units": {"default": null}` in `write_defaults`.
+  - `viewport/measure_box.gd`: `default_units()` checks `pref_default_units`, then last units used (`settings.cfg`), then `fallback_spec` (I62); changing the preference never alters the open model's units.
+  - `viewport/main.gd`: adds `Shop Sketch > Preferences…` (`PREFERENCES_KEY = KEY_MASK_META | KEY_COMMA`) to NativeMenu's `APPLICATION_MENU_ID` calling `write_defaults` and `OS.shell_open`; outside test mode, loads `preferences_path` at startup (preserving any startup problem message past the initial confirm sync) and watches it on a 0.5 s `Timer` via `changed_on_disk`, reporting changed live values or the first problem (` (and <n> more)` for extras) via `_say_status`.
+- Verification: `python3 tools/job.py test` passed on `61751c1` — all feature tests passed (`PREFERENCES TESTS: 192 passed, 0 failed`, `TOOL CONTEXT TESTS: 148 passed, 0 failed`, all other suites 0 failed) and `QUICK 267 passed, 0 failed` (including new `viewport/tests/quick/preferences.gd`).
+  - Test-mode check method: `viewport/tests/quick/preferences.gd` asserts the startup path is skipped at launch (`m._prefs_timer == null`, `not m.prefs._has_disk_state`, built-ins hold) and then writes a temp file with `SNAP_PX: 30` under `m.out_dir`, points `m.preferences_path` at it, calls `m._init_preferences()` while `m.test_mode == true`, and verifies it is not read and `Inference.snap_px` stays at `Inference.SNAP_PX`.
+  - All failure cases checked: bad file at start, live timer reload + status line, bad edit after good keeping last good values, multiple problems `(and N more)`, file deleted while running (unit + quick), mid-gesture `DRAG_PX` change between press and release completing cleanly, default units change leaving open model unchanged while `File > New` opens in the new default, `default_units()` precedence (unit), `write_defaults` with missing folder and `"default": null` (unit), and `Preferences…` menu item in `APPLICATION_MENU_ID` (quick; skips cleanly when global menu is absent).
+- IDs added: none. Open questions: none.
+
+Architecture: viewport/preferences.gd is now wired into viewport/main.gd (I63, T111): outside test mode, main.gd loads user://preferences.json at startup and polls changed_on_disk() every 0.5 s via a Timer, applying the 9 feel tunables live and updating measure.pref_default_units without changing the open model's units; Shop Sketch > Preferences… (⌘,) in NativeMenu's APPLICATION_MENU_ID calls write_defaults() and OS.shell_open().
+Architecture: live tunable state lives beside each built-in constant: static vars in viewport/inference.gd (grid, snap_px, edge_px, infer_deg, release_deg; read by tool_context.gd pick.grid_step / snap_radius), static vars in viewport/tools/tool.gd (drag_px, hold_ms), and plain vars in viewport/main.gd (trackpad_px, zoom_step).
+Architecture: viewport/measure_box.gd default_units() resolves preference default (pref_default_units) before last units used (settings.cfg) before fallback_spec (I62).
+Follow-up: Godot 4.6's macOS NativeMenu.get_item_accelerator() maps keyEquivalent "," through find_keycode_from_string(","), returning KEY_MASK_META without KEY_COMMA; verify ⌘, opens preferences.json interactively during the hardware feel test (Q4), and add a Cmd+, fallback in viewport/keys.gd if macOS menu dispatch ever misses it.
+Follow-up: T111 Mac Preferences window remains future work once the JSON file and hardware feel test (Q4) settle the tunables.
+For the integrator: update ARCHITECTURE.md and viewport/CLAUDE.md from the Architecture lines above (remove "Not wired in yet (H103)"), and update I63's "Where in the code" in docs/decision-log.md from "Not built" to viewport/preferences.gd and viewport/main.gd.
+For the integrator: H110 (menus.gd) and H113 (camera_rig.gd) touch _make_menus/_menu and trackpad_px/zoom_step in viewport/main.gd and are already queued after H103.
+Result: 61751c1; test_preferences.gd 192/192, test_tool_context.gd 148/148, feature tests passed, quick test 267/267 passed (job.py test); wired preferences.json into main.gd (0.5 s watcher, Shop Sketch > Preferences… ⌘,, status messages, test-mode guard), live tunables in inference.gd, tools/tool.gd, tool_context.gd and main.gd, units.default validation and measure_box.gd default_units() precedence
