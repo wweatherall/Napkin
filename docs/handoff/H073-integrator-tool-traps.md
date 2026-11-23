@@ -37,11 +37,11 @@ both changing one stops the merge with "BOARD.md: main and the branch both chang
 Checks (test_integrate.py, 6.): unit cases plus a real merge where the branch edits "If you're not the integrator"
 and Notes while main edits Notes, Order and the table (both kept), and one where both edit the same section (stops).
 docs/integrator.md: the two traps removed; the placeholder paragraph says what is numbered now.
-Tests: quick test 240/0 viewport, all feature tests pass after the log-archive fix; gate below.
+Tests: quick test 240/0 viewport, all feature tests pass; gate pass (full test passes, 0 known failures).
 For the integrator: tools/test_log_archive.py is outside the Touches list: its numbering check cited placeholders
 only in a note, which H073 now leaves unnumbered by design; it now adds the rows that define them.
 For the integrator: this merge runs the old number_ids.py (the trap that stays); nothing in this branch has a prose
 placeholder with a digit, so it makes no difference here.
 Follow-up: a BOARD.md that git merges without a conflict still takes the branch's edits to Notes or the table as
 they are (the table is rebuilt; Notes isn't); settle_board runs only on a conflict.
-Result: see commit; quick 240/0 + features pass; number_ids numbers only placeholders that are IDs (others reported), integrate.py settles BOARD.md by section
+Result: 44f0347; quick 240/0, gate pass; number_ids numbers only placeholders that are IDs (others reported), integrate.py settles BOARD.md by section
