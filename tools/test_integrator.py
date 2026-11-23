@@ -29,3 +29,4 @@ check("released means free", g.read(path) is None and "nobody" in g.status_line(
 check("the lock lives in git's common folder, shared by every worktree",
       g.lock_path().endswith(os.path.join(".git", "shopsketch-integrator.lock")))
 print(f"LOCK TESTS: {sum(RESULTS)} passed, {len(RESULTS) - sum(RESULTS)} failed")
+raise SystemExit(0 if all(RESULTS) else 1)   # a failed check fails the run, not only its summary

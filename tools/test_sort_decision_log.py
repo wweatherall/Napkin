@@ -65,3 +65,4 @@ check("a live file with no archive beside it (before P23) is only sorted",
       not any("not sorted" in p for p in s.check_files(s.sort_text(DOC))) and any("not sorted" in p for p in s.check_files(DOC)))
 
 print(f"LOG SORT TESTS: {sum(RESULTS)} passed, {len(RESULTS) - sum(RESULTS)} failed")
+raise SystemExit(0 if all(RESULTS) else 1)   # a failed check fails the run, not only its summary

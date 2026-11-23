@@ -292,3 +292,4 @@ check("an archived T90 makes the next Work list number T91", got.get("T-new-1") 
 shutil.rmtree(root)
 
 print(f"ID TESTS: {sum(RESULTS)} passed, {len(RESULTS) - sum(RESULTS)} failed")
+raise SystemExit(0 if all(RESULTS) else 1)   # a failed check fails the run, not only its summary

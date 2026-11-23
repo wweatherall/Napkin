@@ -91,3 +91,4 @@ finally:
     shutil.rmtree(tmp, ignore_errors=True)
 
 print(f"FEATURETEST TESTS: {sum(RESULTS)} passed, {len(RESULTS) - sum(RESULTS)} failed")
+raise SystemExit(0 if all(RESULTS) else 1)   # a failed check fails the run, not only its summary
