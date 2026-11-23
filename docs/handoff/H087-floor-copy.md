@@ -1,6 +1,6 @@
 ### H087 — A38: a rebuild keeps FreeCAD's edits (the floor copy)
 
-Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: open | For: gemini
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: answered | For: gemini
 
 References: A38 (William's call, 2026-11-22), A23 (sync), A32 (save generations), A36 and T64 (outside saves),
 T10 (rebuild past 20 undo steps), the H063 follow-up in docs/follow-ups.md (clear that line in your last commit).
@@ -59,6 +59,22 @@ Run the feature tests while building (`tools/featuretest.sh`), then `python3 too
 test). End your response with a Result line; leftovers as Follow-up lines; anything for the merge as For the
 integrator lines.
 
+### Response — Gemini (worker, gemini-cedar), 2026-11-22
+
+Branch `gemini/h087-floor-copy`, implementation commit `60b429c` (branched from `main` `3120b76`).
+
+Implemented A38 in `worker/session.py` and added `worker/test_floor_copy.py` (and cleared the H063 rebuild follow-up in `docs/follow-ups.md`):
+- Added `"floor_file": base + ".floor" + ext` (`<model>.floor.FCStd`) to `generation()`.
+- Added `Session._write_floor_copy()` to write `<model>.floor.FCStd` atomically via `self.doc.saveCopy(<model>.floor.tmp.FCStd)` + `os.replace(...)` and record `self.floor_copy = {"sha256": <hex>, "ops": self.undo_floor}` in `_open_existing()` when `self.external` is true and in `reload_outside()` right after `_load_file()`. On normal opens (`not self.external`), `self.floor_copy` is read from the journal's `floor_copy` field (or `None` if absent). `Session._journal()` writes `"floor_copy"` only when `self.floor_copy` is set; all existing journal fields are unchanged.
+- Updated `Session._load_file(path=None)` to accept an explicit file path, and updated `Session._rebuild(ops)` so `undo_floor == 0` stays unchanged while `undo_floor > 0` verifies `<model>.floor.FCStd` exists and matches `floor_copy` (`sha256` and `ops == undo_floor`), closes the old document, opens `<model>.floor.FCStd`, clears undos, keeps `applied[:undo_floor]`, `undo_floor`, and `session_base = undo_floor`, and replays `ops[undo_floor:]`. When the floor copy is missing, modified, or unrecorded in the journal, `_rebuild` raises `OpError("can't undo past the FreeCAD edit: its copy is missing")` before closing or modifying the live document.
+- Checked `Session.save()` and `_write()`: saving continues to call `self.doc.saveCopy(g["saving_file"])` and rename to `g["file"]` (`self.path`), using `self.path` for `write_gui_document`, so saving after a floor-copy rebuild writes the model's own path and leaves `<model>.floor.FCStd` byte-for-byte untouched (verified in `worker/test_floor_copy.py`).
+
+Verified with `tools/featuretest.sh` and `python3 tools/job.py test` on `60b429c`: `FLOOR COPY TESTS: 21 passed, 0 failed` (covering external edit on reopen, 25 ops + rebuild, saving after rebuild, rebuild across restart, `reload_outside` + 25 ops + rebuild, deleted/tampered floor copy and legacy journal without `floor_copy` raising the exact `OpError` with document unchanged, and never-edited models writing no floor copy), all 32 feature suites passed (including `GENERATION TESTS: 34/34`, `OUTSIDE SAVE TESTS: 26/26`, `NATIVE TESTS: 83/83`, `SCENARIO TESTS: 535/535`), and `viewport: QUICK 240 passed, 0 failed in 20.8 s`. No new decision IDs added; no open questions.
+
 Architecture: `worker/session.py` `generation()` adds `"floor_file"` (`<model>.floor.FCStd`) beside the model; `Session._write_floor_copy()` writes it atomically (`saveCopy` to a temp name + `os.replace`) when the undo floor is set from FreeCAD (`_open_existing` when `self.external`, and `reload_outside` right after `_load_file`). Models never edited in FreeCAD write no floor copy.
 Architecture: the journal (`<model>.shopsketch.json`) gains one optional field `"floor_copy": {"sha256": <hex>, "ops": <undo_floor>}` written by `Session._journal()`; a journal without it reads as no copy, and all existing journal fields are unchanged.
 Architecture: `Session._rebuild(ops)` starts from `<model>.floor.FCStd` when `undo_floor > 0` and the file's sha256 and `ops` match `floor_copy`, keeping `applied[:undo_floor]`, `undo_floor`, and `session_base = undo_floor`, then replaying `ops[undo_floor:]`; if the copy is missing or mismatched it raises `OpError("can't undo past the FreeCAD edit: its copy is missing")` and leaves the document unchanged. `Session.save()` still writes via `saveCopy` to `self.path` (not the floor copy). `Session` alone owns the floor copy; no protocol or viewport changes.
+For the integrator: update `ARCHITECTURE.md` with the `Architecture:` lines above (`<model>.floor.FCStd`, journal `floor_copy`, `Session._rebuild`).
+For the integrator: update `worker/CLAUDE.md` ("Sync, undo, saving") to note `<model>.floor.FCStd` and the journal's `floor_copy` field for A38 rebuilds.
+For the integrator: update `A38`'s "Where in the code" in `docs/decision-log.md` from `Not built: worker/session.py _rebuild (job H087)` to `Built (H087): worker/session.py generation() floor_file, _write_floor_copy(), _open_existing(), reload_outside(), _journal() floor_copy, _rebuild(); worker/test_floor_copy.py`.
+Result: 60b429c; 21/21 floor copy checks, 32 feature suites, 240/240 quick viewport checks passed; A38 floor copy (<model>.floor.FCStd and journal floor_copy) keeps FreeCAD edits across rebuilds past 20 undo steps or below session_base.
