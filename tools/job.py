@@ -177,7 +177,7 @@ def jobs_from(texts):
         jid = head.split()[0]
         waits = re.search(r"after ([^)]*)", raw)
         out.append({"id": jid, "name": name, "for": who, "kind": kind, "item": head.split("—", 1)[-1].strip(),
-                    "waits": waits.group(1).strip() if waits else "", "touches": handoff.touches(text),
+                    "waits": waits.group(1).strip() if waits else "", "touches": handoff.touches_named(text),
                     "slug": name[:-3].split("-", 1)[1] if "-" in name[:-3] else "job"})
     return out
 
@@ -210,8 +210,7 @@ def main_view(root):
 
 
 def overlap(a, b):
-    return sorted({x if len(x) >= len(y) else y for x in a for y in b
-                   if handoff._covers(x, y) or handoff._covers(y, x)})
+    return sorted(handoff.shared_touches(a, b))
 
 
 def takeable(root, st, agent, jobs, order, claims=None):
