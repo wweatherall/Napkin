@@ -108,6 +108,74 @@ func run() -> void:
 	var body: Dictionary = harness._bodies().get(harness.id("b1"), {})
 	harness._ok("FreeCAD joins just the exact curved region", m.ops.back().target.has("region")
 		and absf(body.get("volume_mm3", 0.0) - (200000.0 + area * 10.0)) < 0.2, body)
+	await _rounded_corner()
+	await _angled_corner()
+
+
+func _rounded_corner() -> void:
+	await harness._fresh("arc_corner", harness._plank(1, Vector3.ZERO, Vector3(600, 400, 20)))
+	await harness._view(Vector3(55, 55, 20), -30, -50, 0.65)
+	await harness._key(KEY_A)
+	await harness._click_at(Vector3(50, 0.25, 20))
+	await harness._click_at(Vector3(0, 60, 20))
+	var middle := 50.0 * (1.0 - sqrt(0.5))
+	var tangent_mid := Vector3(middle, middle, 20)
+	await harness._drag_to(tangent_mid, 4)
+	var lines: Mesh = m.overlay_lines.mesh
+	var material: ShaderMaterial = lines.surface_get_material(0) if lines != null else null
+	harness._ok("square corner snaps the end and shows a magenta tangent arc",
+		m.tools.arc.state.get("second", Vector3.ZERO).distance_to(Vector3(0, 50, 20)) < 0.001
+		and m.ui_tip.text == "Tangent at corner" and material != null
+		and material.get_shader_parameter("color") == Color.MAGENTA, m.tools.arc.state)
+	await harness._drag_to(Vector3(50, 50, 20), 4)
+	harness._ok("leaving the tangent bulge restores the free arc",
+		m.ui_tip.text == "2-Point Arc" and not m.tools.arc.state.get("tangent", true), m.tools.arc.state)
+	await harness._click_at(tangent_mid)
+	var arc: Dictionary = m.ops.back()
+	harness._ok("clicking the tangent arc saves both edge snaps and the tangent midpoint", arc.type == "arc"
+		and arc.snap_start and arc.snap_end and _xyz(arc.mid).distance_to(tangent_mid) < 0.001, arc)
+	await harness._wait_confirm()
+	await harness._key(KEY_P)
+	var corner_hit := Vector3(5, 5, 20)
+	await harness._drag_to(corner_hit, 4)
+	var predicted: float = m.tools.push.hover.get("region", {}).get("area", 0.0)
+	await harness._push(corner_hit, Vector3(5, 5, 0), "-20")
+	var cut: Dictionary = m.ops.back()
+	harness._ok("corner Push/Pull immediately drafts a through-cut of the bounded cell",
+		cut.get("through", false) and cut.target.has("region") and m.drafts.has(cut.id), cut)
+	await harness._wait_wave()
+	var body: Dictionary = harness._bodies().get(harness.id("b1"), {})
+	var native := (600.0 * 400.0 * 20.0 - float(body.get("volume_mm3", 0.0))) / 20.0
+	harness._ok("viewport corner area agrees with the confirmed FreeCAD mesh volume",
+		absf(native - 2500.0 * (1 - PI / 4)) < 0.01 and absf(predicted - native) < 5.0
+		and m.body_tris.has(harness.id("b1")) and not m.drafts.has(cut.id), [predicted, native])
+
+
+func _angled_corner() -> void:
+	await harness._fresh("arc_angled_corner")
+	await harness._view(Vector3(75, 55, 0), -25, -55, 0.7)
+	await harness._key(KEY_L)
+	for point in [Vector3.ZERO, Vector3(180, 0, 0), Vector3(120, 160, 0), Vector3.ZERO]:
+		await harness._click_at(point)
+	await harness.get_tree().physics_frame
+	await harness._key(KEY_A)
+	await harness._click_at(Vector3(60, 0.25, 0))
+	await harness._click_at(Vector3(36, 48, 0))
+	var tangent_mid := Vector3(60, 30, 0) - Vector3(2, 1, 0).normalized() * 30.0
+	await harness._drag_to(tangent_mid, 4)
+	harness._ok("the Line profile's non-square corner snaps to its tangent bulge",
+		m.ui_tip.text == "Tangent at corner", m.tools.arc.state)
+	await harness._key(KEY_ESCAPE)
+	await harness._click_at(Vector3(60, 0.25, 0))
+	await harness._click_at(Vector3(54, 72, 0))
+	await harness._type("50r\n")
+	var arc: Dictionary = m.ops.back()
+	tangent_mid = Vector3(100, 50, 0) - Vector3(2, 1, 0).normalized() * 50.0
+	harness._ok("50r moves both endpoints of the non-square corner fillet",
+		arc.type == "arc" and _xyz(arc.plane.origin).distance_to(Vector3(100, 0, 0)) < 0.001
+		and _xyz(arc.end).distance_to(Vector3(60, 80, 0)) < 0.001
+		and _xyz(arc.mid).distance_to(tangent_mid) < 0.001, arc)
+	await harness._wait_confirm()
 
 
 func _check_mode(kind: String) -> void:
