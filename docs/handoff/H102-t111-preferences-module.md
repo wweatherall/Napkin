@@ -1,6 +1,6 @@
 ### H102 — T111 step 1: the preferences file, read, checked and watched (a module and its tests; nothing wired yet)
 
-Author: Claude (integrator, fretchup-74) | Date: 2026-11-22 | Status: open | For: claude
+Author: Claude (integrator, fretchup-74) | Date: 2026-11-22 | Status: open | For: gemini
 
 References: I63 (preferences are a JSON file: default units and the feel tunables, live), I62 (a model with no
 units saved opens in the user's default), T111, the Tunables table in docs/decision-log.md (each tunable's
