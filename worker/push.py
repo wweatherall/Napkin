@@ -104,10 +104,10 @@ class PushActions:
 
         if "region" in tgt:
             source = world_face
-            world_face, region_n = self.region_face(tgt["region"])
-            if n.dot(region_n) < 0.999999:
-                raise OpError("region normal differs from target plane")
-            if "face" in tgt or "rect" in tgt:
+            if "face" in tgt or "rect" in tgt:     # a region alone is already world_face, built above
+                world_face, region_n = self.region_face(tgt["region"])
+                if n.dot(region_n) < 0.999999:
+                    raise OpError("region normal differs from target plane")
                 world_face = self.native_region(source, world_face, tgt["region"])
                 if abs(source.common(world_face).Area - world_face.Area) > max(TOL, world_face.Area * 1e-6):
                     raise OpError("region leaves its target face")

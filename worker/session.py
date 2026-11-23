@@ -483,7 +483,7 @@ class Session:
         after = self.board_marks()
         changed = sorted(b for b in after if before.get(b) != after[b])
         return {"changed": changed, "removed": sorted(b for b in before if b not in after),
-                "dropped": [d["op"] for d in gone], "rev": frev}
+                "dropped": [d["op"] for d in gone]}     # no "rev": the reply's is the session's (open_reply)
 
     def _journal(self, rev, file_sha):
         return {"format": JOURNAL_FORMAT, "rev": rev, "file_sha256": file_sha,
