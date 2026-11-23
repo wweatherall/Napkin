@@ -100,8 +100,17 @@ def start_worker():
 
 EDIT = os.path.join(tmp, "freecad_edit.py")
 with open(EDIT, "w") as f:
-    f.write('''import os, FreeCAD as App
+    f.write('''import json, os, FreeCAD as App
 doc = App.openDocument(os.environ["EDIT_MODEL"])
+edits = json.loads(os.environ["EDIT_META"])
+if edits:
+    meta = doc.Meta
+    for key, value in edits.items():
+        if value is None:
+            meta.pop(key, None)
+        else:
+            meta[key] = value
+    doc.Meta = meta
 ex = [o for o in doc.Objects if o.TypeId == "Part::Extrusion"][0]
 ex.LengthFwd = ex.LengthFwd.Value + float(os.environ.get("EDIT_ADD", "12"))
 doc.recompute()
@@ -118,10 +127,10 @@ App.closeDocument(doc.Name)
 ''')
 
 
-def freecad_save(model, add=12):
-    """What William does in FreeCAD: open the model, make its first board thicker, save."""
-    subprocess.run([FC, EDIT], env=dict(os.environ, EDIT_MODEL=model, EDIT_ADD=str(add)),
-                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=120)
+def freecad_save(model, add=12, **meta):
+    """Open the model in FreeCAD, make its first board thicker, optionally edit Meta, then save."""
+    subprocess.run([FC, EDIT], env=dict(os.environ, EDIT_MODEL=model, EDIT_ADD=str(add), EDIT_META=json.dumps(meta)),
+                   stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=120, check=True)
 
 
 def sha(path):
@@ -547,6 +556,129 @@ check(H098_CHECKS[3],
       and r_cr["rev"] >= 2 and r_cr["changed"] == ["b1"] and r_cr["removed"] == ["b2"]
       and thickness(out_cr, "b1") == 30.0 and thickness(out_cr, "b2") is None,
       r_cr)
+# H094: a real FreeCAD save keeps the Meta of its open copy after rev 1 has aged out.
+def saved_reload_fixture(model):
+    opened(model)
+    kept = board_ops(300) + second(200)
+    kept[1]["typed"] = '18 mm " & < 90°'
+    assert sync(w, model, kept, 1)["ok"]
+    assert ask({"cmd": "flush", "model": model}, "flush")["ok"]
+    rev1 = model + ".rev1.FCStd"
+    shutil.copy2(model, rev1)
+    recent = list(kept)
+    for rev in range(2, 54):
+        recent.append({"id": f"r{rev + 1}", "type": "rect", "plane": kept[0]["plane"], "size": [rev, 100]})
+        assert sync(w, model, recent, rev)["ok"]
+        assert ask({"cmd": "flush", "model": model}, "flush")["ok"]
+    assert journal(model)["rev"] >= 53
+    return rev1, kept, recent[len(kept):]
+
+
+for restart in (False, True):
+    name = "after worker restart" if restart else "after 52 more saves"
+    m = fresh_model("meta_cold" if restart else "meta_live")
+    rev1, kept, dropped = saved_reload_fixture(m)
+    if restart:
+        proc.kill()
+        proc.wait(30)
+        w.close()
+        proc, port = start_worker()
+        w = Window(port)
+    freecad_save(rev1)
+    os.replace(rev1, m)
+    if not restart:
+        wait_outside(m)
+    out = m + "-out"
+    r = ask({"cmd": "reload", "model": m, "outdir": out}, "reload")
+    check(f"FreeCAD's rev 1 save keeps both boards' ops and drops newer actions {name}",
+          r and r["ok"] and [o["id"] for o in r["ops"]] == ["r1", "pp1", "r2", "pp2"]
+          and r["dropped"] == dropped and r["undo_floor"] == 4
+          and thickness(out, "b1") == 30.0 and thickness(out, "b2") == 18.0, r)
+    if not restart:
+        unchanged = sync(w, m, kept, 54)
+        j = journal(m)
+        check("XML quotes, ampersand, angle bracket and degree sign survive with the same canonical op keys",
+              r and r["ops"] == kept and unchanged and unchanged["ok"]
+              and unchanged["result"]["how"] == "nothing", (r, unchanged))
+        check("Meta entries publish the kept ops as ok in the reload journal",
+              j["ops"] == kept and j["status"] == [{"status": "ok"}] * len(kept), j.get("status"))
+
+
+for case, (name, metadata, restart, keep) in enumerate((
+    ("missing ShopSketchOps falls back to the previous journal", {"ShopSketchOps": None}, True, True),
+    ("invalid ShopSketchOps JSON falls back to the live revision", {"ShopSketchOps": "["}, False, True),
+    ("a ShopSketchOps object falls back to the live revision", {"ShopSketchOps": "{}"}, False, True),
+    ("a ShopSketchOps list with a non-op falls back to the live revision", {"ShopSketchOps": "[{}]"}, False, True),
+    ("ShopSketchOps with no ShopSketchRev falls back to no ops", {"ShopSketchRev": None}, False, False),
+)):
+    m = fresh_model(f"meta_fallback_{case}")
+    opened(m)
+    kept = board_ops(300)
+    sync(w, m, kept, 1)
+    ask({"cmd": "flush", "model": m}, "flush")
+    rev1 = m + ".rev1.FCStd"
+    shutil.copy2(m, rev1)
+    sync(w, m, kept + second(200), 2)
+    ask({"cmd": "flush", "model": m}, "flush")
+    freecad_save(rev1, **metadata)
+    os.replace(rev1, m)
+    wait_outside(m)
+    if restart:
+        proc.kill()
+        proc.wait(30)
+        w.close()
+        proc, port = start_worker()
+        w = Window(port)
+    r = ask({"cmd": "reload", "model": m, "outdir": m + "-out"}, "reload")
+    check(name, r and r["ok"] and r["ops"] == (kept if keep else []), r)
+
+
+# Exercise mismatch with the requested revision and the save rollback at the Session boundary.
+META_CHECK = os.path.join(tmp, "session_meta.py")
+with open(META_CHECK, "w") as f:
+    f.write('''import json, os, sys
+sys.dont_write_bytecode = True
+sys.path.insert(0, os.environ["SESSION_SRC"])
+from session import Session
+
+session = Session(os.environ["META_MODEL"], fresh=True)
+ops = json.loads(os.environ["META_OPS"])
+session.sync(ops[:2])
+session.save()
+old_meta = dict(session.doc.Meta)
+print("META REV MISMATCH:", session._file_ops(session.path, session.rev + 1) == [], flush=True)
+
+session.sync(ops)
+write = session._write
+def fail_write(g, outdir):
+    meta = session.doc.Meta
+    assert meta["ShopSketchRev"] == "2" and json.loads(meta["ShopSketchOps"]) == ops
+    raise OSError("injected save failure")
+
+session._write = fail_write
+try:
+    session.save()
+except OSError:
+    restored = session.rev == 1 and dict(session.doc.Meta) == old_meta
+else:
+    restored = False
+session._write = write
+session.save()
+session.rev_ops.clear()
+retried = [e["op"] for e in session._file_ops(session.path, 2)] == ops
+print("META SAVE ROLLBACK:", restored and session.rev == 2 and retried, flush=True)
+session.close()
+''')
+meta_run = subprocess.run([FC, META_CHECK], env=dict(os.environ, SESSION_SRC=HERE,
+                          META_MODEL=fresh_model("meta_failed_save"), META_OPS=json.dumps(board_ops(300) + second(200))),
+                          capture_output=True, text=True, timeout=120)
+for marker, name in (
+    ("META REV MISMATCH", "ShopSketchOps with a different revision falls back to no ops"),
+    ("META SAVE ROLLBACK", "a failed save restores both Meta keys and a retry saves them together"),
+):
+    check(name, meta_run.returncode == 0 and f"{marker}: True" in meta_run.stdout.splitlines(),
+          meta_run.stdout + meta_run.stderr)
+
 w.ask({"cmd": "quit", "seq": 999}, "quit")
 proc.wait(30)
 

@@ -68,3 +68,9 @@ its Meta; FreeCAD's own save keeps what it doesn't know about.
 
 Run the feature tests while building (`tools/featuretest.sh`), then `python3 tools/job.py test`. End your
 response with a Result line; leftovers as Follow-up lines; anything for the merge as For the integrator lines.
+
+#### Response — Codex, 2026-11-23
+
+Architecture: Session.save writes the successful ops as compact JSON in FCStd Meta ShopSketchOps alongside ShopSketchRev and rolls both back together on failure.
+
+Architecture: Outside reloads recover the ops from Document.xml in the validated snapshot, or from the model file when a replacement worker initializes a cold retry. Matching Meta takes priority over revision history and the previous journal. Both worker and viewport now speak protocol 11.
