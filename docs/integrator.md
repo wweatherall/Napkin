@@ -53,7 +53,9 @@ Architecture: lines, the response) and CLAUDE.md (commit trailers); this page sa
 ## Writing jobs
 - Write the next jobs as handoff entries (a Status of open is Ready; "queued (after H0NN)" waits), each with its
   Touches list, and keep the board's Order line. Before marking one Ready, compare its Touches with every Ready or
-  claimed job's: two whose lists overlap don't run at once (tell William before starting one that does).
+  claimed job's: two whose lists overlap don't run at once (tell William before starting one that does). A
+  shared file named with backticked functions after it (`viewport/main.gd (`redo`)`) overlaps only where the
+  names meet (P45; the tools check it once T112 is built, until then compare by eye).
 - The shared hot spots (the decision log's Work list, the handoff, viewport/main.gd, the map) stay small edits
   made once the work is done.
 - A job touching saving, reloading or the worker link gets a "What can fail" section in its brief (P42; the
