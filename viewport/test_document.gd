@@ -376,6 +376,36 @@ func _init() -> void:
 		and c.last()["oplog"]["ops"].map(func(o): return o["id"]) == ["r1", "r3"])
 
 	t = make(); d = t[0]; c = t[1]; seen = t[2]
+	var errors: Array = []
+	d.outside_failed.connect(func(error): errors.append(error))
+	d.on_opened({"ok": true, "rev": 2, "ops": [op("r1")]}, true)
+	d.on_outside_save({"cmd": "outside_save", "model": d.model_path, "rev": 2, "unsaved": false})
+	var original_reload: Dictionary = c.last()
+	d.ops.append(op("r2")); d.sync()
+	d.on_link_up()
+	var retry: Dictionary = c.last()
+	check("reconnecting with a reload out sends another reload with a fresh sequence",
+		retry["cmd"] == "reload" and retry["seq"] > original_reload["seq"] and d.in_flight)
+	d.on_reload_reply({"ok": false, "seq": original_reload["seq"], "error": "stale reply"})
+	check("the lost reload's reply leaves the retry in flight", errors.is_empty() and d.outside_seq == retry["seq"])
+	var sent_before_failure: int = c.sent.size()
+	d.on_reload_reply({"ok": false, "seq": retry["seq"], "error": "Invalid project file"})
+	check("a failed reload keeps the save pending and emits its error without sending anything",
+		d.outside.get("rev") == 2 and d.outside_seq == -1 and not d.in_flight
+		and errors == ["Invalid project file"] and c.sent.size() == sent_before_failure)
+	d.ops.append(op("r3")); d.sync()
+	check("further actions wait for the choice after a failed reload", d.dirty and c.sent.size() == sent_before_failure)
+
+	t = make(); d = t[0]; c = t[1]; seen = t[2]
+	d.on_opened({"ok": true, "rev": 2, "ops": [op("r1")]}, true)
+	d.on_outside_save({"cmd": "outside_save", "model": d.model_path, "rev": 2, "unsaved": false})
+	d.ops.append(op("r2")); d.sync()
+	d.on_link_up()
+	d.on_reload_reply({"ok": true, "seq": c.last()["seq"], "rev": 2, "ops": [op("r1")], "undo_floor": 1})
+	check("a retried reload still syncs the actions drawn after the first request on top",
+		c.last()["cmd"] == "sync" and d.ops.map(func(o): return o["id"]) == ["r1", "r2"])
+
+	t = make(); d = t[0]; c = t[1]; seen = t[2]
 	waits = [0]
 	d.outside_waiting.connect(func(): waits[0] += 1)
 	d.on_opened({"ok": true, "rev": 1, "ops": [op("r1")]}, true)
@@ -418,12 +448,15 @@ func _init() -> void:
 	check("the answer says where FreeCAD's file went and the save landed", kept.size() == 1 and d.saved_rev == 2)
 
 	t = make(); d = t[0]; c = t[1]; seen = t[2]
+	waits = [0]
+	d.outside_waiting.connect(func(): waits[0] += 1)
 	d.on_opened({"ok": true, "rev": 1, "ops": [op("r1")]}, true)
 	d.ops.append(op("r2")); d.sync()
 	d.on_outside_save({"cmd": "outside_save", "model": d.model_path, "rev": 1, "unsaved": true})
 	var n_sent: int = c.sent.size()
 	d.on_link_up()
-	check("a worker back after a crash gets no sync while the choice is open", c.sent.size() == n_sent and d.dirty)
+	check("reconnecting while waiting for actions starts a new wait without sending a sync",
+		c.sent.size() == n_sent and d.dirty and waits[0] == 2)
 	d.send_keep_mine()
 	check("the choice then sends the model again", c.sent[-2]["cmd"] == "keep_mine" and c.last()["cmd"] == "sync")
 	d.reset()

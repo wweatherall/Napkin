@@ -16,6 +16,8 @@ signal op_removed(op: Dictionary)   # one op left the list (undo, rejection): dr
 signal removed                      # done removing (one or several): show the state before resyncing
 signal idle                         # nothing in flight and nothing waiting
 signal outside_waiting              # FreeCAD saved the model while actions were on their way (A36): main waits, then asks
+signal outside_failed(error: String) # FreeCAD's save couldn't be opened: ask what to do with both versions
+signal outside_actions_landed       # the pending actions landed and the automatic reload was sent (A39)
 signal reloaded(resp: Dictionary)   # FreeCAD's save is the model now: main shows it, with the wave on changed boards
 signal kept_mine(resp: Dictionary)  # Shop Sketch's version went over FreeCAD's save (copied aside first)
 
@@ -49,7 +51,7 @@ var close_seq := -1                 # the seq of closing's flush: only its answe
 var test_delay_ms := 0              # test hook (P02): ask the worker to sit on its next answer
 # Outside saves (A36, T64): FreeCAD saved this model. Once nothing is on its way the worker reloads it; while a
 # reload is out, syncs wait (they'd build on the old file) and actions drawn meanwhile go on top of the reloaded one.
-var outside := {}                   # {"rev", "unsaved"}: an outside save not yet reloaded or kept
+var outside := {}                   # {"rev", "unsaved", optional "hold_sync"}: a save awaiting resolution
 var outside_seq := -1               # the seq of the reload / keep_mine out: only its answer counts
 var _ops_at_reload := 0             # ops past this were drawn after the reload left
 var dropped: Array = []             # the ops the last reload took out (FreeCAD's save didn't have them; T65)
@@ -96,6 +98,9 @@ func request_drawing() -> void:
 
 
 func _send() -> void:
+	if outside.get("hold_sync", false):
+		dirty = true
+		return
 	var drawing := _drawing_pending
 	_drawing_pending = false
 	in_flight = true
@@ -129,6 +134,7 @@ func on_sync_reply(resp: Dictionary) -> void:
 	elif not in_flight:
 		if not outside.is_empty() and outside_seq < 0:
 			send_reload()               # everything landed: now FreeCAD's save can be the model (A36)
+			outside_actions_landed.emit()
 			return
 		idle.emit()
 		if closing and close_seq < 0: _send_close_flush()
@@ -202,8 +208,12 @@ func on_link_up() -> void:
 	if not opened:
 		send_open()
 	elif not outside.is_empty():
-		dirty = true                    # not now: a sync would build on FreeCAD's file before the choice (A36)
-		outside_seq = -1                # a reload or keep_mine out went with the old worker
+		if outside_seq >= 0:
+			send_reload()              # the old worker took the request with it
+		else:
+			outside["hold_sync"] = true
+			dirty = true               # a sync would build on FreeCAD's file before the choice (A36)
+			outside_waiting.emit()
 	else:
 		sync()
 
@@ -227,9 +237,10 @@ func on_outside_save(resp: Dictionary) -> void:
 
 func send_reload() -> void:
 	"""Take FreeCAD's save as the model (also 'Use FreeCAD's version'): a sync still out is answered too late to count."""
+	if outside_seq < 0:
+		_ops_at_reload = ops.size()  # a reconnect keeps the boundary from the original request
 	seq += 1
 	outside_seq = seq
-	_ops_at_reload = ops.size()
 	in_flight = true                # syncs wait for the reload: sync() only marks dirty meanwhile
 	in_flight_seq = seq
 	client.send({"cmd": "reload", "model": model_path, "outdir": out_dir, "seq": seq})
@@ -248,11 +259,11 @@ func on_reload_reply(resp: Dictionary) -> void:
 	if seq_of(resp) != outside_seq: return
 	outside_seq = -1
 	in_flight = false
-	outside = {}
 	if not resp.get("ok", false):
-		sync_failed.emit(str(resp.get("error", "?")))
-		if dirty: _send()
+		outside["hold_sync"] = true
+		outside_failed.emit(str(resp.get("error", "?")))
 		return
+	outside = {}
 	var later: Array = ops.slice(_ops_at_reload)
 	var keep := {}
 	for o in resp.get("ops", []): keep[o["id"]] = true

@@ -346,6 +346,45 @@ r = ask({"cmd": "reload", "model": m7b, "outdir": m7b + "-out"}, "reload")
 check("a reload of a revision with a rejected action keeps only the ops that worked",
       r and [o["id"] for o in r["ops"]] == ["r1", "pp1"] and r["undo_floor"] == 2 and r["dropped"] == [], r)
 
+# An unreadable outside save leaves the live document and its undo floor intact. The window can still keep ours.
+broken = fresh_model("unreadable")
+opened(broken)
+ops = board_ops(300)
+sync(w, broken, ops, 1)
+ask({"cmd": "flush", "model": broken}, "flush")
+freecad_save(broken)
+wait_outside(broken)
+live_out = broken + "-out"
+first_reload = ask({"cmd": "reload", "model": broken, "outdir": live_out}, "reload")
+check("the previous outside edit sets a floor and changes the live board",
+      first_reload and first_reload["ok"] and first_reload["undo_floor"] == 2 and thickness(live_out, "b1") == 30.0,
+      first_reload)
+floor = os.path.splitext(broken)[0] + ".floor.FCStd"
+floor_sha = sha(floor)
+freecad_save(broken)
+held_event = wait_outside(broken)
+ops += second(200)
+sync(w, broken, ops, 2)
+with open(broken + ".invalid", "wb") as f:
+    f.write(b"invalid FCStd")
+os.replace(broken + ".invalid", broken)
+broken_sha = sha(broken)
+held_journal = journal(broken)
+r = ask({"cmd": "reload", "model": broken, "outdir": live_out}, "reload")
+check("an unreadable outside save fails reload while the model is held", held_event and r and not r["ok"], r)
+check("failed reload leaves the floor, journal, and outside file intact",
+      sha(floor) == floor_sha and journal(broken) == held_journal and sha(broken) == broken_sha)
+os.remove(os.path.join(live_out, "bodies.json"))
+still_live = ask({"cmd": "sync", "model": broken, "outdir": live_out,
+                  "oplog": {"format": "oplog/0.1", "units": "mm", "ops": ops}}, "sync")
+check("after failed reload the live document still exports both boards",
+      still_live and still_live["ok"] and thickness(live_out, "b1") == 30.0 and thickness(live_out, "b2") == 18.0,
+      still_live)
+k = ask({"cmd": "keep_mine", "model": broken, "outdir": live_out}, "keep_mine")
+check("after failed reload Keep Shop Sketch's copies the unreadable file aside and saves ours",
+      k and k["ok"] and sha(k["aside"]) == broken_sha and journal(broken)["file_sha256"] == sha(broken)
+      and journal(broken)["ops"] == ops and journal(broken)["floor"] == 2, k)
+
 # 8. A held model with unsaved actions whose file is then deleted: the window closing (its save keeps both, and
 #    the copy aside fails) is a failed save, not the end of the worker for every window.
 m8 = fresh_model("deleted")

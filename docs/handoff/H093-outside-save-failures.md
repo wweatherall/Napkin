@@ -78,3 +78,36 @@ question and the status line.
 
 Run the feature tests while building (`tools/featuretest.sh`), then `python3 tools/job.py test`. End your
 response with a Result line; leftovers as Follow-up lines; anything for the merge as For the integrator lines.
+
+**Response — Codex, 2026-11-23**
+
+Branch: `codex/h093-outside-save-failures`. No new decision IDs or open questions.
+
+FreeCAD 1.1.4 returned the existing live document and its old label when asked to open the same path after the
+disk file was replaced. The worker opens a temporary sibling copy first, removes the copy, and uses the original
+path for the newly loaded document. The revision and hash describe the bytes the worker actually loaded.
+
+Godot 4.6.1's [macOS dialog implementation](https://github.com/godotengine/godot/blob/4.6.1-stable/platform/macos/display_server_macos.mm#L814-L849)
+waits in `NSAlert.runModal` and then invokes the choice callback on that same call stack. The Godot scene loop
+cannot dispatch worker replies during that native alert. A39 dismisses the Godot `ConfirmationDialog` when an
+automatic reload goes out. The quick test exercises the same prompt state with the dialog simulated.
+
+Changed from the brief: the function list named the reload and reconnect handlers; the shared document send path
+also enforces the hold, the sync reply announces the automatic reload, and the reload sender retains the original
+ops boundary on reconnect; otherwise later edits could sync before the choice or be dropped during a retry.
+
+Changed from the brief: the worker function list only named `reload_outside`; ordinary opens, floor rebuilds,
+and staged reloads share document setup so the replacement uses the same preparation and cleans up on failure.
+
+Changed from the brief: the window function list specified one new handler; separate handlers process the two
+signals, and both questions share the same dialog setup and cleanup to keep labels and button behavior aligned.
+
+Architecture: The outside-save reload prepares a temporary sibling copy while the live document stays open.
+An unreadable copy leaves the session, floor copy, and journal intact. The loaded snapshot's hash and original
+file signature let the worker recognize a subsequent outside save.
+
+Architecture: The document controller keeps sync held after a failed reload or a reconnect before a choice,
+retries an in-flight reload with a new sequence, and signals the window on reload failure or when pending actions
+trigger a reload. The window owns the prompt and the status message. Wire messages stay the same.
+
+For the integrator: Run H098 with an agent other than H093's builder before merging H093.
