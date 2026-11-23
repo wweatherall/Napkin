@@ -252,6 +252,67 @@ check("board merge: both editing the same section stops it, nothing committed",
 sh(root, "git", "merge", "--abort")
 shutil.rmtree(root)
 
+# 6b. A clean BOARD.md merge (H091): main's Order line, job table and Notes still stay when git merges without conflict.
+root = repo()
+write(root, "BOARD.md", BOARD); sh(root, "git", "add", "-A"); sh(root, "git", "commit", "-qm", "board")
+sh(root, "git", "checkout", "-qb", "agent/clean-notes")
+write(root, "BOARD.md", BOARD.replace("- one", "- branch's note"))
+sh(root, "git", "commit", "-qam", "branch edits notes cleanly")
+sh(root, "git", "checkout", "-q", "main")
+integrator.take(integrator.lock_path(root), "tester", out=lambda *a: None)
+rc, said = run_integrate("agent/clean-notes", "--as", "tester", "--no-gate")
+board = open(os.path.join(root, "BOARD.md")).read()
+check("board clean merge: branch changing only Notes keeps main's Notes and names the Notes",
+      rc == 0 and "- one" in board and "- branch's note" not in board and "settled BOARD.md" not in said
+      and "kept main's Order line, job table and Notes in BOARD.md (the branch had changed the Notes)" in said,
+      said + board)
+
+sh(root, "git", "checkout", "-qb", "agent/clean-all")
+write(root, "BOARD.md", BOARD.replace("Order: H001", "Order: H001, H099")
+      .replace("| H001 |", "| H001 |\n| H099 |").replace("- one", "- branch's note"))
+sh(root, "git", "commit", "-qam", "branch edits order, table and notes cleanly")
+sh(root, "git", "checkout", "-q", "main")
+rc, said = run_integrate("agent/clean-all", "--as", "tester", "--no-gate")
+board = open(os.path.join(root, "BOARD.md")).read()
+check("board clean merge: branch changing Order, job table and Notes keeps main's and names all three",
+      rc == 0 and board == BOARD and "settled BOARD.md" not in said
+      and "kept main's Order line, job table and Notes in BOARD.md (the branch had changed the Order line, the job table, the Notes)" in said,
+      said + board)
+
+sh(root, "git", "checkout", "-qb", "agent/order-and-step")
+write(root, "BOARD.md", BOARD.replace("Order: H001", "Order: H001, H099")
+      .replace("1. Take a job.", "1. Take a job, then read its Notes."))
+sh(root, "git", "commit", "-qam", "branch edits order and worker step")
+sh(root, "git", "checkout", "-q", "main")
+write(root, "BOARD.md", BOARD.replace("- one", "- main's note"))
+sh(root, "git", "commit", "-qam", "main edits notes")
+rc, said = run_integrate("agent/order-and-step", "--as", "tester", "--no-gate")
+board = open(os.path.join(root, "BOARD.md")).read()
+check("board clean merge: branch changing Order and a worker step while main changes Notes keeps main's Order and Notes and the branch's step, naming only the Order line",
+      rc == 0 and "Order: H001\n" in board and "Order: H001, H099" not in board and "- main's note" in board
+      and "1. Take a job, then read its Notes." in board and "settled BOARD.md" not in said
+      and "kept main's Order line, job table and Notes in BOARD.md (the branch had changed the Order line)" in said,
+      said + board)
+
+sh(root, "git", "checkout", "-qb", "agent/only-step")
+write(root, "BOARD.md", board.replace("1. Take a job, then read its Notes.", "1. Take a job, read Notes, run tests."))
+sh(root, "git", "commit", "-qam", "branch edits only worker step")
+sh(root, "git", "checkout", "-q", "main")
+rc, said = run_integrate("agent/only-step", "--as", "tester", "--no-gate")
+board2 = open(os.path.join(root, "BOARD.md")).read()
+check("board clean merge: branch changing only a worker step merges it with no kept-main message",
+      rc == 0 and "1. Take a job, read Notes, run tests." in board2 and "kept main's" not in said
+      and "settled BOARD.md" not in said, said + board2)
+
+sh(root, "git", "checkout", "-qb", "agent/no-board")
+write(root, "notes.md", "other change\n")
+sh(root, "git", "commit", "-qam", "branch does not touch BOARD.md")
+sh(root, "git", "checkout", "-q", "main")
+rc, said = run_integrate("agent/no-board", "--as", "tester", "--no-gate")
+check("board clean merge: branch not touching BOARD.md leaves it untouched and says nothing",
+      rc == 0 and open(os.path.join(root, "BOARD.md")).read() == board2 and "kept main's" not in said, said)
+shutil.rmtree(root)
+
 # 7. Trace the actual steps through main(), including the map pause and --continue. The names below are
 #    the documented order, independent of the production tuples. Wrappers still run each step's real work.
 MERGE_ORDER = ["check_start", "prepare_log", "merge_branch", "settle_conflicts", "check_touches", "number_entries",
