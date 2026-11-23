@@ -34,3 +34,17 @@ tests/reference/.
 Checks: the quick tests listed, calling `m.menus.*`; `wc -l viewport/main.gd` before and after.
 
 Run the feature tests while building (`tools/featuretest.sh`), the quick test after each change, then `python3 tools/job.py test`. End your response with a Result line; leftovers as Follow-up lines; the folder-guide change (viewport/CLAUDE.md's Files list) as a For the integrator line.
+
+#### Response — Codex, 2026-11-23
+
+Branch: `codex/h110-t113-menus`.
+
+`main.gd` went from 2,182 to 2,035 lines. `m.menus` builds the native menus, updates check marks, and dispatches menu, toolbar and keyboard commands. `set_units` stays in main's model-facing API and delegates to MeasureBox, which applies and persists the model's units. The read-only `m._menus` compatibility getter serves `tests/quick/models.gd` and `tests/suites/shell.gd`, both outside Touches.
+
+Verified: feature tests and the gate passed (295 quick checks, six recorded suites matched, reference files unchanged). The Tools quick test reads the native menu, and the Units quick test checks the selected format and rounding. A separate macOS smoke test verified the native File New / Open / New Window and Edit Undo / Redo / Delete callback bindings and accelerators. The smoke test inspected the bindings without driving the system dialogs. Its native menu shutdown warnings also reproduced on the branch baseline.
+
+Decision IDs added: none. Open questions: none.
+
+Architecture: Add `viewport/menus.gd` (`m.menus`, RefCounted) to the module map. It owns the native menu RIDs, the duplicate-command filter, check marks and New/Open dialog presentation. Toolbar callbacks and matching keyboard shortcuts share `m.menus.run(tag)`. The Tools menu still derives from the tool registry. Main owns model switching, new-window creation and launching preferences. MeasureBox owns display units and asks the menus to refresh their check marks. Appearance owns the wood library and Paint command. Main still owns wood rendering and grain rotation, and menus.gd builds and checks the Wood menu.
+For the integrator: Add `menus.gd` to the Files list in `viewport/CLAUDE.md`. Update the main, keys and appearance entries there and the corresponding module map entries to name `m.menus` as the menu owner.
+Follow-up: When the model quick test and shell suite can be edited, have them read the menu RIDs from `m.menus` and remove main's compatibility getter.

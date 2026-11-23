@@ -53,15 +53,15 @@ func _double_click_at(p_model: Vector3) -> void:
 	Input.parse_input_event(up)
 	await _frames(1)
 
-## main.gd's _menu drops a repeat of the same command within 150 ms (the menu and its key both fired). A person's
+## menus.gd's run drops a repeat of the same command within 150 ms (the menu and its key both fired). A person's
 ## two presses are never that close, but a --fast run's can be (T85): wait the filter out before each press.
 func _menu_settle() -> void:
-	while m._menu_last.values().any(func(t): return Time.get_ticks_msec() - int(t) < 160):
+	while m.menus.menu_last.values().any(func(t): return Time.get_ticks_msec() - int(t) < 160):
 		await get_tree().process_frame
 
 func _menu(tag: String) -> void:
 	await _menu_settle()
-	m._menu(tag)
+	m.menus.run(tag)
 
 func _key_state(k: Key, down: bool) -> void:
 	var ev := InputEventKey.new(); ev.keycode = k; ev.pressed = down

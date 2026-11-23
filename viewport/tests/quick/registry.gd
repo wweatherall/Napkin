@@ -32,7 +32,13 @@ func run() -> void:
 	var want_bar: Array = WANT.map(func(w): return [w[0], w[1], w[2]])
 	harness._ok("the toolbar is Select, Paint, Rectangle, Circle, Line, Arc, Push/Pull, Move with their tooltips", bar == want_bar, bar)
 	var registry = load("res://tool_registry.gd")
-	var menu: Array = m.tool_list.map(func(t): return [t["id"], registry.menu_label(t)])
+	var menu: Array = []
+	if NativeMenu.has_feature(NativeMenu.FEATURE_GLOBAL_MENU):
+		var tools_menu: RID = m.menus.menus["Tools"]
+		for i in NativeMenu.get_item_count(tools_menu):
+			menu.append([NativeMenu.get_item_tag(tools_menu, i), NativeMenu.get_item_text(tools_menu, i)])
+	else:
+		menu = m.tool_list.map(func(t): return [t["id"], registry.menu_label(t)])
 	harness._ok("the Tools menu names them the same way", menu == WANT.map(func(w): return [w[0], w[3]]), menu)
 	harness._ok("the declared tools have no problems (fields, repeated ids or keys)", registry.problems(m.tool_list).is_empty(), registry.problems(m.tool_list))
 	# each tool key picks its tool; Paint has none
@@ -47,7 +53,7 @@ func run() -> void:
 	# a toolbar segment and a Tools menu item pick their tool (the menu's tag is the tool's id)
 	m._tool_buttons["move"].pressed.emit()
 	var by_button := m.tool
-	m._menu_last.clear()
-	m._menu("push")
+	m.menus.menu_last.clear()
+	m.menus.run("push")
 	harness._ok("the toolbar and the Tools menu pick tools by id", [by_button, m.tool] == ["move", "push"] and m._tool_buttons["push"].button_pressed, [by_button, m.tool])
 	m.set_tool("rect")

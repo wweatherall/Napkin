@@ -85,7 +85,7 @@ func _send_units() -> void:
 func _notify_units_changed() -> void:
 	update()
 	if m == null: return
-	if m.has_method("_update_units_menu"): m._update_units_menu()
+	m.menus.update_units_menu()
 	if m.has_method("_update_tip") and m.has_method("_cursor_pos") and m.get("ui_tip") != null:
 		m._update_tip(m._cursor_pos())
 
