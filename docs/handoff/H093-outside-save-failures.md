@@ -116,3 +116,45 @@ trigger a reload. The window owns the prompt and the status message. Wire messag
 For the integrator: Run H098 with an agent other than H093's builder before merging H093.
 
 Result: 93aa42d; feature suite passed, quick test 291/291; unreadable outside saves preserve the live model and ask, reconnect retries an in-flight reload, and an overtaken question closes.
+
+**Response 2 — Codex, 2026-11-23**
+
+Branch `codex/h093-outside-save-failures`. Merged H098 and current main into the job branch. No new decision IDs.
+
+| H098 case | Fix |
+|---|---|
+| Outside notice with a null revision | Keeps the revision nullable and resolves the notice normally. |
+| Edits drawn after a failed reload was sent | Keeps the original action boundary across retries so those edits are sent after reload. |
+| Failed sync while a question is pending | Holds the dirty action list and leaves the question open. Only a successful sync can trigger A39. |
+| Failed Keep Shop Sketch's | Keeps the outside save pending and sync held. The window restores the original question and shows the worker's error in the status line. |
+| Worker disconnects during Keep Shop Sketch's | Retries the same choice before resending the action list. |
+| Late reload reply during Keep Shop Sketch's | Matches both the command and its request sequence. |
+| New outside notice during reload | Retains the notice and reloads it with the post-reload edits still pending. |
+| New outside notice while sync is held | Carries the hold forward to the new notice. |
+| New outside notice during Keep Shop Sketch's | Processes the new notice once the choice succeeds. Any pending sync still gets the A36 wait. |
+| Closing with edits held by a failed reload | Waits for the outside save and pending edits to resolve before allowing the close. |
+| Switching models with a question open | Dismisses the question and invalidates its timer, including when reopening the same path. |
+| Unreadable bytes on disk | The watcher notice reaches reload, and the reload error reaches the window's outside-save prompt. |
+| Outside file deleted before choosing Keep Shop Sketch's | Saves the live model and clears the hold. The status omits the aside path when there was no file to copy. |
+| ZIP with corrupt Document.xml | Validates the archive and XML before asking FreeCAD to open a candidate. |
+| Failure preparing or publishing the reload's floor copy | Prepares the replacement on a separate document. Failure keeps the original live model. A failed journal replacement restores the previous floor copy. |
+| Retried reload on a new worker | Uses the older file's known history, preserves the newer journal's actions as dropped, and compares the boards against the window's last export when available. |
+
+Changed from the brief: The close reply and document reset also check or clear outside-save state so a prior
+flush or a model switch cannot finish the wrong operation.
+
+Changed from the brief: A failed Keep Shop Sketch's reuses the existing question text and reports the error in
+the existing worker-error status line. After keeping Shop Sketch's version when the other file was deleted,
+the status uses its existing success phrase without the aside path.
+
+Architecture: The document controller owns request identity, holds and queued notices through both outside-save
+choices. Main owns the retry question and status. Closing waits for resolution and for queued actions to sync.
+
+Architecture: The worker validates a reload snapshot, prepares the replacement document, floor and journal,
+and swaps the live session after their writes succeed. A cold reload retry uses the older file's known revision
+and the newer journal to reconstruct the drop list. Wire messages and journal fields are unchanged.
+
+Follow-up: H063 still applies to a replacement worker that never held Shop Sketch's live pre-conflict document.
+The retry copies FreeCAD's file aside and then resends the window's actions.
+
+For the integrator: All 16 named H098 regressions now run by default with no environment flag.

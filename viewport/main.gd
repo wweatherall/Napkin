@@ -314,6 +314,7 @@ func _ready() -> void:
 	doc.idle.connect(_request_properties)
 	doc.outside_waiting.connect(_on_outside_waiting)
 	doc.outside_failed.connect(_on_outside_failed)
+	doc.outside_keep_failed.connect(_on_outside_keep_failed)
 	doc.outside_actions_landed.connect(_on_outside_actions_landed)
 	doc.reloaded.connect(_on_reloaded)
 	doc.kept_mine.connect(_on_kept_mine)
@@ -1433,6 +1434,8 @@ var _outside_try := 0               # numbers each wait, so an old wait's timer 
 var _outside_dialog: ConfirmationDialog
 var _outside_question_model := ""  # the open Godot dialog, or the question simulated in test mode
 var _outside_closed_model := ""    # report an automatically closed question when its reload lands
+var _outside_question_text := ""
+var _outside_question_reason := ""
 var outside_asked: Array = []       # tests: the reasons the dialog would have given (it isn't shown in test mode)
 var outside_closed := 0            # tests: questions that automatically closed when the actions landed
 var reload_waves: Array = []        # tests: the boards the last reload's wave ran on
@@ -1474,8 +1477,26 @@ func _on_outside_failed(error: String) -> void:
 	_show_outside_question(text, reason)
 
 
+func _on_outside_keep_failed(error: String) -> void:
+	_on_sync_failed(error)
+	_log_worker("outside save of %s: %s" % [model_path, error])
+	_outside_try += 1
+	var try_then := _outside_try
+	# The macOS alert handles its choice on the same call stack. Reopen on the next turn.
+	var ask_again := func() -> void:
+		if _outside_try != try_then or doc.outside.is_empty() or doc.outside_seq >= 0:
+			return
+		if _outside_question_text.is_empty():
+			_ask_outside()
+		else:
+			_show_outside_question(_outside_question_text, _outside_question_reason)
+	ask_again.call_deferred()
+
+
 func _show_outside_question(text: String, reason: String) -> void:
 	_dismiss_outside_question()
+	_outside_question_text = text
+	_outside_question_reason = reason
 	if test_mode:
 		_outside_question_model = model_path
 		outside_asked.append(reason)
@@ -1560,8 +1581,10 @@ func _on_reloaded(resp: Dictionary) -> void:
 
 
 func _on_kept_mine(resp: Dictionary) -> void:
-	ui_sync.text = "kept Shop Sketch's %s; FreeCAD's save is beside it as %s" % [model_path.get_file(),
-		String(resp.get("aside", "")).get_file()]
+	var aside = resp.get("aside")
+	ui_sync.text = "kept Shop Sketch's %s" % model_path.get_file()
+	if aside is String and aside != "":
+		ui_sync.text += "; FreeCAD's save is beside it as %s" % aside.get_file()
 	ui_sync.add_theme_color_override("font_color", Color(0.1, 0.5, 0.15))
 
 
@@ -1627,6 +1650,11 @@ func switch_model(path: String, fresh := false) -> void:
 
 
 func _reset_model_state() -> void:
+	_outside_try += 1
+	_dismiss_outside_question()
+	_outside_closed_model = ""
+	_outside_question_text = ""
+	_outside_question_reason = ""
 	properties_seq = -1
 	properties_request += 1
 	set_selection([])

@@ -154,11 +154,15 @@ def serve(port):
 
     def keep_both(path, sess):
         """'Keep Shop Sketch's' (A36): FreeCAD's file aside first, then ours may go over it."""
-        aside = sess.copy_outside_aside()
+        sig = sess.disk_sig()
+        aside = sess.copy_outside_aside() if sig is not None else None
+        if sess.disk_sig() != sig:
+            raise OpError("FreeCAD's file changed while it was being copied")
         held.pop(path, None)
-        sess.file_sig = sess.disk_sig()             # seen: the save that follows writes over it, once
-        print(f"WORKER kept both: FreeCAD's save of {os.path.basename(path)} copied aside as "
-              f"{os.path.basename(aside)}", flush=True)
+        sess.file_sig = sig                         # seen: the save that follows writes over it, once
+        if aside is not None:
+            print(f"WORKER kept both: FreeCAD's save of {os.path.basename(path)} copied aside as "
+                  f"{os.path.basename(aside)}", flush=True)
         return aside
 
     def save_pending(paths=None, retry=True):
@@ -202,14 +206,14 @@ def serve(port):
             resp["error"] = "; ".join(f"couldn't save {os.path.basename(f['model'])}: {f['error']}" for f in saves["failed"])
         send(conn, resp)
 
-    def session_for(path, fresh=False, reload=False):
+    def session_for(path, fresh=False, reload=False, outside_reload=False):
         path = os.path.abspath(path)
         if path in sessions and (fresh or (reload and sessions[path].changed_on_disk())):
             sessions.pop(path).close()
             held.pop(path, None)                    # opened afresh from the file on disk: nothing left to wait on
             settling.pop(path, None)
         if path not in sessions:
-            sessions[path] = Session(path, fresh=fresh)
+            sessions[path] = Session(path, fresh=fresh, outside_reload=outside_reload)
         return sessions[path]
 
     def let_go(conn, paths):
@@ -287,14 +291,14 @@ def serve(port):
                 path = os.path.abspath(req["model"])
                 if claim(conn, path) is not None:
                     raise OpError(f"{os.path.basename(path)} is open in another window")
-                s = session_for(path)
-                info = s.reload_outside()
+                resumed = path not in sessions
+                outdir = req.get("outdir") or os.path.dirname(path)
+                s = session_for(path, outside_reload=True)
+                info = s.reload_outside(outdir, resumed)
                 held.pop(path, None)
                 settling.pop(path, None)
                 to_save.pop(path, None)             # what wasn't saved is in the journal's dropped list now
                 failed.discard(path)
-                outdir = req.get("outdir") or os.path.dirname(path)
-                s.export(outdir)
                 resp = dict(open_reply(s, seq), cmd="reload", outdir=outdir, **info)
                 print(f"WORKER reloaded {os.path.basename(path)}: changed {info['changed']}, removed "
                       f"{info['removed']}, dropped {len(info['dropped'])} actions", flush=True)
@@ -304,11 +308,14 @@ def serve(port):
                     raise OpError(f"{os.path.basename(path)} is open in another window")
                 s = session_for(path)
                 outside(path, s, settle=False)
-                aside = keep_both(path, s) if os.path.exists(path) else None    # always: a new worker may not know
+                notice = held.get(path)
+                aside = keep_both(path, s)                                 # always: a new worker may not know
                 od = to_save.get(path, (s, req.get("outdir")))[1]
                 to_save[path] = (s, od)             # ours goes over it now, even with nothing new to save
                 saves = save_pending({path})
                 if saves["failed"]:
+                    if notice is not None:
+                        held[path] = notice
                     raise OpError(saves["failed"][0]["error"])
                 resp = {"ok": True, "cmd": "keep_mine", "model": path, "aside": aside, "rev": s.rev, "seq": seq}
             elif cmd == "set_units":                # display units saved in the model's Meta (I57, I62)
