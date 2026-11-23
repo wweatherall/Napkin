@@ -6,7 +6,7 @@ evaluator; this side predicts. The top-level CLAUDE.md has the overview; ARCHITE
 protocol (update it in the same commit when you change either). Tools have their own guide in `tools/CLAUDE.md`.
 
 ## Files
-- `main.gd` (~2,000 lines; split in T39 / T41 / T75): setup and UI, materials and mesh helpers (`_tri_mesh`, `_lines`),
+- `main.gd` (~2,000 lines; split in T39 / T41 / T75): setup and UI, materials (the mesh helpers `_tri_mesh`, `_lines` forward to the presenter),
   worker process and lifecycle, rejection bookkeeping, input dispatch (mouse, trackpad, camera), model switching.
 - `keys.gd` (T75): the keyboard, `m.keys`: shortcuts, tool keys (`m.tool_keys`, from each tool's `TOOL`), Esc, Enter, Delete / Backspace (I48), typed
   characters, Tab / ⌥ for Push/Pull. main's `_input` / `_unhandled_input` stay the entry points (tests call
@@ -24,7 +24,9 @@ protocol (update it in the same commit when you change either). Tools have their
   and the presenter draw on its signals; main forwards the old names.
 - `presenter.gd` (T41, A33b): geometry on screen, `m.pres`. Owns `body_tris` / `body_verts` / `body_edges` /
   `body_cuts`, drafts and rects, confirmed board nodes, remembered states, waves (`step_waves` each frame) and the
-  selection / context highlights. Also owns a unit's joined triangles (`unit_tris`) and Select's drag box (T88 step 2). Draws with main's helpers through `m` (like the legacy tools); main forwards the old
+  selection / context highlights. Also owns a unit's joined triangles (`unit_tris`), Select's drag box (T88 step 2), the mesh / line / collision /
+  marker helpers (`tri_mesh`, `lines`, `add_collision`, `show_marker`), Push/Pull's face highlight and `present_draft`
+  (a committed draft and its wave, T88 step 5); `push_tests` is Push/Pull's test recorder and rejection filter. main forwards the old
   names (`m.body_tris`, `m.drafts`, `m._begin_wave`, ...). main routes the document's signals to it.
 - `inference.gd`: the one snapping engine (pick; endpoint > midpoint > on edge; axis inference). Every tool uses it.
 - `tools/`: one object per tool (see its guide); `tool_registry.gd` finds them (each declares a `TOOL`), and the
@@ -72,7 +74,7 @@ protocol (update it in the same commit when you change either). Tools have their
 ## Rules
 - Overlays lying on faces use `overlay.gdshader` (depth bias in the shader). Never offset node transforms: that
   broke rectangle picking. Lines get the same bias in `line.gdshaderinc`; the grid has none and draws first.
-- Never draw with PRIMITIVE_LINES: 1-pixel GL lines get no anti-aliasing and vanish. Use `_lines()` (W12).
+- Never draw with PRIMITIVE_LINES: 1-pixel GL lines get no anti-aliasing and vanish. Use the presenter's `lines()` (`_lines()` in main, `ctx.view.preview` in a tool) (W12).
 - Godot 4.6 delivers an injected gesture (Input.parse_input_event) twice per frame; `_repeat_gesture` drops the copy.
 - Test hooks (`delay_ms`, forced rejection, `--*test`) are for testing only (P02).
 
