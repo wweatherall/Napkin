@@ -434,7 +434,7 @@ class Session:
             if outside_reload and journal_rev > file_meta_rev:
                 self.rev = journal_rev
                 self.rev_ops[journal_rev] = self.applied
-                self.applied = self._file_ops(file_meta_rev)
+                self.applied = self._file_ops(self.path, file_meta_rev)
             self.dropped = list(j.get("dropped", []))
             self.ids.owners.update(j.get("id_owners", {}))
             self.ids.accept(j["ops"] + self.dropped, j.get("reserved_ids", []), legacy=True)
@@ -510,9 +510,24 @@ class Session:
                         bool(getattr(obj, "SSHidden", False)))
         return out
 
-    def _file_ops(self, frev):
-        """The ops the file's revision frev holds: known for revisions this session opened or saved; else the .prev
-        journal's, if it is that revision; else none (every action counts as dropped)."""
+    def _file_ops(self, path, frev):
+        """Read the ops from the file itself, then try the session's history and the previous journal."""
+        if frev is not None:
+            try:
+                with zipfile.ZipFile(path) as archive:
+                    root = ET.fromstring(archive.read("Document.xml"))
+                meta = {item.get("key"): item.get("value")
+                        for item in root.findall("./Properties/Property[@name='Meta']/Map/Item")}
+                if int(meta["ShopSketchRev"]) == frev:
+                    ops = json.loads(meta["ShopSketchOps"])
+                    if isinstance(ops, list) and all(
+                            isinstance(op, dict) and isinstance(op.get("type"), str) and op["type"]
+                            and (op.get("id") is None or isinstance(op["id"], str)) for op in ops):
+                        return [{"op": op, "key": canon(op), "id": op.get("id"), "type": op["type"], "status": "ok"}
+                                for op in ops]
+            except (OSError, zipfile.BadZipFile, ET.ParseError, KeyError, TypeError, ValueError,
+                    OverflowError, RecursionError):
+                pass  # Old or damaged metadata leaves the historical fallbacks available.
         if frev in self.rev_ops:
             return list(self.rev_ops[frev])
         pj = read_journal(generation(self.path)["prev_journal"])
@@ -546,6 +561,7 @@ class Session:
                 validate_project(snapshot.name)
                 digest = sha256(snapshot.name)
                 frev = file_rev(snapshot.name)
+                kept = self._file_ops(snapshot.name, frev)
                 doc, model, drawing = self._open_document(snapshot.name)
             try:
                 staged = copy(self)
@@ -556,7 +572,6 @@ class Session:
                 staged.ids = deepcopy(self.ids)
                 staged.ids.seed_native(doc)
                 file_meta_rev = int(doc.Meta.get("ShopSketchRev", "0") or 0)
-                kept = self._file_ops(frev)
                 kept_keys = {e["key"] for e in kept}
                 prior_ops = self.applied
                 if self.rev > int(self.doc.Meta.get("ShopSketchRev", "0") or 0) and self.rev in self.rev_ops:
@@ -784,9 +799,11 @@ class Session:
         t0 = time.perf_counter()
         if outdir:
             write_glb(self.model, os.path.join(outdir, "model.glb"))     # the whole model, for renders (A07)
-        self.rev += 1
+        saved_ops = [e for e in self.applied if e["status"] == "ok"]
         meta = self.doc.Meta
         prev_meta = dict(meta)
+        meta["ShopSketchOps"] = json.dumps([e["op"] for e in saved_ops], separators=(",", ":"))
+        self.rev += 1
         meta["ShopSketchRev"] = str(self.rev)
         if self.units is not None:
             meta["ShopSketchUnits"] = self.units
@@ -805,7 +822,7 @@ class Session:
             raise
         self.dirty = False
         self.file_sig = self.disk_sig()
-        self.rev_ops[self.rev] = [e for e in self.applied if e["status"] == "ok"]   # what the file holds
+        self.rev_ops[self.rev] = saved_ops
         for old in sorted(self.rev_ops)[:-50]:        # the last 50 revisions are plenty for FreeCAD's open copy
             del self.rev_ops[old]
         self.external = False   # the file is exactly our journal again; the undo floor stays (the journal keeps it)
