@@ -333,6 +333,19 @@ check("after an undo the reload keeps the revision's own ops and drops only the 
       r and [o["id"] for o in r["ops"]] == ["r1", "pp1", "r2", "pp2"] and [o["id"] for o in r["dropped"]] == ["r3", "pp3"]
       and r["changed"] == ["b2"] and r["removed"] == ["b3"], r)
 
+# 7b. A rejected action in the saved revision (H092 finding 7): a reload keeps only the ops that worked, as opening
+#     and the .prev journal do, so the window isn't left with a failed op below the undo floor.
+m7b = fresh_model("rejected")
+opened(m7b)
+bad = {"id": "bad1", "type": "push_pull", "target": {"rect": "r1"}, "distance": 0}
+sync(w, m7b, board_ops(300) + [bad], 1)
+ask({"cmd": "flush", "model": m7b}, "flush")
+freecad_save(m7b)
+wait_outside(m7b)
+r = ask({"cmd": "reload", "model": m7b, "outdir": m7b + "-out"}, "reload")
+check("a reload of a revision with a rejected action keeps only the ops that worked",
+      r and [o["id"] for o in r["ops"]] == ["r1", "pp1"] and r["undo_floor"] == 2 and r["dropped"] == [], r)
+
 # 8. A held model with unsaved actions whose file is then deleted: the window closing (its save keeps both, and
 #    the copy aside fails) is a failed save, not the end of the worker for every window.
 m8 = fresh_model("deleted")
