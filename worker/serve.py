@@ -142,7 +142,10 @@ def serve(port):
     def watch():
         for path in list(owners):
             if path in sessions and owners[path] in clients:
-                outside(path, sessions[path])
+                try:                                # one unreadable file mustn't stop the worker for every window
+                    outside(path, sessions[path])
+                except Exception as e:
+                    print(f"WORKER couldn't look at {os.path.basename(path)}: {type(e).__name__}: {e}", flush=True)
 
     def keep_both(path, sess):
         """'Keep Shop Sketch's' (A36): FreeCAD's file aside first, then ours may go over it."""
@@ -164,11 +167,11 @@ def serve(port):
             if not retry and path in failed:
                 continue
             aside = None
-            if outside(path, sess, settle=False):
-                if not retry:
-                    continue
-                aside = keep_both(path, sess)
-            try:
+            try:                                    # the outside check reads the file too: its failure is a save's
+                if outside(path, sess, settle=False):
+                    if not retry:
+                        continue
+                    aside = keep_both(path, sess)
                 save_ms = sess.save(od)
             except Exception as e:
                 err = f"{type(e).__name__}: {e}"

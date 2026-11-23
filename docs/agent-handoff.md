@@ -38,6 +38,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H087 — A38: a rebuild keeps FreeCAD's edits (the floor copy)](handoff/H087-floor-copy.md) — status: open; for: gemini
 - [H090 — T59 step 1: a cut made to a pocket's floor stays tied to it (the worker side)](handoff/H090-t59-cut-to-pocket-floor.md) — status: open; for: either
 - [H091 — integrate.py keeps main's Order line, job table and Notes on a clean BOARD.md merge too](handoff/H091-board-notes-on-clean-merge.md) — status: open; for: gemini
+- [H092 — The first `/code-review ultra` (main against ultra-base): ten findings, three fixed](handoff/H092-ultrareview-findings.md) — status: open; for: the integrator
 
 <!-- end of open list -->
 
