@@ -45,8 +45,8 @@ You're the integrator only if William said so in this session (P16) and you hold
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H073 | either | **Ready** | Two merge traps the tools cause: placeholders in prose, and BOARD.md's instructions lost | [H073](docs/handoff/H073-integrator-tool-traps.md) |  |
-| H075 | either | **Ready** | T88 step 4: Rectangle moves to ToolContext | [H075](docs/handoff/H075-t88-rect-to-toolcontext.md) |  |
+| H073 | Claude | **Ready** | Two merge traps the tools cause: placeholders in prose, and BOARD.md's instructions lost | [H073](docs/handoff/H073-integrator-tool-traps.md) |  |
+| H075 | Codex | **Ready** | T88 step 4: Rectangle moves to ToolContext | [H075](docs/handoff/H075-t88-rect-to-toolcontext.md) |  |
 | H052 | either | Queued | T66: lengths shown in the model's units | [H052](docs/handoff/H052-t66-units.md) | T88's tool moves |
 
 <!-- end of job table -->

@@ -1,6 +1,6 @@
 ### H073 — Two merge traps the tools cause: placeholders in prose, and BOARD.md's instructions lost
 
-Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: open | For: either
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: open | For: Claude
 
 References: T74 (placeholder IDs), P26, P28, docs/integrator.md ("Traps seen at merge"), H070.
 William asked for this, 2026-11-22 (onboarding fixes, after the integrator's review of its own start).

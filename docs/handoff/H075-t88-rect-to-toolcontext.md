@@ -1,6 +1,6 @@
 ### H075 — T88 step 4: Rectangle moves to ToolContext
 
-Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: open | For: either
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: open | For: Codex
 
 References: T88, docs/specs/T88-tool-interface.md (§ rect_tool.gd, the delivery table's step 4), P21, A34, H051
 (ToolContext), H065 (Paint), H071 (Select) and H072 (Circle): the worked examples; follow Circle's pattern and test
