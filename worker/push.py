@@ -1,10 +1,24 @@
-"""Rectangles and Push/Pull: new boards, cuts and joins, through-cuts (I24)."""
+"""Rectangles and Push/Pull: new boards, cuts and joins, through-cuts (I24), pocket-floor ties (T59)."""
 import Part
-from common import OpError, TOL, add_props, unit, vec
+from common import NORMAL_TOL, OpError, TOL, add_props, unit, vec
 
 
 class PushActions:
     """Part of Model (model.py): works through self on the FreeCAD document."""
+
+    # ---------- helpers ----------
+    @staticmethod
+    def _axis_of(u):
+        return next((i for i in range(3) if abs(abs(u[i]) - 1.0) < 1e-6), None)
+
+    @staticmethod
+    def _has_expr(obj, prop):
+        return any(path.lstrip(".") == prop for path, _ in getattr(obj, "ExpressionEngine", []))
+
+    @staticmethod
+    def _cut_far_level(src, axis, sign):
+        edge = "XYZ"[axis] + ("Max" if sign > 0 else "Min")
+        return getattr(src.Base.Shape.BoundBox, edge) + sign * src.LengthFwd.Value
 
     # ---------- operations ----------
     @staticmethod
@@ -14,7 +28,7 @@ class PushActions:
         drawn on by as much as the board has grown on that side since. Make the board thicker or thinner in
         FreeCAD and the hole stays through. Only for axis-aligned pushes (all of them, today)."""
         u = unit(direction)
-        axis = next((i for i in range(3) if abs(abs(u[i]) - 1.0) < 1e-6), None)
+        axis = PushActions._axis_of(u)
         if axis is None:
             return
         A = "XYZ"[axis]
@@ -30,6 +44,75 @@ class PushActions:
             grown = f"{P}.Shape.BoundBox.{A}Min - {B}.Shape.BoundBox.{A}Min - {level - lo!r}"
         ext.setExpression("LengthFwd", fwd)
         ext.setExpression("LengthRev", f"(({grown}) > 0 ? ({grown}) : 0) * 1mm")
+
+    @staticmethod
+    def tie_to_floor(ext, plane, floor_ext, direction):
+        """A cut made up to a pocket's floor (T59, I26b): its length follows the floor cutter's depth."""
+        u = unit(direction)
+        axis = PushActions._axis_of(u)
+        if axis is None:
+            return
+        A = "XYZ"[axis]
+        NB, FB, FE = plane.Name, floor_ext.Base.Name, floor_ext.Name
+        if u[axis] < 0:
+            fwd = f"({NB}.Shape.BoundBox.{A}Min - {FB}.Shape.BoundBox.{A}Min) * 1mm + {FE}.LengthFwd"
+        else:
+            fwd = f"({FB}.Shape.BoundBox.{A}Max - {NB}.Shape.BoundBox.{A}Max) * 1mm + {FE}.LengthFwd"
+        ext.setExpression("LengthFwd", fwd)
+
+    def _find_floor_cutter(self, container, direction, face_normal, point):
+        """Find the first Part::Extrusion cutter in container whose far end is the floor at (point, face_normal)."""
+        u = unit(direction)
+        axis = self._axis_of(u)
+        if axis is None:
+            return None
+        if unit(face_normal).dot(u) > -NORMAL_TOL:
+            return None
+        sign = 1.0 if u[axis] > 0 else -1.0
+        for b in container.Group:
+            if b.TypeId != "Part::Cut":
+                continue
+            for t in self.tools_of(b):
+                src = t.Base if self.is_array(t) else t
+                if src is None or src.TypeId != "Part::Extrusion" or src.Base is None:
+                    continue
+                if getattr(src, "SSThrough", False) or self._has_expr(src, "LengthRev"):
+                    continue
+                if src.Base.Shape.isNull() or t.Shape.isNull() or src.Dir.Length < 1e-12:
+                    continue
+                sd = unit(src.Dir)
+                if self._axis_of(sd) != axis or (sd - u).Length > 1e-6:
+                    continue
+                if abs(self._cut_far_level(src, axis, sign) - point[axis]) <= TOL and t.Shape.isInside(point, TOL, True):
+                    return src
+        return None
+
+    def _detach_floor_cuts(self, board, face_normal, point):
+        """Pushing a tied pocket's floor again detaches it, keeping its current depth (I26b)."""
+        c, fr = self.edit_frame(board)
+        p = fr.pt(point)
+        fn = unit(fr.dir(face_normal))
+        for b in c.Group:
+            if b.TypeId != "Part::Cut":
+                continue
+            for t in self.tools_of(b):
+                src = t.Base if self.is_array(t) else t
+                if src is None or src.TypeId != "Part::Extrusion" or src.Base is None:
+                    continue
+                if not getattr(src, "SSTiedTo", ""):
+                    continue
+                if src.Base.Shape.isNull() or t.Shape.isNull() or src.Dir.Length < 1e-12:
+                    continue
+                sd = unit(src.Dir)
+                axis = self._axis_of(sd)
+                if axis is None or fn.dot(sd) > -NORMAL_TOL:
+                    continue
+                sign = 1.0 if sd[axis] > 0 else -1.0
+                if abs(self._cut_far_level(src, axis, sign) - p[axis]) <= TOL and t.Shape.isInside(p, TOL, True):
+                    val = src.LengthFwd.Value
+                    src.setExpression("LengthFwd", None)
+                    src.LengthFwd = val
+                    src.SSTiedTo = ""
 
     def op_rect(self, op):
         rid = op["id"]
@@ -52,6 +135,9 @@ class PushActions:
         tgt = op["target"]
         oid = op["id"]
         fit = op.get("edge_fit")
+        to_face = op.get("to_face")
+        if to_face is not None and (d >= 0 or op.get("through") or fit or op.get("resize_stock") or op.get("body")):
+            raise OpError("to_face is only for a cut into a board")
         if fit and "face" in tgt and "region" not in tgt:
             import plane_fit
             board, _, normal = self.resolve_face(tgt["face"])
@@ -69,7 +155,11 @@ class PushActions:
             board = self.body(tgt["face"]["body"])
             if plane_fit.fitted_end(board) is not None:      # pushing a tied end again detaches it (I26b, I40)
                 if plane_fit.push_fitted_end(self, board, unit(vec(tgt["face"]["normal"])), vec(tgt["face"]["point"]), d):
+                    if to_face is not None:
+                        raise OpError("to_face is only for a cut into a board")
                     return [board.BodyId]
+            if not op.get("body"):
+                self._detach_floor_cuts(board, vec(tgt["face"]["normal"]), vec(tgt["face"]["point"]))
         if op.get("resize_stock") and "face" in tgt and "region" not in tgt:
             import plane_fit
             board, _, normal = self.resolve_face(tgt["face"])
@@ -117,6 +207,8 @@ class PushActions:
             pl = None  # materialize this region, never extrude the whole source profile
 
         if not on or op.get("body"):
+            if to_face is not None:
+                raise OpError("to_face is only for a cut into a board")
             # a free rectangle, or the user asked for a separate board: a new board, world frame
             bid = op.get("body") or f"{oid}_body"
             c = self.new_board(bid)
@@ -170,10 +262,17 @@ class PushActions:
         run_base = c.Tip.Base if (d < 0 and self.is_cut_run(c.Tip)) else c.Tip
         ext = self.extrusion(base, fr.dir(n * d), d, f"{oid} push")
         through = bool(op.get("through")) and d < 0
-        add_props(ext, SSOp=oid, **({"SSThrough": True} if through else {}))
+        floor_ext = None
+        if to_face is not None:
+            floor_ext = self._find_floor_cutter(
+                c, fr.dir(n * d), fr.dir(vec(to_face["normal"])), fr.pt(vec(to_face["point"])))
+        tied_to = (getattr(floor_ext, "SSOp", "") or floor_ext.Name) if floor_ext is not None else ""
+        add_props(ext, SSOp=oid, SSTiedTo=tied_to, **({"SSThrough": True} if through else {}))
         self.put_in(c, base, ext)
         if through:
             self.through_all(ext, base, run_base, fr.dir(n * d), fr.pt(world_face.CenterOfMass))
+        elif floor_ext is not None:
+            self.tie_to_floor(ext, base, floor_ext, fr.dir(n * d))
         b = self.boolean(c, ext, d, oid)
         self.doc.recompute()
         self.check_result(before, b.Shape, d)

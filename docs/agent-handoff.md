@@ -35,7 +35,6 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H083 — T88 step 6: Move moves to ToolContext, and the legacy setup goes](handoff/H083-t88-move-to-toolcontext.md) — status: open; for: either
 - [H085 — T83: the Arc tool (2-Point and Centre arcs, exact in FreeCAD, splitting faces)](handoff/H085-t83-arc-tool.md) — status: queued (after H052); for: either
 - [H086 — T83 step 2: an arc on a corner is tangent to both edges (rounded corners)](handoff/H086-t83-arc-corner-tangent.md) — status: queued (after H085); for: either
-- [H090 — T59 step 1: a cut made to a pocket's floor stays tied to it (the worker side)](handoff/H090-t59-cut-to-pocket-floor.md) — status: open; for: either
 - [H093 — Outside saves: a failed reload asks, a worker lost mid-reload reloads again, and a question the actions overtook closes (H092 findings 2 and 5, A39)](handoff/H093-outside-save-failures.md) — status: queued (after H083); for: either
 - [H094 — A reload from a revision Shop Sketch no longer remembers keeps the ops that file holds (H092 finding 6)](handoff/H094-reload-unknown-revision.md) — status: queued (after H093); for: either
 - [H095 — Redo after undoing an action that never reached the worker no longer blocks every sync (H092 finding 8)](handoff/H095-redo-unowned-id.md) — status: open; for: either
@@ -47,6 +46,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 Full entries in [handoff-archive.md](handoff-archive.md).
 
+- H090 — T59 step 1: a cut made to a pocket's floor stays tied to it (the worker side). Resolved: merged into main by the integrator, 2026-11-22.
 - H092 — The first `/code-review ultra` (main against ultra-base): ten findings, three fixed. Resolved: all ten findings fixed or made jobs (H093-H096).
 - H091 — integrate.py keeps main's Order line, job table and Notes on a clean BOARD.md merge too. Resolved: merged into main by the integrator, 2026-11-22.
 - H087 — A38: a rebuild keeps FreeCAD's edits (the floor copy). Resolved: merged into main by the integrator, 2026-11-22.

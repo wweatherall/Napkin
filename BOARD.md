@@ -55,7 +55,6 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 | H093 | either | Queued | Outside saves: a failed reload asks, a worker lost mid-reload reloads again, and a question the actions overtook closes (H092 findings 2 and 5, A39) | [H093](docs/handoff/H093-outside-save-failures.md) | H083 |
 | H094 | either | Queued | A reload from a revision Shop Sketch no longer remembers keeps the ops that file holds (H092 finding 6) | [H094](docs/handoff/H094-reload-unknown-revision.md) | H093 |
 | H096 | either | Queued | Pushing one cell of a split profile keeps the rest of the profile on screen (H092 finding 9) | [H096](docs/handoff/H096-region-push-keeps-profile.md) | H083 |
-| H090 | either | **Done**: for review (gemini) | T59 step 1: a cut made to a pocket's floor stays tied to it (the worker side) | [H090](docs/handoff/H090-t59-cut-to-pocket-floor.md) |  |
 
 <!-- end of job table -->
 
