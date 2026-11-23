@@ -517,11 +517,25 @@ def entry_item(text, statuses):
     return named[0] if named else None
 
 
+RESULT_SUMMARY_LIMIT = 160
+
+
+def clean_result_text(rest):
+    rest = rest.replace("|", "/").rstrip()
+    return rest if rest.endswith(".") else rest + "."
+
+
+def format_result_summary(tid, hid, commit, rest, merge, limit=RESULT_SUMMARY_LIMIT):
+    text = clean_result_text(rest)
+    if len(text) > limit:
+        text = text[:limit - 1] + "…"
+    return f"{tid} ({hid}): Result ({commit}, merged {merge}): {text}"
+
+
 def record_result(root, tid, commit, rest, merge):
     """Append "Result (<commit>, merged <merge>): <rest>" to tid's row, in the live log or the archive.
     Returns (the file changed or None, what happened)."""
-    rest = rest.replace("|", "/").rstrip()
-    rest = rest if rest.endswith(".") else rest + "."
+    rest = clean_result_text(rest)
     for rel in (LOG, ARCHIVE):
         p = os.path.join(root, rel)
         if not os.path.isfile(p):
@@ -923,16 +937,18 @@ def push_main(s):
 
 
 def draft_results(root, results, name, say):
-    """Step 8: append each Result line to its Work list row and commit it on its own; show the commit. True if made."""
+    """Step 8: append each Result line to its Work list row and commit it on its own; show a short summary. True if made."""
     if not results:
         return False
     merge = git("rev-parse", "--short", "HEAD", root=root).stdout.strip()
-    changed, items = set(), []
+    changed, items, summaries = set(), [], []
     for hid, tid, commit, rest in results:
         rel, what = record_result(root, tid, commit, rest, merge)
-        say(what)
         if rel:
             changed.add(rel); items.append(f"{tid} ({hid})")
+            summaries.append(format_result_summary(tid, hid, commit, rest, merge))
+        else:
+            say(what)
     if not changed:
         return False
     git("add", *sorted(changed), root=root)
@@ -942,8 +958,9 @@ def draft_results(root, results, name, say):
                        capture_output=True, text=True)
     if r.returncode != 0:
         say("the result commit was refused (left staged):\n" + (r.stdout + r.stderr).strip()); return True
+    for line in summaries:
+        print(line)
     say("committed " + git("log", "--oneline", "-1", root=root).stdout.strip())
-    print(git("show", "--format=", "--word-diff=plain", "HEAD", root=root).stdout.rstrip())
     return True
 
 

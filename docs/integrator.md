@@ -16,7 +16,7 @@ Architecture: lines, the response) and CLAUDE.md (commit trailers); this page sa
 - No timed check-ins (P39): run `python3 -u tools/job.py watch --next` with Bash `run_in_background` (not a
   Monitor: it expires every 30 min, and each wake re-reads the whole context); it wakes you
   once on the first new event (a job done, a job stale: its deadline passed, check its branch and worktree; a
-  worker waiting on William; a job returned; the queue empty for Claude or Codex: check in with William). Start
+  worker waiting on William; a job returned; the queue empty while a worker waits on `take --wait`: check in with William). Start
   it again after each. After a context clear, re-arm it.
 - `python3 tools/job.py status` shows the queue; `python3 tools/job.py board` rebuilds the board's job table (the
   commit hook does it on main).
@@ -29,7 +29,7 @@ Architecture: lines, the response) and CLAUDE.md (commit trailers); this page sa
   files the branch changed outside its job's Touches list; renumbers a PROTOCOL_VERSION bump on top if main moved
   on meanwhile (A35); removes the job's worktree and branch and marks it merged; with --push it stops before
   pushing for you to look (`--yes` goes on).
-- Put one that fails review or the gate back with `python3 tools/job.py return <id> "<notes>"`.
+- Put one that fails review or the gate back with `python3 tools/job.py return <id> "<notes>"`; hand a job to another agent (moving its worktree into `<checkout>-jobs/` if needed) with `python3 tools/job.py reassign <id> --to claude|codex|gemini ["<notes>"]`.
 - Placeholder IDs (T74): integrate.py runs `tools/number_ids.py` at merge, giving each I-new-N, T-new-N, H-new-N
   the next free number. It numbers only placeholders that are IDs (a log row, a handoff entry's file or heading, and
   references to them); any other is left and reported as "not numbered: <file>:<line>" (H073). Jobs you write on
@@ -37,7 +37,7 @@ Architecture: lines, the response) and CLAUDE.md (commit trailers); this page sa
   (`--dry-run` to look first) before committing.
 - Codex records William's decisions in the log itself (P09, AGENTS.md). When integrating its branch, carry over
   only the rows it added or superseded: its copy of the rest may be older than main's.
-- Results (T91, P17): integrate.py commits each response's `Result:` line to its Work list row; a response without
+- Results (T91, P17): integrate.py commits each response's `Result:` line to its Work list row and prints one short line per item plus the commit's oneline; a response without
   one is yours to record. Follow-ups (P26): it copies `Follow-up:` lines into docs/follow-ups.md and prints
   `For the integrator:` lines under "for you now:"; clear a follow-up in the commit that does it.
 - Small fixes (P22): merge and push the standing `small-fixes` (and `codex/small-fixes`) branch when the gate

@@ -35,11 +35,14 @@ Integrator:
   python3 tools/job.py board    rewrite BOARD.md's job table from docs/handoff/ (in the board's Order line) plus the
                                 live state (the commit hook does this on main)
   python3 tools/job.py watch [--once | --next]
-                                one line per event (done, stale, waiting, returned, queue empty for Claude or Codex),
+                                one line per event (done, stale, waiting, returned, queue empty while a worker waits),
                                 and keeps running: run it under your watcher (Monitor). --next: stays quiet about
                                 what's true now and stops after the first new event (one wake; run it in the background)
   python3 tools/job.py return <id> "<notes>"
                                 put a reviewed job back on the queue; the next worker continues its branch
+  python3 tools/job.py reassign <id> --to claude|codex|gemini ["<notes>"]
+                                hand a returned, in-progress or waiting job to another agent (moves its worktree
+                                into <checkout>-jobs/ if needed and drops it from the old session's count)
 tools/integrate.py marks a merged job merged and deletes its worktree and branch.
 
 The live state (claims, beats, done) is a JSON file beside the integrator lock in git's common folder
@@ -107,6 +110,7 @@ def read_state(path):
         st = {}
     st.setdefault("jobs", {})
     st.setdefault("events", [])
+    st.setdefault("waiting_workers", {})
     return st
 
 
@@ -405,6 +409,7 @@ def _take(cwd, agent, session, now=None, out=print):
         st["jobs"][job["id"]] = {**{k: prev[k] for k in ("notes", "returned") if k in prev},
                                  "state": "in progress", "agent": agent, "session": session, "branch": branch,
                                  "worktree": wt, "handoff": job["name"], "taken": now, "beat": now}
+        st.get("waiting_workers", {}).pop(session, None)
         event(st, "taken", job["id"], f"{agent} ({session}) took {job['id']}", now)
         if counted(session):
             mine = st.setdefault("sessions", {}).setdefault(session, [])
@@ -428,22 +433,33 @@ def take_wait(cwd, agent, session, wait=None, poll=None, out=print, sleep=time.s
     while it looks, so nothing beats or goes stale. Returns the job's id, or None (refused, or timed out)."""
     wait = WORKER_WAIT if wait is None else wait
     poll = WATCH_POLL if poll is None else poll
-    start, quiet = clock(), []
-    while True:
-        said = []
-        jid, why = _take(cwd, agent, session, out=out if not quiet else said.append)
-        if jid or why == "refused":
-            for line in said:                  # a later look says only what came of it, not "nothing Ready"
-                out(line)
-            return jid
-        if not quiet:
-            out(f"waiting up to {wait // 60} min for a job (looking every {poll} s)")
-            sys.stdout.flush()
-            quiet.append(1)
-        if clock() - start + poll > wait:
-            out(f"nothing came in {wait // 60} min: stopping. Tell William the queue is empty for {agent}.")
-            return None
-        sleep(poll)
+    start, quiet, registered = clock(), [], False
+    try:
+        while True:
+            said = []
+            jid, why = _take(cwd, agent, session, out=out if not quiet else said.append)
+            if jid or why == "refused":
+                if jid:
+                    registered = False         # _take already popped this session under its lock
+                for line in said:              # a later look says only what came of it, not "nothing Ready"
+                    out(line)
+                return jid
+            if not quiet:
+                out(f"waiting up to {wait // 60} min for a job (looking every {poll} s)")
+                sys.stdout.flush()
+                quiet.append(1)
+            if clock() - start + poll > wait:
+                out(f"nothing came in {wait // 60} min: stopping. Tell William the queue is empty for {agent}.")
+                return None
+            if not registered:
+                with locked(state_path(cwd)) as st:
+                    st["waiting_workers"][session] = {"agent": agent, "since": start}
+                registered = True
+            sleep(poll)
+    finally:
+        if registered:
+            with locked(state_path(cwd)) as st:
+                st.get("waiting_workers", {}).pop(session, None)
 
 
 def find_job(st, cwd, jid=None):
@@ -687,6 +703,76 @@ def return_job(cwd, jid, notes, now=None, out=print):
     return True
 
 
+REASSIGNABLE = ("returned", "in progress", "waiting")
+
+
+def reassign_job(cwd, jid, to_agent, notes=None, now=None, out=print):
+    """Hand a returned, in-progress or waiting job to another agent; the integrator runs this from the main checkout."""
+    agent = (to_agent or "").lower()
+    if agent not in AGENTS:
+        out(f"refused: unknown agent {to_agent!r} (expected one of {', '.join(AGENTS)})")
+        return False
+    root = main_root(cwd)
+    if toplevel(cwd) != root:
+        out("refused: run reassign in the main checkout, not a job worktree")
+        return False
+    now = now or time.time()
+    beat_warn = None
+    with locked(state_path(cwd)) as st:
+        j = st["jobs"].get(jid)
+        if not j:
+            out(f"{jid} isn't in the queue")
+            return False
+        state = j.get("state")
+        if state not in REASSIGNABLE:
+            out(f"refused: {jid} is {state} (can reassign only returned, in progress or waiting jobs)")
+            return False
+        if state == "in progress":
+            act = activity(root, j, now)
+            if not stale(j, act, now):
+                mins = max(0, int((now - act) // 60))
+                beat_warn = f"{jid}: its worker beat {mins} min ago; tell that worker to stop"
+        jobs_dir = os.path.realpath(os.path.dirname(worktree_for(root, jid)))
+        target = os.path.realpath(worktree_for(root, jid))
+        wt = j.get("worktree")
+        if wt:
+            wt_real = os.path.realpath(wt)
+            if not wt_real.startswith(jobs_dir + os.sep):
+                if os.path.isdir(wt_real):
+                    if os.path.exists(target):
+                        out(f"refused: couldn't move worktree {wt_real} to {target}: target already exists")
+                        return False
+                    os.makedirs(jobs_dir, exist_ok=True)
+                    r = git(root, "worktree", "move", wt_real, target)
+                    if r.returncode != 0:
+                        err = r.stderr.strip() or r.stdout.strip() or f"exit {r.returncode}"
+                        out(f"refused: couldn't move worktree {wt_real} to {target}: {err}")
+                        return False
+                    wt = os.path.realpath(target)
+                else:
+                    wt = target
+            else:
+                wt = wt_real
+        else:
+            wt = target
+        old_agent = j.get("agent")
+        note = notes if notes else f"reassigned from {old_agent} by the integrator"
+        for sess_jobs in st.get("sessions", {}).values():
+            while jid in sess_jobs:
+                sess_jobs.remove(jid)
+        j.update(state="returned", agent=agent, session=None, notes=note, returned=now, worktree=wt)
+        event(st, "reassigned", jid, note, now)
+        branch = j.get("branch")
+    if beat_warn:
+        out(beat_warn)
+    if wt and os.path.isdir(wt):
+        dirty = [l for l in git(wt, "status", "--porcelain").stdout.splitlines() if l.strip()]
+        if dirty:
+            out(f"{jid}: {len(dirty)} files not committed in {wt}")
+    out(f"{jid} reassigned to {agent}: the next {agent} worker resumes {branch} in {wt}")
+    return True
+
+
 STANDING = {"main", "small-fixes", "codex/small-fixes"}   # never removed: the light path's branches (P22) stay
 
 
@@ -734,6 +820,16 @@ def live_label(job, act, now):
     return None
 
 
+def active_waiting(st, now):
+    """Drop stale waiting_workers entries (older than WORKER_WAIT + WATCH_POLL) and return waiting agents."""
+    waiting = st.setdefault("waiting_workers", {})
+    limit = WORKER_WAIT + WATCH_POLL
+    for s in [s for s, info in waiting.items()
+              if not isinstance(info, dict) or now - info.get("since", 0) > limit]:
+        del waiting[s]
+    return {info.get("agent") for info in waiting.values() if info.get("agent")}
+
+
 def conditions(root, st, jobs, order, now, procs=None):
     """{key: line} for everything the integrator should hear about now. A key changes when the event is new."""
     out = {}
@@ -742,7 +838,7 @@ def conditions(root, st, jobs, order, now, procs=None):
         if s == "done":
             out[("done", k, j.get("done"))] = f"done: {k} on {j.get('branch')}: review it (tools/integrate.py)"
         elif s == "returned":
-            out[("returned", k, j.get("returned"))] = f"returned: {k} waits for a {j.get('agent')} worker"
+            out[("returned", k, j.get("returned"), j.get("agent"))] = f"returned: {k} waits for a {j.get('agent')} worker"
         elif s in WORKING:
             act = refresh(root, j, now, (procs or {}).get(k))
             if j["state"] == "waiting":
@@ -751,10 +847,14 @@ def conditions(root, st, jobs, order, now, procs=None):
                 out[("stale", k, act)] = (f"stale: {k} ({j.get('agent')}) no beat since {hhmm(act)}: check "
                                           f"{j.get('branch')} in {j.get('worktree')}")
     claims = branch_claims(root)
+    waiting_agents = active_waiting(st, now)
     for agent in AGENTS:
+        if agent not in waiting_agents:
+            continue
         job, _ = takeable(root, st, agent, jobs, order, claims)
         if not job:
-            out[("empty", agent)] = f"queue empty for {agent.capitalize()}: nothing Ready it can take (check in with William)"
+            out[("empty", agent)] = (f"queue empty for {agent.capitalize()}: a worker is waiting with nothing Ready "
+                                     "(check in with William)")
     return out
 
 
@@ -877,6 +977,19 @@ def main(argv):
         return 0
     if cmd == "return" and len(argv) >= 3:
         return 0 if return_job(cwd, argv[1].upper(), argv[2]) else 1
+    if cmd == "reassign":
+        to = (opt("--to") or "").lower()
+        pos, i = [], 1
+        while i < len(argv):
+            if argv[i] == "--to":
+                i += 2
+            else:
+                pos.append(argv[i])
+                i += 1
+        if to not in AGENTS or not (1 <= len(pos) <= 2):
+            print('usage: job.py reassign <id> --to claude|codex|gemini ["<notes>"]')
+            return 2
+        return 0 if reassign_job(cwd, pos[0].upper(), to, pos[1] if len(pos) > 1 else None) else 1
     print(__doc__)
     return 2
 

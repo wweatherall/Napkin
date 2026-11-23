@@ -39,7 +39,6 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H097 — T110: test helpers that make a failure-path check a few lines](handoff/H097-failure-path-test-helpers.md) — status: queued (after H094); for: either
 - [H098 — Trial: try to break H093 before it merges (checks only)](handoff/H098-break-h093.md) — status: queued (after H093); for: either (the integrator sets it, when H093 is done, to an agent other than H093's builder)
 - [H103 — T111 step 2: preferences wired in: ⌘, opens the file, saving it applies the feel tunables and the default units](handoff/H103-t111-preferences-wired.md) — status: open; for: gemini
-- [H104 — Integrator tools: `job.py reassign`, a quieter watch, a short result at merge](handoff/H104-integrator-tool-fixes.md) — status: open; for: gemini
 - [H105 — integrate.py stops for a response's `Changed from the brief:` lines (P44)](handoff/H105-integrate-shows-brief-changes.md) — status: queued (after H104); for: gemini
 - [H107 — T113 step 1a: the FreeCAD worker's process moves out of main.gd into worker_process.gd](handoff/H107-t113-worker-process.md) — status: queued (after H094); for: either
 - [H108 — T113 step 1b: the closing and outside-save dialogs move out of main.gd into save_prompts.gd](handoff/H108-t113-save-prompts.md) — status: queued (after H107); for: either
@@ -58,6 +57,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 Full entries in [handoff-archive.md](handoff-archive.md).
 
+- H104 — Integrator tools: `job.py reassign`, a quieter watch, a short result at merge. Resolved: merged into main by the integrator, 2026-11-23.
 - H101 — T88 after H083: Codex checks and tidies the Move migration as built (no behaviour change). Resolved: merged into main by the integrator, 2026-11-23.
 - H106 — For the next integrator session: where things stand. Resolved: see the archive
 - H052 — T66: lengths shown in the model's units. Resolved: merged into main by the integrator, 2026-11-22.
