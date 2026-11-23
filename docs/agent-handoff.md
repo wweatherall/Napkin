@@ -50,6 +50,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H113 — T113 step 4c: the camera (orbit, pan, zoom, trackpad) moves out of main.gd into camera_rig.gd](handoff/H113-t113-camera.md) — status: queued (after H103); for: either
 - [H114 — T113 step 4d: main.gd's selection pass-throughs go; callers use m.sel](handoff/H114-t113-selection-forwarders.md) — status: queued (after H101); for: either
 - [H115 — T112: the queue checks overlap by function (P45)](handoff/H115-t112-overlap-by-function.md) — status: queued (after H104); for: Codex
+- [H116 — For the next integrator session: where things stand](handoff/H116-integrator-state.md) — status: open; for: the integrator
 
 <!-- end of open list -->
 
