@@ -1,6 +1,6 @@
 ### H093 — Outside saves: a failed reload asks, a worker lost mid-reload reloads again, and a question the actions overtook closes (H092 findings 2 and 5, A39)
 
-Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: open | For: either
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: answered | For: either
 
 References: A36 and T64 (outside saves), A39 (William, 2026-11-22: when the pending actions land while the
 question is open, FreeCAD's version is taken, the question closes and the window says so), H092 (the ultra
@@ -81,7 +81,7 @@ response with a Result line; leftovers as Follow-up lines; anything for the merg
 
 **Response — Codex, 2026-11-23**
 
-Branch: `codex/h093-outside-save-failures`. No new decision IDs or open questions.
+Branch `codex/h093-outside-save-failures`, implementation commit `93aa42d`. No new decision IDs or open questions.
 
 FreeCAD 1.1.4 returned the existing live document and its old label when asked to open the same path after the
 disk file was replaced. The worker opens a temporary sibling copy first, removes the copy, and uses the original
@@ -91,6 +91,9 @@ Godot 4.6.1's [macOS dialog implementation](https://github.com/godotengine/godot
 waits in `NSAlert.runModal` and then invokes the choice callback on that same call stack. The Godot scene loop
 cannot dispatch worker replies during that native alert. A39 dismisses the Godot `ConfirmationDialog` when an
 automatic reload goes out. The quick test exercises the same prompt state with the dialog simulated.
+
+Verified the feature suite, including 35 worker outside-save checks and 125 document checks. The three-window
+quick test passed all 291 checks, including retrying a failed reload and dismissing an overtaken question.
 
 Changed from the brief: the function list named the reload and reconnect handlers; the shared document send path
 also enforces the hold, the sync reply announces the automatic reload, and the reload sender retains the original
@@ -111,3 +114,5 @@ retries an in-flight reload with a new sequence, and signals the window on reloa
 trigger a reload. The window owns the prompt and the status message. Wire messages stay the same.
 
 For the integrator: Run H098 with an agent other than H093's builder before merging H093.
+
+Result: 93aa42d; feature suite passed, quick test 291/291; unreadable outside saves preserve the live model and ask, reconnect retries an in-flight reload, and an overtaken question closes.
