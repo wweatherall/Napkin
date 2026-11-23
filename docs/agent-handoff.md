@@ -40,6 +40,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H098 — Trial: try to break H093 before it merges (checks only)](handoff/H098-break-h093.md) — status: queued (after H093); for: either (the integrator sets it, when H093 is done, to an agent other than H093's builder)
 - [H101 — T88 after H083: Codex checks and tidies the Move migration as built (no behaviour change)](handoff/H101-t88-codex-checks-move.md) — status: queued (after H083; then whenever no job holds the tool files); for: codex
 - [H103 — T111 step 2: preferences wired in: ⌘, opens the file, saving it applies the feel tunables and the default units](handoff/H103-t111-preferences-wired.md) — status: open; for: gemini
+- [H104 — Integrator tools: `job.py reassign`, a quieter watch, a short result at merge](handoff/H104-integrator-tool-fixes.md) — status: open; for: gemini
 
 <!-- end of open list -->
 
