@@ -40,6 +40,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H095 — Redo after undoing an action that never reached the worker no longer blocks every sync (H092 finding 8)](handoff/H095-redo-unowned-id.md) — status: open; for: either
 - [H096 — Pushing one cell of a split profile keeps the rest of the profile on screen (H092 finding 9)](handoff/H096-region-push-keeps-profile.md) — status: queued (after H083); for: either
 - [H097 — T110: test helpers that make a failure-path check a few lines](handoff/H097-failure-path-test-helpers.md) — status: queued (after H094); for: either
+- [H098 — Trial: try to break H093 before it merges (checks only)](handoff/H098-break-h093.md) — status: queued (after H093); for: either (the integrator sets it, when H093 is done, to an agent other than H093's builder)
 
 <!-- end of open list -->
 

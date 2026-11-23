@@ -3,7 +3,7 @@
 "Check the board" sends you here. Only the integrator edits this file; the job table is built from docs/handoff/
 and the job queue.
 
-Order: H083, H095, H052, H085, H086, H093, H094, H096, H097
+Order: H083, H095, H052, H085, H086, H093, H098, H094, H096, H097
 
 ## If you're not the integrator
 
@@ -63,5 +63,6 @@ Done since the board started: H033 (T74 + T77), H034 (T76), H035 (T44), T56 (sta
 
 ## Notes
 
+- H093 merges only after H098 (the break-it trial, William's request): H098 goes to an agent other than H093's builder.
 - T88: steps 1-5 (Paint H065, Select H071, Circle H072, Rectangle H075, Push/Pull H079) merged; step 6 (Move, and the legacy setup's removal) is H083. H052 (T66 units) waits for it.
 - H080, H081 and H083 touch different files and can run side by side.
