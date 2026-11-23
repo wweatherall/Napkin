@@ -666,78 +666,79 @@ jobs_dir = os.path.join(os.path.dirname(root), f"{os.path.basename(root)}-jobs")
 now0 = time.time()
 
 # 1. Reassign of a returned job with an old-style worktree and uncommitted work -> moved, session uncounted, resumed by new agent.
+# H003 is For: either (first for codex in board Order), so take H003 as codex.
 r, _ = run(job.take, root, "codex", "codex-s1", now=now0)
-check("H104 setup: codex takes H005", r == "H005")
-old_wt5 = os.path.join(os.path.dirname(root), f"{os.path.basename(root)}-h005")
-sh(root, "git", "worktree", "move", state(root)["jobs"]["H005"]["worktree"], old_wt5)
-old_wt5 = os.path.realpath(old_wt5)
+check("H104 setup: codex takes H003", r == "H003")
+old_wt3 = os.path.join(os.path.dirname(root), f"{os.path.basename(root)}-h003")
+sh(root, "git", "worktree", "move", state(root)["jobs"]["H003"]["worktree"], old_wt3)
+old_wt3 = os.path.realpath(old_wt3)
 with job.locked(job.state_path(root)) as st:
-    st["jobs"]["H005"]["worktree"] = old_wt5
-open(os.path.join(old_wt5, "wip.txt"), "w").write("uncommitted wip\n")
-open(os.path.join(old_wt5, "wip2.txt"), "w").write("second file\n")
-run(job.return_job, root, "H005", "needs another pair of eyes", now=now0 + 10)
-check("before reassign, old session still counts H005 toward MAX_JOBS",
-      state(root)["sessions"]["codex-s1"] == ["H005"])
+    st["jobs"]["H003"]["worktree"] = old_wt3
+open(os.path.join(old_wt3, "wip.txt"), "w").write("uncommitted wip\n")
+open(os.path.join(old_wt3, "wip2.txt"), "w").write("second file\n")
+run(job.return_job, root, "H003", "needs another pair of eyes", now=now0 + 10)
+check("before reassign, old session still counts H003 toward MAX_JOBS",
+      state(root)["sessions"]["codex-s1"] == ["H003"])
 
-r_wt, out_wt = run(job.reassign_job, old_wt5, "H005", "gemini", now=now0 + 20)
+r_wt, out_wt = run(job.reassign_job, old_wt3, "H003", "gemini", now=now0 + 20)
 check("reassign refuses when run inside a job worktree",
-      not r_wt and "main checkout" in out_wt and state(root)["jobs"]["H005"]["agent"] == "codex", out_wt)
+      not r_wt and "main checkout" in out_wt and state(root)["jobs"]["H003"]["agent"] == "codex", out_wt)
 
 r_missing, out_missing = run(job.reassign_job, root, "H999", "gemini", now=now0 + 20)
 check("reassign refuses a job not in the queue", not r_missing and "isn't in the queue" in out_missing, out_missing)
 
 # Worktree move failure (target already exists): nothing in state changes, error printed.
-target5 = os.path.realpath(job.worktree_for(root, "H005"))
-os.makedirs(target5, exist_ok=True)
+target3 = os.path.realpath(job.worktree_for(root, "H003"))
+os.makedirs(target3, exist_ok=True)
 before_fail = json.dumps(state(root), sort_keys=True)
-r_exists, out_exists = run(job.reassign_job, root, "H005", "gemini", now=now0 + 20)
+r_exists, out_exists = run(job.reassign_job, root, "H003", "gemini", now=now0 + 20)
 check("reassign leaves state unchanged and prints error when target worktree already exists",
       not r_exists and "already exists" in out_exists
       and json.dumps(state(root), sort_keys=True) == before_fail
-      and os.path.isdir(old_wt5), out_exists)
-os.rmdir(target5)
+      and os.path.isdir(old_wt3), out_exists)
+os.rmdir(target3)
 
-# Successful reassign of returned H005 from codex to gemini.
-r_re, out_re = run(job.reassign_job, root, "H005", "gemini", now=now0 + 30)
-j5 = state(root)["jobs"]["H005"]
+# Successful reassign of returned H003 from codex to gemini.
+r_re, out_re = run(job.reassign_job, root, "H003", "gemini", now=now0 + 30)
+j3 = state(root)["jobs"]["H003"]
 check("reassign of a returned job moves its worktree into <checkout>-jobs/, updates agent/state/notes/event",
-      r_re and j5["agent"] == "gemini" and j5["state"] == "returned" and j5["session"] is None
-      and j5["notes"] == "reassigned from codex by the integrator"
-      and j5["worktree"] == target5 and os.path.isdir(target5) and not os.path.exists(old_wt5)
-      and any(e["kind"] == "reassigned" and e["job"] == "H005" for e in state(root)["events"]), (r_re, out_re, j5))
+      r_re and j3["agent"] == "gemini" and j3["state"] == "returned" and j3["session"] is None
+      and j3["notes"] == "reassigned from codex by the integrator"
+      and j3["worktree"] == target3 and os.path.isdir(target3) and not os.path.exists(old_wt3)
+      and any(e["kind"] == "reassigned" and e["job"] == "H003" for e in state(root)["events"]), (r_re, out_re, j3))
 check("reassign removes the job from the old session's count",
-      "H005" not in state(root)["sessions"].get("codex-s1", []), state(root)["sessions"])
+      "H003" not in state(root)["sessions"].get("codex-s1", []), state(root)["sessions"])
 check("reassign keeps uncommitted work and reports the uncommitted file count and new path",
-      f"H005: 2 files not committed in {target5}" in out_re
-      and f"H005 reassigned to gemini: the next gemini worker resumes codex/h005-codex-job in {target5}" in out_re
-      and open(os.path.join(target5, "wip.txt")).read() == "uncommitted wip\n", out_re)
+      f"H003: 2 files not committed in {target3}" in out_re
+      and f"H003 reassigned to gemini: the next gemini worker resumes codex/h003-third-job in {target3}" in out_re
+      and open(os.path.join(target3, "wip.txt")).read() == "uncommitted wip\n", out_re)
 watch_re = []
 job.watch(root, once=True, out=watch_re.append, now=now0 + 35)
 check("watch reports a reassigned job like returned, naming the new agent",
-      any("returned: H005 waits for a gemini worker" in l for l in watch_re), watch_re)
+      any("returned: H003 waits for a gemini worker" in l for l in watch_re), watch_re)
 r_take, out_take = run(job.take, root, "gemini", "gem-1", now=now0 + 40)
 check("take --as <new> resumes the reassigned job's branch in the moved worktree with uncommitted work and notes",
-      r_take == "H005" and state(root)["jobs"]["H005"]["worktree"] == target5
-      and sh(target5, "git", "branch", "--show-current").stdout.strip() == "codex/h005-codex-job"
-      and open(os.path.join(target5, "wip.txt")).read() == "uncommitted wip\n"
+      r_take == "H003" and state(root)["jobs"]["H003"]["worktree"] == target3
+      and sh(target3, "git", "branch", "--show-current").stdout.strip() == "codex/h003-third-job"
+      and open(os.path.join(target3, "wip.txt")).read() == "uncommitted wip\n"
       and "reassigned from codex by the integrator" in out_take, out_take)
 
 # 2. Reassign of an in-progress job whose worker beat recently: allowed, prints beat warning.
-r_inprog, out_inprog = run(job.reassign_job, root, "H005", "claude", "take over", now=now0 + 40 + 5 * 60)
+r_inprog, out_inprog = run(job.reassign_job, root, "H003", "claude", "take over", now=now0 + 40 + 5 * 60)
 check("reassign of an in-progress job with recent beat warns to stop the worker and applies custom notes",
-      r_inprog and "H005: its worker beat 5 min ago; tell that worker to stop" in out_inprog
-      and state(root)["jobs"]["H005"]["agent"] == "claude"
-      and state(root)["jobs"]["H005"]["notes"] == "take over"
-      and "H005" not in state(root)["sessions"].get("gem-1", []), out_inprog)
+      r_inprog and "H003: its worker beat 5 min ago; tell that worker to stop" in out_inprog
+      and state(root)["jobs"]["H003"]["agent"] == "claude"
+      and state(root)["jobs"]["H003"]["notes"] == "take over"
+      and "H003" not in state(root)["sessions"].get("gem-1", []), out_inprog)
 
 # 3. Reassign of a job whose session was never counted (fallback session name): no error.
 r_fb, _ = run(job.take, root, "claude", "claude", now=now0 + 400)
-# H005 is returned for claude, so claude takes H005 with fallback session "claude" (not in sessions).
-check("fallback session takes H005 without being added to sessions",
-      r_fb == "H005" and "claude" not in state(root).get("sessions", {}))
-r_fb_re, out_fb_re = run(job.reassign_job, root, "H005", "codex", now=now0 + 400 + job.DEADLINE + 60)
+# H003 is returned for claude, so claude takes H003 with fallback session "claude" (not in sessions).
+check("fallback session takes H003 without being added to sessions",
+      r_fb == "H003" and "claude" not in state(root).get("sessions", {}))
+r_fb_re, out_fb_re = run(job.reassign_job, root, "H003", "codex", now=now0 + 400 + job.DEADLINE + 60)
 check("reassign with uncounted fallback session succeeds with no error and no recent-beat warning when stale",
-      r_fb_re and state(root)["jobs"]["H005"]["agent"] == "codex"
+      r_fb_re and state(root)["jobs"]["H003"]["agent"] == "codex"
       and "tell that worker to stop" not in out_fb_re, out_fb_re)
 
 # 4. Reassign of a waiting job is allowed; reassign of done or merged jobs is refused.
@@ -748,15 +749,15 @@ r_w_re, out_w_re = run(job.reassign_job, root, r_w, "gemini", now=now0 + 520)
 check("reassign of a waiting job is allowed", r_w_re and state(root)["jobs"][r_w]["agent"] == "gemini", out_w_re)
 
 with job.locked(job.state_path(root)) as st:
-    st["jobs"]["H005"]["state"] = "done"
+    st["jobs"]["H003"]["state"] = "done"
 before_done = json.dumps(state(root), sort_keys=True)
-r_done, out_done = run(job.reassign_job, root, "H005", "claude", now=now0 + 530)
+r_done, out_done = run(job.reassign_job, root, "H003", "claude", now=now0 + 530)
 check("reassign refuses a done job and leaves state unchanged",
       not r_done and "done" in out_done and json.dumps(state(root), sort_keys=True) == before_done, out_done)
 with job.locked(job.state_path(root)) as st:
-    st["jobs"]["H005"]["state"] = "merged"
+    st["jobs"]["H003"]["state"] = "merged"
 before_merged = json.dumps(state(root), sort_keys=True)
-r_merged, out_merged = run(job.reassign_job, root, "H005", "claude", now=now0 + 540)
+r_merged, out_merged = run(job.reassign_job, root, "H003", "claude", now=now0 + 540)
 check("reassign refuses a merged job and leaves state unchanged",
       not r_merged and "merged" in out_merged and json.dumps(state(root), sort_keys=True) == before_merged, out_merged)
 
@@ -773,9 +774,7 @@ check("job.py reassign CLI parses <id> --to <agent> [notes]",
       and state(root)["jobs"][r_w]["notes"] == "cli note", buf.getvalue())
 
 # 6. take --wait writes waiting_workers under locked, watch fires empty while waiting, and taking a job clears it.
-# Make sure nothing is Ready for gemini (H003 is either -> take it first; H001 is returned for codex).
-run(job.take, root, "codex", "c-hold1")   # takes returned H001
-run(job.take, root, "codex", "c-hold2")   # takes H003 (either)
+# Nothing is Ready for gemini (H003 is merged, H001 is returned for codex, H002/H006 are Claude, H005 is Codex).
 clock_w = [1000.0]
 seen_during_wait = []
 lock_calls = [0]

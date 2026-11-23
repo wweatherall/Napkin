@@ -104,7 +104,7 @@ check("other rows are untouched", row(root, "T6") == "| T6 | other | Open | - | 
 check("in its own commit on top of the merge", sh(root, "git", "log", "-1", "--format=%s").stdout.startswith("T7 (H060): Work list result")
       and sh(root, "git", "log", "-1", "--format=%P").stdout.strip() == sh(root, "git", "rev-parse", "HEAD~1").stdout.strip()
       and len(sh(root, "git", "log", "-1", "--format=%P", "HEAD~1").stdout.split()) == 2, said)
-check("the change is shown", "{+Result (0123abc" in said, said)
+check("the change is shown", f"T7 (H060): Result (0123abc, merged {merge}):" in said and "{+" not in said, said)
 check("--push without --yes stops before the push", "git push origin main" in said
       and sh(bare, "git", "rev-parse", "main").stdout.strip() == sh(root, "git", "rev-parse", "HEAD~2").stdout.strip(), said)
 
