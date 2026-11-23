@@ -263,7 +263,7 @@ func _ready() -> void:
 		elif a == "--jointest": test_mode = true; fx_test = true; join_test = true
 		elif a == "--rejecttest": test_mode = true; fx_test = true; reject_test = true
 		elif a == "--quicktest": test_mode = true; fx_test = true; quick_test = true
-		elif a == "--lifecycletest": test_mode = true; fx_test = true; lifecycle_test = true
+		elif a == "--lifecycletest": test_mode = true; fx_test = true; worker.lifecycle_test = true
 		elif a == "--nobias": overlay_bias = 0.0
 		elif a.begins_with("--preload="): preload_path = a.substr(10)
 	if oplog_path == "": oplog_path = ProjectSettings.globalize_path("user://ops.json")
@@ -277,12 +277,12 @@ func _ready() -> void:
 	var port := -1                 # --port=N: use a worker that's already running there (tests); else start our own
 	for a in OS.get_cmdline_user_args():
 		if a.begins_with("--port="): port = int(a.substr(7))
-		elif a.begins_with("--freecad="): freecad_path = a.substr(10)
-		elif a.begins_with("--worker="): worker_script = a.substr(9)
-		elif a.begins_with("--worker-log="): worker_log = a.substr(13)
-		elif a.begins_with("--shared-port="): SHARED_PORT = int(a.substr(14))
+		elif a.begins_with("--freecad="): worker.freecad_path = a.substr(10)
+		elif a.begins_with("--worker="): worker.worker_script = a.substr(9)
+		elif a.begins_with("--worker-log="): worker.worker_log = a.substr(13)
+		elif a.begins_with("--shared-port="): worker.SHARED_PORT = int(a.substr(14))
 	if port < 0:
-		port = _pick_worker()
+		port = worker.pick_worker()
 
 	line_scale = maxf(1.0, DisplayServer.screen_get_scale())
 	get_window().content_scale_factor = line_scale        # the interface at its proper size on a Retina screen
@@ -322,10 +322,7 @@ func _ready() -> void:
 	client.replied.connect(_on_worker)
 	client.link_up.connect(_on_link_up)
 	client.link_down.connect(_on_link_down)
-	if port == 0 and _port_file != "":
-		port = _await_port_file()                   # the worker has been starting while the window was built
-		worker_port = port
-	client.start(port)
+	client.start(worker.resolve_port(port))
 	camera_rig.camera = cam
 	camera_rig.update_camera()
 	_warm_up_previews()
@@ -746,7 +743,7 @@ func _on_open(resp: Dictionary) -> void:
 		else:
 			var name := model_path.get_file()
 			switch_model(_model_before)
-			_say_worker("%s is open in another window" % name)
+			worker.say_worker("%s is open in another window" % name)
 		return
 	_model_before = ""
 	if not resp.get("ok", false):
@@ -884,7 +881,7 @@ func _on_worker(resp: Dictionary) -> void:
 		return
 	if not resp.get("cmd", "") in ["sync", "replay"]:   # flush, hello, bye, quit, or an error for some other request:
 		if not resp.get("ok", false):                    # never sync state (T70)
-			_say_worker("✗ worker error: %s" % resp.get("error", "?"))
+			worker.say_worker("✗ worker error: %s" % resp.get("error", "?"))
 		return
 	if true_latency and resp.get("ok", false) and resp.has("wall_ms") and not resp.get("_released", false):
 		held_resp = resp
@@ -959,7 +956,7 @@ var force_reject_next: bool:
 
 func _process(delta: float) -> void:
 	movie_clock += delta
-	_watch_worker(delta)
+	worker.watch_worker(delta)
 	if not held_resp.is_empty():
 		var waited: float = movie_clock - float(sent_clock.get(int(held_resp["seq"]), movie_clock))
 		if waited * 1000.0 >= float(held_resp["wall_ms"]):
@@ -1066,224 +1063,19 @@ func _on_rejected(o: Dictionary, w, drop_now: Array) -> void:
 
 
 # ---------------- the FreeCAD worker (T6) ----------------
-# Shop Sketch starts its own worker (freecadcmd worker/replay.py) on a free port, watches it, and starts it
-# again if it stops; the request that was lost with it is sent again. On quit the worker saves and stops.
-const FREECAD_CANDIDATES := ["/Applications/FreeCAD.app/Contents/Resources/bin/freecadcmd",
-	"/Applications/FreeCAD.app/Contents/Resources/bin/FreeCADCmd", "/Applications/FreeCAD.app/Contents/MacOS/freecadcmd",
-	"/Applications/FreeCAD.app/Contents/MacOS/FreeCADCmd", "/usr/bin/freecadcmd", "/usr/local/bin/freecadcmd"]
-const WORKER_MAX_RESTARTS := 5      # in a minute; after that, say so and stop trying
-var freecad_path := ""
-var worker_script := ""
-var worker_log := ""
-var worker_port := -1
-var worker_pid := -1                # -1: not ours (tests pass --port), or given up
-var _port_file := ""                # tests: where our worker reports the port it bound (T47)
-var _worker_restarts: Array = []
-var _worker_check := 0.0
+var worker = load("res://worker_process.gd").new(self)
+# The lifecycle suite and test dispatcher still read these names here.
+var worker_port: int:
+	get: return worker.worker_port
+var worker_pid: int:
+	get: return worker.worker_pid
 var _first_open := true
-var lifecycle_test := false
-
-
-func _free_port(from: int) -> int:
-	for p in range(from, from + 100):
-		var srv := TCPServer.new()
-		if srv.listen(p, "127.0.0.1") == OK:
-			srv.stop()
-			return p
-	return from
-
-
-static func _sh(s: String) -> String:
-	return "'" + s.replace("'", "'\\''") + "'"
-
-
-# One FreeCAD worker serves every window (W13): each window has its own document, and a model is open in one
-# window at a time. A window uses the worker on SHARED_PORT if it runs the same worker script; else it starts it
-# there; a different version (say the repo and the built app at once) gets a worker of its own. Tests never share.
-var SHARED_PORT := 7878             # --shared-port=N: another one (to try windows sharing next to a running app)
-const SHARED_IDLE_EXIT := 10        # seconds the shared worker waits after the last window leaves
-var shared_worker := false
-var _down_since := -1.0
-var _gave_up := false
-
-
-func _worker_files() -> void:
-	if freecad_path == "":
-		for c in FREECAD_CANDIDATES:
-			if FileAccess.file_exists(c): freecad_path = c; break
-	if worker_script == "":
-		worker_script = _beside_project("worker/replay.py")
-
-
-func _worker_identity() -> String:
-	"""The same hash the worker reports in hello (serve.py worker_identity): MD5 of every worker .py except the
-	tests, one after another in name order. A change to any worker module means a different worker."""
-	var folder := worker_script.get_base_dir()
-	var names: Array = Array(DirAccess.get_files_at(folder)).filter(
-		func(n: String) -> bool: return n.ends_with(".py") and not n.begins_with("test_"))
-	if names.is_empty(): return ""
-	names.sort()
-	var ctx := HashingContext.new()
-	ctx.start(HashingContext.HASH_MD5)
-	for n in names:
-		ctx.update(FileAccess.get_file_as_bytes(folder.path_join(n)))
-	return ctx.finish().hex_encode()
-
-
-func _port_free(p: int) -> bool:
-	var srv := TCPServer.new()
-	if srv.listen(p, "127.0.0.1") != OK: return false
-	srv.stop()
-	return true
-
+var lifecycle_test: bool:
+	get: return worker.lifecycle_test
 
 # The window <-> worker protocol's version (docs/protocol.md): bump it when a message or shared-file field changes.
 # The worker reports its own (worker/serve.py PROTOCOL_VERSION) in hello; a worker speaking another isn't shared.
 const PROTOCOL_VERSION := 11
-
-
-func _probe_worker(p: int) -> String:
-	"""Ask whatever listens on port p who it is: the worker's script hash, or "" if it isn't a Shop Sketch worker
-	this window can use (_worker_of)."""
-	return _worker_of(_hello(p), p)
-
-
-func _worker_of(r, p: int) -> String:
-	"""A hello reply's worker hash, or "": not a Shop Sketch worker, or one speaking another protocol version
-	(then it's treated like a different worker: this window starts its own, and says why)."""
-	if typeof(r) != TYPE_DICTIONARY or r.get("app", "") != "shopsketch": return ""
-	if int(r.get("protocol", 0)) != PROTOCOL_VERSION:
-		print("SHOPSKETCH the worker on port %d speaks protocol %s, this window %d: not sharing it" % [p, str(r.get("protocol", "none")), PROTOCOL_VERSION])
-		return ""
-	return String(r.get("worker", ""))
-
-
-func _hello(p: int):
-	"""The hello reply from whatever listens on port p (a separate short-lived connection), or null."""
-	var peer := StreamPeerTCP.new()
-	if peer.connect_to_host("127.0.0.1", p) != OK: return null
-	var t0 := Time.get_ticks_msec()
-	var buf := ""
-	var sent := false
-	while Time.get_ticks_msec() - t0 < 3000:
-		peer.poll()
-		var st := peer.get_status()
-		if st == StreamPeerTCP.STATUS_ERROR or st == StreamPeerTCP.STATUS_NONE: return null
-		if st == StreamPeerTCP.STATUS_CONNECTED:
-			if not sent:
-				peer.put_data((JSON.stringify({"cmd": "hello"}) + "\n").to_utf8_buffer()); sent = true
-			var n := peer.get_available_bytes()
-			if n > 0:
-				buf += peer.get_utf8_string(n)
-				if buf.contains("\n"):
-					var r = JSON.parse_string(buf.get_slice("\n", 0))
-					peer.disconnect_from_host()
-					return r
-		OS.delay_msec(10)
-	peer.disconnect_from_host()
-	return null
-
-
-func _pick_worker() -> int:
-	_worker_files()
-	if test_mode:                                   # tests: a worker of their own, on a port it picks itself (T47)
-		_start_worker()
-		return worker_port
-	var mine := _worker_identity()
-	if _port_free(SHARED_PORT):
-		shared_worker = true
-		worker_port = SHARED_PORT
-		_start_worker()
-	elif _probe_worker(SHARED_PORT) == mine and mine != "":
-		shared_worker = true                       # another window's worker: use it
-		worker_port = SHARED_PORT
-		print("SHOPSKETCH sharing the worker on port %d" % SHARED_PORT)
-	else:
-		worker_port = _free_port(SHARED_PORT + 1)   # something else (or another version) has the port
-		_start_worker()
-	return worker_port
-
-
-func _start_worker() -> void:
-	if freecad_path == "":
-		for c in FREECAD_CANDIDATES:
-			if FileAccess.file_exists(c): freecad_path = c; break
-	if worker_script == "":
-		worker_script = _beside_project("worker/replay.py")
-	if worker_log == "":
-		worker_log = ProjectSettings.globalize_path("user://worker.log")
-	if freecad_path == "" or not FileAccess.file_exists(worker_script):
-		_say_worker("✗ couldn't find FreeCAD's command-line program (freecadcmd) or worker/replay.py")
-		worker_pid = -1
-		return
-	# a test's worker binds port 0 and writes the port the system gave it to a file: two test runs at once can't
-	# pick the same port before either binds it (T47). The app's workers keep their known ports (W13).
-	var port_file := ""
-	if test_mode:
-		port_file = OS.get_temp_dir().path_join("shopsketch-worker-%d.port" % OS.get_process_id())
-		DirAccess.remove_absolute(port_file)
-		worker_port = 0
-	if OS.get_name() == "Windows":
-		OS.set_environment("SERVE_PORT", str(worker_port))
-		OS.set_environment("SERVE_PORT_FILE", port_file)
-		worker_pid = OS.create_process(freecad_path, [worker_script])
-	else:
-		worker_pid = OS.create_process("/bin/sh", ["-c", "SERVE_PORT=%d SERVE_PORT_FILE=%s SERVE_IDLE_EXIT=%d exec %s %s >> %s 2>&1" % [
-			worker_port, _sh(port_file), SHARED_IDLE_EXIT, _sh(freecad_path), _sh(worker_script), _sh(worker_log)]])   # never outlives its windows
-	_port_file = port_file
-	if port_file != "" and client != null:           # a restarted worker: wait for its new port
-		worker_port = _await_port_file()
-		client.port = worker_port
-	print("SHOPSKETCH worker pid %d %s: %s (log %s)" % [worker_pid, "port pending" if worker_port == 0 else
-		"on port %d" % worker_port, worker_script, worker_log])
-
-
-func _await_port_file() -> int:
-	"""Tests only: wait for the worker to report the port it bound (it starts in about a second)."""
-	var path := _port_file
-	var t0 := Time.get_ticks_msec()
-	while Time.get_ticks_msec() - t0 < 60000:
-		if FileAccess.file_exists(path):
-			var p := int(FileAccess.get_file_as_string(path).strip_edges())
-			DirAccess.remove_absolute(path)
-			if p > 0:
-				print("SHOPSKETCH worker on port %d" % p)
-				return p
-		if worker_pid > 0 and not OS.is_process_running(worker_pid): break
-		OS.delay_msec(20)
-	push_error("SHOPSKETCH the worker didn't report its port: see %s" % worker_log)
-	return -1
-
-
-func _watch_worker(delta: float) -> void:
-	_worker_check -= delta
-	if _worker_check > 0.0: return
-	_worker_check = 1.0
-	if shared_worker:
-		# whoever started it, it's everyone's: when it's gone and its port is free, this window starts it again
-		if client.connected:
-			_down_since = -1.0; return
-		var now_s := Time.get_ticks_msec() / 1000.0
-		if _down_since < 0.0: _down_since = now_s
-		if now_s - _down_since < 1.5 or not _port_free(worker_port) or _gave_up: return
-		_down_since = -1.0
-	elif worker_pid <= 0 or OS.is_process_running(worker_pid):
-		return
-	var now := Time.get_ticks_msec()
-	_worker_restarts = _worker_restarts.filter(func(t): return now - t < 60000)
-	_worker_restarts.append(now)
-	if _worker_restarts.size() > WORKER_MAX_RESTARTS:
-		_say_worker("✗ the FreeCAD worker keeps stopping - see %s" % worker_log)
-		worker_pid = -1
-		_gave_up = true
-		return
-	_say_worker("✗ the FreeCAD worker stopped - starting it again")
-	_start_worker()
-
-
-func _say_worker(txt: String) -> void:
-	ui_sync.text = doc.readable_ids(txt)
-	ui_sync.add_theme_color_override("font_color", Color(0.75, 0.1, 0.1))
 
 
 func _send_open() -> void:
@@ -1291,8 +1083,8 @@ func _send_open() -> void:
 
 
 func _on_link_down() -> void:
-	if worker_pid > 0 or opened:
-		_say_worker("● lost the FreeCAD worker - reconnecting")
+	if worker.worker_pid > 0 or opened:
+		worker.say_worker("● lost the FreeCAD worker - reconnecting")
 
 
 func _on_link_up(first: bool) -> void:
@@ -1301,37 +1093,8 @@ func _on_link_up(first: bool) -> void:
 	measure.on_link_up()
 
 
-var _worker_shut := false
-
-
-func _shutdown_worker() -> void:
-	if _worker_shut: return
-	_worker_shut = true
-	if shared_worker:
-		# other windows may be using it: hand back this window's model (saved first) and leave it running;
-		# it stops by itself a few seconds after the last window has gone
-		if client.connected:
-			client.send({"cmd": "bye"})
-			var t0 := Time.get_ticks_msec()
-			while client.connected and Time.get_ticks_msec() - t0 < 4000:
-				client.peer.poll()
-				if client.peer.get_status() != StreamPeerTCP.STATUS_CONNECTED: break
-				if client.peer.get_available_bytes() > 0 and client.peer.get_utf8_string(client.peer.get_available_bytes()).contains("bye"): break
-				OS.delay_msec(20)
-		return
-	if worker_pid <= 0 or not OS.is_process_running(worker_pid): return
-	client.send({"cmd": "quit"})            # it saves anything pending, then stops
-	var t0 := Time.get_ticks_msec()
-	while OS.is_process_running(worker_pid) and Time.get_ticks_msec() - t0 < 4000:
-		client.peer.poll()
-		OS.delay_msec(50)
-	if OS.is_process_running(worker_pid):
-		OS.kill(worker_pid)
-	worker_pid = -1
-
-
 func _exit_tree() -> void:
-	_shutdown_worker()
+	worker.shutdown_worker()
 
 
 # ---------------- closing the window (I55, T79) ----------------
@@ -1354,7 +1117,7 @@ func _request_close() -> void:
 	if doc.begin_close():
 		_close_now()
 		return
-	_say_worker("saving %s before closing…" % model_path.get_file())
+	worker.say_worker("saving %s before closing…" % model_path.get_file())
 	_close_try += 1
 	var try_then := _close_try
 	get_tree().create_timer(CLOSE_WAIT_S).timeout.connect(func() -> void:
@@ -1401,7 +1164,7 @@ func _close_choice(choice: String) -> void:
 func _close_now() -> void:
 	close_done = true
 	if test_mode: return                # tests check close_done; the run goes on
-	_shutdown_worker()
+	worker.shutdown_worker()
 	get_tree().quit()
 
 
@@ -1422,7 +1185,7 @@ var reload_waves: Array = []        # tests: the boards the last reload's wave r
 
 
 func _on_outside_waiting() -> void:
-	_say_worker("FreeCAD saved %s - waiting for Shop Sketch's last actions to land" % model_path.get_file())
+	worker.say_worker("FreeCAD saved %s - waiting for Shop Sketch's last actions to land" % model_path.get_file())
 	_outside_try += 1
 	var try_then := _outside_try
 	get_tree().create_timer(OUTSIDE_SAVE_WAIT).timeout.connect(func() -> void:
@@ -1433,11 +1196,11 @@ func _on_outside_waiting() -> void:
 func _ask_outside() -> void:
 	if _outside_question_model == model_path: return
 	var reason := "they hadn't landed after %d s" % int(OUTSIDE_SAVE_WAIT)
-	if not client.connected or (worker_pid > 0 and not OS.is_process_running(worker_pid)):
+	if not client.connected or (worker.worker_pid > 0 and not OS.is_process_running(worker.worker_pid)):
 		reason = "the FreeCAD worker stopped"
 	elif doc.in_flight:
 		reason = "the FreeCAD worker hasn't answered for %d s (it may be stuck)" % int(OUTSIDE_SAVE_WAIT)
-	_log_worker("outside save of %s with actions pending: %s; asking" % [model_path, reason])
+	worker.log_worker("outside save of %s with actions pending: %s; asking" % [model_path, reason])
 	var text := ("%s was saved in FreeCAD while Shop Sketch still had actions on their way: %s.\n\n"
 		+ "Use FreeCAD's version: its file becomes the model; Shop Sketch's unfinished actions stay in the journal.\n"
 		+ "Keep Shop Sketch's: FreeCAD's file is first copied aside as %s.freecad-<time>.FCStd.") % [
@@ -1449,7 +1212,7 @@ func _on_outside_failed(error: String) -> void:
 	_outside_try += 1
 	_outside_closed_model = ""
 	var reason := "couldn't open FreeCAD's save: " + error
-	_log_worker("outside save of %s: %s; asking" % [model_path, reason])
+	worker.log_worker("outside save of %s: %s; asking" % [model_path, reason])
 	var text := ("%s was saved in FreeCAD, but Shop Sketch couldn't open FreeCAD's save: %s.\n\n"
 		+ "Use FreeCAD's version: try opening it again.\n"
 		+ "Keep Shop Sketch's: FreeCAD's file is first copied aside as %s.freecad-<time>.FCStd.") % [
@@ -1459,7 +1222,7 @@ func _on_outside_failed(error: String) -> void:
 
 func _on_outside_keep_failed(error: String) -> void:
 	_on_sync_failed(error)
-	_log_worker("outside save of %s: %s" % [model_path, error])
+	worker.log_worker("outside save of %s: %s" % [model_path, error])
 	_outside_try += 1
 	var try_then := _outside_try
 	# The macOS alert handles its choice on the same call stack. Reopen on the next turn.
@@ -1521,16 +1284,6 @@ func _outside_choice(choice: String) -> void:
 		measure.flush_units_if_dirty()
 		doc.send_keep_mine()
 	else: doc.send_reload()
-
-
-func _log_worker(line: String) -> void:
-	"""A line in worker.log from this window (A36: a stuck or stopped worker at an outside save)."""
-	print("SHOPSKETCH " + line)
-	if worker_log == "": return
-	var f := FileAccess.open(worker_log, FileAccess.READ_WRITE) if FileAccess.file_exists(worker_log) else FileAccess.open(worker_log, FileAccess.WRITE)
-	if f == null: return
-	f.seek_end()
-	f.store_line("SHOPSKETCH %s %s" % [Time.get_datetime_string_from_system(), line])
 
 
 func _on_reloaded(resp: Dictionary) -> void:
