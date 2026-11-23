@@ -179,3 +179,8 @@ Branch `codex/h093-outside-save-failures`, updated from main. No new decision ID
 
 Architecture: The worker restores the model label on the reload snapshot and publishes the viewport export
 after the replacement floor and journal are in place. It rolls those files back if the reload fails.
+
+Verified implementation commit `4266006`. All 35 feature suites passed, including 43 worker outside-save
+checks. The three-window quick test passed all 302 checks.
+
+Result: 4266006; quick test 302/302, worker outside-save checks 43/43; preserve the model label and publish the reload export after both recovery files.
