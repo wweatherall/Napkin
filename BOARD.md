@@ -3,7 +3,7 @@
 "Check the board" sends you here. Only the integrator edits this file; the job table is built from docs/handoff/
 and the job queue.
 
-Order: H083, H095, H052, H085, H086, H093, H094, H096
+Order: H083, H095, H052, H085, H086, H093, H094, H096, H097
 
 ## If you're not the integrator
 
@@ -48,13 +48,14 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
 | H083 | either | **Stale** (codex, no beat since 20:13) | T88 step 6: Move moves to ToolContext, and the legacy setup goes | [H083](docs/handoff/H083-t88-move-to-toolcontext.md) |  |
-| H095 | either | **Ready** | Redo after undoing an action that never reached the worker no longer blocks every sync (H092 finding 8) | [H095](docs/handoff/H095-redo-unowned-id.md) |  |
+| H095 | either | In progress (gemini since 21:54) | Redo after undoing an action that never reached the worker no longer blocks every sync (H092 finding 8) | [H095](docs/handoff/H095-redo-unowned-id.md) |  |
 | H052 | either | Queued | T66: lengths shown in the model's units | [H052](docs/handoff/H052-t66-units.md) | T88's tool moves |
 | H085 | either | Queued | T83: the Arc tool (2-Point and Centre arcs, exact in FreeCAD, splitting faces) | [H085](docs/handoff/H085-t83-arc-tool.md) | H052 |
 | H086 | either | Queued | T83 step 2: an arc on a corner is tangent to both edges (rounded corners) | [H086](docs/handoff/H086-t83-arc-corner-tangent.md) | H085 |
 | H093 | either | Queued | Outside saves: a failed reload asks, a worker lost mid-reload reloads again, and a question the actions overtook closes (H092 findings 2 and 5, A39) | [H093](docs/handoff/H093-outside-save-failures.md) | H083 |
 | H094 | either | Queued | A reload from a revision Shop Sketch no longer remembers keeps the ops that file holds (H092 finding 6) | [H094](docs/handoff/H094-reload-unknown-revision.md) | H093 |
 | H096 | either | Queued | Pushing one cell of a split profile keeps the rest of the profile on screen (H092 finding 9) | [H096](docs/handoff/H096-region-push-keeps-profile.md) | H083 |
+| H097 | either | Queued | T110: test helpers that make a failure-path check a few lines | [H097](docs/handoff/H097-failure-path-test-helpers.md) | H094 |
 
 <!-- end of job table -->
 
