@@ -1,6 +1,6 @@
 ### H094 — A reload from a revision Shop Sketch no longer remembers keeps the ops that file holds (H092 finding 6)
 
-Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: open | For: codex
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: answered | For: codex
 
 References: A36 and T64 (outside saves: a reload keeps the ops the file's revision held), A32 (save
 generations), A35 (a new shared-file field bumps PROTOCOL_VERSION on both sides), H092 finding 6, H087 / A38
@@ -71,6 +71,18 @@ response with a Result line; leftovers as Follow-up lines; anything for the merg
 
 #### Response — Codex, 2026-11-23
 
+Branch `codex/h094-reload-unknown-revision`, implementation `b05e550`. FreeCAD 1.1.4 preserved both Meta keys through a normal edit and save. Rev 1 kept both boards and their four ops after 52 more saves, including on a cold reload. The journal records later ops as dropped. Older files and unusable Meta fall back to the session, the previous journal, or an empty op list.
+
+Metadata restores `op`, canonical `key`, `id`, `type`, and `status: ok`. Board marks come from native geometry, the next sync compares canonical keys, and the next save and reload journal consume the restored status. The optional original timing and change details are absent from Meta. No decision IDs added or questions open.
+
+Median of 21 warm `Session.save(outdir)` calls per case on this Mac, including GLB output. The 14-op scenario went from 11.1 ms to 10.9 ms (−0.2 ms). The same fixture extended to 500 ops with alternating shelf moves went from 17.7 ms to 17.8 ms (+0.1 ms). Both differences were within the observed run-to-run spread.
+
+The feature suite and `job.py test` passed. The final run included 54 outside-save checks, 34 generation checks, 21 floor-copy checks, and 302 viewport quick checks.
+
 Architecture: Session.save writes the successful ops as compact JSON in FCStd Meta ShopSketchOps alongside ShopSketchRev and rolls both back together on failure.
 
 Architecture: Outside reloads recover the ops from Document.xml in the validated snapshot, or from the model file when a replacement worker initializes a cold retry. Matching Meta takes priority over revision history and the previous journal. Both worker and viewport now speak protocol 11.
+
+For the integrator: Update the FCStd persistence description in ARCHITECTURE.md and the protocol version history and native-model Meta section in docs/protocol.md.
+
+Result: b05e550; feature suite and job.py test passed; outside reloads recover the ops embedded in FreeCAD's saved revision.

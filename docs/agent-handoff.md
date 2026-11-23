@@ -31,7 +31,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 <!-- open list: built from docs/handoff/ by tools/handoff.py; don't edit by hand -->
 
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
-- [H094 — A reload from a revision Shop Sketch no longer remembers keeps the ops that file holds (H092 finding 6)](handoff/H094-reload-unknown-revision.md) — status: open; for: codex
+- [H094 — A reload from a revision Shop Sketch no longer remembers keeps the ops that file holds (H092 finding 6)](handoff/H094-reload-unknown-revision.md) — status: answered; for: codex
 - [H096 — Pushing one cell of a split profile keeps the rest of the profile on screen (H092 finding 9)](handoff/H096-region-push-keeps-profile.md) — status: open; for: either
 - [H097 — T110: test helpers that make a failure-path check a few lines](handoff/H097-failure-path-test-helpers.md) — status: queued (after H094); for: either
 - [H107 — T113 step 1a: the FreeCAD worker's process moves out of main.gd into worker_process.gd](handoff/H107-t113-worker-process.md) — status: queued (after H094); for: either
