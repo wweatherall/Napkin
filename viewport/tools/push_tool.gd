@@ -319,11 +319,12 @@ func _preview_push(d: float) -> void:
 
 
 func _finish_push() -> void:
-	if not pointer_distance_ok(state["dist"], state.get("snap", "") != "" or state.has("edge_fit")): return
-	commit_push(state["dist"], state.get("edge_fit", {}))
+	var snap: String = state.get("snap", "")
+	if not pointer_distance_ok(state["dist"], snap != "" or state.has("edge_fit")): return
+	commit_push(state["dist"], state.get("edge_fit", {}), snap == "face behind")
 
 
-func commit_push(d: float, edge_fit := {}) -> void:
+func commit_push(d: float, edge_fit := {}, snapped_to_floor := false) -> void:
 	if absf(d) < GEOMETRY_TOLERANCE_MM: return
 	ctx.ui.clear_rejection()
 	var oid := ctx.document.next_id("pp")
@@ -356,6 +357,9 @@ func commit_push(d: float, edge_fit := {}) -> void:
 		op["edge_fit"] = edge_fit.duplicate()
 	elif not state.has("region") and state.rect == "" and not ctx.model.stock_frame(on).get("fitted", true):
 		op["resize_stock"] = true
+	if snapped_to_floor and d < 0 and on != "" and (state.rect != "" or state.has("region")) \
+			and not (op.has("through") or op.has("body") or op.has("edge_fit") or op.has("resize_stock")):
+		op["to_face"] = {"normal": Geo.arr3(state.n), "point": Geo.arr3(state.anchor + state.n * d)}
 	ctx.document.append(op)
 	var pr := _push_shape(d)
 	var piece := {"tris": pr, "style": "cut" if d < 0 else "draft", "line_color": Color(0.6, 0.35, 0),

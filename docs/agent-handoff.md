@@ -35,7 +35,6 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H097 — T110: test helpers that make a failure-path check a few lines](handoff/H097-failure-path-test-helpers.md) — status: queued (after H096); for: either
 - [H109 — T113 step 2: what a rejection takes with it moves to document.gd, and main's document pass-throughs go](handoff/H109-t113-rejections.md) — status: queued (after H096, H094); for: either
 - [H118 — For the next integrator session: where things stand](handoff/H118-integrator-state.md) — status: open; for: the integrator
-- [H121 — T59 step 2: Push/Pull sends `to_face` when a cut snaps to a pocket's floor](handoff/H121-push-sends-to-face.md) — status: open; for: either
 - [H122 — T113 step 5: main.gd's compatibility members go (callers use the modules)](handoff/H122-main-compat-members.md) — status: open; for: either
 - [H123 — Three tooling follow-ups: feature-test logs by folder, length cases with a default unit, response lines read from the response](handoff/H123-tooling-follow-ups.md) — status: open; for: either
 
@@ -45,6 +44,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 Full entries in [handoff-archive.md](handoff-archive.md).
 
+- H121 — T59 step 2: Push/Pull sends `to_face` when a cut snaps to a pocket's floor. Resolved: merged into main by the integrator, 2026-11-23.
 - H120 — T115: briefs the tools can read (Touches checked at Ready; wrapped response lines read whole). Resolved: merged into main by the integrator, 2026-11-23.
 - H119 — T114: a worker's question is answered through the queue (scope to the integrator, behaviour to William). Resolved: merged into main by the integrator, 2026-11-23.
 - H108 — T113 step 1b: the closing and outside-save dialogs move out of main.gd into save_prompts.gd. Resolved: merged into main by the integrator, 2026-11-23.
