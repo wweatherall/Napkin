@@ -65,7 +65,7 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 | H110 | either | **Ready** | T113 step 3: the menus move out of main.gd into menus.gd | [H110](docs/handoff/H110-t113-menus.md) |  |
 | H111 | either | Queued | T113 step 4a: building the interface moves out of main.gd into ui.gd | [H111](docs/handoff/H111-t113-ui.md) | H110 |
 | H112 | either | Queued | T113 step 4b: wood rendering moves from main.gd to appearance.gd | [H112](docs/handoff/H112-t113-wood.md) | H101, H110 |
-| H114 | either | Queued | T113 step 4d: main.gd's selection pass-throughs go; callers use m.sel | [H114](docs/handoff/H114-t113-selection-forwarders.md) | H101 |
+| H114 | either | Queued | T113 step 4d: main.gd's selection pass-throughs go; callers use m.sel | [H114](docs/handoff/H114-t113-selection-forwarders.md) | H110 |
 
 <!-- end of job table -->
 
@@ -73,7 +73,7 @@ Done since the board started: H033 (T74 + T77), H034 (T76), H035 (T44), T56 (sta
 
 ## Notes
 
-- H093 and H113 share viewport/main.gd by function (P45) and run at once; H086 (Arc corners) shares nothing with them. H096 waits on H093 (test_document.gd); H110 on H113 (tests/harness.gd); H114 on H086 (test_tool_context.gd).
+- H096 waits on H093 (test_document.gd); H114 on H110 (keys.gd, tests/quick/hide.gd).
 - H093 merges only after H098 (the break-it trial, William's request): H098 goes to an agent other than H093's builder.
 - T88: steps 1-5 (Paint H065, Select H071, Circle H072, Rectangle H075, Push/Pull H079) merged; step 6 (Move, and the legacy setup's removal) is H083 (Gemini finishing Codex's work, William 2026-11-22), H052 (T66 units) and the rest go on from Gemini's version. H101 (Codex checks and tidies it) doesn't hold anything up: it runs when no job holds the tool files, from main as it is then, and Codex fixes whatever it touches (William, 2026-11-22).
 - H101 is for the Codex session that started H083 (01a20629…, William): its H083 count was taken off so it can take H101 without a /clear.

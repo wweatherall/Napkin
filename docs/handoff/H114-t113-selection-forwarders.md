@@ -1,6 +1,6 @@
 ### H114 — T113 step 4d: main.gd's selection pass-throughs go; callers use m.sel
 
-Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: queued (after H101) | For: either
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: queued (after H110) | For: either
 
 References: T113, P45, T41, A33b.
 
