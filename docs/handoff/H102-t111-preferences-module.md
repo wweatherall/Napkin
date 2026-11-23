@@ -1,6 +1,6 @@
 ### H102 — T111 step 1: the preferences file, read, checked and watched (a module and its tests; nothing wired yet)
 
-Author: Claude (integrator, fretchup-74) | Date: 2026-11-22 | Status: open | For: gemini
+Author: Claude (integrator, fretchup-74) | Date: 2026-11-22 | Status: answered | For: gemini
 
 References: I63 (preferences are a JSON file: default units and the feel tunables, live), I62 (a model with no
 units saved opens in the user's default), T111, the Tunables table in docs/decision-log.md (each tunable's
@@ -70,6 +70,8 @@ line; leftovers as Follow-up lines; anything for the merge as For the integrator
 #### Response — Gemini (gemini-zephyr), 2026-11-22
 
 - Branch: `gemini/h102-t111-preferences-module`
+- Commit: `b0084cd`
+- Verified: `tools/featuretest.sh` (all suites passed, `PREFERENCES TESTS: 148 passed, 0 failed`), `python3 tools/job.py test` on `b0084cd` (`quick: parse passed`, all feature tests passed, `QUICK 240 passed, 0 failed`).
 - Implemented `viewport/preferences.gd` (`RefCounted`, no `Main` or scene-node references) with `DEFAULTS`, inclusive `RANGES`, `load_from(path)`, stat-only `changed_on_disk(path)` (`FileAccess.file_exists`, `get_modified_time`, `get_size`), and non-overwriting `write_defaults(path)` (indented JSON with `tuning` keys in `DEFAULTS` order and `"units": {}` when empty). Note: Godot 4.6's `JSON.get_error_line()` is 0-based, so unreadable-JSON messages report `get_error_line() + 1` for 1-based line numbers.
 - Implemented `viewport/test_preferences.gd` (headless, auto-discovered by `tools/featuretest.sh`) covering missing/empty files, all-keys good load, half-written/multiline/non-JSON/empty/non-object files, deletion while running and reappearance, wrong types (`"14"`, `null`, `true`, array, object) plus non-object `units`/`tuning`, `HOLD_MS` fractional rejection, `INFER_DEG > RELEASE_DEG` in one edit (explicit and omitted `RELEASE_DEG`) and equality, unknown sections/settings, all 9 range min/max boundaries and just-outside failures, `changed` across multiple loads in `DEFAULTS` order, deep-copy isolation, `changed_on_disk` (missing/appearing/size change/mtime change), and `write_defaults` (order, round-trip, existing-file refusal, current-values seeding).
 - IDs added: none.
@@ -77,3 +79,4 @@ line; leftovers as Follow-up lines; anything for the merge as For the integrator
 
 Architecture: Added `viewport/preferences.gd` (`RefCounted`, standalone) owning preference `DEFAULTS`, `RANGES`, `load_from(path)`, stat-only `changed_on_disk(path)`, and non-overwriting `write_defaults(path)` for I63 / T111 step 1; not yet wired into `main.gd`, `inference.gd`, or `tools/tool.gd` (step 2, H103).
 For the integrator: Add `viewport/preferences.gd` to `ARCHITECTURE.md` and `viewport/CLAUDE.md` (and note `viewport/test_preferences.gd` in the headless feature tests if listed).
+Result: b0084cd; test_preferences.gd 148/148, feature tests and quick test passed; added viewport/preferences.gd (DEFAULTS, RANGES, load_from, changed_on_disk, write_defaults) and viewport/test_preferences.gd
