@@ -33,35 +33,10 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H052 — T66: lengths shown in the model's units](handoff/H052-t66-units.md) — status: queued (after T88's tool moves); for: either
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
 - [H079 — T88 step 5: Push/Pull moves to ToolContext](handoff/H079-t88-push-to-toolcontext.md) — status: open; for: either
+- [H080 — T105: job.py done reuses a quick-test pass across handoff-only commits](handoff/H080-done-reuses-quick-pass.md) — status: open; for: either
+- [H081 — T106: the test scripts show progress and keep their output in the job's scratch/](handoff/H081-test-progress-and-scratch.md) — status: open; for: either
 
 <!-- end of open list -->
-
-## Jobs, round 1 (assigned by the integrator, approved by William, 2026-11-21)
-
-The integrator is a Claude session in /Users/Will/Sites/fretchup: it hands out jobs, reviews branches and merges
-them when William says. Round 1 clears the spots where parallel branches collide (T74–T77) and writes the
-protocol down (T44). The three jobs touch different files and can run at the same time.
-
-Rules for every job (Claude or Codex):
-
-- Your own worktree and branch from main, never a checkout in /Users/Will/Sites/fretchup (the integrator works
-  there). Name the branch after the job, as [BOARD.md](../BOARD.md) says (`claude/h036-keys`): that claims it.
-- Touch only the files your job lists. If you need another file, say so in chat and in your response first:
-  another job may own it. Don't edit the Work list: put your result in your handoff response and the integrator writes the row at
-  merge (P17). Shared hot spots (your handoff response, a line in
-  ARCHITECTURE.md) are small edits made at the end, after merging main into your branch.
-- Use the IDs given here; if you need a new decision or Work list ID, take a placeholder (I-new-N, T-new-N with N = 1,
-  2 ...) and the integrator numbers it at merge (`tools/number_ids.py`, T74).
-- Before handing back: `tools/quicktest.sh` passes in your worktree (own ports; William's open app doesn't
-  matter). FreeCAD tests run with freecadcmd 1.1.4; it runs a script a second time when it raises: read the first error.
-- Commit with `git -c core.hooksPath=.githooks commit`. Don't merge into main or push.
-- When done, append a response under your job: branch, commit, what you verified (commands and results),
-  architecture sections changed, what's still open. Set Status to answered and tell William it's ready for review.
-  Behaviour choices are William's: ask in chat, one question at a time, with a recommendation.
-
-### Round 1 follow-on (2026-11-21)
-
-H036 (T75) is open from main. It touches viewport files only, so it runs alongside H034 and H035.
 
 ## Archived
 

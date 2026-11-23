@@ -1,8 +1,8 @@
 # The integrator
 
 What only the integrator does. Workers (every other session, Claude or Codex) don't need this page: CLAUDE.md
-and BOARD.md are theirs. The shared rules (Touches, placeholder IDs, Architecture: lines, commit trailers) are
-in CLAUDE.md's "Working with Codex" section; this page says what the integrator does with them.
+and BOARD.md are theirs. The shared rules are in BOARD.md's worker steps (Touches, placeholder IDs,
+Architecture: lines, the response) and CLAUDE.md (commit trailers); this page says what the integrator does with them.
 
 ## The role and the lock
 - One Claude session is the integrator (P16), and it holds the lock (`python3 tools/integrator.py status`, P19).
@@ -54,6 +54,10 @@ in CLAUDE.md's "Working with Codex" section; this page says what the integrator 
   claimed job's: two whose lists overlap don't run at once (tell William before starting one that does).
 - The shared hot spots (the decision log's Work list, the handoff, viewport/main.gd, the map) stay small edits
   made once the work is done.
+- Make a brief exact: its scope, the exact wording of any message, the cases that must still work (H076 is the
+  model; workers said its precision let them build it without guessing). Check every claim it makes about how
+  the code works today against the code before marking it Ready: H077's brief stated an order of steps opposite
+  to integrate.py's, and the worker had to choose between "no change in behaviour" and the brief.
 
 ## Traps seen at merge
 - A paused merge (`--continue`) accepts changes only to ARCHITECTURE.md and docs/protocol.md. Folder-guide

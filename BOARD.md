@@ -3,7 +3,7 @@
 "Check the board" sends you here. Only the integrator edits this file; the job table is built from docs/handoff/
 and the job queue.
 
-Order: H076, H077, H078, H079, H052
+Order: H079, H080, H081, H052
 
 ## If you're not the integrator
 
@@ -48,6 +48,8 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
 | H079 | either | **Ready** | T88 step 5: Push/Pull moves to ToolContext | [H079](docs/handoff/H079-t88-push-to-toolcontext.md) |  |
+| H080 | either | **Ready** | T105: job.py done reuses a quick-test pass across handoff-only commits | [H080](docs/handoff/H080-done-reuses-quick-pass.md) |  |
+| H081 | either | **Ready** | T106: the test scripts show progress and keep their output in the job's scratch/ | [H081](docs/handoff/H081-test-progress-and-scratch.md) |  |
 | H052 | either | Queued | T66: lengths shown in the model's units | [H052](docs/handoff/H052-t66-units.md) | T88's tool moves |
 
 <!-- end of job table -->
@@ -57,4 +59,4 @@ Done since the board started: H033 (T74 + T77), H034 (T76), H035 (T44), T56 (sta
 ## Notes
 
 - T88: steps 1-4 (Paint H065, Select H071, Circle H072, Rectangle H075) merged; step 5 (Push/Pull) is H079; Move (step 6) after it.
-- H076, H077, H078 and H079 touch different files and can run side by side. H078 (for Claude) may edit this board's sections above "## Jobs".
+- H079, H080 and H081 touch different files and can run side by side.

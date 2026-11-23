@@ -3004,3 +3004,32 @@ docs/agent-handoff.md. Update that sentence (outside this job's Touches).
 Result: a31a7fb; job 96/0, integrate 38/0, quick 240/0, gate PASS; BOARD.md's worker steps in plain words with every step of a job, CLAUDE.md and AGENTS.md cut to what a session needs before the board, agent-handoff.md to how to write an entry
 
 Resolution: merged into main by the integrator, 2026-11-22.
+
+### Jobs, round 1 (from docs/agent-handoff.md; moved here 2026-11-22, superseded by BOARD.md's worker steps, H078)
+
+#### Jobs, round 1 (assigned by the integrator, approved by William, 2026-11-21)
+
+The integrator is a Claude session in /Users/Will/Sites/fretchup: it hands out jobs, reviews branches and merges
+them when William says. Round 1 clears the spots where parallel branches collide (T74–T77) and writes the
+protocol down (T44). The three jobs touch different files and can run at the same time.
+
+Rules for every job (Claude or Codex):
+
+- Your own worktree and branch from main, never a checkout in /Users/Will/Sites/fretchup (the integrator works
+  there). Name the branch after the job, as [BOARD.md](../BOARD.md) says (`claude/h036-keys`): that claims it.
+- Touch only the files your job lists. If you need another file, say so in chat and in your response first:
+  another job may own it. Don't edit the Work list: put your result in your handoff response and the integrator writes the row at
+  merge (P17). Shared hot spots (your handoff response, a line in
+  ARCHITECTURE.md) are small edits made at the end, after merging main into your branch.
+- Use the IDs given here; if you need a new decision or Work list ID, take a placeholder (I-new-N, T-new-N with N = 1,
+  2 ...) and the integrator numbers it at merge (`tools/number_ids.py`, T74).
+- Before handing back: `tools/quicktest.sh` passes in your worktree (own ports; William's open app doesn't
+  matter). FreeCAD tests run with freecadcmd 1.1.4; it runs a script a second time when it raises: read the first error.
+- Commit with `git -c core.hooksPath=.githooks commit`. Don't merge into main or push.
+- When done, append a response under your job: branch, commit, what you verified (commands and results),
+  architecture sections changed, what's still open. Set Status to answered and tell William it's ready for review.
+  Behaviour choices are William's: ask in chat, one question at a time, with a recommendation.
+
+#### Round 1 follow-on (2026-11-21)
+
+H036 (T75) is open from main. It touches viewport files only, so it runs alongside H034 and H035.
