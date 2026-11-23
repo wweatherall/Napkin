@@ -335,7 +335,7 @@ func _initialize() -> void:
 	var vparts: Dictionary = t["parts"].duplicate()
 	vparts.merge({"overlay": overlay, "overlay_lines": overlay_lines, "materials": mats,
 		"tri_mesh": func(tris, mat): calls.append(["tri", tris.size(), mat]); return ArrayMesh.new(),
-		"lines": func(segs, col): calls.append(["lines", segs.size(), col]); var mi := MeshInstance3D.new(); mi.mesh = ArrayMesh.new(); made.append(mi); return mi,
+		"line_mesh": func(segs, col): calls.append(["lines", segs.size(), col]); return ArrayMesh.new(),
 		"show_marker": func(h): calls.append(["marker", h]); h["point"] = Vector3.ONE,
 		"refresh_tip": func(s): calls.append(["tip", s]),
 		"new_board": func() -> bool: return true,

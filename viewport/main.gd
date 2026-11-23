@@ -693,7 +693,7 @@ func _make_tool_context():
 	return load("res://tool_context.gd").new({
 		"infer": infer, "pres": pres, "sel": sel, "doc": doc, "measure": measure,
 		"cursor": _cursor_pos,
-		"tri_mesh": pres.tri_mesh, "lines": pres.lines, "overlay": overlay, "overlay_lines": overlay_lines,
+		"tri_mesh": pres.tri_mesh, "line_mesh": pres.line_mesh, "overlay": overlay, "overlay_lines": overlay_lines,
 		"materials": {"hover": mat_hover, "profile": mat_rect, "draft": mat_draft, "cut": mat_cut, "cut_highlight": mat_cut_hl},
 		"show_marker": pres.show_marker, "hide_marker": func(): marker.visible = false,
 		"push_filter": pres.draft_tests.filter if test_mode else Callable(),
