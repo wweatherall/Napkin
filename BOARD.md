@@ -52,7 +52,6 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 | H085 | either | Queued | T83: the Arc tool (2-Point and Centre arcs, exact in FreeCAD, splitting faces) | [H085](docs/handoff/H085-t83-arc-tool.md) | H052 |
 | H086 | either | Queued | T83 step 2: an arc on a corner is tangent to both edges (rounded corners) | [H086](docs/handoff/H086-t83-arc-corner-tangent.md) | H085 |
 | H090 | either | In progress (gemini since 21:26) | T59 step 1: a cut made to a pocket's floor stays tied to it (the worker side) | [H090](docs/handoff/H090-t59-cut-to-pocket-floor.md) |  |
-| H091 | Gemini | In progress (gemini since 21:27) | integrate.py keeps main's Order line, job table and Notes on a clean BOARD.md merge too | [H091](docs/handoff/H091-board-notes-on-clean-merge.md) |  |
 
 <!-- end of job table -->
 
