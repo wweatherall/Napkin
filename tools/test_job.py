@@ -440,6 +440,8 @@ check("done's closing message at the 3rd job: tell William you're ready for a /c
       r and "ready for a /clear" in out and "take --wait" not in out, out)
 r, out = run(job.take, root, "claude", "w")
 check("a 4th take by the same session is refused", r is None and "has done 3 jobs" in out, out)
+check("the refusal names the session and its jobs, and says a reused name needs a new one",
+      "(w) has done 3 jobs (H001, H002, H003)" in out and "pick a new one" in out, out)
 r, out = run(job.take, root, "claude", "w2")
 check("another session isn't refused", r == "H006", out)
 finish("H006")
