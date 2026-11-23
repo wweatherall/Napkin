@@ -1,6 +1,6 @@
 ### H086 — T83 step 2: an arc on a corner is tangent to both edges (rounded corners)
 
-Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: open | For: either
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: answered | For: either
 
 References: T83, I61 (William's call: "If you make an arc on the corner, it should default to tangency"), I60
 (the Arc tool), I51 (arcs split faces), P21. H085 builds the Arc tool this job extends.
@@ -38,3 +38,24 @@ fillet on a solid's edges (T108).
 
 End your response with a Result line; leftovers as Follow-up lines; anything for the merge as For the integrator
 lines.
+
+### Response from Codex, 2026-11-23
+
+Branch `codex/h086-t83-arc-corner-tangent`, implementation `d7d6df9`. The 2-Point Arc snaps the end
+to equal distance along an adjacent outline edge. At the tangent midpoint it shows a magenta preview and
+the tip “Tangent at corner.” Moving away restores free bulge control. A typed radius repositions both
+endpoints along the selected edges.
+
+The gate passed with 294 quick viewport checks and all feature and full suites passing. Quick coverage
+includes the square snap, release to free bulge, a non-square Line profile, `50r`, and the through-cut
+from draft to confirmed mesh. The viewport and FreeCAD region areas agreed within 5 mm². The worker
+scenario checked the 50 mm cylinder, both seam normals within 1e-6, and undo back to its fixture.
+
+No new decision IDs or open questions.
+
+Architecture: The Arc tool uses the coplanar triangle outline and the live endpoint snap radius for
+corner tangency. It saves the tangent points at viewport precision in the existing arc op.
+
+For the integrator: Add the corner snap and typed corner radius to the Arc entry in viewport/tools/CLAUDE.md.
+
+Result: d7d6df9; gate passed, 294 quick viewport checks and 603 worker scenario checks; tangent 2-Point Arc corner snaps, typed fillets, and verified through-cuts
