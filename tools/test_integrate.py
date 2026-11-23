@@ -539,6 +539,7 @@ shutil.rmtree(root)
 brief_with_quote = (
     "### H083 — T1: brief quoting the phrase\n\nAuthor: Claude | Status: answered\n\n"
     "Request: add a `Changed from the brief:` line per departure:\n"
+    "Response: a table of what changed.\n"
     "Changed from the brief: example in the brief itself\n"
     "- Changed from the brief: bulleted example in the brief\n"
 )
@@ -558,6 +559,34 @@ code_block_resp = (
 check("changed_from_brief parses plain and bulleted lines in the response and ignores fenced code blocks and quotes",
       integrate.changed_from_brief(code_block_resp) == ["kept line one", "kept line two"],
       integrate.changed_from_brief(code_block_resp))
+
+
+wrapped_response = (
+    "#### Response — Codex\n\n"
+    "Changed from the brief: brief said A;\n"
+    "  did B;\n"
+    "  A broke C\n"
+    "- Architecture: the new owner is\n"
+    "  notes.md\n\n"
+    "Changed from the brief: kept on one line\n \t\n"
+    "This prose is outside the field.\n\n"
+    "Follow-up: revisit the\n"
+    "  remaining checks\n"
+    "For the integrator: update the map\n"
+    "  on merge\n"
+    "Result: abc1234; tests pass; checks added"
+)
+check("wrapped Changed stops at Architecture; single-line Changed stops at blank line",
+      integrate.changed_from_brief(wrapped_response) == ["brief said A; did B; A broke C", "kept on one line"])
+check("wrapped Architecture is joined",
+      integrate.architecture(wrapped_response) == ["the new owner is notes.md"])
+check("wrapped Follow-up stops at For the integrator",
+      integrate.follow_ups(wrapped_response) == ["revisit the remaining checks"])
+check("wrapped For the integrator stops at Result",
+      integrate.for_integrator(wrapped_response) == ["update the map on merge"])
+check("response headings accept ATX, bold, em dash and Response from",
+      all(integrate.changed_from_brief(f"{heading}\nChanged from the brief: a change at EOF") == ["a change at EOF"]
+          for heading in ("#### Response", "**Response**", "Response — Codex", "Response from Codex:")))
 
 
 def brief_repo(entry_text, branch_name="agent/p44", with_map=False, with_remote=False):
@@ -608,7 +637,7 @@ shutil.rmtree(root)
 root, bare = brief_repo(
     "### H083 — T1: departed job\n\nAuthor: Claude | Status: answered\n\n"
     "Request: do X.\n\nResponse — Gemini, 2026-11-23:\nDone.\n\n"
-    "Changed from the brief: brief said A; did B; A broke C\n"
+    "Changed from the brief: brief said A;\n  did B;\n  A broke C\n"
     "- Changed from the brief: updated test_foo.py; asserted old text; P46\n"
     "Result: abc1234; test_integrate passes; departed cleanly\n",
     with_remote=True,
