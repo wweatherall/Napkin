@@ -6,6 +6,7 @@ or that turns it into a Work list item. `python3 tools/startup.py` lists the ope
 
 ## Open
 
+- integrator (2026-11-22): William will have the integrator set up `/code-review ultra` later, on the biggest diff it will take (find its size limit first); he sends it off himself. Holds the H074 whole-code findings question.
 - H061 (2026-11-22): Codex sessions are counted only if CODEX_SESSION_ID or CODEX_THREAD_ID is set; if Codex has neither, its count never applies (it falls back to "codex"). Worth checking from a Codex session.
 - H062 (2026-11-22): the .unmatched files are never cleaned up (overwritten by the next recovery); fine while recoveries are rare.
 - H063 (2026-11-22): Session.sync() rebuilds from the op list when an undo goes past FreeCAD's 20 steps, and that rebuild loses a FreeCAD change below the undo floor (it starts from an empty document); it should start from the file the floor came from. Before T64 this was already true after opening an externally edited file.
