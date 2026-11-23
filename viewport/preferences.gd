@@ -2,8 +2,10 @@ extends RefCounted
 ## User preferences (I63, T111): reads, validates, watches and seeds a JSON file with default units and
 ## input-feel tunables. Holds no reference to Main or scene nodes; callers always pass the file path.
 
+const Units := preload("res://units.gd")
+
 const DEFAULTS := {
-	"units": {},
+	"units": {"default": null},
 	"tuning": {
 		"SNAP_PX": 14.0,
 		"EDGE_PX": 8.0,
@@ -90,13 +92,33 @@ func load_from(path: String) -> Dictionary:
 		if k != "units" and k != "tuning":
 			problems.append("preferences.json: unknown section %s" % str(k))
 
+	var prev_units: Dictionary = _values["units"]
 	var next_units: Dictionary
 	if data.has("units"):
-		if typeof(data["units"]) == TYPE_DICTIONARY:
-			next_units = data["units"].duplicate(true)
-		else:
+		if typeof(data["units"]) != TYPE_DICTIONARY:
 			problems.append("preferences.json: units must be an object (got %s)" % _fmt_value(data["units"]))
-			next_units = _values["units"].duplicate(true)
+			next_units = prev_units.duplicate(true)
+		else:
+			var raw_units: Dictionary = data["units"]
+			for k in raw_units:
+				if k != "default":
+					problems.append("preferences.json: unknown units setting %s" % str(k))
+			if not raw_units.has("default"):
+				next_units = {"default": null}
+			else:
+				var raw_default = raw_units["default"]
+				if raw_default == null:
+					next_units = {"default": null}
+				elif typeof(raw_default) == TYPE_STRING:
+					var parsed := Units.parse_spec(raw_default)
+					if parsed.ok:
+						next_units = {"default": parsed["spec"]}
+					else:
+						problems.append('preferences.json: units default must be a units setting like "in-frac:1/16" (got %s)' % _fmt_value(raw_default))
+						next_units = {"default": prev_units.get("default", null)}
+				else:
+					problems.append('preferences.json: units default must be a units setting like "in-frac:1/16" (got %s)' % _fmt_value(raw_default))
+					next_units = {"default": prev_units.get("default", null)}
 	else:
 		next_units = DEFAULTS["units"].duplicate(true)
 
@@ -133,6 +155,8 @@ func load_from(path: String) -> Dictionary:
 		next_tuning = DEFAULTS["tuning"].duplicate(true)
 
 	var changed: Array[String] = []
+	if _units_default_differs(prev_units.get("default"), next_units.get("default")):
+		changed.append("units.default")
 	for k in DEFAULTS["tuning"]:
 		if _tuning_differs(k, prev_tuning[k], next_tuning[k]):
 			changed.append(k)
@@ -162,7 +186,7 @@ func changed_on_disk(path: String) -> bool:
 
 func write_defaults(path: String) -> Error:
 	"""When path is missing, write the current values as indented JSON with tuning keys in DEFAULTS
-	order and units as {} if empty. Never overwrites an existing file (returns ERR_ALREADY_EXISTS)."""
+	order and units.default (null when none is set). Never overwrites an existing file (returns ERR_ALREADY_EXISTS)."""
 	if FileAccess.file_exists(path):
 		return ERR_ALREADY_EXISTS
 	var global_dir := ProjectSettings.globalize_path(path).get_base_dir()
@@ -171,14 +195,12 @@ func write_defaults(path: String) -> Error:
 	var ordered_tuning := {}
 	for k in DEFAULTS["tuning"]:
 		ordered_tuning[k] = _values["tuning"][k]
-	var units_val: Dictionary = _values["units"].duplicate(true) if typeof(_values.get("units")) == TYPE_DICTIONARY else {}
+	var units_val := {"default": _values["units"].get("default", null)}
 	var payload := {
 		"units": units_val,
 		"tuning": ordered_tuning,
 	}
 	var text := JSON.stringify(payload, "  ", false)
-	if units_val.is_empty():
-		text = text.replace("\"units\": {\n\n  }", "\"units\": {}")
 	var f := FileAccess.open(path, FileAccess.WRITE)
 	if f == null:
 		var err := FileAccess.get_open_error()
@@ -221,6 +243,18 @@ static func _tuning_differs(key: String, a: Variant, b: Variant) -> bool:
 	if RANGES[key]["int"]:
 		return int(a) != int(b)
 	return absf(float(a) - float(b)) > 1e-9
+
+
+static func _units_default_differs(a: Variant, b: Variant) -> bool:
+	if a == null and b == null:
+		return false
+	if a == null or b == null:
+		return true
+	return String(a) != String(b)
+
+
+static func format_num(v: float) -> String:
+	return _fmt_num(v)
 
 
 static func _fmt_num(v: float) -> String:

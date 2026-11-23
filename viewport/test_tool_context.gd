@@ -297,6 +297,9 @@ func _initialize() -> void:
 	check("pick.on_grid with the grid off: unchanged", ctx.pick.on_grid(p)["point"] == Vector3(13, 27, 5) and not ctx.pick.grid_enabled())
 	check("pick.grid_step / snap_radius are inference's", ctx.pick.grid_step() == Inference.GRID and ctx.pick.snap_radius() == Inference.SNAP_PX
 		and Main.GRID == Inference.GRID and Main.SNAP_PX == Inference.SNAP_PX)
+	Inference.grid = 25.0; Inference.snap_px = 20.0
+	check("pick.grid_step / snap_radius follow live inference values", ctx.pick.grid_step() == 25.0 and ctx.pick.snap_radius() == 20.0)
+	Inference.grid = Inference.GRID; Inference.snap_px = Inference.SNAP_PX
 	check("pick.cursor with no cursor bound: zero", ctx.pick.cursor() == Vector2.ZERO)
 
 	# --- ray and project on a tilted camera: the camera's own answers, in model units ---

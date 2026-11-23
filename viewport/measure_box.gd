@@ -20,6 +20,7 @@ var length_pending := {}            # a length FreeCAD is working out: {id, tool
 var units := Units.DEFAULT_SPEC     # canonical '<format>:<rounding>'
 var fallback_spec := Units.DEFAULT_SPEC
 var settings_path := ""             # user://settings.cfg in the app; "" in tests unless a test supplies a temp path
+var pref_default_units := ""        # from preferences.json units.default (I62, I63); "" if not set
 var units_dirty := false            # local choice not yet acknowledged by the worker (resent on reconnect)
 var units_user_set := false         # user picked units for this model before its open reply arrived
 var units_pending_rev := 0          # revision a set_units reply said it will save as (resent if worker restarts unsaved)
@@ -42,7 +43,10 @@ func init_units(cfg_path := "", fallback := Units.DEFAULT_SPEC) -> void:
 
 
 func default_units() -> String:
-	"""Last units used (settings.cfg), else fallback_spec (fractional inches 1/16\" in the app, mm in tests; I57, I62)."""
+	"""Preference default (I62, I63), else last units used (settings.cfg), else fallback_spec (fractional inches 1/16\" in the app, mm in tests; I57)."""
+	if pref_default_units != "":
+		var pref := Units.parse_spec(pref_default_units)
+		if pref.ok: return pref.spec
 	if settings_path != "":
 		var cfg := ConfigFile.new()
 		if cfg.load(settings_path) == OK:
