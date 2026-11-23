@@ -1,6 +1,6 @@
 ### H075 — T88 step 4: Rectangle moves to ToolContext
 
-Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: open | For: Codex
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: answered | For: Codex
 
 References: T88, docs/specs/T88-tool-interface.md (§ rect_tool.gd, the delivery table's step 4), P21, A34, H051
 (ToolContext), H065 (Paint), H071 (Select) and H072 (Circle): the worked examples; follow Circle's pattern and test
@@ -41,10 +41,14 @@ Move as legacy tools. Existing rectangle UI checks and length comparison tests a
 Verification: gate passes (quick 240 passed, 0 failed; ToolContext 123/123; registry 13/13; all feature tests;
 FreeCAD matches all 2500 length table cases; full test passes, zero known failures). Gate evidence:
 `scratch/h075-tmp/shopsketch-gate.kjNGjt/`. Initial quick: UI 240/240 and context 123/123 passed, but test_job's
-watchdog cleanup check saw another matching sleep process; the gate rerun passed that test 74/74. Initial evidence
+watchdog cleanup check observed a remaining matching sleep process (cause undetermined); the gate rerun passed that test 74/74. Initial evidence
 retained in `scratch/h075-initial-quick/`. `git diff --check` passes. Main merged before handoff (already up to date).
 Decisions: T88, A34, I43, I44 and P21 applied; no new behaviour choices or placeholder IDs.
 
 Architecture: Rectangle no longer receives Main; it uses existing ToolContext capabilities and Geo.rect_points.
 Architecture: Document and presenter ownership, worker protocol, op format, saving and recovery are unchanged.
 For the integrator: Update the tools folder guide's legacy-tool list to Push/Pull and Move, and mark Rectangle as context-only (H075); no interface names were added.
+
+Delivery — Codex, 2026-11-22: implementation commit `56eb6fd`; no open behaviour questions. Ready for integrator review.
+
+Result: 56eb6fd; quick 240/240, ToolContext 123/123, registry 13/13, gate PASS; Rectangle uses only ToolContext and Geo, with context-only geometry checks and Rectangle/Line source guards.
