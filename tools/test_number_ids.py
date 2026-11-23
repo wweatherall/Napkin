@@ -223,6 +223,39 @@ check("split: an inline copy that differs from its file is refused, the file kep
       and "Request: do it." in read(root, "docs/handoff/H033-t74-t77-ids-at-merge.md"))
 shutil.rmtree(root)
 
+# H073: only placeholders that are IDs are numbered; an example in prose is left as written and reported
+log = LOG.replace("| T77 | seventy-seven |", "| T77 | seventy-seven |\n| T-new-1 | build it, for I-new-1 |")
+log = log.replace("| I48 | forty-eight |", "| I48 | forty-eight |\n| I-new-1 | new rule |")
+board = "| H-new-1 | Claude | Ready | New job |\n"
+root = tree({"docs/decision-log.md": log,
+             "docs/handoff-archive.md": ARCHIVE + "\nRequest: log it as P-new-1 and cite it.\n",
+             "docs/handoff/H036-current.md": entry("H036", "Current", extra="Logged I-new-1.\nWrite one like Q-new-2.\n"),
+             "docs/handoff/H-new-1-new-job.md": entry("H-new-1", "New job", extra="Work in T-new-1.\n"),
+             "BOARD.md": board})
+got, said = run(root)
+check("prose examples: real rows and entries still number (I, T, H)",
+      got == {"I-new-1": "I49", "T-new-1": "T78", "H-new-1": "H037"})
+check("prose examples: the log rows, the entry and BOARD.md's mention of it are numbered",
+      "| I49 | new rule |" in read(root, "docs/decision-log.md") and "| T78 | build it, for I49 |" in read(root, "docs/decision-log.md")
+      and read(root, "docs/handoff/H037-new-job.md").startswith("### H037 — New job")
+      and "Work in T78." in read(root, "docs/handoff/H037-new-job.md") and "| H037 | Claude |" in read(root, "BOARD.md"))
+check("prose examples: an example in the archive stays as written",
+      "log it as P-new-1 and cite it" in read(root, "docs/handoff-archive.md") and "P01" not in read(root, "docs/handoff-archive.md"))
+check("prose examples: an example in a handoff entry stays as written, its real reference numbered",
+      "Write one like Q-new-2." in read(root, "docs/handoff/H036-current.md")
+      and "Logged I49." in read(root, "docs/handoff/H036-current.md"))
+check("prose examples: each one is reported with its file and line",
+      any(s.startswith("not numbered: docs/handoff-archive.md:") and "P-new-1" in s for s in said)
+      and any(s.startswith("not numbered: docs/handoff/H036-current.md:6") and "Q-new-2" in s for s in said))
+shutil.rmtree(root)
+
+root = tree({"docs/handoff-archive.md": ARCHIVE + "\nAn example: I-new-1.\n"})
+before = read(root, "docs/handoff-archive.md")
+got, said = run(root)
+check("only prose examples: nothing numbered, nothing changed, it says so",
+      got == {} and said[-1] == "nothing numbered" and read(root, "docs/handoff-archive.md") == before)
+shutil.rmtree(root)
+
 # the real docs
 real = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
 text = read(real, handoff.HANDOFF)
@@ -252,6 +285,7 @@ check("a glob covers the files under it", dict(handoff.overlaps_in({"a.md": A, "
 
 # P23: the decision archive's rows count as taken, so a new number never repeats an archived one
 root = tree({"docs/decision-archive.md": "# archive\n\n## Done work\n\n| # | Item | Status |\n|---|---|---|\n| T90 | old | Done |\n",
+             "docs/decision-log.md": LOG.replace("| T77 | seventy-seven |", "| T77 | seventy-seven |\n| T-new-1 | next |"),
              "notes.md": "next: T-new-1\n"})
 got, said = run(root)
 check("an archived T90 makes the next Work list number T91", got.get("T-new-1") == "T91")

@@ -88,7 +88,10 @@ check("the live file holds no Superseded, Decided or Done row",
 tmp = tempfile.mkdtemp()
 try:
     os.makedirs(os.path.join(tmp, "docs"))
-    open(os.path.join(tmp, s.LIVE), "w").write(live)
+    # the placeholders are IDs (H073): a Work list row and a principle row define them
+    l2 = s.insert_row(live, "| T-new-1 | New item. | Open | Q1 | Next. |", "## Work list")
+    l2 = s.insert_row(l2, "| G-new-1 | Keep it small. | Tentative |  | 2026-11-22 |", "## Principles")
+    open(os.path.join(tmp, s.LIVE), "w").write(l2)
     a2 = s.insert_row(arch, "| T7 | Old item. | Done | Q1 | Done. |", "## Done work")
     open(os.path.join(tmp, s.ARCHIVE), "w").write(s.sort_text(a2))
     open(os.path.join(tmp, "note.md"), "w").write("See T-new-1 and G-new-1.\n")

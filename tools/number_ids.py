@@ -3,8 +3,10 @@
 
 A branch that needs a new decision, Work list item, question or handoff entry writes a placeholder: the kind's
 letter, "-new-" and a number of its own (I-new-N, T-new-N, Q-new-N, H-new-N with N = 1, 2 ...; a letter after N
-is kept, so I-new-Nb becomes I49b). Examples in prose write N instead of a digit, so they are
-never numbered. The integrator merges with `git merge --no-ff --no-commit <branch>`, runs this, then commits:
+is kept, so I-new-Nb becomes I49b). Only placeholders that are IDs are numbered (H073): a decision-log row the
+branch adds (`| I-new-N |`) or its ### section, a docs/handoff/ entry's file name or ### heading, and every
+reference to those. Any other placeholder (an example in prose) is left as written and reported as
+"not numbered: <file>:<line>"; examples are best written with N instead of a digit all the same. The integrator merges with `git merge --no-ff --no-commit <branch>`, runs this, then commits:
 each placeholder becomes the next free number of its kind, the same number everywhere it is cited, in every
 tracked text file; a handoff file named after one is renamed (docs/handoff/H-new-N-slug.md -> H037-slug.md), the
 decision log is sorted again and the handoff's open list is rebuilt (tools/handoff.py). Run it after each merge,
@@ -27,6 +29,9 @@ import handoff
 import sort_decision_log
 
 PLACEHOLDER = re.compile(r"\b([A-Z]+)-new-(\d+)([a-z]*)\b")
+DEFINES_ROW = re.compile(r"^\| ([A-Z]+)-new-(\d+)[a-z]* \|")
+DEFINES_HEADING = re.compile(r"^### ([A-Z]+)-new-(\d+)[a-z]*\b")
+DEFINES_FILE = re.compile(r"^([A-Z]+)-new-(\d+)[a-z]*-")
 TAKEN = re.compile(r"^([A-Z]+)(\d+)[a-z]*$")
 LOG = sort_decision_log.LIVE
 ARCHIVE = sort_decision_log.ARCHIVE
@@ -86,41 +91,71 @@ def read_text(path):
         return None
 
 
+def defined(root, files):
+    """{(kind, n)} of the placeholders that are IDs (H073): a decision-log row a branch adds (`| X-new-N |`) or its
+    `### X-new-N` Details section, in either log file; in docs/handoff/, an entry's file name (H-new-N-slug.md) or
+    its `### H-new-N` heading. Only these are numbered; the rest are examples in prose."""
+    found = set()
+    for rel in files:
+        in_log, in_handoff = rel in (LOG, ARCHIVE), rel.startswith(handoff.FOLDER.rstrip("/") + "/")
+        if not (in_log or in_handoff):
+            continue
+        if in_handoff:
+            m = DEFINES_FILE.match(os.path.basename(rel))
+            if m:
+                found.add((m.group(1), int(m.group(2))))
+        for line in (read_text(os.path.join(root, rel)) or "").split("\n"):
+            m = DEFINES_HEADING.match(line) or (in_log and DEFINES_ROW.match(line))
+            if m:
+                found.add((m.group(1), int(m.group(2))))
+    return found
+
+
 def plan(root, files=None):
     """Work out the numbers without changing anything.
-    Returns (numbers {(kind, n): new ID without letter}, cited {(kind, n): [files]}, renames [(old, new)])."""
+    Returns (numbers {(kind, n): new ID without letter}, cited {(kind, n): [files]}, renames [(old, new)],
+    left [(file, line, placeholder)]: placeholders that match no row or entry, so they stay as written)."""
     files = tracked(root) if files is None else files
-    cited = {}
+    ids = defined(root, files)
+    cited, left = {}, []
+
+    def cite(key, rel):
+        where = cited.setdefault(key, [])
+        if rel not in where:
+            where.append(rel)
+
     for rel in files:
-        text = read_text(os.path.join(root, rel))
-        for m in PLACEHOLDER.finditer(text or ""):
-            where = cited.setdefault((m.group(1), int(m.group(2))), [])
-            if rel not in where:
-                where.append(rel)
         for m in PLACEHOLDER.finditer(rel):
-            where = cited.setdefault((m.group(1), int(m.group(2))), [])
-            if rel not in where:
-                where.append(rel)
+            key = (m.group(1), int(m.group(2)))
+            cite(key, rel) if key in ids else left.append((rel, 0, m.group(0)))
+        for i, line in enumerate((read_text(os.path.join(root, rel)) or "").split("\n"), 1):
+            for m in PLACEHOLDER.finditer(line):
+                key = (m.group(1), int(m.group(2)))
+                cite(key, rel) if key in ids else left.append((rel, i, m.group(0)))
     have = taken(root)
     numbers = {}
     for kind, n in sorted(cited):
         hi, width = have.get(kind, (0, 2))
         numbers[(kind, n)] = f"{kind}{hi + 1:0{width}d}"
         have[kind] = (hi + 1, width)
-    renames = [(rel, replace(rel, numbers)) for rel in files if PLACEHOLDER.search(rel)]
-    return numbers, cited, renames
+    renames = [(rel, replace(rel, numbers)) for rel in files if replace(rel, numbers) != rel]
+    return numbers, cited, renames, left
 
 
 def replace(text, numbers):
-    return PLACEHOLDER.sub(lambda m: numbers[(m.group(1), int(m.group(2)))] + m.group(3), text)
+    """text with each numbered placeholder given its number; any other placeholder is left as written."""
+    return PLACEHOLDER.sub(lambda m: (numbers[(m.group(1), int(m.group(2)))] + m.group(3)
+                                      if (m.group(1), int(m.group(2))) in numbers else m.group(0)), text)
 
 
 def apply(root, files=None, dry_run=False, out=print):
-    """Number every placeholder; returns the numbers given ({"I-new-N": "I49", ...})."""
+    """Number every placeholder that is an ID; returns the numbers given ({"I-new-N": "I49", ...})."""
     files = tracked(root) if files is None else files
-    numbers, cited, renames = plan(root, files)
+    numbers, cited, renames, left = plan(root, files)
+    for rel, line, ph in left:
+        out(f"not numbered: {rel}" + (f":{line}" if line else "") + f" ({ph}: no log row or handoff entry defines it)")
     if not numbers:
-        out("no placeholders")
+        out("nothing numbered" if left else "no placeholders")
         return {}
     for (kind, n), new in sorted(numbers.items()):
         out(f"{kind}-new-{n} -> {new}  ({', '.join(cited[(kind, n)])})")
@@ -132,7 +167,7 @@ def apply(root, files=None, dry_run=False, out=print):
     for rel in files:
         path = os.path.join(root, rel)
         text = read_text(path)
-        if text and PLACEHOLDER.search(text):
+        if text and PLACEHOLDER.search(text) and replace(text, numbers) != text:
             open(path, "w", encoding="utf-8").write(replace(text, numbers))
     for old, new in renames:
         if os.path.exists(os.path.join(root, new)):
