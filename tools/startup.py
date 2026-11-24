@@ -8,10 +8,12 @@
 
 Read-only. Works from any worktree: the board and the decision log are read from main (`git show main:<path>`),
 since a worktree's copy can be stale."""
+import json
 import re
 import os
 import subprocess
 import sys
+import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
@@ -295,15 +297,148 @@ def integrator_notes(entries):
     return out
 
 
+def is_state_note(name, text):
+    """True when an integrator handoff is a pre-/clear state note whose body should be surfaced inline."""
+    return "integrator-state" in name.lower() or "archive it once read" in text.lower()
+
+
+def state_note_body(text, max_lines=60):
+    """Body lines of an integrator state note, omitting the ### heading and Author/Touches boilerplate."""
+    lines = []
+    for line in text.splitlines():
+        if not lines and (not line.strip() or line.startswith("### ") or line.startswith(("Author:", "Touches:"))):
+            continue
+        lines.append(line)
+    while lines and not lines[-1].strip():
+        lines.pop()
+    if len(lines) > max_lines:
+        return lines[:max_lines] + [f"... ({len(lines) - max_lines} more lines; read the file for the rest)"]
+    return lines
+
+
+def parse_interrupted_merge(state, merge_head, state_path=""):
+    """Describe any paused integrate.py merge or raw MERGE_HEAD -> dict or None (pure, read-only)."""
+    if state and merge_head:
+        reasons = []
+        if state.get("maps"):
+            reasons.append(f"map updates ({len(state['maps'])})")
+        if state.get("changed"):
+            reasons.append(f"brief changes ({len(state['changed'])})")
+        if not reasons:
+            reasons.append("paused commit")
+        return {
+            "kind": "paused",
+            "branch": state.get("branch", "?"),
+            "reasons": reasons,
+            "summary": f"paused merge on {state.get('branch', '?')} waiting for {', '.join(reasons)}",
+            "action": "python3 tools/integrate.py --continue --as <session> --push",
+        }
+    if merge_head:
+        return {
+            "kind": "git_merge",
+            "branch": merge_head,
+            "reasons": ["MERGE_HEAD"],
+            "summary": f"git merge in progress (MERGE_HEAD={merge_head[:12]}) with no integrate.py state file",
+            "action": "inspect `git status` and finish or `git merge --abort`",
+        }
+    if state:
+        where = state_path or "shopsketch-integrate.json"
+        return {
+            "kind": "stale_state",
+            "branch": state.get("branch", "?"),
+            "reasons": ["stale state file"],
+            "summary": f"stale paused-merge state for {state.get('branch', '?')} with no MERGE_HEAD ({where})",
+            "action": f"inspect and remove {where} if that merge was already finished or aborted",
+        }
+    return None
+
+
+def interrupted_merge(root):
+    """Read-only check for an interrupted merge (integrate.py state file and/or MERGE_HEAD)."""
+    common = git("rev-parse", "--git-common-dir", cwd=root).strip()
+    state_path = os.path.join(common if os.path.isabs(common) else os.path.join(root, common),
+                              "shopsketch-integrate.json") if common else ""
+    state = None
+    if state_path and os.path.isfile(state_path):
+        try:
+            state = json.load(open(state_path, encoding="utf-8"))
+        except (OSError, ValueError):
+            state = {"branch": "(unreadable state file)"}
+    merge_head = git("rev-parse", "-q", "--verify", "MERGE_HEAD", cwd=root).strip()
+    return parse_interrupted_merge(state, merge_head, state_path)
+
+
+def worker_job_context(root, branch, entries):
+    """If inside a job worktree/branch matching an open handoff, return (id, heading, path, touches_line) else None."""
+    m = re.search(r"\b(h\d+)\b", branch or "", re.I) or re.search(r"\b(h\d+)\b", os.path.basename(root or ""), re.I)
+    if not m:
+        return None
+    jid = m.group(1).upper()
+    for name, text in sorted(entries.items()):
+        if not name.upper().startswith(jid + "-"):
+            continue
+        heading = next((l.lstrip("#").strip() for l in text.splitlines() if l.startswith("### ")), name[:-3])
+        touches = next((l.strip() for l in text.splitlines() if l.startswith("Touches:")), "")
+        return jid, heading, f"docs/handoff/{name}", touches
+    return None
+
+
+def integrator_next_actions(lock_holder, state_note_ids, merge_info, live_jobs, ready_count):
+    """Concrete next actions for an integrator, derived read-only from live repo/queue state."""
+    actions = []
+    if lock_holder:
+        actions.append(f"Lock is held by {lock_holder} (reading this brief does not grant authority): "
+                       "if William named you integrator, run python3 tools/integrator.py take <session> --william")
+    else:
+        actions.append("No integrator lock held (reading this brief does not grant authority): "
+                       "if William named you integrator, run python3 tools/integrator.py take <session>")
+    if merge_info:
+        actions.append(f"Interrupted merge: {merge_info['summary']} -> {merge_info['action']}")
+    for jid, info in live_jobs:
+        st = info.get("state")
+        if st == "waiting":
+            actions.append(f"Answer waiting worker {jid}: {info.get('label', '')} -> python3 tools/job.py answer {jid} \"<answer>\"")
+        elif st == "done":
+            actions.append(f"Review and integrate {jid} ({info.get('branch', '?')}): python3 tools/integrate.py {info.get('branch', '?')} --as <session> --push")
+        elif st == "stale":
+            actions.append(f"Inspect stale job {jid} ({info.get('branch', '?')} in {info.get('worktree', '?')})")
+        elif st == "returned":
+            actions.append(f"Returned job {jid} waits for a {info.get('agent', '?')} worker")
+    for hid in state_note_ids:
+        actions.append(f"Read {hid} above; once caught up, archive it manually (python3 tools/handoff.py archive {hid})")
+    actions.append("Arm queue watch in the background: python3 tools/job.py watch --next (no timed check-ins, P39)")
+    if ready_count and not live_jobs:
+        noun = "job" if ready_count == 1 else "jobs"
+        actions.append(f"{ready_count} Ready {noun} on BOARD.md (spin up workers on William's word)")
+    return actions
+
+
+def role_summary(lock_holder, state_note_ids, ready_count, merge_info, in_job_id=None):
+    """Two-line briefing-officer summary for bare startup.py (read-only; never grants authority)."""
+    parts = [f"Integrator lock held by {lock_holder}." if lock_holder else "No integrator lock held."]
+    if state_note_ids:
+        parts.append(f"Open integrator handoff: {', '.join(state_note_ids)}.")
+    parts.append(f"Ready jobs: {ready_count}.")
+    parts.append(f"Interrupted merge: {merge_info['summary']}." if merge_info else "No interrupted merges.")
+    if in_job_id:
+        parts.append(f"Job checkout detected: {in_job_id}.")
+    tip = (f"Role tip: pass --role worker for a lean brief on {in_job_id} "
+           "(or --role integrator if William named you integrator; read-only, never takes the lock)."
+           if in_job_id else
+           "Role tip: pass --role integrator (integrator brief, state notes & next actions; read-only, never takes the lock) "
+           "or --role worker (lean worker brief).")
+    return ["Summary: " + " ".join(parts), tip]
+
+
 def role_brief(role):
     """Concise checklist lines for a known role."""
     if role == "integrator":
         return [
             "Integrator checklist (docs/integrator.md):",
             "  Guide: read docs/integrator.md (owns BOARD.md, ARCHITECTURE.md, docs/protocol.md; only you merge/push).",
-            "  Lock: python3 tools/integrator.py take <session> --william (after /clear or when William names you).",
-            "  Watch: run python3 -u tools/job.py watch --next in the background (no timed check-ins, P39).",
-            "  Notes: read any open notes for the integrator above (archive pre-/clear notes once read).",
+            "  Lock: python3 tools/integrator.py take <session> --william (after /clear or when William names you; --role never grants authority).",
+            "  Watch: run python3 tools/job.py watch --next in the background (no timed check-ins, P39).",
+            "  Notes: read any open notes for the integrator above (archive pre-/clear notes manually once read).",
         ]
     if role == "worker":
         return [
@@ -314,6 +449,28 @@ def role_brief(role):
             "  Done: run tools/quicktest.sh, record response + Result:, set Status: answered, run python3 tools/job.py done, tell William.",
         ]
     return []
+
+
+def collect_live_jobs(root):
+    """Read-only snapshot of active queue jobs for next-action synthesis -> [(jid, info)]."""
+    try:
+        import job
+        now = time.time()
+        st = job.read_state(job.state_path(root))
+        out = []
+        for k, j in sorted(st["jobs"].items()):
+            s = j.get("state")
+            if s not in job.ACTIVE:
+                continue
+            jcopy = dict(j)
+            act = job.refresh(root, jcopy, now)
+            state = "stale" if job.stale(jcopy, act, now) else jcopy.get("state")
+            label = job.waiting_line(k, jcopy) if state == "waiting" else job.live_label(jcopy, act, now)
+            out.append((k, {"state": state, "branch": jcopy.get("branch"), "worktree": jcopy.get("worktree"),
+                            "agent": jcopy.get("agent"), "label": label}))
+        return out
+    except Exception:
+        return []
 
 
 def main(argv):
@@ -331,6 +488,9 @@ def main(argv):
 
     refs = parse_refs(git("for-each-ref", "--format=%(refname:short)|%(ahead-behind:main)|%(committerdate:short)",
                           "refs/heads", "refs/remotes", cwd=root))
+    import integrator
+    lock_info = integrator.read(integrator.lock_path(root))
+    lock_holder = lock_info.get("holder") if lock_info else None
     if role != "worker":
         merged = {n for n, a, b, _ in refs if a == 0 and b > 0}
         trees = parse_worktrees(git("worktree", "list", "--porcelain", cwd=root))
@@ -339,7 +499,6 @@ def main(argv):
         for p, b in shown:
             print(f"  {p}  [{b}]")
 
-        import integrator
         print(integrator.status_line(integrator.lock_path(root)))
 
     print("Recent main:")
@@ -357,28 +516,31 @@ def main(argv):
     board = git("show", "main:BOARD.md", cwd=root)
     jobs = ready_jobs(board, [n for n, *_ in refs])
     print("Ready on the board (main:BOARD.md):")
-    for job, who, item, claim in jobs:
-        print(f"  {job} ({who}) {item}" + (f"  - claimed by {claim}" if claim else ""))
+    for job_id, who, item, claim in jobs:
+        print(f"  {job_id} ({who}) {item}" + (f"  - claimed by {claim}" if claim else ""))
     if not jobs:
         print("  (none)")
     for l in notes(board):
         print("  Note: " + l.strip().removeprefix("- "))
-    try:                     # the live queue (P24): what's in progress, waiting, done, and next for each agent
+    try:                     # the live queue (P24): read-only so startup works inside a sandbox too
         import job
         lines = []
-        job.status(root, out=lines.append)
+        job.status(root, out=lines.append, readonly=True)
         print("Job queue (tools/job.py status):")
         for l in lines:
             print("  " + l)
     except Exception as e:   # the queue is a convenience here; startup still reports the rest
         print(f"Job queue: not read ({type(e).__name__}: {e})")
 
+    names = [l.split("/")[-1] for l in git("ls-tree", "--name-only", "main", "docs/handoff/", cwd=root).splitlines()
+             if l.endswith(".md")]
+    texts = {n: git("show", f"main:docs/handoff/{n}", cwd=root) for n in names}
+    job_ctx = worker_job_context(root, branch, texts)
+    merge_info = interrupted_merge(root) if role != "worker" else None
+
     log = git("show", "main:docs/decision-log.md", cwd=root) if (role != "worker" or ids) else ""
     if role != "worker":
         import handoff   # the open jobs' Touches lists, from main (P11): a file two open jobs both list
-        names = [l.split("/")[-1] for l in git("ls-tree", "--name-only", "main", "docs/handoff/", cwd=root).splitlines()
-                 if l.endswith(".md")]
-        texts = {n: git("show", f"main:docs/handoff/{n}", cwd=root) for n in names}
         clash = handoff.overlaps_in(texts)
         for path, overlap_ids in clash:
             print(f"  OVERLAP: {path} is in {' and '.join(overlap_ids)}: only one of them should be open (P11)")
@@ -386,22 +548,42 @@ def main(argv):
             print(f"  GONE: {f} names {b}, which no longer exists: update the note")
 
         print("Waiting on William (from main):")
-        lock_held = bool(integrator.read(integrator.lock_path(root)))
-        print("\n".join(waiting_on_william(log, texts, board, lock_held)))
+        print("\n".join(waiting_on_william(log, texts, board, bool(lock_info))))
         print("Follow-ups (docs/follow-ups.md, from main):")
         print("\n".join(follow_up_lines(git("show", "main:docs/follow-ups.md", cwd=root))))
+        inotes = integrator_notes(texts)
+        state_note_ids = [h.split()[0] for h, p in inotes if is_state_note(os.path.basename(p), texts.get(os.path.basename(p), ""))]
         if role == "integrator":
-            inotes = integrator_notes(texts)
+            print("Interrupted merges:")
+            if merge_info:
+                print(f"  {merge_info['summary']} -> {merge_info['action']}")
+            else:
+                print("  (none)")
             print("Notes for the integrator (main:docs/handoff/):")
             if inotes:
                 for heading, path in inotes:
+                    fname = os.path.basename(path)
                     print(f"  {heading}  [{path}]")
+                    if is_state_note(fname, texts.get(fname, "")):
+                        for bline in state_note_body(texts[fname]):
+                            print("    " + bline if bline else "")
             else:
                 print("  (none)")
+            live = collect_live_jobs(root)
+            print("Next actions (read-only briefing; does not take the lock):")
+            for act in integrator_next_actions(lock_holder, state_note_ids, merge_info, live, len(jobs)):
+                print("  - " + act)
             print("\n".join(role_brief("integrator")))
         else:
-            print("Role tip: pass --role integrator (integrator checklist & open integrator notes) or --role worker (lean worker brief).")
+            print("\n".join(role_summary(lock_holder, state_note_ids, len(jobs), merge_info,
+                                         in_job_id=job_ctx[0] if job_ctx else None)))
     else:
+        if job_ctx:
+            jid, heading, path, touches = job_ctx
+            print("Assigned job (from this checkout):")
+            print(f"  {heading}  [{path}]")
+            if touches:
+                print(f"  {touches}")
         print("\n".join(role_brief("worker")))
 
     if ids:

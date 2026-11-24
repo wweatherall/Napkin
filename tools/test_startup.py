@@ -138,6 +138,55 @@ INOTES = {
 check("integrator_notes lists only open handoffs addressed to the integrator with their paths",
       s.integrator_notes(INOTES) == [("H067 — Agent roles", "docs/handoff/H067-roles.md"),
                                      ("H131 — Where things stand", "docs/handoff/H131-state.md")])
+STATE_TEXT = ("### H131 — Where things stand\n\nAuthor: x | Date: d | Status: open | For: the integrator\n\n"
+              "Touches: nothing.\n\nArchive it once read.\n\nPaused before quota.\n")
+check("is_state_note spots pre-/clear state notes and ignores design handoffs",
+      s.is_state_note("H131-integrator-state.md", "body") and s.is_state_note("H131-note.md", STATE_TEXT)
+      and not s.is_state_note("H067-agent-role-system.md", INOTES["H067-roles.md"]))
+check("state_note_body strips heading/Author/Touches boilerplate and keeps the note body",
+      s.state_note_body(STATE_TEXT) == ["Archive it once read.", "", "Paused before quota."])
+
+pm = s.parse_interrupted_merge({"branch": "gemini/h125-ties", "maps": [["H125", "m"]], "changed": [["H125", "c"]]},
+                               "deadbeef123456", "/repo/.git/shopsketch-integrate.json")
+check("parse_interrupted_merge reports paused integrate.py merge with reasons and --continue",
+      pm and pm["kind"] == "paused" and "map updates (1)" in pm["summary"] and "brief changes (1)" in pm["summary"]
+      and "--continue" in pm["action"])
+gm = s.parse_interrupted_merge(None, "deadbeef123456", "")
+check("parse_interrupted_merge reports raw MERGE_HEAD with no state file",
+      gm and gm["kind"] == "git_merge" and "MERGE_HEAD" in gm["summary"])
+sm = s.parse_interrupted_merge({"branch": "codex/h090"}, "", "/repo/.git/shopsketch-integrate.json")
+check("parse_interrupted_merge reports stale state file when MERGE_HEAD is absent",
+      sm and sm["kind"] == "stale_state" and "stale paused-merge state" in sm["summary"])
+check("parse_interrupted_merge returns None when clean", s.parse_interrupted_merge(None, "", "") is None)
+
+WENTRIES = {"H125-t60-chains.md": "### H125 — T60 chains\n\nAuthor: x | Date: d | Status: open | For: either\n\n"
+                                  "Touches: worker/stock.py, worker/test_chains.py.\n"}
+check("worker_job_context finds the assigned job and Touches from branch or worktree folder",
+      s.worker_job_context("/repo-jobs/h125", "main", WENTRIES)
+      == ("H125", "H125 — T60 chains", "docs/handoff/H125-t60-chains.md", "Touches: worker/stock.py, worker/test_chains.py.")
+      and s.worker_job_context("/repo", "gemini/h125-ties", WENTRIES)[0] == "H125"
+      and s.worker_job_context("/repo", "main", WENTRIES) is None)
+
+acts = s.integrator_next_actions(
+    "gemini-maple", ["H131"], pm,
+    [("H125", {"state": "waiting", "label": "H125 asks scope"}),
+     ("H128", {"state": "done", "branch": "gemini/h128-loops"}),
+     ("H129", {"state": "stale", "branch": "codex/h129-rect", "worktree": "/jobs/h129"})],
+    2)
+joined_acts = "\n".join(acts)
+check("integrator_next_actions keeps authority separate and surfaces merge, waiting, done, stale, state note, watch",
+      "does not grant authority" in joined_acts and "Interrupted merge:" in joined_acts
+      and "job.py answer H125" in joined_acts and "integrate.py gemini/h128-loops" in joined_acts
+      and "stale job H129" in joined_acts and "handoff.py archive H131" in joined_acts
+      and "watch --next" in joined_acts)
+
+summary_lines = s.role_summary("gemini-maple", ["H131"], 2, None, in_job_id="H125")
+check("role_summary summarizes lock, state note, ready count, merge state and detected job checkout",
+      len(summary_lines) == 2 and "gemini-maple" in summary_lines[0] and "H131" in summary_lines[0]
+      and "Ready jobs: 2." in summary_lines[0] and "No interrupted merges." in summary_lines[0]
+      and "Job checkout detected: H125." in summary_lines[0] and "--role worker" in summary_lines[1]
+      and "never takes the lock" in summary_lines[1])
+
 check("role_brief returns checklists for integrator and worker",
       any("docs/integrator.md" in l for l in s.role_brief("integrator"))
       and any("watch --next" in l for l in s.role_brief("integrator"))
@@ -146,20 +195,26 @@ check("role_brief returns checklists for integrator and worker",
 
 # A generous bound (120 s), not a machine-speed threshold: a hang still fails here, not only under job.py run (P40).
 r = subprocess.run([sys.executable, os.path.join(HERE, "startup.py")], capture_output=True, text=True, timeout=120)
-check("smoke: the real report runs and has every section plus the role tip",
+check("smoke: the real report runs and has every section plus Summary, Role tip and live Job queue",
       r.returncode == 0 and all(h in r.stdout for h in ("This checkout:", "Worktrees", "Recent main:",
                                                          "Branches with commits", "Ready on the board",
+                                                         "Job queue (tools/job.py status):",
                                                          "Waiting on William", "Follow-ups (docs/follow-ups.md",
-                                                         "Role tip:")))
+                                                         "Summary:", "Role tip:"))
+      and "Job queue: not read" not in r.stdout)
 check("smoke: Follow-ups comes after Waiting on William",
       r.stdout.find("Follow-ups (docs/follow-ups.md") > r.stdout.find("Waiting on William"))
 r = subprocess.run([sys.executable, os.path.join(HERE, "startup.py"), "--role", "integrator"], capture_output=True, text=True, timeout=120)
-check("smoke: --role integrator prints open integrator notes and the integrator checklist",
-      r.returncode == 0 and "Notes for the integrator (main:docs/handoff/):" in r.stdout
-      and "Integrator checklist (docs/integrator.md):" in r.stdout and "Role tip:" not in r.stdout)
+check("smoke: --role integrator prints interrupted merges, notes, next actions and checklist with live queue",
+      r.returncode == 0 and "Interrupted merges:" in r.stdout
+      and "Notes for the integrator (main:docs/handoff/):" in r.stdout
+      and "Next actions (read-only briefing; does not take the lock):" in r.stdout
+      and "Integrator checklist (docs/integrator.md):" in r.stdout and "Role tip:" not in r.stdout
+      and "Job queue (tools/job.py status):" in r.stdout and "Job queue: not read" not in r.stdout)
 r = subprocess.run([sys.executable, os.path.join(HERE, "startup.py"), "--role", "worker", "T1"], capture_output=True, text=True, timeout=120)
-check("smoke: --role worker prints a lean worker brief and still resolves IDs",
+check("smoke: --role worker prints a lean worker brief with live queue and still resolves IDs",
       r.returncode == 0 and "Ready on the board" in r.stdout and "Worker checklist (BOARD.md):" in r.stdout
+      and "Job queue (tools/job.py status):" in r.stdout and "Job queue: not read" not in r.stdout
       and "| T1 |" in r.stdout and "Follow-ups (docs/follow-ups.md" not in r.stdout
       and "Waiting on William" not in r.stdout)
 r = subprocess.run([sys.executable, os.path.join(HERE, "startup.py"), "--role", "wizard"], capture_output=True, text=True, timeout=120)

@@ -14,8 +14,8 @@ Architecture: lines, the response) and CLAUDE.md (commit trailers); this page sa
   enough (review done, full test passes) and pushes main after merging (P16). Other sessions never merge or push.
 
 ## The queue watch
-- No timed check-ins (P39): run `python3 -u tools/job.py watch --next` with Bash `run_in_background` (not a
-  Monitor: it expires every 30 min, and each wake re-reads the whole context); it wakes you
+- No timed check-ins (P39): run `python3 tools/job.py watch --next` in the background (it flushes stdout on every
+  event and works read-only if `.git/` is sandboxed; no Monitor needed); it wakes you
   once on the first new event (a job done, a job stale: its deadline passed, check its branch and worktree; a
   worker waiting on William; a job returned; the queue empty while a worker waits on `take --wait`: check in with William). Start
   it again after each. After a context clear, re-arm it.

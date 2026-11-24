@@ -152,6 +152,30 @@ def locked(path):
         os.replace(tmp, path)
 
 
+@contextlib.contextmanager
+def state_read(path, readonly=False):
+    """Read queue state under locked() when writable; fall back to atomic read_state() when .git is read-only."""
+    if readonly:
+        yield read_state(path)
+        return
+    cm = locked(path)
+    try:
+        st = cm.__enter__()
+    except PermissionError:
+        yield read_state(path)
+        return
+    try:
+        yield st
+    except BaseException:
+        if not cm.__exit__(*sys.exc_info()):
+            raise
+    else:
+        try:
+            cm.__exit__(None, None, None)
+        except PermissionError:
+            pass
+
+
 def hhmm(t):
     return time.strftime("%H:%M", time.localtime(t)) if t else "?"
 
@@ -322,7 +346,10 @@ def activity(root, job, now, procs=None):
     times = [job.get("beat", 0), job.get("taken", 0), (job.get("test") or {}).get("at", 0),
              last_commit(root, job.get("branch", "HEAD"))]
     if procs is None and job.get("worktree") and os.path.isdir(job["worktree"]):
-        procs = processes(job["worktree"])
+        try:
+            procs = processes(job["worktree"])
+        except PermissionError:
+            procs = []
     if any(age < HUNG_AFTER for _, age, _ in procs or []):
         times.append(now)
     return max(times)
@@ -972,7 +999,7 @@ def watch(cwd, once=False, out=print, now=None, until_new=False):
     while True:
         t = now or time.time()
         jobs, order = main_view(root)
-        with locked(state_path(cwd)) as st:
+        with state_read(state_path(cwd)) as st:
             cur = conditions(root, st, jobs, order, t)
         new = [line for key, line in cur.items() if seen is not None and key not in seen]
         for line in new:
@@ -984,11 +1011,11 @@ def watch(cwd, once=False, out=print, now=None, until_new=False):
         time.sleep(WATCH_POLL)
 
 
-def status(cwd, out=print, now=None):
+def status(cwd, out=print, now=None, readonly=False):
     now = now or time.time()
     root = main_root(cwd)
     jobs, order = main_view(root)
-    with locked(state_path(cwd)) as st:
+    with state_read(state_path(cwd), readonly=readonly) as st:
         live = [(k, j) for k, j in st["jobs"].items() if j.get("state") in ACTIVE]
         for k, j in live:
             act = refresh(root, j, now)

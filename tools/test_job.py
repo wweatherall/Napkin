@@ -1102,5 +1102,31 @@ for w in [l.split()[1] for l in sh(u_root, "git", "worktree", "list", "--porcela
     sh(u_root, "git", "worktree", "remove", "--force", w)
 shutil.rmtree(u_base)
 
+# Read-only queue reads (sandboxed .git): status(readonly=True) creates no .lock, and status()/watch() fall back on PermissionError.
+ro_base, ro_root = repo()
+ro_state = job.state_path(ro_root)
+ro_lock = ro_state + ".lock"
+if os.path.exists(ro_lock):
+    os.remove(ro_lock)
+_, ro_lines = run(job.status, ro_root, readonly=True)
+check("status(readonly=True) reads the queue without creating a .lock file",
+      "no job in progress" in ro_lines and not os.path.exists(ro_lock), ro_lines)
+
+real_open = open
+def deny_lock(path, *args, **kwargs):
+    if str(path).endswith(".lock"):
+        raise PermissionError("sandbox denied .git lock")
+    return real_open(path, *args, **kwargs)
+
+with patch("builtins.open", side_effect=deny_lock):
+    _, fb_status = run(job.status, ro_root)
+    fb_cur, _ = run(job.watch, ro_root, once=True)
+check("status() and watch(once=True) fall back cleanly when .git/*.lock raises PermissionError",
+      "no job in progress" in fb_status and isinstance(fb_cur, dict), (fb_status, fb_cur))
+with patch.object(job, "processes", side_effect=PermissionError("sandbox denied ps")):
+    act_ro = job.activity(ro_root, {"taken": 123, "branch": "HEAD", "worktree": ro_root}, 200)
+check("activity() degrades cleanly when ps/lsof raise PermissionError in a sandbox", act_ro >= 123, act_ro)
+shutil.rmtree(ro_base)
+
 print(f"JOB TESTS: {sum(RESULTS)} passed, {len(RESULTS) - sum(RESULTS)} failed")
 sys.exit(0 if all(RESULTS) else 1)
