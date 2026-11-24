@@ -72,11 +72,13 @@ def git(root, *args):
 
 
 def common_git_dir(repo):
+    dotgit = os.path.join(repo, ".git")
+    if os.path.isdir(dotgit):
+        return os.path.realpath(dotgit)
     r = git(repo, "rev-parse", "--git-common-dir")
     if r.returncode == 0 and r.stdout.strip():
         return os.path.realpath(os.path.join(repo, r.stdout.strip()))
-    fallback = os.path.join(repo, ".git")
-    return os.path.realpath(fallback) if os.path.isdir(fallback) else repo
+    return os.path.realpath(repo)
 
 
 def jobs_state_path(repo):

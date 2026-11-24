@@ -334,7 +334,7 @@ class TestOrientBenchAndOverhead(unittest.TestCase):
             agy_dir = os.path.join(tmp, "agy-mon")
             claude_dir = os.path.join(tmp, "claude-mon")
             repo = os.path.join(tmp, "repo")
-            os.makedirs(repo, exist_ok=True)
+            os.makedirs(os.path.join(repo, ".git"), exist_ok=True)
 
             # Synthetic transcript like b0ee70ee: turn 1 is stray warm-up, turn 2 is integrator startup
             tpath = _agy_transcript_path(brain, "b0ee70ee-0000-0000-0000-000000000000")
