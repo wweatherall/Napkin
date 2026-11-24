@@ -81,6 +81,25 @@ ACTIVE = ("in progress", "waiting", "done", "returned")     # a job in one of th
 WORKING = ("in progress", "waiting")                         # ... and in one of these, its session
 INTERESTING = re.compile(r"godot|freecad|\.sh\b|python", re.I)
 RESPONSE = re.compile(r"^[#*\s]*Response\b", re.M)
+USAGE_TOOL = "/Users/Will/Sites/job-usage/job_usage.py"
+
+
+def record_usage(root, event, jid, agent=None, session=None, quiet=True):
+    """Notify job-usage passively at a job lifecycle boundary; fail-open so it never blocks a command (T117)."""
+    tool = os.environ.get("SHOPSKETCH_USAGE_TOOL", USAGE_TOOL)
+    if not tool or not os.path.isfile(tool):
+        return
+    cmd = [sys.executable, tool, "--repo", root, "snapshot", "--event", event, "--job", jid]
+    if agent:
+        cmd += ["--agent", agent]
+    if session:
+        cmd += ["--session", session]
+    if quiet:
+        cmd.append("--quiet")
+    try:
+        subprocess.run(cmd, check=False, timeout=5)
+    except Exception:
+        pass
 
 
 # ---- git and the state file ----
@@ -436,6 +455,7 @@ def _take(cwd, agent, session, now=None, out=print):
         out(f"job {n} of {MAX_JOBS} for this session (P27)")
     out(open(os.path.join(wt, handoff.FOLDER, job["name"]), encoding="utf-8").read())
     print_answers(answers, out)
+    record_usage(root, "take", job["id"], agent=agent, session=session, quiet=True)
     return job["id"], None
 
 
@@ -761,6 +781,7 @@ def done(cwd, jid=None, now=None, out=print):
     with_job(cwd, k, out, go)
     out(f"{k} done: the integrator is told. Tell William \"ready for review: {k}\".")
     out(next_step(read_state(state_path(cwd)), j.get("session")))
+    record_usage(main_root(cwd), "done", k, quiet=True)
     return True
 
 
@@ -784,6 +805,7 @@ def return_job(cwd, jid, notes, now=None, out=print):
         j.update(state="returned", notes=notes, returned=now, session=None)
         event(st, "returned", jid, notes, now)
     out(f"{jid} returned: the next {j['agent']} worker to take a job resumes {j['branch']}")
+    record_usage(main_root(cwd), "return", jid, quiet=True)
     return True
 
 

@@ -31,7 +31,6 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 <!-- open list: built from docs/handoff/ by tools/handoff.py; don't edit by hand -->
 
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
-- [H124 — T117: wire passive job-usage lifecycle hooks into job.py and integrate.py](handoff/H124-usage-tracker-hooks.md) — status: open; for: either
 - [H125 — T60: chains of face ties (a board tied to a board that is itself tied)](handoff/H125-t60-face-tie-chains.md) — status: open; for: either
 - [H126 — T61: face ties on linked copies (component definitions and instances)](handoff/H126-t61-face-ties-linked-copies.md) — status: queued (after H125); for: either
 - [H127 — T62: face ties on shapes other than plain rectangular boards](handoff/H127-t62-face-ties-other-shapes.md) — status: queued (after H126); for: either
@@ -45,6 +44,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 Full entries in [handoff-archive.md](handoff-archive.md).
 
+- H124 — T117: wire passive job-usage lifecycle hooks into job.py and integrate.py. Resolved: merged into main by the integrator, 2026-11-23.
 - H109 — T113 step 2: what a rejection takes with it moves to document.gd, and main's document pass-throughs go. Resolved: merged into main by the integrator, 2026-11-23.
 - H118 — For the next integrator session: where things stand. Resolved: read by gemini-cedar-1123-1844; H097, H123 and H122 merged and pushed, H109 rechecked and opened (2026-11-23).
 - H122 — T113 step 5: main.gd's compatibility members go (callers use the modules). Resolved: merged into main by the integrator, 2026-11-23.

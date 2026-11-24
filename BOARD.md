@@ -57,7 +57,6 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H124 | either | In progress (gemini since 22:04) | T117: wire passive job-usage lifecycle hooks into job.py and integrate.py | [H124](docs/handoff/H124-usage-tracker-hooks.md) |  |
 | H125 | either | **Ready** | T60: chains of face ties (a board tied to a board that is itself tied) | [H125](docs/handoff/H125-t60-face-tie-chains.md) |  |
 | H126 | either | Queued | T61: face ties on linked copies (component definitions and instances) | [H126](docs/handoff/H126-t61-face-ties-linked-copies.md) | H125 |
 | H127 | either | Queued | T62: face ties on shapes other than plain rectangular boards | [H127](docs/handoff/H127-t62-face-ties-other-shapes.md) | H126 |
