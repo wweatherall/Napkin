@@ -33,10 +33,11 @@ Architecture: lines, the response) and CLAUDE.md (commit trailers); this page sa
 - Spinning up a Gemini worker window (tell William): run
   `osascript -e 'tell application "Terminal" to do script "cd /Users/Will/Sites/fretchup && agy --model gemini-4-neon-medium -i \"Gemini go! Check the board.\""'`
   (adjust `--model` if William asks for another; `agy models` lists them).
-- Passive job usage (T117): `job.py` (`take`, `done`, `return`) and `integrate.py` (`merge`) append fail-open
-  snapshots to untracked `.git/shopsketch-usage.jsonl`. Inspect with
-  `python3 /Users/Will/Sites/job-usage/job_usage.py viz` (`--solo --sort burn`, `--job <H0NN>`) or
-  `report --only-measured` (`compare`, `overhead`, and `holes <H0NN>` are also available).
+- Passive job usage (T117, T126): `job.py` (`take`, `done`, `return`) and `integrate.py` (`merge`) call
+  `tools/usage.py` fail-open, appending snapshots to untracked `.git/shopsketch-usage.jsonl`. Inspect with
+  `python3 tools/usage.py orient` (startup benchmark), `bench` (worker + integrator summary with 5h % estimates),
+  `viz` (`--solo --sort burn`, `--job <H0NN>`), `report --only-measured`, `overhead`, `compare`, or
+  `holes <H0NN>` (Claude & AGY/Gemini transcripts).
 
 ## Review and merge
 - Review every done job (Codex's `codex/*` branches too). Read each `Changed from the brief:` line first (P44):
