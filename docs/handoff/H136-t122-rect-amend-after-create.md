@@ -1,6 +1,6 @@
 ### H136 — T122: Rectangle after-the-fact typed dimensions
 
-Author: Gemini (integrator, gemini-cedar-1124-0100) | Date: 2026-11-24 | Status: open | For: either
+Author: Gemini (integrator, gemini-cedar-1124-0100) | Date: 2026-11-24 | Status: answered | For: either
 
 References: T122, I65, I02, I14, G03, G06.
 
@@ -48,4 +48,19 @@ Run `tools/quicktest.sh` while building, then `python3 tools/job.py test`. End y
 
 #### Response (Gemini, 2026-11-24)
 
+Branch: `gemini/h136-t122-rect-amend-after-create` | Code commit: `e951a5c` | IDs added: none | Open questions: none.
+
+Implemented post-commit rectangle dimension amending (I65, T122):
+- `viewport/tools/rect_tool.gd`: tracks `last_oid` and `last_meta` (`origin`, `n`, `x`, `y`, `on`, `su`, `sv`, `du`, `dv`) on commit; `busy()` stays true while `last_oid` is still the document's latest op (`ctx.document.is_last(last_oid)`), `in_gesture()` stays `state.get("active", false)` (so Esc still follows I38), `reset()` and starting a new click clear `last_oid`/`last_meta`, `vcb_value()` displays the last rectangle's formatted dimensions while amendable, and `_amend_last_rect(txt)` validates positive `w, h`, removes `last_oid` without an extra intermediate sync, and re-commits with `reuse_oid = last_oid` preserving origin, plane, and quadrant signs.
+- `viewport/tool_context.gd`: added `DocumentCapability.is_last(id: String) -> bool` so tools can strictly verify an op is still the latest op in `doc.ops` before amending (catching Undo, Hide, Assemble, Turn grain, etc.).
+- `viewport/test_tool_context.gd`: allowlisted and tested `document.is_last` and updated post-commit assertions (lines 567 and 587) from `not rect.busy()` to `not rect.in_gesture() and rect.busy()`.
+- `viewport/tests/quick/preferences.gd`: updated line 172 post-commit assertion from `not m.tools["rect"].busy()` to `not m.tools["rect"].in_gesture()`.
+- `viewport/tests/quick/rect.gd`: added `rect_amend` quick tests covering (1) click-click placement in `-X/+Y` quadrant then typing `200, 120` + Enter (verifying same ID/origin/plane/quadrant, viewport profile draft, and FreeCAD confirmation), (2) retyping `80, 90` + Enter a second time, (3) pressing `P` to switch tools without eating the key and returning to Rectangle without amending the old rectangle, and (4) Undo after amend reverting in one step and typing `100, 100` + Enter afterwards doing nothing.
+
+Scope approval quoted from `job.py wait --scope`:
+> Approved — go ahead and touch all 3 files: (1) viewport/tool_context.gd (DocumentCapability.is_last), (2) viewport/test_tool_context.gd (allowlist + test is_last, update lines 567 & 587 — also check line 590 right after since click on an assembly board follows the line 582 commit), (3) viewport/tests/quick/preferences.gd (line 172). Add an Architecture: note in your handoff response for the DocumentCapability.is_last addition.
+
+Verified: `python3 tools/job.py test` on `e951a5c` passed (`TOOL CONTEXT TESTS: 149 passed, 0 failed`, all feature tests passed, `QUICK 338 passed, 0 failed in 24.1 s`).
+
 Architecture: `viewport/tool_context.gd` `DocumentCapability` adds `is_last(id: String) -> bool` (allowlisted and tested in `viewport/test_tool_context.gd`) so tools can verify an op is still the document's latest op before amending it in place.
+Result: e951a5c; quicktest 338/338, tool_context 149/149, all feature tests passed; rectangle after-the-fact typed dimensions (I65) and DocumentCapability.is_last
