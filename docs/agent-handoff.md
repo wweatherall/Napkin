@@ -31,8 +31,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 <!-- open list: built from docs/handoff/ by tools/handoff.py; don't edit by hand -->
 
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
-- [H109 — T113 step 2: what a rejection takes with it moves to document.gd, and main's document pass-throughs go](handoff/H109-t113-rejections.md) — status: queued (after H096, H094); for: either
-- [H118 — For the next integrator session: where things stand](handoff/H118-integrator-state.md) — status: open; for: the integrator
+- [H109 — T113 step 2: what a rejection takes with it moves to document.gd, and main's document pass-throughs go](handoff/H109-t113-rejections.md) — status: open; for: either
 
 <!-- end of open list -->
 
@@ -40,6 +39,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 Full entries in [handoff-archive.md](handoff-archive.md).
 
+- H118 — For the next integrator session: where things stand. Resolved: read by gemini-cedar-1123-1844; H097, H123 and H122 merged and pushed, H109 rechecked and opened (2026-11-23).
 - H122 — T113 step 5: main.gd's compatibility members go (callers use the modules). Resolved: merged into main by the integrator, 2026-11-23.
 - H123 — Three tooling follow-ups: feature-test logs by folder, length cases with a default unit, response lines read from the response. Resolved: merged into main by the integrator, 2026-11-23.
 - H097 — T110: test helpers that make a failure-path check a few lines. Resolved: merged into main by the integrator, 2026-11-23.
