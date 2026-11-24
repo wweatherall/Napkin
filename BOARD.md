@@ -3,7 +3,7 @@
 "Check the board" sends you here. Only the integrator edits this file; the job table is built from docs/handoff/
 and the job queue.
 
-Order: H142, H140, H125, H128, H126, H127, H139, H136, H137, H138, H141, H129, H130
+Order: H142, H140, H125, H128, H126, H127, H139, H136, H138, H137, H141, H129, H130
 
 ## If you're not the integrator
 
@@ -58,8 +58,8 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
 | H127 | either | Queued | T62: face ties on shapes other than plain rectangular boards | [H127](docs/handoff/H127-t62-face-ties-other-shapes.md) | H126 |
-| H137 | either | **Ready** | T123: Move array live preview before click and amend after click | [H137](docs/handoff/H137-t123-move-array-live-preview.md) |  |
 | H138 | either | **Ready** | T124: Auto-set document units from first typed length with an explicit unit | [H138](docs/handoff/H138-t124-units-from-first-typed-length.md) |  |
+| H137 | either | **Ready** | T123: Move array live preview before click and amend after click | [H137](docs/handoff/H137-t123-move-array-live-preview.md) |  |
 | H141 | either | Queued | T127: Enter and edit components, and Component Properties window (prioritizing critical dimensions and linked measurements) | [H141](docs/handoff/H141-t127-components-and-properties.md) | H126 |
 | H129 | either | Queued | T84 step 1: Rotated Rectangle (R again toggles Rectangle and Rotated Rectangle) | [H129](docs/handoff/H129-t84-rotated-rectangle.md) | H128 |
 | H130 | either | Queued | T84 step 2: Polygon tool (toolbar button without hotkey, exact FreeCAD sketch polygon) | [H130](docs/handoff/H130-t84-polygon-tool.md) | H129 |
