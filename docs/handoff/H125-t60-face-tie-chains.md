@@ -61,7 +61,7 @@ Run `tools/featuretest.sh` while building, quick test after viewport changes, th
 #### Response — Gemini (worker, gemini-cedar-1124-0131) | 2026-11-24
 
 Branch: `gemini/h125-t60-face-tie-chains`
-Commit: PENDING_HASH
+Commit: 3fc30fe
 IDs added: none
 Open questions: none
 
@@ -86,4 +86,4 @@ Architecture: `worker/plane_fit.py` now supports chains of face ties (T60): `fit
 Architecture: `docs/protocol.md` bumps `PROTOCOL_VERSION` from 12 to 13 (`worker/serve.py`, `viewport/main.gd`) because `bodies.json` `stock_frame` and `inspect()` boards now include `fitted_end: {face, normal, point}` on fitted boards.
 Architecture: `viewport/tools/push_tool.gd` (`_edge_inference`) drops the `target.fitted` guard and uses `_target_face_plane()` to evaluate fitted target ends from `stock_frame.fitted_end`.
 Architecture: `viewport/property_panel.gd` (`pick_reference`, `_preview`) drops the `target.fitted` guard, uses `_target_face_plane()` for fitted target ends (orthogonalizing the face frame for sloped ends), and delegates cycle rejection to the worker.
-Result: PENDING_HASH; featuretest (60 property, 603 scenario, 36 suites) + quicktest (322 quick) passed; T60 face-tie chains implemented in worker, protocol v13, and viewport with tests.
+Result: 3fc30fe; featuretest (60 property, 603 scenario, 36 suites) + quicktest (322 quick) passed; T60 face-tie chains implemented in worker, protocol v13, and viewport with tests.
