@@ -342,6 +342,66 @@ func register_line(op: Dictionary) -> void:
 	m.drafts_root.add_child(node)
 	drafts["line:" + op.id] = node
 	if op.has("outline"): register_rect(op)
+	if loose_lines[op.id].on == "": _refresh_loop_drafts()
+
+
+func _canonical_normal(n: Vector3) -> Vector3:
+	var u := n.normalized()
+	if absf(u.x) > 1e-5: return -u if u.x < 0.0 else u
+	if absf(u.y) > 1e-5: return -u if u.y < 0.0 else u
+	return -u if u.z < 0.0 else u
+
+
+func _point_in_ground_line_draft(pt: Vector3, normal: Vector3) -> bool:
+	var basis := Geo.plane_basis(normal)
+	for rid in rects:
+		if not drafts.has(rid): continue
+		var r: Dictionary = rects[rid]
+		if r.get("kind", "") != "line" or r.get("on", "") != "": continue
+		if absf(r.n.normalized().dot(normal)) < 0.9999: continue
+		var tris: PackedVector3Array = r.tris
+		if tris.size() < 3 or absf((pt - tris[0]).dot(normal)) > Regions.EPS: continue
+		var origin := tris[0]
+		var p2 := Vector2((pt - origin).dot(basis[0]), (pt - origin).dot(basis[1]))
+		for i in range(0, tris.size(), 3):
+			var a2 := Vector2((tris[i] - origin).dot(basis[0]), (tris[i] - origin).dot(basis[1]))
+			var b2 := Vector2((tris[i + 1] - origin).dot(basis[0]), (tris[i + 1] - origin).dot(basis[1]))
+			var c2 := Vector2((tris[i + 2] - origin).dot(basis[0]), (tris[i + 2] - origin).dot(basis[1]))
+			if Regions._in_tri(p2, a2, b2, c2): return true
+	return false
+
+
+func _refresh_loop_drafts() -> void:
+	"""Translucent fill for closed ground loops of loose_lines not already shown by a line-profile rect draft."""
+	drop_draft("line:loops")
+	var groups := []
+	for id in loose_lines:
+		var line: Dictionary = loose_lines[id]
+		if line.on != "": continue
+		var n := _canonical_normal(line.n)
+		var d: float = line.a.dot(n)
+		var placed := false
+		for g in groups:
+			if absf(g.n.dot(n)) > 0.9999 and absf(g.d - d) <= Regions.EPS:
+				g.lines.append(line)
+				placed = true
+				break
+		if not placed:
+			groups.append({"n": n, "d": d, "lines": [line]})
+	var all_tris := PackedVector3Array()
+	for g in groups:
+		if g.lines.size() < 2: continue
+		for face in Regions.all_faces(g.lines, g.n):
+			var tris: PackedVector3Array = face.tris
+			if tris.size() < 3: continue
+			var sample: Vector3 = (tris[0] + tris[1] + tris[2]) / 3.0
+			if _point_in_ground_line_draft(sample, g.n): continue
+			all_tris.append_array(tris)
+	if all_tris.is_empty(): return
+	var mi := MeshInstance3D.new()
+	mi.mesh = tri_mesh(all_tris, m.mat_rect)
+	m.drafts_root.add_child(mi)
+	drafts["line:loops"] = mi
 
 
 func lines_on(body: String, normal: Vector3, point: Vector3) -> Array:
@@ -447,6 +507,7 @@ func rebuild_rect_drafts(ops: Array, used: Dictionary) -> void:
 				register_rect(op); drop_draft(op["id"])
 			elif not drafts.has(op["id"]):
 				register_rect(op)
+	_refresh_loop_drafts()
 
 
 func forget_op(op: Dictionary, ops: Array, used: Dictionary) -> void:
@@ -456,6 +517,7 @@ func forget_op(op: Dictionary, ops: Array, used: Dictionary) -> void:
 	drop_draft(oid)
 	if op.type in ["line", "arc"]:
 		loose_lines.erase(oid); rects.erase(oid); drop_draft("line:" + oid)
+		_refresh_loop_drafts()
 	elif op["type"] in ["rect", "circle"]:
 		rects.erase(oid)
 	elif op["type"] in ["mirror", "move"]:
@@ -469,6 +531,7 @@ func forget_op(op: Dictionary, ops: Array, used: Dictionary) -> void:
 			for r in ops:
 				if r["id"] == rid and not used.has(rid):
 					rects.erase(rid); register_rect(r)
+					_refresh_loop_drafts()
 
 
 func drop_confirmed_drafts(used: Dictionary) -> void:

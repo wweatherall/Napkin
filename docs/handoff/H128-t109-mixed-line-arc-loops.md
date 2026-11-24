@@ -44,3 +44,18 @@ Checks (new, named):
 Reading path: `viewport/regions.gd` (`_cycles`, `find`) → `viewport/presenter.gd` (`register_line`, `drawn_region`, `register_rect`, `forget_op`, `rebuild_rect_drafts`) → `viewport/tools/push_tool.gd` (`_push_hover`, lines 114–134) → `worker/line.py` (`region_face`, `native_region`) → `worker/push.py` (`op_push_pull`, lines 189–208) → `worker/scenario/99_regions.py` and `worker/scenario/99_arcs.py`.
 
 Run `tools/featuretest.sh` while building, quick test after viewport changes, then `python3 tools/job.py test`. End your response with `Architecture:` lines (for `worker/line.py` / `worker/push.py` ground-loop native arcs and `viewport/regions.gd` / `viewport/presenter.gd` closed-loop fills), `Follow-up:` lines for leftovers, and a `Result:` line.
+
+#### Response (Gemini, 2026-11-24)
+
+Branch: `gemini/h128-t109-mixed-line-arc-loops`.
+
+What changed:
+- `worker/line.py` (`ground_region_sheet`, `native_region`): added `ground_region_sheet(predicted, normal, drawings)` to build a padded planar bounding sheet on the region's plane, and extended `native_region(..., is_ground=False)` so ground-loop refinement rejects results that reach the synthetic sheet's outer wire (unclosed loops) and bounds area discrepancy against `predicted` when refining on a synthetic ground sheet.
+- `worker/push.py` (`op_push_pull`): validated referenced `region["lines"]` up front, and for ground-only regions (`"region" in tgt` without `"face"` or `"rect"`) refined `world_face` through `ground_region_sheet` + `native_region(..., is_ground=True)` whenever any referenced drawing edge is curved (not `Part.Line`), preserving exact FreeCAD `Part.Circle` / arc curves.
+- `viewport/regions.gd` (`all_faces`): added pure `all_faces(lines, normal) -> Array` returning all bounded closed faces (`{outline, holes, tris, area}`) formed by coplanar drawings on a plane, pruning dangling edges and subtracting direct inner holes so nested loops do not double-fill.
+- `viewport/presenter.gd` (`register_line`, `rebuild_rect_drafts`, `forget_op`, `_refresh_loop_drafts`): refreshed a translucent `m.mat_rect` fill mesh under `drafts["line:loops"]` (kept by `drop_confirmed_drafts`, cleared on `reset`) for closed ground loops of `loose_lines` not already covered by an explicit `line-profile` `rect` draft, without adding collision or altering `rects` / `target.region` pushing.
+- Tests: added `worker/scenario/99_mixed_loops.py` (3-line + 1-arc tombstone with undo/redo + save/reopen, 2-arc lens, on-face mixed loop boss/pocket/through-hole, ground loop with inner mixed-loop hole, concave U-shape with arc notch, and unclosed / missing-line rejections), added `all_faces` and mixed-loop checks to `viewport/test_regions.gd`, and added `_ground_mixed_loop` to `viewport/tests/quick/arc.gd`.
+
+Architecture: `worker/line.py` (`ground_region_sheet`, `native_region`) and `worker/push.py` (`op_push_pull`) now refine curved ground-only `target.region` extrusions against a synthetic planar bounding sheet so closed mixed line+arc ground loops keep exact FreeCAD `Part.Circle` edges instead of faceted polygons.
+Architecture: `viewport/regions.gd` (`all_faces`) enumerates all bounded coplanar faces with hole subtraction, and `viewport/presenter.gd` (`_refresh_loop_drafts`) maintains a non-colliding translucent fill mesh in `drafts["line:loops"]` for closed ground `loose_lines` loops not already covered by a `line-profile` `rect` draft.
+Follow-up: none.

@@ -193,6 +193,9 @@ class PushActions:
             raise OpError("push needs a profile, face or closed region")
 
         if "region" in tgt:
+            known = {getattr(o, "SSLineId", "") for o in self.doc.Objects}
+            if any(lid not in known for lid in tgt["region"].get("lines", [])):
+                raise OpError("region refers to a missing drawing")
             source = world_face
             if "face" in tgt or "rect" in tgt:     # a region alone is already world_face, built above
                 world_face, region_n = self.region_face(tgt["region"])
@@ -201,9 +204,13 @@ class PushActions:
                 world_face = self.native_region(source, world_face, tgt["region"])
                 if abs(source.common(world_face).Area - world_face.Area) > max(TOL, world_face.Area * 1e-6):
                     raise OpError("region leaves its target face")
-            known = {getattr(o, "SSLineId", "") for o in self.doc.Objects}
-            if any(lid not in known for lid in tgt["region"].get("lines", [])):
-                raise OpError("region refers to a missing drawing")
+            else:
+                ids = set(tgt["region"].get("lines", []))
+                drawings = [edge for obj in self.doc.Objects if getattr(obj, "SSLineId", "") in ids
+                            for edge in Part.getShape(obj).Edges]
+                if any(not isinstance(e.Curve, Part.Line) for e in drawings):
+                    sheet = self.ground_region_sheet(world_face, n, drawings)
+                    world_face = self.native_region(sheet, world_face, tgt["region"], is_ground=True)
             pl = None  # materialize this region, never extrude the whole source profile
 
         if not on or op.get("body"):

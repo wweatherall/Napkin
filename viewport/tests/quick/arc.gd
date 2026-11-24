@@ -110,6 +110,7 @@ func run() -> void:
 		and absf(body.get("volume_mm3", 0.0) - (200000.0 + area * 10.0)) < 0.2, body)
 	await _rounded_corner()
 	await _angled_corner()
+	await _ground_mixed_loop()
 
 
 func _rounded_corner() -> void:
@@ -176,6 +177,41 @@ func _angled_corner() -> void:
 		and _xyz(arc.end).distance_to(Vector3(60, 80, 0)) < 0.001
 		and _xyz(arc.mid).distance_to(tangent_mid) < 0.001, arc)
 	await harness._wait_confirm()
+
+
+func _ground_mixed_loop() -> void:
+	await harness._fresh("arc_ground_loop")
+	await harness._view(Vector3(50, 60, 0), -30, -55, 0.85)
+	await harness._key(KEY_L)
+	await harness._click_at(Vector3(0, 80, 0))
+	await harness._click_at(Vector3(0, 0, 0))
+	await harness._click_at(Vector3(100, 0, 0))
+	await harness._click_at(Vector3(100, 80, 0))
+	await harness._key(KEY_ESCAPE)
+	harness._ok("open 3-line chain on ground has no closed-loop fill yet", not m.drafts.has("line:loops"))
+	await harness._key(KEY_A)
+	await harness._click_at(Vector3(0, 80, 0))
+	await harness._click_at(Vector3(100, 80, 0))
+	await harness._drag_to(Vector3(50, 125, 0), 4)
+	await harness._type("50\n")
+	await harness._wait_confirm()
+	harness._ok("closing a ground loop with an arc shows a closed-loop face fill", m.drafts.has("line:loops"))
+	await harness._key(KEY_P)
+	await harness._drag_to(Vector3(50, 50, 0), 6)
+	var hover: Dictionary = m.tools.push.hover
+	var expected_area := 8000.0 + 0.5 * PI * 2500.0
+	harness._ok("Push/Pull hovers the closed ground mixed loop as a region",
+		hover.has("region") and absf(hover.get("region", {}).get("area", 0.0) - expected_area) < 15.0,
+		hover.get("region", {}))
+	await harness._push(Vector3(50, 50, 0), Vector3(50, 50, 30), "25")
+	await harness._wait_wave()
+	var bid: String = m.ops.back().get("body", "")
+	var body: Dictionary = harness._bodies().get(bid, {})
+	var bbox: Array = body.get("world_bbox", [0, 0, 0, 0, 0, 0])
+	harness._ok("pushed ground mixed loop confirms with exact height and volume",
+		m.ops.back().target.has("region") and not body.is_empty()
+		and absf(float(bbox[5]) - float(bbox[2]) - 25.0) < 0.05
+		and absf(float(body.get("volume_mm3", 0.0)) - expected_area * 25.0) < 0.5, body)
 
 
 func _check_mode(kind: String) -> void:
