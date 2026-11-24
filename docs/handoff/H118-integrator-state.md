@@ -31,3 +31,11 @@ Updated 2026-11-23 (afternoon, before a second clear at William's word).
 - Small fixes this session: none.
 - For William to confirm (still open from before): H085's response said he approved it touching
   viewport/inference.gd (arc snapping).
+
+Updated 2026-11-23 evening (fretchup-74, before running out of context):
+- Merged: H121 (T59 step 2, protocol 12; map and tools guide written), H096 (region push keeps its profile; William
+  approved the main.gd `redo` / presenter.gd `forget_op` guards). H097 opened (brief rechecked after H096).
+- H122 (Codex) stale since 16:23: uncommitted edits in fretchup-jobs/h122, no process running. William to look;
+  if the window is gone, `job.py return H122 "resume from the worktree's uncommitted edits"`.
+- H109 waits on H097 (both touch viewport/test_document.gd). H123 Ready.
+- Small fixes this session: none.
