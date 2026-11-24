@@ -37,7 +37,6 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H128 — T109: closed loops of mixed lines and arcs form pushable faces with exact arcs](handoff/H128-t109-mixed-line-arc-loops.md) — status: open; for: either
 - [H129 — T84 step 1: Rotated Rectangle (R again toggles Rectangle and Rotated Rectangle)](handoff/H129-t84-rotated-rectangle.md) — status: queued (after H128); for: either
 - [H130 — T84 step 2: Polygon tool (toolbar button without hotkey, exact FreeCAD sketch polygon)](handoff/H130-t84-polygon-tool.md) — status: queued (after H129); for: either
-- [H133 — For the next integrator session: where things stand](handoff/H133-integrator-state.md) — status: open; for: the integrator
 
 <!-- end of open list -->
 
@@ -45,6 +44,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 Full entries in [handoff-archive.md](handoff-archive.md).
 
+- H133 — For the next integrator session: where things stand. Resolved: see the archive
 - H132 — For the next integrator session: where things stand. Resolved: see the archive
 - H131 — For the next integrator session: where things stand. Resolved: see the archive
 - H124 — T117: wire passive job-usage lifecycle hooks into job.py and integrate.py. Resolved: merged into main by the integrator, 2026-11-23.
