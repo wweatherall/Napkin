@@ -1,6 +1,6 @@
 ### H126 — T61: face ties on linked copies (component definitions and instances)
 
-Author: Gemini (integrator, gemini-cedar-1124-0100) | Date: 2026-11-24 | Status: open | For: either
+Author: Gemini (integrator, gemini-cedar-1124-0100) | Date: 2026-11-24 | Status: answered | For: either
 
 References: T61, T14, T60 (H125), I26b, I28, I40, I41, A22c.
 
@@ -55,3 +55,24 @@ Checks (new, named):
 Reading path: `worker/plane_fit.py` (`stock`, `snapshot`, `face_plane`, `refit_inputs`, `refit_changed`, `update`, `apply`, `replace`, `push_fitted_end`, `resize_face`, `_restore`) → `worker/move.py` (`op_make_component`, `copy_body`, `op_make_unique`) → `worker/push.py` (`op_push_pull`, lines 140–170) → `worker/model.py` (`definition`, `apply`) → `worker/test_properties.py` → `viewport/tests/quick/properties.gd`.
 
 Run `tools/featuretest.sh` while building, quick test after viewport changes, then `python3 tools/job.py test`. End your response with `Architecture:` lines (for `worker/plane_fit.py`, `worker/move.py`, `worker/push.py`), `Follow-up:` lines for leftovers, and a `Result:` line.
+
+#### Response — Gemini (`gemini-larch-1124-0713`), 2026-11-24
+
+- **Branch**: `gemini/h126-t61-face-ties-linked-copies`
+- **What changed**:
+  - `worker/plane_fit.py`: Added `_def(board)`, `_family_bodies(model, dfn)`, `family_bodies(model, board)`, `_driving_body(...)`, and `_active_tips(...)` so `stock`, `fitted_face`, `fitted_end`, `face_plane`, and `snapshot` work identically on plain `App::Part` boards and `App::Link` component instances. `apply()` stores the `PlaneFit` tip on the shared component definition (`dfn`) with `SSSourceBodyId` recording the driving instance, rejects self-family fits (`board_dfn == target_dfn`) and cross-sibling cycles across definitions before mutating, and returns `_family_bodies`. `refit_inputs()` and `refit_changed()` include component definition tips with live instances, promote a surviving sibling if the driving instance is gone (or detach if none remain), run topological waves across family IDs, and mark all siblings in `affected` and `changed`. `replace()`, `push_fitted_end()`, `resize_face()`, and `_restore()` resolve `dfn` via `_def(board)` and update/return the full family.
+  - `worker/push.py`: `op_push_pull` returns `plane_fit.family_bodies(self, board)` in the `push_fitted_end` and `resize_stock` branches so all siblings re-export.
+  - `worker/move.py`: `op_make_unique` detaches an inherited `PlaneFit` on the newly unique board (`SSTargetId = ""`, `SSFitResult = "Detached · shape kept"`, clears `SSSourceBodyId`) while keeping its geometry, and reassigns `dfn.Tip.SSSourceBodyId` to a surviving sibling (or detaches if none remain) when the driving instance is made unique.
+  - `viewport/property_panel.gd` (`pick_reference`) and `viewport/tools/push_tool.gd` (`_edge_inference`): Guarded against picking a sibling of the same component family by comparing `extrusion` names (in addition to the worker's rejection).
+  - `worker/test_properties.py` & `viewport/tests/quick/properties.gd`: Added all 5 worker T61 test groups (linked fit + Slice + move + undo + save/reopen; `t1 <- (b1, b2) <- c1` chain; self-sibling & cross-sibling cycle rejection; `make_unique` on non-driving and driving instances; `push_fitted_end` & `replace_fit`) and the viewport linked-copy Push/Pull fit + target-move check.
+- **Verified**:
+  - `tools/featuretest.sh`: all suites passed (`PROPERTY TESTS: 76 passed, 0 failed`, `SCENARIO TESTS: 646 passed, 0 failed`).
+  - `python3 tools/job.py test` (`tools/quicktest.sh`): `QUICK 329 passed, 0 failed` and all feature tests passed.
+  - `tools/gate.sh`: `GATE PASS: full test passes; QUICK 329 passed, 0 failed in 24.0 s ; 0 known failure(s)` with no changes to `tests/reference/`.
+- **IDs added**: none.
+- **Open questions**: none.
+
+Architecture: `worker/plane_fit.py` now supports both plain `App::Part` boards and `App::Link` component instances via `_def`/`_family_bodies`; `PlaneFit` tips on linked copies live on the shared component definition with `SSSourceBodyId` identifying the driving instance, and `refit_inputs`/`refit_changed` propagate topological waves across component families.
+Architecture: `worker/move.py` (`op_make_unique`) detaches inherited `PlaneFit` ties on newly unique boards while preserving geometry, and hands `SSSourceBodyId` driving duty to a surviving sibling when the driving instance is made unique.
+Architecture: `worker/push.py` (`op_push_pull`) returns all sibling `BodyId`s via `plane_fit.family_bodies` on `push_fitted_end` and `resize_stock` edits.
+Result: pending; tools/gate.sh PASS (QUICK 329 passed, 0 failed, PROPERTY TESTS 76 passed, 0 failed); face ties supported on linked copies (component definitions and instances) with Make unique detachment and viewport sibling guards.

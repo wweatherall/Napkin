@@ -269,7 +269,7 @@ func _target_face_plane(b: Dictionary, face: int) -> Dictionary:
 
 func pick_reference(hit: Dictionary) -> void:
 	var target: String = hit.get("body","")
-	if target == data.body or not data.boards.has(target):
+	if target == data.body or not data.boards.has(target) or data.boards[target].extrusion == data.boards[data.body].extrusion:
 		result.text = "Pick a face on another rectangular board."
 		return
 	var b: Dictionary = data.boards[target]

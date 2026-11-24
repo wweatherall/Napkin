@@ -318,4 +318,138 @@ check('chain through sloped Slice target follows when A moves',
       and abs(svol('b2') - 100 * 50 * 170) < 0.01
       and abs(svol('b3') - 40 * 20 * 180) < 0.01)
 App.closeDocument(sloped_session.doc.Name)
+
+# T61: face ties on linked copies (component definitions and instances).
+lc_session = Session(os.path.join(folder, 'linked_copies.FCStd'), fresh=True)
+lc_base = [
+    {'id':'lt_r','type':'rect','plane':{'normal':[0,0,1],'origin':[0,0,200]},'size':[260,120]},
+    {'id':'lt_p','type':'push_pull','target':{'rect':'lt_r'},'distance':20,'body':'t1'},
+    {'id':'lb_r','type':'rect','plane':{'normal':[0,0,1],'origin':[0,0,0]},'size':[40,20]},
+    {'id':'lb_p','type':'push_pull','target':{'rect':'lb_r'},'distance':50,'body':'b1'},
+    {'id':'lb_cp','type':'move','targets':['b1'],'vector':[100,0,0],'copy':True,'new_ids':['b2']},
+    {'id':'lc_r','type':'rect','plane':{'normal':[0,0,1],'origin':[100,40,0]},'size':[30,20]},
+    {'id':'lc_p','type':'push_pull','target':{'rect':'lc_r'},'distance':30,'body':'c1'},
+]
+lc_fit_b1 = dict(type='property_edit', id='lc_fit_b1', mode='plane_fit', body='b1', target_body='t1', axis=2, face=4, fit_mode=0)
+lc_ops = lc_base + [lc_fit_b1]
+lc_session.sync(lc_ops)
+lvol = lambda bid: lc_session.model.world_shape(lc_session.model.body(bid)).Volume
+lbbox = lambda bid: lc_session.model.world_shape(lc_session.model.body(bid)).BoundBox
+check('T61 fit linked copy updates both siblings',
+      all(e['status'] == 'ok' for e in lc_session.status())
+      and abs(lvol('b1') - 40 * 20 * 200) < 0.01 and abs(lvol('b2') - 40 * 20 * 200) < 0.01
+      and abs(lbbox('b1').ZMax - 200) < 0.01 and abs(lbbox('b2').ZMax - 200) < 0.01)
+lc_move_t1 = dict(type='move', id='lc_mv_t1', targets=['t1'], vector=[0, 0, 30])
+lc_session.sync(lc_ops + [lc_move_t1])
+check('T61 moving target updates both linked siblings',
+      lc_session.status()[-1]['status'] == 'ok'
+      and abs(lvol('b1') - 40 * 20 * 230) < 0.01 and abs(lvol('b2') - 40 * 20 * 230) < 0.01)
+lc_session.sync(lc_ops)
+check('T61 undo restores both linked siblings',
+      abs(lvol('b1') - 40 * 20 * 200) < 0.01 and abs(lvol('b2') - 40 * 20 * 200) < 0.01)
+lc_session.save()
+lc_path = lc_session.path
+App.closeDocument(lc_session.doc.Name)
+lc_session = Session(lc_path)
+lc_dfn = lc_session.model.body('b1').LinkedObject
+check('T61 save and reopen preserves shared tie on definition',
+      lc_dfn.Tip.SSTargetId == 't1' and lc_dfn.Tip.SSSourceBodyId == 'b1')
+lc_session.sync(lc_ops + [dict(type='move', id='lc_mv_t1_reopen', targets=['t1'], vector=[0, 0, 20])])
+check('T61 reopened linked tie follows target movement',
+      abs(lvol('b1') - 40 * 20 * 220) < 0.01 and abs(lvol('b2') - 40 * 20 * 220) < 0.01)
+lc_session.sync(lc_ops)
+
+# T61 Slice mode on linked copies with tilted target.
+lc_slice_session = Session(os.path.join(folder, 'linked_slice.FCStd'), fresh=True)
+lc_slice_base = lc_base[:5]
+lc_slice_session.sync(lc_slice_base)
+st1 = lc_slice_session.model.body('t1')
+st1.Placement = App.Placement(App.Vector(0, 0, 200), App.Rotation(App.Vector(0, 1, 0), 45))
+st1_pl = lc_slice_session.model.rect_obj('lt_r')
+sp = st1_pl.Placement; sp.Base = App.Vector(); st1_pl.Placement = sp
+lc_slice_session.doc.recompute()
+lc_slice_fit = dict(type='property_edit', id='lc_sfit', mode='plane_fit', body='b1', target_body='t1', axis=2, face=4, fit_mode=1)
+lc_slice_session.sync(lc_slice_base + [lc_slice_fit])
+lsvol = lambda bid: lc_slice_session.model.world_shape(lc_slice_session.model.body(bid)).Volume
+check('T61 Slice mode updates both linked copies',
+      lc_slice_session.status()[-1]['status'] == 'ok'
+      and abs(lsvol('b1') - 40 * 20 * 180) < 0.01 and abs(lsvol('b2') - 40 * 20 * 180) < 0.01)
+lc_slice_session.sync(lc_slice_base + [lc_slice_fit, dict(type='move', id='lc_smv', targets=['t1'], vector=[0, 0, 10])])
+check('T61 Slice mode follows moved tilted target on both copies',
+      abs(lsvol('b1') - 40 * 20 * 190) < 0.01 and abs(lsvol('b2') - 40 * 20 * 190) < 0.01)
+App.closeDocument(lc_slice_session.doc.Name)
+
+# T61 Check 2: chain t1 <- (b1, b2) <- c1 (c1 fitted to linked sibling b2's fitted end).
+lc_fit_c1 = dict(type='property_edit', id='lc_fit_c1', mode='plane_fit', body='c1', target_body='b2', axis=2, face=5, fit_mode=0)
+lc_chain_ops = lc_ops + [lc_fit_c1]
+lc_session.sync(lc_chain_ops)
+check('T61 board c1 fits to linked sibling b2 fitted end',
+      lc_session.status()[-1]['status'] == 'ok'
+      and abs(lvol('c1') - 30 * 20 * 200) < 0.01 and abs(lbbox('c1').ZMax - 200) < 0.01)
+lc_session.sync(lc_chain_ops + [dict(type='move', id='lc_mv_chain', targets=['t1'], vector=[0, 0, 40])])
+check('T61 moving t1 ripples through linked family (b1, b2) to c1',
+      abs(lvol('b1') - 40 * 20 * 240) < 0.01 and abs(lvol('b2') - 40 * 20 * 240) < 0.01
+      and abs(lvol('c1') - 30 * 20 * 240) < 0.01)
+lc_session.sync(lc_chain_ops)
+
+# T61 Check 3: self-sibling fit (b1 -> b2) and cross-sibling cycle (b1 -> c1 -> b2) rejected cleanly.
+lc_self_sib = dict(type='property_edit', id='lc_self_sib', mode='plane_fit', body='b1', target_body='b2', axis=0, face=0, fit_mode=0)
+lc_session.sync(lc_chain_ops + [lc_self_sib])
+check('T61 self-sibling fit rejected without mutating',
+      lc_session.status()[-1]['status'] == 'failed'
+      and 'different rectangular board' in lc_session.status()[-1].get('message', '')
+      and lc_session.model.body('b1').LinkedObject.Tip.SSTargetId == 't1'
+      and abs(lvol('b1') - 40 * 20 * 200) < 0.01)
+lc_cross_cyc = dict(type='property_edit', id='lc_cross_cyc', mode='plane_fit', body='b1', target_body='c1', axis=2, face=5, fit_mode=0)
+lc_session.sync(lc_chain_ops + [lc_cross_cyc])
+check('T61 cross-sibling cycle b1 -> c1 -> b2 rejected without mutating',
+      lc_session.status()[-1]['status'] == 'failed'
+      and 'cycle' in lc_session.status()[-1].get('message', '').lower()
+      and lc_session.model.body('b1').LinkedObject.Tip.SSTargetId == 't1'
+      and lc_session.model.body('c1').Tip.SSTargetId == 'b2'
+      and abs(lvol('b1') - 40 * 20 * 200) < 0.01)
+lc_session.sync(lc_ops)
+
+# T61 Check 4: Make unique on non-driving b2 and on driving b1 (with b2 & b3 remaining).
+lc_cp3 = {'id':'lb_cp3','type':'move','targets':['b1'],'vector':[200,0,0],'copy':True,'new_ids':['b3']}
+lc_three = lc_ops + [lc_cp3]
+lc_session.sync(lc_three + [dict(type='make_unique', id='lc_uniq_b2', targets=['b2']),
+                            dict(type='move', id='lc_mv_after_u2', targets=['t1'], vector=[0, 0, 25])])
+check('T61 make unique on non-driving b2 detaches b2 while b1 and b3 follow t1',
+      lc_session.status()[-1]['status'] == 'ok'
+      and lc_session.model.body('b2').TypeId == 'App::Part'
+      and lc_session.model.body('b2').Tip.SSTargetId == ''
+      and lc_session.model.body('b2').Tip.SSFitResult == 'Detached · shape kept'
+      and abs(lvol('b2') - 40 * 20 * 200) < 0.01
+      and abs(lvol('b1') - 40 * 20 * 225) < 0.01
+      and abs(lvol('b3') - 40 * 20 * 225) < 0.01)
+lc_session.sync(lc_three + [dict(type='make_unique', id='lc_uniq_b1', targets=['b1']),
+                            dict(type='move', id='lc_mv_after_u1', targets=['t1'], vector=[0, 0, 25])])
+check('T61 make unique on driving b1 hands driving duty to surviving sibling so b2 and b3 follow t1',
+      lc_session.status()[-1]['status'] == 'ok'
+      and lc_session.model.body('b1').TypeId == 'App::Part'
+      and lc_session.model.body('b1').Tip.SSTargetId == ''
+      and lc_session.model.body('b2').LinkedObject.Tip.SSSourceBodyId in ('b2', 'b3')
+      and abs(lvol('b1') - 40 * 20 * 200) < 0.01
+      and abs(lvol('b2') - 40 * 20 * 225) < 0.01
+      and abs(lvol('b3') - 40 * 20 * 225) < 0.01)
+
+# T61 Check 5: push_fitted_end and replace_fit on linked copy detach and update all siblings.
+lc_push_end = {'id':'lc_push_end','type':'push_pull','distance':30,
+               'target':{'face':{'body':'b2','normal':[0,0,1],'point':[120,10,200]}}}
+lc_session.sync(lc_ops + [lc_push_end])
+check('T61 pushing linked copy tied end detaches and updates all siblings',
+      lc_session.status()[-1]['status'] == 'ok'
+      and lc_session.model.body('b1').LinkedObject.Tip.TypeId == 'Part::Extrusion'
+      and abs(lvol('b1') - 40 * 20 * 230) < 0.01 and abs(lvol('b2') - 40 * 20 * 230) < 0.01)
+lc_session.sync(lc_ops + [lc_push_end, dict(type='move', id='lc_mv_detached', targets=['t1'], vector=[0, 0, 50])])
+check('T61 detached linked siblings stay put when former target moves',
+      abs(lvol('b1') - 40 * 20 * 230) < 0.01 and abs(lvol('b2') - 40 * 20 * 230) < 0.01)
+lc_replace = dict(type='property_edit', id='lc_replace', mode='replace_fit', body='b2', axis=2, value='120 mm')
+lc_session.sync(lc_ops + [lc_replace])
+check('T61 replace_fit on linked copy detaches and updates all siblings',
+      lc_session.status()[-1]['status'] == 'ok'
+      and lc_session.model.body('b1').LinkedObject.Tip.TypeId == 'Part::Extrusion'
+      and abs(lvol('b1') - 40 * 20 * 120) < 0.01 and abs(lvol('b2') - 40 * 20 * 120) < 0.01)
+App.closeDocument(lc_session.doc.Name)
 print('PROPERTY TESTS: %d passed, 0 failed' % passed)

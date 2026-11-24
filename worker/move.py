@@ -300,6 +300,11 @@ class MoveActions:
             copy.ComponentName = ""
             copy.Visibility = True
             copy.Placement = link.Placement
+            if hasattr(getattr(copy, "Tip", None), "SSStock"):
+                copy.Tip.SSTargetId = ""
+                copy.Tip.SSFitResult = "Detached · shape kept"
+                if hasattr(copy.Tip, "SSSourceBodyId"):
+                    copy.Tip.SSSourceBodyId = ""
             add_props(copy, SSArray=getattr(link, "SSArray", ""), SSArrayIndex=int(getattr(link, "SSArrayIndex", 0)))
             if not hasattr(copy, "SSHidden"):           # (a definition from a file older than T28)
                 add_props(copy, SSHidden=False)
@@ -309,6 +314,14 @@ class MoveActions:
             link.BodyId = ""
             link.SSRole = "unique-replaced"
             self.doc.removeObject(link.Name)
+            if hasattr(getattr(dfn, "Tip", None), "SSStock") and getattr(dfn.Tip, "SSSourceBodyId", "") == t:
+                siblings = [bid for bid, obj in self.bodies().items()
+                            if self.is_instance(obj) and obj.LinkedObject == dfn]
+                if siblings:
+                    dfn.Tip.SSSourceBodyId = siblings[0]
+                else:
+                    dfn.Tip.SSSourceBodyId = ""
+                    dfn.Tip.SSTargetId = ""
             changed.append(t)
         return changed
 
