@@ -10,8 +10,9 @@ Architecture: lines, the response) and CLAUDE.md (commit trailers); this page sa
   You're the integrator only if William said so in this session: `python3 tools/integrator.py take <your session
   name>` (refused if another holds it: ask William; after a context clear he says so and you run it with
   `--william`, P19).
-- It keeps BOARD.md (nobody else edits it), assigns jobs, reviews, merges into main when it judges a branch good
-  enough (review done, full test passes) and pushes main after merging (P16). Other sessions never merge or push.
+- It keeps BOARD.md (nobody else edits it), assigns jobs, reviews, merges into main and pushes without asking once
+  review and tests pass (P16, P49), and pushes verified integrator commits on main directly. Other sessions never
+  merge or push.
 
 ## The queue watch
 - No timed check-ins (P39): run `python3 tools/job.py watch --next` in the background (it flushes stdout on every
@@ -39,10 +40,10 @@ Architecture: lines, the response) and CLAUDE.md (commit trailers); this page sa
   with the merge staged when any response has one, prints them under "for you now:", and records them in the merge
   commit on `--continue`; `--yes` doesn't skip this stop). For a brief with a "What can fail" section, check that each case
   listed there has its named check, and that the check fails without the change where it can (P42). Merge what's good with
-  `python3 tools/integrate.py <branch> --as <name> --push` (P20). It runs the gate, `tools/gate.sh` (P18); flags
+  `python3 tools/integrate.py <branch> --as <name> --push --yes` (P20, P49). It runs the gate, `tools/gate.sh` (P18); flags
   files the branch changed outside its job's Touches list; renumbers a PROTOCOL_VERSION bump on top if main moved
-  on meanwhile (A35); removes the job's worktree and branch and marks it merged; with --push it stops before
-  pushing for you to look (`--yes` goes on).
+  on meanwhile (A35); removes the job's worktree and branch, marks it merged, records Results and pushes `main` without
+  stopping (drop `--yes` if you ever want to stop before pushing; `--yes` never skips P28/P44 pauses).
 - Put one that fails review or the gate back with `python3 tools/job.py return <id> "<notes>"`; hand a job to another agent (moving its worktree into `<checkout>-jobs/` if needed) with `python3 tools/job.py reassign <id> --to claude|codex|gemini ["<notes>"]`.
 - Placeholder IDs (T74): integrate.py runs `tools/number_ids.py` at merge, giving each I-new-N, T-new-N, H-new-N
   the next free number. It numbers only placeholders that are IDs (a log row, a handoff entry's file or heading, and
@@ -60,7 +61,7 @@ Architecture: lines, the response) and CLAUDE.md (commit trailers); this page sa
 ## The map (P28)
 - `ARCHITECTURE.md` and `docs/protocol.md` are yours. A job with `Architecture:` lines stops at merge with the
   merge staged and prints them: write them in (the reviewer checks prose against code), then
-  `integrate.py --continue --as <name> --push`.
+  `integrate.py --continue --as <name> --push --yes`.
 - On main the map changes in the same commit as the code. The PR check (`tools/check_architecture.py --range`,
   read as a branch) is an additional omission detector, not a replacement for review.
 

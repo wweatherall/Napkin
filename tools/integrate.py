@@ -877,7 +877,8 @@ def pause_for_map(s):
         if need_brief:
             for hid, what in changed:
                 print(f"  {hid}: changed: {what}")
-        cont = "python3 tools/integrate.py --continue --as " + name + (" --push" if "--push" in argv else "")
+        cont = ("python3 tools/integrate.py --continue --as " + name
+                + (" --push" if "--push" in argv else "") + (" --yes" if "--yes" in argv else ""))
         if need_map:
             say("the merge is staged, not committed (P28): write these into ARCHITECTURE.md / docs/protocol.md, checked "
                 "against the code, `git add` them, then: " + cont)

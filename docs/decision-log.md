@@ -49,7 +49,7 @@ One subject per decision; the Decisions column is generated.
 | Feedback | The confirmation wave and what colours mean. | I06, W01, W02, W03, W04, W05, W06, W07, W08, W09 |
 | Materials | Wood cards, grain and painting. | A05, I33, M01, M02, M03, M04 |
 | Output | Drawings, cut lists and renders. | A07, D01, D02, P06 |
-| Process | How the agents work, test, merge and record decisions. | P01, P02, P03, P07, P09, P10, P14, P15, P16, P17, P18, P19, P20, P21, P22, P23, P24, P25, P26, P28, P29, P31, P32, P33, P34, P35, P36, P37, P38, P39, P40, P41, P42, P43, P44, P45, P46, P47, P48 |
+| Process | How the agents work, test, merge and record decisions. | P01, P02, P03, P07, P09, P10, P14, P15, P16, P17, P18, P19, P20, P21, P22, P23, P24, P25, P26, P28, P29, P31, P32, P33, P34, P35, P36, P37, P38, P39, P40, P41, P42, P43, P44, P45, P46, P47, P48, P49 |
 
 ## Principles
 
@@ -68,7 +68,7 @@ Each states one idea; Explains (generated) lists the decisions that name it. Wil
 | G09 | Never lose work: always saved, atomically, and undo crosses sessions without hiding changes made in FreeCAD. | Active | A24, A25, A27, A28, A32, A36, A37, A39, I54, I55, U01, U02, U03, W13 | 2026-11-22 |
 | G10 | A rejected action says why and leaves nothing behind. | Active | A23, I06, I08, W06 | 2026-11-22 |
 | G11 | Nothing rests on memory: every decision is logged, every behaviour has a named test, and every prediction of FreeCAD's answer is checked against FreeCAD. | Active | A38, I51, P01, P02, P03, P07, P09, P18, P21, P23, P26, P28, P29, P31, P32, P33, P34, P35, P36 | 2026-11-22 |
-| G12 | Work splits by files, and one integrator merges, numbers and keeps the records. | Active | A31, A33b, A34, A35, P10, P14, P15, P16, P17, P18, P19, P20, P22, P24, P25, P26, P28, P29, P31, P32, P33, P34, P35, P36, P37, P38, P39, P40, P41, P42, P43, P44, P45, P46, P47, P48 | 2026-11-22 |
+| G12 | Work splits by files, and one integrator merges, numbers and keeps the records. | Active | A31, A33b, A34, A35, P10, P14, P15, P16, P17, P18, P19, P20, P22, P24, P25, P26, P28, P29, P31, P32, P33, P34, P35, P36, P37, P38, P39, P40, P41, P42, P43, P44, P45, P46, P47, P48, P49 | 2026-11-22 |
 | G13 | Show what an edit will change before it does. | Active | I28 | 2026-11-22 |
 
 ## Decisions
@@ -290,6 +290,7 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | P46 | A worker may update, without asking first, a tools/test_*.py check outside its Touches list when that check only asserts on output its own job changes (a message, a printed line); it names the file in a Changed from the brief: line. Any other file outside Touches is still asked for first. integrate.py's outside-Touches flag shows it at review. | Active | Builds on P45 (the Touches list); narrows its ask-first rule | William, 2026-11-23, from Gemini's H104 feedback: test_bookkeeping.py asserted integrate.py's old output and the worker had to stop and ask; the review sees the file either way. | G12 | BOARD.md worker step 3 (AGENTS.md and GEMINI.md follow it) | 2026-11-23 |
 | P47 | A worker's question accepts follow-up answers until the worker reads the pending answers. The queue delivers them in recorded order, then closes the question to further answers. | Active | Refines P24 (worker questions, T114) | William confirmed on 2026-11-23 that answers should be delivered in the order the queue records them. | G12 | tools/job.py answer(), wait(); tools/test_job.py | 2026-11-23 |
 | P48 | Trial, from 2026-11-23 for a couple of days: Gemini (neon) is the full integrator in place of a Claude session (P16 otherwise stands). Main is tagged before-gemini-integrator; when Claude is back it reviews before-gemini-integrator..main with William and they decide what stays. A Claude integrator then takes the lock back (P19). | Active | Suspends P16 for the trial | Your call, 2026-11-23: Claude out of tokens for a couple of days; the queue is routine (tooling, tests, refactors). | G12 | docs/integrator.md; tools/integrator.py | 2026-11-23 |
+| P49 | Once integrator review and tests pass, merge and push without stopping to ask: the integrator runs tools/integrate.py <branch> --as <name> --push --yes (and --continue ... --push --yes after P28/P44 pauses), and pushes verified integrator commits on main directly. Workers still never merge or push (P16). | Active | Refines P16, P20 | William, 2026-11-23: integrator review and tests stay required, and reviewed/passing work is always merged and pushed, so remove the extra confirmation stop. | G12 | docs/integrator.md; AGENTS.md; tools/startup.py; tools/integrate.py | 2026-11-23 |
 
 ## Open questions
 

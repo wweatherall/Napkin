@@ -331,7 +331,7 @@ def parse_interrupted_merge(state, merge_head, state_path=""):
             "branch": state.get("branch", "?"),
             "reasons": reasons,
             "summary": f"paused merge on {state.get('branch', '?')} waiting for {', '.join(reasons)}",
-            "action": "python3 tools/integrate.py --continue --as <session> --push",
+            "action": "python3 tools/integrate.py --continue --as <session> --push --yes",
         }
     if merge_head:
         return {
@@ -399,7 +399,7 @@ def integrator_next_actions(lock_holder, state_note_ids, merge_info, live_jobs, 
         if st == "waiting":
             actions.append(f"Answer waiting worker {jid}: {info.get('label', '')} -> python3 tools/job.py answer {jid} \"<answer>\"")
         elif st == "done":
-            actions.append(f"Review and integrate {jid} ({info.get('branch', '?')}): python3 tools/integrate.py {info.get('branch', '?')} --as <session> --push")
+            actions.append(f"Review and integrate {jid} ({info.get('branch', '?')}): python3 tools/integrate.py {info.get('branch', '?')} --as <session> --push --yes")
         elif st == "stale":
             actions.append(f"Inspect stale job {jid} ({info.get('branch', '?')} in {info.get('worktree', '?')})")
         elif st == "returned":

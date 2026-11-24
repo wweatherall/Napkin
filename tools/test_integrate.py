@@ -647,7 +647,7 @@ rc, said = run_integrate("agent/p44", "--as", "tester", "--no-gate", "--push", "
 idx = said.find("for you now:")
 expected_p44_msg = (
     'the merge is staged, not committed (P44): check each change from the brief above; accept with '
-    'python3 tools/integrate.py --continue --as tester --push, or put the job back with '
+    'python3 tools/integrate.py --continue --as tester --push --yes, or put the job back with '
     'python3 tools/job.py return H083 "<notes>"'
 )
 check("Changed from the brief stops staged even with --yes, prints under 'for you now:' and gives P44 message",
