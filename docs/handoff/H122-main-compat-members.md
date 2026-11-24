@@ -1,6 +1,6 @@
 ### H122 — T113 step 5: main.gd's compatibility members go (callers use the modules)
 
-Author: Claude (integrator, fretchup-73) | Date: 2026-11-23 | Status: open | For: either
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-23 | Status: answered | For: either
 
 References: T113, A33b, P45; the follow-ups this clears: H107, H110, H111, H112, H113 (docs/follow-ups.md).
 
@@ -51,8 +51,28 @@ integrator line.
 
 #### Response — Gemini (gemini-birch-1123-1855), 2026-11-23
 
+- Branch: `codex/h122-main-compat-members` (resumed returned worktree edits, fast-forwarded onto `main` `84102d8`)
+- Commit: `c062afd` (code), followed by this handoff commit
+- What changed: removed all 17 compatibility members and their comments from `viewport/main.gd` (`1392 -> 1342` lines): `_menus`, `TRACKPAD_PX`, `ZOOM_STEP`, `yaw`, `dist`, `trackpad_px`, `zoom_step`, `_tool_buttons`, `_update_toggles`, `wood_library`, `wood_keys`, `paint_material`, `set_paint_material`, `_turn_grain`, `worker_port`, `worker_pid`, `lifecycle_test`. Pointed all callers in `viewport/main.gd` (`_apply_preferences`, `_live_tuning`), `viewport/menus.gd`, `viewport/tests.gd`, `viewport/tests/quick/models.gd`, `viewport/tests/quick/preferences.gd`, `viewport/tests/quick/registry.gd`, `viewport/tests/suites/shell.gd` and `viewport/tests/suites/lifecycle.gd` at the owning modules (`menus`, `camera_rig` / `CameraRig`, `ui`, `appearance`, `worker`).
+- Verified:
+  - Repo-wide grep (`git grep -n -w`) across `viewport/`, `tools/`, `worker/` and `docs/` confirmed no remaining callers on `main` / `m.` / `Main.` for any of the 17 removed names.
+  - `tools/parsecheck.sh` and `tools/quicktest.sh` (including `models`, `registry`, `preferences` and `wood` sections): `QUICK 319 passed, 0 failed`, all feature tests passed.
+  - `tools/gate.sh`: `GATE PASS: full test passes; QUICK 319 passed, 0 failed in 20.6 s ; 0 known failure(s); 56 s total` (no change to `tests/reference/`).
+  - `--shelltest` run by hand (`Godot --path viewport -- --shelltest --out=... --shots=...`):
+    - `SHELLTEST A has a board 18.0 mm tall | new model B starts empty true, its board 40.0 mm | back to A: 2 ops, boards ["b1"], top 18.0 mm (want 18) | B saved true | menus ["File", "Edit", "Tools", "View"]`
+    - `SHELLTEST done`
+  - `--lifecycletest` run by hand (`Godot --path viewport -- --lifecycletest --out=... --shots=...`):
+    - `LIFECYCLETEST started worker pid 37461 port 54113, opened true in 354 ms`
+    - `LIFECYCLETEST before crash ["b1"] | after crash: new pid 37472 (was 37461), running true, boards ["b1", "b2"], confirmed after 1284 ms | ✓ FreeCAD confirmed  (round trip 84 ms)`
+    - `LIFECYCLETEST worker pid at quit 37472`
+- IDs added: none
+- Open questions: none
+
 Architecture: `viewport/menus.gd` row — remove the note that main keeps a read-only `_menus` alias (`models.gd` and `shell.gd` now read `m.menus.menus`).
 Architecture: `viewport/camera_rig.gd` and `viewport/preferences.gd` rows — remove the notes that main keeps read aliases (`yaw`, `dist`) and the two tunables (`TRACKPAD_PX`, `ZOOM_STEP`, `trackpad_px`, `zoom_step`) (`preferences.gd` quick test and main's `_apply_preferences` / `_live_tuning` now use `camera_rig.*` / `CameraRig.*` directly).
 Architecture: `viewport/ui.gd` row — remove the note that main keeps `_update_toggles()` and `_tool_buttons` (`menus.gd` calls `m.ui.update_toggles()` and `registry.gd` reads `m.ui.tool_buttons`).
 Architecture: `viewport/appearance.gd` row — remove the note that main keeps `wood_library`, `wood_keys`, `paint_material`, `set_paint_material` and `_turn_grain` (`menus.gd` uses `m.appearance.*` directly, calling `m.appearance.turn_grain(m.hover_body)` for Turn grain).
 Architecture: `viewport/worker_process.gd` row — remove the note that main keeps read aliases `worker_port`, `worker_pid` and `lifecycle_test` (`tests.gd` and `lifecycle.gd` now read `m.worker.*`).
+For the integrator: in `viewport/CLAUDE.md` (Files -> `appearance.gd`, lines 41-42), remove the sentence "Main forwards `wood_library` / `wood_keys` / `paint_material`, `set_paint_material` and `_turn_grain` for menus.gd's Wood menu." since `menus.gd` now calls `m.appearance.*` directly.
+For the integrator: clear the five follow-ups H107, H110, H111, H112 and H113 from `docs/follow-ups.md` at merge.
+Result: c062afd; quick 319/0, feature tests all pass, gate pass (0 known failures), --shelltest and --lifecycletest pass; removed 17 compatibility aliases from viewport/main.gd (1392 -> 1342 lines) and pointed all callers at their owning modules

@@ -34,7 +34,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H097 — T110: test helpers that make a failure-path check a few lines](handoff/H097-failure-path-test-helpers.md) — status: open; for: either
 - [H109 — T113 step 2: what a rejection takes with it moves to document.gd, and main's document pass-throughs go](handoff/H109-t113-rejections.md) — status: queued (after H096, H094); for: either
 - [H118 — For the next integrator session: where things stand](handoff/H118-integrator-state.md) — status: open; for: the integrator
-- [H122 — T113 step 5: main.gd's compatibility members go (callers use the modules)](handoff/H122-main-compat-members.md) — status: open; for: either
+- [H122 — T113 step 5: main.gd's compatibility members go (callers use the modules)](handoff/H122-main-compat-members.md) — status: answered; for: either
 - [H123 — Three tooling follow-ups: feature-test logs by folder, length cases with a default unit, response lines read from the response](handoff/H123-tooling-follow-ups.md) — status: open; for: either
 
 <!-- end of open list -->
