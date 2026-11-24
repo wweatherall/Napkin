@@ -59,7 +59,6 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 |---|---|---|---|---|---|
 | H109 | either | Queued | T113 step 2: what a rejection takes with it moves to document.gd, and main's document pass-throughs go | [H109](docs/handoff/H109-t113-rejections.md) | H096, H094 |
 | H122 | either | **Done**: for review (gemini) | T113 step 5: main.gd's compatibility members go (callers use the modules) | [H122](docs/handoff/H122-main-compat-members.md) |  |
-| H123 | either | **Done**: for review (gemini) | Three tooling follow-ups: feature-test logs by folder, length cases with a default unit, response lines read from the response | [H123](docs/handoff/H123-tooling-follow-ups.md) |  |
 
 <!-- end of job table -->
 
