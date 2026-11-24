@@ -676,6 +676,60 @@ func _init() -> void:
 		sync_new["seq"] > sync_old["seq"] and synced_after_new == 1 and seen["synced"].size() == 1
 		and seen["saves"] == saves_after_new and d.pending_rev == 2 and not d.in_flight)
 
+	# --- rejections take what built on them (T16, Q7, H109) ---
+	t = make(); d = t[0]
+	d.ops = [
+		{"id": "r1", "type": "rect", "plane": {}},
+		{"id": "pp1", "type": "push_pull", "target": {"rect": "r1"}, "body": "b1"},
+		{"id": "r2", "type": "rect", "plane": {"on": {"body": "b1"}}},
+		{"id": "r3", "type": "rect", "plane": {}},
+		{"id": "pp2", "type": "push_pull", "target": {"rect": "r3"}, "body": "b2"},
+	]
+	var alone: Dictionary = d.reject("pp1", "bad push", 1000)
+	check("an op rejected alone is its own root with its note",
+		alone == {"root": "pp1", "joined": false, "note": "pp1: bad push"} and d.rejected_ids("pp1") == ["pp1"])
+	var on_board: Dictionary = d.reject("r2", "unknown body", 2000)
+	check("a later op whose plane is on the rejected op's board joins it",
+		on_board["root"] == "pp1" and on_board["joined"]
+		and on_board["note"] == "pp1: bad push (and 1 action that built on it)"
+		and d.rejected_ids("pp1") == ["pp1", "r2"] and d.rejected_ids("r2").is_empty())
+	var indep: Dictionary = d.reject("pp2", "unrelated fail", 3000)
+	check("an independent op does not join an earlier rejection",
+		indep == {"root": "pp2", "joined": false, "note": "pp2: unrelated fail"} and d.rejected_ids("pp2") == ["pp2"])
+	check("an unknown op id produces an empty rejection result", d.reject("nope", "missing", 3500).is_empty())
+
+	t = make(); d = t[0]
+	d.ops = [
+		{"id": "r1", "type": "rect", "plane": {}},
+		{"id": "pp1", "type": "push_pull", "target": {"rect": "r1"}, "body": "b1"},
+		{"id": "pp_edit", "type": "push_pull", "target": {"face": {"body": "b1"}}},
+		{"id": "r_msg", "type": "rect", "plane": {}},
+	]
+	var touch_root: Dictionary = d.reject("pp_edit", "face gone", 1000)
+	var by_msg: Dictionary = d.reject("r_msg", "failed on 'b1' face", 2000)
+	check("an op naming a touched board in FreeCAD's message joins the rejection",
+		touch_root["root"] == "pp_edit" and not touch_root["joined"]
+		and by_msg["root"] == "pp_edit" and by_msg["joined"]
+		and by_msg["note"] == "pp_edit: face gone (and 1 action that built on it)"
+		and d.rejected_ids("pp_edit") == ["pp_edit", "r_msg"])
+
+	t = make(); d = t[0]
+	d.ops = [
+		{"id": "r1", "type": "rect", "plane": {}},
+		{"id": "pp1", "type": "push_pull", "target": {"rect": "r1"}, "body": "b1"},
+		{"id": "r2", "type": "rect", "plane": {"on": {"body": "b1"}}},
+		{"id": "r3", "type": "rect", "plane": {"on": {"body": "b1"}}},
+	]
+	d.reject("pp1", "too thin", 1000)
+	var still_collects: Dictionary = d.reject("r2", "missing", 1000 + Document.REJECT_WINDOW_MS + 1, func(r): return r == "pp1")
+	check("an old root still collects past REJECT_WINDOW_MS while its wave is playing",
+		still_collects["root"] == "pp1" and still_collects["joined"])
+	var expired: Dictionary = d.reject("r3", "missing", 1000 + Document.REJECT_WINDOW_MS + 2, func(_r): return false)
+	check("after REJECT_WINDOW_MS an old root no longer collects when not playing",
+		expired["root"] == "r3" and not expired["joined"] and d.rejected_ids("pp1").is_empty())
+	d.reset()
+	check("switching models clears rejection bookkeeping", d.rejected_ids("r3").is_empty())
+
 	for n in made: n.free()
 	print("DOCUMENT TESTS: %d passed, %d failed" % [passed, failed])
 	quit(1 if failed > 0 else 0)

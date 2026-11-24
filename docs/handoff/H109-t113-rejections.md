@@ -50,3 +50,5 @@ Reading path: main.gd `_on_synced` / `_on_worker` (where rejections arrive) → 
 `_op_makes`, `_op_touches` → presenter.gd's wave states → `_on_wave_rejected_done`.
 
 Run the feature tests while building (`tools/featuretest.sh`), the quick test after each change, then `python3 tools/job.py test`. End your response with a Result line; leftovers as Follow-up lines; the folder-guide change (viewport/CLAUDE.md's Files list) as a For the integrator line.
+
+Architecture: viewport/document.gd now owns rejection bookkeeping (`REJECT_WINDOW_MS`, `_rejected`, `_op_refs`, `_op_makes`, `_op_touches`, `reject()`, `rejected_ids()`, cleared in `reset()`); viewport/main.gd keeps only wave state, `reject_note` / `last_reject_note`, and `drop_now`, and drops the six document pass-throughs (`can_redo`, `remove_ops`, `remove_op`, `_restore_counters`, `_consumed_rects`, `_op_of`).
