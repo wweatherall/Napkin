@@ -172,17 +172,17 @@ FreeCAD evaluation is asynchronous from Godot's perspective but runs serially in
 
 ### Native property inspection and editing
 
-Plane fits (I40, T53). `worker/plane_fit.py` describes rectangular stock using its
-base rectangle, extrusion direction, local dimensions and world frame. The inspection snapshot includes these
-frames and native labels under `boards`. Properties captures a viewport face click for the active dimension.
+Plane fits (I40, T53, T60). `worker/plane_fit.py` describes rectangular stock using its
+base rectangle, extrusion direction, local dimensions and world frame (`snapshot()` also exports `fitted_end: {face, normal, point}` on fitted boards via `fitted_face()` / `fitted_end()`, protocol 13). The inspection snapshot includes these
+frames and native labels under `boards`. Properties (`property_panel.gd`: `pick_reference`, `_preview`) and Push/Pull (`push_tool.gd`: `_edge_inference`) accept fitted rectangular boards as targets, resolving fitted target ends from `fitted_end` via `_target_face_plane()` (Properties orthogonalizing the face frame for sloped ends and delegating cycle rejection to the worker).
 The panel previews four corner rays intersecting the selected face's infinite supporting plane. The worker
-independently solves those intersections and builds a solid with a square or sloping end. A `property_edit`
-with mode `plane_fit` records the source and target BodyIds, local axis, semantic face and end condition.
+independently solves those intersections (`face_plane()` resolves a fitted target's real end plane) and builds a solid with a square or sloping end. A `property_edit`
+with mode `plane_fit` records the source and target BodyIds, local axis, semantic face and end condition; `apply()` walks `SSTargetId` chains first and rejects cycles before mutating.
 The board's new Part::Feature tip stores its source extrusion link and the relationship. Model.apply updates
-only fits whose source/target stock frame, label or fit settings changed (including native expressions),
-propagates to dependent fits, and recomputes the fit batch once inside the transaction (T54). A `replace_fit`
+only fits whose source/target stock frame, `fitted_end`, label or fit settings changed (including native expressions),
+propagates through chains (`A <- B <- C`) in topological waves in a single pass (`refit_changed()`), and recomputes the fit batch once inside the transaction (T54, T60). A `replace_fit`
 edit restores the native extrusion with the entered dimension. FreeCAD can open the saved solid directly. Updating the fit requires the Shop Sketch
-worker. The prototype supports one fitted dimension per plain rectangular board and rectangular targets.
+worker. One fitted dimension per plain rectangular board; chains through fitted rectangular targets are supported (T60; linked copies are T61, non-rectangular shapes are T62).
 
 Session.export includes the rectangular stock frame and current label in each
 eligible bodies.json entry (`stock_frame`; `presenter.gd` keeps them as `stock_frames`, remembered with each confirmed state). Push/Pull uses the inference engine's corner, edge and edge-midpoint snaps and this frame to rank reachable

@@ -204,6 +204,16 @@ static func _vec(a: Array) -> Vector3:
 	return Vector3(a[0],a[1],a[2])
 
 
+static func _target_face_plane(target: Dictionary, face: int) -> Dictionary:
+	var fe = target.get("fitted_end", null)
+	if fe is Dictionary and int(fe.get("face", -1)) == face:
+		return {"point": _vec(fe.point), "normal": _vec(fe.normal)}
+	var i := floori(face / 2.0)
+	var axis_n := _vec(target.axes[i])
+	var side := face % 2
+	return {"point": _vec(target.origin) + axis_n * float(target.sizes[i]) * side, "normal": axis_n if side else -axis_n}
+
+
 func _edge_inference(pt: Dictionary, screen: Vector2) -> void:
 	if state.has("region"): return     # a region push must not resize an entire stock face
 	var previous: Dictionary = state.get("edge_fit", {})
@@ -217,7 +227,7 @@ func _edge_inference(pt: Dictionary, screen: Vector2) -> void:
 		body = hit.body
 		pt = hit
 	var target := ctx.model.stock_frame(body)
-	if body == state.body or target.is_empty() or target.fitted: return
+	if body == state.body or target.is_empty(): return
 	var source_size := 0.0
 	if state.rect != "":
 		# Plane-fit stock dimensions describe rectangles. Circle pushes still use point/back-face inference.
@@ -230,32 +240,29 @@ func _edge_inference(pt: Dictionary, screen: Vector2) -> void:
 		for i in 3:
 			if absf(_vec(src.axes[i]).dot(state.n)) > 0.9999: source_size = src.sizes[i]
 		if source_size <= 0: return
-	var origin := _vec(target.origin)
 	var edge_point: Vector3 = pt.get("edge_point",pt.point)
 	var push: Vector3 = state.n
 	if state.rect != "" and state.dist < 0: push = -push
 	var options := []
-	for i in 3:
-		var normal := _vec(target.axes[i])
-		var denom := normal.dot(push)
+	for face in 6:
+		var plane := _target_face_plane(target, face)
+		var outward: Vector3 = plane.normal
+		var plane_point: Vector3 = plane.point
+		var denom := outward.dot(push)
 		if absf(denom) < 0.00001: continue
-		for side in 2:
-			var plane_point := origin + normal * float(target.sizes[i]) * side
-			if pt.has("normal"):
-				var face_normal := normal if side else -normal
-				if face_normal.dot(pt.normal) < 0.999: continue
-			elif absf(normal.dot(edge_point-plane_point)) > 0.002: continue
-			var depth := INF
-			var far := -INF
-			for corner in state.tris:
-				depth = minf(depth,normal.dot(plane_point-corner)/denom)
-				far = maxf(far,normal.dot(plane_point-corner)/denom)
-			if depth + source_size <= 0.001 or absf(depth) < GEOMETRY_TOLERANCE_MM: continue
-			var outward := normal if side else -normal
-			var last: Dictionary = state.get("last_hover",{})
-			var hovered: bool = last.get("body","") == body and outward.dot(last.normal) > 0.999
-			options.append({"face":2*i+side,"distance":depth*push.dot(state.n),"far":far*push.dot(state.n),"normal":outward,
-					"plane_point":plane_point,"plane_normal":normal,"push":push,"score":snappedf(absf(denom),0.001),"hovered":hovered})
+		if pt.has("normal"):
+			if outward.dot(pt.normal) < 0.999: continue
+		elif absf(outward.dot(edge_point - plane_point)) > 0.002: continue
+		var depth := INF
+		var far := -INF
+		for corner in state.tris:
+			depth = minf(depth, outward.dot(plane_point - corner) / denom)
+			far = maxf(far, outward.dot(plane_point - corner) / denom)
+		if depth + source_size <= 0.001 or absf(depth) < GEOMETRY_TOLERANCE_MM: continue
+		var last: Dictionary = state.get("last_hover",{})
+		var hovered: bool = last.get("body","") == body and outward.dot(last.normal) > 0.999
+		options.append({"face":face,"distance":depth*push.dot(state.n),"far":far*push.dot(state.n),"normal":outward,
+				"plane_point":plane_point,"plane_normal":outward,"push":push,"score":snappedf(absf(denom),0.001),"hovered":hovered})
 	if options.is_empty(): return
 	options.sort_custom(func(a,b):
 		if a.score != b.score: return a.score > b.score

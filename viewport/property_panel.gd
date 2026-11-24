@@ -258,26 +258,33 @@ func _build_summary() -> void:
 func _vec(a: Array) -> Vector3:
 	return Vector3(a[0],a[1],a[2])
 
+func _target_face_plane(b: Dictionary, face: int) -> Dictionary:
+	var fe = b.get("fitted_end", null)
+	if fe is Dictionary and int(fe.get("face", -1)) == face:
+		return {"point": _vec(fe.point), "normal": _vec(fe.normal)}
+	var i := floori(face / 2.0)
+	var axis_n := _vec(b.axes[i])
+	var side := face % 2
+	return {"point": _vec(b.origin) + axis_n * float(b.sizes[i]) * side, "normal": axis_n if side else -axis_n}
+
 func pick_reference(hit: Dictionary) -> void:
 	var target: String = hit.get("body","")
-	if target == data.body or not data.boards.has(target) or data.boards[target].fitted:
+	if target == data.body or not data.boards.has(target):
 		result.text = "Pick a face on another rectangular board."
 		return
 	var b: Dictionary = data.boards[target]
 	var direction := _vec(data.boards[data.body].axes[picking_axis])
 	var edge_point: Vector3 = hit.get("edge_point",hit.get("point",Vector3.ZERO))
 	var candidates := []
-	for i in 3:
-		var normal := _vec(b.axes[i])
-		for side in 2:
-			var outward := normal if side else -normal
-			var score := absf(normal.dot(direction))
-			if hit.has("normal"):
-				if outward.dot(hit.normal) < 0.999: continue
-			else:
-				var point := _vec(b.origin) + normal * float(b.sizes[i]) * side
-				if absf(normal.dot(edge_point-point)) > 0.002: continue
-			candidates.append({"face":2*i+side,"score":score})
+	for face in 6:
+		var plane := _target_face_plane(b, face)
+		var outward: Vector3 = plane.normal
+		var score := absf(outward.dot(direction))
+		if hit.has("normal"):
+			if outward.dot(hit.normal) < 0.999: continue
+		else:
+			if absf(outward.dot(edge_point - plane.point)) > 0.002: continue
+		candidates.append({"face": face, "score": score})
 	candidates.sort_custom(func(x,y): return x.score > y.score if x.score != y.score else x.face < y.face)
 	var axis := picking_axis
 	for candidate in candidates:
@@ -299,14 +306,15 @@ func _preview() -> void:
 	var axis: int = pending.axis
 	var face: int = pending.face
 	var i := floori(face / 2.0)
-	var n := _vec(b.axes[i])
-	var point := _vec(b.origin) + n * float(b.sizes[i]) * (face % 2)
+	var plane := _target_face_plane(b, face)
+	var n: Vector3 = plane.normal
+	var point: Vector3 = plane.point
 	var d := _vec(a.axes[axis])
-	var denom := d.dot(n)
 	var o := _vec(a.origin)
 	if a.get("reverse",false):
 		o += d * float(a.sizes[axis])
 		d = -d
+	var denom := d.dot(n)
 	var u := (axis+1)%3
 	var v := (axis+2)%3
 	var dx := _vec(a.axes[u])*float(a.sizes[u])
@@ -327,11 +335,14 @@ func _preview() -> void:
 		ends.append(corners[j]+d*length)
 	for j in 4: lines.append_array(PackedVector3Array([corners[j],ends[j],ends[j],ends[(j+1)%4]]))
 	preview_changed.emit(lines)
-	var face_z := n if face%2 else -n
+	var face_z := n
 	var face_x := _vec(b.axes[(i+1)%3])
+	if absf(face_x.dot(face_z)) > 0.999: face_x = _vec(b.axes[(i+2)%3])
+	var face_y := face_z.cross(face_x).normalized()
+	face_x = face_y.cross(face_z).normalized()
 	var source_x := _vec(a.axes[0])
 	var source_z := _vec(a.axes[2])
-	var relative := Basis(source_x,source_z.cross(source_x),source_z).inverse()*Basis(face_x,face_z.cross(face_x),face_z)
+	var relative := Basis(source_x,source_z.cross(source_x),source_z).inverse()*Basis(face_x,face_y,face_z)
 	var angles := relative.get_euler(EULER_ORDER_ZYX)*180.0/PI
 	var size_text := "%.2f mm" % depths.min()
 	if mode_picker.selected == 2: size_text = "%.2f mm" % depths.max()

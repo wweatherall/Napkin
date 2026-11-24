@@ -106,12 +106,13 @@ def run(ctx):
         ctx.check('plane refit: indirect expression change updates target fits', len(calls)==10 and
                   abs(s.model.world_shape(s.model.body('leg0')).Volume-40*20*680)<0.01, calls)
         s.sync(ops)
-        # Existing semantics: when a previously plain target becomes fitted, its dependents detach.
+        # T60: when a previously plain target becomes fitted, its dependents stay tied and match a fresh build.
         chain_ops = ops + [fit('target', 'other')]
         sync(chain_ops)
-        ctx.check('plane refit: fitted target keeps legacy unavailable-reference behavior',
-                  all(s.model.body('leg'+str(i)).Tip.SSTargetId=='' and
-                      s.model.body('leg'+str(i)).Tip.SSFitResult=='Reference unavailable · last geometry retained' for i in range(10)))
+        ctx.check('plane refit: fitted target keeps dependents tied',
+                  s.model.body('target').Tip.SSTargetId == 'other' and
+                  all(s.model.body('leg'+str(i)).Tip.SSTargetId == 'target' and
+                      abs(s.model.world_shape(s.model.body('leg'+str(i))).Volume - 40*20*300) < 0.01 for i in range(10)))
         fresh = Session(os.path.join(ctx.TESTDIR, 'plane-refit-chain.FCStd'), fresh=True)
         fresh.sync(chain_ops)
         ctx.check('plane refit: fitted target agrees with fresh build', signature(fresh)==signature(s))
