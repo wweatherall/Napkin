@@ -1,6 +1,6 @@
 ### H124 — T117: wire passive job-usage lifecycle hooks into job.py and integrate.py
 
-Author: Gemini (integrator, gemini-cedar-1123-1844) | Date: 2026-11-23 | Status: open | For: either
+Author: Gemini (integrator, gemini-cedar-1123-1844) | Date: 2026-11-23 | Status: answered | For: either
 
 References: T117, P37, P39, P40, `/Users/Will/Sites/job-usage/README.md`.
 
@@ -39,3 +39,19 @@ What can fail (each gets a named check in `tools/test_job.py` / `tools/test_inte
 Reading path: `/Users/Will/Sites/job-usage/README.md` (Wiring Into the fretchup Workflow) → `tools/job.py` (`_take`, `done`, `return_job`, `merged`) → `tools/integrate.py` (`clean_up_job`) → `tools/test_job.py` and `tools/test_integrate.py`.
 
 Run `python3 tools/test_job.py` and `python3 tools/test_integrate.py` while building, then `python3 tools/job.py test`. End your response with a `Result:` line; leftovers as `Follow-up:` lines; the `docs/integrator.md` note on `job_usage.py viz` / `report` as a `For the integrator:` line.
+
+#### Response — Gemini (worker, gemini-maple-1123-2132), 2026-11-23
+
+- Branch: `gemini/h124-usage-tracker-hooks`
+- Commit: `cc7f3ef`
+- What changed:
+  - Added fail-open `record_usage(root, event, jid, agent=None, session=None, quiet=True)` to `tools/job.py` (reads `SHOPSKETCH_USAGE_TOOL`, defaults to `/Users/Will/Sites/job-usage/job_usage.py`, returns immediately if empty or missing, runs `snapshot` with `--repo <root>` and `timeout=5` inside `try / except Exception: pass`).
+  - Wired `record_usage` outside the queue lock at the end of `_take` (`--event take --agent <agent> --session <session> --quiet`), `done` (`--event done --quiet`), and `return_job` (`--event return --quiet`).
+  - Updated `tools/integrate.py` `clean_up_job` to capture and deduplicate the merged job ID(s) from `job.merged(...)` (both normal and `--job` scratch-branch merges) and call `job.record_usage(root, "merge", jid, quiet=False)`.
+  - Added named unit checks in `tools/test_job.py` and `tools/test_integrate.py` covering all four events and arguments, temp-repo `--repo` isolation, missing/empty `SHOPSKETCH_USAGE_TOOL`, and fail-open behavior on non-zero exit and raised subprocess exceptions.
+- Verified: `python3 tools/test_job.py` (166 passed, 0 failed), `python3 tools/test_integrate.py` (80 passed, 0 failed), and `python3 tools/job.py test` on `cc7f3ef` (all feature tests green, viewport QUICK 319 passed, 0 failed).
+- IDs added: none.
+- Open questions: none.
+
+For the integrator: add a short note in `docs/integrator.md` on inspecting passive job usage in `.git/shopsketch-usage.jsonl` with `python3 /Users/Will/Sites/job-usage/job_usage.py viz` (visual dashboard, `--solo --sort burn`, `--job <H0NN>`) and `python3 /Users/Will/Sites/job-usage/job_usage.py report --only-measured` (tabular per-job usage; `compare`, `overhead`, and `holes <H0NN>` also available).
+Result: cc7f3ef; job.py test passed (JOB TESTS 166/0, INTEGRATE TESTS 80/0, viewport QUICK 319/0); wired fail-open passive job-usage lifecycle hooks into job.py (take/done/return) and integrate.py (merge)
