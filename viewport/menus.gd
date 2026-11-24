@@ -114,8 +114,8 @@ func run(tag) -> void:
 		"unhide_last": m.sel.unhide("last")
 		"unhide_all": m.sel.unhide("all")
 		"hiddengeom": m.sel.toggle_hidden_geometry()
-		"grid": m.grid_snap = not m.grid_snap; m._update_toggles()
-		"newboard": m.new_board = not m.new_board; m._update_toggles()
+		"grid": m.grid_snap = not m.grid_snap; m.ui.update_toggles()
+		"newboard": m.new_board = not m.new_board; m.ui.update_toggles()
 
 
 func build_materials_menu() -> void:
@@ -123,9 +123,9 @@ func build_materials_menu() -> void:
 	if not NativeMenu.has_feature(NativeMenu.FEATURE_GLOBAL_MENU) or _wood_menu_rid.is_valid(): return
 	var bar := NativeMenu.get_system_menu(NativeMenu.MAIN_MENU_ID)
 	_wood_menu_rid = NativeMenu.create_menu()
-	for k in m.wood_keys:
-		var i := NativeMenu.add_radio_check_item(_wood_menu_rid, m.wood_library[k]["name"], _on_wood_menu, Callable(), k)
-		NativeMenu.set_item_checked(_wood_menu_rid, i, k == m.paint_material)
+	for k in m.appearance.wood_keys:
+		var i := NativeMenu.add_radio_check_item(_wood_menu_rid, m.appearance.wood_library[k]["name"], _on_wood_menu, Callable(), k)
+		NativeMenu.set_item_checked(_wood_menu_rid, i, k == m.appearance.paint_material)
 	NativeMenu.add_separator(_wood_menu_rid)
 	NativeMenu.add_item(_wood_menu_rid, "Turn grain 90° (T)", _on_wood_menu, Callable(), "turn")
 	NativeMenu.add_submenu_item(bar, "Wood", _wood_menu_rid)
@@ -136,8 +136,8 @@ var _wood_menu_rid := RID()
 
 func _on_wood_menu(tag) -> void:
 	if tag == "turn":
-		m._turn_grain(); return
-	m.set_paint_material(String(tag))
+		m.appearance.turn_grain(m.hover_body); return
+	m.appearance.set_paint_material(String(tag))
 
 
 func update_wood_checks(k: String) -> void:

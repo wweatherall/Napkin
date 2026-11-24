@@ -53,10 +53,6 @@ var test_delay_ms: int:       # test hook: ask the worker to sit on its answer
 	set(v): doc.test_delay_ms = v
 var menus = load("res://menus.gd").new(self)
 var ui = load("res://ui.gd").new(self)
-# The model quick test and shell suite still read the menu names here.
-var _menus: Dictionary:
-	get: return menus.menus
-
 var tool := "rect"
 var grid_snap := true
 var new_board := false       # a rectangle on a face joins that board when pushed out (I04b); B for a separate board
@@ -95,19 +91,6 @@ var shots_dir := ""
 
 var cam: Camera3D
 var camera_rig = load("res://camera_rig.gd").new(self)
-# The preferences quick test still reads these names from main.
-const TRACKPAD_PX := preload("res://camera_rig.gd").TRACKPAD_PX
-const ZOOM_STEP := preload("res://camera_rig.gd").ZOOM_STEP
-var yaw: float:
-	get: return camera_rig.yaw
-var dist: float:
-	get: return camera_rig.dist
-var trackpad_px: float:
-	get: return camera_rig.trackpad_px
-	set(v): camera_rig.trackpad_px = v
-var zoom_step: float:
-	get: return camera_rig.zoom_step
-	set(v): camera_rig.zoom_step = v
 
 var bodies_root: Node3D
 var drafts_root: Node3D
@@ -200,10 +183,6 @@ var ui_sync: Label
 var ui_tip: Label
 var ui_saved: Label                 # quiet 'Saving…' / 'Saved' (Q22): the wave means accepted, this means on disk
 var saved_shown: Array = []         # tests: what the indicator has said, in order (T45: fast saves can't be missed)
-
-# The registry quick test still reads the toolbar buttons here.
-var _tool_buttons: Dictionary:
-	get: return ui.tool_buttons
 
 signal confirmed(seq_no: int)
 
@@ -451,11 +430,6 @@ func _make_world() -> void:
 	add_child(_lines(PackedVector3Array([Vector3.ZERO, Vector3(0, 0, 2000)]), Color(0.1, 0.25, 0.9), AXIS_LINE_PX))
 
 
-# The native Grid snap and New board menu commands still call this.
-func _update_toggles() -> void:
-	ui.update_toggles()
-
-
 # ---------------- mesh helpers ----------------
 const LINE_PX := Presenter.LINE_PX          # width of edges and outlines, in points (doubled on a Retina screen)
 const GRID_LINE_PX := 1.0
@@ -683,23 +657,6 @@ func _edit_property(change: Dictionary) -> void:
 	ops.append(op)
 	properties_panel.message("Applying property…")
 	sync()
-
-# The Wood menu in menus.gd still uses these names.
-var wood_library: Dictionary:
-	get: return appearance.wood_library
-var wood_keys: Array:
-	get: return appearance.wood_keys
-var paint_material: String:
-	get: return appearance.paint_material
-
-
-func set_paint_material(k: String) -> void:
-	appearance.set_paint_material(k)
-
-
-func _turn_grain() -> void:
-	appearance.turn_grain(hover_body)
-
 
 # ---------------- linked boards (T12: A22c, I28, Q28, Q29) ----------------
 # Copies share one definition: editing one edits all. While a tool is over a linked board its copies get a soft
@@ -1066,14 +1023,7 @@ func _on_rejected(o: Dictionary, w, drop_now: Array) -> void:
 
 # ---------------- the FreeCAD worker (T6) ----------------
 var worker = load("res://worker_process.gd").new(self)
-# The lifecycle suite and test dispatcher still read these names here.
-var worker_port: int:
-	get: return worker.worker_port
-var worker_pid: int:
-	get: return worker.worker_pid
 var _first_open := true
-var lifecycle_test: bool:
-	get: return worker.lifecycle_test
 
 # The window <-> worker protocol's version (docs/protocol.md): bump it when a message or shared-file field changes.
 # The worker reports its own (worker/serve.py PROTOCOL_VERSION) in hello; a worker speaking another isn't shared.
@@ -1239,8 +1189,8 @@ func _apply_preferences(values: Dictionary) -> void:
 	if t.has("RELEASE_DEG"): Inference.release_deg = float(t["RELEASE_DEG"])
 	if t.has("DRAG_PX"): Tool.drag_px = float(t["DRAG_PX"])
 	if t.has("HOLD_MS"): Tool.hold_ms = int(t["HOLD_MS"])
-	if t.has("TRACKPAD_PX"): trackpad_px = float(t["TRACKPAD_PX"])
-	if t.has("ZOOM_STEP"): zoom_step = float(t["ZOOM_STEP"])
+	if t.has("TRACKPAD_PX"): camera_rig.trackpad_px = float(t["TRACKPAD_PX"])
+	if t.has("ZOOM_STEP"): camera_rig.zoom_step = float(t["ZOOM_STEP"])
 	if typeof(values.get("units")) == TYPE_DICTIONARY:
 		var def_u = values["units"].get("default")
 		measure.pref_default_units = String(def_u) if typeof(def_u) == TYPE_STRING else ""
@@ -1276,8 +1226,8 @@ func _live_tuning(key: String) -> float:
 		"RELEASE_DEG": return Inference.release_deg
 		"DRAG_PX": return Tool.drag_px
 		"HOLD_MS": return float(Tool.hold_ms)
-		"TRACKPAD_PX": return trackpad_px
-		"ZOOM_STEP": return zoom_step
+		"TRACKPAD_PX": return camera_rig.trackpad_px
+		"ZOOM_STEP": return camera_rig.zoom_step
 	return 0.0
 
 

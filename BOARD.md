@@ -58,7 +58,6 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
 | H109 | either | Queued | T113 step 2: what a rejection takes with it moves to document.gd, and main's document pass-throughs go | [H109](docs/handoff/H109-t113-rejections.md) | H096, H094 |
-| H122 | either | **Done**: for review (gemini) | T113 step 5: main.gd's compatibility members go (callers use the modules) | [H122](docs/handoff/H122-main-compat-members.md) |  |
 
 <!-- end of job table -->
 
