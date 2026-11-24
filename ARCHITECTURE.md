@@ -173,17 +173,17 @@ FreeCAD evaluation is asynchronous from Godot's perspective but runs serially in
 
 ### Native property inspection and editing
 
-Plane fits (I40, T53, T60). `worker/plane_fit.py` describes rectangular stock using its
+Plane fits (I40, T53, T60, T61). `worker/plane_fit.py` describes rectangular stock for both plain `App::Part` boards and `App::Link` component instances (resolved via `_def()` / `_family_bodies()`) using its
 base rectangle, extrusion direction, local dimensions and world frame (`snapshot()` also exports `fitted_end: {face, normal, point}` on fitted boards via `fitted_face()` / `fitted_end()`, protocol 13). The inspection snapshot includes these
-frames and native labels under `boards`. Properties (`property_panel.gd`: `pick_reference`, `_preview`) and Push/Pull (`push_tool.gd`: `_edge_inference`) accept fitted rectangular boards as targets, resolving fitted target ends from `fitted_end` via `_target_face_plane()` (Properties orthogonalizing the face frame for sloped ends and delegating cycle rejection to the worker).
+frames and native labels under `boards`. Properties (`property_panel.gd`: `pick_reference`, `_preview`) and Push/Pull (`push_tool.gd`: `_edge_inference`) accept fitted rectangular boards and linked copies as targets (guarding against picking a sibling sharing the same `extrusion`), resolving fitted target ends from `fitted_end` via `_target_face_plane()` (Properties orthogonalizing the face frame for sloped ends and delegating cycle rejection to the worker).
 The panel previews four corner rays intersecting the selected face's infinite supporting plane. The worker
 independently solves those intersections (`face_plane()` resolves a fitted target's real end plane) and builds a solid with a square or sloping end. A `property_edit`
-with mode `plane_fit` records the source and target BodyIds, local axis, semantic face and end condition; `apply()` walks `SSTargetId` chains first and rejects cycles before mutating.
-The board's new Part::Feature tip stores its source extrusion link and the relationship. Model.apply updates
+with mode `plane_fit` records the source and target BodyIds, local axis, semantic face and end condition; `apply()` rejects self-family fits and walks `SSTargetId` chains across component definitions first, rejecting cycles before mutating.
+The definition's new `Part::Feature` tip (`PlaneFit`) stores its source extrusion link, the relationship, and (for linked copies) `SSSourceBodyId` identifying the driving instance. `Model.apply` updates
 only fits whose source/target stock frame, `fitted_end`, label or fit settings changed (including native expressions),
-propagates through chains (`A <- B <- C`) in topological waves in a single pass (`refit_changed()`), and recomputes the fit batch once inside the transaction (T54, T60). A `replace_fit`
-edit restores the native extrusion with the entered dimension. FreeCAD can open the saved solid directly. Updating the fit requires the Shop Sketch
-worker. One fitted dimension per plain rectangular board; chains through fitted rectangular targets are supported (T60; linked copies are T61, non-rectangular shapes are T62).
+propagates through chains (`A <- B <- C`) and component families in topological waves in a single pass (`refit_inputs()` / `refit_changed()`, promoting a surviving sibling if the driving instance is gone), and recomputes the fit batch once inside the transaction (T54, T60, T61). A `replace_fit`
+edit restores the native extrusion with the entered dimension and updates all siblings; `worker/move.py` (`op_make_unique`) detaches inherited `PlaneFit` ties on newly unique boards while preserving geometry and hands `SSSourceBodyId` driving duty to a surviving sibling when the driving instance is made unique. FreeCAD can open the saved solid directly. Updating the fit requires the Shop Sketch
+worker. One fitted dimension per rectangular board or component definition; chains and linked copies are supported (T60, T61; non-rectangular shapes are T62).
 
 Session.export includes the rectangular stock frame and current label in each
 eligible bodies.json entry (`stock_frame`; `presenter.gd` keeps them as `stock_frames`, remembered with each confirmed state). Push/Pull uses the inference engine's corner, edge and edge-midpoint snaps and this frame to rank reachable
@@ -193,7 +193,7 @@ transaction. A fit on the low end anchors the opposite end through SSReverse. A 
 one-click reference to a face, corner, edge or midpoint. The click commits the most aligned reachable plane with the
 selected fit mode. The explicit picker still previews before Apply. Confirmed and restored viewport meshes
 refresh selection tint and discard idle hover geometry. For a numeric pull of an entire ordinary stock face the viewport sends
-`push_pull.resize_stock`. The worker changes the native dimension and anchors the opposite end. Earlier journals
+`push_pull.resize_stock`. The worker changes the native dimension and anchors the opposite end (`worker/push.py` returns all sibling `BodyId`s via `plane_fit.family_bodies` on `push_fitted_end` and `resize_stock` edits). Earlier journals
 without this flag replay their original Boolean feature history. A face push on a fitted board's tied end detaches the fit (I26b, I40): a square end is restored to
 the native extrusion at its current length and resized; a sloped end keeps its shape with an empty `SSTargetId`.
 

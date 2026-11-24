@@ -236,7 +236,7 @@ func _edge_inference(pt: Dictionary, screen: Vector2) -> void:
 		if profile.on != "" and not (ctx.ui.new_board() and state.dist > 0): return
 	else:
 		var src := ctx.model.stock_frame(state.body)
-		if src.is_empty() or src.fitted: return
+		if src.is_empty() or src.fitted or target.extrusion == src.extrusion: return
 		for i in 3:
 			if absf(_vec(src.axes[i]).dot(state.n)) > 0.9999: source_size = src.sizes[i]
 		if source_size <= 0: return

@@ -183,4 +183,32 @@ func run() -> void:
 				is_equal_approx(float(harness._bodies().b2.volume_mm3), 512000.0)
 				and is_equal_approx(float(harness._bodies().b3.volume_mm3), 384000.0),
 				[harness._bodies().b2.volume_mm3, harness._bodies().b3.volume_mm3])
+	# T61: Option-copy a board to make a linked pair, link one copy to a target face via Push/Pull, move target -> both update.
+	var linked_scene := harness._plank(1, Vector3.ZERO, Vector3(40, 40, 40))
+	linked_scene.append_array(harness._plank(2, Vector3(-20, -20, 140), Vector3(220, 80, 20)))
+	linked_scene.append({"id": "cp_linked", "type": "move", "targets": ["b1"], "vector": [100, 0, 0], "copy": true, "new_ids": ["b3"]})
+	await harness._fresh("linked_fit", linked_scene)
+	await harness._view(Vector3(70, 20, 80), -35, -25, 0.55)
+	m.set_tool("push")
+	await harness._click_at(Vector3(20, 20, 40))
+	await harness._drag_to(Vector3(20, 20, 160), 12)
+	harness._ok("push from linked copy infers target face",
+			m.tools.push.state.get("edge_fit", {}).get("target_body", "") == "b2"
+			and m.tools.push.state.get("edge_fit", {}).get("face", -1) == 5,
+			[m.tools.push.tip(), m.tools.push.state.get("edge_fit", {}), m.stock_frames.get("b1", {})])
+	if m.tools.push.state.has("edge_fit"):
+		await harness._press()
+		await harness._wait_confirm()
+		harness._ok("linked copy fit updates both siblings on screen",
+				m.stock_frames.b1.fitted and m.stock_frames.b3.fitted
+				and is_equal_approx(float(harness._bodies().b1.volume_mm3), 256000.0)
+				and is_equal_approx(float(harness._bodies().b3.volume_mm3), 256000.0),
+				[harness._bodies().b1.volume_mm3, harness._bodies().b3.volume_mm3])
+		m.ops.append({"id": "mv_linked_target", "type": "move", "targets": ["b2"], "vector": [0, 0, 30]})
+		m.doc.sync()
+		await harness._wait_confirm()
+		harness._ok("moving target updates both linked copies on screen",
+				is_equal_approx(float(harness._bodies().b1.volume_mm3), 304000.0)
+				and is_equal_approx(float(harness._bodies().b3.volume_mm3), 304000.0),
+				[harness._bodies().b1.volume_mm3, harness._bodies().b3.volume_mm3])
 	m.properties_panel.hide()

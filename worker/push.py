@@ -157,14 +157,14 @@ class PushActions:
                 if plane_fit.push_fitted_end(self, board, unit(vec(tgt["face"]["normal"])), vec(tgt["face"]["point"]), d):
                     if to_face is not None:
                         raise OpError("to_face is only for a cut into a board")
-                    return [board.BodyId]
+                    return plane_fit.family_bodies(self, board)
             if not op.get("body"):
                 self._detach_floor_cuts(board, vec(tgt["face"]["normal"]), vec(tgt["face"]["point"]))
         if op.get("resize_stock") and "face" in tgt and "region" not in tgt:
             import plane_fit
             board, _, normal = self.resolve_face(tgt["face"])
             if plane_fit.resize_face(self,board,normal,d):
-                return [board.BodyId]
+                return plane_fit.family_bodies(self, board)
         if "rect" in tgt:
             pl = self.rect_obj(tgt["rect"])
             if pl is None:
