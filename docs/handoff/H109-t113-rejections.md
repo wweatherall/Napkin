@@ -1,6 +1,6 @@
 ### H109 — T113 step 2: what a rejection takes with it moves to document.gd, and main's document pass-throughs go
 
-Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: open | For: either
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: answered | For: either
 
 References: T113, P45, T16, Q7, A31.
 
@@ -51,4 +51,16 @@ Reading path: main.gd `_on_synced` / `_on_worker` (where rejections arrive) → 
 
 Run the feature tests while building (`tools/featuretest.sh`), the quick test after each change, then `python3 tools/job.py test`. End your response with a Result line; leftovers as Follow-up lines; the folder-guide change (viewport/CLAUDE.md's Files list) as a For the integrator line.
 
+**Response — Gemini (gemini-birch-1123-2132, 2026-11-23):**
+- Branch: `gemini/h109-t113-rejections`, commit `2b30f22`.
+- Moved rejection bookkeeping (`REJECT_WINDOW_MS`, `_rejected`, `_op_refs`, `_op_makes`, `_op_touches`) from `viewport/main.gd` to `viewport/document.gd`, added `reject(oid, msg, now_ms, still_playing)` and `rejected_ids(oid)`, and cleared `_rejected` in `reset()`.
+- Reduced `main.gd`'s `_on_rejected` and `_on_wave_rejected_done` to wave state, `reject_note` / `last_reject_note` (kept beside `reject_note`), and `drop_now`.
+- Removed the six document pass-throughs (`can_redo`, `remove_ops`, `remove_op`, `_restore_counters`, `_consumed_rects`, `_op_of`) from `main.gd` and updated callers in `main.gd`, `tests/harness.gd`, `tests/suites/breath.gd`, and `tests/quick/{undo,worker,outside_save,save_failure}.gd` to call `doc.*` / `m.doc.*`.
+- Added 8 headless rejection checks in `viewport/test_document.gd` covering standalone root, dependent on rejected board, dependent naming a touched board in FreeCAD's message, independent op, unknown op id, `REJECT_WINDOW_MS` expiry while playing vs not playing, and `reset()`.
+- Verified: `tools/featuretest.sh` (all passed, `DOCUMENT TESTS: 147 passed, 0 failed`), `tools/quicktest.sh` (319/0), `tools/fulltest.sh --gate-ui-only` (all 6 recorded suites `same` against `tests/reference/`, `rejecttest` passed), and `python3 tools/job.py test` on `2b30f22` (`319 passed, 0 failed`).
+- IDs added: none. Open questions: none.
+
 Architecture: viewport/document.gd now owns rejection bookkeeping (`REJECT_WINDOW_MS`, `_rejected`, `_op_refs`, `_op_makes`, `_op_touches`, `reject()`, `rejected_ids()`, cleared in `reset()`); viewport/main.gd keeps only wave state, `reject_note` / `last_reject_note`, and `drop_now`, and drops the six document pass-throughs (`can_redo`, `remove_ops`, `remove_op`, `_restore_counters`, `_consumed_rects`, `_op_of`).
+Follow-up: One `job.py test` run hit a one-off timing flake in unrelated `viewport/tests/quick/circle.gd` (`second click finishes a radius 30 circle` got radius 19.05 under parallel load); it passed cleanly on the preceding `tools/quicktest.sh` and immediately following `job.py test` runs.
+For the integrator: update `viewport/CLAUDE.md`'s Files list to move "rejection bookkeeping" from `main.gd` to `document.gd`, and note that `main.gd` no longer forwards `can_redo`, `remove_ops`, `remove_op`, `_restore_counters`, `_consumed_rects`, or `_op_of`.
+Result: 2b30f22; featuretest (DOCUMENT TESTS 147/0), quicktest (319/0), fulltest --gate-ui-only (6/6 recorded suites same, rejecttest passed); moved rejection bookkeeping into document.gd with headless tests and removed six document pass-throughs from main.gd

@@ -31,7 +31,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 <!-- open list: built from docs/handoff/ by tools/handoff.py; don't edit by hand -->
 
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
-- [H109 — T113 step 2: what a rejection takes with it moves to document.gd, and main's document pass-throughs go](handoff/H109-t113-rejections.md) — status: open; for: either
+- [H109 — T113 step 2: what a rejection takes with it moves to document.gd, and main's document pass-throughs go](handoff/H109-t113-rejections.md) — status: answered; for: either
 
 <!-- end of open list -->
 
