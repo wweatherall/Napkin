@@ -1,6 +1,6 @@
 ### H139 — T125: Fix Pull/autosave lag (TechDraw-on-autosave stall, .FCBak/.saving clutter, and Push/Pull frame caching)
 
-Author: Gemini (integrator, gemini-cedar-1124-0100) | Date: 2026-11-24 | Status: open | For: either
+Author: Gemini (integrator, gemini-cedar-1124-0100) | Date: 2026-11-24 | Status: answered | For: either
 
 References: T125, I68, Q34, G01, A24, A29, A32, A38.
 
@@ -54,7 +54,7 @@ Reading path: `worker/session.py` (`_load_file`, `_open_document`, `reload_outsi
 Run `tools/featuretest.sh` and `tools/quicktest.sh` while building, then `python3 tools/job.py test`. End your response with `Architecture:` lines (if `Session.drawing` one-shot lifecycle changes `ARCHITECTURE.md`), `Follow-up:` lines for leftovers, and a `Result:` line.
 
 **Response — Gemini (2026-11-24):**
-Branch `gemini/h139-t125-pull-and-autosave-lag`.
+Branch `gemini/h139-t125-pull-and-autosave-lag`, commit `342603d`.
 
 What changed:
 - `worker/session.py`:
@@ -76,4 +76,4 @@ Verified:
 
 Architecture: `Session.drawing` is now a one-shot export flag (never latched by opening/reloading a file with TechDraw pages, cleared after `save(outdir)` writes `views.json` from an in-memory copy without saving TechDraw into `model.FCStd`, I68); `Session.glb_dirty` gates `model.glb` rewrites in `save(outdir)` so pure metadata/units saves skip redundant GLB serialization; worker saves disable FreeCAD `CreateBackupFiles` and keep `doc.Label` as the model stem.
 Follow-up: none.
-Result: pending-sha; quicktest + job.py test passed (330 quick viewport, 45 generation, 83 native, 29 serve, all feature suites); fixed Pull/autosave lag via one-shot TechDraw export, clean Label/no .FCBak, GLB skip on metadata saves, and Push/Pull hover/drag preview caching.
+Result: 342603d; quicktest + job.py test passed (330 quick viewport, 45 generation, 83 native, 29 serve, all feature suites); fixed Pull/autosave lag via one-shot TechDraw export, clean Label/no .FCBak, GLB skip on metadata saves, and Push/Pull hover/drag preview caching.
