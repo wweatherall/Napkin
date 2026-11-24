@@ -31,6 +31,6 @@ func run() -> void:
 	await harness._wait_confirm()
 	var back := harness._top()
 	print("SHELLTEST A has a board %s mm tall | new model B starts empty %s, its board %s mm | back to A: %d ops, boards %s, top %s mm (want 18) | B saved %s | menus %s" % [
-		a_top, b_empty, b_top, m.ops.size(), harness._shown_ids(), back, FileAccess.file_exists(b), m._menus.keys()])
+		a_top, b_empty, b_top, m.ops.size(), harness._shown_ids(), back, FileAccess.file_exists(b), m.menus.menus.keys()])
 	print("SHELLTEST done")
 	harness.get_tree().quit()

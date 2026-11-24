@@ -18,7 +18,7 @@ func run() -> void:
 	if m.fast_test:                               # --fast (T48): the quick test's pacing for any suite
 		harness.quick = true
 		Engine.time_scale = 5.0
-	if not (m.quick_test or m.join_test or m.reject_test or m.snap_test or m.rect_test or m.undo_test or m.shell_test or m.perf_test or m.line_test or m.gesture_test or m.lifecycle_test):
+	if not (m.quick_test or m.join_test or m.reject_test or m.snap_test or m.rect_test or m.undo_test or m.shell_test or m.perf_test or m.line_test or m.gesture_test or m.worker.lifecycle_test):
 		m.new_board = true; m.ui.update_toggles()     # the scripted suites were recorded with 'New board' on (I04 then)
 	if m.breath_test: await _suite("breath")
 	elif m.face_test: await _suite("face")
@@ -32,7 +32,7 @@ func run() -> void:
 	elif m.line_test: await _suite("line")
 	elif m.undo_test: await _suite("undo")
 	elif m.gesture_test: await _suite("gesture")
-	elif m.lifecycle_test: await _suite("lifecycle")
+	elif m.worker.lifecycle_test: await _suite("lifecycle")
 	elif m.snap_test: await _suite("snap")
 	elif m.rect_test: await _suite("rect")
 	elif m.perf_test: await _suite("perf")

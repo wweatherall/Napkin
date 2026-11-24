@@ -24,11 +24,11 @@ func run() -> void:
 	await harness._fresh("registry")
 	# the toolbar's segments, left to right: [id, label, tooltip]
 	var bar: Array = []
-	var row: Node = m._tool_buttons.values()[0].get_parent() if not m._tool_buttons.is_empty() else null
+	var row: Node = m.ui.tool_buttons.values()[0].get_parent() if not m.ui.tool_buttons.is_empty() else null
 	if row != null:
 		for b in row.get_children():
-			for id in m._tool_buttons:
-				if m._tool_buttons[id] == b: bar.append([id, b.text, b.tooltip_text])
+			for id in m.ui.tool_buttons:
+				if m.ui.tool_buttons[id] == b: bar.append([id, b.text, b.tooltip_text])
 	var want_bar: Array = WANT.map(func(w): return [w[0], w[1], w[2]])
 	harness._ok("the toolbar is Select, Paint, Rectangle, Circle, Line, Arc, Push/Pull, Move with their tooltips", bar == want_bar, bar)
 	var registry = load("res://tool_registry.gd")
@@ -51,9 +51,9 @@ func run() -> void:
 	harness._ok("Space, R, C, L, A, P and M pick Select, Rectangle, Circle, Line, Arc, Push/Pull and Move", picked == [["Space", "select"], ["R", "rect"], ["C", "circle"], ["L", "line"], ["A", "arc"], ["P", "push"], ["M", "move"]], picked)
 	harness._ok("the keys map only those seven", m.tool_keys == {KEY_SPACE: "select", KEY_R: "rect", KEY_C: "circle", KEY_L: "line", KEY_A: "arc", KEY_P: "push", KEY_M: "move"}, m.tool_keys)
 	# a toolbar segment and a Tools menu item pick their tool (the menu's tag is the tool's id)
-	m._tool_buttons["move"].pressed.emit()
+	m.ui.tool_buttons["move"].pressed.emit()
 	var by_button := m.tool
 	m.menus.menu_last.clear()
 	m.menus.run("push")
-	harness._ok("the toolbar and the Tools menu pick tools by id", [by_button, m.tool] == ["move", "push"] and m._tool_buttons["push"].button_pressed, [by_button, m.tool])
+	harness._ok("the toolbar and the Tools menu pick tools by id", [by_button, m.tool] == ["move", "push"] and m.ui.tool_buttons["push"].button_pressed, [by_button, m.tool])
 	m.set_tool("rect")

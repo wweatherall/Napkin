@@ -7,6 +7,7 @@ const Main := preload("res://main.gd")
 const Harness := preload("res://tests/harness.gd")
 const Inference := preload("res://inference.gd")
 const Tool := preload("res://tools/tool.gd")
+const CameraRig := preload("res://camera_rig.gd")
 const Preferences := preload("res://preferences.gd")
 const Units := preload("res://units.gd")
 var harness: Harness
@@ -41,8 +42,8 @@ func run() -> void:
 		and is_equal_approx(Inference.release_deg, Inference.RELEASE_DEG)
 		and is_equal_approx(Tool.drag_px, Tool.DRAG_PX)
 		and Tool.hold_ms == Tool.HOLD_MS
-		and is_equal_approx(m.trackpad_px, Main.TRACKPAD_PX)
-		and is_equal_approx(m.zoom_step, Main.ZOOM_STEP)
+		and is_equal_approx(m.camera_rig.trackpad_px, CameraRig.TRACKPAD_PX)
+		and is_equal_approx(m.camera_rig.zoom_step, CameraRig.ZOOM_STEP)
 		and is_equal_approx(m.tool_ctx.pick.grid_step(), Inference.GRID)
 		and is_equal_approx(m.tool_ctx.pick.snap_radius(), Inference.SNAP_PX))
 
@@ -79,19 +80,19 @@ func run() -> void:
 		and is_equal_approx(Inference.release_deg, 16.0)
 		and is_equal_approx(Tool.drag_px, 9.0)
 		and Tool.hold_ms == 450
-		and is_equal_approx(m.trackpad_px, 66.0)
-		and is_equal_approx(m.zoom_step, 0.90)
+		and is_equal_approx(m.camera_rig.trackpad_px, 66.0)
+		and is_equal_approx(m.camera_rig.zoom_step, 0.90)
 		and is_equal_approx(Inference.grid, 25.0)
 		and is_equal_approx(m.tool_ctx.pick.grid_step(), 25.0)
 		and is_equal_approx(m.tool_ctx.pick.snap_radius(), 22.0)
 		and m.measure.pref_default_units == "cm:0.1")
 
 	# Live trackpad_px and zoom_step drive input directly.
-	var y0 := m.yaw
+	var y0: float = m.camera_rig.yaw
 	var pan := InputEventPanGesture.new()
 	pan.delta = Vector2(100.0 / 66.0, 0.0)
 	await harness._gesture(pan)
-	var d0 := m.dist
+	var d0: float = m.camera_rig.dist
 	var wh := InputEventMouseButton.new()
 	wh.button_index = MOUSE_BUTTON_WHEEL_UP
 	wh.pressed = true
@@ -99,8 +100,8 @@ func run() -> void:
 	wh.position = m.cursor2d.position
 	m._unhandled_input(wh)
 	harness._ok("live trackpad_px and zoom_step drive orbit and wheel zoom",
-		is_equal_approx(m.yaw, y0 - 0.8) and is_equal_approx(m.dist, d0 * 0.90),
-		[m.yaw - y0, m.dist / d0])
+		is_equal_approx(m.camera_rig.yaw, y0 - 0.8) and is_equal_approx(m.camera_rig.dist, d0 * 0.90),
+		[m.camera_rig.yaw - y0, m.camera_rig.dist / d0])
 	m._apply_preferences(Preferences.DEFAULTS)
 	await harness._view(Vector3(100, 75, 0), -30, -50, 1.4)
 
@@ -121,18 +122,18 @@ func run() -> void:
 	harness._ok("live edit applies SNAP_PX and ZOOM_STEP via timer and reports them",
 		is_equal_approx(Inference.snap_px, 18.0)
 		and is_equal_approx(m.tool_ctx.pick.snap_radius(), 18.0)
-		and is_equal_approx(m.zoom_step, 0.9)
+		and is_equal_approx(m.camera_rig.zoom_step, 0.9)
 		and m.ui_sync.text == "Preferences: SNAP_PX 18, ZOOM_STEP 0.9",
-		[Inference.snap_px, m.zoom_step, m.ui_sync.text])
+		[Inference.snap_px, m.camera_rig.zoom_step, m.ui_sync.text])
 
 	# 6. Bad edit after a good one: last good values stay (not built-ins), status line says problem.
 	_write(pref_path, "{broken json")
 	await _until(func(): return m.ui_sync.text.begins_with("preferences.json isn't readable ("))
 	harness._ok("bad edit after good keeps last good values (not built-ins) and reports problem",
 		is_equal_approx(Inference.snap_px, 18.0)
-		and is_equal_approx(m.zoom_step, 0.9)
+		and is_equal_approx(m.camera_rig.zoom_step, 0.9)
 		and m.ui_sync.text.begins_with("preferences.json isn't readable ("),
-		[Inference.snap_px, m.zoom_step, m.ui_sync.text])
+		[Inference.snap_px, m.camera_rig.zoom_step, m.ui_sync.text])
 
 	# Multiple problems report the first plus "(and N more)".
 	_write(pref_path, "{\"bogus\": 1, \"tuning\": {\"SNAP_PX\": 999}}\n")

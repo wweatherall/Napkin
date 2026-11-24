@@ -17,4 +17,4 @@ func run() -> void:
 	while not m.opened: await harness._frames(1)
 	await harness._wait_confirm()
 	harness._ok("switching back reopens the other model's boards", harness._shown_ids() == [harness.id("b1"), harness.id("b3")] and m.ops.size() == 5, [harness._shown_ids(), m.ops.size()])
-	harness._ok("the menus exist", m._menus.keys() == ["File", "Edit", "Tools", "View"] or not NativeMenu.has_feature(NativeMenu.FEATURE_GLOBAL_MENU), m._menus.keys())
+	harness._ok("the menus exist", m.menus.menus.keys() == ["File", "Edit", "Tools", "View"] or not NativeMenu.has_feature(NativeMenu.FEATURE_GLOBAL_MENU), m.menus.menus.keys())

@@ -48,3 +48,11 @@ Checks: no new behaviour, so no new check; the existing ones above must pass, an
 Run the quick test after each group of members, then `python3 tools/job.py test`. End your response with a Result line (main.gd's
 line count before and after); leftovers as Follow-up lines; the viewport/CLAUDE.md change as a For the
 integrator line.
+
+#### Response — Gemini (gemini-birch-1123-1855), 2026-11-23
+
+Architecture: `viewport/menus.gd` row — remove the note that main keeps a read-only `_menus` alias (`models.gd` and `shell.gd` now read `m.menus.menus`).
+Architecture: `viewport/camera_rig.gd` and `viewport/preferences.gd` rows — remove the notes that main keeps read aliases (`yaw`, `dist`) and the two tunables (`TRACKPAD_PX`, `ZOOM_STEP`, `trackpad_px`, `zoom_step`) (`preferences.gd` quick test and main's `_apply_preferences` / `_live_tuning` now use `camera_rig.*` / `CameraRig.*` directly).
+Architecture: `viewport/ui.gd` row — remove the note that main keeps `_update_toggles()` and `_tool_buttons` (`menus.gd` calls `m.ui.update_toggles()` and `registry.gd` reads `m.ui.tool_buttons`).
+Architecture: `viewport/appearance.gd` row — remove the note that main keeps `wood_library`, `wood_keys`, `paint_material`, `set_paint_material` and `_turn_grain` (`menus.gd` uses `m.appearance.*` directly, calling `m.appearance.turn_grain(m.hover_body)` for Turn grain).
+Architecture: `viewport/worker_process.gd` row — remove the note that main keeps read aliases `worker_port`, `worker_pid` and `lifecycle_test` (`tests.gd` and `lifecycle.gd` now read `m.worker.*`).
