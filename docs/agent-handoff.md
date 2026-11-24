@@ -39,6 +39,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H138 — T124: Auto-set document units from first typed length with an explicit unit](handoff/H138-t124-units-from-first-typed-length.md) — status: open; for: either
 - [H139 — T125: Fix Pull/autosave lag (TechDraw-on-autosave stall, .FCBak/.saving clutter, and Push/Pull frame caching)](handoff/H139-t125-pull-and-autosave-lag.md) — status: open; for: either
 - [H141 — T127: Enter and edit components, and Component Properties window (prioritizing critical dimensions and linked measurements)](handoff/H141-t127-components-and-properties.md) — status: queued (after H126); for: either
+- [H143 — For the next integrator session: where things stand](handoff/H143-integrator-state.md) — status: open; for: the integrator
 
 <!-- end of open list -->
 
