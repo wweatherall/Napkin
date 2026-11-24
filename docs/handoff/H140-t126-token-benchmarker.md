@@ -1,6 +1,6 @@
 ### H140 — T126: Token benchmarker (`tools/usage.py`): AGY/Gemini support, quota fixes, fast `orient`/`bench` CLI, and workflow integration
 
-Author: Gemini (integrator, gemini-cedar-1124-0100) | Date: 2026-11-24 | Status: open | For: either
+Author: Gemini (integrator, gemini-cedar-1124-0100) | Date: 2026-11-24 | Status: answered | For: either
 
 References: T126, T117, H124, P37, P39, P40, `/Users/Will/Sites/job-usage/job_usage.py`, `/Users/Will/Sites/job-usage/test_job_usage.py`, `scratch/compare_orient.py`.
 
@@ -58,3 +58,20 @@ Cases that must still work:
 Reading path: `/Users/Will/Sites/job-usage/job_usage.py` (`compute_bucket_burn`, `detect_concurrency`, `build_job_record`, `discover_transcript`, `analyze_transcript`, `cmd_snapshot`, `cmd_overhead`) → `/Users/Will/Sites/job-usage/test_job_usage.py` → `scratch/compare_orient.py` → `tools/job.py` (`USAGE_TOOL`, `record_usage`) → `tools/integrate.py` (`clean_up_job`) → `tools/featuretest.sh` (how `tools/test_*.py` is run).
 
 Run `python3 tools/test_usage.py`, `python3 tools/test_job.py`, `python3 tools/test_integrate.py`, and `tools/featuretest.sh` while building, then `python3 tools/job.py test`. End your response with `Architecture:` lines (new `tools/usage.py` module), `For the integrator:` lines (update `docs/integrator.md` with `tools/usage.py orient` / `bench` / `viz` / `holes` commands and remove untracked `scratch/compare_orient.py`), `Follow-up:` lines for leftovers, and a `Result:` line.
+
+### Response — Gemini (gemini-birch-1124-0136), 2026-11-24
+
+- Branch: `gemini/h140-t126-token-benchmarker`
+- Commit: `35137e3` (code: `63193ad`, hermetic `.git` isolation fix: `35137e3`)
+- Verified:
+  - `python3 tools/test_usage.py`: `USAGE TESTS: 15 passed, 0 failed` (covers AGY & Claude `analyze_transcript`, `discover_transcript` by fretchup session name / UUID / missing brain dir, `detect_concurrency` for Gemini integrator overlap `shared-int` vs `solo`, `compute_bucket_burn` upward `1.0` spike + downward rebound dip `0.761 -> 0.751 -> 0.757 -> 0.756` + `next_event_s` clamp, `orient` turn-2 after warm-up detection in JSON & table mode, `bench`, `overhead`, and `job.USAGE_TOOL` default path).
+  - `python3 tools/test_job.py`: `JOB TESTS: 169 passed, 0 failed`.
+  - `python3 tools/test_integrate.py`: `INTEGRATE TESTS: 80 passed, 0 failed`.
+  - Smoke-tested `python3 tools/usage.py orient --last 5` and `bench --last 5` on live AGY logs (detected `gemini-birch-1124-0054` as `T2 (+1w)` and calibrated both Gemini 4 Neon High and Med).
+  - `python3 tools/job.py test` on `35137e3`: all feature tests (including auto-discovered `tools-usage`) and all 319 viewport quick tests passed with 0 failures.
+- IDs added: none.
+- Open questions: none.
+
+Architecture: new `tools/usage.py` stdlib-only token & quota benchmarker (vendored from `/Users/Will/Sites/job-usage/job_usage.py` with AGY/Gemini transcript parsing, discovery, concurrency, overhead, downward-dip/clamped quota burn, and `orient`/`bench` subcommands); `tools/job.py` `USAGE_TOOL` now defaults to `tools/usage.py`; `tools/test_usage.py` runs under `tools/featuretest.sh`.
+For the integrator: update `docs/integrator.md` with the new `python3 tools/usage.py orient`, `bench`, `viz`, and `holes` commands, and remove the untracked `scratch/compare_orient.py` in the main checkout.
+Result: 35137e3; quicktest passed (USAGE 15/15, JOB 169/169, INTEGRATE 80/80, QUICK 319/319); vendored and enhanced tools/usage.py with AGY/Gemini support, quota noise fixes, and fast orient/bench CLI.
