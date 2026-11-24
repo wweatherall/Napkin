@@ -154,4 +154,33 @@ func run() -> void:
 		await harness._press()
 		await harness._wait_confirm()
 		harness._ok("corner click commits its previewed face",m.stock_frames.b1.fitted and m.ops.back().edge_fit.face == chosen[0])
+	# T60: Push/Pull edge-inference onto a fitted board B's fitted end creates A <- B <- C, and moving A updates both.
+	var chain_scene := harness._plank(1, Vector3(-100, 0, 200), Vector3(120, 60, 20))
+	chain_scene.append_array(harness._plank(2, Vector3(0, 0, 80), Vector3(80, 40, 20)))
+	chain_scene.append_array(harness._plank(3, Vector3(100, 0, 0), Vector3(40, 40, 20)))
+	chain_scene.append({"id": "fit_b2", "type": "property_edit", "mode": "plane_fit", "body": "b2",
+			"target_body": "b1", "axis": 2, "face": 4, "fit_mode": 0})
+	await harness._fresh("chain_fit", chain_scene)
+	await harness._view(Vector3(60, 20, 120), -35, -28, 0.65)
+	m.set_tool("push")
+	await harness._click_at(Vector3(120, 20, 20))
+	await harness._drag_to(Vector3(55, 20, 200), 12)
+	harness._ok("push onto fitted board end infers its fitted face",
+			m.tools.push.state.get("edge_fit", {}).get("target_body", "") == "b2"
+			and m.tools.push.state.get("edge_fit", {}).get("face", -1) == 5,
+			[m.tools.push.tip(), m.tools.push.state.get("edge_fit", {}), m.stock_frames.get("b2", {})])
+	if m.tools.push.state.has("edge_fit"):
+		await harness._press()
+		await harness._wait_confirm()
+		harness._ok("chain push commits C tied to B",
+				m.stock_frames.b2.fitted and m.stock_frames.b3.fitted
+				and is_equal_approx(float(harness._bodies().b3.volume_mm3), 320000.0),
+				[m.ops.back(), harness._bodies().b3.volume_mm3])
+		m.ops.append({"id": "mv_chain_a", "type": "move", "targets": ["b1"], "vector": [0, 0, 40]})
+		m.doc.sync()
+		await harness._wait_confirm()
+		harness._ok("moving A updates both B and C on screen",
+				is_equal_approx(float(harness._bodies().b2.volume_mm3), 512000.0)
+				and is_equal_approx(float(harness._bodies().b3.volume_mm3), 384000.0),
+				[harness._bodies().b2.volume_mm3, harness._bodies().b3.volume_mm3])
 	m.properties_panel.hide()

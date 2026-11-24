@@ -25,24 +25,60 @@ def stock(board, feature=None):
     return ext, pose.Base, axes, [base.Length.Value, base.Width.Value, ext.LengthFwd.Value]
 
 
+def fitted_face(board):
+    """The face index (0..5) of a fitted board's fitted end, or None."""
+    tip = getattr(board, 'Tip', None)
+    if not hasattr(tip, 'SSStock'):
+        return None
+    return 2 * tip.SSAxis + (0 if getattr(tip, 'SSReverse', False) else 1)
+
+
+def face_plane(target, face):
+    """World (point, outward_normal) for `face` of rectangular board `target`, or None.
+    Uses `fitted_end(target)` when `face` is `target`'s fitted end; otherwise uses `stock(target)`."""
+    frame = stock(target)
+    if not frame:
+        return None
+    if fitted_face(target) == face:
+        end = fitted_end(target)
+        if end is not None:
+            n, pt = end
+            return pt, n
+    _, origin, axes, sizes = frame
+    index, positive = divmod(face, 2)
+    normal = axes[index]
+    point = origin + normal * sizes[index] if positive else origin
+    outward = normal if positive else -normal
+    return point, outward
+
+
 def snapshot(board):
     frame = stock(board)
     if not frame:
         return
     ext, origin, axes, sizes = frame
     tip = board.Tip
-    return dict(label=board.Label, origin=list(origin), axes=[list(v) for v in axes], sizes=sizes,
-                plane=ext.Base.Name, extrusion=ext.Name, fitted=hasattr(tip,'SSStock'),
-                reverse=getattr(tip,'SSReverse',False), linked_axis=getattr(tip,'SSAxis',-1), result=getattr(tip,'SSFitResult',''))
+    out = dict(label=board.Label, origin=list(origin), axes=[list(v) for v in axes], sizes=sizes,
+               plane=ext.Base.Name, extrusion=ext.Name, fitted=hasattr(tip,'SSStock'),
+               reverse=getattr(tip,'SSReverse',False), linked_axis=getattr(tip,'SSAxis',-1), result=getattr(tip,'SSFitResult',''))
+    if out['fitted']:
+        end = fitted_end(board)
+        if end is not None:
+            n, pt = end
+            out['fitted_end'] = {'face': fitted_face(board), 'normal': list(n), 'point': list(pt)}
+    return out
 
 
-def geometry(source, target, axis, face, mode, reverse=False):
+def geometry(source, target, axis, face, mode, reverse=False, target_plane=None):
     _, origin, axes, sizes = source
-    _, point, target_axes, target_sizes = target
-    index, positive = divmod(face, 2)
-    normal = target_axes[index]
-    if positive:
-        point = point + normal * target_sizes[index]
+    if target_plane is not None:
+        point, normal = target_plane
+    else:
+        _, point, target_axes, target_sizes = target
+        index, positive = divmod(face, 2)
+        normal = target_axes[index]
+        if positive:
+            point = point + normal * target_sizes[index]
     along = axes[axis]
     if reverse:
         origin = origin + along * sizes[axis]
@@ -69,7 +105,7 @@ def mm(x):
 
 
 def _inputs(board, tip, bodies):
-    """Comparable fit inputs, including values resolved by FreeCAD expressions.
+    """Comparable fit inputs, including values resolved by FreeCAD expressions and fitted target ends.
 
     Do not use handler `changed`: native property edits conservatively return every board,
     and expressions can move stock outside the edited board. Shapes need no tessellation here.
@@ -79,8 +115,10 @@ def _inputs(board, tip, bodies):
         if not data:
             return None
         ext, origin, axes, sizes = data
+        end = fitted_end(obj) if feature is None else None
+        end_key = (tuple(end[0]), tuple(end[1])) if end is not None else None
         return (obj.Label, ext.Name, tuple(origin), tuple(tuple(v) for v in axes), tuple(sizes),
-                getattr(getattr(obj, 'Tip', None), 'Name', None))
+                getattr(getattr(obj, 'Tip', None), 'Name', None), end_key)
     target = bodies.get(tip.SSTargetId)
     return (tip.SSTargetId, tip.SSAxis, tip.SSFace, tip.SSMode, getattr(tip, 'SSReverse', False),
             frame(board, tip), frame(target))
@@ -96,29 +134,29 @@ def refit_inputs(model):
 
 
 def refit_changed(model, before):
-    """Update affected fits, propagating to dependents even if they precede their target.
+    """Update affected fits in topological order, rippling through chains (A <- B <- C) in one pass.
 
-    A fitted target still makes its reference unavailable, as before (I40). Updates read
-    stock frames rather than recomputed shapes, so the caller can recompute the batch once.
+    Updates read stock frames and SSFitCorners rather than recomputed shapes, so the caller can
+    recompute the batch once.
     """
     bodies = model.bodies()
-    pending = [(tip, tip.getParentGeoFeatureGroup()) for tip in model.doc.Objects
-               if hasattr(tip, 'SSFitResult') and tip.SSTargetId]
-    pending = [(tip, owner) for tip, owner in pending if owner and getattr(owner, 'BodyId', '')]
+    unvisited = [(tip, tip.getParentGeoFeatureGroup()) for tip in model.doc.Objects
+                 if hasattr(tip, 'SSFitResult') and tip.SSTargetId]
+    unvisited = [(tip, owner) for tip, owner in unvisited if owner and getattr(owner, 'BodyId', '')]
     affected = set()
     changed = []
-    while pending:
-        remaining = []
-        for tip, owner in pending:
+    while unvisited:
+        unvisited_ids = {owner.BodyId for _, owner in unvisited}
+        ready = [(tip, owner) for tip, owner in unvisited if tip.SSTargetId not in unvisited_ids]
+        if not ready:
+            break  # Defensive cycle guard.
+        remaining = [(tip, owner) for tip, owner in unvisited if tip.SSTargetId in unvisited_ids]
+        for tip, owner in ready:
             if tip.SSTargetId in affected or before.get(tip.Name) != _inputs(owner, tip, bodies):
                 update(model, owner, tip)
                 affected.add(owner.BodyId)
                 changed.append(owner.BodyId)
-            else:
-                remaining.append((tip, owner))
-        if len(remaining) == len(pending):
-            break
-        pending = remaining
+        unvisited = remaining
     return changed
 
 
@@ -127,11 +165,13 @@ def update(model, board, tip):
         return
     target = model.bodies().get(tip.SSTargetId)
     src, dst = stock(board, tip), stock(target)
-    if not src or not dst or hasattr(target.Tip,'SSStock'):
+    if not src or not dst:
         tip.SSTargetId = ''
         tip.SSFitResult = 'Reference unavailable · last geometry retained'
         return
-    corners, ends, depths = geometry(src,dst,tip.SSAxis,tip.SSFace,tip.SSMode,getattr(tip,"SSReverse",False))
+    plane = face_plane(target, tip.SSFace)
+    corners, ends, depths = geometry(src, dst, tip.SSAxis, tip.SSFace, tip.SSMode,
+                                     getattr(tip, "SSReverse", False), target_plane=plane)
     inv = board.Placement.inverse()
     local = [inv.multVec(p) for p in corners + ends]
     previous = tip.SSFitCorners
@@ -145,8 +185,12 @@ def update(model, board, tip):
         tip.SSFitCorners = local
     dimension = mm(min(depths)) if max(depths)-min(depths)<1e-6 else '%s–%s' % (mm(min(depths)), mm(max(depths)))
     # Face frame: outward Z, deterministic in-plane X, relative to stock drawing axes.
-    i, side = divmod(tip.SSFace,2)
-    face_rot = App.Rotation(dst[2][(i+1)%3],V(),dst[2][i]*(1 if side else -1),'ZXY')
+    i, _ = divmod(tip.SSFace, 2)
+    outward = plane[1]
+    ref_x = dst[2][(i + 1) % 3]
+    if abs(ref_x.dot(outward)) > 0.999:
+        ref_x = dst[2][(i + 2) % 3]
+    face_rot = App.Rotation(ref_x, V(), outward, 'ZXY')
     source_rot = App.Rotation(src[2][0],V(),src[2][2],'ZXY')
     yaw,pitch,roll = source_rot.inverted().multiply(face_rot).getYawPitchRoll()
     tip.SSFitResult = '%s → %s face · %s\n%s · X %.1f°  Y %.1f°  Z %.1f°' % (target.Label,FACES[tip.SSFace],MODES[tip.SSMode],dimension,roll,pitch,yaw)
@@ -155,11 +199,23 @@ def update(model, board, tip):
 def apply(model, op):
     board, target = model.body(op['body']), model.body(op['target_body'])
     axis, face, mode = (op[k] for k in ('axis','face','fit_mode'))
-    if board == target or not stock(board) or not stock(target) or hasattr(target.Tip,'SSStock'):
+    if board == target or not stock(board) or not stock(target):
         raise ValueError('Pick a face on a different rectangular board')
     if axis not in range(3) or face not in range(6) or mode not in range(3):
         raise ValueError('Unknown plane fit')
-    geometry(stock(board),stock(target),axis,face,mode,op.get("reverse",False))
+    # Reject cycles (A -> B -> A, A -> B -> C -> A) before mutating anything.
+    bodies = model.bodies()
+    seen = {board.BodyId}
+    cur = target
+    while cur is not None:
+        if cur.BodyId in seen:
+            raise ValueError('This fit would create a cycle')
+        seen.add(cur.BodyId)
+        cur_tip = getattr(cur, 'Tip', None)
+        next_id = getattr(cur_tip, 'SSTargetId', '') if hasattr(cur_tip, 'SSStock') else ''
+        cur = bodies.get(next_id) if next_id else None
+    geometry(stock(board), stock(target), axis, face, mode, op.get("reverse", False),
+             target_plane=face_plane(target, face))
     tip = board.Tip
     if not hasattr(tip,'SSStock'):
         tip = model.doc.addObject('Part::Feature','PlaneFit')

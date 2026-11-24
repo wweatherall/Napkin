@@ -1,6 +1,6 @@
 ### H125 — T60: chains of face ties (a board tied to a board that is itself tied)
 
-Author: Gemini (integrator, gemini-cedar-1123-1844) | Date: 2026-11-23 | Status: open | For: either
+Author: Gemini (integrator, gemini-cedar-1123-1844) | Date: 2026-11-23 | Status: answered | For: either
 
 References: T60, T14, I26b, I40, I41, A35.
 
@@ -57,3 +57,33 @@ Checks (new, named):
 Reading path: `worker/plane_fit.py` (`stock`, `snapshot`, `geometry`, `_inputs`, `refit_inputs`, `refit_changed`, `update`, `apply`, `fitted_end`) → `worker/model.py` (where `refit_inputs` / `refit_changed` run around every op) → `viewport/property_panel.gd` (`pick_reference`, `_preview`) → `viewport/tools/push_tool.gd` (`_edge_inference`, `_choose_face`) → `worker/test_properties.py` (lines 97–205) → `viewport/tests/quick/properties.gd`.
 
 Run `tools/featuretest.sh` while building, quick test after viewport changes, then `python3 tools/job.py test`. End your response with `Architecture:` lines (for `worker/plane_fit.py`, `docs/protocol.md` version 13 + `stock_frame.fitted_end`, `push_tool.gd`, `property_panel.gd`), `Follow-up:` lines for leftovers, and a `Result:` line.
+
+#### Response — Gemini (worker, gemini-cedar-1124-0131) | 2026-11-24
+
+Branch: `gemini/h125-t60-face-tie-chains`
+Commit: PENDING_HASH
+IDs added: none
+Open questions: none
+
+What changed:
+- `worker/plane_fit.py`: Added `fitted_face()` and `face_plane()` to resolve `(point, outward_normal)` from `fitted_end(target)` when targeting a fitted board's fitted end (Butt, Fully reach, and sloped Slice) and from `stock(target)` for all other faces. Updated `geometry()` to accept `target_plane`, `update()` to drop the `hasattr(target.Tip, 'SSStock')` detach and compute `SSFitResult` face-frame angles from the actual outward normal, `apply()` to allow fitted targets and reject cycles (`This fit would create a cycle`) by walking `SSTargetId` before mutating, `_inputs()` to include `fitted_end(target)`, `refit_changed()` to process tips in topological waves (with a defensive cycle guard) so chains settle in one pass regardless of object order, and `snapshot()` to export `fitted_end: {face, normal, point}`.
+- `worker/serve.py` and `viewport/main.gd`: Bumped `PROTOCOL_VERSION` from 12 to 13.
+- `viewport/property_panel.gd`: Dropped the `data.boards[target].fitted` guard in `pick_reference()`, added `_target_face_plane()` for `pick_reference()` and `_preview()` (orthogonalizing `face_x`/`face_y` against sloped `face_z`), and left cycle rejection to the worker as the single source of truth.
+- `viewport/tools/push_tool.gd`: Dropped the `target.fitted` guard in `_edge_inference()` (keeping `src.fitted`) and added `_target_face_plane()` so edge/face inference and Slice previews use `fitted_end`.
+- `worker/test_properties.py`: Added T60 chain tests (3-board chain `A <- B <- C` with `C` created before `B`, move/undo/save+reopen, sloped Slice chain, 2-board and 3-board cycle rejection, move past start rollback, deleting intermediate `B` detaches `C` retaining geometry).
+- `viewport/tests/quick/properties.gd`: Added Push/Pull chain test inferring onto fitted board `B`'s fitted end and verifying moving `A` updates both `B` and `C` on screen.
+- `worker/scenario/97_plane_fit_refit.py`: Updated lines 109–119 with integrator scope approval so `leg0..leg9` remain tied when `target` is fitted to `other` and match a fresh build.
+
+Scope answer (from integrator):
+> Yes — approved. Update worker/scenario/97_plane_fit_refit.py lines 109-119 so leg0..leg9 stay tied to target and follow under T60 (and still match a fresh build). Note it in your response.
+
+Verified:
+- `tools/featuretest.sh`: all 36 suites passed (`PROPERTY TESTS: 60 passed, 0 failed`, `SCENARIO TESTS: 603 passed, 0 failed`).
+- `tools/quicktest.sh` / `python3 tools/job.py test`: parse + all 36 feature suites + `QUICK 322 passed, 0 failed`.
+
+Changed from the brief: Touches did not list `worker/scenario/97_plane_fit_refit.py`; updated lines 109–119 (with integrator scope approval) from the legacy detach check to assert `leg0..leg9` stay tied to `target` under T60 and match a fresh build; required so scenario tests match T60 chain semantics.
+Architecture: `worker/plane_fit.py` now supports chains of face ties (T60): `fitted_face()` and `face_plane()` resolve fitted targets' real end planes via `fitted_end()`, `apply()` walks `SSTargetId` chains to reject cycles before mutating, `_inputs()` includes `fitted_end(target)`, `refit_changed()` propagates in topological waves in a single pass, and `snapshot()` exports `fitted_end`.
+Architecture: `docs/protocol.md` bumps `PROTOCOL_VERSION` from 12 to 13 (`worker/serve.py`, `viewport/main.gd`) because `bodies.json` `stock_frame` and `inspect()` boards now include `fitted_end: {face, normal, point}` on fitted boards.
+Architecture: `viewport/tools/push_tool.gd` (`_edge_inference`) drops the `target.fitted` guard and uses `_target_face_plane()` to evaluate fitted target ends from `stock_frame.fitted_end`.
+Architecture: `viewport/property_panel.gd` (`pick_reference`, `_preview`) drops the `target.fitted` guard, uses `_target_face_plane()` for fitted target ends (orthogonalizing the face frame for sloped ends), and delegates cycle rejection to the worker.
+Result: PENDING_HASH; featuretest (60 property, 603 scenario, 36 suites) + quicktest (322 quick) passed; T60 face-tie chains implemented in worker, protocol v13, and viewport with tests.

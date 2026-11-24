@@ -202,4 +202,120 @@ check('pushing a sloped tied end detaches it and adds the push', re_session.stat
 # Result lines are written in mm to 0.1, never as 1.05e+03.
 import plane_fit
 check('fit lengths read as millimetres', plane_fit.mm(1050.0)=='1050 mm' and plane_fit.mm(302.46)=='302.5 mm')
+
+# T60: chains of face ties (A <- B <- C), sloped targets, cycle rejection, invalid move rollback, delete detach.
+chain_session = Session(os.path.join(folder, 'chain.FCStd'), fresh=True)
+# Create C (b3) before B (b2) in doc.Objects to verify topological propagation order.
+chain_base = [
+    {'id':'ca_r','type':'rect','plane':{'normal':[0,0,1],'origin':[0,0,300]},'size':[200,60]},
+    {'id':'ca_p','type':'push_pull','target':{'rect':'ca_r'},'distance':20,'body':'b1'},
+    {'id':'cc_r','type':'rect','plane':{'normal':[0,0,1],'origin':[10,10,0]},'size':[40,20]},
+    {'id':'cc_p','type':'push_pull','target':{'rect':'cc_r'},'distance':20,'body':'b3'},
+    {'id':'cb_r','type':'rect','plane':{'normal':[0,0,1],'origin':[0,0,100]},'size':[100,40]},
+    {'id':'cb_p','type':'push_pull','target':{'rect':'cb_r'},'distance':20,'body':'b2'},
+]
+fit_ba = dict(type='property_edit', id='fit_ba', mode='plane_fit', body='b2', target_body='b1', axis=2, face=4, fit_mode=0)
+fit_cb = dict(type='property_edit', id='fit_cb', mode='plane_fit', body='b3', target_body='b2', axis=2, face=5, fit_mode=0)
+chain_ops = chain_base + [fit_ba, fit_cb]
+chain_session.sync(chain_ops)
+cvol = lambda bid: chain_session.model.world_shape(chain_session.model.body(bid)).Volume
+cbbox = lambda bid: chain_session.model.world_shape(chain_session.model.body(bid)).BoundBox
+b_snap = plane_fit.snapshot(chain_session.model.body('b2'))
+check('chain A <- B <- C initial volumes and snapshot fitted_end',
+      all(e['status'] == 'ok' for e in chain_session.status())
+      and abs(cvol('b2') - 100 * 40 * 200) < 0.01 and abs(cbbox('b2').ZMax - 300) < 0.01
+      and abs(cvol('b3') - 40 * 20 * 300) < 0.01 and abs(cbbox('b3').ZMax - 300) < 0.01
+      and b_snap.get('fitted_end', {}).get('face') == 5
+      and abs(b_snap['fitted_end']['point'][2] - 300) < 0.01)
+# Moving A updates both B and C even though C precedes B in doc.Objects.
+move_a = dict(type='move', id='move_a', targets=['b1'], vector=[0, 0, 50])
+chain_session.sync(chain_ops + [move_a])
+check('chain moving A updates B and C',
+      chain_session.status()[-1]['status'] == 'ok'
+      and abs(cvol('b2') - 100 * 40 * 250) < 0.01 and abs(cbbox('b2').ZMax - 350) < 0.01
+      and abs(cvol('b3') - 40 * 20 * 350) < 0.01 and abs(cbbox('b3').ZMax - 350) < 0.01)
+# Undo restores both B and C.
+chain_session.sync(chain_ops)
+check('chain undo restores B and C',
+      abs(cvol('b2') - 100 * 40 * 200) < 0.01 and abs(cvol('b3') - 40 * 20 * 300) < 0.01)
+# Save + reopen preserves both ties and keeps following further moves of A.
+chain_session.save()
+chain_path = chain_session.path
+App.closeDocument(chain_session.doc.Name)
+chain_session = Session(chain_path)
+check('chain reopen preserves both ties',
+      chain_session.model.body('b2').Tip.SSTargetId == 'b1'
+      and chain_session.model.body('b3').Tip.SSTargetId == 'b2')
+chain_session.sync(chain_ops + [dict(type='move', id='move_a2', targets=['b1'], vector=[0, 0, 25])])
+check('chain reopened follows further moves of A',
+      abs(cvol('b2') - 100 * 40 * 225) < 0.01 and abs(cvol('b3') - 40 * 20 * 325) < 0.01)
+chain_session.sync(chain_ops)
+# Direct (A -> B -> A) and 3-board (A -> C -> B -> A) cycles are rejected cleanly.
+cyc2 = dict(type='property_edit', id='cyc2', mode='plane_fit', body='b1', target_body='b2', axis=2, face=5, fit_mode=0)
+chain_session.sync(chain_ops + [cyc2])
+check('direct 2-board cycle rejected and leaves prior fits intact',
+      chain_session.status()[-1]['status'] == 'failed'
+      and 'cycle' in chain_session.status()[-1].get('message', '').lower()
+      and chain_session.model.body('b2').Tip.SSTargetId == 'b1'
+      and chain_session.model.body('b3').Tip.SSTargetId == 'b2'
+      and abs(cvol('b2') - 100 * 40 * 200) < 0.01 and abs(cvol('b3') - 40 * 20 * 300) < 0.01)
+cyc3 = dict(type='property_edit', id='cyc3', mode='plane_fit', body='b1', target_body='b3', axis=2, face=5, fit_mode=0)
+chain_session.sync(chain_ops + [cyc3])
+check('3-board cycle rejected and leaves prior fits intact',
+      chain_session.status()[-1]['status'] == 'failed'
+      and 'cycle' in chain_session.status()[-1].get('message', '').lower()
+      and chain_session.model.body('b2').Tip.SSTargetId == 'b1'
+      and chain_session.model.body('b3').Tip.SSTargetId == 'b2')
+chain_session.sync(chain_ops)
+# Moving A past B's start rejects the move and leaves A, B, and C at last valid geometry.
+bad_move = dict(type='move', id='move_past_b', targets=['b1'], vector=[0, 0, -250])
+chain_session.sync(chain_ops + [bad_move])
+check('moving A past B start rolls back A, B, and C',
+      chain_session.status()[-1]['status'] == 'failed'
+      and abs(cbbox('b1').ZMin - 300) < 0.01
+      and abs(cvol('b2') - 100 * 40 * 200) < 0.01
+      and abs(cvol('b3') - 40 * 20 * 300) < 0.01)
+chain_session.sync(chain_ops)
+# Deleting intermediate B detaches C with unavailable message while keeping C's last geometry.
+del_b = dict(type='delete', id='del_b', targets=['b2'])
+chain_session.sync(chain_ops + [del_b])
+check('deleting intermediate B detaches C and retains geometry',
+      chain_session.status()[-1]['status'] == 'ok'
+      and chain_session.model.body('b3').Tip.SSTargetId == ''
+      and chain_session.model.body('b3').Tip.SSFitResult == 'Reference unavailable · last geometry retained'
+      and abs(cvol('b3') - 40 * 20 * 300) < 0.01 and abs(cbbox('b3').ZMax - 300) < 0.01)
+App.closeDocument(chain_session.doc.Name)
+
+# Chain through a sloped Slice at plane target: B sliced to tilted A, C sliced to B's sloped fitted end.
+sloped_session = Session(os.path.join(folder, 'chain_sloped.FCStd'), fresh=True)
+sloped_base = [
+    {'id':'sa_r','type':'rect','plane':{'normal':[0,0,1],'origin':[0,0,0]},'size':[150,80]},
+    {'id':'sa_p','type':'push_pull','target':{'rect':'sa_r'},'distance':15,'body':'b1'},
+    {'id':'sb_r','type':'rect','plane':{'normal':[0,0,1],'origin':[0,0,0]},'size':[100,50]},
+    {'id':'sb_p','type':'push_pull','target':{'rect':'sb_r'},'distance':20,'body':'b2'},
+    {'id':'sc_r','type':'rect','plane':{'normal':[0,0,1],'origin':[20,0,0]},'size':[40,20]},
+    {'id':'sc_p','type':'push_pull','target':{'rect':'sc_r'},'distance':10,'body':'b3'},
+]
+sloped_session.sync(sloped_base)
+sa = sloped_session.model.body('b1')
+sa.Placement = App.Placement(App.Vector(0, 0, 200), App.Rotation(App.Vector(0, 1, 0), 45))
+sloped_session.doc.recompute()
+s_fit_ba = dict(type='property_edit', id='sfit_ba', mode='plane_fit', body='b2', target_body='b1', axis=2, face=4, fit_mode=1)
+s_fit_cb = dict(type='property_edit', id='sfit_cb', mode='plane_fit', body='b3', target_body='b2', axis=2, face=5, fit_mode=1)
+sloped_ops = sloped_base + [s_fit_ba, s_fit_cb]
+sloped_session.sync(sloped_ops)
+svol = lambda bid: sloped_session.model.world_shape(sloped_session.model.body(bid)).Volume
+end_b = plane_fit.fitted_end(sloped_session.model.body('b2'))
+end_c = plane_fit.fitted_end(sloped_session.model.body('b3'))
+check('chain through sloped Slice target meets B actual sloped plane',
+      all(e['status'] == 'ok' for e in sloped_session.status())
+      and abs(svol('b2') - 100 * 50 * 150) < 0.01
+      and abs(svol('b3') - 40 * 20 * 160) < 0.01
+      and end_b is not None and end_c is not None and end_b[0].dot(end_c[0]) > 0.9999)
+sloped_session.sync(sloped_ops + [dict(type='move', id='smove_a', targets=['b1'], vector=[0, 0, 20])])
+check('chain through sloped Slice target follows when A moves',
+      sloped_session.status()[-1]['status'] == 'ok'
+      and abs(svol('b2') - 100 * 50 * 170) < 0.01
+      and abs(svol('b3') - 40 * 20 * 180) < 0.01)
+App.closeDocument(sloped_session.doc.Name)
 print('PROPERTY TESTS: %d passed, 0 failed' % passed)
