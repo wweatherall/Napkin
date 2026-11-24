@@ -345,6 +345,7 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | T123 | Move array live preview: typing xN / Nx / *N / /N during a Move previews the array before clicking and commits with that count, while post-click amending keeps working. | Open | I66, I14, I25 | William, 2026-11-24. Job: H137. |
 | T124 | Auto-set document units from first typed length with an explicit unit when the document has no units explicitly set yet (else keep previous settings). | Open | I67, I57, I59, I62 | William, 2026-11-24. Job: H138. |
 | T127 | Enter and edit components, and upgrade Codex's Properties window (viewport/property_panel.gd) so components, assemblies and cut boards prioritize critical dimensions and linked measurements in the model's display units. | Open | I28, I36, I40, I57, G04 | William, 2026-11-24. Job: H141 (queued after H126; entering-components choice pending with William). |
+| T129 | Improve tools/usage.py holes diagnostics: strip AGY quoted targets, flag only overlapping read_file ranges (ignore disjoint slices), read sibling transcript_full.jsonl for true tool output sizes, and report per-phase / post-test bookkeeping tail token burn. | Open | T126, T117 | William, 2026-11-24. Job: H144. |
 
 ## Tunables
 

@@ -7,7 +7,8 @@
   integrator; add a Work list ID, e.g. `T54`, for its row). As integrator, start with `startup.py --role integrator`
   and [docs/integrator.md](docs/integrator.md) only — skip `CLAUDE.md` and `BOARD.md` upfront (`startup.py` already
   inlines the board and pre-/clear note). Commands that write `.git/` or push (`integrator.py take`,
-  `handoff.py archive --push`, `integrate.py`) require running outside the sandbox (`BypassSandbox: true`).
+  `handoff.py archive --push`, `integrate.py`, and worker `job.py take` / `test` / `done` / `wait` or linked-worktree
+  `git commit`) require running outside the sandbox (`BypassSandbox: true`).
 - "Check the board": follow [BOARD.md](BOARD.md) with `--as codex` (your branch: `codex/<id>-<slug>`). Nothing
   Ready and you can't wait in the background: say so and stop.
 - Work only in the job's worktree; never switch branches in /Users/Will/Sites/fretchup (Claude's). Merge main into
