@@ -1,6 +1,6 @@
 ### H097 — T110: test helpers that make a failure-path check a few lines
 
-Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: queued (after H096) | For: either
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: open | For: either
 
 References: T110, P42 (briefs for saving, reloading or worker-link jobs list what can fail, each case with its
 named check; this job makes those checks cheap), H092 (the ultra review: seven of ten findings on failure
@@ -14,7 +14,7 @@ failure below is made from outside: a killed process, a read-only folder, bytes 
 or never). Not the folder guides: write what they should say as "For the integrator:" lines. Queued after H094,
 the last queued job touching worker/test_outside_save.py, and after H093, which touches viewport/test_document.gd.
 
-Today (checked 2026-11-22): worker/test_serve.py and worker/test_outside_save.py each define their own `check`,
+Today (checked 2026-11-23, after H096): worker/test_serve.py and worker/test_outside_save.py each define their own `check`,
 `Window` (a socket with `ask` and `wait`), `board_ops`, `sync` and `start_worker` (port 0 and `SERVE_PORT_FILE`,
 T47), copied between them with small differences; test_outside_save.py adds `fresh_model`, `freecad_save` (a
 real FreeCAD save through freecadcmd), `wait_outside`. A save failure is made by hand with `os.chmod(folder,
@@ -32,7 +32,7 @@ Request:
      send two requests before reading either answer), `drop()` (close the socket at once: the window gone, as
      closing the app without `bye` does) and `seq` numbering of its own;
    - `fresh_model(folder, name)`, `board_ops(width, rid=..., bid=...)`, `sync(window, model, ops)`;
-   - `freecad_save(model, add=12)`, moved from test_outside_save.py;
+   - `freecad_save(model, add=12, **meta)`, moved from test_outside_save.py;
    - failure makers, each restoring what it changed when the `with` block ends, even on an exception:
      `read_only(folder)` (the next save fails with the worker's PermissionError message), `unreadable(path)`
      (the file's bytes replaced by bytes that aren't a FreeCAD file, the original put back after), `missing(path)`
