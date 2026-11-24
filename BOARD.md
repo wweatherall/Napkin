@@ -3,7 +3,7 @@
 "Check the board" sends you here. Only the integrator edits this file; the job table is built from docs/handoff/
 and the job queue.
 
-Order: H105, H115, H085, H086, H093, H098, H094, H096, H097, H107, H108, H109, H110, H111, H112, H113, H114, H119, H120, H121, H122, H123, H124, H125, H126, H127, H128, H129, H130
+Order: H125, H128, H126, H127, H139, H136, H137, H138, H140, H141, H129, H130
 
 ## If you're not the integrator
 
@@ -58,9 +58,15 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
 | H125 | either | **Ready** | T60: chains of face ties (a board tied to a board that is itself tied) | [H125](docs/handoff/H125-t60-face-tie-chains.md) |  |
+| H128 | either | **Ready** | T109: closed loops of mixed lines and arcs form pushable faces with exact arcs | [H128](docs/handoff/H128-t109-mixed-line-arc-loops.md) |  |
 | H126 | either | Queued | T61: face ties on linked copies (component definitions and instances) | [H126](docs/handoff/H126-t61-face-ties-linked-copies.md) | H125 |
 | H127 | either | Queued | T62: face ties on shapes other than plain rectangular boards | [H127](docs/handoff/H127-t62-face-ties-other-shapes.md) | H126 |
-| H128 | either | **Ready** | T109: closed loops of mixed lines and arcs form pushable faces with exact arcs | [H128](docs/handoff/H128-t109-mixed-line-arc-loops.md) |  |
+| H139 | either | **Ready** | T125: Fix Pull/autosave lag (TechDraw-on-autosave stall, .FCBak/.saving clutter, and Push/Pull frame caching) | [H139](docs/handoff/H139-t125-pull-and-autosave-lag.md) |  |
+| H136 | either | **Ready** | T122: Rectangle after-the-fact typed dimensions | [H136](docs/handoff/H136-t122-rect-amend-after-create.md) |  |
+| H137 | either | **Ready** | T123: Move array live preview before click and amend after click | [H137](docs/handoff/H137-t123-move-array-live-preview.md) |  |
+| H138 | either | **Ready** | T124: Auto-set document units from first typed length with an explicit unit | [H138](docs/handoff/H138-t124-units-from-first-typed-length.md) |  |
+| H140 | either | **Ready** | T126: Token benchmarker (`tools/usage.py`): AGY/Gemini support, quota fixes, fast `orient`/`bench` CLI, and workflow integration | [H140](docs/handoff/H140-t126-token-benchmarker.md) |  |
+| H141 | either | Queued | T127: Enter and edit components, and Component Properties window (prioritizing critical dimensions and linked measurements) | [H141](docs/handoff/H141-t127-components-and-properties.md) | H126 |
 | H129 | either | Queued | T84 step 1: Rotated Rectangle (R again toggles Rectangle and Rotated Rectangle) | [H129](docs/handoff/H129-t84-rotated-rectangle.md) | H128 |
 | H130 | either | Queued | T84 step 2: Polygon tool (toolbar button without hotkey, exact FreeCAD sketch polygon) | [H130](docs/handoff/H130-t84-polygon-tool.md) | H129 |
 
