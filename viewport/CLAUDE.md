@@ -6,8 +6,8 @@ evaluator; this side predicts. The top-level CLAUDE.md has the overview; ARCHITE
 protocol (update it in the same commit when you change either). Tools have their own guide in `tools/CLAUDE.md`.
 
 ## Files
-- `main.gd` (~1,400 lines; split in T39 / T41 / T75 / T113): setup, materials (`_lines` still forwards to the presenter for callers that want a node),
-  worker process and lifecycle, rejection bookkeeping, input dispatch (camera input to `camera_rig.gd`, menus in `menus.gd`, the interface built by `ui.gd`), model switching.
+- `main.gd` (~1,240 lines; split in T39 / T41 / T75 / T113): setup, materials (`_lines` still forwards to the presenter for callers that want a node),
+  worker process and lifecycle, rejection wave/status glue, input dispatch (camera input to `camera_rig.gd`, menus in `menus.gd`, the interface built by `ui.gd`), model switching.
 - `keys.gd` (T75): the keyboard, `m.keys`: shortcuts, tool keys (`m.tool_keys`, from each tool's `TOOL`), Esc, Enter, Delete / Backspace (I48), typed
   characters, Tab / ⌥ for Push/Pull. main's `_input` / `_unhandled_input` stay the entry points (tests call
   `m._unhandled_input`) and hand it key presses.
@@ -17,10 +17,12 @@ protocol (update it in the same commit when you change either). Tools have their
 - `measure_box.gd` (T75): the measurements box, `m.measure`: typed text (`vcb`), `typing`, the box itself, typed
   values (`apply`) and `length` requests FreeCAD works out. main forwards the old names (`m.vcb`, `m.apply_vcb()`,
   `m._update_vcb()`, ...).
-- `document.gd` (T39, A31): the document controller, `m.doc`. Owns the op list, ID reservations and `next_id` (the only ID allocator, T67), `seq` / `in_flight` /
-  `dirty`, which reply counts, confirmed ids, undo floor, redo stack, open / reset, save revisions; reports by
-  signals and knows nothing of meshes. main.gd forwards those names (`m.ops`, `m.seq`, ...) to it. Undo, redo and
-  removal go through it (`op_removed` tells main to take away what an op drew).
+- `document.gd` (T39, A31, T113): the document controller, `m.doc`. Owns the op list, ID reservations and `next_id` (the only ID allocator, T67), `seq` / `in_flight` /
+  `dirty`, which reply counts, confirmed ids, undo floor, redo stack, open / reset, save revisions, and rejection
+  bookkeeping (`reject`, `rejected_ids`, `REJECT_WINDOW_MS`, cleared on `reset`); reports by signals and knows
+  nothing of meshes. main.gd forwards the property names (`m.ops`, `m.seq`, ...) to it (no longer `can_redo`,
+  `remove_ops`, `remove_op`, `_restore_counters`, `_consumed_rects` or `_op_of`: callers use `m.doc.*`). Undo, redo
+  and removal go through it (`op_removed` tells main to take away what an op drew).
 - `selection.gd` (T41, A33b): selection and context, `m.sel`. Owns `selection`, `context`, each board's assembly /
   row / family / array / mirror plane, the hidden/deleted sets, `show_hidden`, `hover_body`; deletion (T34, I46); the queries (`unit_of`,
   `in_context`, `is_hidden`, ...) and the actions that add hide / assembly / unlink ops. Draws nothing: main.gd
