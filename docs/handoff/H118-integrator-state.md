@@ -29,8 +29,7 @@ Updated 2026-11-23 (afternoon, before a second clear at William's word).
 - `handoff.py check` flags H067 ("communication/design") and H096 (a stale "Queued after H083" sentence with
   bare names): left alone since their branches edit those entries; fix when they close.
 - Small fixes this session: none.
-- For William to confirm (still open from before): H085's response said he approved it touching
-  viewport/inference.gd (arc snapping).
+- H085 touching viewport/inference.gd (arc snapping): William confirmed he approved it (2026-11-23). Closed.
 
 Updated 2026-11-23 evening (fretchup-74, before running out of context):
 - Merged: H121 (T59 step 2, protocol 12; map and tools guide written), H096 (region push keeps its profile; William
