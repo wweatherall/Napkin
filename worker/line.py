@@ -38,7 +38,39 @@ class LineActions:
         if face.normalAt(0, 0).dot(n) < 0: face.reverse()
         return face, n
 
-    def native_region(self, source, predicted, spec):
+    def ground_region_sheet(self, predicted, normal, drawings):
+        """Planar bounding sheet on the region's plane, padded past predicted and drawings."""
+        n = unit(normal)
+        ref = V(1, 0, 0) if abs(n.x) < 0.9 else V(0, 1, 0)
+        ex = unit(ref - n * ref.dot(n))
+        ey = n.cross(ex)
+        anchor = predicted.Vertexes[0].Point
+        boxes = [predicted.BoundBox, *(e.BoundBox for e in drawings)]
+        u_lo = v_lo = math.inf
+        u_hi = v_hi = -math.inf
+        for bb in boxes:
+            for x in (bb.XMin, bb.XMax):
+                for y in (bb.YMin, bb.YMax):
+                    for z in (bb.ZMin, bb.ZMax):
+                        d = V(x, y, z) - anchor
+                        u, v = d.dot(ex), d.dot(ey)
+                        u_lo, u_hi = min(u_lo, u), max(u_hi, u)
+                        v_lo, v_hi = min(v_lo, v), max(v_hi, v)
+        pad = max(20.0, math.hypot(u_hi - u_lo, v_hi - v_lo) * 0.5)
+        u0, u1 = u_lo - pad, u_hi + pad
+        v0, v1 = v_lo - pad, v_hi + pad
+        corners = [
+            anchor + ex * u0 + ey * v0,
+            anchor + ex * u1 + ey * v0,
+            anchor + ex * u1 + ey * v1,
+            anchor + ex * u0 + ey * v1,
+        ]
+        sheet = Part.Face(Part.makePolygon(corners + [corners[0]]))
+        if sheet.normalAt(0, 0).dot(n) < 0:
+            sheet.reverse()
+        return sheet
+
+    def native_region(self, source, predicted, spec, is_ground=False):
         """Refine the selected tessellated cell against native curved boundaries and drawings."""
         ids = set(spec.get("lines", []))
         drawings = [edge for obj in self.doc.Objects if getattr(obj, "SSLineId", "") in ids
@@ -62,9 +94,12 @@ class LineActions:
         result = chosen[0]
         for f in chosen[1:]: result = result.fuse(f)
         result = result.removeSplitter()
+        if is_ground and any(source.OuterWire.distToShape(e)[0] < TOL for e in result.Edges):
+            raise OpError("region drawings do not form a closed loop")
         # The existing 0.1 mm export deflection and 64-segment circle preview bound the expected difference.
         discrepancy = result.cut(predicted).Area + predicted.cut(result).Area
-        if len(result.Faces) != 1 or discrepancy > max(TOL, source.Length * 0.2, source.Area * 0.005):
+        ref = predicted if is_ground else source
+        if len(result.Faces) != 1 or discrepancy > max(TOL, ref.Length * 0.2, ref.Area * 0.005):
             raise OpError("region differs from its native curved boundary")
         face = result.Faces[0]
         if face.normalAt(0, 0).dot(vec(spec["normal"])) < 0: face.reverse()

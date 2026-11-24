@@ -57,8 +57,7 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H142 | either | **Ready** | T128: Make `tools/job.py take` collision-proof for parallel Gemini workers | [H142](docs/handoff/H142-t128-collision-proof-take.md) |  |
-| H128 | either | In progress (gemini since 06:58) | T109: closed loops of mixed lines and arcs form pushable faces with exact arcs | [H128](docs/handoff/H128-t109-mixed-line-arc-loops.md) |  |
+| H142 | either | In progress (gemini since 07:09) | T128: Make `tools/job.py take` collision-proof for parallel Gemini workers | [H142](docs/handoff/H142-t128-collision-proof-take.md) |  |
 | H126 | either | **Ready** | T61: face ties on linked copies (component definitions and instances) | [H126](docs/handoff/H126-t61-face-ties-linked-copies.md) |  |
 | H127 | either | Queued | T62: face ties on shapes other than plain rectangular boards | [H127](docs/handoff/H127-t62-face-ties-other-shapes.md) | H126 |
 | H139 | either | **Ready** | T125: Fix Pull/autosave lag (TechDraw-on-autosave stall, .FCBak/.saving clutter, and Push/Pull frame caching) | [H139](docs/handoff/H139-t125-pull-and-autosave-lag.md) |  |

@@ -33,7 +33,6 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
 - [H126 — T61: face ties on linked copies (component definitions and instances)](handoff/H126-t61-face-ties-linked-copies.md) — status: open; for: either
 - [H127 — T62: face ties on shapes other than plain rectangular boards](handoff/H127-t62-face-ties-other-shapes.md) — status: queued (after H126); for: either
-- [H128 — T109: closed loops of mixed lines and arcs form pushable faces with exact arcs](handoff/H128-t109-mixed-line-arc-loops.md) — status: open; for: either
 - [H129 — T84 step 1: Rotated Rectangle (R again toggles Rectangle and Rotated Rectangle)](handoff/H129-t84-rotated-rectangle.md) — status: queued (after H128); for: either
 - [H130 — T84 step 2: Polygon tool (toolbar button without hotkey, exact FreeCAD sketch polygon)](handoff/H130-t84-polygon-tool.md) — status: queued (after H129); for: either
 - [H136 — T122: Rectangle after-the-fact typed dimensions](handoff/H136-t122-rect-amend-after-create.md) — status: open; for: either
@@ -49,6 +48,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 Full entries in [handoff-archive.md](handoff-archive.md).
 
+- H128 — T109: closed loops of mixed lines and arcs form pushable faces with exact arcs. Resolved: merged into main by the integrator, 2026-11-24.
 - H140 — T126: Token benchmarker (`tools/usage.py`): AGY/Gemini support, quota fixes, fast `orient`/`bench` CLI, and workflow integration. Resolved: merged into main by the integrator, 2026-11-24.
 - H125 — T60: chains of face ties (a board tied to a board that is itself tied). Resolved: merged into main by the integrator, 2026-11-24.
 - H135 — For the next integrator session: where things stand. Resolved: see the archive

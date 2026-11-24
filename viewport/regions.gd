@@ -273,3 +273,51 @@ static func find(source: PackedVector3Array, lines: Array, normal: Vector3, poin
 		for p in hole: points.append(world.call(p))
 		world_holes.append(points)
 	return {"outline": outline, "holes": world_holes, "tris": tris, "area": area}
+
+
+static func all_faces(lines: Array, normal: Vector3) -> Array:
+	if lines.is_empty(): return []
+	var n := normal.normalized()
+	var basis := Geo.plane_basis(n)
+	var origin: Vector3 = lines[0].a
+	var flat := func(p: Vector3) -> Vector2: return Vector2((p - origin).dot(basis[0]), (p - origin).dot(basis[1]))
+	var world := func(p: Vector2) -> Vector3: return origin + basis[0] * p.x + basis[1] * p.y
+	var segments := []
+	for line in lines:
+		var points: PackedVector3Array = line.get("pts", PackedVector3Array([line.a, line.b]))
+		var projected := PackedVector2Array()
+		for p in points:
+			if absf((p - origin).dot(n)) > EPS: break
+			projected.append(flat.call(p))
+		if projected.size() != points.size() or projected.size() < 2: continue
+		for i in range(1, projected.size()):
+			if projected[i - 1].distance_to(projected[i]) >= EPS:
+				segments.append([projected[i - 1], projected[i]])
+	if segments.is_empty(): return []
+	var cycles := _cycles(segments, PackedVector2Array(), 0)
+	var faces := []
+	for cycle in cycles:
+		var holes := []
+		for inner in cycles:
+			if not _contains(cycle, inner): continue
+			var nested := false
+			for other in cycles:
+				if _contains(cycle, other) and _contains(other, inner): nested = true; break
+			if not nested: holes.append(inner)
+		var flat_tris := _triangulate(_bridge(cycle, holes))
+		if flat_tris.is_empty(): continue
+		var area := 0.0
+		for i in range(0, flat_tris.size(), 3):
+			area += absf((flat_tris[i + 1] - flat_tris[i]).cross(flat_tris[i + 2] - flat_tris[i])) * 0.5
+		var wanted := _area(cycle)
+		for hole in holes: wanted -= _area(hole)
+		if absf(area - wanted) > maxf(0.001, wanted * 1e-5): continue
+		var tris := PackedVector3Array(); var outline := PackedVector3Array(); var world_holes := []
+		for p in flat_tris: tris.append(world.call(p))
+		for p in cycle: outline.append(world.call(p))
+		for hole in holes:
+			var points := PackedVector3Array()
+			for p in hole: points.append(world.call(p))
+			world_holes.append(points)
+		faces.append({"outline": outline, "holes": world_holes, "tris": tris, "area": area})
+	return faces

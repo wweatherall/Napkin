@@ -91,6 +91,78 @@ func _arc_example() -> Dictionary:
 		"normal": arr(n), "area": left.get("area", 0.0)}
 
 
+func _mixed_loop_examples() -> void:
+	var n := Vector3.BACK
+	# 1. Ground loop of 3 lines + 1 arc (arch/tombstone): 100x80 base + semicircle r=50
+	var arch_pts := Presenter.arc_points(Vector3(0, 80, 0), Vector3(50, 130, 0), Vector3(100, 80, 0))
+	var arch_lines := [
+		{"a": Vector3(0, 0, 0), "b": Vector3(100, 0, 0)},
+		{"a": Vector3(100, 0, 0), "b": Vector3(100, 80, 0)},
+		{"a": Vector3(0, 0, 0), "b": Vector3(0, 80, 0)},
+		{"a": Vector3(0, 80, 0), "b": Vector3(100, 80, 0), "pts": arch_pts},
+	]
+	var arch_expected := 8000.0 + 0.5 * PI * 2500.0
+	var arch_found := Regions.find(PackedVector3Array(), arch_lines, n, Vector3(50, 50, 0))
+	var arch_all := Regions.all_faces(arch_lines, n)
+	check("ground 3-line + 1-arc loop: find and all_faces match area",
+		not arch_found.is_empty() and arch_all.size() == 1
+		and absf(arch_found.area - arch_expected) < 15.0
+		and absf(arch_all[0].area - arch_found.area) < 0.01,
+		[arch_found.get("area", 0.0), arch_all.size()])
+
+	# 2. 2-arc lens: chord 100, sagitta 20 on both sides (r=72.5)
+	var top_arc := Presenter.arc_points(Vector3(0, 0, 0), Vector3(50, 20, 0), Vector3(100, 0, 0))
+	var bot_arc := Presenter.arc_points(Vector3(0, 0, 0), Vector3(50, -20, 0), Vector3(100, 0, 0))
+	var lens_lines := [
+		{"a": Vector3(0, 0, 0), "b": Vector3(100, 0, 0), "pts": top_arc},
+		{"a": Vector3(0, 0, 0), "b": Vector3(100, 0, 0), "pts": bot_arc},
+	]
+	var sweep := 4.0 * atan2(20.0, 50.0)
+	var lens_expected := 72.5 * 72.5 * (sweep - sin(sweep))
+	var lens_found := Regions.find(PackedVector3Array(), lens_lines, n, Vector3(50, 0, 0))
+	var lens_all := Regions.all_faces(lens_lines, n)
+	check("ground 2-arc lens: find and all_faces match area",
+		not lens_found.is_empty() and lens_all.size() == 1
+		and absf(lens_found.area - lens_expected) < 15.0
+		and absf(lens_all[0].area - lens_found.area) < 0.01,
+		[lens_found.get("area", 0.0), lens_all.size()])
+
+	# 3. Dangling tails pruned by all_faces
+	var with_tails := arch_lines + [
+		{"a": Vector3(100, 0, 0), "b": Vector3(140, 0, 0)},
+		{"a": Vector3(200, 0, 0), "b": Vector3(240, 40, 0)},
+	]
+	var tails_all := Regions.all_faces(with_tails, n)
+	check("all_faces prunes dangling tails and floating segments",
+		tails_all.size() == 1 and absf(tails_all[0].area - arch_all[0].area) < 0.01, tails_all.size())
+
+	# 4. Outer loop with inner mixed-loop hole: all_faces does not double-fill
+	var outer := [
+		{"a": Vector3(0, 0, 0), "b": Vector3(120, 0, 0)},
+		{"a": Vector3(120, 0, 0), "b": Vector3(120, 120, 0)},
+		{"a": Vector3(120, 120, 0), "b": Vector3(0, 120, 0)},
+		{"a": Vector3(0, 120, 0), "b": Vector3(0, 0, 0)},
+	]
+	var inner_arc := Presenter.arc_points(Vector3(40, 30, 0), Vector3(70, 60, 0), Vector3(40, 90, 0))
+	var inner := [
+		{"a": Vector3(40, 30, 0), "b": Vector3(40, 90, 0)},
+		{"a": Vector3(40, 30, 0), "b": Vector3(40, 90, 0), "pts": inner_arc},
+	]
+	var nested_lines := outer + inner
+	var ring_found := Regions.find(PackedVector3Array(), nested_lines, n, Vector3(15, 15, 0))
+	var hole_found := Regions.find(PackedVector3Array(), nested_lines, n, Vector3(50, 60, 0))
+	var nested_all := Regions.all_faces(nested_lines, n)
+	var total_area := 0.0
+	for f in nested_all: total_area += f.area
+	var inner_expected := 0.5 * PI * 900.0
+	check("nested mixed loop: find isolates ring with hole and all_faces avoids double-fill",
+		ring_found.get("holes", []).size() == 1
+		and absf(ring_found.get("area", 0.0) - (14400.0 - inner_expected)) < 10.0
+		and absf(hole_found.get("area", 0.0) - inner_expected) < 10.0
+		and nested_all.size() == 2 and absf(total_area - 14400.0) < 0.05,
+		[ring_found.get("area", 0.0), hole_found.get("area", 0.0), total_area, nested_all.size()])
+
+
 func _init() -> void:
 	example("unsplit face", [], [20, 20], 10000)
 	example("one crossing line left", [[[50, 0], [50, 100]]], [20, 20], 5000)
@@ -138,6 +210,7 @@ func _init() -> void:
 	for pair in loop:
 		var ps := points(pair); free.append({"a":ps[0], "b":ps[1]})
 	check("independent loose segments close into a free region", absf(Regions.find(PackedVector3Array(), free, Vector3(0,0,1), Vector3(50,50,0)).get("area",0) - 1600) < 0.01)
+	_mixed_loop_examples()
 	var arc_prediction := _arc_example()
 	for arg in OS.get_cmdline_user_args():
 		if arg.begins_with("--arc-output="):
