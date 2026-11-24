@@ -303,5 +303,151 @@ s.save()
 check("... and the retry saves it", s.rev == 4 and whole(g, "file", "journal") and rev_of(g, "prev_journal") == 3)
 s.close()
 
+# ---------- T125: one-shot drawing export, clean Label / no .FCBak, GLB write skipping ----------
+import xml.etree.ElementTree as ET
+import zipfile
+
+
+def doc_label(fcstd_path):
+    with zipfile.ZipFile(fcstd_path) as z:
+        root = ET.fromstring(z.read("Document.xml"))
+    prop = root.find("./Properties/Property[@name='Label']/String")
+    return prop.get("value") if prop is not None else None
+
+
+def fcbak_files(folder):
+    return [n for n in os.listdir(folder) if ".FCBak" in n]
+
+
+# 1. Explicit drawing export writes views.json, leaves no TechDraw in model.FCStd, clears s.drawing, clean Label & no .FCBak
+p = model("drawing-oneshot")
+folder = os.path.dirname(p)
+out = os.path.join(folder, "out")
+os.makedirs(out, exist_ok=True)
+App.ParamGet("User parameter:BaseApp/Preferences/Document").SetBool("CreateBackupFiles", True)
+s = Session(p, fresh=True)
+ops = board(1)
+s.sync(ops)
+s.save(out)
+check("ordinary autosave sets Document.xml Label to the real model stem and leaves zero .FCBak files",
+      doc_label(p) == "m" and fcbak_files(folder) == [], (doc_label(p), fcbak_files(folder)))
+s.drawing = True
+s.save(out)
+views_path = os.path.join(out, "views.json")
+with zipfile.ZipFile(p) as z:
+    xml_after_draw = z.read("Document.xml").decode()
+check("explicit drawing export writes views.json, embeds no TechDraw in model.FCStd, and resets drawing=False",
+      os.path.exists(views_path) and "Front" in json.load(open(views_path))
+      and "TechDraw" not in xml_after_draw and not s.drawing
+      and doc_label(p) == "m" and fcbak_files(folder) == []
+      and not os.path.exists(generation(p)["saving_file"]),
+      (os.path.exists(views_path), "TechDraw" in xml_after_draw, s.drawing, doc_label(p), fcbak_files(folder)))
+os.remove(views_path)
+ops += board(2)
+s.sync(ops)
+s.save(out)
+check("subsequent ordinary autosave after drawing export does not re-run TechDraw",
+      not os.path.exists(views_path) and fcbak_files(folder) == [], (os.path.exists(views_path), fcbak_files(folder)))
+s.close()
+
+# 2. Reopening a FreeCAD-created .FCStd containing TechDraw strips it, leaves s.drawing=False, no .FCBak on next save
+p = model("drawing-reopen")
+folder = os.path.dirname(p)
+out = os.path.join(folder, "out")
+os.makedirs(out, exist_ok=True)
+s = Session(p, fresh=True)
+ops = board(1)
+s.sync(ops)
+s.save(out)
+s.close()
+d = App.openDocument(p)
+S.add_drawing_page(d, [o for o in d.Objects if getattr(o, "SSRole", None) == "body"])
+d.save()
+App.closeDocument(d.Name)
+s = Session(p)
+check("reopening a .FCStd with a TechDraw page strips it and leaves drawing=False",
+      not [o for o in s.doc.Objects if o.TypeId.startswith("TechDraw")] and not s.drawing, s.drawing)
+s.sync(ops + board(2))
+s.save(out)
+check("autosave after reopening a TechDraw file writes no views.json and no .FCBak files",
+      not os.path.exists(os.path.join(out, "views.json")) and fcbak_files(folder) == [], fcbak_files(folder))
+s.close()
+
+# 3. Failed save during explicit drawing export rolls back rev/Meta and keeps drawing=True for retry
+p = model("drawing-retry")
+folder = os.path.dirname(p)
+out = os.path.join(folder, "out")
+os.makedirs(out, exist_ok=True)
+s = Session(p, fresh=True)
+s.sync(board(1))
+s.save(out)
+g = generation(p)
+s.drawing = True
+real = os.replace
+
+
+def fail_replace(src, dst):
+    if os.path.abspath(dst) == os.path.abspath(g["file"]):
+        raise OSError("disk full")
+    real(src, dst)
+
+
+S.os.replace = fail_replace
+try:
+    s.save(out)
+    raised = False
+except OSError:
+    raised = True
+finally:
+    S.os.replace = real
+views_path = os.path.join(out, "views.json")
+if os.path.exists(views_path):
+    os.remove(views_path)
+check("failed save during drawing export rolls back rev/Meta and keeps drawing=True",
+      raised and s.rev == 1 and s.doc.Meta.get("ShopSketchRev") == "1" and s.drawing,
+      (raised, s.rev, s.doc.Meta.get("ShopSketchRev"), s.drawing))
+s.save(out)
+check("retry after failed drawing export writes views.json and clears drawing=False",
+      s.rev == 2 and os.path.exists(views_path) and not s.drawing,
+      (s.rev, os.path.exists(views_path), s.drawing))
+s.close()
+
+# 4. GLB write skipping on pure set_units vs refresh on geometry/material edit or missing file
+p = model("glb-skip")
+folder = os.path.dirname(p)
+out = os.path.join(folder, "out")
+os.makedirs(out, exist_ok=True)
+glb_calls = [0]
+real_write_glb = S.write_glb
+
+
+def count_glb(m, path):
+    glb_calls[0] += 1
+    return real_write_glb(m, path)
+
+
+S.write_glb = count_glb
+try:
+    s = Session(p, fresh=True)
+    ops = board(1)
+    s.sync(ops)
+    s.save(out)
+    glb_path = os.path.join(out, "model.glb")
+    check("initial save writes model.glb", glb_calls[0] == 1 and os.path.exists(glb_path), glb_calls[0])
+    s.set_units("in-frac:1/16")
+    s.save(out)
+    check("pure set_units save skips rewriting existing model.glb", glb_calls[0] == 1, glb_calls[0])
+    os.remove(glb_path)
+    s.set_units("mm:1")
+    s.save(out)
+    check("save rewrites model.glb when it is missing", glb_calls[0] == 2 and os.path.exists(glb_path), glb_calls[0])
+    ops = ops + [{"id": "sm1", "type": "set_material", "targets": ["b1"], "material": "white-oak"}]
+    s.sync(ops)
+    s.save(out)
+    check("save after geometry/material edit rewrites model.glb", glb_calls[0] == 3, glb_calls[0])
+    s.close()
+finally:
+    S.write_glb = real_write_glb
+
 print(f"\nGENERATION TESTS: {R[0]} passed, {R[1]} failed", flush=True)
 sys.exit(1 if R[1] else 0)

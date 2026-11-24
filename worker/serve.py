@@ -23,7 +23,7 @@ def run_sync(session, req):
     export_ms = session.export(outdir)
     status = session.status()
     result = {"oplog": req.get("name", "live"), "total_ms": ms, "export_ms": export_ms, "how": how,
-              "ops": status, "rev": session.rev + (1 if session.dirty else 0), "model": session.path}
+              "ops": status, "rev": session.rev + (1 if (session.dirty or session.drawing) else 0), "model": session.path}
     atomic_json(os.path.join(outdir, "status.json"), result)
     return result, outdir
 

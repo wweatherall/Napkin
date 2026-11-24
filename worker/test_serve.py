@@ -195,6 +195,36 @@ try:
     w_re.drop()
     check("helper Worker.kill ends the link (wait returns None) and restart gives a worker answering hello",
           gone is None and h_re and h_re.get("ok") and h_re.get("app") == "shopsketch", (gone, h_re))
+    # T125: explicit drawing export via serve is one-shot, survives read-only retry, and leaves no TechDraw/.FCBak
+    import zipfile
+    md = fresh_model(tmp, "drawing_serve")
+    md_dir = os.path.dirname(md)
+    md_out = md + "-out"
+    wd = Window(worker.port)
+    wd.ask({"cmd": "open", "model": md, "fresh": True}, "open")
+    sync(wd, md, board_ops(300))
+    wd.ask({"cmd": "flush", "model": md}, "flush")
+    with read_only(md_dir):
+        wd.ask({"cmd": "sync", "model": md, "oplog": {"units": "mm", "ops": board_ops(300)},
+                "outdir": md_out, "drawing": True}, "sync")
+        fl_draw_ro = wd.ask({"cmd": "flush", "model": md}, "flush")
+    fl_draw_ok = wd.ask({"cmd": "flush", "model": md}, "flush")
+    views_file = os.path.join(md_out, "views.json")
+    has_td = "TechDraw" in zipfile.ZipFile(md).read("Document.xml").decode()
+    baks = [n for n in os.listdir(md_dir) if ".FCBak" in n]
+    check("serve drawing export retries after read-only, writes views.json, leaves no TechDraw or .FCBak",
+          fl_draw_ro and not fl_draw_ro["ok"] and fl_draw_ok and fl_draw_ok["ok"]
+          and os.path.exists(views_file) and not has_td and not baks,
+          (fl_draw_ro, fl_draw_ok, os.path.exists(views_file), has_td, baks))
+    os.remove(views_file)
+    sync(wd, md, board_ops(350))
+    wd.ask({"cmd": "flush", "model": md}, "flush")
+    check("next ordinary edit+save after drawing export in serve does not re-generate views.json",
+          not os.path.exists(views_file) and not [n for n in os.listdir(md_dir) if ".FCBak" in n],
+          os.path.exists(views_file))
+    wd.ask({"cmd": "bye"}, "bye")
+    wd.drop()
+
     worker.stop()
 finally:
     if worker.proc.poll() is None:

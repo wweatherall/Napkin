@@ -1,5 +1,6 @@
 """Session: one live document bound to one .FCStd file; sync, undo, journal, saving (A23, A24)."""
 import FreeCAD as App
+App.ParamGet("User parameter:BaseApp/Preferences/Document").SetBool("CreateBackupFiles", False)
 from copy import copy, deepcopy
 import hashlib
 import json
@@ -352,6 +353,7 @@ class Session:
         self.rev = 0
         self.units = None          # saved display units (doc.Meta["ShopSketchUnits"], I57); kept across rebuilds
         self.dirty = False
+        self.glb_dirty = True
         self.drawing = False
         self.session_base = 0
         self.doc = None
@@ -368,17 +370,23 @@ class Session:
             self._new_doc()
 
     # ----- document lifecycle -----
+    def _doc_label(self):
+        return os.path.splitext(os.path.basename(self.path))[0] if self.path else "ShopSketch"
+
     def _new_doc(self):
         if self.doc is not None:
             App.closeDocument(self.doc.Name)
         self.doc = App.newDocument("ShopSketch")
+        self.doc.Label = self._doc_label()
         self.doc.UndoMode = 1
         self.model = Model(self.doc)
+        self.glb_dirty = True
 
     def _load_file(self, path=None):
         """Open the file as the live document (opening or rebuilding from the floor copy)."""
-        self.doc, self.model, drawing = self._open_document(path or self.path)
-        self.drawing = drawing or self.drawing
+        self.doc, self.model, _ = self._open_document(path or self.path)
+        if self.path:
+            self.doc.Label = self._doc_label()
 
     @staticmethod
     def _open_document(path):
@@ -453,6 +461,7 @@ class Session:
             fc = (j or {}).get("floor_copy")
             self.floor_copy = dict(fc) if isinstance(fc, dict) else None
         self.file_sig = self.disk_sig()
+        self.glb_dirty = True
 
     def disk_sig(self):
         try:
@@ -562,13 +571,13 @@ class Session:
                 digest = sha256(snapshot.name)
                 frev = file_rev(snapshot.name)
                 kept = self._file_ops(snapshot.name, frev)
-                doc, model, drawing = self._open_document(snapshot.name)
+                doc, model, _ = self._open_document(snapshot.name)
             try:
                 staged = copy(self)
                 staged.doc, staged.model = doc, model
                 doc.FileName = self.path
                 doc.Label = os.path.splitext(os.path.basename(self.path))[0]
-                staged.drawing = drawing or self.drawing
+                staged.glb_dirty = True
                 staged.ids = deepcopy(self.ids)
                 staged.ids.seed_native(doc)
                 file_meta_rev = int(doc.Meta.get("ShopSketchRev", "0") or 0)
@@ -724,6 +733,8 @@ class Session:
             how = "reserved IDs"
         if how != "nothing":
             self.dirty = True
+            if how != "reserved IDs":
+                self.glb_dirty = True
             self.model.show_as_hidden()         # FreeCAD's undo doesn't take Visibility back (T28)
         return how, round((time.perf_counter() - t0) * 1000, 1)
 
@@ -792,13 +803,16 @@ class Session:
         return changed
 
     def save(self, outdir=None):
-        """Atomic autosave: write a copy beside the file, then swap it in. With a drawing wanted, the
-        copy gets a fresh TechDraw page (the live document never carries one)."""
+        """Atomic autosave: write a copy beside the file, then swap it in. With a drawing wanted, generate
+        views.json from a throwaway in-memory copy without saving a TechDraw page into model.FCStd (I68)."""
         if not self.path:
             return None
         t0 = time.perf_counter()
         if outdir:
-            write_glb(self.model, os.path.join(outdir, "model.glb"))     # the whole model, for renders (A07)
+            glb_path = os.path.join(outdir, "model.glb")
+            if self.glb_dirty or not os.path.exists(glb_path):
+                write_glb(self.model, glb_path)     # the whole model, for renders (A07)
+                self.glb_dirty = False
         saved_ops = [e for e in self.applied if e["status"] == "ok"]
         meta = self.doc.Meta
         prev_meta = dict(meta)
@@ -821,6 +835,8 @@ class Session:
                     pass
             raise
         self.dirty = False
+        if self.drawing and outdir:
+            self.drawing = False
         self.file_sig = self.disk_sig()
         self.rev_ops[self.rev] = saved_ops
         for old in sorted(self.rev_ops)[:-50]:        # the last 50 revisions are plenty for FreeCAD's open copy
@@ -837,19 +853,21 @@ class Session:
         os.makedirs(folder, exist_ok=True)
         if not os.access(folder, os.W_OK):          # FreeCAD would only say "Failed to open file" (T79)
             raise PermissionError(f"the folder {os.path.basename(folder) or folder} is read-only")
+        App.ParamGet("User parameter:BaseApp/Preferences/Document").SetBool("CreateBackupFiles", False)
+        self.doc.Label = self._doc_label()
         self.doc.saveCopy(tmp)
-        if self.drawing:
+        if self.drawing and outdir:
             d2 = App.openDocument(tmp)
             try:
                 objs = [o for o in d2.Objects if getattr(o, "SSRole", None) == "body"]
-                page, views = add_drawing_page(d2, objs)
-                if outdir:
-                    import TechDraw
-                    atomic_json(os.path.join(outdir, "views.json"),
-                                {name: TechDraw.viewPartAsSvg(v) for name, v in views.items()})
-                d2.save()
+                _, views = add_drawing_page(d2, objs)
+                import TechDraw
+                atomic_json(os.path.join(outdir, "views.json"),
+                            {name: TechDraw.viewPartAsSvg(v) for name, v in views.items()})
             finally:
                 App.closeDocument(d2.Name)
+                if self.doc is not None:
+                    App.setActiveDocument(self.doc.Name)
         write_gui_document(tmp, self.path)          # what FreeCAD's window shows (T29)
         new_sha = sha256(tmp)
         atomic_json(g["saving_journal"], self._journal(self.rev, new_sha))

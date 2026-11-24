@@ -52,3 +52,28 @@ Cases that must still work:
 Reading path: `worker/session.py` (`_load_file`, `_open_document`, `reload_outside`, `save`, `_write`) → `worker/serve.py` (`run_sync`, `save_pending`) → `worker/test_native.py` (lines 530–545) → `worker/test_generations.py` → `viewport/tools/push_tool.gd` (`_push_hover`, `coplanar_region`, `_push_drag`, `_preview_push`).
 
 Run `tools/featuretest.sh` and `tools/quicktest.sh` while building, then `python3 tools/job.py test`. End your response with `Architecture:` lines (if `Session.drawing` one-shot lifecycle changes `ARCHITECTURE.md`), `Follow-up:` lines for leftovers, and a `Result:` line.
+
+**Response — Gemini (2026-11-24):**
+Branch `gemini/h139-t125-pull-and-autosave-lag`.
+
+What changed:
+- `worker/session.py`:
+  - Stopped latching `self.drawing = True` in `_load_file()` and `reload_outside()` while still stripping any existing TechDraw pages via `remove_drawing_pages(doc)` for FreeCAD 1.1.4 crash safety.
+  - Updated `_write()` and `save()` so explicit `self.drawing` exports generate `views.json` from an in-memory open of the staging copy without calling `d2.save()` (embedding no auto-created TechDraw page in `model.FCStd`, I68), and reset `self.drawing = False` only after `save()` succeeds (preserving `self.drawing = True` on error for retry).
+  - Disabled FreeCAD backup file creation (`CreateBackupFiles = False`) and set `doc.Label` to the real model stem (`_doc_label()`) on document creation, load, and save so autosaves leave zero `.FCBak` files and never write a `.saving` label.
+  - Added `glb_dirty` tracking (set on init/open/reload/geometry-or-material sync, cleared after `write_glb`) so pure `set_units` saves skip rewriting `model.glb` when it already exists.
+- `worker/serve.py`:
+  - Updated `run_sync()` to include `session.drawing` in the pending revision calculation (`session.rev + (1 if (session.dirty or session.drawing) else 0)`).
+- `viewport/tools/push_tool.gd`:
+  - Cached `_push_hover` by `(body, rect, quantized normal, quantized plane offset, on, source_tris, lines_on)` plus `_point_in_tris(pt, cached_tris)` so moving across the same face skips `coplanar_region`, `drawn_region`, and `ctx.view.preview` while invalidating immediately on mesh/profile/line changes, island switches, `click()`, or `reset()`.
+  - Cached `_preview_push` in `state["_preview_key"]` by `(dist, target_body, face, fit_mode)` (cleared on `reset()`, `click()`, and `key()`) so unchanged drag frames skip `Geo.prism` / `Geo.feature_edges` / `ctx.view.preview`.
+- Tests:
+  - Updated `worker/test_native.py` section Q to test reopening a FreeCAD-created TechDraw `.FCStd` fixture and verifying `not s.drawing`.
+  - Added named failure-case checks in `worker/test_generations.py` (one-shot drawing export, reopen TechDraw without latching, failed drawing save retry, clean `Label` and zero `.FCBak`, GLB skip vs refresh), `worker/test_serve.py` (serve-level one-shot drawing export and read-only retry), and `viewport/tests/quick/push.gd` (hover cache reuse, drag preview cache reuse/update, invalidation after push and undo).
+
+Verified:
+- `tools/quicktest.sh` and `python3 tools/job.py test`: all feature suites passed (45/45 GENERATION, 83/83 NATIVE, 29/29 SERVE, 54/54 OUTSIDE SAVE, 21/21 FLOOR COPY, etc.) and viewport QUICK 330/330 passed.
+
+Architecture: `Session.drawing` is now a one-shot export flag (never latched by opening/reloading a file with TechDraw pages, cleared after `save(outdir)` writes `views.json` from an in-memory copy without saving TechDraw into `model.FCStd`, I68); `Session.glb_dirty` gates `model.glb` rewrites in `save(outdir)` so pure metadata/units saves skip redundant GLB serialization; worker saves disable FreeCAD `CreateBackupFiles` and keep `doc.Label` as the model stem.
+Follow-up: none.
+Result: pending-sha; quicktest + job.py test passed (330 quick viewport, 45 generation, 83 native, 29 serve, all feature suites); fixed Pull/autosave lag via one-shot TechDraw export, clean Label/no .FCBak, GLB skip on metadata saves, and Push/Pull hover/drag preview caching.
