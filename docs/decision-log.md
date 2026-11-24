@@ -344,7 +344,6 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | T122 | Rectangle after-the-fact typed dimensions: numbers typed right after creating a rectangle, before any other action, alter its size. | Open | I65, I02 | William, 2026-11-24. Job: H136. |
 | T123 | Move array live preview: typing xN / Nx / *N / /N during a Move previews the array before clicking and commits with that count, while post-click amending keeps working. | Open | I66, I14, I25 | William, 2026-11-24. Job: H137. |
 | T124 | Auto-set document units from first typed length with an explicit unit when the document has no units explicitly set yet (else keep previous settings). | Open | I67, I57, I59, I62 | William, 2026-11-24. Job: H138. |
-| T125 | Fix Pull and autosave lag: stop latching TechDraw generation onto every autosave (1.7 s-54 s stalls, .FCBak clutter and .saving label), skip redundant model.glb writes when unchanged, and cache Push/Pull hover and drag geometry. | Open | G01, A24, A29, A32 | William, 2026-11-24 (found in models/model.FCStd). Job: H139. |
 | T127 | Enter and edit components, and upgrade Codex's Properties window (viewport/property_panel.gd) so components, assemblies and cut boards prioritize critical dimensions and linked measurements in the model's display units. | Open | I28, I36, I40, I57, G04 | William, 2026-11-24. Job: H141 (queued after H126; entering-components choice pending with William). |
 
 ## Tunables

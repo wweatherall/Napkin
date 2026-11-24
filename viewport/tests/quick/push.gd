@@ -29,6 +29,70 @@ func run() -> void:
 	harness._ok("with B, a separate board", harness._shown_ids() == [harness.id("b1"), harness.id("b2")], harness._shown_ids())
 
 	await _pocket_floor_tie()
+	await _hover_and_drag_cache()
+
+
+func _hover_and_drag_cache() -> void:
+	await harness._fresh("push_cache", harness._plank(1, Vector3.ZERO, Vector3(300, 200, 18)))
+	await harness._view(Vector3(150, 100, 18), -30, -40, 0.7)
+	m.set_tool("push")
+	var push = m.tools["push"]
+	push.reset()
+	var before_recomputes: int = push._hover_recomputes
+	var p1 := harness._screen_of(Vector3(100, 100, 18), Vector2.ZERO)
+	var p2 := harness._screen_of(Vector3(180, 120, 18), Vector2.ZERO)
+	push.mouse_moved(p1)
+	var after_first: int = push._hover_recomputes
+	var initial_tris: PackedVector3Array = push.hover.get("tris", PackedVector3Array()).duplicate()
+	push.mouse_moved(p2)
+	var after_same_face: int = push._hover_recomputes
+	harness._ok("hovering across the same face reuses the cached region without recomputing",
+		after_first == before_recomputes + 1 and after_same_face == after_first
+		and not initial_tris.is_empty(), [before_recomputes, after_first, after_same_face, initial_tris.size()])
+
+	# Drag across same distance (cached) then distinct distances (rebuilt)
+	push.click(p1)
+	var before_previews: int = push._preview_rebuilds
+	var d1 := harness._screen_of(Vector3(100, 100, 38), Vector2.ZERO)
+	var d2 := harness._screen_of(Vector3(100, 100, 58), Vector2.ZERO)
+	push.mouse_moved(d1)
+	var dist1: float = push.state.get("dist", 0.0)
+	var after_d1: int = push._preview_rebuilds
+	push.mouse_moved(d1)
+	var after_d1_repeat: int = push._preview_rebuilds
+	push.mouse_moved(d2)
+	var dist2: float = push.state.get("dist", 0.0)
+	var after_d2: int = push._preview_rebuilds
+	harness._ok("push drag skips redundant preview rebuilds at the same distance and updates across distinct distances",
+		after_d1 == before_previews + 1 and after_d1_repeat == after_d1
+		and after_d2 == after_d1 + 1 and not is_equal_approx(dist1, dist2),
+		[before_previews, after_d1, after_d1_repeat, after_d2, dist1, dist2])
+	push.reset()
+
+	# Push a pocket, then hover the modified top face: cache must invalidate and recompute the updated region
+	await harness._rect(Vector3(50, 50, 18), Vector3(110, 110, 18), "60,60")
+	await harness._push(Vector3(80, 80, 18), Vector3(80, 80, 12), "-6")
+	await harness._wait_wave()
+	m.set_tool("push")
+	var pre_mod: int = push._hover_recomputes
+	push.mouse_moved(p2)
+	var mod_tris: PackedVector3Array = push.hover.get("tris", PackedVector3Array()).duplicate()
+	var after_mod: int = push._hover_recomputes
+	harness._ok("hovering after a push modifies the face recomputes the updated region",
+		after_mod == pre_mod + 1 and mod_tris != initial_tris, [pre_mod, after_mod, initial_tris.size(), mod_tris.size()])
+
+	# Undo the push (and rect) and hover again without calling reset(): cache must invalidate and restore original region
+	m.undo()
+	await harness._wait_confirm()
+	m.undo()
+	await harness._wait_confirm()
+	var pre_undo: int = push._hover_recomputes
+	push.mouse_moved(p2)
+	var undo_tris: PackedVector3Array = push.hover.get("tris", PackedVector3Array()).duplicate()
+	var after_undo: int = push._hover_recomputes
+	harness._ok("hovering after undo invalidates the cache and recomputes the restored face",
+		after_undo == pre_undo + 1 and undo_tris != mod_tris and undo_tris.size() == initial_tris.size(),
+		[pre_undo, after_undo, mod_tris.size(), undo_tris.size(), initial_tris.size()])
 
 
 func _pocket_floor_tie() -> void:

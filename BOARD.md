@@ -58,7 +58,6 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
 | H127 | either | Queued | T62: face ties on shapes other than plain rectangular boards | [H127](docs/handoff/H127-t62-face-ties-other-shapes.md) | H126 |
-| H139 | either | **Done**: for review (gemini) | T125: Fix Pull/autosave lag (TechDraw-on-autosave stall, .FCBak/.saving clutter, and Push/Pull frame caching) | [H139](docs/handoff/H139-t125-pull-and-autosave-lag.md) |  |
 | H136 | either | **Ready** | T122: Rectangle after-the-fact typed dimensions | [H136](docs/handoff/H136-t122-rect-amend-after-create.md) |  |
 | H137 | either | **Ready** | T123: Move array live preview before click and amend after click | [H137](docs/handoff/H137-t123-move-array-live-preview.md) |  |
 | H138 | either | **Ready** | T124: Auto-set document units from first typed length with an explicit unit | [H138](docs/handoff/H138-t124-units-from-first-typed-length.md) |  |

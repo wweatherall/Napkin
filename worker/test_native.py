@@ -532,15 +532,19 @@ qp = os.path.join(tmp, "q_drawing.FCStd")
 NQ = [ground_rect("r1", [0, 0, 0], [300, 90]), push("p1", "r1", 19, "b1")]
 s = Session(qp, fresh=True)
 s.sync(NQ)
-s.drawing = True
-os.makedirs(os.path.join(tmp, "q_out"), exist_ok=True)
-s.save(os.path.join(tmp, "q_out"))
+s.save()
 s.close()
+from export import add_drawing_page
+qd = App.openDocument(qp)
+add_drawing_page(qd, [o for o in qd.Objects if getattr(o, "SSRole", None) == "body"])
+qd.save()
+App.closeDocument(qd.Name)
 import zipfile
-check("the saved file has a drawing page", "TechDraw" in zipfile.ZipFile(qp).read("Document.xml").decode(), qp)
+check("the fixture file has a FreeCAD TechDraw page", "TechDraw" in zipfile.ZipFile(qp).read("Document.xml").decode(), qp)
 s = Session(qp)
-check("it opens again (the page and its views are cleared from the live document)",
-      not [o for o in s.model.doc.Objects if o.TypeId.startswith("TechDraw")] and "b1" in s.model.bodies(), qp)
+check("it opens again (the page and its views are cleared from the live document, without latching drawing)",
+      not [o for o in s.model.doc.Objects if o.TypeId.startswith("TechDraw")]
+      and "b1" in s.model.bodies() and not s.drawing, (qp, s.drawing))
 s.close()
 
 print(f"\nNATIVE TESTS: {R[0]} passed, {R[1]} failed")

@@ -6,10 +6,15 @@ const TOOL := {"id": "push", "label": "Push/Pull", "tip": "Push/Pull (P)", "key"
 var state := {}
 const FIT_MODES := ["Butt to plane", "Slice at plane", "Fully reach plane"]   # I41: ⌥ Option cycles them
 var hover := {}          # the face, rectangle or circle under the cursor
+var _hover_cache := {}   # cached hover region for the current face/plane/model snapshot
+var _hover_recomputes := 0
+var _preview_rebuilds := 0
 
 
 func reset() -> void:
 	state = {}
+	hover = {}
+	_hover_cache = {}
 	press_reset()
 	ctx.view.clear_face_highlight()
 
@@ -39,6 +44,7 @@ func click(screen: Vector2) -> void:
 		state["active"] = true
 		state["dist"] = 0.0
 		state["depths"] = _depths_behind()
+		_hover_cache = {}
 		press_started(screen)
 	else:
 		_finish_push()
@@ -112,25 +118,55 @@ func _snap_to_face_behind(screen: Vector2) -> void:
 
 
 func _push_hover(screen: Vector2) -> void:
-	hover = {}
-	ctx.view.clear_preview()
 	var p := ctx.pick.hit(screen)
 	ctx.view.hide_marker()
-	if not p.get("hit", false): return
-	var tris := PackedVector3Array()
-	var on: String = p.body
+	if not p.get("hit", false):
+		hover = {}
+		_hover_cache = {}
+		ctx.view.clear_preview()
+		return
+	var n: Vector3 = p["normal"]
+	var pt: Vector3 = p["point"]
+	var on: String = p["body"]
+	var source_tris := PackedVector3Array()
 	if p["rect"] != "":
-		var profile := ctx.model.profile(p.rect)
-		tris = profile.tris
-		on = profile.on
+		var profile := ctx.model.profile(p["rect"])
+		source_tris = profile.get("tris", PackedVector3Array())
+		on = profile.get("on", "")
 	elif p["body"] != "":
-		tris = coplanar_region(p["body"], p["normal"], p["point"])
-	var region: Dictionary = ctx.model.drawn_region(tris, on, p.normal, p.point)
+		source_tris = ctx.model.triangles(p["body"])
+	var lines := ctx.model.lines_on(on, n, pt)
+	var key := [p["body"], p["rect"], Vector3i(roundi(n.x * 1000.0), roundi(n.y * 1000.0), roundi(n.z * 1000.0)), roundi(pt.dot(n) * 1000.0)]
+	if not _hover_cache.is_empty() and _hover_cache["key"] == key and _hover_cache["on"] == on \
+			and _hover_cache["source_tris"] == source_tris and _hover_cache["lines"] == lines \
+			and _point_in_tris(pt, _hover_cache["hover"]["tris"]):
+		hover = _hover_cache["hover"].duplicate()
+		hover["n"] = n
+		hover["anchor"] = pt
+		return
+	hover = {}
+	_hover_cache = {}
+	ctx.view.clear_preview()
+	var tris := PackedVector3Array()
+	if p["rect"] != "":
+		tris = source_tris
+	elif p["body"] != "":
+		tris = coplanar_region(p["body"], n, pt)
+	var region: Dictionary = ctx.model.drawn_region(tris, on, n, pt)
 	if not region.is_empty(): tris = region.tris
 	if tris.is_empty(): return
-	hover = {"rect": p["rect"], "body": p["body"], "n": p["normal"], "anchor": p["point"], "tris": tris}
+	_hover_recomputes += 1
+	hover = {"rect": p["rect"], "body": p["body"], "n": n, "anchor": pt, "tris": tris}
 	if not region.is_empty(): hover["region"] = region
+	_hover_cache = {"key": key, "on": on, "source_tris": source_tris, "lines": lines, "hover": hover.duplicate()}
 	ctx.view.preview(tris, "hover")
+
+
+static func _point_in_tris(p: Vector3, tris: PackedVector3Array) -> bool:
+	for i in range(0, tris.size(), 3):
+		if _in_tri(p, tris[i], tris[i + 1], tris[i + 2]):
+			return true
+	return false
 
 
 func coplanar_region(bid: String, n: Vector3, p: Vector3) -> PackedVector3Array:
@@ -301,6 +337,7 @@ func key(e: InputEventKey) -> bool:
 		_choose_face(state.choice)
 	else:
 		_choose_face((state.choice+1)%state.options.size())
+	state.erase("_preview_key")
 	_preview_push(state.dist)
 	ctx.ui.refresh_measurements()
 	ctx.ui.refresh_tip(state.edge_screen)
@@ -318,6 +355,12 @@ func _push_shape(d: float) -> PackedVector3Array:
 
 
 func _preview_push(d: float) -> void:
+	var ef: Dictionary = state.get("edge_fit", {})
+	var preview_key := [d, ef.get("target_body", ""), ef.get("face", -1), ef.get("fit_mode", 0)]
+	if state.get("_preview_key") == preview_key:
+		return
+	state["_preview_key"] = preview_key
+	_preview_rebuilds += 1
 	if absf(d) < GEOMETRY_TOLERANCE_MM:
 		ctx.view.preview(state.tris, "hover")
 		return
