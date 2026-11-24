@@ -1,6 +1,6 @@
 ### H123 — Three tooling follow-ups: feature-test logs by folder, length cases with a default unit, response lines read from the response
 
-Author: Claude (integrator, fretchup-73) | Date: 2026-11-23 | Status: open | For: either
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-23 | Status: answered | For: either
 
 References: T116, P26 (follow-ups), P21 (predictions checked against FreeCAD), T95 (the feature tests find
 their files), H052 and H105 (the follow-ups this clears).
@@ -55,3 +55,24 @@ Run `python3 tools/test_integrate.py`, `python3 tools/test_follow_ups.py` and `t
 building, then `python3 tools/job.py test`. Clear the three follow-ups in docs/follow-ups.md (H052's two, H105's
 first: "`follow_ups()`, `for_integrator()`, and `architecture()` ... still scan the full handoff file") in the
 code commit, before the quick test. End your response with a Result line; leftovers as Follow-up lines.
+
+Response — Gemini (gemini-maple-1123-1856), 2026-11-23:
+
+- Branch: `gemini/h123-tooling-follow-ups`
+- Commit: `1802841`
+- What changed:
+  1. `tools/featuretest.sh`: prefixed each test's name with its folder (`worker-<name>`, `tools-<name>`, `viewport-<name>`), keeping `<NAME> TESTS:` summary lines unchanged and widening `--list` padding to 26 chars. Grepped `tools/` for `.rc`, `.time`, `featuretest`, `shopsketch-feature`, and `TIMING feature`: only `tools/test_featuretest.py` asserted on the old unprefixed name.
+  2. `tools/length_cases.py`: added `DEFAULT_UNIT` with the exact 21 `(text, unit)` pairs (17 `"in"`, 2 `"cm"`, 2 `"m"`) in `tests/length_cases.json`'s order, evaluated with `evaluate(text, unit)` and appended with `{"text", "default_unit", "mm"}`. Regenerating via `/Applications/FreeCAD.app/Contents/Resources/bin/freecadcmd tools/length_cases.py` left `tests/length_cases.json` byte-for-byte unchanged (`git diff --exit-code` exited 0).
+  3. `tools/integrate.py`: added `fallback_all=False` to `_response_body` and routed `follow_ups`, `for_integrator`, and `architecture` through `_response_body(text, fallback_all=True)` (leaving `changed_from_brief` and `response_values` untouched). Added named checks in `tools/test_follow_ups.py` for brief lines above `Response —`, fenced blocks, and entries with no Response heading.
+  4. `docs/follow-ups.md`: cleared the three completed follow-ups (H052's two and H105's first).
+- Verified:
+  - `freecadcmd tools/length_cases.py && git diff --exit-code tests/length_cases.json`: 2521 cases written, diff clean.
+  - `python3 tools/test_integrate.py`: 75 passed, 0 failed.
+  - `python3 tools/test_follow_ups.py`: 27 passed, 0 failed.
+  - `python3 tools/test_featuretest.py`: 45 passed, 0 failed (checks `--list` folder-prefixed names and a stand-in `worker/test_same.py` + `viewport/test_same.gd` pair keeping separate `worker-same.log` and `viewport-same.log`).
+  - `python3 tools/job.py test` on `1802841`: all 36 feature test suites passed (including `LENGTH TESTS: 23 passed, 0 failed` and `UNITS TESTS: 132 passed, 0 failed`) and `viewport: QUICK 319 passed, 0 failed`.
+- IDs added: none.
+- Open questions: none.
+
+Changed from the brief: Touches did not list tools/test_featuretest.py; updated its [tools-exit] and tools-silent assertions (P46) and added the --list folder-prefix and stand-in pair checks there; featuretest.sh's new folder-prefixed names changed the prefix asserted by test_featuretest.py and it is the dedicated test file for featuretest.sh.
+Result: 1802841; quick test passed (all 36 feature suites and 319/319 viewport quick tests), length_cases.py diff clean; folder-prefixed featuretest logs, DEFAULT_UNIT in length_cases.py, response-scoped integrate.py parsers, cleared 3 follow-ups
