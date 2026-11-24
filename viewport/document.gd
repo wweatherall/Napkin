@@ -532,9 +532,9 @@ func op_of(oid: String) -> Dictionary:
 
 
 func consumed_rects() -> Dictionary:
-	"""Rectangles a push/pull has used."""
+	"""Rectangles a push/pull has used (a region push takes one cell and leaves the profile)."""
 	var c := {}
 	for op in ops:
-		if op["type"] == "push_pull" and op["target"].has("rect"):
+		if op["type"] == "push_pull" and op["target"].has("rect") and not op["target"].has("region"):
 			c[op["target"]["rect"]] = true
 	return c

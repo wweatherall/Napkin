@@ -27,3 +27,4 @@ or that turns it into a Work list item. `python3 tools/startup.py` lists the ope
 - H111 (2026-11-23): When their callers are in scope, change the native menu commands to call `m.ui.update_toggles()` and the registry quick test to read `m.ui.tool_buttons`, then remove main's compatibility members.
 - H093 (2026-11-23): H063 still applies to a replacement worker that never held Shop Sketch's live pre-conflict document.
 - H107 (2026-11-23): When the lifecycle suite and test dispatcher are in scope, point them at `m.worker` and remove Main's three compatibility getters.
+- H096 (2026-11-23): One `job.py test` run hit a one-off timing flake in unrelated `viewport/tests/quick/rect.gd` (`the second click finishes a 100 x 150` got `[2, [50.0, 70.0]]` under parallel test load); it passed cleanly on the immediately preceding and following runs.

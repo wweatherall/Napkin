@@ -57,10 +57,9 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H096 | either | Waiting on William (gemini): H096: may I also guard target.region in viewport/main.gd (redo, outside Touches — otherwise redoing a region push drops the profile draft and fails H096's redo check) and viewport/presenter.gd (forget_op — otherwise undoing a region push leaks the existing draft node)? | Pushing one cell of a split profile keeps the rest of the profile on screen (H092 finding 9) | [H096](docs/handoff/H096-region-push-keeps-profile.md) |  |
 | H097 | either | Queued | T110: test helpers that make a failure-path check a few lines | [H097](docs/handoff/H097-failure-path-test-helpers.md) | H096 |
 | H109 | either | Queued | T113 step 2: what a rejection takes with it moves to document.gd, and main's document pass-throughs go | [H109](docs/handoff/H109-t113-rejections.md) | H096, H094 |
-| H122 | either | **Ready** | T113 step 5: main.gd's compatibility members go (callers use the modules) | [H122](docs/handoff/H122-main-compat-members.md) |  |
+| H122 | either | **Stale** (codex, no beat since 16:23) | T113 step 5: main.gd's compatibility members go (callers use the modules) | [H122](docs/handoff/H122-main-compat-members.md) |  |
 | H123 | either | **Ready** | Three tooling follow-ups: feature-test logs by folder, length cases with a default unit, response lines read from the response | [H123](docs/handoff/H123-tooling-follow-ups.md) |  |
 
 <!-- end of job table -->

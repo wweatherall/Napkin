@@ -787,7 +787,7 @@ func redo() -> void:
 		pres.register_line(op)
 	elif op["type"] in ["rect", "circle"]:
 		if not rects.has(op["id"]): _register_rect(op)
-	elif op["type"] == "push_pull":
+	elif op["type"] == "push_pull" and not op["target"].has("region"):
 		var rid: String = op["target"].get("rect", "")
 		if drafts.has(rid): drafts[rid].queue_free(); drafts.erase(rid)
 	_show_state(_ops_key(ops))                 # the state it led to, if remembered: on screen at once
