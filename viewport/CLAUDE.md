@@ -38,8 +38,7 @@ protocol (update it in the same commit when you change either). Tools have their
   toolbar, Tools menu and tool keys come from that. `property_panel.gd`: the Properties panel (T46, I36).
 - `appearance.gd` (T88 step 1, T113): wood: the library, each board's material, the wood shader material presenter.gd
   asks for (`wood_material`), the current Paint wood, and the Paint and T (grain) commands. Made with the document
-  and a texture-path callable, not Main. Main forwards `wood_library` / `wood_keys` / `paint_material`,
-  `set_paint_material` and `_turn_grain` for menus.gd's Wood menu.
+  and a texture-path callable, not Main.
 - `save_prompts.gd` (T113): the close and outside-save questions, `m.prompts` (a Node, main's child): their dialogs,
   state, deadlines and choices; document.gd decides when to save or reload, main connects its signals here.
 - `worker_process.gd` (T113): the FreeCAD worker's process, `m.worker`: finds, probes, picks, starts, restarts, watches
