@@ -94,6 +94,45 @@ check("Architecture lines (P28) parse with and without '- '; a mention mid-line 
       integrate.architecture(text) == ["session.py saves generations", "the open reply gains recovered"],
       integrate.architecture(text))
 
+# 1b. H123: brief lines above a Response heading (and fenced examples) are ignored; entries without a Response
+#     heading still fall back to the full text so no worker's leftovers are lost.
+scoped = (
+    "### H099 — T7: brief quoting response fields\n\nAuthor: Claude | Status: answered\n\n"
+    "Request: write lines like:\n"
+    "Follow-up: brief example follow-up\n"
+    "For the integrator: brief example instruction\n"
+    "Architecture: brief example map note\n\n"
+    "Response — Gemini, 2026-11-23:\n"
+    "Done.\n\n"
+    "```\n"
+    "Follow-up: fenced follow-up\n"
+    "For the integrator: fenced instruction\n"
+    "Architecture: fenced map note\n"
+    "```\n\n"
+    "Follow-up: real leftover\n"
+    "For the integrator: real merge step\n"
+    "Architecture: real map change\n"
+)
+check("Follow-up ignores brief lines above Response heading and fenced blocks",
+      integrate.follow_ups(scoped) == ["real leftover"], integrate.follow_ups(scoped))
+check("For the integrator ignores brief lines above Response heading and fenced blocks",
+      integrate.for_integrator(scoped) == ["real merge step"], integrate.for_integrator(scoped))
+check("Architecture ignores brief lines above Response heading and fenced blocks",
+      integrate.architecture(scoped) == ["real map change"], integrate.architecture(scoped))
+
+no_heading = (
+    "### H099 — T7: no heading\n\nAuthor: Claude | Status: answered\n\n"
+    "Request: do it.\n\nDone.\n\n"
+    "Follow-up: kept without heading\n"
+    "For the integrator: step without heading\n"
+    "Architecture: map without heading\n"
+)
+check("entry with no Response heading still reads Follow-up, For the integrator and Architecture",
+      integrate.follow_ups(no_heading) == ["kept without heading"]
+      and integrate.for_integrator(no_heading) == ["step without heading"]
+      and integrate.architecture(no_heading) == ["map without heading"],
+      (integrate.follow_ups(no_heading), integrate.for_integrator(no_heading), integrate.architecture(no_heading)))
+
 # 2. add_follow_ups: the file made with its header, a line already there not added twice (whatever its date).
 tmp = tempfile.mkdtemp(prefix="follow-ups-add-")
 got = integrate.add_follow_ups(tmp, [("H060", "retire the old flag")], date="2026-11-22")

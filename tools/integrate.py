@@ -488,17 +488,17 @@ def response_values(text, field):
 
 def follow_ups(text):
     """A response's "Follow-up: <what>" lines (a leading "- " allowed)."""
-    return response_values(text, "Follow-up")
+    return response_values(_response_body(text, fallback_all=True), "Follow-up")
 
 
 def for_integrator(text):
     """A response's "For the integrator: <what>" lines."""
-    return response_values(text, "For the integrator")
+    return response_values(_response_body(text, fallback_all=True), "For the integrator")
 
 
 def architecture(text):
     """A response's "Architecture: <what>" lines (P28): what the change does to the map or the protocol."""
-    return response_values(text, "Architecture")
+    return response_values(_response_body(text, fallback_all=True), "Architecture")
 
 
 def _strip_fenced_blocks(text):
@@ -517,11 +517,14 @@ def _strip_fenced_blocks(text):
     return "\n".join(out)
 
 
-def _response_body(text):
-    """The response portion of a handoff entry (from its Response heading onward), without fenced code blocks."""
+def _response_body(text, fallback_all=False):
+    """The response portion of a handoff entry (from its Response heading onward), without fenced code blocks.
+    With fallback_all, an entry with no Response heading falls back to the full cleaned text."""
     cleaned = _strip_fenced_blocks(text)
     m = RESPONSE_HEADING.search(cleaned)
-    return cleaned[m.start():] if m else ""
+    if m:
+        return cleaned[m.start():]
+    return cleaned if fallback_all else ""
 
 
 def changed_from_brief(text):

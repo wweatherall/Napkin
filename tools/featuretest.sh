@@ -20,7 +20,7 @@ for f in worker/test_*.py tools/test_*.py viewport/test_*.gd; do
   if [ -z "$runner" ]; then
     case "$f" in worker/*) runner=freecadcmd;; tools/*) runner=python3;; viewport/*) runner=godot;; esac
   fi
-  name=$(basename "$f"); name=${name#test_}; name=${name%.*}
+  dir=${f%%/*}; base=$(basename "$f"); base=${base#test_}; name="$dir-${base%.*}"
   case "$runner" in
     none) continue;;
     freecadcmd) cmd="$FC $f";;
@@ -32,7 +32,7 @@ for f in worker/test_*.py tools/test_*.py viewport/test_*.gd; do
 done
 
 if [ "$1" = "--list" ]; then
-  for t in "${TESTS[@]}"; do IFS='|' read -r name cmd <<< "$t"; printf '%-20s %s\n' "$name" "$cmd"; done
+  for t in "${TESTS[@]}"; do IFS='|' read -r name cmd <<< "$t"; printf '%-26s %s\n' "$name" "$cmd"; done
   exit 0
 fi
 

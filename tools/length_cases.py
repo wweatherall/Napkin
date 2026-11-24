@@ -31,6 +31,30 @@ sqrt(16mm)|abs(-5)|abs(-5mm)|pi|pi*10|e|2e3|1e2mm|1.5e1|.5|5.|1 + 2 mm|6/2mm|2mm
 
 CURATED = [c for c in CURATED.replace("\n", "").split("|") if c != ""]
 
+DEFAULT_UNIT = [
+    ("12", "in"),
+    ("0.75", "in"),
+    ("3/4", "in"),
+    ("2 + 3", "in"),
+    ("(24 - 2) / 4", "in"),
+    ("-6", "in"),
+    ("0", "in"),
+    ("19mm", "in"),
+    ("1ft", "in"),
+    ("1' 6\"", "in"),
+    ("1 1/2\"", "in"),
+    ("8' 3 1/4\"", "in"),
+    ("99 1/4\"", "in"),
+    ("99.25\"", "in"),
+    ("1in + 5mm", "in"),
+    ("1/0", "in"),
+    ("2 + 19mm", "in"),
+    ("2", "cm"),
+    ("12.5", "cm"),
+    ("1.5", "m"),
+    ("0.25", "m"),
+]
+
 
 def pieces(rng):
     """Numbers and lengths the way people type them."""
@@ -73,6 +97,12 @@ def main():
         except Exception:
             mm = None
         cases.append({"text": t, "mm": mm})
+    for t, unit in DEFAULT_UNIT:
+        try:
+            mm = evaluate(t, unit)
+        except Exception:
+            mm = None
+        cases.append({"text": t, "default_unit": unit, "mm": mm})
     out = os.path.join(ROOT, "tests", "length_cases.json")
     with open(out, "w") as f:
         json.dump({"made_by": "tools/length_cases.py with FreeCAD's length_input.evaluate", "cases": cases}, f,

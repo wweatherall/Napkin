@@ -42,8 +42,10 @@ rc, out = run(SCRIPT, "--list")
 lines = [l for l in out.splitlines() if l.strip()]
 for f, runner in BEFORE.items():
     key = "res://" + f[len("viewport/"):] if f.startswith("viewport/") else f
+    folder = f.split("/", 1)[0]
+    expected_name = f"{folder}-{os.path.splitext(os.path.basename(f))[0].removeprefix('test_')}"
     hit = [l for l in lines if l.endswith(" " + key) or (" " + key + " ") in l or l.endswith(key)]
-    check(f"--list runs {f} with {runner}", rc == 0 and hit and runner in hit[0], out)
+    check(f"--list runs {f} with {runner}", rc == 0 and hit and hit[0].split()[0] == expected_name and runner in hit[0], out)
 for helper in ("worker/test_load.py", "worker/test_native_common.py", "tools/test_check_architecture.py"):
     check(f"--list leaves out {helper} (runner: none)", not any(l.endswith(helper) for l in lines), out)
 found = set()
@@ -79,7 +81,7 @@ try:
     with open(os.path.join(tmp, "tools", "test_silent.py"), "w") as f:
         f.write('print("all fine, honest")\n')
     rc, out = run(fake, outdir)
-    check("a file that prints no summary line fails, by name", rc != 0 and "silent did not finish" in out, out)
+    check("a file that prints no summary line fails, by name", rc != 0 and "tools-silent did not finish" in out, out)
     os.remove(os.path.join(tmp, "tools", "test_silent.py"))
     with open(os.path.join(tmp, "tools", "test_broken.py"), "w") as f:
         f.write('print("BROKEN TESTS: 1 passed, 1 failed")\n')
@@ -89,7 +91,23 @@ try:
     with open(os.path.join(tmp, "tools", "test_exit.py"), "w") as f:
         f.write('import sys\nprint("EXAMPLE TESTS: 1 passed, 0 failed")\nsys.exit(7)\n')
     rc, out = run(fake, outdir)
-    check("a passing summary with a non-zero exit fails, by name", rc != 0 and "[exit] exited 7" in out, out)
+    check("a passing summary with a non-zero exit fails, by name", rc != 0 and "[tools-exit] exited 7" in out, out)
+    os.remove(os.path.join(tmp, "tools", "test_exit.py"))
+    # Stand-in pair of the same basename in worker/ and viewport/ keeps two separate logs (H123).
+    with open(os.path.join(tmp, "worker", "test_same.py"), "w") as f:
+        f.write('# runner: python3\nprint("WORKER SAME TESTS: 1 passed, 0 failed")\n')
+    with open(os.path.join(tmp, "viewport", "test_same.gd"), "w") as f:
+        f.write('# runner: python3\nprint("VIEWPORT SAME TESTS: 2 passed, 0 failed")\n')
+    rc, out = run(fake, "--list")
+    check("stand-in pair gets distinct folder-prefixed names in --list",
+          rc == 0 and "worker-same " in out and "viewport-same " in out, out)
+    pair_out = os.path.join(tmp, "pair-out")
+    rc, out = run(fake, pair_out)
+    check("stand-in pair keeps two separate logs and reports both summaries",
+          rc == 0 and "WORKER SAME TESTS: 1 passed, 0 failed" in out
+          and "VIEWPORT SAME TESTS: 2 passed, 0 failed" in out
+          and os.path.isfile(os.path.join(pair_out, "worker-same.log"))
+          and os.path.isfile(os.path.join(pair_out, "viewport-same.log")), out)
 finally:
     shutil.rmtree(tmp, ignore_errors=True)
 
