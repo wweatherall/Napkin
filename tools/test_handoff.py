@@ -103,5 +103,111 @@ with TemporaryDirectory(prefix="handoff-test-") as folder:
     accepted = run(root, *git_commit)
     check("hook ignores untouched briefs and archive wording", accepted.returncode == 0, accepted.stderr)
 
+with TemporaryDirectory(prefix="handoff-archive-test-") as folder:
+    base = Path(folder)
+    root = base / "repo"
+    bare = base / "origin.git"
+    briefs = root / handoff.FOLDER
+    briefs.mkdir(parents=True)
+    (root / "tools").mkdir()
+    (root / ".githooks").mkdir()
+    (root / handoff.HANDOFF).write_text(
+        f"# Handoff\n\n## Open exchanges\n\n{handoff.START}\n\n(none open)\n\n{handoff.END}\n\n## Archived\n"
+    )
+    (root / handoff.ARCHIVE).write_text("# Archive\n")
+    (root / "BOARD.md").write_text("# Board\n")
+    (root / "other.txt").write_text("v1\n")
+    for hid, slug_name in (("H020", "plain"), ("H021", "commit"), ("H022", "push")):
+        (briefs / f"{hid}-{slug_name}.md").write_text(
+            f"### {hid} — Note {slug_name}\n\nAuthor: Gemini | Date: 2026-11-23 | Status: open | For: the integrator\n\n"
+            f"Touches: nothing.\n\nBody for {hid}.\n"
+        )
+    shutil.copy(ROOT / "tools/handoff.py", root / "tools/handoff.py")
+    shutil.copy(ROOT / ".githooks/pre-commit", root / ".githooks/pre-commit")
+    run(root, sys.executable, "tools/handoff.py", "list", must_pass=True)
+    run(root, "git", "init", "-q", "-b", "main", must_pass=True)
+    run(root, "git", "config", "user.email", "t@example.invalid", must_pass=True)
+    run(root, "git", "config", "user.name", "Tester", must_pass=True)
+    run(root, "git", "add", "-A", must_pass=True)
+    run(root, "git", "commit", "-qm", "base", must_pass=True)
+    run(base, "git", "init", "-q", "--bare", str(bare), must_pass=True)
+    run(root, "git", "remote", "add", "origin", str(bare), must_pass=True)
+    run(root, "git", "push", "-q", "origin", "main", must_pass=True)
+
+    # 1. Plain archive moves the entry without committing.
+    res = run(root, sys.executable, "tools/handoff.py", "archive", "H020")
+    check("plain archive moves entry and leaves git history unchanged",
+          res.returncode == 0 and "archived H020" in res.stdout and "committed" not in res.stdout
+          and not (briefs / "H020-plain.md").exists()
+          and "### H020 — Note plain" in (root / handoff.ARCHIVE).read_text()
+          and run(root, "git", "rev-list", "--count", "HEAD").stdout.strip() == "1",
+          res.stdout + res.stderr)
+    run(root, "git", "add", "-A", must_pass=True)
+    run(root, "git", "commit", "-qm", "commit H020", must_pass=True)
+    run(root, "git", "push", "-q", "origin", "main", must_pass=True)
+
+    # 2. Refuses --commit when unrelated changes are staged, leaving H021 untouched.
+    (root / "other.txt").write_text("v2\n")
+    run(root, "git", "add", "other.txt", must_pass=True)
+    res = run(root, sys.executable, "tools/handoff.py", "archive", "H021", "--commit")
+    check("archive --commit refuses when unrelated files are staged without mutating H021",
+          res.returncode != 0 and "staged changes" in (res.stdout + res.stderr)
+          and (briefs / "H021-commit.md").exists(), res.stdout + res.stderr)
+    run(root, "git", "reset", "-q", "HEAD", "other.txt", must_pass=True)
+
+    # 3. Refuses --commit when BOARD.md is dirty on main, leaving H021 untouched.
+    (root / "BOARD.md").write_text("# Board dirty\n")
+    res = run(root, sys.executable, "tools/handoff.py", "archive", "H021", "--commit")
+    check("archive --commit refuses when BOARD.md is dirty on main without mutating H021",
+          res.returncode != 0 and "uncommitted changes" in (res.stdout + res.stderr)
+          and (briefs / "H021-commit.md").exists(), res.stdout + res.stderr)
+    (root / "BOARD.md").write_text("# Board\n")
+
+    # 4. Refuses --commit when .git is not writable (sandbox simulation), leaving H021 untouched.
+    git_dir = root / ".git"
+    orig_mode = git_dir.stat().st_mode
+    try:
+        git_dir.chmod(0o555)
+        res = run(root, sys.executable, "tools/handoff.py", "archive", "H021", "--commit")
+    finally:
+        git_dir.chmod(orig_mode)
+    check("archive --commit refuses when .git is unwritable and leaves working tree untouched",
+          res.returncode != 0 and "not writable" in (res.stdout + res.stderr)
+          and (briefs / "H021-commit.md").exists(), res.stdout + res.stderr)
+
+    # 5. archive --commit succeeds even with an unrelated unstaged file (does not stage other.txt).
+    res = run(root, sys.executable, "tools/handoff.py", "archive", "H021", "--commit")
+    head_msg = run(root, "git", "log", "-1", "--format=%s").stdout.strip()
+    committed_files = set(run(root, "git", "diff-tree", "--no-commit-id", "--name-only", "-r", "HEAD").stdout.splitlines())
+    check("archive --commit stages and commits only the three archive files",
+          res.returncode == 0 and "archived H021" in res.stdout and "committed " in res.stdout
+          and head_msg == "Archive H021 — Note commit"
+          and committed_files == {handoff.HANDOFF, handoff.ARCHIVE, f"{handoff.FOLDER}/H021-commit.md"}
+          and "other.txt" in run(root, "git", "status", "--porcelain").stdout,
+          res.stdout + res.stderr + " | " + str(committed_files))
+    run(root, "git", "checkout", "--", "other.txt", must_pass=True)
+
+    # 6. Refuses --push off main without mutating H022.
+    run(root, "git", "checkout", "-qb", "feature", must_pass=True)
+    res = run(root, sys.executable, "tools/handoff.py", "archive", "H022", "--push")
+    check("archive --push refuses off main and leaves H022 untouched",
+          res.returncode != 0 and "not 'main'" in (res.stdout + res.stderr)
+          and (briefs / "H022-push.md").exists(), res.stdout + res.stderr)
+    run(root, "git", "checkout", "-q", "main", must_pass=True)
+
+    # 7. archive --push on main archives, commits, and pushes origin/main in one command.
+    res = run(root, sys.executable, "tools/handoff.py", "archive", "H022", "--push")
+    local_sha = run(root, "git", "rev-parse", "main").stdout.strip()
+    remote_sha = run(base, "git", "--git-dir", str(bare), "rev-parse", "main").stdout.strip()
+    check("archive --push on main archives, commits and pushes origin/main",
+          res.returncode == 0 and "archived H022" in res.stdout and "committed " in res.stdout
+          and "pushed main" in res.stdout and local_sha == remote_sha
+          and not (briefs / "H022-push.md").exists(),
+          res.stdout + res.stderr)
+
+    # 8. Unknown flag exits 2.
+    res = run(root, sys.executable, "tools/handoff.py", "archive", "H022", "--bogus")
+    check("archive rejects unknown flags with exit 2", res.returncode == 2, res.stdout + res.stderr)
+
 print(f"HANDOFF TESTS: {sum(RESULTS)} passed, {len(RESULTS) - sum(RESULTS)} failed")
 raise SystemExit(0 if all(RESULTS) else 1)

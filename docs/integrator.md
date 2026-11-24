@@ -6,7 +6,9 @@ Architecture: lines, the response) and CLAUDE.md (commit trailers); this page sa
 
 ## The role and the lock
 - One Claude session is the integrator (P16), and it holds the lock (`python3 tools/integrator.py status`, P19).
-  Start with `python3 tools/startup.py --role integrator` to get the checklist and any open notes for the integrator.
+  Start with `python3 tools/startup.py --role integrator` to get the checklist and any open notes for the integrator
+  (pre-/clear state notes are printed inline; archive, commit and push one in a single step with
+  `python3 tools/handoff.py archive <ID> --push`).
   You're the integrator only if William said so in this session: `python3 tools/integrator.py take <your session
   name>` (refused if another holds it: ask William; after a context clear he says so and you run it with
   `--william`, P19).

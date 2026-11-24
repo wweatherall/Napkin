@@ -177,7 +177,7 @@ joined_acts = "\n".join(acts)
 check("integrator_next_actions keeps authority separate and surfaces merge, waiting, done, stale, state note, watch",
       "does not grant authority" in joined_acts and "Interrupted merge:" in joined_acts
       and "job.py answer H125" in joined_acts and "integrate.py gemini/h128-loops" in joined_acts
-      and "stale job H129" in joined_acts and "handoff.py archive H131" in joined_acts
+      and "stale job H129" in joined_acts and "handoff.py archive H131 --push" in joined_acts
       and "watch --next" in joined_acts)
 
 summary_lines = s.role_summary("gemini-maple", ["H131"], 2, None, in_job_id="H125")
@@ -190,6 +190,7 @@ check("role_summary summarizes lock, state note, ready count, merge state and de
 check("role_brief returns checklists for integrator and worker",
       any("docs/integrator.md" in l for l in s.role_brief("integrator"))
       and any("watch --next" in l for l in s.role_brief("integrator"))
+      and any("archive <ID> --push" in l for l in s.role_brief("integrator"))
       and any("BOARD.md" in l for l in s.role_brief("worker"))
       and any("job.py done" in l for l in s.role_brief("worker")))
 

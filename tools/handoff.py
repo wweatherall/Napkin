@@ -11,8 +11,10 @@ and an open list this script builds from the folder, between its two marker line
                                            before T77) updates its file, if only responses were added
   python3 tools/handoff.py check [H037 ...]  validate Touches (all open and queued entries by default)
   python3 tools/handoff.py overlaps         list files two open jobs both touch (P11; queued jobs don't count); exit 1 if any
-  python3 tools/handoff.py archive H037    move the entry to the bottom of docs/handoff-archive.md, word for word,
-                                           and add its line under "Archived" (outcome: its Resolution line)
+  python3 tools/handoff.py archive H037 [--commit | --push]
+                                           move the entry to the bottom of docs/handoff-archive.md, word for word,
+                                           and add its line under "Archived" (outcome: its Resolution line); --commit
+                                           stages and commits those three files with hooks; --push also pushes main
 
 A new entry on a branch is docs/handoff/H-new-N-slug.md with "### H-new-N — Subject" (N = 1, 2 ...); the
 number is given at merge (tools/number_ids.py)."""
@@ -130,12 +132,49 @@ def split(root):
     return written
 
 
-def archive(root, hid):
-    """Move entry hid (e.g. "H037") to the archive's bottom and index it under "## Archived" (newest first)."""
+def _git(root, *args):
+    return subprocess.run(["git", *args], cwd=root, capture_output=True, text=True)
+
+
+def _archive_entry_file(root, hid):
     match = [n for n, _, _ in entries(root) if n.split("-")[0] == hid]
     if len(match) != 1:
         raise SystemExit(f"no single {FOLDER}/{hid}-*.md (found {match})")
-    path = os.path.join(root, FOLDER, match[0])
+    return match[0]
+
+
+def _preflight_commit(root, entry_name, push=False):
+    """Verify git state and .git writability before mutating files so a sandbox retry leaves the tree clean."""
+    branch = _git(root, "branch", "--show-current").stdout.strip()
+    if push and branch != "main":
+        raise SystemExit(f"refused --push: on {branch or '(detached)'!r}, not 'main' (use --commit instead)")
+    staged = [l for l in _git(root, "diff", "--cached", "--name-only").stdout.splitlines() if l.strip()]
+    if staged:
+        raise SystemExit(f"refused --commit: staged changes already present ({', '.join(staged)})")
+    targets = [HANDOFF, ARCHIVE, f"{FOLDER}/{entry_name}"]
+    if branch == "main" and os.path.exists(os.path.join(root, "BOARD.md")):
+        targets.append("BOARD.md")
+    dirty = [l for l in _git(root, "status", "--porcelain", "--", *targets).stdout.splitlines() if l.strip()]
+    if dirty:
+        names = [l[3:] for l in dirty]
+        raise SystemExit(f"refused --commit: target files have uncommitted changes ({', '.join(names)})")
+    git_dir = _git(root, "rev-parse", "--git-dir").stdout.strip()
+    if not git_dir:
+        raise SystemExit("cannot commit: not inside a git repository")
+    git_dir = git_dir if os.path.isabs(git_dir) else os.path.join(root, git_dir)
+    probe = os.path.join(git_dir, f".handoff-write-probe-{os.getpid()}")
+    try:
+        fd = os.open(probe, os.O_CREAT | os.O_EXCL | os.O_WRONLY, 0o600)
+        os.close(fd)
+        os.unlink(probe)
+    except OSError as exc:
+        raise SystemExit(f"cannot commit: .git is not writable ({exc}; re-run outside sandbox)")
+
+
+def archive(root, hid):
+    """Move entry hid (e.g. "H037") to the archive's bottom and index it under "## Archived" (newest first)."""
+    entry_name = _archive_entry_file(root, hid)
+    path = os.path.join(root, FOLDER, entry_name)
     body = open(path, encoding="utf-8").read().strip("\n")
     head = next(l[4:].strip() for l in body.split("\n") if l.startswith("### "))
     res = [l[len("Resolution:"):].strip() for l in body.split("\n") if l.startswith("Resolution:")]
@@ -152,6 +191,30 @@ def archive(root, hid):
     os.remove(path)
     write_list(root)
     return head
+
+
+def archive_and_commit(root, hid, commit=False, push=False):
+    """Archive hid and, when requested, stage+commit with tracked hooks and push main in one step."""
+    entry_name = _archive_entry_file(root, hid)
+    if commit or push:
+        _preflight_commit(root, entry_name, push=push)
+    head = archive(root, hid)
+    if not (commit or push):
+        return head, None, False
+    add = _git(root, "add", "--", HANDOFF, ARCHIVE, f"{FOLDER}/{entry_name}")
+    if add.returncode != 0:
+        raise SystemExit(f"archived {head}, but git add failed: {(add.stderr or add.stdout).strip()}")
+    commit_cmd = (["-c", "core.hooksPath=.githooks"] if os.path.isdir(os.path.join(root, ".githooks")) else [])
+    commit_cmd += ["commit", "-m", f"Archive {head}"]
+    done = _git(root, *commit_cmd)
+    if done.returncode != 0:
+        raise SystemExit(f"archived {head}, but git commit failed: {(done.stderr or done.stdout).strip()}")
+    sha = _git(root, "rev-parse", "--short", "HEAD").stdout.strip()
+    if push:
+        pushed = _git(root, "push", "-q", "origin", "main")
+        if pushed.returncode != 0:
+            raise SystemExit(f"archived and committed {sha}, but git push failed: {(pushed.stderr or pushed.stdout).strip()}")
+    return head, sha, push
 
 
 PATH = re.compile(r"(?<![\w/.-])((?:[\w.-]+/)+(?:[\w.*-]+)?|[\w-]+\.(?:md|py|gd|sh|json|cfg|gdshader))(?![\w/])")
@@ -378,8 +441,19 @@ def main():
     elif args[:1] == ["split"]:
         for name in split(root):
             print(f"moved {name[:-3].split('-')[0]} to {FOLDER}/{name}")
-    elif args[:1] == ["archive"] and len(args) == 2:
-        print(f"archived {archive(root, args[1])}")
+    elif args[:1] == ["archive"] and len(args) >= 2:
+        hid, flags = args[1], args[2:]
+        if hid.startswith("-") or any(f not in ("--commit", "--push") for f in flags):
+            print(__doc__)
+            sys.exit(2)
+        push = "--push" in flags
+        commit = push or "--commit" in flags
+        head, sha, pushed = archive_and_commit(root, hid, commit=commit, push=push)
+        print(f"archived {head}")
+        if sha:
+            print(f"committed {sha} Archive {head}")
+        if pushed:
+            print("pushed main")
     else:
         print(__doc__)
         sys.exit(2)

@@ -405,7 +405,10 @@ def integrator_next_actions(lock_holder, state_note_ids, merge_info, live_jobs, 
         elif st == "returned":
             actions.append(f"Returned job {jid} waits for a {info.get('agent', '?')} worker")
     for hid in state_note_ids:
-        actions.append(f"Read {hid} above; once caught up, archive it manually (python3 tools/handoff.py archive {hid})")
+        actions.append(
+            f"Read {hid} above (already inline; no need to open its file or BOARD.md); once caught up, "
+            f"archive, commit and push in one step: python3 tools/handoff.py archive {hid} --push"
+        )
     actions.append("Arm queue watch in the background: python3 tools/job.py watch --next (no timed check-ins, P39)")
     if ready_count and not live_jobs:
         noun = "job" if ready_count == 1 else "jobs"
@@ -438,7 +441,7 @@ def role_brief(role):
             "  Guide: read docs/integrator.md (owns BOARD.md, ARCHITECTURE.md, docs/protocol.md; only you merge/push).",
             "  Lock: python3 tools/integrator.py take <session> --william (after /clear or when William names you; --role never grants authority).",
             "  Watch: run python3 tools/job.py watch --next in the background (no timed check-ins, P39).",
-            "  Notes: read any open notes for the integrator above (archive pre-/clear notes manually once read).",
+            "  Notes: pre-/clear notes are printed inline above; archive, commit and push in one step with python3 tools/handoff.py archive <ID> --push.",
         ]
     if role == "worker":
         return [
