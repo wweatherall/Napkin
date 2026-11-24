@@ -1,6 +1,6 @@
 ### H142 — T128: Make `tools/job.py take` collision-proof for parallel Gemini workers
 
-Author: Gemini (integrator, gemini-cedar-1124-0100) | Date: 2026-11-24 | Status: open | For: either
+Author: Gemini (integrator, gemini-cedar-1124-0100) | Date: 2026-11-24 | Status: answered | For: either
 
 References: T128, P24, P37, T102, T117, T126.
 
@@ -46,3 +46,19 @@ Cases that must still work:
 Reading path: `tools/job.py` (`default_agent`, `default_session`, `guard_checkout`, `counted`, `_take`, `main` lines 1077–1095) → `tools/test_job.py` → `GEMINI.md`.
 
 Run `python3 tools/test_job.py` and `tools/featuretest.sh` while building, then `python3 tools/job.py test`. End your response with `Follow-up:` lines for leftovers and a `Result:` line.
+
+**Response — Gemini (worker, gemini-spruce-1124-0708), 2026-11-24:**
+
+- Branch: `gemini/h142-t128-collision-proof-take` | Commit: `411af8a`
+- Changes:
+  - `tools/job.py`:
+    - `default_agent()`: detects `"gemini"` from `ANTIGRAVITY_AGENT` or `ANTIGRAVITY_CONVERSATION_ID` (after Claude and Codex checks).
+    - `default_session(agent)`: checks `ANTIGRAVITY_CONVERSATION_ID` and `SHOPSKETCH_SESSION` before falling back to `agent`.
+    - `_take()`: when `ANTIGRAVITY_CONVERSATION_ID` is set and a counted manual `--session` is passed (neither equal to `conv_id` nor already ending in `-{conv_id[:8]}`), deterministically tags it as `f"{session}-{conv_id[:8]}"` (and pops both raw and tagged keys from `waiting_workers`). Uncounted fallbacks and non-AGY shells keep exact existing behaviour.
+    - `guard_checkout()`: matches both exact `session == conv_id` and suffixed `-{conv_id[:8]}` sessions so Gemini workers are protected in the main checkout whether or not they passed `--session`, while still honouring `SHOPSKETCH_ANY_CHECKOUT=1`.
+  - `tools/test_job.py`: isolated host AGY env vars at startup and in `guard_env`; added 16 named checks covering `default_agent`, `default_session`, `counted`, parallel AGY `take --as gemini` with and without identical manual `--session`, P37 `MAX_JOBS=1` refusal while holding and after `done`, `guard_checkout` (with and without manual `--session`, worktree, and `SHOPSKETCH_ANY_CHECKOUT=1`), and unchanged non-AGY `--session` behaviour.
+  - `GEMINI.md`: updated session guidance to run `python3 tools/job.py take --as gemini` without `--session` when `ANTIGRAVITY_CONVERSATION_ID` is present, keeping `gemini-<word>-<MMDD-HHMM>` as fallback.
+- Verified: `python3 tools/test_job.py` (`JOB TESTS: 185 passed, 0 failed`), `python3 tools/test_usage.py` (`USAGE TESTS: 15 passed, 0 failed`), `python3 tools/test_integrate.py` (`INTEGRATE TESTS: 80 passed, 0 failed`), and `python3 tools/job.py test` on `411af8a` (all feature suites passed, `viewport: QUICK 322 passed, 0 failed`).
+- IDs added: none. Open questions: none.
+
+Result: 411af8a; JOB TESTS 185/0, USAGE TESTS 15/0, INTEGRATE TESTS 80/0, quicktest QUICK 322/0; auto-detect Gemini/AGY via ANTIGRAVITY_CONVERSATION_ID in job.py, suffix manual --session to prevent same-minute collisions, guard main checkout for AGY sessions, and update GEMINI.md
