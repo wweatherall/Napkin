@@ -44,7 +44,7 @@ One subject per decision; the Decisions column is generated.
 | Push/Pull | Extruding, cutting, and fitting a board's end to another board. | I05, I08, I23, I24, I34, I40, I41, I45, I56 |
 | Move, copies and arrays | Move, linked copies, arrays, mirrors, components and assemblies. | A10, A11b, A22c, A26, I10, I12c, I13b, I14, I15, I16, I17, I20, I21, I25, I28, I32, I46, I52, I53, I66, I69 |
 | Snapping | Points, edges, axes and the grid, shared by every tool. | I03b, I18, I19 |
-| Measurements | Typed values, units and the measurements box. | I35, I48, I57, I59, I62, I67 |
+| Measurements | Typed values, units and the measurements box. | I35, I48, I57, I59, I62, I67, I70 |
 | View and look | Camera and input devices, panels, the Mac look, lines, lighting, hiding. | I22, I30, I31, I36, I37, I63, W10, W11, W12, W14 |
 | Feedback | The confirmation wave and what colours mean. | I06, W01, W02, W03, W04, W05, W06, W07, W08, W09 |
 | Materials | Wood cards, grain and painting. | A05, I33, M01, M02, M03, M04 |
@@ -59,10 +59,10 @@ Each states one idea; Explains (generated) lists the decisions that name it. Wil
 |---|---|---|---|---|
 | G01 | Feel first: a draft appears the moment you act and input never waits on FreeCAD; FreeCAD catches up and the wave confirms it. | Active | A02, A06, A08, A23, A24, A27, A28, A29, I01, I11, I16, I17, I23, I43, I44, I45, I68, W01, W02, W03, W04, W07, W09 | 2026-11-22 |
 | G02 | The .FCStd file is the model: every action becomes ordinary, editable FreeCAD features, and Shop Sketch is a view of them. | Active | A05, A07, A09, A21, A23, A25, A26, D01, D02, I36, I37, I42, I68, M01, M02, M03, P04, P06 | 2026-11-22 |
-| G03 | Work as SketchUp does, and as a Mac app does, unless there's a reason not to; a decision that departs from SketchUp says why. | Active | A06, A30, I01, I02, I04b, I05, I09, I10, I14, I18, I22, I28, I30, I31, I37, I38, I49, I50, I51, I58, I59, I60, I61, I62, I64, I65, I66, I67, I69, P04, W14 | 2026-11-22 |
+| G03 | Work as SketchUp does, and as a Mac app does, unless there's a reason not to; a decision that departs from SketchUp says why. | Active | A06, A30, I01, I02, I04b, I05, I09, I10, I14, I18, I22, I28, I30, I31, I37, I38, I49, I50, I51, I58, I59, I60, I61, I62, I64, I65, I66, I67, I69, I70, P04, W14 | 2026-11-22 |
 | G04 | Relationships stay live: copies, arrays, mirrors and fits follow later edits, and you can detach one on purpose. | Active | A10, A11b, A22c, A26, I21, I24, I25, I28, I32, I34, I40, I41, I46, I52, I53, I69 | 2026-11-22 |
 | G05 | One key per idea, meaning the same thing in every tool. | Active | I03b, I12c, I15, I20, I33, I48, I50, I56 | 2026-11-22 |
-| G06 | Typed values follow what you're doing: the direction you drag, and the model's units for a bare number; any unit you type, written however you write it, is understood. | Active | I02, I13b, I14, I19, I35, I57, I59, I62, I63, I65, I66, I67 | 2026-11-22 |
+| G06 | Typed values follow what you're doing: the direction you drag, and the model's units for a bare number; any unit you type, written however you write it, is understood. | Active | I02, I13b, I14, I19, I35, I57, I59, I62, I63, I65, I66, I67, I70 | 2026-11-22 |
 | G07 | One meaning per colour: violet cuts, red rejects, amber is new; nothing else uses them except the red/green/blue axis guides. | Active | I21, W05, W06, W08, W10 | 2026-11-22 |
 | G08 | Refer to geometry, never to FreeCAD's internal numbers. | Active | A03, I24, I40, I42 | 2026-11-22 |
 | G09 | Never lose work: always saved, atomically, and undo crosses sessions without hiding changes made in FreeCAD. | Active | A24, A25, A27, A28, A32, A36, A37, A39, I54, I55, U01, U02, U03, W13 | 2026-11-22 |
@@ -200,6 +200,7 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | I59 | A bare number typed in the measurements box (no unit) is in the model's display units (I57): inches in Feet and inches or Inches, the chosen m / cm / mm in Metric. A typed unit always wins. | Active | Refines T32 (bare = mm) | Your call, 2026-11-22 (T66), as SketchUp. | G03, G06 | Not built: T66 (measure_box.gd default_unit) | 2026-11-22 |
 | I62 | A model with no units saved in it (made before T66, or its saved value unreadable) opens in the default units the user has set (once Preferences exist, T111), else the last units used, as a new model does. It is then saved with them. | Active | Refines I57 | William, 2026-11-22 (H052's brief): old models shouldn't jump to a fixed default. | G03, G06 | Not built: H052 (worker/session.py, viewport units) | 2026-11-22 |
 | I67 | A document with no units explicitly set yet (new model or pre-T66 model without saved ShopSketchUnits) starts in the previous/preference units (I62), and adopts the unit of the first typed length that includes an explicit unit (saving it to the .FCStd and remembering it as last used); bare numbers keep the previous settings. | Active | Refines I57, I59, I62 | William, 2026-11-24: document units should reflect the first typed length if unset, else previous settings. | G03, G06 | viewport/measure_box.gd, viewport/units.gd | 2026-11-24 |
+| I70 | On a first-ever typed length with no unit suffix (no preferences.json units.default, no settings.cfg units.last, and no saved ShopSketchUnits on the model), do not commit the bare number yet; keep the active gesture live and show in the status bar: "Include a unit on your first length (e.g. 4\" or 100mm); future lengths use that system (change in Preferences)." Once a unit has been chosen, typed, or saved, future bare lengths commit immediately in that system and lock the document units. | Active | Builds on I67, I62, I59 | William, 2026-11-24: avoid silently guessing units on a brand-new user's first bare length; guide them once in the status bar without breaking the drag. | G03, G06 | viewport/measure_box.gd | 2026-11-24 |
 
 ### View and look
 
