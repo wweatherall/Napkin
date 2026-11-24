@@ -1,6 +1,6 @@
 ### H128 — T109: closed loops of mixed lines and arcs form pushable faces with exact arcs
 
-Author: Gemini (integrator, gemini-cedar-1123-1844) | Date: 2026-11-23 | Status: open | For: either
+Author: Gemini (integrator, gemini-cedar-1123-1844) | Date: 2026-11-23 | Status: answered | For: either
 
 References: T109, I49, I51, I60.
 
@@ -47,7 +47,9 @@ Run `tools/featuretest.sh` while building, quick test after viewport changes, th
 
 #### Response (Gemini, 2026-11-24)
 
-Branch: `gemini/h128-t109-mixed-line-arc-loops`.
+Branch: `gemini/h128-t109-mixed-line-arc-loops`, code commit `8d42336`.
+
+Verified: `python3 tools/job.py test` on `8d42336` passed: all 37 feature suites passed (including `SCENARIO TESTS: 646 passed, 0 failed` with `99_mixed_loops.py`, `99_regions.py`, `99_arcs.py`, `99_tangent_corner.py`; `REGION TESTS: 67 passed, 0 failed`), and `viewport: QUICK 326 passed, 0 failed` (including `_ground_mixed_loop` in `viewport/tests/quick/arc.gd`). No new IDs added; no open questions.
 
 What changed:
 - `worker/line.py` (`ground_region_sheet`, `native_region`): added `ground_region_sheet(predicted, normal, drawings)` to build a padded planar bounding sheet on the region's plane, and extended `native_region(..., is_ground=False)` so ground-loop refinement rejects results that reach the synthetic sheet's outer wire (unclosed loops) and bounds area discrepancy against `predicted` when refining on a synthetic ground sheet.
@@ -59,3 +61,4 @@ What changed:
 Architecture: `worker/line.py` (`ground_region_sheet`, `native_region`) and `worker/push.py` (`op_push_pull`) now refine curved ground-only `target.region` extrusions against a synthetic planar bounding sheet so closed mixed line+arc ground loops keep exact FreeCAD `Part.Circle` edges instead of faceted polygons.
 Architecture: `viewport/regions.gd` (`all_faces`) enumerates all bounded coplanar faces with hole subtraction, and `viewport/presenter.gd` (`_refresh_loop_drafts`) maintains a non-colliding translucent fill mesh in `drafts["line:loops"]` for closed ground `loose_lines` loops not already covered by a `line-profile` `rect` draft.
 Follow-up: none.
+Result: 8d42336; job.py test passed (all 37 feature suites, SCENARIO 646/646, REGION 67/67, viewport QUICK 326/326); curved ground target.region loops now refine through native_region to keep exact FreeCAD Part.Circle edges, and closed ground loose_lines loops show translucent viewport fills via Regions.all_faces and presenter.gd drafts["line:loops"].
