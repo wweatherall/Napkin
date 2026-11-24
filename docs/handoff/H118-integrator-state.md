@@ -39,3 +39,8 @@ Updated 2026-11-23 evening (fretchup-74, before running out of context):
   if the window is gone, `job.py return H122 "resume from the worktree's uncommitted edits"`.
 - H109 waits on H097 (both touch viewport/test_document.gd). H123 Ready.
 - Small fixes this session: none.
+
+Hand-over (P48, William, 2026-11-23): Gemini neon is the full integrator for a couple of days. Main is tagged
+`before-gemini-integrator`. Gemini: take the lock with `python3 tools/integrator.py take <your session> --william`,
+re-arm the queue watch, and work from docs/integrator.md as written. Claude, when back: review
+`git log before-gemini-integrator..main` with William and decide what stays; then take the lock back.
