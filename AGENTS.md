@@ -3,7 +3,8 @@
 [CLAUDE.md](CLAUDE.md) describes the project; its folder guides apply to you too. Other questions:
 [ARCHITECTURE.md#documentation-ownership](ARCHITECTURE.md#documentation-ownership).
 
-- Start every session with `python3 tools/startup.py` (add a Work list ID, e.g. `T54`, for its row).
+- Start every session with `python3 tools/startup.py --role worker` (or `--role integrator` if William named you
+  integrator; add a Work list ID, e.g. `T54`, for its row).
 - "Check the board": follow [BOARD.md](BOARD.md) with `--as codex` (your branch: `codex/<id>-<slug>`). Nothing
   Ready and you can't wait in the background: say so and stop.
 - Work only in the job's worktree; never switch branches in /Users/Will/Sites/fretchup (Claude's). Merge main into

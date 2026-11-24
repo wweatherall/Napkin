@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
 """Session startup report (T56): run this instead of reading the big documents.
 
-  python3 tools/startup.py            checkout, worktrees, recent main, unmerged agent branches, Ready board jobs,
-                                      and what waits on William (T93)
-  python3 tools/startup.py T54 [...]  also each Work list row asked for, with the rows its Covers column cites
+  python3 tools/startup.py                     full report plus a --role tip
+  python3 tools/startup.py --role integrator   full report plus open integrator notes and checklist
+  python3 tools/startup.py --role worker       lean worker report (checkout, recent main, board, queue, checklist)
+  python3 tools/startup.py [--role R] T54 ...  also each Work list row asked for, with the rows its Covers column cites
 
 Read-only. Works from any worktree: the board and the decision log are read from main (`git show main:<path>`),
 since a worktree's copy can be stale."""
@@ -253,7 +254,73 @@ def follow_up_lines(text):
     return ["  " + l.removeprefix("- ").rstrip() for l in rows] or ["  (none)"]
 
 
+ROLES = ("integrator", "worker")
+
+
+def parse_args(argv):
+    """Split [--role <name> | --role=<name>] from positional IDs -> (role or None, ids, error or None)."""
+    role, ids, i = None, [], 0
+    while i < len(argv):
+        arg = argv[i]
+        if arg == "--role":
+            if i + 1 >= len(argv):
+                return None, [], f"startup.py: --role needs a value (use: {', '.join(ROLES)})"
+            role = argv[i + 1].strip().lower()
+            i += 2
+        elif arg.startswith("--role="):
+            role = arg.split("=", 1)[1].strip().lower()
+            i += 1
+        else:
+            ids.append(arg)
+            i += 1
+    if role is not None and role not in ROLES:
+        return None, [], f"startup.py: unknown role {role!r} (use: {', '.join(ROLES)})"
+    return role, ids, None
+
+
+def integrator_notes(entries):
+    """Open handoff entries addressed to the integrator -> [(heading, 'docs/handoff/<file>')]."""
+    out = []
+    for name, text in sorted(entries.items()):
+        status = re.search(r"\| Status: ([^|\n]*)", text, re.I)
+        who = re.search(r"\| For: ([^|\n]*)", text, re.I)
+        if not status or not who:
+            continue
+        if not status.group(1).strip().lower().startswith("open"):
+            continue
+        if who.group(1).strip().lower() not in ("the integrator", "integrator"):
+            continue
+        heading = next((l.lstrip("#").strip() for l in text.splitlines() if l.startswith("### ")), name[:-3])
+        out.append((heading, f"docs/handoff/{name}"))
+    return out
+
+
+def role_brief(role):
+    """Concise checklist lines for a known role."""
+    if role == "integrator":
+        return [
+            "Integrator checklist (docs/integrator.md):",
+            "  Guide: read docs/integrator.md (owns BOARD.md, ARCHITECTURE.md, docs/protocol.md; only you merge/push).",
+            "  Lock: python3 tools/integrator.py take <session> --william (after /clear or when William names you).",
+            "  Watch: run python3 -u tools/job.py watch --next in the background (no timed check-ins, P39).",
+            "  Notes: read any open notes for the integrator above (archive pre-/clear notes once read).",
+        ]
+    if role == "worker":
+        return [
+            "Worker checklist (BOARD.md):",
+            "  Guide: follow BOARD.md (and AGENTS.md / GEMINI.md for your agent); one job per session (P37).",
+            "  Take: python3 tools/job.py take --as <claude|codex|gemini> (Gemini also passes --session <name>).",
+            "  Scope: work only in /Users/Will/Sites/fretchup-jobs/<id> and only on Touches; ask scope via job.py wait --scope.",
+            "  Done: run tools/quicktest.sh, record response + Result:, set Status: answered, run python3 tools/job.py done, tell William.",
+        ]
+    return []
+
+
 def main(argv):
+    role, ids, err = parse_args(argv)
+    if err:
+        print(err)
+        return 1
     root = git("rev-parse", "--show-toplevel").strip()
     if not root:
         print("startup.py: not inside a git checkout")
@@ -264,26 +331,28 @@ def main(argv):
 
     refs = parse_refs(git("for-each-ref", "--format=%(refname:short)|%(ahead-behind:main)|%(committerdate:short)",
                           "refs/heads", "refs/remotes", cwd=root))
-    merged = {n for n, a, b, _ in refs if a == 0 and b > 0}
-    trees = parse_worktrees(git("worktree", "list", "--porcelain", cwd=root))
-    shown = [(p, b) for p, b in trees if b not in merged or p == root]
-    print(f"Worktrees ({len(trees) - len(shown)} on merged branches hidden):")
-    for p, b in shown:
-        print(f"  {p}  [{b}]")
+    if role != "worker":
+        merged = {n for n, a, b, _ in refs if a == 0 and b > 0}
+        trees = parse_worktrees(git("worktree", "list", "--porcelain", cwd=root))
+        shown = [(p, b) for p, b in trees if b not in merged or p == root]
+        print(f"Worktrees ({len(trees) - len(shown)} on merged branches hidden):")
+        for p, b in shown:
+            print(f"  {p}  [{b}]")
 
-    import integrator
-    print(integrator.status_line(integrator.lock_path(root)))
+        import integrator
+        print(integrator.status_line(integrator.lock_path(root)))
 
     print("Recent main:")
     for l in git("log", "--oneline", "-5", "main", cwd=root).splitlines():
         print("  " + l)
 
-    unmerged, hidden = agent_branches(refs)
-    print(f"Branches with commits not on main ({hidden} merged branches hidden):")
-    for name, ahead, date in unmerged:
-        print(f"  {name}  +{ahead}  last {date}")
-    if not unmerged:
-        print("  (none)")
+    if role != "worker":
+        unmerged, hidden = agent_branches(refs)
+        print(f"Branches with commits not on main ({hidden} merged branches hidden):")
+        for name, ahead, date in unmerged:
+            print(f"  {name}  +{ahead}  last {date}")
+        if not unmerged:
+            print("  (none)")
 
     board = git("show", "main:BOARD.md", cwd=root)
     jobs = ready_jobs(board, [n for n, *_ in refs])
@@ -304,26 +373,40 @@ def main(argv):
     except Exception as e:   # the queue is a convenience here; startup still reports the rest
         print(f"Job queue: not read ({type(e).__name__}: {e})")
 
-    import handoff   # the open jobs' Touches lists, from main (P11): a file two open jobs both list
-    names = [l.split("/")[-1] for l in git("ls-tree", "--name-only", "main", "docs/handoff/", cwd=root).splitlines()
-             if l.endswith(".md")]
-    clash = handoff.overlaps_in({n: git("show", f"main:docs/handoff/{n}", cwd=root) for n in names})
-    for path, ids in clash:
-        print(f"  OVERLAP: {path} is in {' and '.join(ids)}: only one of them should be open (P11)")
-    texts = {n: git("show", f"main:docs/handoff/{n}", cwd=root) for n in names}
-    for f, b in gone_branches(texts, [r[0] for r in refs]):
-        print(f"  GONE: {f} names {b}, which no longer exists: update the note")
+    log = git("show", "main:docs/decision-log.md", cwd=root) if (role != "worker" or ids) else ""
+    if role != "worker":
+        import handoff   # the open jobs' Touches lists, from main (P11): a file two open jobs both list
+        names = [l.split("/")[-1] for l in git("ls-tree", "--name-only", "main", "docs/handoff/", cwd=root).splitlines()
+                 if l.endswith(".md")]
+        texts = {n: git("show", f"main:docs/handoff/{n}", cwd=root) for n in names}
+        clash = handoff.overlaps_in(texts)
+        for path, overlap_ids in clash:
+            print(f"  OVERLAP: {path} is in {' and '.join(overlap_ids)}: only one of them should be open (P11)")
+        for f, b in gone_branches(texts, [r[0] for r in refs]):
+            print(f"  GONE: {f} names {b}, which no longer exists: update the note")
 
-    log = git("show", "main:docs/decision-log.md", cwd=root)
-    print("Waiting on William (from main):")
-    lock_held = bool(integrator.read(integrator.lock_path(root)))
-    print("\n".join(waiting_on_william(log, texts, board, lock_held)))
-    print("Follow-ups (docs/follow-ups.md, from main):")
-    print("\n".join(follow_up_lines(git("show", "main:docs/follow-ups.md", cwd=root))))
+        print("Waiting on William (from main):")
+        lock_held = bool(integrator.read(integrator.lock_path(root)))
+        print("\n".join(waiting_on_william(log, texts, board, lock_held)))
+        print("Follow-ups (docs/follow-ups.md, from main):")
+        print("\n".join(follow_up_lines(git("show", "main:docs/follow-ups.md", cwd=root))))
+        if role == "integrator":
+            inotes = integrator_notes(texts)
+            print("Notes for the integrator (main:docs/handoff/):")
+            if inotes:
+                for heading, path in inotes:
+                    print(f"  {heading}  [{path}]")
+            else:
+                print("  (none)")
+            print("\n".join(role_brief("integrator")))
+        else:
+            print("Role tip: pass --role integrator (integrator checklist & open integrator notes) or --role worker (lean worker brief).")
+    else:
+        print("\n".join(role_brief("worker")))
 
-    if argv:
+    if ids:
         archive = git("show", "main:docs/decision-archive.md", cwd=root)
-        lines, unknown = report_ids(log, argv, archive)
+        lines, unknown = report_ids(log, ids, archive)
         print()
         print("Decision log (main:docs/decision-log.md, then main:docs/decision-archive.md):")
         print("\n".join(lines))

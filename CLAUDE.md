@@ -27,7 +27,8 @@ marked Superseded (never deleted). Ask William before countermanding an Active d
   working prototype.
 
 ## Working with Codex (ChatGPT) and other sessions
-- Start every session with `python3 tools/startup.py`. Nothing notifies either agent of the other's changes: when
+- Start every session with `python3 tools/startup.py` (pass `--role integrator` if William named you integrator, or
+  `--role worker` for a lean worker brief). Nothing notifies either agent of the other's changes: when
   you leave Codex something, tell William.
 - The integrator is the one Claude session William named, holding the lock (P16, P19); only it merges and pushes,
   and its work is in `docs/integrator.md`. Every other session is a worker: "check the board" means follow

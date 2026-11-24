@@ -121,14 +121,49 @@ check("the follow-ups section lists each open line, without its dash",
 check("no open follow-ups (or no file on main) says (none)",
       s.follow_up_lines(FU.split("## Open")[0] + "## Open\n\n(none)\n") == ["  (none)"] and s.follow_up_lines("") == ["  (none)"])
 
+check("parse_args defaults to no role and keeps positional IDs",
+      s.parse_args(["T54", "A23"]) == (None, ["T54", "A23"], None))
+check("parse_args accepts --role <name> and --role=<name> (case-insensitive) alongside IDs",
+      s.parse_args(["--role", "INTEGRATOR", "T54"]) == ("integrator", ["T54"], None)
+      and s.parse_args(["T54", "--role=worker"]) == ("worker", ["T54"], None))
+check("parse_args rejects a missing or unknown role",
+      s.parse_args(["--role"])[2] is not None and "unknown role" in s.parse_args(["--role", "wizard"])[2])
+
+INOTES = {
+    "H067-roles.md": "### H067 — Agent roles\n\nAuthor: x | Date: d | Status: open | For: the integrator\n",
+    "H131-state.md": "### H131 — Where things stand\n\nAuthor: x | Date: d | Status: open | For: integrator\n",
+    "H132-done.md": "### H132 — Old note\n\nAuthor: x | Date: d | Status: answered | For: the integrator\n",
+    "H125-job.md": "### H125 — Worker job\n\nAuthor: x | Date: d | Status: open | For: either\n",
+}
+check("integrator_notes lists only open handoffs addressed to the integrator with their paths",
+      s.integrator_notes(INOTES) == [("H067 — Agent roles", "docs/handoff/H067-roles.md"),
+                                     ("H131 — Where things stand", "docs/handoff/H131-state.md")])
+check("role_brief returns checklists for integrator and worker",
+      any("docs/integrator.md" in l for l in s.role_brief("integrator"))
+      and any("watch --next" in l for l in s.role_brief("integrator"))
+      and any("BOARD.md" in l for l in s.role_brief("worker"))
+      and any("job.py done" in l for l in s.role_brief("worker")))
+
 # A generous bound (120 s), not a machine-speed threshold: a hang still fails here, not only under job.py run (P40).
 r = subprocess.run([sys.executable, os.path.join(HERE, "startup.py")], capture_output=True, text=True, timeout=120)
-check("smoke: the real report runs and has every section",
+check("smoke: the real report runs and has every section plus the role tip",
       r.returncode == 0 and all(h in r.stdout for h in ("This checkout:", "Worktrees", "Recent main:",
                                                          "Branches with commits", "Ready on the board",
-                                                         "Waiting on William", "Follow-ups (docs/follow-ups.md")))
+                                                         "Waiting on William", "Follow-ups (docs/follow-ups.md",
+                                                         "Role tip:")))
 check("smoke: Follow-ups comes after Waiting on William",
       r.stdout.find("Follow-ups (docs/follow-ups.md") > r.stdout.find("Waiting on William"))
+r = subprocess.run([sys.executable, os.path.join(HERE, "startup.py"), "--role", "integrator"], capture_output=True, text=True, timeout=120)
+check("smoke: --role integrator prints open integrator notes and the integrator checklist",
+      r.returncode == 0 and "Notes for the integrator (main:docs/handoff/):" in r.stdout
+      and "Integrator checklist (docs/integrator.md):" in r.stdout and "Role tip:" not in r.stdout)
+r = subprocess.run([sys.executable, os.path.join(HERE, "startup.py"), "--role", "worker", "T1"], capture_output=True, text=True, timeout=120)
+check("smoke: --role worker prints a lean worker brief and still resolves IDs",
+      r.returncode == 0 and "Ready on the board" in r.stdout and "Worker checklist (BOARD.md):" in r.stdout
+      and "| T1 |" in r.stdout and "Follow-ups (docs/follow-ups.md" not in r.stdout
+      and "Waiting on William" not in r.stdout)
+r = subprocess.run([sys.executable, os.path.join(HERE, "startup.py"), "--role", "wizard"], capture_output=True, text=True, timeout=120)
+check("smoke: an unknown --role exits 1", r.returncode == 1 and "unknown role" in r.stdout)
 r = subprocess.run([sys.executable, os.path.join(HERE, "startup.py"), "T1"], capture_output=True, text=True, timeout=120)
 check("smoke: asking for T1 prints its row", r.returncode == 0 and "| T1 |" in r.stdout)
 r = subprocess.run([sys.executable, os.path.join(HERE, "startup.py"), "T99999"], capture_output=True, text=True, timeout=120)
