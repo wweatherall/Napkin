@@ -2,9 +2,9 @@
 
 Author: Gemini (integrator, gemini-cedar-1124-0100) | Date: 2026-11-24 | Status: open | For: either
 
-References: T125, G01, A24, A29, A32, A38.
+References: T125, I68, Q34, G01, A24, A29, A32, A38.
 
-Touches: worker/session.py (`_load_file`, `reload_outside`, `save`, `_write`), worker/serve.py (`run_sync`, `save_pending`), worker/test_generations.py, worker/test_serve.py, viewport/tools/push_tool.gd (`_push_hover`, `_push_drag`, `_preview_push`, `coplanar_region`), viewport/tests/quick/push.gd. Not `worker/serve.py` (`PROTOCOL_VERSION`) or `viewport/tools/push_tool.gd` (`_edge_inference`, `_choose_face`) — those are held by H125 (P45).
+Touches: worker/session.py (`_load_file`, `reload_outside`, `save`, `_write`), worker/serve.py (`run_sync`, `save_pending`), worker/test_native.py (section Q), worker/test_generations.py, worker/test_serve.py, viewport/tools/push_tool.gd (`_push_hover`, `_push_drag`, `_preview_push`, `coplanar_region`), viewport/tests/quick/push.gd. Not `worker/serve.py` (`PROTOCOL_VERSION`) or `viewport/tools/push_tool.gd` (`_edge_inference`, `_choose_face`) — those are held by H125 (P45).
 
 Why: William's real-world test file (`models/model.FCStd`, `worker.log`) exposed two concrete causes of Pull lag and file clutter:
 1. **Worker autosave stalls (1.7 s per save on a 4-hole board, up to 54 s on an 8× array):** Once a model ever had a TechDraw page (from pressing Drawing `D` once), `Session._load_file()` (`worker/session.py:381`) latches `self.drawing = True` forever. Every 0.25 s autosave then reopens `model.saving.FCStd` in FreeCAD, builds a 4-view TechDraw projection (`Front`, `Top`, `Right`, `Iso`), runs `TechDraw.viewPartAsSvg()`, and calls `d2.save()` — blocking the single-threaded worker loop while subsequent pulls wait, creating FreeCAD `.FCBak` backup files (`model.saving.*.FCBak`), and leaving `Document.Label = 'model.FCStd.saving'`.
@@ -23,24 +23,25 @@ Today (checked 2026-11-24):
   - `_push_drag()` (~178–200) calls `_preview_push(state["dist"])` on every `mouse_moved` frame without checking if `dist` and `edge_fit` changed since the last preview.
 
 Request:
-1. **Worker (`worker/session.py`, `worker/serve.py`)**:
-   - **One-shot drawing export (never latch on open or across autosaves):**
-     - In `_load_file()` and `reload_outside()`, still call `remove_drawing_pages(doc)` so opening a file with a TechDraw page stays crash-safe (Test Q), but do **not** set `self.drawing = True` on open/reload (opening a file that was once exported must never turn every future autosave into a 1.7 s TechDraw render).
-     - In `save()` / `_write()`: when `self.drawing` is `True` (explicitly requested by `req.get("drawing")` or test code like Test Q), write the TechDraw page + `views.json` on that save, and clear `self.drawing = False` once the save succeeds (keep `self.drawing = True` if `_write` raises so a retry still writes it!).
+1. **Worker (`worker/session.py`, `worker/serve.py`, `worker/test_native.py`)**:
+   - **Temporary one-shot drawing export — delete auto-created TechDraw after `views.json` (I68):**
+     - In `_load_file()` and `reload_outside()`, still call `remove_drawing_pages(doc)` so opening a file that already has a TechDraw page stays crash-safe, but do **not** set `self.drawing = True` on open/reload (opening a file with a TechDraw page must never turn future autosaves into slow TechDraw renders).
+     - When `self.drawing` is `True` (explicitly requested by `req.get("drawing")` for PDF export): generate `views.json` via `add_drawing_page` + `TechDraw.viewPartAsSvg` on a throwaway copy (or close without saving the TechDraw page back into `model.FCStd`, deleting the temporary copy right after `views.json` is written) so **no automatically created TechDraw page is saved into `model.FCStd` for now (I68; Q34 revisits keeping native pages later)**, and clear `self.drawing = False` once done (keep `self.drawing = True` on error so a retry works).
+     - Update `worker/test_native.py` section Q (~530–544) so it still tests the FreeCAD 1.1.4 crash fix (reopening a `.FCStd` that contains a TechDraw page strips it cleanly without crashing) by adding a TechDraw page directly to the test `.FCStd` fixture rather than expecting `Session.save()` to embed an auto-created TechDraw page.
    - **Clean `.FCStd` label & no `.FCBak` clutter:**
-     - Ensure `saveCopy(tmp)` / `d2.save()` never leaves `.FCBak` files beside `model.FCStd` (disable FreeCAD backup file creation in the worker via `App.ParamGet("User parameter:BaseApp/Preferences/Document").SetBool("CreateBackupFiles", False)` before saving, or clean up any `tmp` backup written during `d2.save()`).
+     - Ensure `saveCopy(tmp)` / any temp FreeCAD save never leaves `.FCBak` files beside `model.FCStd` (disable FreeCAD backup file creation in the worker via `App.ParamGet("User parameter:BaseApp/Preferences/Document").SetBool("CreateBackupFiles", False)`).
      - Keep the saved document's `Label` as the real model stem (e.g. `os.path.splitext(os.path.basename(self.path))[0]`), never `model.saving` or `model.FCStd.saving`.
    - **Skip redundant `model.glb` rewrites when geometry/materials are unchanged:**
-     - Track a lightweight signature of the model's exported geometry/materials (or mark a `glb_dirty` flag set when `sync()`/`_open_existing()`/`reload_outside()` changes geometry, cleared after `write_glb` succeeds). In `save(outdir)`, skip `write_glb` if `glb_dirty` is false AND `os.path.exists(glb_path)` — so pure metadata/units saves don't re-serialize a multi-MB GLB.
+     - Track a `glb_dirty` flag set when `sync()`/`_open_existing()`/`reload_outside()` changes geometry/materials, cleared after `write_glb` succeeds. In `save(outdir)`, skip `write_glb` if `glb_dirty` is false AND `os.path.exists(glb_path)` — so pure metadata/units saves don't re-serialize a multi-MB GLB.
 2. **Viewport (`viewport/tools/push_tool.gd`)**:
    - **Cache `_push_hover`:** remember the last hover key `(body, rect, quantized normal + plane offset, op_count/revision)` (invalidate on `reset()`, sync/model change, or when `hit` changes to a different body/rect/face plane) so moving the mouse across the same face does not re-run `coplanar_region` + `drawn_region` + `ctx.view.preview` on every frame.
    - **Avoid redundant `_preview_push` rebuilds during `_push_drag`:** track the last previewed `(dist, edge_fit)` in `state` (cleared on `reset()` / `click()` / `key()`); if neither changed since the previous mouse-move, skip rebuilding `Geo.prism` + `Geo.feature_edges` + `ctx.view.preview`.
    - Keep `coplanar_region` exact (same triangle set and flood-fill result; any micro-optimization must not alter results).
 
 What can fail (P42 — each case gets a named check in `worker/test_generations.py` / `worker/test_serve.py`):
-1. **Explicit Drawing export (`req.get("drawing") == True`):** writes `views.json` and embeds the TechDraw page in the saved `.FCStd` on that save, then resets `self.drawing = False` so the very next ordinary edit + autosave does **not** re-run TechDraw or rewrite `views.json`.
-2. **Reopening a `.FCStd` that contains a TechDraw page:** strips TechDraw from the live doc (preserving `worker/test_native.py` section Q) and leaves `self.drawing == False`, so subsequent autosaves stay fast and leave no `.FCBak` files.
-3. **Failed save during an explicit drawing export (e.g. read-only dir):** rolls back `rev` and `Meta` cleanly as today AND keeps `self.drawing == True` so the next successful save/retry still exports the drawing.
+1. **Explicit Drawing export (`req.get("drawing") == True`, I68):** writes `views.json`, leaves **no** auto-created `TechDraw` page in the saved `model.FCStd`, leaves no temp drawing copy behind, and resets `self.drawing = False` so the next ordinary edit + autosave does not re-run TechDraw.
+2. **Reopening a `.FCStd` that already contains a TechDraw page (FreeCAD-created):** strips TechDraw from the live doc without crashing (`worker/test_native.py` section Q) and leaves `self.drawing == False`, so subsequent autosaves stay fast and leave no `.FCBak` files.
+3. **Failed save during an explicit drawing export (e.g. read-only dir):** rolls back `rev` and `Meta` cleanly as today AND keeps `self.drawing == True` so the next successful save/retry still writes `views.json`.
 4. **Saved document `Label` and `.FCBak` cleanliness:** after both an ordinary autosave and an explicit drawing save, `Document.xml`'s `Label` is the model's real name (not `*.saving*`), and zero `*.FCBak` files exist in the model directory.
 5. **GLB write skipping vs refresh:** saving after a pure `set_units` change does not rewrite `model.glb` if it already exists, whereas saving after a geometry/material edit (or when `model.glb` is missing) does write an up-to-date `model.glb`.
 6. **Viewport hover/drag cache invalidation (`viewport/tests/quick/push.gd`):** after a push or undo modifies a board's face, hovering the updated face recomputes the new region (never serves stale cached triangles), and dragging across distinct distances updates the preview accurately.

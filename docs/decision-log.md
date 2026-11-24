@@ -42,13 +42,13 @@ One subject per decision; the Decisions column is generated.
 | Files, saving and undo | The .FCStd model and its journal, saving, opening, undo and redo. | A21, A23, A24, A25, A28, A32, A36, A37, A38, A39, I38, I42, I54, I55, U01, U02, U03 |
 | Drawing tools | Rectangle, Circle, Line: how a drawing gesture starts, follows and ends. | I02, I04b, I09, I11, I43, I44, I49, I50, I51, I58, I60, I61, I64, I65 |
 | Push/Pull | Extruding, cutting, and fitting a board's end to another board. | I05, I08, I23, I24, I34, I40, I41, I45, I56 |
-| Move, copies and arrays | Move, linked copies, arrays, mirrors, components and assemblies. | A10, A11b, A22c, A26, I10, I12c, I13b, I14, I15, I16, I17, I20, I21, I25, I28, I32, I46, I52, I53, I66 |
+| Move, copies and arrays | Move, linked copies, arrays, mirrors, components and assemblies. | A10, A11b, A22c, A26, I10, I12c, I13b, I14, I15, I16, I17, I20, I21, I25, I28, I32, I46, I52, I53, I66, I69 |
 | Snapping | Points, edges, axes and the grid, shared by every tool. | I03b, I18, I19 |
 | Measurements | Typed values, units and the measurements box. | I35, I48, I57, I59, I62, I67 |
 | View and look | Camera and input devices, panels, the Mac look, lines, lighting, hiding. | I22, I30, I31, I36, I37, I63, W10, W11, W12, W14 |
 | Feedback | The confirmation wave and what colours mean. | I06, W01, W02, W03, W04, W05, W06, W07, W08, W09 |
 | Materials | Wood cards, grain and painting. | A05, I33, M01, M02, M03, M04 |
-| Output | Drawings, cut lists and renders. | A07, D01, D02, P06 |
+| Output | Drawings, cut lists and renders. | A07, D01, D02, I68, P06 |
 | Process | How the agents work, test, merge and record decisions. | P01, P02, P03, P07, P09, P10, P14, P15, P16, P17, P18, P19, P20, P21, P22, P23, P24, P25, P26, P28, P29, P31, P32, P33, P34, P35, P36, P37, P38, P39, P40, P41, P42, P43, P44, P45, P46, P47, P48, P49 |
 
 ## Principles
@@ -57,10 +57,10 @@ Each states one idea; Explains (generated) lists the decisions that name it. Wil
 
 | ID | Principle | Status | Explains | Date |
 |---|---|---|---|---|
-| G01 | Feel first: a draft appears the moment you act and input never waits on FreeCAD; FreeCAD catches up and the wave confirms it. | Active | A02, A06, A08, A23, A24, A27, A28, A29, I01, I11, I16, I17, I23, I43, I44, I45, W01, W02, W03, W04, W07, W09 | 2026-11-22 |
-| G02 | The .FCStd file is the model: every action becomes ordinary, editable FreeCAD features, and Shop Sketch is a view of them. | Active | A05, A07, A09, A21, A23, A25, A26, D01, D02, I36, I37, I42, M01, M02, M03, P04, P06 | 2026-11-22 |
-| G03 | Work as SketchUp does, and as a Mac app does, unless there's a reason not to; a decision that departs from SketchUp says why. | Active | A06, A30, I01, I02, I04b, I05, I09, I10, I14, I18, I22, I28, I30, I31, I37, I38, I49, I50, I51, I58, I59, I60, I61, I62, I64, I65, I66, I67, P04, W14 | 2026-11-22 |
-| G04 | Relationships stay live: copies, arrays, mirrors and fits follow later edits, and you can detach one on purpose. | Active | A10, A11b, A22c, A26, I21, I24, I25, I28, I32, I34, I40, I41, I46, I52, I53 | 2026-11-22 |
+| G01 | Feel first: a draft appears the moment you act and input never waits on FreeCAD; FreeCAD catches up and the wave confirms it. | Active | A02, A06, A08, A23, A24, A27, A28, A29, I01, I11, I16, I17, I23, I43, I44, I45, I68, W01, W02, W03, W04, W07, W09 | 2026-11-22 |
+| G02 | The .FCStd file is the model: every action becomes ordinary, editable FreeCAD features, and Shop Sketch is a view of them. | Active | A05, A07, A09, A21, A23, A25, A26, D01, D02, I36, I37, I42, I68, M01, M02, M03, P04, P06 | 2026-11-22 |
+| G03 | Work as SketchUp does, and as a Mac app does, unless there's a reason not to; a decision that departs from SketchUp says why. | Active | A06, A30, I01, I02, I04b, I05, I09, I10, I14, I18, I22, I28, I30, I31, I37, I38, I49, I50, I51, I58, I59, I60, I61, I62, I64, I65, I66, I67, I69, P04, W14 | 2026-11-22 |
+| G04 | Relationships stay live: copies, arrays, mirrors and fits follow later edits, and you can detach one on purpose. | Active | A10, A11b, A22c, A26, I21, I24, I25, I28, I32, I34, I40, I41, I46, I52, I53, I69 | 2026-11-22 |
 | G05 | One key per idea, meaning the same thing in every tool. | Active | I03b, I12c, I15, I20, I33, I48, I50, I56 | 2026-11-22 |
 | G06 | Typed values follow what you're doing: the direction you drag, and the model's units for a bare number; any unit you type, written however you write it, is understood. | Active | I02, I13b, I14, I19, I35, I57, I59, I62, I63, I65, I66, I67 | 2026-11-22 |
 | G07 | One meaning per colour: violet cuts, red rejects, amber is new; nothing else uses them except the red/green/blue axis guides. | Active | I21, W05, W06, W08, W10 | 2026-11-22 |
@@ -69,7 +69,7 @@ Each states one idea; Explains (generated) lists the decisions that name it. Wil
 | G10 | A rejected action says why and leaves nothing behind. | Active | A23, I06, I08, W06 | 2026-11-22 |
 | G11 | Nothing rests on memory: every decision is logged, every behaviour has a named test, and every prediction of FreeCAD's answer is checked against FreeCAD. | Active | A38, I51, P01, P02, P03, P07, P09, P18, P21, P23, P26, P28, P29, P31, P32, P33, P34, P35, P36 | 2026-11-22 |
 | G12 | Work splits by files, and one integrator merges, numbers and keeps the records. | Active | A31, A33b, A34, A35, P10, P14, P15, P16, P17, P18, P19, P20, P22, P24, P25, P26, P28, P29, P31, P32, P33, P34, P35, P36, P37, P38, P39, P40, P41, P42, P43, P44, P45, P46, P47, P48, P49 | 2026-11-22 |
-| G13 | Show what an edit will change before it does. | Active | I28, I66 | 2026-11-22 |
+| G13 | Show what an edit will change before it does. | Active | I28, I66, I69 | 2026-11-22 |
 
 ## Decisions
 
@@ -180,6 +180,7 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | I52 | Copying a whole assembly makes a new assembly of linked boards; 3x and /3 make rows of such assemblies with editable spacing. Editing a board's shape updates its counterparts across the row. | Active | Replaces I47; extends A22c | William confirmed linked assembly-row copies, 2026-11-22 (H044). | G04 | T58: worker/move.py, worker/assembly.py | 2026-11-22 |
 | I53 | Inside an entered assembly row, moving a copied assembly detaches that whole assembly's position from the row while keeping its shape links. | Active | Extends I32 | William chose "Detach its position; keep shape links", 2026-11-22 (H044). | G04 | T58: viewport/tools/move_tool.gd, worker/move.py | 2026-11-22 |
 | I66 | Typing an array count (Nx, xN, *N, /N) during a Move previews the array live before clicking (enabling copy mode if not yet on) and commits with that count on click or typed distance; after clicking, before any other action, typing a count or distance still amends the array. | Active | Extends I14, I25 | William, 2026-11-24: typing x8 should preview the array before clicking and also work after clicking before any other action. | G03, G06, G13 | viewport/tools/move_tool.gd | 2026-11-24 |
+| I69 | Double-clicking a linked component (board family) enters and isolates it like an assembly (greying out the rest of the model, keeping siblings tinted so you see what changes, Esc leaves). The Properties panel prioritizes clean critical dimensions and linked measurements at the top in the model's display units (readable header + assembly/component subtitle, Parametric badge, Thickness/Height/Length with linked target face name and evaluated length, per 'Gpts properties panel idea; good but needs refinement.png'), with native FreeCAD properties collapsed underneath. | Active | Builds on I28, I36, I40, I57 | William, 2026-11-24: approved component entry and ChatGPT-style Properties layout prioritizing critical dimensions and linked measurements. | G03, G04, G13 | viewport/selection.gd, viewport/property_panel.gd, worker/object_properties.py | 2026-11-24 |
 
 ### Snapping
 
@@ -248,6 +249,7 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | A07 | Blender is used only for final renders. | Active |  | Its strengths are rendering, not the modelling feel. | G02 |  | 2026-11-20 |
 | D01 | Shop drawing: A3, 1:10, third-angle projection, overall dimensions, cut list grouped by component + size + material. | Active | Revisit later (P06, Q21). | North American shop convention. | G02 | worker/drawing.py | 2026-11-20 |
 | D02 | Cut-list sizes are each board's bounding box in its own frame. | Tentative |  | Right for square stock only; revisit for angled cuts. | G02 | replay.py bodies.json | 2026-11-20 |
+| I68 | Automatically created TechDraw drawing pages are deleted after the PDF/SVG drawing is generated for now (never kept in the saved .FCStd across autosaves); revisit keeping native TechDraw pages in .FCStd in a later discussion (Q34). | Active | Refines D01, A24 | William, 2026-11-24: eliminates 1.7 s-54 s autosave stalls and .FCBak clutter seen in models/model.FCStd; revisit retention later. | G01, G02 | worker/session.py, worker/serve.py | 2026-11-24 |
 | P06 | Main output: a buildable design: plans, a render, and possibly a cut list. Keep FreeCAD's fabrication paths open for later (CNC and 3D printing are not needed now). Drawing generation will be revisited; the existing drawing script (D01) is a promising foundation. | Active |  | Your preference (Codex discussion). See Q21. | G02 | worker/drawing.py | 2026-11-21 |
 
 ### Process
@@ -307,6 +309,8 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | Q24 | Idea to explore: separating solids or 'exploding' parts. | Parked | 2026-11-21: an exploded view (for assembly diagrams in the plans) would be nice, as a separate action; a to-do once the drawing flow (Q21) is worked out (Work list T21). Splitting a board into two: not wanted for now. |
 | Q32 | Delete / Backspace rules (I48): try them on real hardware and settle them. Built as of 2026-11-21: the measurements box keeps the keys once clicked or typed in, even emptied, until you pick in the view or select boards; otherwise Delete deletes in any tool (mid-move what's being moved). To decide: (1) should Esc or switching tools also end typing? (2) mid-gesture in Rectangle or Push/Pull, should Delete delete the board being worked on rather than the selection? (3) deleting a hole while moving it (today: nothing happens); (4) a key for Edit > Delete that can't fire while typing. | Open | William asked for a decision to tackle later (T34 review, 2026-11-21): 'This is more complex than I thought.' Claude's pick for now is I48 as built. With Q4 (feel test). |
 | Q33 | Choose a keyboard shortcut for the Polygon tool (built without a hotkey first, toolbar button only, like Paint Bucket's Q14). | Open | William, 2026-11-23: build Polygon without a hotkey, just a button, and add to future decisions. |
+| Q34 | Revisit retaining automatically created TechDraw drawing pages inside .FCStd (I68 deletes them after PDF creation for now to prevent autosave stalls). | Open | William, 2026-11-24: address issues with retaining TechDraw pages in a later discussion. |
+| Q35 | Extruding off a drawing on a board's face (refines I04b): William leans toward making them two parts within a component rather than joining into one solid; work through the details together before changing behaviour. | Open | William, 2026-11-24: flagged as a future decision to work through alongside components. |
 
 ## Work list
 
