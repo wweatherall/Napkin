@@ -206,7 +206,7 @@ func run() -> void:
 	await harness._type("50mm\n")
 	await harness._wait_confirm()
 	harness._ok("manual Units menu pick locks units so subsequent 50mm does not flip them",
-		m.measure.units == "in-dec:0.01" and m.measure.units_explicit, [m.measure.units, m.measure.units_explicit])
+		m.measure.units == "in-dec:0.1" and m.measure.units_explicit, [m.measure.units, m.measure.units_explicit])
 
 	# 5g. FreeCAD-evaluated expression on unset model (declined locally -> worker evaluates) adopts ft-in:1/16.
 	var model_fc := m.out_dir.path_join("quick_units_freecad_eval.FCStd")
