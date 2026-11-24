@@ -376,12 +376,15 @@ def default_agent():
         return "claude"
     if any(k.startswith("CODEX") for k in os.environ):
         return "codex"
+    if os.environ.get("ANTIGRAVITY_AGENT") or os.environ.get("ANTIGRAVITY_CONVERSATION_ID"):
+        return "gemini"
     return None
 
 
 def default_session(agent):
     return (os.environ.get("CLAUDE_CODE_SESSION_ID") or os.environ.get("CODEX_SESSION_ID")
-            or os.environ.get("CODEX_THREAD_ID") or agent)
+            or os.environ.get("CODEX_THREAD_ID") or os.environ.get("ANTIGRAVITY_CONVERSATION_ID")
+            or os.environ.get("SHOPSKETCH_SESSION") or agent)
 
 
 def guard_checkout(cwd, out=print):
@@ -392,8 +395,11 @@ def guard_checkout(cwd, out=print):
             return True
         if toplevel(cwd) != main_root(cwd):
             return True
+        conv_id = os.environ.get("ANTIGRAVITY_CONVERSATION_ID")
+        suffix = f"-{conv_id[:8]}" if conv_id and session == conv_id else None
         for jid, held in read_state(state_path(cwd))["jobs"].items():
-            if held.get("session") == session and held.get("state") in WORKING:
+            hs = held.get("session")
+            if held.get("state") in WORKING and (hs == session or (suffix and isinstance(hs, str) and hs.endswith(suffix))):
                 message = (f"you're in the main checkout; your job {jid} is in {held['worktree']}: "
                            "cd there and run it again")
                 break
@@ -425,6 +431,10 @@ def take(cwd, agent, session, now=None, out=print):
 def _take(cwd, agent, session, now=None, out=print):
     """(job id, None) or (None, "refused" | "empty")."""
     now = now or time.time()
+    raw_session = session
+    conv_id = os.environ.get("ANTIGRAVITY_CONVERSATION_ID")
+    if conv_id and counted(session) and session != conv_id and not session.endswith("-" + conv_id[:8]):
+        session = f"{session}-{conv_id[:8]}"
     root = main_root(cwd)
     jobs, order = main_view(root)
     with locked(state_path(cwd)) as st:
@@ -466,6 +476,8 @@ def _take(cwd, agent, session, now=None, out=print):
                                  "worktree": wt, "handoff": job["name"], "taken": now, "beat": now}
         answers = prev.get("answers", []) if prev.get("state") == "returned" else []
         st.get("waiting_workers", {}).pop(session, None)
+        if raw_session != session:
+            st.get("waiting_workers", {}).pop(raw_session, None)
         event(st, "taken", job["id"], f"{agent} ({session}) took {job['id']}", now)
         if counted(session):
             mine = st.setdefault("sessions", {}).setdefault(session, [])

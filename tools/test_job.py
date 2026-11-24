@@ -19,6 +19,10 @@ import integrate
 import integrator
 import job
 
+# Isolate from host agent env vars so tests behave identically whether run by Claude, Codex, Gemini, or CI.
+for _env_key in ("ANTIGRAVITY_CONVERSATION_ID", "ANTIGRAVITY_AGENT", "SHOPSKETCH_SESSION"):
+    os.environ.pop(_env_key, None)
+
 RESULTS = []
 
 
@@ -147,7 +151,8 @@ check("a job that builds on another (Builds on: H001) isn't held back by sharing
 
 # --- wrong-checkout guard (T102), including both shell entry points before any test starts ---
 guard_env = {k: v for k, v in os.environ.items() if k not in
-             ("CLAUDE_CODE_SESSION_ID", "CODEX_SESSION_ID", "CODEX_THREAD_ID", "SHOPSKETCH_ANY_CHECKOUT")}
+             ("CLAUDE_CODE_SESSION_ID", "CODEX_SESSION_ID", "CODEX_THREAD_ID",
+              "ANTIGRAVITY_CONVERSATION_ID", "ANTIGRAVITY_AGENT", "SHOPSKETCH_SESSION", "SHOPSKETCH_ANY_CHECKOUT")}
 for checkout in (root, wt1):
     folder = os.path.join(checkout, "tools")
     os.makedirs(folder, exist_ok=True)
@@ -1127,6 +1132,132 @@ with patch.object(job, "processes", side_effect=PermissionError("sandbox denied 
     act_ro = job.activity(ro_root, {"taken": 123, "branch": "HEAD", "worktree": ro_root}, 200)
 check("activity() degrades cleanly when ps/lsof raise PermissionError in a sandbox", act_ro >= 123, act_ro)
 shutil.rmtree(ro_base)
+
+# --- collision-proof parallel Gemini take & AGY env detection (H142 / T128) ---
+agy_base, agy_root = repo()
+for hid, slug, path in (("H010", "gem-a", "tools/ga.py"), ("H011", "gem-b", "tools/gb.py"),
+                        ("H012", "gem-c", "tools/gc.py"), ("H013", "gem-d", "tools/gd.py")):
+    open(os.path.join(agy_root, "docs", "handoff", f"{hid}-{slug}.md"), "w").write(
+        entry(hid, "either", "open", f"{path}.", f"T: {slug}"))
+open(os.path.join(agy_root, "BOARD.md"), "w").write(
+    BOARD.replace("Order: H001, H002, H003, H005, H004, H006",
+                  "Order: H003, H010, H011, H012, H013"))
+commit(agy_root, "add parallel gemini jobs")
+
+clean_agent_env = {k: v for k, v in os.environ.items() if not k.startswith(("CLAUDE", "CODEX", "ANTIGRAVITY"))
+                   and k not in ("SHOPSKETCH_SESSION", "SHOPSKETCH_ANY_CHECKOUT")}
+with patch.dict(os.environ, clean_agent_env, clear=True):
+    check("default_agent returns None without agent env vars", job.default_agent() is None)
+    with patch.dict(os.environ, {"ANTIGRAVITY_AGENT": "1"}):
+        check("default_agent detects gemini from ANTIGRAVITY_AGENT", job.default_agent() == "gemini")
+    with patch.dict(os.environ, {"ANTIGRAVITY_CONVERSATION_ID": "aaaa1111-2222-3333-4444-555566667777"}):
+        check("default_agent detects gemini from ANTIGRAVITY_CONVERSATION_ID", job.default_agent() == "gemini")
+        check("default_session returns ANTIGRAVITY_CONVERSATION_ID when set",
+              job.default_session("gemini") == "aaaa1111-2222-3333-4444-555566667777")
+        check("counted returns truthy for AGY UUID and suffixed manual session",
+              bool(job.counted("aaaa1111-2222-3333-4444-555566667777"))
+              and bool(job.counted("gemini-cedar-1124-0658-aaaa1111"))
+              and not job.counted("gemini"))
+    with patch.dict(os.environ, {"SHOPSKETCH_SESSION": "custom-sess"}):
+        check("default_session falls back to SHOPSKETCH_SESSION before agent",
+              job.default_session("gemini") == "custom-sess")
+
+
+def cli_take(cwd_dir, argv, extra_env):
+    env = dict(clean_agent_env, **extra_env)
+    buf = io.StringIO()
+    old_cwd = os.getcwd()
+    os.chdir(cwd_dir)
+    try:
+        with patch.dict(os.environ, env, clear=True), contextlib.redirect_stdout(buf):
+            rc = job.main(["take"] + argv)
+    finally:
+        os.chdir(old_cwd)
+    return rc, buf.getvalue()
+
+
+conv1 = "c56ddaee-1111-4000-8000-000000000001"
+conv2 = "a1b2c3d4-2222-4000-8000-000000000002"
+conv3 = "99887766-3333-4000-8000-000000000003"
+conv4 = "55443322-4444-4000-8000-000000000004"
+
+# 1. Two different ANTIGRAVITY_CONVERSATION_ID values calling `take --as gemini` (no --session) both succeed.
+rc1, out1 = cli_take(agy_root, ["--as", "gemini"], {"ANTIGRAVITY_CONVERSATION_ID": conv1})
+rc2, out2 = cli_take(agy_root, ["--as", "gemini"], {"ANTIGRAVITY_CONVERSATION_ID": conv2})
+st_agy = state(agy_root)
+check("two different ANTIGRAVITY_CONVERSATION_IDs calling take --as gemini (no --session) take distinct jobs",
+      rc1 == 0 and rc2 == 0 and "took H003" in out1 and "took H010" in out2
+      and st_agy["jobs"]["H003"]["session"] == conv1 and st_agy["jobs"]["H010"]["session"] == conv2,
+      (rc1, rc2, st_agy["jobs"]))
+
+# 2. Two different ANTIGRAVITY_CONVERSATION_ID values passing the SAME manual --session name both succeed.
+rc3, out3 = cli_take(agy_root, ["--as", "gemini", "--session", "gemini-cedar-1124-0658"],
+                     {"ANTIGRAVITY_CONVERSATION_ID": conv3})
+rc4, out4 = cli_take(agy_root, ["--as", "gemini", "--session", "gemini-cedar-1124-0658"],
+                     {"ANTIGRAVITY_CONVERSATION_ID": conv4})
+st_agy = state(agy_root)
+check("two different ANTIGRAVITY_CONVERSATION_IDs with identical manual --session both succeed without colliding",
+      rc3 == 0 and rc4 == 0 and "took H011" in out3 and "took H012" in out4
+      and st_agy["jobs"]["H011"]["session"] == f"gemini-cedar-1124-0658-{conv3[:8]}"
+      and st_agy["jobs"]["H012"]["session"] == f"gemini-cedar-1124-0658-{conv4[:8]}",
+      (rc3, rc4, out3, out4, st_agy["jobs"]))
+
+# 3. Same ANTIGRAVITY_CONVERSATION_ID calling take a second time (while holding AND after done) is refused (P37).
+rc_dup_hold, out_dup_hold = cli_take(agy_root, ["--as", "gemini"], {"ANTIGRAVITY_CONVERSATION_ID": conv1})
+check("same ANTIGRAVITY_CONVERSATION_ID calling take while holding a job is refused",
+      rc_dup_hold == 1 and "already holds H003" in out_dup_hold, (rc_dup_hold, out_dup_hold))
+rc_dup_man, out_dup_man = cli_take(agy_root, ["--as", "gemini", "--session", "gemini-cedar-1124-0658"],
+                                   {"ANTIGRAVITY_CONVERSATION_ID": conv3})
+check("same ANTIGRAVITY_CONVERSATION_ID repeating manual --session while holding is refused",
+      rc_dup_man == 1 and "already holds H011" in out_dup_man, (rc_dup_man, out_dup_man))
+
+# Finish H003 (conv1) and verify MAX_JOBS=1 still refuses a second take by conv1.
+wt_agy1 = st_agy["jobs"]["H003"]["worktree"]
+hp_agy1 = os.path.join(wt_agy1, "docs", "handoff", "H003-third-job.md")
+body_agy1 = open(hp_agy1).read()
+open(hp_agy1, "w").write(body_agy1.replace("Status: open", "Status: answered") + "\nResponse: done.\n")
+commit(wt_agy1, "H003 answered")
+_qt = job.QUICKTEST
+try:
+    job.QUICKTEST = ["true"]
+    r_agy_done, out_agy_done = run(job.done, wt_agy1)
+finally:
+    job.QUICKTEST = _qt
+rc_after_done, out_after_done = cli_take(agy_root, ["--as", "gemini"], {"ANTIGRAVITY_CONVERSATION_ID": conv1})
+check("same ANTIGRAVITY_CONVERSATION_ID calling take after done is still refused (P37 MAX_JOBS=1)",
+      r_agy_done is True and rc_after_done == 1 and "has done 1 jobs (H003)" in out_after_done,
+      (r_agy_done, rc_after_done, out_after_done))
+
+# 4. guard_checkout refuses main checkout when ANTIGRAVITY_CONVERSATION_ID holds an active job (and allows override).
+with patch.dict(os.environ, dict(clean_agent_env, ANTIGRAVITY_CONVERSATION_ID=conv2), clear=True):
+    g_ok, g_out = run(job.guard_checkout, agy_root)
+    check("guard_checkout refuses main checkout when ANTIGRAVITY_CONVERSATION_ID holds an active job",
+          g_ok is False and "H010" in g_out and st_agy["jobs"]["H010"]["worktree"] in g_out, (g_ok, g_out))
+    g_wt_ok, _ = run(job.guard_checkout, st_agy["jobs"]["H010"]["worktree"])
+    check("guard_checkout allows running inside the AGY job's worktree", g_wt_ok is True)
+with patch.dict(os.environ, dict(clean_agent_env, ANTIGRAVITY_CONVERSATION_ID=conv3), clear=True):
+    g_man_ok, g_man_out = run(job.guard_checkout, agy_root)
+    check("guard_checkout also refuses main checkout when AGY job was taken with a manual --session",
+          g_man_ok is False and "H011" in g_man_out, (g_man_ok, g_man_out))
+with patch.dict(os.environ, dict(clean_agent_env, ANTIGRAVITY_CONVERSATION_ID=conv2, SHOPSKETCH_ANY_CHECKOUT="1"), clear=True):
+    g_ovr, _ = run(job.guard_checkout, agy_root)
+    check("guard_checkout allows main checkout for AGY session when SHOPSKETCH_ANY_CHECKOUT=1", g_ovr is True)
+
+# 5. Without ANTIGRAVITY_CONVERSATION_ID, existing --session collision/counting behaviour is 100% unchanged.
+rc_plain1, out_plain1 = cli_take(agy_root, ["--as", "gemini", "--session", "gemini-cedar-1124-0658"], {})
+rc_plain2, out_plain2 = cli_take(agy_root, ["--as", "gemini", "--session", "gemini-cedar-1124-0658"], {})
+st_agy = state(agy_root)
+check("without ANTIGRAVITY_CONVERSATION_ID, manual --session is recorded verbatim and collides on repeat",
+      rc_plain1 == 0 and "took H013" in out_plain1
+      and st_agy["jobs"]["H013"]["session"] == "gemini-cedar-1124-0658"
+      and st_agy["sessions"]["gemini-cedar-1124-0658"] == ["H013"]
+      and rc_plain2 == 1 and "already holds H013" in out_plain2,
+      (rc_plain1, out_plain1, rc_plain2, out_plain2, st_agy["jobs"].get("H013")))
+
+for w in [l.split()[1] for l in sh(agy_root, "git", "worktree", "list", "--porcelain").stdout.split("\n")
+          if l.startswith("worktree ")][1:]:
+    sh(agy_root, "git", "worktree", "remove", "--force", w)
+shutil.rmtree(agy_base)
 
 print(f"JOB TESTS: {sum(RESULTS)} passed, {len(RESULTS) - sum(RESULTS)} failed")
 sys.exit(0 if all(RESULTS) else 1)
