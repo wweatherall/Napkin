@@ -3,7 +3,7 @@
 "Check the board" sends you here. Only the integrator edits this file; the job table is built from docs/handoff/
 and the job queue.
 
-Order: H105, H115, H085, H086, H093, H098, H094, H096, H097, H107, H108, H109, H110, H111, H112, H113, H114, H119, H120, H121, H122, H123
+Order: H105, H115, H085, H086, H093, H098, H094, H096, H097, H107, H108, H109, H110, H111, H112, H113, H114, H119, H120, H121, H122, H123, H124, H125, H126, H127
 
 ## If you're not the integrator
 
@@ -57,6 +57,10 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
+| H124 | either | **Ready** | T117: wire passive job-usage lifecycle hooks into job.py and integrate.py | [H124](docs/handoff/H124-usage-tracker-hooks.md) |  |
+| H125 | either | **Ready** | T60: chains of face ties (a board tied to a board that is itself tied) | [H125](docs/handoff/H125-t60-face-tie-chains.md) |  |
+| H126 | either | Queued | T61: face ties on linked copies (component definitions and instances) | [H126](docs/handoff/H126-t61-face-ties-linked-copies.md) | H125 |
+| H127 | either | Queued | T62: face ties on shapes other than plain rectangular boards | [H127](docs/handoff/H127-t62-face-ties-other-shapes.md) | H126 |
 
 <!-- end of job table -->
 

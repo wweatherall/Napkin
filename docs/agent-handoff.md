@@ -31,6 +31,10 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 <!-- open list: built from docs/handoff/ by tools/handoff.py; don't edit by hand -->
 
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
+- [H124 — T117: wire passive job-usage lifecycle hooks into job.py and integrate.py](handoff/H124-usage-tracker-hooks.md) — status: open; for: either
+- [H125 — T60: chains of face ties (a board tied to a board that is itself tied)](handoff/H125-t60-face-tie-chains.md) — status: open; for: either
+- [H126 — T61: face ties on linked copies (component definitions and instances)](handoff/H126-t61-face-ties-linked-copies.md) — status: queued (after H125); for: either
+- [H127 — T62: face ties on shapes other than plain rectangular boards](handoff/H127-t62-face-ties-other-shapes.md) — status: queued (after H126); for: either
 
 <!-- end of open list -->
 
