@@ -6825,3 +6825,72 @@ Take the lock and archive, commit and push this note in one step once read (`pyt
 - **Worker policy (paused for this `/clear`):** William asked to stop launching new workers so we could `/clear`. Previously he authorized 2 concurrent **Gemini 4 Neon (Medium)** workers (no `--session` needed post-H142) until `gemini-5h` in `/Users/Will/Sites/agy-usage-monitor/history.jsonl` drops below **20%**, then a 5h cooldown (`schedule(DurationSeconds=18000)`) and resume. Quota as of 07:37: **24.4% 5h** / **30.6% weekly** (close to the 20% guard!). Confirm or resume per William's next prompt.
 - **Open items for William later:** **Q34** (TechDraw retention after PDF; auto-deleted for now per **I68**), **Q35** (extruding off a drawing on a board's face as two parts in a component), **T63** (tied-face colour cue), **T118** (3-Point Circle trigger).
 - **Untracked file intentionally at repo root:** `Gpts properties panel idea; good but needs refinement.png` (keep for H141; ignored by `integrate.py`).
+
+### H136 — T122: Rectangle after-the-fact typed dimensions
+
+Author: Gemini (integrator, gemini-cedar-1124-0100) | Date: 2026-11-24 | Status: resolved | For: either
+
+References: T122, I65, I02, I14, G03, G06.
+
+Touches: viewport/tools/rect_tool.gd, viewport/tests/quick/rect.gd. Not viewport/keys.gd or viewport/measure_box.gd (both already route typed pairs to `rect.typed()` whenever `busy()` is true; ask with `job.py wait --scope` if a change there is needed).
+
+Why: I65 (William, 2026-11-24) specifies that typing `width, height` + Enter right after placing a rectangle — before clicking again, switching tools, undoing, or taking any other action — alters that rectangle's dimensions, matching Move's after-the-fact typing (I14) and SketchUp (G03).
+
+Today (checked 2026-11-24):
+- `viewport/tools/rect_tool.gd`:
+  - `busy()` (~20) returns `state.get("active", false)` and inherits `in_gesture() -> busy()` from `tool.gd`.
+  - `typed(txt)` (~54–61) returns early unless `state.get("active", false)` is true.
+  - `commit_rect(du, dv)` (~107–122) allocates `rid := ctx.document.next_id("r")`, appends the `rect` op, calls `ctx.view.register_profile(op)`, clears `state = {}`, clears preview, and syncs. Nothing remembers the just-created rectangle.
+- `viewport/tools/move_tool.gd` (~12, 27–32, 83–86, 497–525) shows the exact established pattern for post-commit typing: `last_oid`, `busy()` returning `state.get("active", false) or last_oid != ""`, `in_gesture()` returning `state.get("active", false)` (so Esc still clears selection/context rather than thinking a gesture is active), and `_amend_last_move(txt)` calling `ctx.document.remove(last_oid)` then re-committing with `reuse_oid`.
+- `viewport/tools/tool.gd` `accepts(ch)` (~70) accepts digits/operators when `typed_text() == ""`, and letters/units once typing has started — so pressing `P`, `M`, `L`, `Space`, etc. when `last_oid != ""` and the box is empty still switches tools normally instead of entering text.
+
+Request:
+1. Track the just-created rectangle in `viewport/tools/rect_tool.gd` (e.g. `last_oid := ""` plus a small `last_meta := {}` holding `origin`, `n`, `x`, `y`, `on`, `su`, `sv`, `du`, `dv`):
+   - `busy()` returns `state.get("active", false) or last_oid != ""` so digits typed right after creation enter the measurements box.
+   - `in_gesture()` returns `state.get("active", false)` so Esc behaves per I38 when idle after a rectangle.
+   - `reset()` clears `state`, `press_reset()`, and `last_oid = ""` / `last_meta = {}` (so switching tools or pressing Esc ends amending).
+   - Starting a new rectangle in `click()` clears `last_oid = ""` / `last_meta = {}` before setting the new `state`.
+   - When `commit_rect(du, dv, reuse_oid := "")` commits:
+     - Reuses `reuse_oid` when non-empty (preserving the rectangle's ID across amendments, per U02 / `worker/session.py` `creations()`), else allocates `ctx.document.next_id("r")`.
+     - Records `last_oid = rid` and `last_meta` (`origin`, `n`, `x`, `y`, `on`, `su`, `sv`, `du`, `dv`).
+   - In `typed(txt)`:
+     - When `state.get("active", false)` is true: keep current behaviour (parse `w, h`, preserve drag signs `su`/`sv`, commit).
+     - When not active and `last_oid != ""`: verify the rectangle is still the **last** op in the document (e.g. check `ctx.document.op(last_oid)` exists and no other op was added or consumed it — if another action happened or the op was undone/removed, clear `last_oid` and return without touching anything, so "before any other action" is strictly enforced). Parse `w, h` (rejecting non-positive or malformed pairs cleanly), call `ctx.document.remove(last_oid)` and re-commit with `w * su, h * sv` and `reuse_oid = last_oid`, keeping `last_oid` set so the user can even retype dimensions a second time before doing anything else!
+   - `vcb_value()`: when not active and `last_oid != ""`, show the last rectangle's formatted dimensions (`"%s, %s"`) if its op is still present (matching SketchUp feedback that the rectangle is still amendable; clear if gone).
+2. Rules (with purpose, P44):
+   - Always check that `last_oid` is still the document's latest op before amending, so undo or a keyboard action (Delete, Hide, etc.) never silently mutates an older op.
+   - Preserve `origin`, `plane`, and quadrant signs (`su`, `sv`) from the original drag so amending resizes in the same direction the user drew.
+
+Cases that must still work:
+- Active-drag typing (`w, h` + Enter before the second click), press-and-drag rectangles (I43), click-click rectangles, ground and on-face rectangles, immediate tool switch (`P`, `M`, `Space`) after placing a rectangle without eating the key, and `Undo` after amending (reverts cleanly in one step).
+
+Checks (new, named) in `viewport/tests/quick/rect.gd`:
+1. Place a rectangle by click-click, then type `200, 120` + Enter with no active drag: the single `rect` op keeps its ID/origin/plane/quadrant and updates to `200 × 120` in both the viewport profile draft and FreeCAD.
+2. Retype `80, 90` + Enter a second time before any other action: updates again cleanly.
+3. Place a rectangle, press `P` (Push/Pull): switches tools (not eaten by measurements box); returning to Rectangle does not amend the old rectangle.
+4. Place a rectangle, undo it, then type `100, 100` + Enter: does nothing (does not resurrect or alter an earlier op).
+
+Reading path: `viewport/tools/rect_tool.gd` → `viewport/tools/move_tool.gd` (`last_oid`, `busy`, `in_gesture`, `_amend_last_move`) → `viewport/keys.gd` (lines 26–52) → `viewport/measure_box.gd` (`apply`, lines 224–258) → `viewport/tests/quick/rect.gd`.
+
+Run `tools/quicktest.sh` while building, then `python3 tools/job.py test`. End your response with `Follow-up:` lines for leftovers and a `Result:` line.
+
+#### Response (Gemini, 2026-11-24)
+
+Branch: `gemini/h136-t122-rect-amend-after-create` | Code commit: `e951a5c` | IDs added: none | Open questions: none.
+
+Implemented post-commit rectangle dimension amending (I65, T122):
+- `viewport/tools/rect_tool.gd`: tracks `last_oid` and `last_meta` (`origin`, `n`, `x`, `y`, `on`, `su`, `sv`, `du`, `dv`) on commit; `busy()` stays true while `last_oid` is still the document's latest op (`ctx.document.is_last(last_oid)`), `in_gesture()` stays `state.get("active", false)` (so Esc still follows I38), `reset()` and starting a new click clear `last_oid`/`last_meta`, `vcb_value()` displays the last rectangle's formatted dimensions while amendable, and `_amend_last_rect(txt)` validates positive `w, h`, removes `last_oid` without an extra intermediate sync, and re-commits with `reuse_oid = last_oid` preserving origin, plane, and quadrant signs.
+- `viewport/tool_context.gd`: added `DocumentCapability.is_last(id: String) -> bool` so tools can strictly verify an op is still the latest op in `doc.ops` before amending (catching Undo, Hide, Assemble, Turn grain, etc.).
+- `viewport/test_tool_context.gd`: allowlisted and tested `document.is_last` and updated post-commit assertions (lines 567 and 587) from `not rect.busy()` to `not rect.in_gesture() and rect.busy()`.
+- `viewport/tests/quick/preferences.gd`: updated line 172 post-commit assertion from `not m.tools["rect"].busy()` to `not m.tools["rect"].in_gesture()`.
+- `viewport/tests/quick/rect.gd`: added `rect_amend` quick tests covering (1) click-click placement in `-X/+Y` quadrant then typing `200, 120` + Enter (verifying same ID/origin/plane/quadrant, viewport profile draft, and FreeCAD confirmation), (2) retyping `80, 90` + Enter a second time, (3) pressing `P` to switch tools without eating the key and returning to Rectangle without amending the old rectangle, and (4) Undo after amend reverting in one step and typing `100, 100` + Enter afterwards doing nothing.
+
+Scope approval quoted from `job.py wait --scope`:
+> Approved — go ahead and touch all 3 files: (1) viewport/tool_context.gd (DocumentCapability.is_last), (2) viewport/test_tool_context.gd (allowlist + test is_last, update lines 567 & 587 — also check line 590 right after since click on an assembly board follows the line 582 commit), (3) viewport/tests/quick/preferences.gd (line 172). Add an Architecture: note in your handoff response for the DocumentCapability.is_last addition.
+
+Verified: `python3 tools/job.py test` on `e951a5c` passed (`TOOL CONTEXT TESTS: 149 passed, 0 failed`, all feature tests passed, `QUICK 338 passed, 0 failed in 24.1 s`).
+
+Architecture: `viewport/tool_context.gd` `DocumentCapability` adds `is_last(id: String) -> bool` (allowlisted and tested in `viewport/test_tool_context.gd`) so tools can verify an op is still the document's latest op before amending it in place.
+Result: e951a5c; quicktest 338/338, tool_context 149/149, all feature tests passed; rectangle after-the-fact typed dimensions (I65) and DocumentCapability.is_last
+
+Resolution: merged into main by the integrator, 2026-11-24.

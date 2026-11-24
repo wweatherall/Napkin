@@ -119,7 +119,7 @@ const ALLOW := {
 			  "cut_triangles", "circle_geometry", "lines_on", "drawn_region"],
 	"selection": ["ids", "context", "assembly_of", "members_of", "unit_of", "in_context", "is_hidden",
 				  "context_assembly", "edit_blocked", "set_ids", "enter"],
-	"document": ["next_id", "op", "append", "remove", "sync"],
+	"document": ["next_id", "op", "is_last", "append", "remove", "sync"],
 	"view": ["preview", "mirror_preview", "clear_preview", "marker", "hide_marker", "guides", "clear_guides", "selection_box",
 			 "clear_selection_box", "face_highlight", "clear_face_highlight", "register_profile", "register_line", "present_draft"],
 	"ui": ["typed_text", "format_length", "refresh_measurements", "refresh_tip", "clear_rejection", "refresh_hint", "show_status", "tool_active", "new_board"],
@@ -271,6 +271,7 @@ func _initialize() -> void:
 	var snap: Dictionary = ctx.document.op("r3")
 	snap["plane"]["normal"][2] = -1
 	check("document.op is a deep copy; {} for none", doc.ops[0]["plane"]["normal"][2] == 1 and ctx.document.op("r9").is_empty())
+	check("document.is_last matches only the latest op", ctx.document.is_last("r3") and not ctx.document.is_last("r9") and not ctx.document.is_last(""))
 	ctx.document.sync()
 	check("document.sync sends once", doc.seq == seq0 + 1 and client.sent.filter(func(d): return d["cmd"] == "sync").size() == 1)
 	var seen := {"ops": [], "removed": 0}
@@ -564,7 +565,7 @@ func _initialize() -> void:
 		and rop["size"] == [30.25, 40.125] and rop["corner"] == [0.0, 0.0]
 		and rop["plane"] == {"origin": [10.0, 20.0, 0.0], "normal": [0.0, 0.0, 1.0]}, rop)
 	check("Rectangle registers a profile copy, clears its preview and syncs",
-		rpres.registered == [rop] and not rop.has("radius") and not rect.busy()
+		rpres.registered == [rop] and not rop.has("radius") and not rect.in_gesture() and rect.busy()
 		and overlay.mesh == null and overlay_lines.mesh == null and doc.seq == r_seq + 1)
 
 	# A tilted profile resolves its supporting board and preserves the drag quadrant for typed sizes.
@@ -584,7 +585,7 @@ func _initialize() -> void:
 	check("Rectangle typed fractional and sub-millimetre sizes keep the quadrant and exact plane",
 		rop["size"] == [12.375, 0.125] and rop["corner"] == [-12.375, 0.0]
 		and rop["plane"] == {"on": {"body": "board-under", "normal": Geo.arr3(rn), "point": Geo.arr3(origin)}}
-		and not rect.busy(), rop)
+		and not rect.in_gesture() and rect.busy(), rop)
 	rinfer.hit = {"hit": true, "point": Vector3.ZERO, "normal": Vector3(0, 0, 1), "body": "b1", "rect": ""}
 	rect.click(Vector2.ZERO)
 	check("Rectangle won't start on an assembly board from outside", not rect.busy())

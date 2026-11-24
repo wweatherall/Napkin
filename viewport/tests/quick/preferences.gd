@@ -169,8 +169,8 @@ func run() -> void:
 		is_equal_approx(Tool.drag_px, 20.0)
 		and m.ops.size() == n + 1
 		and m.ops.back()["type"] == "rect"
-		and not m.tools["rect"].busy(),
-		[Tool.drag_px, m.ops.size() - n, m.tools["rect"].busy()])
+		and not m.tools["rect"].in_gesture(),
+		[Tool.drag_px, m.ops.size() - n, m.tools["rect"].in_gesture()])
 
 	# 9. Default units changed while a model is open: open model keeps its units; File > New opens in new default.
 	m.set_units(Units.TEST_SPEC)
