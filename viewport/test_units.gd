@@ -97,6 +97,43 @@ func _init() -> void:
 		and Units.with_precision("mm:0.1", "1") == "mm:1"
 		and Units.with_precision("mm:0.1", "1/16") == "mm:0.1")
 
+	# --- detect_typed_spec (T124, I67) ---
+	var detect_cases := {
+		"": "",
+		"   ": "",
+		"100": "",
+		"12, 6": "",
+		"3/4": "",
+		"3x": "",
+		"/3": "",
+		"x5": "",
+		"*4": "",
+		"sin(30)": "",
+		"4\"": "in-frac:1/16",
+		"4.25\"": "in-dec:0.01",
+		"0.75in": "in-dec:0.01",
+		"3/4 in": "in-frac:1/16",
+		"1 1/2 in": "in-frac:1/16",
+		"1' 6\"": "ft-in:1/16",
+		"1'6\"": "ft-in:1/16",
+		"1' 6\" - 2\"": "ft-in:1/16",
+		"2ft": "ft-in:1/16",
+		"1ft^1": "ft-in:1/16",
+		"120mm": "mm:0.1",
+		"15cm": "cm:0.1",
+		"1.5m": "m:0.01",
+		"4\", 5\"": "in-frac:1/16",
+		"4, 5\"": "in-frac:1/16",
+		"4.5\", 5\"": "in-dec:0.01",
+		"5in + 23mm": "in-frac:1/16",
+		"23mm + 5in": "mm:0.1",
+		"6\" + 1'": "ft-in:1/16",
+	}
+	for input in detect_cases:
+		var got := Units.detect_typed_spec(input)
+		check("detect_typed_spec(%s) == %s" % [JSON.stringify(input), JSON.stringify(detect_cases[input])],
+			got == detect_cases[input], got)
+
 	# --- formatting: every format, every rounding, exact vs ~ (I57) ---
 	var sample_in := 99.25 * 25.4   # 2520.95 mm = 8' 3 1/4" = 99 1/4" = 99.25"
 	check("feet and inches exact (8' 3 1/4\")", Units.format_length(sample_in, "ft-in:1/16") == "8' 3 1/4\"", Units.format_length(sample_in, "ft-in:1/16"))
@@ -226,15 +263,27 @@ func _measure_box_units_lifecycle() -> void:
 	mb.init_units(cfg, Units.DEFAULT_SPEC)
 	check("fresh MeasureBox starts in fractional inches at 1/16\"", mb.units == "in-frac:1/16")
 
-	# New model: open reply has no units -> keeps last-used/default and sends set_units.
+	# New model: open reply has no units -> keeps last-used/default without locking or sending set_units (I67).
 	doc.on_opened({"ok": true, "rev": 0, "ops": []}, true)
 	mb.on_opened({"ok": true, "rev": 0, "ops": []}, true)
+	check("new model with no saved units stays unset and does not send set_units yet",
+		client.by_cmd("set_units").is_empty() and not mb.units_dirty and not mb.units_explicit)
+
+	# First valid typed length with an explicit unit adopts & saves (I67).
+	mb.vcb = "120mm"
+	mb.apply()
 	var su := client.by_cmd("set_units")
-	check("new model with no saved units sends default units to save", su.size() == 1 and su.back()["units"] == "in-frac:1/16" and mb.units_dirty)
-	mb.on_set_units_reply({"ok": true, "cmd": "set_units", "model": fm.model_path, "units": "in-frac:1/16", "rev": 1, "seq": su.back()["seq"]})
+	check("first typed explicit unit adopts mm:0.1, locks units, and sends set_units",
+		mb.units == "mm:0.1" and mb.units_explicit and mb.units_dirty and su.size() == 1 and su.back()["units"] == "mm:0.1")
+	mb.on_set_units_reply({"ok": true, "cmd": "set_units", "model": fm.model_path, "units": "mm:0.1", "rev": 1, "seq": su.back()["seq"]})
 	check("set_units reply clears dirty and advances pending_rev for save indicator / close",
 		not mb.units_dirty and doc.pending_rev == 1 and doc.unsaved())
 	doc.on_saved({"cmd": "saved", "model": fm.model_path, "rev": 1})
+	# Subsequent explicit unit in another system converts without flipping units.
+	mb.vcb = "4\""
+	mb.apply()
+	check("subsequent explicit unit converts without flipping locked units",
+		mb.units == "mm:0.1" and absf(float(ft.last_typed) - 101.6) < 1e-6, [mb.units, ft.last_typed])
 
 	# Link drops between menu choice and reply: UI updates at once, and reconnect resends set_units.
 	var before_n := client.by_cmd("set_units").size()
@@ -266,16 +315,51 @@ func _measure_box_units_lifecycle() -> void:
 		mb.units == "cm:0.1" and client.by_cmd("set_units").size() == sent_before_open + 1
 		and client.by_cmd("set_units").back()["units"] == "cm:0.1")
 
-	# Opening a model with saved units adopts them; unreadable/missing units fall back to last used (I62).
+	# Opening a model with saved units adopts them and locks units_explicit; unreadable/missing units stay unlocked (I62/I67).
 	doc.reset(); doc.opened = false; fm.model_path = "/tmp/u3.FCStd"; doc.model_path = fm.model_path
 	mb.reset_for_model()
 	doc.on_opened({"ok": true, "rev": 1, "ops": [], "units": "in-dec:0.001"}, true)
 	mb.on_opened({"ok": true, "rev": 1, "ops": [], "units": "in-dec:0.001"}, true)
-	check("opening a model with saved units adopts them", mb.units == "in-dec:0.001" and not mb.units_dirty)
+	check("opening a model with saved units adopts them and locks units_explicit",
+		mb.units == "in-dec:0.001" and mb.units_explicit and not mb.units_dirty)
 
 	# Outside save reload adopts FreeCAD file's units.
 	mb.on_reloaded({"ok": true, "cmd": "reload", "units": "mm:0.01"})
-	check("reload adopts the units from FreeCAD's file", mb.units == "mm:0.01" and not mb.units_dirty)
+	check("reload adopts the units from FreeCAD's file", mb.units == "mm:0.01" and mb.units_explicit and not mb.units_dirty)
+
+	# FreeCAD-evaluated (declined) length on unset model: rejected does NOT adopt; ok adopts (I67).
+	doc.reset(); doc.opened = false; fm.model_path = "/tmp/u4.FCStd"; doc.model_path = fm.model_path
+	mb.reset_for_model()
+	doc.on_opened({"ok": true, "rev": 0, "ops": []}, true)
+	mb.on_opened({"ok": true, "rev": 0, "ops": []}, true)
+	var before_bad_units: String = mb.units
+	mb.vcb = "abc mm"
+	mb.apply()
+	var bad_id: int = client.by_cmd("length").back()["id"]
+	mb.on_length({"cmd": "length", "id": bad_id, "ok": false, "error": "bad"})
+	check("rejected FreeCAD length with unit does not change or lock units",
+		mb.units == before_bad_units and not mb.units_explicit)
+	mb.vcb = "1ft^1"
+	mb.apply()
+	var ok_id: int = client.by_cmd("length").back()["id"]
+	mb.on_length({"cmd": "length", "id": ok_id, "ok": true, "values": [304.8]})
+	check("accepted FreeCAD length adopts ft-in:1/16 and locks units",
+		mb.units == "ft-in:1/16" and mb.units_explicit and absf(float(ft.last_typed) - 304.8) < 1e-6)
+
+	# First typed length is bare: keeps default units and locks so a later explicit override does not flip units.
+	doc.reset(); doc.opened = false; fm.model_path = "/tmp/u5.FCStd"; doc.model_path = fm.model_path
+	mb.reset_for_model()
+	doc.on_opened({"ok": true, "rev": 0, "ops": []}, true)
+	mb.on_opened({"ok": true, "rev": 0, "ops": []}, true)
+	var before_bare_units: String = mb.units
+	mb.vcb = "10"
+	mb.apply()
+	check("bare first typed length keeps default units and locks them",
+		mb.units == before_bare_units and mb.units_explicit)
+	mb.vcb = "120mm"
+	mb.apply()
+	check("explicit unit after bare first typed length converts without flipping units",
+		mb.units == before_bare_units and absf(float(ft.last_typed) - 120.0) < 1e-6, [mb.units, ft.last_typed])
 
 	# Typed bare number uses model's default_unit, both locally and when sent to worker (I59).
 	mb.set_units("in-frac:1/16", true)
@@ -285,8 +369,10 @@ func _measure_box_units_lifecycle() -> void:
 	mb.vcb = "50mm"
 	mb.apply()
 	check("explicit unit wins over model units (I59)", absf(float(ft.last_typed) - 50.0) < 1e-6, ft.last_typed)
+	var lens_before := client.by_cmd("length").size()
 	mb.vcb = "sqrt(4) * foo"     # declined locally -> goes to worker with default_unit = "in"
 	mb.apply()
 	var lens := client.by_cmd("length")
-	check("declined length request carries the model's default_unit", lens.size() == 1 and lens.back()["default_unit"] == "in", lens)
+	check("declined length request carries the model's default_unit",
+		lens.size() == lens_before + 1 and lens.back()["default_unit"] == "in", lens)
 	DirAccess.remove_absolute(cfg)
