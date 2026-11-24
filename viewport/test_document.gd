@@ -9,10 +9,25 @@ var failed := 0
 var made: Array = []
 
 
+# Stand-in client for document.gd tests (T110, P42):
+# - last_of(cmd) / drain(): inspect what Document sent without matching raw indices.
+# - Reply builders below match each request's seq; deliver replies in any order for P42
+#   late/out-of-order replies, error_reply() for failed open/reload/keep_mine/save,
+#   and d.on_link_up() for P42 worker gone.
 class FakeClient:
 	var sent: Array = []
+	var _drained := 0
 	func send(d: Dictionary) -> void: sent.append(d)
 	func last() -> Dictionary: return sent.back() if not sent.is_empty() else {}
+	func last_of(cmd: String) -> Dictionary:
+		for i in range(sent.size() - 1, -1, -1):
+			if sent[i].get("cmd", "") == cmd:
+				return sent[i]
+		return {}
+	func drain() -> Array:
+		var out := sent.slice(_drained)
+		_drained = sent.size()
+		return out
 	func syncs() -> Array: return sent.filter(func(d): return d["cmd"] == "sync")
 
 
@@ -43,12 +58,49 @@ func make() -> Array:
 	return [d, c, seen]
 
 
+# Reply and event builders (T110, P42): each reply takes the request it answers so seq matches.
+# Use reply() / reload_reply() / keep_mine_reply() / open_reply() / error_reply() in any order
+# for P42 late/out-of-order replies or failed commands, and outside_save() for FreeCAD saves.
 func reply(d, ok_ids: Array, seq_no: int, extra := {}) -> Dictionary:
 	var ops := []
 	for i in ok_ids: ops.append({"id": i, "status": "ok"})
 	var res := {"ops": ops, "how": "applied", "rev": 1}
 	res.merge(extra, true)
 	return {"ok": true, "seq": seq_no, "result": res, "outdir": d.out_dir}
+
+
+func reload_reply(req: Dictionary, ops: Array, extra := {}) -> Dictionary:
+	var r := {"ok": true, "cmd": "reload", "seq": req.get("seq"), "model": req.get("model", ""),
+		"rev": 1, "ops": ops, "undo_floor": ops.size(), "changed": [], "removed": [], "dropped": []}
+	r.merge(extra, true)
+	return r
+
+
+func keep_mine_reply(req: Dictionary, extra := {}) -> Dictionary:
+	var r := {"ok": true, "cmd": "keep_mine", "seq": req.get("seq"), "model": req.get("model", ""),
+		"aside": "/tmp/doc-test.freecad-20261122-120000.FCStd", "rev": 2}
+	r.merge(extra, true)
+	return r
+
+
+func open_reply(req: Dictionary, ops: Array, extra := {}) -> Dictionary:
+	var r := {"ok": true, "cmd": "open", "seq": req.get("seq"), "model": req.get("model", ""),
+		"rev": 0, "ops": ops}
+	r.merge(extra, true)
+	return r
+
+
+func error_reply(req: Dictionary, message: String, extra := {}) -> Dictionary:
+	var r := {"ok": false, "cmd": req.get("cmd", ""), "seq": req.get("seq"), "error": message}
+	if req.has("model"): r["model"] = req["model"]
+	r.merge(extra, true)
+	return r
+
+
+func outside_save(d, unsaved := false, extra := {}) -> Dictionary:
+	var r := {"cmd": "outside_save", "model": d.model_path, "rev": d.saved_rev, "unsaved": unsaved}
+	r.merge(extra, true)
+	return r
 
 
 func op(id: String) -> Dictionary:
@@ -216,21 +268,19 @@ func _init() -> void:
 	# --- late replies (T70): an open for a model since left, a reply from before a reconnect, lifecycle replies ---
 	t = make(); d = t[0]; c = t[1]; seen = t[2]
 	d.open("/tmp/doc-a.FCStd", false)
-	var open_a: Dictionary = c.last()
+	var open_a: Dictionary = c.last_of("open")
 	d.reset(); d.open("/tmp/doc-b.FCStd", false)
-	var open_b: Dictionary = c.last()
+	var open_b: Dictionary = c.last_of("open")
 	check("each open carries its own seq", open_a.has("seq") and open_b["seq"] > open_a["seq"])
-	var late_a := {"ok": true, "cmd": "open", "model": "/tmp/doc-a.FCStd", "seq": open_a["seq"], "rev": 1, "ops": [op("r1")]}
+	var late_a := open_reply(open_a, [op("r1")], {"rev": 1})
 	check("a quick A -> B switch: A's open reply, arriving late, is ignored", not d.is_current_open(late_a))
-	check("so is a refusal for the old open (it can't send the window back)", not d.is_current_open(
-		{"ok": false, "cmd": "open", "error": "already_open", "model": "/tmp/doc-a.FCStd", "seq": open_a["seq"]}))
-	check("a reply with the right seq for another model is ignored", not d.is_current_open(
-		{"ok": true, "cmd": "open", "model": "/tmp/doc-a.FCStd", "seq": open_b["seq"]}))
-	check("B's own open reply counts", d.is_current_open(
-		{"ok": true, "cmd": "open", "model": "/tmp/doc-b.FCStd", "seq": open_b["seq"], "rev": 0, "ops": []}))
+	check("so is a refusal for the old open (it can't send the window back)",
+		not d.is_current_open(error_reply(open_a, "already_open")))
+	check("a reply with the right seq for another model is ignored",
+		not d.is_current_open(open_reply(open_b, [], {"model": "/tmp/doc-a.FCStd"})))
+	check("B's own open reply counts", d.is_current_open(open_reply(open_b, [])))
 	d.open("/tmp/doc-b.FCStd", false)
-	check("reopening the same model: only the latest open counts", not d.is_current_open(
-		{"ok": true, "cmd": "open", "model": "/tmp/doc-b.FCStd", "seq": open_b["seq"]}))
+	check("reopening the same model: only the latest open counts", not d.is_current_open(open_reply(open_b, [])))
 
 	t = make(); d = t[0]; c = t[1]; seen = t[2]
 	d.ops.append(op("r1")); d.sync()
@@ -361,18 +411,17 @@ func _init() -> void:
 	d.outside_waiting.connect(func(): waits[0] += 1)
 	d.reloaded.connect(func(r): reloads.append(r))
 	d.on_opened({"ok": true, "rev": 2, "ops": [op("r1"), op("r2")]}, true)
-	d.on_outside_save({"cmd": "outside_save", "model": "/tmp/other.FCStd", "rev": 2, "unsaved": false})
+	d.on_outside_save(outside_save(d, false, {"model": "/tmp/other.FCStd"}))
 	check("another model's outside save is ignored", d.outside.is_empty() and c.sent.is_empty())
-	d.on_outside_save({"cmd": "outside_save", "model": d.model_path, "rev": 2, "unsaved": false})
-	var rl: Dictionary = c.last()
+	d.on_outside_save(outside_save(d))
+	var rl: Dictionary = c.last_of("reload")
 	check("with nothing on its way, an outside save is reloaded at once",
 		rl["cmd"] == "reload" and rl["model"] == d.model_path and rl["outdir"] == d.out_dir and waits[0] == 0)
 	d.ops.append(op("r3")); d.sync()
 	check("an action drawn while the reload is out waits for it (no sync on the old file)", c.syncs().is_empty())
 	d.on_sync_reply(reply(d, ["r1", "r2", "r3"], rl["seq"]))
 	check("a sync answer can't pass for the reload's", d.outside_seq == rl["seq"] and seen["synced"].is_empty())
-	d.on_reload_reply({"ok": true, "cmd": "reload", "seq": rl["seq"], "model": d.model_path, "rev": 2,
-		"ops": [op("r1")], "undo_floor": 1, "changed": ["b1"], "removed": ["b2"], "dropped": [op("r2")]})
+	d.on_reload_reply(reload_reply(rl, [op("r1")], {"rev": 2, "changed": ["b1"], "removed": ["b2"], "dropped": [op("r2")]}))
 	check("the reload's ops are the list, with the action drawn meanwhile on top",
 		d.ops.map(func(o): return o["id"]) == ["r1", "r3"] and reloads.size() == 1)
 	check("what FreeCAD's save didn't have is dropped from the list and remembered",
@@ -385,29 +434,29 @@ func _init() -> void:
 	var errors: Array = []
 	d.outside_failed.connect(func(error): errors.append(error))
 	d.on_opened({"ok": true, "rev": 2, "ops": [op("r1")]}, true)
-	d.on_outside_save({"cmd": "outside_save", "model": d.model_path, "rev": 2, "unsaved": false})
-	var original_reload: Dictionary = c.last()
+	d.on_outside_save(outside_save(d))
+	var original_reload: Dictionary = c.last_of("reload")
 	d.ops.append(op("r2")); d.sync()
 	d.on_link_up()
-	var retry: Dictionary = c.last()
+	var retry: Dictionary = c.last_of("reload")
 	check("reconnecting with a reload out sends another reload with a fresh sequence",
 		retry["cmd"] == "reload" and retry["seq"] > original_reload["seq"] and d.in_flight)
-	d.on_reload_reply({"ok": false, "seq": original_reload["seq"], "error": "stale reply"})
+	d.on_reload_reply(error_reply(original_reload, "stale reply"))
 	check("the lost reload's reply leaves the retry in flight", errors.is_empty() and d.outside_seq == retry["seq"])
-	var sent_before_failure: int = c.sent.size()
-	d.on_reload_reply({"ok": false, "seq": retry["seq"], "error": "Invalid project file"})
+	c.drain()
+	d.on_reload_reply(error_reply(retry, "Invalid project file"))
 	check("a failed reload keeps the save pending and emits its error without sending anything",
 		d.outside.get("rev") == 2 and d.outside_seq == -1 and not d.in_flight
-		and errors == ["Invalid project file"] and c.sent.size() == sent_before_failure)
+		and errors == ["Invalid project file"] and c.drain().is_empty())
 	d.ops.append(op("r3")); d.sync()
-	check("further actions wait for the choice after a failed reload", d.dirty and c.sent.size() == sent_before_failure)
+	check("further actions wait for the choice after a failed reload", d.dirty and c.drain().is_empty())
 
 	t = make(); d = t[0]; c = t[1]; seen = t[2]
 	d.on_opened({"ok": true, "rev": 2, "ops": [op("r1")]}, true)
-	d.on_outside_save({"cmd": "outside_save", "model": d.model_path, "rev": 2, "unsaved": false})
+	d.on_outside_save(outside_save(d))
 	d.ops.append(op("r2")); d.sync()
 	d.on_link_up()
-	d.on_reload_reply({"ok": true, "seq": c.last()["seq"], "rev": 2, "ops": [op("r1")], "undo_floor": 1})
+	d.on_reload_reply(reload_reply(c.last_of("reload"), [op("r1")], {"rev": 2}))
 	check("a retried reload still syncs the actions drawn after the first request on top",
 		c.last()["cmd"] == "sync" and d.ops.map(func(o): return o["id"]) == ["r1", "r2"])
 
@@ -417,22 +466,21 @@ func _init() -> void:
 	d.on_opened({"ok": true, "rev": 1, "ops": [op("r1")]}, true)
 	d.ops.append(op("r2")); d.sync()
 	var s1: int = d.seq
-	d.on_outside_save({"cmd": "outside_save", "model": d.model_path, "rev": 1, "unsaved": true})
+	d.on_outside_save(outside_save(d, true))
 	check("with a sync on its way, an outside save waits (main gives it OUTSIDE_SAVE_WAIT)",
 		waits[0] == 1 and c.last()["cmd"] == "sync" and not d.outside.is_empty())
 	d.on_sync_reply(reply(d, ["r1", "r2"], s1))
 	check("once it lands, the reload goes", c.last()["cmd"] == "reload" and seen["idle"] == 0)
-	d.on_reload_reply({"ok": true, "cmd": "reload", "seq": c.last()["seq"], "model": d.model_path, "rev": 1,
-		"ops": [op("r1")], "undo_floor": 1, "changed": [], "removed": ["b2"], "dropped": [op("r2")]})
+	d.on_reload_reply(reload_reply(c.last_of("reload"), [op("r1")], {"removed": ["b2"], "dropped": [op("r2")]}))
 	check("and the landed action FreeCAD's save lacks is dropped", d.ops.size() == 1 and d.dropped.size() == 1
 		and seen["idle"] == 1)
 
 	t = make(); d = t[0]; c = t[1]; seen = t[2]
 	d.on_opened({"ok": true, "rev": 1, "ops": [op("r1")]}, true)
 	d.ops.append(op("r2")); d.sync()
-	d.on_outside_save({"cmd": "outside_save", "model": d.model_path, "rev": 1, "unsaved": true})
+	d.on_outside_save(outside_save(d, true))
 	d.send_reload()
-	var forced: Dictionary = c.last()
+	var forced: Dictionary = c.last_of("reload")
 	check("'Use FreeCAD's version' reloads even with a sync out", forced["cmd"] == "reload")
 	d.on_sync_reply(reply(d, ["r1", "r2"], forced["seq"] - 1))
 	check("the stuck sync's late answer then counts for nothing", seen["synced"].is_empty() and d.outside_seq == forced["seq"])
@@ -442,15 +490,14 @@ func _init() -> void:
 	d.on_opened({"ok": true, "rev": 1, "ops": [op("r1")]}, true)
 	d.ops.append(op("r2")); d.sync()
 	var s2: int = d.seq
-	d.on_outside_save({"cmd": "outside_save", "model": d.model_path, "rev": 1, "unsaved": true})
+	d.on_outside_save(outside_save(d, true))
 	d.send_keep_mine()
-	var km: Dictionary = c.last()
+	var km: Dictionary = c.last_of("keep_mine")
 	check("'Keep Shop Sketch's' asks the worker to keep both", km["cmd"] == "keep_mine" and km["model"] == d.model_path
 		and not d.outside.is_empty())
 	d.on_sync_reply(reply(d, ["r1", "r2"], s2, {"rev": 2}))
 	check("its actions carry on landing, and no reload follows", seen["synced"].size() == 1 and c.last()["cmd"] == "keep_mine")
-	d.on_keep_mine_reply({"ok": true, "cmd": "keep_mine", "seq": km["seq"], "model": d.model_path,
-		"aside": "/tmp/doc-test.freecad-20261122-120000.FCStd", "rev": 2})
+	d.on_keep_mine_reply(keep_mine_reply(km))
 	check("the answer says where FreeCAD's file went and the save landed", kept.size() == 1 and d.saved_rev == 2)
 
 	t = make(); d = t[0]; c = t[1]; seen = t[2]
@@ -458,14 +505,14 @@ func _init() -> void:
 	d.outside_waiting.connect(func(): waits[0] += 1)
 	d.on_opened({"ok": true, "rev": 1, "ops": [op("r1")]}, true)
 	d.ops.append(op("r2")); d.sync()
-	d.on_outside_save({"cmd": "outside_save", "model": d.model_path, "rev": 1, "unsaved": true})
-	var n_sent: int = c.sent.size()
+	d.on_outside_save(outside_save(d, true))
+	c.drain()
 	d.on_link_up()
 	check("reconnecting while waiting for actions starts a new wait without sending a sync",
-		c.sent.size() == n_sent and d.dirty and waits[0] == 2)
+		c.drain().is_empty() and d.dirty and waits[0] == 2)
 	d.send_keep_mine()
-	var kept_request: Dictionary = c.last()
-	d.on_keep_mine_reply({"ok": true, "seq": kept_request["seq"], "rev": 2})
+	var kept_request: Dictionary = c.last_of("keep_mine")
+	d.on_keep_mine_reply(keep_mine_reply(kept_request))
 	check("the choice then sends the model again", kept_request["cmd"] == "keep_mine" and c.last()["cmd"] == "sync")
 	d.reset()
 	check("switching models forgets an outside save", d.outside.is_empty() and d.dropped.is_empty())
@@ -486,20 +533,19 @@ func _init() -> void:
 	# 1. outside_save with rev: null (unreadable or foreign FreeCAD file)
 	t = make(); d = t[0]; c = t[1]; seen = t[2]
 	d.on_opened({"ok": true, "rev": 2, "ops": [op("r1")]}, true)
-	d.on_outside_save({"cmd": "outside_save", "model": d.model_path, "rev": null, "unsaved": false})
+	d.on_outside_save(outside_save(d, false, {"rev": null}))
 	check(h098_checks[0],
 		not d.outside.is_empty() and c.last().get("cmd", "") == "reload")
 
 	# 2. retrying a failed reload preserves actions drawn after the first reload left
 	t = make(); d = t[0]; c = t[1]; seen = t[2]
 	d.on_opened({"ok": true, "rev": 2, "ops": [op("r1")]}, true)
-	d.on_outside_save({"cmd": "outside_save", "model": d.model_path, "rev": 2, "unsaved": false})
-	var first_rl: Dictionary = c.last()
+	d.on_outside_save(outside_save(d))
+	var first_rl: Dictionary = c.last_of("reload")
 	d.ops.append(op("r2")); d.sync()
-	d.on_reload_reply({"ok": false, "cmd": "reload", "seq": first_rl["seq"], "error": "Invalid project file"})
+	d.on_reload_reply(error_reply(first_rl, "Invalid project file"))
 	d.send_reload()
-	d.on_reload_reply({"ok": true, "cmd": "reload", "seq": c.last()["seq"], "rev": 2, "ops": [op("r1")],
-		"undo_floor": 1, "dropped": []})
+	d.on_reload_reply(reload_reply(c.last_of("reload"), [op("r1")], {"rev": 2}))
 	check(h098_checks[1],
 		d.ops.map(func(o): return o["id"]) == ["r1", "r2"] and c.last().get("cmd", "") == "sync"
 		and c.last()["oplog"]["ops"].map(func(o): return o["id"]) == ["r1", "r2"])
@@ -510,9 +556,8 @@ func _init() -> void:
 	d.outside_actions_landed.connect(func(): landed[0] += 1)
 	d.on_opened({"ok": true, "rev": 1, "ops": [op("r1")]}, true)
 	d.ops.append(op("r2")); d.sync()
-	var fail_sync_seq: int = d.seq
-	d.on_outside_save({"cmd": "outside_save", "model": d.model_path, "rev": 1, "unsaved": true})
-	d.on_sync_reply({"ok": false, "cmd": "sync", "seq": fail_sync_seq, "error": "OpError: boom"})
+	d.on_outside_save(outside_save(d, true))
+	d.on_sync_reply(error_reply(c.last_of("sync"), "OpError: boom"))
 	check(h098_checks[2],
 		landed[0] == 0 and c.last().get("cmd", "") != "reload" and d.outside_seq == -1
 		and d.dirty and d.outside.get("hold_sync", false))
@@ -521,26 +566,24 @@ func _init() -> void:
 	t = make(); d = t[0]; c = t[1]; seen = t[2]
 	d.on_opened({"ok": true, "rev": 1, "ops": [op("r1")]}, true)
 	d.ops.append(op("r2")); d.sync()
-	d.on_outside_save({"cmd": "outside_save", "model": d.model_path, "rev": 1, "unsaved": true})
+	d.on_outside_save(outside_save(d, true))
 	d.on_link_up()
 	d.send_keep_mine()
-	var km_reqs: Array = c.sent.filter(func(x): return x["cmd"] == "keep_mine")
-	d.on_keep_mine_reply({"ok": false, "cmd": "keep_mine", "seq": km_reqs.back()["seq"],
-		"error": "PermissionError: read-only"})
-	var sent_after_km_fail: int = c.sent.size()
+	d.on_keep_mine_reply(error_reply(c.last_of("keep_mine"), "PermissionError: read-only"))
+	c.drain()
 	d.ops.append(op("r3")); d.sync()
 	check(h098_checks[3],
-		not d.outside.is_empty() and c.sent.size() == sent_after_km_fail)
+		not d.outside.is_empty() and c.drain().is_empty())
 
 	# 5. worker lost while keep_mine is in flight
 	t = make(); d = t[0]; c = t[1]; seen = t[2]
 	d.on_opened({"ok": true, "rev": 1, "ops": [op("r1")]}, true)
 	d.ops.append(op("r2")); d.sync()
-	d.on_outside_save({"cmd": "outside_save", "model": d.model_path, "rev": 1, "unsaved": true})
+	d.on_outside_save(outside_save(d, true))
 	d.send_keep_mine()
-	var before_reconn: int = c.sent.size()
+	c.drain()
 	d.on_link_up()
-	var sent_on_reconn: Array = c.sent.slice(before_reconn)
+	var sent_on_reconn: Array = c.drain()
 	check(h098_checks[4],
 		not sent_on_reconn.is_empty() and sent_on_reconn[0]["cmd"] == "keep_mine")
 
@@ -551,61 +594,87 @@ func _init() -> void:
 	d.reloaded.connect(func(r): late_reloads.append(r))
 	d.kept_mine.connect(func(r): late_kept.append(r))
 	d.on_opened({"ok": true, "rev": 1, "ops": [op("r1"), op("r2")]}, true)
-	d.on_outside_save({"cmd": "outside_save", "model": d.model_path, "rev": 1, "unsaved": false})
-	var rl_for_km: int = c.last()["seq"]
-	d.on_reload_reply({"ok": false, "cmd": "reload", "seq": rl_for_km, "error": "Invalid project file"})
+	d.on_outside_save(outside_save(d))
+	var rl_for_km: Dictionary = c.last_of("reload")
+	d.on_reload_reply(error_reply(rl_for_km, "Invalid project file"))
 	d.send_keep_mine()
-	var km_sent: Dictionary = c.last()
-	d.on_reload_reply({"ok": true, "cmd": "reload", "seq": rl_for_km, "rev": 1, "ops": [op("r1")],
-		"undo_floor": 1, "dropped": [op("r2")]})
-	d.on_keep_mine_reply({"ok": true, "cmd": "keep_mine", "seq": km_sent["seq"],
-		"aside": "/tmp/a.FCStd", "rev": 2})
+	var km_sent: Dictionary = c.last_of("keep_mine")
+	d.on_reload_reply(reload_reply(rl_for_km, [op("r1")], {"dropped": [op("r2")]}))
+	d.on_keep_mine_reply(keep_mine_reply(km_sent, {"aside": "/tmp/a.FCStd"}))
 	check(h098_checks[5],
 		late_reloads.is_empty() and d.ops.size() == 2 and late_kept.size() == 1)
 
 	# 7. second outside_save while a reload is in flight
 	t = make(); d = t[0]; c = t[1]; seen = t[2]
 	d.on_opened({"ok": true, "rev": 1, "ops": [op("r1")]}, true)
-	d.on_outside_save({"cmd": "outside_save", "model": d.model_path, "rev": 1, "unsaved": false})
-	var rl_first: int = c.last()["seq"]
-	d.on_outside_save({"cmd": "outside_save", "model": d.model_path, "rev": 2, "unsaved": false})
-	d.on_reload_reply({"ok": true, "cmd": "reload", "seq": rl_first, "rev": 1, "ops": [op("r1")], "undo_floor": 1})
+	d.on_outside_save(outside_save(d))
+	var rl_first: Dictionary = c.last_of("reload")
+	d.on_outside_save(outside_save(d, false, {"rev": 2}))
+	d.on_reload_reply(reload_reply(rl_first, [op("r1")]))
 	check(h098_checks[6],
 		c.sent.filter(func(x): return x["cmd"] == "reload").size() == 2 or not d.outside.is_empty())
 
 	# 8. second outside_save while hold_sync is set with pending actions
 	t = make(); d = t[0]; c = t[1]; seen = t[2]
 	d.on_opened({"ok": true, "rev": 1, "ops": [op("r1")]}, true)
-	d.on_outside_save({"cmd": "outside_save", "model": d.model_path, "rev": 1, "unsaved": false})
-	d.on_reload_reply({"ok": false, "cmd": "reload", "seq": c.last()["seq"], "error": "Invalid project file"})
+	d.on_outside_save(outside_save(d))
+	d.on_reload_reply(error_reply(c.last_of("reload"), "Invalid project file"))
 	d.ops.append(op("r2")); d.sync()
-	d.on_outside_save({"cmd": "outside_save", "model": d.model_path, "rev": 1, "unsaved": true})
-	var before_r3: int = c.sent.size()
+	d.on_outside_save(outside_save(d, true))
+	c.drain()
 	d.ops.append(op("r3")); d.sync()
 	check(h098_checks[7],
-		c.sent.slice(before_r3).all(func(x): return x["cmd"] != "sync"))
+		c.drain().all(func(x): return x["cmd"] != "sync"))
 
 	# 9. second outside_save while keep_mine is in flight
 	t = make(); d = t[0]; c = t[1]; seen = t[2]
 	d.on_opened({"ok": true, "rev": 1, "ops": [op("r1")]}, true)
-	d.on_outside_save({"cmd": "outside_save", "model": d.model_path, "rev": 1, "unsaved": false})
-	d.on_reload_reply({"ok": false, "cmd": "reload", "seq": c.last()["seq"], "error": "Invalid project file"})
+	d.on_outside_save(outside_save(d))
+	d.on_reload_reply(error_reply(c.last_of("reload"), "Invalid project file"))
 	d.send_keep_mine()
-	var km_only_seq: int = c.last()["seq"]
-	d.on_outside_save({"cmd": "outside_save", "model": d.model_path, "rev": 2, "unsaved": false})
-	d.on_keep_mine_reply({"ok": true, "cmd": "keep_mine", "seq": km_only_seq,
-		"aside": "/tmp/a.FCStd", "rev": 2})
+	var km_only: Dictionary = c.last_of("keep_mine")
+	d.on_outside_save(outside_save(d, false, {"rev": 2}))
+	d.on_keep_mine_reply(keep_mine_reply(km_only, {"aside": "/tmp/a.FCStd"}))
 	check(h098_checks[8],
 		c.last().get("cmd", "") == "reload")
 
 	# 10. begin_close when unsynced actions are held after a failed reload
 	t = make(); d = t[0]; c = t[1]; seen = t[2]
 	d.on_opened({"ok": true, "rev": 2, "ops": [op("r1")]}, true)
-	d.on_outside_save({"cmd": "outside_save", "model": d.model_path, "rev": 2, "unsaved": false})
-	d.on_reload_reply({"ok": false, "cmd": "reload", "seq": c.last()["seq"], "error": "Invalid project file"})
+	d.on_outside_save(outside_save(d))
+	d.on_reload_reply(error_reply(c.last_of("reload"), "Invalid project file"))
 	d.ops.append(op("r2")); d.sync()
 	check(h098_checks[9],
 		not d.begin_close())
+
+	# --- T110 helper checks: last_of/drain + reload_reply/error_reply + out-of-order sync replies ---
+	t = make(); d = t[0]; c = t[1]; seen = t[2]
+	var h_errs: Array = []
+	d.outside_failed.connect(func(e): h_errs.append(e))
+	d.on_opened({"ok": true, "rev": 1, "ops": [op("r1")]}, true)
+	d.on_outside_save(outside_save(d))
+	var first_reload_req: Dictionary = c.last_of("reload")
+	d.on_reload_reply(error_reply(first_reload_req, "broken file"))
+	d.send_reload()
+	var second_reload_req: Dictionary = c.last_of("reload")
+	d.on_reload_reply(reload_reply(second_reload_req, [op("r1")], {"rev": 2}))
+	check("helpers reload_reply and error_reply built from last_of(\"reload\") match seq and recover on retry",
+		h_errs == ["broken file"] and second_reload_req["seq"] > first_reload_req["seq"]
+		and d.outside.is_empty() and d.saved_rev == 2 and d.undo_floor == 1)
+
+	t = make(); d = t[0]; c = t[1]; seen = t[2]
+	d.opened = true
+	d.ops.append(op("r1")); d.sync()
+	var sync_old: Dictionary = c.last_of("sync")
+	d.on_link_up()                                      # resend under a newer seq
+	var sync_new: Dictionary = c.last_of("sync")
+	d.on_sync_reply(reply(d, ["r1"], sync_new["seq"], {"rev": 2}))
+	var synced_after_new: int = seen["synced"].size()
+	var saves_after_new: int = seen["saves"]
+	d.on_sync_reply(reply(d, ["r1"], sync_old["seq"], {"rev": 1}))
+	check("delivering two sync replies in the wrong order: the older one changes nothing",
+		sync_new["seq"] > sync_old["seq"] and synced_after_new == 1 and seen["synced"].size() == 1
+		and seen["saves"] == saves_after_new and d.pending_rev == 2 and not d.in_flight)
 
 	for n in made: n.free()
 	print("DOCUMENT TESTS: %d passed, %d failed" % [passed, failed])
