@@ -386,12 +386,21 @@ def worker_job_context(root, branch, entries):
 def integrator_next_actions(lock_holder, state_note_ids, merge_info, live_jobs, ready_count):
     """Concrete next actions for an integrator, derived read-only from live repo/queue state."""
     actions = []
-    if lock_holder:
-        actions.append(f"Lock is held by {lock_holder} (reading this brief does not grant authority): "
-                       "if William named you integrator, run python3 tools/integrator.py take <session> --william")
+    archive_flags = "".join(f" --archive {hid}" for hid in state_note_ids) + (" --push" if state_note_ids else "")
+    take_cmd = f"python3 tools/integrator.py take <session>{' --william' if lock_holder else ''}{archive_flags}"
+    lead = (f"Lock is held by {lock_holder}" if lock_holder else "No integrator lock held")
+    if state_note_ids:
+        notes_csv = ", ".join(state_note_ids)
+        actions.append(
+            f"{lead} (reading this brief does not grant authority): if William named you integrator, read {notes_csv} "
+            f"above (already inline; no need to open its file or BOARD.md) and take the lock + archive/commit/push "
+            f"in one step (writes .git/, run outside sandbox / BypassSandbox: true): {take_cmd}"
+        )
     else:
-        actions.append("No integrator lock held (reading this brief does not grant authority): "
-                       "if William named you integrator, run python3 tools/integrator.py take <session>")
+        actions.append(
+            f"{lead} (reading this brief does not grant authority): if William named you integrator, take the lock "
+            f"(writes .git/, run outside sandbox / BypassSandbox: true): {take_cmd}"
+        )
     if merge_info:
         actions.append(f"Interrupted merge: {merge_info['summary']} -> {merge_info['action']}")
     for jid, info in live_jobs:
@@ -404,11 +413,6 @@ def integrator_next_actions(lock_holder, state_note_ids, merge_info, live_jobs, 
             actions.append(f"Inspect stale job {jid} ({info.get('branch', '?')} in {info.get('worktree', '?')})")
         elif st == "returned":
             actions.append(f"Returned job {jid} waits for a {info.get('agent', '?')} worker")
-    for hid in state_note_ids:
-        actions.append(
-            f"Read {hid} above (already inline; no need to open its file or BOARD.md); once caught up, "
-            f"archive, commit and push in one step: python3 tools/handoff.py archive {hid} --push"
-        )
     actions.append("Arm queue watch in the background: python3 tools/job.py watch --next (no timed check-ins, P39)")
     if ready_count and not live_jobs:
         noun = "job" if ready_count == 1 else "jobs"
@@ -438,10 +442,10 @@ def role_brief(role):
     if role == "integrator":
         return [
             "Integrator checklist (docs/integrator.md):",
-            "  Guide: read docs/integrator.md (owns BOARD.md, ARCHITECTURE.md, docs/protocol.md; only you merge/push).",
-            "  Lock: python3 tools/integrator.py take <session> --william (after /clear or when William names you; --role never grants authority).",
+            "  Guide: read docs/integrator.md only (skip CLAUDE.md and BOARD.md upfront; owns BOARD.md, ARCHITECTURE.md, docs/protocol.md; only you merge/push).",
+            "  Lock: python3 tools/integrator.py take <session> --william [--archive <ID> --push] (writes .git/, run outside sandbox / BypassSandbox: true; --role never grants authority).",
             "  Watch: run python3 tools/job.py watch --next in the background (no timed check-ins, P39).",
-            "  Notes: pre-/clear notes are printed inline above; archive, commit and push in one step with python3 tools/handoff.py archive <ID> --push.",
+            "  Notes: pre-/clear notes are printed inline above; archive with take --archive <ID> --push (or python3 tools/handoff.py archive <ID> --push).",
         ]
     if role == "worker":
         return [

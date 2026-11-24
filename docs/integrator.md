@@ -6,12 +6,14 @@ Architecture: lines, the response) and CLAUDE.md (commit trailers); this page sa
 
 ## The role and the lock
 - One Claude session is the integrator (P16), and it holds the lock (`python3 tools/integrator.py status`, P19).
-  Start with `python3 tools/startup.py --role integrator` to get the checklist and any open notes for the integrator
-  (pre-/clear state notes are printed inline; archive, commit and push one in a single step with
-  `python3 tools/handoff.py archive <ID> --push`).
-  You're the integrator only if William said so in this session: `python3 tools/integrator.py take <your session
-  name>` (refused if another holds it: ask William; after a context clear he says so and you run it with
-  `--william`, P19).
+  Start with `python3 tools/startup.py --role integrator` and this page only — skip `CLAUDE.md` and `BOARD.md` upfront
+  (`startup.py` already summarizes the board and prints pre-/clear state notes inline).
+  You're the integrator only if William said so in this session: take the lock (and archive, commit and push any
+  pre-/clear state note in one step) with
+  `python3 tools/integrator.py take <your session name> --william [--archive <ID> --push]` (drop `--william` if the
+  lock is free; refused if another holds it without `--william`, P19; standalone archiving is
+  `python3 tools/handoff.py archive <ID> --push`). Commands that write `.git/` or push (`integrator.py take`,
+  `handoff.py archive --push`, `integrate.py`) require running outside the sandbox (`BypassSandbox: true`).
 - It keeps BOARD.md (nobody else edits it), assigns jobs, reviews, merges into main and pushes without asking once
   review and tests pass (P16, P49), and pushes verified integrator commits on main directly. Other sessions never
   merge or push.

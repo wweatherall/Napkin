@@ -174,11 +174,16 @@ acts = s.integrator_next_actions(
      ("H129", {"state": "stale", "branch": "codex/h129-rect", "worktree": "/jobs/h129"})],
     2)
 joined_acts = "\n".join(acts)
-check("integrator_next_actions keeps authority separate and surfaces merge, waiting, done, stale, state note, watch",
+check("integrator_next_actions keeps authority separate and surfaces merge, waiting, done, stale, combined lock+archive, watch",
       "does not grant authority" in joined_acts and "Interrupted merge:" in joined_acts
       and "job.py answer H125" in joined_acts and "integrate.py gemini/h128-loops" in joined_acts
-      and "stale job H129" in joined_acts and "handoff.py archive H131 --push" in joined_acts
-      and "watch --next" in joined_acts)
+      and "stale job H129" in joined_acts
+      and "integrator.py take <session> --william --archive H131 --push" in joined_acts
+      and "BypassSandbox: true" in joined_acts and "watch --next" in joined_acts)
+plain_acts = "\n".join(s.integrator_next_actions(None, [], None, [], 0))
+check("integrator_next_actions omits --william and --archive when lock is free and no state notes exist",
+      "integrator.py take <session>" in plain_acts and "--william" not in plain_acts and "--archive" not in plain_acts
+      and "BypassSandbox: true" in plain_acts)
 
 summary_lines = s.role_summary("gemini-maple", ["H131"], 2, None, in_job_id="H125")
 check("role_summary summarizes lock, state note, ready count, merge state and detected job checkout",

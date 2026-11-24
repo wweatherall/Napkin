@@ -4,8 +4,11 @@
   python3 tools/integrator.py status              who holds it, since when, when last active
   python3 tools/integrator.py take <name>          take it: <name> is your session's name (ListAgents shows it,
                                                    e.g. fretchup-73). Refused while another session holds it.
-  python3 tools/integrator.py take <name> --william    William said this session is the integrator: take it over
-                                                   (after a context clear, a crash, or a hand-over); logged
+  python3 tools/integrator.py take <name> --william [--archive <ID> [--commit | --push]]
+                                                   William said this session is the integrator: take it over
+                                                   (after a context clear, a crash, or a hand-over); logged.
+                                                   With --archive <ID>, also archive that pre-/clear note once
+                                                   the lock is taken (--commit stages+commits; --push also pushes main)
   python3 tools/integrator.py touch <name>         mark it still in use (tools/integrate.py does this)
   python3 tools/integrator.py release <name>       give it up
 
@@ -83,6 +86,53 @@ def status_line(path):
     return f"Integrator: {held['holder']} (since {held['since']}, last active {held['seen']})"
 
 
+def parse_take_args(argv):
+    """Parse flags after `take <name>` -> (william, archives, commit, push, error)."""
+    william, archives, commit, push, i = False, [], False, False, 0
+    while i < len(argv):
+        arg = argv[i]
+        if arg == "--william":
+            william = True
+            i += 1
+        elif arg == "--archive":
+            if i + 1 >= len(argv) or argv[i + 1].startswith("-"):
+                return False, [], False, False, "take --archive needs a handoff ID (e.g. H134)"
+            archives.append(argv[i + 1])
+            i += 2
+        elif arg == "--commit":
+            commit = True
+            i += 1
+        elif arg == "--push":
+            push = True
+            i += 1
+        else:
+            return False, [], False, False, f"unknown flag for take: {arg}"
+    if (commit or push) and not archives:
+        return False, [], False, False, "--commit / --push require --archive <ID>"
+    return william, archives, commit or push, push, None
+
+
+def take_and_archive(path, name, william=False, archives=(), commit=False, push=False, root=None, out=print):
+    """Take the integrator lock, then (only if granted) archive any listed state notes."""
+    if not take(path, name, william=william, out=out):
+        return False
+    if not archives:
+        return True
+    here = os.path.dirname(os.path.abspath(__file__))
+    if here not in sys.path:
+        sys.path.insert(0, here)
+    import handoff
+    repo = root or os.path.normpath(os.path.join(here, ".."))
+    for idx, hid in enumerate(archives):
+        head, sha, pushed = handoff.archive_and_commit(repo, hid, commit=commit or push, push=push and idx == len(archives) - 1)
+        out(f"archived {head}")
+        if sha:
+            out(f"committed {sha} Archive {head}")
+        if pushed:
+            out("pushed main")
+    return True
+
+
 def main(argv):
     path = lock_path()
     if not argv or argv[0] == "status":
@@ -92,8 +142,19 @@ def main(argv):
         print(__doc__)
         return 2
     cmd, name = argv[0], argv[1]
-    ok = {"take": lambda: take(path, name, "--william" in argv),
-          "touch": lambda: touch(path, name), "release": lambda: release(path, name)}[cmd]()
+    try:
+        if cmd == "take":
+            william, archives, commit, push, err = parse_take_args(argv[2:])
+            if err:
+                print(err)
+                print(__doc__)
+                return 2
+            ok = take_and_archive(path, name, william=william, archives=archives, commit=commit, push=push)
+        else:
+            ok = {"touch": lambda: touch(path, name), "release": lambda: release(path, name)}[cmd]()
+    except PermissionError as exc:
+        print(f"cannot write integrator lock: {exc} (re-run outside sandbox)")
+        return 1
     return 0 if ok else 1
 
 
