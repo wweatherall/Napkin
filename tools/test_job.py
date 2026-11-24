@@ -1010,5 +1010,97 @@ for w in [l.split()[1] for l in sh(root, "git", "worktree", "list", "--porcelain
     sh(root, "git", "worktree", "remove", "--force", w)
 shutil.rmtree(base)
 
+# --- passive job-usage lifecycle hooks (H124 / T117) ---
+u_base, u_root = repo()
+u_real_root = os.path.realpath(u_root)
+u_log = os.path.join(u_base, "usage.log")
+u_stub = os.path.join(u_base, "usage_stub.py")
+open(u_stub, "w").write(
+    f"import json, sys\n"
+    f"with open({u_log!r}, 'a', encoding='utf-8') as f:\n"
+    f"    f.write(json.dumps(sys.argv[1:]) + '\\n')\n"
+)
+u_fail = os.path.join(u_base, "usage_fail.py")
+open(u_fail, "w").write("import sys\nsys.stderr.write('boom\\n')\nsys.exit(1)\n")
+u_missing = os.path.join(u_base, "no_such_usage_tool.py")
+
+with patch.dict(os.environ, {"SHOPSKETCH_USAGE_TOOL": u_stub}):
+    r_take, out_take = run(job.take, u_root, "claude", "u-sess-1")
+    wt_u1 = os.path.realpath(job.worktree_for(u_root, "H001"))
+    hp_u1 = os.path.join(wt_u1, "docs", "handoff", "H001-first-job.md")
+    body_u1 = open(hp_u1).read()
+    open(hp_u1, "w").write(body_u1.replace("Status: open", "Status: answered") + "\nResponse: done.\n")
+    commit(wt_u1, "H001 answered")
+    _qt = job.QUICKTEST
+    try:
+        job.QUICKTEST = ["true"]
+        r_done, out_done = run(job.done, wt_u1)
+    finally:
+        job.QUICKTEST = _qt
+    r_ret, out_ret = run(job.return_job, u_root, "H001", "needs tweak")
+
+u_calls = [json.loads(line) for line in open(u_log, encoding="utf-8").read().splitlines()] if os.path.isfile(u_log) else []
+check("usage hook: take passes --repo <tmp_root>, snapshot, --event take, --job, --agent, --session, --quiet",
+      r_take == "H001" and len(u_calls) >= 1 and u_calls[0] == [
+          "--repo", u_real_root, "snapshot", "--event", "take", "--job", "H001",
+          "--agent", "claude", "--session", "u-sess-1", "--quiet"
+      ], (r_take, u_calls))
+check("usage hook: done passes --repo <tmp_root>, snapshot, --event done, --job, --quiet",
+      r_done is True and len(u_calls) >= 2 and u_calls[1] == [
+          "--repo", u_real_root, "snapshot", "--event", "done", "--job", "H001", "--quiet"
+      ], (r_done, u_calls))
+check("usage hook: return passes --repo <tmp_root>, snapshot, --event return, --job, --quiet",
+      r_ret is True and len(u_calls) >= 3 and u_calls[2] == [
+          "--repo", u_real_root, "snapshot", "--event", "return", "--job", "H001", "--quiet"
+      ], (r_ret, u_calls))
+check("usage hook: temp-repo runs target their temp repo, never the real checkout",
+      all(c[1] == u_real_root and c[1] != job.main_root(HERE) for c in u_calls), u_calls)
+
+# Missing or empty SHOPSKETCH_USAGE_TOOL: no subprocess spawned, take/done/return all succeed.
+for label, val in (("missing path", u_missing), ("empty string", "")):
+    with patch.dict(os.environ, {"SHOPSKETCH_USAGE_TOOL": val}), \
+         patch.object(job.subprocess, "run") as spy_run:
+        job.record_usage(u_real_root, "take", "H001", agent="claude", session="s", quiet=True)
+    check(f"usage hook: {label} returns immediately without spawning a subprocess", not spy_run.called)
+
+with patch.dict(os.environ, {"SHOPSKETCH_USAGE_TOOL": u_missing}):
+    r_m_take, _ = run(job.take, u_root, "claude", "u-miss-1")
+    _qt = job.QUICKTEST
+    try:
+        job.QUICKTEST = ["true"]
+        r_m_done, _ = run(job.done, wt_u1)
+    finally:
+        job.QUICKTEST = _qt
+    r_m_ret, _ = run(job.return_job, u_root, "H001", "still needs tweak")
+check("usage hook: missing SHOPSKETCH_USAGE_TOOL lets take, done, and return succeed",
+      r_m_take == "H001" and r_m_done is True and r_m_ret is True, (r_m_take, r_m_done, r_m_ret))
+
+# Failing SHOPSKETCH_USAGE_TOOL (exits 1 or raises): fail-open on take, done, return.
+with patch.dict(os.environ, {"SHOPSKETCH_USAGE_TOOL": u_fail}):
+    r_f_take, _ = run(job.take, u_root, "claude", "u-fail-1")
+    _qt = job.QUICKTEST
+    try:
+        job.QUICKTEST = ["true"]
+        r_f_done, _ = run(job.done, wt_u1)
+    finally:
+        job.QUICKTEST = _qt
+    r_f_ret, _ = run(job.return_job, u_root, "H001", "fail-open check")
+check("usage hook: failing SHOPSKETCH_USAGE_TOOL (exit 1) is fail-open on take, done, and return",
+      r_f_take == "H001" and r_f_done is True and r_f_ret is True, (r_f_take, r_f_done, r_f_ret))
+
+raised = False
+try:
+    with patch.dict(os.environ, {"SHOPSKETCH_USAGE_TOOL": u_stub}), \
+         patch.object(job.subprocess, "run", side_effect=subprocess.TimeoutExpired("usage", 5)):
+        job.record_usage(u_real_root, "done", "H001", quiet=True)
+except Exception:
+    raised = True
+check("usage hook: subprocess exception (e.g. TimeoutExpired) is swallowed fail-open", not raised)
+
+for w in [l.split()[1] for l in sh(u_root, "git", "worktree", "list", "--porcelain").stdout.split("\n")
+          if l.startswith("worktree ")][1:]:
+    sh(u_root, "git", "worktree", "remove", "--force", w)
+shutil.rmtree(u_base)
+
 print(f"JOB TESTS: {sum(RESULTS)} passed, {len(RESULTS) - sum(RESULTS)} failed")
 sys.exit(0 if all(RESULTS) else 1)

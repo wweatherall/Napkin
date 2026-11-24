@@ -975,9 +975,16 @@ def commit_merge(s):
 def clean_up_job(s):
     root, state, say = s.root, s.payload, s.say
     branch = state["branch"]
-    job.merged(root, branch, out=say)
+    jids = []
+    jid = job.merged(root, branch, out=say)
+    if jid:
+        jids.append(jid)
     if state.get("job_branch"):         # --job: the scratch branch delivered this job's branch (all of it is in main)
-        job.merged(root, state["job_branch"], out=say)
+        jid2 = job.merged(root, state["job_branch"], out=say)
+        if jid2 and jid2 not in jids:
+            jids.append(jid2)
+    for merged_id in jids:
+        job.record_usage(root, "merge", merged_id, quiet=False)
     return s
 
 
