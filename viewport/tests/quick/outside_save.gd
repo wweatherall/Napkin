@@ -30,7 +30,7 @@ func run() -> void:
 	var rev1 := model + ".rev1"
 	DirAccess.copy_absolute(model, rev1)
 	m.ops.append({"id": "del1", "type": "delete", "targets": ["b2"]})
-	m._restore_counters()
+	m.doc.restore_counters()
 	m.sync()
 	await harness._wait_confirm()
 	await _until(func(): return m.saved_rev >= m.pending_rev)

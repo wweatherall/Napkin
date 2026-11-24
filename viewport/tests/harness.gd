@@ -207,7 +207,7 @@ func _fresh(name: String, ops := [], own_file := false) -> void:
 		m._reset_model_state()
 	m.new_board = false; m.ui.update_toggles(); m.grid_snap = true
 	m.ops.append_array(ops)
-	m._restore_counters()
+	m.doc.restore_counters()
 	m.sync()
 	await _wait_confirm()
 	m.set_tool("rect")

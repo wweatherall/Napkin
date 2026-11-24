@@ -409,6 +409,7 @@ func reset() -> void:
 	reserved_ids.clear()
 	ops.clear()
 	redo_stack.clear()
+	_rejected.clear()
 	for k in counters: counters[k] = 0
 	undo_floor = 0
 
@@ -538,3 +539,82 @@ func consumed_rects() -> Dictionary:
 		if op["type"] == "push_pull" and op["target"].has("rect") and not op["target"].has("region"):
 			c[op["target"]["rect"]] = true
 	return c
+
+
+# ---------------- rejections take what built on them (T16, Q7) ----------------
+# FreeCAD rejects an action a moment after you did it; meanwhile you may have drawn on the board it made or the
+# face it changed. Those later actions fail too (what they refer to is gone): they join the first rejection,
+# go red with it and are removed together, with one message. Independent work stays.
+const REJECT_WINDOW_MS := 15000     # a rejection collects its dependents for this long
+var _rejected := {}                 # root op id -> {"ids", "bodies", "deps", "at", "note"}
+
+
+static func _op_refs(op: Dictionary) -> Array:
+	"""Ids an op refers to: the board or rectangle it acts on."""
+	var out := []
+	var pl: Dictionary = op.get("plane", {})
+	if pl.has("on"): out.append(pl["on"]["body"])
+	var tg: Dictionary = op.get("target", {})
+	if op.has("edge_fit"): out.append(op["edge_fit"]["target_body"])
+	if tg.has("region"): out.append_array(tg.region.get("lines", []))
+	if tg.has("rect"): out.append(tg["rect"])
+	if tg.has("face"): out.append(tg["face"]["body"])
+	out.append_array(op.get("targets", []))
+	if op.has("cut"): out.append_array([op["cut"]["body"], op["cut"]["op"]])
+	if op["type"] in ["make_component", "property_edit"]: out.append(op["body"])
+	return out
+
+
+func _op_makes(op: Dictionary) -> Array:
+	var out: Array = [op["id"]]
+	if op["type"] == "push_pull" and op.has("body"): out.append(op["body"])
+	out.append_array(op.get("new_ids", []))
+	return out
+
+
+func _op_touches(op: Dictionary) -> Array:
+	"""Boards an op changes in place (a face on them may exist only because of it)."""
+	var tg: Dictionary = op.get("target", {})
+	if op["type"] == "push_pull" and not op.has("body"):
+		if tg.has("rect"):
+			var r := op_of(tg["rect"])
+			if not r.is_empty() and r["plane"].has("on"): return [r["plane"]["on"]["body"]]
+		if tg.has("face"): return [tg["face"]["body"]]
+	if op["type"] == "move": return op.get("targets", []) + ([op["cut"]["body"]] if op.has("cut") else [])
+	return []
+
+
+func reject(oid: String, msg: String, now_ms: int, still_playing: Callable = Callable()) -> Dictionary:
+	for r in _rejected.keys():
+		if now_ms - int(_rejected[r]["at"]) > REJECT_WINDOW_MS and not (still_playing.is_valid() and still_playing.call(r)):
+			_rejected.erase(r)
+	var op := op_of(oid)
+	if op.is_empty(): return {}
+	var root := ""
+	for r in _rejected:
+		var e: Dictionary = _rejected[r]
+		for ref in _op_refs(op):
+			if e["ids"].has(ref): root = r
+		for b in e["bodies"]:
+			if msg.contains("'%s'" % b): root = r
+		if root != "": break
+	if root == "":                                   # a rejection of its own
+		root = oid
+		var e := {"ids": {}, "bodies": {}, "deps": [], "at": now_ms, "note": "%s: %s" % [oid, msg]}
+		for x in _op_makes(op): e["ids"][x] = true
+		for b in _op_touches(op): e["bodies"][b] = true
+		_rejected[root] = e
+		return {"root": root, "joined": false, "note": e["note"]}
+	var e: Dictionary = _rejected[root]              # built on an earlier rejection: goes with it
+	if not e["deps"].has(oid): e["deps"].append(oid)
+	for x in _op_makes(op): e["ids"][x] = true
+	for b in _op_touches(op): e["bodies"][b] = true
+	var n: int = e["deps"].size()
+	var note := "%s (and %d action%s that built on it)" % [e["note"], n, "" if n == 1 else "s"]
+	return {"root": root, "joined": true, "note": note}
+
+
+func rejected_ids(oid: String) -> Array:
+	"""If oid is a rejection root, it and the actions that built on it; [] otherwise."""
+	if not _rejected.has(oid): return []
+	return [oid] + _rejected[oid]["deps"]

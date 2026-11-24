@@ -12,7 +12,7 @@ func run() -> void:
 	# start from a saved session (the stool) so the scene isn't empty
 	var d = JSON.parse_string(FileAccess.get_file_as_string(m.preload_path))
 	m.ops = d["ops"]
-	m._restore_counters()
+	m.doc.restore_counters()
 	m._rebuild_rect_drafts()
 	for op in m.ops: m.confirmed_ids[op["id"]] = true
 	m.sync()

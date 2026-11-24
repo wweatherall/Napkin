@@ -24,7 +24,7 @@ func run() -> void:
 	m.switch_model(folder.path_join("quick_savefail.FCStd"), true)
 	await _until(func(): return m.opened, 20000)
 	m.ops.append_array(harness._plank(1, Vector3.ZERO, Vector3(300, 100, 18)))
-	m._restore_counters()
+	m.doc.restore_counters()
 	m.sync()
 	await harness._wait_confirm()
 	await _until(func(): return m.saved_rev >= m.pending_rev and m.pending_rev > 0)
@@ -32,7 +32,7 @@ func run() -> void:
 
 	OS.execute("chmod", ["555", folder])
 	m.ops.append_array(harness._plank(2, Vector3(0, 200, 0), Vector3(300, 100, 18)))
-	m._restore_counters()
+	m.doc.restore_counters()
 	m.sync()
 	await harness._wait_confirm()
 	await _until(func(): return m.doc.save_error != "")

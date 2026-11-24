@@ -731,10 +731,6 @@ func undo() -> void:
 
 # ---------------- redo (T31) ----------------
 # Linear redo (the document controller keeps the stack and says when it's over); here it's drawn again.
-func can_redo() -> bool:
-	return doc.can_redo()
-
-
 func redo() -> void:
 	var op: Dictionary = doc.take_redo()
 	if op.is_empty():
@@ -753,17 +749,9 @@ func redo() -> void:
 	ui_sync.text = "↷ redone - FreeCAD catching up (%d ops)" % ops.size()
 
 
-func remove_ops(ids: Array) -> void:
-	doc.remove_ops(ids)
-
-
-func remove_op(oid: String, resync := true) -> void:
-	doc.remove_op(oid, resync)
-
-
 func _on_op_removed(op: Dictionary) -> void:
 	"""The document dropped an op (undo, rejection): take away what it drew."""
-	pres.forget_op(op, ops, _consumed_rects())
+	pres.forget_op(op, ops, doc.consumed_rects())
 
 
 func _on_removed() -> void:
@@ -773,16 +761,8 @@ func _on_removed() -> void:
 	_apply_context()                           # an undone hide shows its boards again at once (T28)
 
 
-func _restore_counters() -> void:
-	doc.restore_counters()
-
-
-func _consumed_rects() -> Dictionary:
-	return doc.consumed_rects()
-
-
 func _rebuild_rect_drafts() -> void:
-	pres.rebuild_rect_drafts(ops, _consumed_rects())
+	pres.rebuild_rect_drafts(ops, doc.consumed_rects())
 
 
 # ---------------- worker sync ----------------
@@ -868,7 +848,7 @@ func _on_synced(resp: Dictionary) -> void:
 		if o["status"] == "ok": ok_ids[o["id"]] = true
 	var key := _ops_key(ops.filter(func(op): return ok_ids.has(op["id"])))
 	pres.show_confirmed(resp["outdir"], key)          # unless already on screen (an undo shown from the cache)
-	pres.drop_confirmed_drafts(_consumed_rects())     # a rejected draft stays until its red wave is done
+	pres.drop_confirmed_drafts(doc.consumed_rects())  # a rejected draft stays until its red wave is done
 	if true_latency: doc.last_sync_ms = int((movie_clock - float(sent_clock.get(seq, movie_clock))) * 1000.0)
 	ui_sync.text = "✓ FreeCAD confirmed  (round trip %d ms)" % last_sync_ms
 	if res.get("how", "") == "rebuilt":
@@ -885,7 +865,7 @@ func _on_synced(resp: Dictionary) -> void:
 		drawing_pending = false
 		_run_drawing_script()
 	for oid in drop_now:
-		remove_op(oid)
+		doc.remove_op(oid)
 
 
 # ---------------- confirmed boards (presenter.gd) ----------------
@@ -908,6 +888,7 @@ static func _ops_key(list: Array) -> String:
 # ---------------- the frame ----------------
 const DEFAULT_BASE := Presenter.DEFAULT_BASE   # a board's colour before FreeCAD says (tools start waves with it)
 var reject_note := ""
+var last_reject_note := ""          # the latest rejection message (kept for tests; the status bar clears on your next action)
 var force_reject_next: bool:
 	get: return pres.draft_tests.reject_next
 	set(v): pres.draft_tests.reject_next = v
@@ -927,97 +908,27 @@ func _process(delta: float) -> void:
 
 
 func _on_wave_rejected_done(oid: String) -> void:
-	if _rejected.has(oid):                              # a rejection: it goes with the actions that built on it
-		remove_ops([oid] + _rejected[oid]["deps"])
+	var ids: Array = doc.rejected_ids(oid)
+	if not ids.is_empty():                              # a rejection: it goes with the actions that built on it
+		doc.remove_ops(ids)
 	else:
 		var w: Dictionary = op_waves[oid]
 		if not w.get("dependent", false) or not op_waves.has(w["root"]):
-			remove_op(oid)                              # ends the wave, frees the draft, resyncs
-
-
-# ---------------- rejections take what built on them (T16, Q7) ----------------
-# FreeCAD rejects an action a moment after you did it; meanwhile you may have drawn on the board it made or the
-# face it changed. Those later actions fail too (what they refer to is gone): they join the first rejection,
-# go red with it and are removed together, with one message. Independent work stays.
-const REJECT_WINDOW_MS := 15000     # a rejection collects its dependents for this long
-var _rejected := {}                 # root op id -> {"ids", "bodies", "deps", "at", "note"}
-var last_reject_note := ""          # the latest rejection message (kept for tests; the status bar clears on your next action)
-
-
-func _op_of(oid: String) -> Dictionary:
-	return doc.op_of(oid)
-
-
-static func _op_refs(op: Dictionary) -> Array:
-	"""Ids an op refers to: the board or rectangle it acts on."""
-	var out := []
-	var pl: Dictionary = op.get("plane", {})
-	if pl.has("on"): out.append(pl["on"]["body"])
-	var tg: Dictionary = op.get("target", {})
-	if op.has("edge_fit"): out.append(op["edge_fit"]["target_body"])
-	if tg.has("region"): out.append_array(tg.region.get("lines", []))
-	if tg.has("rect"): out.append(tg["rect"])
-	if tg.has("face"): out.append(tg["face"]["body"])
-	out.append_array(op.get("targets", []))
-	if op.has("cut"): out.append_array([op["cut"]["body"], op["cut"]["op"]])
-	if op["type"] in ["make_component", "property_edit"]: out.append(op["body"])
-	return out
-
-
-func _op_makes(op: Dictionary) -> Array:
-	var out: Array = [op["id"]]
-	if op["type"] == "push_pull" and op.has("body"): out.append(op["body"])
-	out.append_array(op.get("new_ids", []))
-	return out
-
-
-func _op_touches(op: Dictionary) -> Array:
-	"""Boards an op changes in place (a face on them may exist only because of it)."""
-	var tg: Dictionary = op.get("target", {})
-	if op["type"] == "push_pull" and not op.has("body"):
-		if tg.has("rect"):
-			var r := _op_of(tg["rect"])
-			if not r.is_empty() and r["plane"].has("on"): return [r["plane"]["on"]["body"]]
-		if tg.has("face"): return [tg["face"]["body"]]
-	if op["type"] == "move": return op.get("targets", []) + ([op["cut"]["body"]] if op.has("cut") else [])
-	return []
+			doc.remove_op(oid)                          # ends the wave, frees the draft, resyncs
 
 
 func _on_rejected(o: Dictionary, w, drop_now: Array) -> void:
-	var now := Time.get_ticks_msec()
-	for r in _rejected.keys():
-		if now - int(_rejected[r]["at"]) > REJECT_WINDOW_MS and not op_waves.has(r): _rejected.erase(r)
-	var op := _op_of(o["id"])
-	if op.is_empty(): return
-	var msg: String = o.get("message", "")
-	var root := ""
-	for r in _rejected:
-		var e: Dictionary = _rejected[r]
-		for ref in _op_refs(op):
-			if e["ids"].has(ref): root = r
-		for b in e["bodies"]:
-			if msg.contains("'%s'" % b): root = r
-		if root != "": break
-	if root == "":                                   # a rejection of its own
-		root = o["id"]
-		var e := {"ids": {}, "bodies": {}, "deps": [], "at": now, "note": "%s: %s" % [o["id"], msg]}
-		for x in _op_makes(op): e["ids"][x] = true
-		for b in _op_touches(op): e["bodies"][b] = true
-		_rejected[root] = e
-		reject_note = e["note"]
+	var res: Dictionary = doc.reject(o["id"], o.get("message", ""), Time.get_ticks_msec(), func(r): return op_waves.has(r))
+	if res.is_empty(): return
+	reject_note = res["note"]
+	if not res["joined"]:
 		if w != null: w["state"] = "rejected"        # red wave plays, then it goes with its dependents
 		else: drop_now.append(o["id"])
 		return
-	var e: Dictionary = _rejected[root]              # built on an earlier rejection: goes with it
-	if not e["deps"].has(o["id"]): e["deps"].append(o["id"])
-	for x in _op_makes(op): e["ids"][x] = true
-	for b in _op_touches(op): e["bodies"][b] = true
-	var n: int = e["deps"].size()
-	reject_note = "%s (and %d action%s that built on it)" % [e["note"], n, "" if n == 1 else "s"]
 	last_reject_note = reject_note
 	if w != null:
-		w["state"] = "rejected"; w["dependent"] = true; w["root"] = root
-	if not op_waves.has(root):                       # its rejection has already played: remove it now
+		w["state"] = "rejected"; w["dependent"] = true; w["root"] = res["root"]
+	if not op_waves.has(res["root"]):                # its rejection has already played: remove it now
 		drop_now.append(o["id"])
 
 

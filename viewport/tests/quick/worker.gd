@@ -25,7 +25,7 @@ func run() -> void:
 		OS.kill(pid1)
 		await harness._frames(2)
 		m.ops.append_array(harness._plank(9, Vector3(0, 600, 0), Vector3(50, 50, 10)))
-		m._restore_counters()
+		m.doc.restore_counters()
 		m.sync(); await harness._wait_confirm()
 		harness._ok("a new worker took over and confirmed the next board", m.worker.worker_pid != pid1 and OS.is_process_running(m.worker.worker_pid) and harness.id("b9") in harness._shown_ids(), [m.worker.worker_pid, harness._shown_ids()])
 	else:

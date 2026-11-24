@@ -15,7 +15,7 @@ func run() -> void:
 	for i in 11:
 		m.ops.append_array(harness._plank(i + 1, Vector3(120.0 * i, 0, 0), Vector3(100, 50, 18 + 4 * i)))
 		m.sync(); await harness._wait_confirm(); seen[m.ops.size()] = harness._shown_ids()
-	m._restore_counters()
+	m.doc.restore_counters()
 	var bad := []
 	var rebuilt := false
 	for n in range(m.ops.size(), 0, -1):
