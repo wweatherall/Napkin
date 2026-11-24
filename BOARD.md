@@ -24,7 +24,7 @@ worktree (T102).
      or saving gets `Architecture: <what>` lines in your response instead (P28); a changed message also bumps
      PROTOCOL_VERSION by one on both sides (A35);
    - log rows your job doesn't add or supersede. Add rows with `python3 tools/log.py add`, after merging main;
-     new IDs are placeholders like T-new-1 (T74).
+     new IDs are placeholders like T-new-N (T74).
    Shared files (the log, viewport/main.gd) get small edits, made at the end.
    A rule in the brief that, followed to the letter, would defeat what it's for or break something the code
    relies on: do what serves its purpose and say so in your response (step 6), don't stop (P44). Not for
@@ -57,7 +57,7 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H109 | either | **Ready** | T113 step 2: what a rejection takes with it moves to document.gd, and main's document pass-throughs go | [H109](docs/handoff/H109-t113-rejections.md) |  |
+| H109 | either | In progress (gemini since 21:36) | T113 step 2: what a rejection takes with it moves to document.gd, and main's document pass-throughs go | [H109](docs/handoff/H109-t113-rejections.md) |  |
 
 <!-- end of job table -->
 

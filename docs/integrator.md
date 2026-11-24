@@ -24,6 +24,9 @@ Architecture: lines, the response) and CLAUDE.md (commit trailers); this page sa
   it reads them arrive together, in recorded order (P47).
 - `python3 tools/job.py status` shows the queue; `python3 tools/job.py board` rebuilds the board's job table (the
   commit hook does it on main).
+- Spinning up a Gemini worker window (tell William): run
+  `osascript -e 'tell application "Terminal" to do script "cd /Users/Will/Sites/fretchup && agy --model gemini-4-neon-medium -i \"Gemini go! Check the board.\""'`
+  (adjust `--model` if William asks for another; `agy models` lists them).
 
 ## Review and merge
 - Review every done job (Codex's `codex/*` branches too). Read each `Changed from the brief:` line first (P44):
