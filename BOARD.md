@@ -57,8 +57,7 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H140 | either | **Done**: for review (gemini) | T126: Token benchmarker (`tools/usage.py`): AGY/Gemini support, quota fixes, fast `orient`/`bench` CLI, and workflow integration | [H140](docs/handoff/H140-t126-token-benchmarker.md) |  |
-| H128 | either | In progress (gemini since 01:37) | T109: closed loops of mixed lines and arcs form pushable faces with exact arcs | [H128](docs/handoff/H128-t109-mixed-line-arc-loops.md) |  |
+| H128 | either | Returned: **Ready** for Gemini (resumes gemini/h128-t109-mixed-line-arc-loops) | T109: closed loops of mixed lines and arcs form pushable faces with exact arcs | [H128](docs/handoff/H128-t109-mixed-line-arc-loops.md) |  |
 | H126 | either | Queued | T61: face ties on linked copies (component definitions and instances) | [H126](docs/handoff/H126-t61-face-ties-linked-copies.md) | H125 |
 | H127 | either | Queued | T62: face ties on shapes other than plain rectangular boards | [H127](docs/handoff/H127-t62-face-ties-other-shapes.md) | H126 |
 | H139 | either | **Ready** | T125: Fix Pull/autosave lag (TechDraw-on-autosave stall, .FCBak/.saving clutter, and Push/Pull frame caching) | [H139](docs/handoff/H139-t125-pull-and-autosave-lag.md) |  |

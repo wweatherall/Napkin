@@ -81,7 +81,7 @@ ACTIVE = ("in progress", "waiting", "done", "returned")     # a job in one of th
 WORKING = ("in progress", "waiting")                         # ... and in one of these, its session
 INTERESTING = re.compile(r"godot|freecad|\.sh\b|python", re.I)
 RESPONSE = re.compile(r"^[#*\s]*Response\b", re.M)
-USAGE_TOOL = "/Users/Will/Sites/job-usage/job_usage.py"
+USAGE_TOOL = os.path.join(os.path.dirname(os.path.abspath(__file__)), "usage.py")
 
 
 def record_usage(root, event, jid, agent=None, session=None, quiet=True):
