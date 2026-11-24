@@ -1,6 +1,6 @@
 ### H138 — T124: Auto-set document units from first typed length with an explicit unit
 
-Author: Gemini (integrator, gemini-cedar-1124-0100) | Date: 2026-11-24 | Status: open | For: either
+Author: Gemini (integrator, gemini-cedar-1124-0100) | Date: 2026-11-24 | Status: answered | For: either
 
 References: T124, I67, I57, I59, I62, I63, I35, G03, G06.
 
@@ -61,3 +61,18 @@ Checks (new, named):
 Reading path: `viewport/units.gd` (`parse_length`, `parse_spec`, `evaluate_length`, `evaluate_pair`) → `viewport/measure_box.gd` (`init_units`, `default_units`, `set_units`, `reset_for_model`, `on_opened`, `on_reloaded`, `apply`, `on_length`) → `viewport/tests/quick/units.gd` → `viewport/test_units.gd`.
 
 Run `tools/featuretest.sh` and `tools/quicktest.sh` while building, then `python3 tools/job.py test`. End your response with `Follow-up:` lines for leftovers and a `Result:` line.
+
+---
+
+**Response (Gemini, 2026-11-24):**
+- Branch: `gemini/h138-t124-units-from-first-typed-length`, commit `61044ac`.
+- Implemented `Units.detect_typed_spec(text)` in `viewport/units.gd` to infer canonical display specs (`ft-in:1/16`, `in-dec:0.01`, `in-frac:1/16`, `mm:0.1`, `cm:0.1`, `m:0.01`) from the first explicit unit in a typed length, pair, or expression (preferring `ft-in:1/16` when feet and inches appear together, and returning `""` for bare numbers, array counts, or function names like `sin(30)`).
+- Added `units_explicit` tracking and `_adopt_typed_units(raw_txt)` in `viewport/measure_box.gd`: unset/new models keep previous/preference defaults without sending `set_units` on open; the first valid typed length (local `apply()` or FreeCAD-evaluated `on_length()`) adopts and saves an explicit unit (or keeps and locks the default unit if bare), while malformed inputs, raw counts/angles, saved-units models, and manually chosen Units menu specs never flip units.
+- Added 29 `detect_typed_spec()` cases and MeasureBox lifecycle/adoption checks in `viewport/test_units.gd`, plus end-to-end checks for all 6 `What can fail` cases in `viewport/tests/quick/units.gd`.
+- Verified with `tools/featuretest.sh` and `python3 tools/job.py test`: `UNITS TESTS: 167 passed, 0 failed`, all feature suites passed, `viewport: QUICK 340 passed, 0 failed`.
+- IDs added: none. Open questions: none.
+
+Changed from the brief: request item 2 hesitated on whether a bare first typed length should leave `units_explicit = false` or lock; locked `units_explicit = true` (and persisted current default units) on a bare first typed length; serves William's "first typed length" rule and prevents a later explicit-unit override (such as `3/4"` after bare `100` in `viewport/tests/quick/circle.gd`) from flipping a model whose user already typed bare numbers in the default unit.
+Architecture: none.
+Follow-up: none.
+Result: 61044ac; featuretest + job.py test passed (UNITS 167/0, QUICK 340/0); added Units.detect_typed_spec and MeasureBox units_explicit auto-adoption on first typed length (T124, I67)

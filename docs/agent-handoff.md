@@ -35,7 +35,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H129 — T84 step 1: Rotated Rectangle (R again toggles Rectangle and Rotated Rectangle)](handoff/H129-t84-rotated-rectangle.md) — status: queued (after H128); for: either
 - [H130 — T84 step 2: Polygon tool (toolbar button without hotkey, exact FreeCAD sketch polygon)](handoff/H130-t84-polygon-tool.md) — status: queued (after H129); for: either
 - [H137 — T123: Move array live preview before click and amend after click](handoff/H137-t123-move-array-live-preview.md) — status: open; for: either
-- [H138 — T124: Auto-set document units from first typed length with an explicit unit](handoff/H138-t124-units-from-first-typed-length.md) — status: open; for: either
+- [H138 — T124: Auto-set document units from first typed length with an explicit unit](handoff/H138-t124-units-from-first-typed-length.md) — status: answered; for: either
 - [H141 — T127: Enter and edit components, and Component Properties window (prioritizing critical dimensions and linked measurements)](handoff/H141-t127-components-and-properties.md) — status: queued (after H126); for: either
 
 <!-- end of open list -->
