@@ -5,7 +5,7 @@ extends RefCounted
 ##   pick       inference.gd: what's under the cursor, snaps, axis and plane moves, camera rays and projection
 ##   model      presenter.gd: boards' triangles, profiles (rectangles, circles), stock frames, cuts
 ##   selection  selection.gd: the selection, context, assemblies, what a board stands for
-##   document   document.gd: new ids, op snapshots, append, remove, sync
+##   document   document.gd: new ids, op snapshots, is_last, append, remove, sync
 ##   view       presenter / main.gd: previews, the snap marker, guides, the selection box, face highlight,
 ##              registering profiles, presenting committed draft pieces and their wave
 ##   ui         the measurements box, the active tool, hint, tooltip, status, and the New board option
@@ -208,6 +208,10 @@ class DocumentCapability extends _Capability:
 	func op(id: String) -> Dictionary:
 		"""A copy of the op with this id; {} if there's none."""
 		return _doc.op_of(id).duplicate(true)
+
+	func is_last(id: String) -> bool:
+		"""True when the op with this id is the document's latest op."""
+		return id != "" and not _doc.ops.is_empty() and _doc.ops.back().get("id", "") == id
 
 	func append(o: Dictionary) -> void:
 		"""Add an op (a copy of it) at the end. Doesn't sync: draw it, then call sync()."""

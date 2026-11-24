@@ -6,11 +6,15 @@ extends "res://tools/tool.gd"
 const TOOL := {"id": "rect", "label": "Rectangle", "tip": "Rectangle (R)", "key": KEY_R, "order": 30, "show_links": true}   # the toolbar, the Tools menu and the key (tool_registry.gd)
 
 var state := {}
+var last_oid := ""
+var last_meta := {}
 
 
 func reset() -> void:
 	state = {}
 	press_reset()
+	last_oid = ""
+	last_meta = {}
 
 
 func hint() -> String:
@@ -18,7 +22,15 @@ func hint() -> String:
 
 
 func busy() -> bool:
-	return state.get("active", false)
+	if state.get("active", false): return true
+	if last_oid != "" and not ctx.document.is_last(last_oid):
+		last_oid = ""
+		last_meta = {}
+	return last_oid != ""
+
+
+func in_gesture() -> bool:
+	return state.get("active", false)        # (after a rectangle, typing amends it; that isn't a gesture)
 
 
 func mouse_moved(screen: Vector2) -> void:
@@ -31,6 +43,8 @@ func mouse_moved(screen: Vector2) -> void:
 
 func click(screen: Vector2) -> void:
 	if not state.get("active", false):
+		last_oid = ""
+		last_meta = {}
 		var p := ctx.pick.snap(ctx.pick.hit(screen), screen)
 		if not p.get("hit", false): return
 		if ctx.selection.edit_blocked(p["body"]): return
@@ -52,7 +66,9 @@ func release(screen: Vector2) -> void:
 
 
 func typed(txt: String) -> void:
-	if not state.get("active", false): return
+	if not state.get("active", false):
+		_amend_last_rect(txt)
+		return
 	var parts := txt.split(",")
 	if parts.size() != 2: return
 	var w := absf(float(parts[0])); var h := absf(float(parts[1]))
@@ -61,12 +77,42 @@ func typed(txt: String) -> void:
 	commit_rect(w * su, h * sv)
 
 
+func _amend_last_rect(txt: String) -> void:
+	"""SketchUp's after-the-fact typing (I65): retype width, height right after placing a rectangle."""
+	if last_oid == "": return
+	if not ctx.document.is_last(last_oid) or ctx.document.op(last_oid).is_empty():
+		last_oid = ""
+		last_meta = {}
+		ctx.ui.refresh_measurements()
+		return
+	var parts := txt.split(",")
+	if parts.size() != 2: return
+	var a := parts[0].strip_edges()
+	var b := parts[1].strip_edges()
+	if not a.is_valid_float() or not b.is_valid_float(): return
+	var w := float(a); var h := float(b)
+	if w < GEOMETRY_TOLERANCE_MM or h < GEOMETRY_TOLERANCE_MM: return
+	var oid := last_oid
+	var meta := last_meta.duplicate()
+	ctx.document.remove(oid, false)
+	state = {"active": false, "origin": meta["origin"], "n": meta["n"], "x": meta["x"], "y": meta["y"],
+			 "on": meta["on"], "du": meta["du"], "dv": meta["dv"]}
+	commit_rect(w * float(meta["su"]), h * float(meta["sv"]), oid)
+
+
 func vcb_label() -> String:
 	return "Dimensions"
 
 
 func vcb_value() -> String:
-	return "%s, %s" % [ctx.ui.format_length(absf(state["du"])), ctx.ui.format_length(absf(state["dv"]))] if state.get("active", false) else ""
+	if state.get("active", false):
+		return "%s, %s" % [ctx.ui.format_length(absf(state["du"])), ctx.ui.format_length(absf(state["dv"]))]
+	if last_oid != "":
+		if ctx.document.is_last(last_oid) and not ctx.document.op(last_oid).is_empty():
+			return "%s, %s" % [ctx.ui.format_length(absf(last_meta["du"])), ctx.ui.format_length(absf(last_meta["dv"]))]
+		last_oid = ""
+		last_meta = {}
+	return ""
 
 
 func _rect_drag(screen: Vector2) -> void:
@@ -104,9 +150,9 @@ func _finish_rect() -> void:
 	commit_rect(state["du"], state["dv"])
 
 
-func commit_rect(du: float, dv: float) -> void:
+func commit_rect(du: float, dv: float, reuse_oid := "") -> void:
 	if absf(du) < GEOMETRY_TOLERANCE_MM or absf(dv) < GEOMETRY_TOLERANCE_MM: return
-	var rid := ctx.document.next_id("r")
+	var rid := reuse_oid if reuse_oid != "" else ctx.document.next_id("r")
 	var n: Vector3 = state["n"]
 	var plane := {}
 	if state["on"] != "":
@@ -117,6 +163,12 @@ func commit_rect(du: float, dv: float) -> void:
 			   "corner": [minf(0, du), minf(0, dv)], "size": [absf(du), absf(dv)]}
 	ctx.document.append(op)
 	ctx.view.register_profile(op)
+	last_oid = rid
+	last_meta = {
+		"origin": state["origin"], "n": n, "x": state["x"], "y": state["y"], "on": state["on"],
+		"su": -1.0 if du < 0 else 1.0, "sv": -1.0 if dv < 0 else 1.0, "du": du, "dv": dv,
+	}
 	state = {}
 	ctx.view.clear_preview()
 	ctx.document.sync()
+	ctx.ui.refresh_measurements()

@@ -45,3 +45,7 @@ Checks (new, named) in `viewport/tests/quick/rect.gd`:
 Reading path: `viewport/tools/rect_tool.gd` → `viewport/tools/move_tool.gd` (`last_oid`, `busy`, `in_gesture`, `_amend_last_move`) → `viewport/keys.gd` (lines 26–52) → `viewport/measure_box.gd` (`apply`, lines 224–258) → `viewport/tests/quick/rect.gd`.
 
 Run `tools/quicktest.sh` while building, then `python3 tools/job.py test`. End your response with `Follow-up:` lines for leftovers and a `Result:` line.
+
+#### Response (Gemini, 2026-11-24)
+
+Architecture: `viewport/tool_context.gd` `DocumentCapability` adds `is_last(id: String) -> bool` (allowlisted and tested in `viewport/test_tool_context.gd`) so tools can verify an op is still the document's latest op before amending it in place.
