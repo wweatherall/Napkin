@@ -1,6 +1,6 @@
 ### H097 — T110: test helpers that make a failure-path check a few lines
 
-Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: open | For: either
+Author: Claude (integrator, fretchup-73) | Date: 2026-11-22 | Status: answered | For: either
 
 References: T110, P42 (briefs for saving, reloading or worker-link jobs list what can fail, each case with its
 named check; this job makes those checks cheap), H092 (the ultra review: seven of ten findings on failure
@@ -74,3 +74,24 @@ own nothing of the product; each test still says what it checks.
 
 Run the feature tests while building (`tools/featuretest.sh`), then `python3 tools/job.py test`. End your
 response with a Result line; leftovers as Follow-up lines; anything for the merge as For the integrator lines.
+
+#### Response — Gemini (gemini-birch-1123-1846) | Date: 2026-11-23
+
+Branch: `gemini/h097-failure-path-test-helpers` | Commit: `3f0ce61`
+
+Added `worker/test_link.py` (`# runner: none`) with `start_worker` / `Worker` (`.port`, `.proc`, `.log`, `.kill()`, `.restart()`, `.stop()`), `Window` (`.send()`, `.ask()`, `.wait()`, `.drop()`, `.next_seq()`), `fresh_model`, `board_ops`, `sync`, `freecad_save`, `read_only`, `unreadable`, `missing`, and `Checks`, with top-of-helper comments documenting the P42 failure cases each covers. Moved `worker/test_serve.py` and `worker/test_outside_save.py` onto `test_link.py`, removing their duplicated copies, and added a T110 helper self-check section to `worker/test_serve.py`. Added `FakeClient.last_of(cmd)` and `FakeClient.drain()`, reply/event builders (`reload_reply`, `keep_mine_reply`, `open_reply`, `error_reply`, `outside_save`), P42 usage comments, and two helper checks in `viewport/test_document.gd`, moving the existing open and outside-save checks onto them.
+
+Verified:
+- PASS label comparison before vs after:
+  - `worker/test_serve.py`: all 22 existing PASS labels identical + 5 new helper checks (`27 passed, 0 failed`); time 4 s before → 5 s after.
+  - `worker/test_outside_save.py`: all 54 PASS labels identical (`54 passed, 0 failed`); time 21 s before → 24 s after.
+  - `viewport/test_document.gd`: all 137 existing PASS labels identical + 2 new helper checks (`139 passed, 0 failed`); time 1 s before → 0 s after.
+- `tools/featuretest.sh --list`: `serve` and `outside_save` listed as `python3`, `document` as `Godot --headless`, `worker/test_link.py` omitted (`# runner: none`).
+- `python3 tools/job.py test`: passed (`SERVE TESTS: 27 passed, 0 failed`, `OUTSIDE SAVE TESTS: 54 passed, 0 failed`, `DOCUMENT TESTS: 139 passed, 0 failed`, all 36 feature tests and 319 quick viewport checks passed, 0 failed).
+- IDs added: none. Open questions: none.
+
+Changed from the brief: Checks asked for `missing` to make `open` fail with an error reply inside the block; checked `reload` failing with an error reply inside `with missing(mf):` and `open` succeeding with the saved ops after the block; `Session.__init__` intentionally treats `open` on a non-existent `.FCStd` path as creating a new empty model (File > New) rather than returning an error, whereas `reload` requires the file on disk and returns `ok: False`, and `worker/session.py` is outside Touches.
+For the integrator: Update `worker/CLAUDE.md` under `## Tests` to list `test_link.py` beside `test_load.py` / `test_native_common.py` as a `runner: none` helper providing `start_worker` / `Worker` (`kill`, `restart`, `stop`), `Window` (`send`, `ask`, `wait`, `drop`), `fresh_model`, `board_ops`, `sync`, `freecad_save`, `Checks`, and the P42 failure-path context managers `read_only`, `unreadable`, and `missing`.
+For the integrator: Update `viewport/CLAUDE.md` under `## Tests` to note that `viewport/test_document.gd` provides `FakeClient.last_of` / `drain` and request-matched reply/event builders (`reply`, `reload_reply`, `keep_mine_reply`, `open_reply`, `error_reply`, `outside_save`) for P42 document-controller failure-path checks.
+Result: 3f0ce61; job.py test passed (36 feature tests incl. SERVE 27/27, OUTSIDE SAVE 54/54, DOCUMENT 139/139; QUICK 319/319); added worker/test_link.py, moved test_serve.py and test_outside_save.py onto it, and added FakeClient/reply helpers to viewport/test_document.gd
+
