@@ -37,6 +37,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H137 — T123: Move array live preview before click and amend after click](handoff/H137-t123-move-array-live-preview.md) — status: open; for: either
 - [H138 — T124: Auto-set document units from first typed length with an explicit unit](handoff/H138-t124-units-from-first-typed-length.md) — status: answered; for: either
 - [H141 — T127: Enter and edit components, and Component Properties window (prioritizing critical dimensions and linked measurements)](handoff/H141-t127-components-and-properties.md) — status: queued (after H126); for: either
+- [H144 — T129: Improve `tools/usage.py holes` diagnostics (line-range overlap, full transcript sizes, phase & tail-turn burn)](handoff/H144-t129-usage-holes-diagnostics.md) — status: open; for: either
 
 <!-- end of open list -->
 
@@ -44,6 +45,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 Full entries in [handoff-archive.md](handoff-archive.md).
 
+- H145 — For the next integrator session: where things stand. Resolved: see the archive
 - H136 — T122: Rectangle after-the-fact typed dimensions. Resolved: merged into main by the integrator, 2026-11-24.
 - H143 — For the next integrator session: where things stand. Resolved: see the archive
 - H139 — T125: Fix Pull/autosave lag (TechDraw-on-autosave stall, .FCBak/.saving clutter, and Push/Pull frame caching). Resolved: merged into main by the integrator, 2026-11-24.

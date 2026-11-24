@@ -3,7 +3,7 @@
 "Check the board" sends you here. Only the integrator edits this file; the job table is built from docs/handoff/
 and the job queue.
 
-Order: H142, H140, H125, H128, H126, H127, H139, H136, H138, H137, H141, H129, H130
+Order: H142, H140, H125, H128, H126, H127, H139, H136, H138, H137, H144, H141, H129, H130
 
 ## If you're not the integrator
 
@@ -11,10 +11,13 @@ You're a worker: one job, then stop. Only the integrator merges or pushes (P16).
 main checkout: read there, but run everything else as `cd /Users/Will/Sites/fretchup-jobs/<id> && ...`, in your job's
 worktree (T102).
 
-1. `python3 tools/job.py take --as claude` (or `--as codex`) makes your job's worktree and branch and prints its
-   entry (a returned job comes first). Nothing Ready: run `python3 tools/job.py take --wait` in the
+1. `python3 tools/job.py take --as claude` (or `--as codex` / `--as gemini`, outside sandbox if `.git/` is sandboxed)
+   makes your job's worktree and branch and prints the full handoff entry — keep it in context instead of re-reading
+   the file later (a returned job comes first). Nothing Ready: run `python3 tools/job.py take --wait` in the
    background; if it gives up (20 min), tell William.
-2. Read the Notes at the bottom for anything addressed to you.
+2. Read the Notes at the bottom for anything addressed to you. Follow the brief's `Reading path:` and batch
+   independent searches and file-slice reads in one turn; skip reading `CLAUDE.md` unless a rule isn't already covered
+   by `startup.py`, `BOARD.md` and your brief.
 3. Change only the files on the job's Touches line; to touch another, ask first, in chat and your response (P45).
    One exception (P46): a `tools/test_*.py` check that only asserts on output your job changes (a message, a
    printed line) you update without asking, and name it in a `Changed from the brief:` line.
@@ -38,13 +41,16 @@ worktree (T102).
    "<the question>"`. For behaviour, wording or what is saved, ask William in chat and run `python3 tools/job.py
    wait "<the question>"`. Run either in the background; on a timeout run the same command again. Quote the
    answer in your response (T114).
-6. Append your response to the entry, dated and signed: branch, commit, what you verified, IDs you added, open
-   questions. Then a line each: `Changed from the brief: <what it said>; <what you did>; <why>` per departure
-   (P44); `Architecture: <what>`; `Follow-up: <what>` per thing left; `For the integrator:
-   <what>` per merge step (P26); last, `Result: <commit>; <tests>; <what changed>`, no `|` (T91). Set Status to
-   `answered`, run `python3 tools/handoff.py list` (the open list shows each job's status); commit.
-7. `python3 tools/job.py done` (it checks the response, the Status, a quick-test pass and hung processes). Tell
-   William "ready for review: <ID>" and stop: one job a session (P37). Don't take the integrator lock.
+6. Finish cleanly in two turns (don't re-read `tools/job.py` or your handoff — `job.py done` automatically reuses a
+   clean `job.py test` pass across handoff-only commits):
+   - Commit your code changes first, then run `python3 tools/job.py test` once.
+   - Append your response to the handoff entry (dated and signed: branch, commit, what you verified, IDs you added,
+     open questions; then a line each: `Changed from the brief: <what it said>; <what you did>; <why>` per departure
+     (P44); `Architecture: <what>`; `Follow-up: <what>` per thing left; `For the integrator: <what>` per merge step
+     (P26); last, `Result: <commit>; <tests>; <what changed>`, no `|` (T91)), set Status to `answered`, and in one
+     chained command run `python3 tools/handoff.py list && git add docs/agent-handoff.md docs/handoff/<file> && git -c core.hooksPath=.githooks commit -m "<ID>: record response and mark answered" && python3 tools/job.py done`.
+7. Once `job.py done` succeeds (it checks the response, Status, quick-test pass and hung processes), tell William
+   "ready for review: <ID>" and stop: one job a session (P37). Don't take the integrator lock.
 
 ## If you're the integrator
 
@@ -58,8 +64,9 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
 | H127 | either | Queued | T62: face ties on shapes other than plain rectangular boards | [H127](docs/handoff/H127-t62-face-ties-other-shapes.md) | H126 |
-| H138 | either | **Ready** | T124: Auto-set document units from first typed length with an explicit unit | [H138](docs/handoff/H138-t124-units-from-first-typed-length.md) |  |
+| H138 | either | In progress (gemini since 08:04) | T124: Auto-set document units from first typed length with an explicit unit | [H138](docs/handoff/H138-t124-units-from-first-typed-length.md) |  |
 | H137 | either | **Ready** | T123: Move array live preview before click and amend after click | [H137](docs/handoff/H137-t123-move-array-live-preview.md) |  |
+| H144 | either | **Ready** | T129: Improve `tools/usage.py holes` diagnostics (line-range overlap, full transcript sizes, phase & tail-turn burn) | [H144](docs/handoff/H144-t129-usage-holes-diagnostics.md) |  |
 | H141 | either | Queued | T127: Enter and edit components, and Component Properties window (prioritizing critical dimensions and linked measurements) | [H141](docs/handoff/H141-t127-components-and-properties.md) | H126 |
 | H129 | either | Queued | T84 step 1: Rotated Rectangle (R again toggles Rectangle and Rotated Rectangle) | [H129](docs/handoff/H129-t84-rotated-rectangle.md) | H128 |
 | H130 | either | Queued | T84 step 2: Polygon tool (toolbar button without hotkey, exact FreeCAD sketch polygon) | [H130](docs/handoff/H130-t84-polygon-tool.md) | H129 |
