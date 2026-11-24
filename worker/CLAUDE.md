@@ -98,9 +98,13 @@ ARCHITECTURE.md the module map and protocol (update it in the same commit when y
 ## Tests (each runs in both test scripts)
 - `tools/featuretest.sh` finds every `worker/test_*.py` and runs it with freecadcmd, unless one of its first five
   lines says `runner: python3` (tests that start freecadcmd themselves, like the serve and length-protocol tests) or
-  `runner: none` (helpers: `test_load.py`, `test_native_common.py`). Each prints `<NAME> TESTS: N passed, M failed`;
+  `runner: none` (helpers: `test_load.py`, `test_native_common.py`, `test_link.py`). Each prints `<NAME> TESTS: N passed, M failed`;
   one that prints none fails. A new test file needs no other edit; its docstring says what it covers.
   `tools/featuretest.sh --list` shows what's found. Use `TESTDIR=<dir>` for outputs.
+- `test_link.py` (`runner: none`) holds the shared worker-link and P42 failure-path helpers for worker tests:
+  `start_worker` / `Worker` (`kill`, `restart`, `stop`), `Window` (`send`, `ask`, `wait`, `drop`), `fresh_model`,
+  `board_ops`, `sync`, `freecad_save`, `Checks`, and the restoring context managers `read_only`, `unreadable`, and
+  `missing`.
 - The T48 scenario (`test_scenario.py`): one busy fixture model from `tests/scenario_fixture.json`, each step checked
   and undone back to the fixture, then cumulative stories that must equal fresh builds and reopened files. A new
   worker behaviour: add a numbered `scenario/NN_feature.py` with `run(ctx)` first; the thin runner discovers these

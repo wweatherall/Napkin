@@ -116,7 +116,10 @@ protocol (update it in the same commit when you change either). Tools have their
 - Headless tests: `tools/featuretest.sh` finds every `viewport/test_*.gd` and runs it with
   `Godot --headless --path viewport --script res://<file>`; each prints `<NAME> TESTS: N passed, M failed` and its
   first lines say what it covers (the document controller, selection, the tool registry, the tool interface, the
-  units parser against `tests/length_cases.json`). A new file needs no other edit. `test_tools.gd` also runs inside
+  units parser against `tests/length_cases.json`). A new file needs no other edit. `test_document.gd` provides
+  `FakeClient.last_of` / `drain` and request-matched reply/event builders (`reply`, `reload_reply`,
+  `keep_mine_reply`, `open_reply`, `error_reply`, `outside_save`) for P42 document-controller failure-path checks.
+  `test_tools.gd` also runs inside
   the built pack (`tools/build_app.sh`); quick-test `registry` checks the real toolbar, and `selection` the
   selection behaviour in the window.
 - Tests use a private worker on a port it picks itself and reports in a file (T47); `--port=N` uses an outside
