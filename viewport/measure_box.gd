@@ -9,6 +9,7 @@ extends Node
 ## new selection.
 
 const Units := preload("res://units.gd")
+const FIRST_UNIT_PROMPT := "Include a unit on your first length (e.g. 4\" or 100mm); future lengths use that system (change in Preferences)."
 
 var m                               # main.gd: tools, tool, ui_sync, client, doc, model_path, seq, UI styling
 var vcb := ""                       # the text typed so far
@@ -55,6 +56,17 @@ func default_units() -> String:
 			var saved := Units.parse_spec(String(cfg.get_value("units", "last", "")))
 			if saved.ok: return saved.spec
 	return fallback_spec
+
+
+func has_saved_default_units() -> bool:
+	"""True if test isolation (no settings_path), a valid preference default, or a saved last-used unit exists (I70)."""
+	if settings_path == "": return true
+	if pref_default_units != "":
+		if Units.parse_spec(pref_default_units).ok: return true
+	var cfg := ConfigFile.new()
+	if cfg.load(settings_path) == OK:
+		if Units.parse_spec(String(cfg.get_value("units", "last", ""))).ok: return true
+	return false
 
 
 func _remember_units(spec: String) -> void:
@@ -229,17 +241,23 @@ func stop_typing() -> void:
 	if typing: typing = false; update()
 
 
-func _adopt_typed_units(raw_txt: String) -> void:
+func _adopt_typed_units(raw_txt: String) -> bool:
 	"""If this model has no explicit units yet, adopt the explicit unit from the first valid typed length (I67).
-	A bare first typed length keeps the current default units and locks them so later overrides don't flip the model."""
-	if units_explicit: return
+	If the user has never chosen a unit (no preference default or saved last-used unit) and typed a bare number,
+	prompt for a unit without committing (I70). Otherwise a bare first typed length locks the current default units."""
+	if units_explicit: return true
 	var detected := Units.detect_typed_spec(raw_txt)
 	if detected != "":
 		set_units(detected, true)
-	else:
-		units_explicit = true
-		units_dirty = true
-		if _is_opened(): _send_units()
+		return true
+	if not has_saved_default_units():
+		if m != null and m.ui_sync != null:
+			m.ui_sync.text = FIRST_UNIT_PROMPT
+		return false
+	units_explicit = true
+	units_dirty = true
+	if _is_opened(): _send_units()
+	return true
 
 
 func apply() -> void:
@@ -267,8 +285,8 @@ func apply() -> void:
 			var here := Units.evaluate_pair(txt, du) if tool == "rect" else Units.evaluate_length(txt, du)
 			if here.ok:
 				length_pending = {}
-				_adopt_typed_units(txt)
-				active.typed("%.12f,%.12f" % [here.a_mm, here.b_mm] if tool == "rect" else ("%.12f" % here.mm) + suffix)
+				if _adopt_typed_units(txt):
+					active.typed("%.12f,%.12f" % [here.a_mm, here.b_mm] if tool == "rect" else ("%.12f" % here.mm) + suffix)
 			elif texts.size() != (2 if tool == "rect" else 1):
 				m.ui_sync.text = "Enter two lengths separated by a comma"
 			else:
@@ -290,7 +308,9 @@ func on_length(resp: Dictionary) -> void:
 	if not resp.get("ok", false):
 		m.ui_sync.text = "Length: " + str(resp.get("error", "Invalid input"))
 		return
-	_adopt_typed_units(String(pending.get("raw_txt", "")))
+	if not _adopt_typed_units(String(pending.get("raw_txt", ""))):
+		update()
+		return
 	var values := PackedStringArray()
 	for value in resp.values: values.append("%.12f" % float(value))
 	m.tools[tool].typed(",".join(values) + pending.get("suffix", ""))

@@ -133,7 +133,7 @@ func run() -> void:
 	m.set_tool("rect")
 	await harness._drag_to(Vector3(0, 0, 0), 2); await harness._press()
 	await harness._drag_to(Vector3(80, 80, 0), 2)
-	await harness._type("abc mm, 3//4\"\n")
+	await harness._type("1abc mm, 3//4\"\n")
 	await _until(func(): return m.length_pending.is_empty())
 	harness._ok("malformed typed input with unit does not change or lock document units",
 		m.measure.units == "mm:0.1" and not m.measure.units_explicit, [m.measure.units, m.measure.units_explicit])
@@ -223,8 +223,54 @@ func run() -> void:
 	harness._ok("FreeCAD-evaluated expression on unset model adopts ft-in:1/16 once accepted",
 		m.measure.units == "ft-in:1/16" and m.measure.units_explicit, [m.measure.units, m.measure.units_explicit])
 
+	# 5h. Fresh install (missing settings.cfg, no pref): bare typed length prompts without committing and keeps drag
+	# live; typing 4", 5" right after commits & adopts; next new model with settings.cfg accepts bare length (I70).
+	var fresh_cfg := m.out_dir.path_join("units_test_fresh.cfg")
+	DirAccess.remove_absolute(fresh_cfg)
+	var saved_pref: String = m.measure.pref_default_units
+	m.measure.pref_default_units = ""
+	m.measure.settings_path = fresh_cfg
+	var model_fresh := m.out_dir.path_join("quick_units_fresh_bare.FCStd")
+	m.switch_model(model_fresh, true)
+	await _until(func(): return m.opened)
+	await harness._view(Vector3(100, 100, 0), -30, -50, 1.2)
+	m.set_tool("rect")
+	await harness._drag_to(Vector3(0, 0, 0), 2); await harness._press()
+	await harness._drag_to(Vector3(80, 80, 0), 2)
+	await harness._type("4, 5\n")
+	await harness._frames(2)
+	harness._ok("fresh missing settings_path + bare length prompts without committing and keeps drag live (I70)",
+		m.ops.is_empty() and not m.measure.units_explicit and m.tools["rect"].vcb_value() != ""
+		and m.ui_sync.text == "Include a unit on your first length (e.g. 4\" or 100mm); future lengths use that system (change in Preferences).",
+		[m.ops.size(), m.measure.units_explicit, m.tools["rect"].vcb_value(), m.ui_sync.text])
+	await harness._type("4\", 5\"\n")
+	await harness._wait_confirm()
+	await _until(func(): return not m.measure.units_dirty and m.saved_rev >= m.pending_rev)
+	var fresh_rect: Dictionary = m.ops.back() if not m.ops.is_empty() else {}
+	harness._ok("typing 4\", 5\" right after prompt commits live drag and adopts in-frac:1/16 (I70)",
+		m.measure.units == "in-frac:1/16" and m.measure.units_explicit and m.measure.has_saved_default_units()
+		and fresh_rect.get("type", "") == "rect" and is_equal_approx(float(fresh_rect["size"][0]), 101.6)
+		and is_equal_approx(float(fresh_rect["size"][1]), 127.0), [m.measure.units, m.measure.units_explicit, fresh_rect])
+
+	var model_after_fresh := m.out_dir.path_join("quick_units_after_fresh.FCStd")
+	m.switch_model(model_after_fresh, true)
+	await _until(func(): return m.opened)
+	await harness._view(Vector3(100, 100, 0), -30, -50, 1.2)
+	m.set_tool("rect")
+	await harness._drag_to(Vector3(0, 0, 0), 2); await harness._press()
+	await harness._drag_to(Vector3(80, 80, 0), 2)
+	await harness._type("4, 5\n")
+	await harness._wait_confirm()
+	var after_rect: Dictionary = m.ops.back() if not m.ops.is_empty() else {}
+	harness._ok("next new model with settings.cfg populated accepts bare length immediately and locks units_explicit (I70)",
+		m.measure.units == "in-frac:1/16" and m.measure.units_explicit
+		and after_rect.get("type", "") == "rect" and is_equal_approx(float(after_rect["size"][0]), 101.6)
+		and is_equal_approx(float(after_rect["size"][1]), 127.0), [m.measure.units, m.measure.units_explicit, after_rect])
+
 	# Clean up test settings and return to mm for any section running after us in the lane.
+	m.measure.pref_default_units = saved_pref
 	m.measure.settings_path = ""
 	DirAccess.remove_absolute(tmp_cfg)
+	DirAccess.remove_absolute(fresh_cfg)
 	m.set_units(Units.TEST_SPEC)
 	await _until(func(): return not m.measure.units_dirty)

@@ -268,13 +268,32 @@ func _measure_box_units_lifecycle() -> void:
 	mb.on_opened({"ok": true, "rev": 0, "ops": []}, true)
 	check("new model with no saved units stays unset and does not send set_units yet",
 		client.by_cmd("set_units").is_empty() and not mb.units_dirty and not mb.units_explicit)
+	check("fresh missing settings_path reports has_saved_default_units() == false (I70)",
+		not mb.has_saved_default_units())
 
-	# First valid typed length with an explicit unit adopts & saves (I67).
+	# I70: bare length on fresh install (missing settings_path, no pref) prompts without committing or locking.
+	mb.vcb = "10"
+	mb.apply()
+	check("fresh install bare length prompts without committing and leaves units unlocked (I70)",
+		ft.last_typed == "" and not mb.units_explicit and client.by_cmd("set_units").is_empty()
+		and fm.ui_sync.text == MeasureBox.FIRST_UNIT_PROMPT, [ft.last_typed, mb.units_explicit, fm.ui_sync.text])
+	# Also for a FreeCAD-evaluated bare expression on a fresh install.
+	fm.ui_sync.text = ""
+	mb.vcb = "sqrt(4) * foo"
+	mb.apply()
+	var fresh_bare_id: int = client.by_cmd("length").back()["id"]
+	mb.on_length({"cmd": "length", "id": fresh_bare_id, "ok": true, "values": [254.0]})
+	check("fresh install FreeCAD-evaluated bare length prompts without committing (I70)",
+		ft.last_typed == "" and not mb.units_explicit and client.by_cmd("set_units").is_empty()
+		and fm.ui_sync.text == MeasureBox.FIRST_UNIT_PROMPT, [ft.last_typed, mb.units_explicit, fm.ui_sync.text])
+
+	# First valid typed length with an explicit unit right after commits, adopts, and populates settings.cfg (I67, I70).
 	mb.vcb = "120mm"
 	mb.apply()
 	var su := client.by_cmd("set_units")
 	check("first typed explicit unit adopts mm:0.1, locks units, and sends set_units",
-		mb.units == "mm:0.1" and mb.units_explicit and mb.units_dirty and su.size() == 1 and su.back()["units"] == "mm:0.1")
+		mb.units == "mm:0.1" and mb.units_explicit and mb.units_dirty and su.size() == 1
+		and su.back()["units"] == "mm:0.1" and absf(float(ft.last_typed) - 120.0) < 1e-6 and mb.has_saved_default_units())
 	mb.on_set_units_reply({"ok": true, "cmd": "set_units", "model": fm.model_path, "units": "mm:0.1", "rev": 1, "seq": su.back()["seq"]})
 	check("set_units reply clears dirty and advances pending_rev for save indicator / close",
 		not mb.units_dirty and doc.pending_rev == 1 and doc.unsaved())
@@ -346,20 +365,30 @@ func _measure_box_units_lifecycle() -> void:
 	check("accepted FreeCAD length adopts ft-in:1/16 and locks units",
 		mb.units == "ft-in:1/16" and mb.units_explicit and absf(float(ft.last_typed) - 304.8) < 1e-6)
 
-	# First typed length is bare: keeps default units and locks so a later explicit override does not flip units.
+	# First typed length is bare when settings.cfg is populated: commits immediately, keeps default units and locks (I70).
 	doc.reset(); doc.opened = false; fm.model_path = "/tmp/u5.FCStd"; doc.model_path = fm.model_path
 	mb.reset_for_model()
 	doc.on_opened({"ok": true, "rev": 0, "ops": []}, true)
 	mb.on_opened({"ok": true, "rev": 0, "ops": []}, true)
 	var before_bare_units: String = mb.units
+	ft.last_typed = ""
 	mb.vcb = "10"
 	mb.apply()
-	check("bare first typed length keeps default units and locks them",
-		mb.units == before_bare_units and mb.units_explicit)
+	check("bare first typed length with saved settings.cfg commits immediately and locks default units (I70)",
+		mb.has_saved_default_units() and mb.units == before_bare_units and mb.units_explicit and ft.last_typed != "")
 	mb.vcb = "120mm"
 	mb.apply()
 	check("explicit unit after bare first typed length converts without flipping units",
 		mb.units == before_bare_units and absf(float(ft.last_typed) - 120.0) < 1e-6, [mb.units, ft.last_typed])
+
+	# has_saved_default_units() is true for test isolation (settings_path == "") and for valid pref_default_units.
+	var mb_iso := MeasureBox.new(); made.append(mb_iso)
+	mb_iso.init_units("", Units.TEST_SPEC)
+	check("test-isolation empty settings_path reports has_saved_default_units() == true", mb_iso.has_saved_default_units())
+	mb_iso.settings_path = cfg + ".missing"
+	check("missing settings_path with no pref reports has_saved_default_units() == false", not mb_iso.has_saved_default_units())
+	mb_iso.pref_default_units = "mm:0.1"
+	check("valid pref_default_units reports has_saved_default_units() == true", mb_iso.has_saved_default_units())
 
 	# Typed bare number uses model's default_unit, both locally and when sent to worker (I59).
 	mb.set_units("in-frac:1/16", true)
