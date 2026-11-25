@@ -286,6 +286,278 @@ class TestTranscriptHolesAndDiscovery(unittest.TestCase):
         finally:
             os.unlink(path)
 
+    def test_agy_quoted_tool_targets_unquoted(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            p = os.path.join(tmp, "transcript.jsonl")
+            _write_jsonl(p, [
+                {"type": "USER_INPUT", "content": "Check presenter"},
+                {
+                    "type": "PLANNER_RESPONSE",
+                    "input_tokens": 5000,
+                    "cache_read_tokens": 0,
+                    "output_tokens": 100,
+                    "tool_calls": [
+                        {"name": "read_file", "args": {"Path": '"/path/to/presenter.gd"'}},
+                    ],
+                },
+                {"type": "GENERIC", "content": "a" * 8000},
+                {
+                    "type": "PLANNER_RESPONSE",
+                    "input_tokens": 1000,
+                    "cache_read_tokens": 6000,
+                    "output_tokens": 100,
+                    "tool_calls": [
+                        {"name": "read_file", "args": {"Path": '"/path/to/presenter.gd"'}},
+                    ],
+                },
+                {"type": "GENERIC", "content": "a" * 8000},
+            ])
+            res = usage.analyze_transcript(p)
+            self.assertEqual(res["top_tool_outputs"][0]["target"], "/path/to/presenter.gd")
+            self.assertEqual(len(res["repeated_reads"]), 1)
+            self.assertEqual(res["repeated_reads"][0]["file"], "/path/to/presenter.gd")
+            self.assertTrue(any("Re-read presenter.gd 2x" in fl for fl in res["flags"]))
+            self.assertFalse(any('presenter.gd"' in fl for fl in res["flags"]))
+
+    def test_line_range_aware_repeated_reads(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            p = os.path.join(tmp, "transcript.jsonl")
+            _write_jsonl(p, [
+                {"type": "USER_INPUT", "content": "Inspect files"},
+                {
+                    "type": "PLANNER_RESPONSE",
+                    "input_tokens": 10000,
+                    "cache_read_tokens": 0,
+                    "output_tokens": 200,
+                    "tool_calls": [
+                        # Disjoint slices: [1-120] and [480-560] -> NOT repeated
+                        {"name": "read_file", "args": {"Path": '"/repo/a.gd"', "StartLine": "1", "EndLine": "120"}},
+                        {"name": "read_file", "args": {"Path": '"/repo/a.gd"', "StartLine": "480", "EndLine": "560"}},
+                        # Adjacent disjoint slices: [1-160] and [161-320] -> NOT repeated
+                        {"name": "read_file", "args": {"Path": '"/repo/b.gd"', "StartLine": 1, "EndLine": 160}},
+                        {"name": "read_file", "args": {"Path": '"/repo/b.gd"', "StartLine": 161, "EndLine": 320}},
+                        # Overlapping slices: [1-250] and [1-120] -> REPEATED
+                        {"name": "read_file", "args": {"Path": '"/repo/c.gd"', "StartLine": 1, "EndLine": 250}},
+                        {"name": "read_file", "args": {"Path": '"/repo/c.gd"', "StartLine": 1, "EndLine": 120}},
+                        # Repeated full-file reads -> REPEATED
+                        {"name": "read_file", "args": {"Path": '"/repo/d.gd"'}},
+                        {"name": "read_file", "args": {"Path": '"/repo/d.gd"'}},
+                    ],
+                },
+                *[{"type": "GENERIC", "content": "x" * 2000} for _ in range(8)],
+            ])
+            res = usage.analyze_transcript(p)
+            rep_files = {r["file"]: r for r in res["repeated_reads"]}
+            self.assertNotIn("/repo/a.gd", rep_files)
+            self.assertNotIn("/repo/b.gd", rep_files)
+            self.assertIn("/repo/c.gd", rep_files)
+            self.assertIn("/repo/d.gd", rep_files)
+            self.assertEqual(rep_files["/repo/c.gd"]["count"], 2)
+            self.assertEqual(rep_files["/repo/c.gd"]["overlap_reads"], 2)
+            self.assertEqual(rep_files["/repo/d.gd"]["count"], 2)
+            self.assertTrue(any("c.gd" in fl for fl in res["flags"]))
+            self.assertTrue(any("d.gd" in fl for fl in res["flags"]))
+            self.assertFalse(any("a.gd" in fl or "b.gd" in fl for fl in res["flags"]))
+
+    def test_sibling_transcript_full_sizes_and_fallback(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            compact = os.path.join(tmp, "transcript.jsonl")
+            full = os.path.join(tmp, "transcript_full.jsonl")
+            base_rows = [
+                {"type": "USER_INPUT", "content": "Run test"},
+                {
+                    "type": "PLANNER_RESPONSE",
+                    "input_tokens": 10000,
+                    "cache_read_tokens": 0,
+                    "output_tokens": 150,
+                    "tool_calls": [
+                        {"name": "read_file", "args": {"Path": '"/repo/big.gd"'}},
+                    ],
+                },
+                {"type": "GENERIC", "content": "x" * 4000},
+            ]
+            full_rows = [
+                base_rows[0],
+                base_rows[1],
+                {"type": "GENERIC", "content": "x" * 32000},
+            ]
+            # Without transcript_full.jsonl: uses compact size (4000 chars -> 1000 est tokens)
+            _write_jsonl(compact, base_rows)
+            res_compact = usage.analyze_transcript(compact)
+            self.assertEqual(res_compact["top_tool_outputs"][0]["chars"], 4000)
+            self.assertEqual(res_compact["top_tool_outputs"][0]["est_tokens"], 1000)
+            self.assertFalse(any("Large read_file output" in fl for fl in res_compact["flags"]))
+
+            # With sibling transcript_full.jsonl: uses untruncated size (32000 chars -> 8000 est tokens)
+            _write_jsonl(full, full_rows)
+            res_full = usage.analyze_transcript(compact)
+            self.assertEqual(res_full["top_tool_outputs"][0]["chars"], 32000)
+            self.assertEqual(res_full["top_tool_outputs"][0]["est_tokens"], 8000)
+            self.assertTrue(any("Large read_file output" in fl for fl in res_full["flags"]))
+
+    def test_phase_breakdown_and_waste_flags(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            # 1) Noisy transcript triggering all three waste flags
+            noisy = os.path.join(tmp, "noisy.jsonl")
+            rows = [
+                {"type": "USER_INPUT", "content": "Check the board"},
+                # Startup: duplicate immediate command (job.py take retried)
+                {
+                    "type": "PLANNER_RESPONSE",
+                    "input_tokens": 10000,
+                    "cache_read_tokens": 0,
+                    "output_tokens": 100,
+                    "tool_calls": [{"name": "run_command", "args": {"CommandLine": '"python3 tools/job.py take --as gemini"'}}],
+                },
+                {"type": "GENERIC", "content": "sandbox error"},
+                {
+                    "type": "PLANNER_RESPONSE",
+                    "input_tokens": 1000,
+                    "cache_read_tokens": 11000,
+                    "output_tokens": 100,
+                    "tool_calls": [{"name": "run_command", "args": {"CommandLine": '"python3 tools/job.py take --as gemini"'}}],
+                },
+                {"type": "GENERIC", "content": "took H144"},
+            ]
+            # Explore: 4 consecutive single-read turns at >= 40k context
+            for i in range(4):
+                rows.append({
+                    "type": "PLANNER_RESPONSE",
+                    "input_tokens": 2000,
+                    "cache_read_tokens": 45000 + i * 2000,
+                    "output_tokens": 100,
+                    "tool_calls": [{"name": "read_file", "args": {"Path": f'"/repo/f{i}.py"'}}],
+                })
+                rows.append({"type": "GENERIC", "content": "ok"})
+            # Code+test: edit + job.py test
+            rows.extend([
+                {
+                    "type": "PLANNER_RESPONSE",
+                    "input_tokens": 2000,
+                    "cache_read_tokens": 55000,
+                    "output_tokens": 300,
+                    "tool_calls": [{"name": "edit_file", "args": {"Path": '"/repo/tools/usage.py"'}}],
+                },
+                {"type": "GENERIC", "content": "edited"},
+                {
+                    "type": "PLANNER_RESPONSE",
+                    "input_tokens": 2000,
+                    "cache_read_tokens": 58000,
+                    "output_tokens": 100,
+                    "tool_calls": [{"name": "run_command", "args": {"CommandLine": '"python3 tools/job.py test"'}}],
+                },
+                {"type": "GENERIC", "content": "PASS"},
+            ])
+            # Post-test tail: 6 high-context turns (>20% of total prompt tokens), including handoff edit
+            tail_cmds = [
+                ("run_command", {"CommandLine": '"git status"'}),
+                ("run_command", {"CommandLine": '"git diff --stat"'}),
+                ("edit_file", {"Path": '"/repo/docs/handoff/H144-test.md"'}),
+                ("run_command", {"CommandLine": '"python3 tools/handoff.py list"'}),
+                ("run_command", {"CommandLine": '"python3 tools/job.py done"'}),
+            ]
+            for idx, (tn, args) in enumerate(tail_cmds):
+                rows.append({
+                    "type": "PLANNER_RESPONSE",
+                    "input_tokens": 2000,
+                    "cache_read_tokens": 88000 + idx * 1000,
+                    "output_tokens": 100,
+                    "tool_calls": [{"name": tn, "args": args}],
+                })
+                rows.append({"type": "GENERIC", "content": "ok"})
+            # Final summary turn (no tool calls)
+            rows.append({
+                "type": "PLANNER_RESPONSE",
+                "input_tokens": 1000,
+                "cache_read_tokens": 94000,
+                "output_tokens": 200,
+                "tool_calls": [],
+            })
+            _write_jsonl(noisy, rows)
+
+            res = usage.analyze_transcript(noisy)
+            pmap = {p["phase"]: p for p in res["phases"]}
+            self.assertEqual(pmap["startup"]["turns"], 2)
+            self.assertEqual(pmap["explore"]["turns"], 4)
+            self.assertEqual(pmap["code+test"]["turns"], 2)
+            self.assertEqual(pmap["post-test tail"]["turns"], 6)
+            self.assertGreaterEqual(pmap["post-test tail"]["prompt_pct"], 20.0)
+            self.assertTrue(any("Long post-test tail" in fl for fl in res["flags"]))
+            self.assertTrue(any("Unbatched lookup streak" in fl for fl in res["flags"]))
+            self.assertTrue(any("Duplicate immediate command" in fl for fl in res["flags"]))
+
+            # 2) Clean lean transcript: none of the waste flags trigger
+            clean = os.path.join(tmp, "clean.jsonl")
+            clean_rows = [
+                {"type": "USER_INPUT", "content": "Check the board"},
+                {
+                    "type": "PLANNER_RESPONSE",
+                    "input_tokens": 10000,
+                    "cache_read_tokens": 0,
+                    "output_tokens": 100,
+                    "tool_calls": [{"name": "run_command", "args": {"CommandLine": '"python3 tools/job.py take --as gemini"'}}],
+                },
+                {"type": "GENERIC", "content": "took H144"},
+                # Batched explore turn (2 reads in 1 turn)
+                {
+                    "type": "PLANNER_RESPONSE",
+                    "input_tokens": 2000,
+                    "cache_read_tokens": 15000,
+                    "output_tokens": 150,
+                    "tool_calls": [
+                        {"name": "read_file", "args": {"Path": '"/repo/tools/usage.py"', "StartLine": 1, "EndLine": 100}},
+                        {"name": "read_file", "args": {"Path": '"/repo/tools/test_usage.py"', "StartLine": 1, "EndLine": 100}},
+                    ],
+                },
+                {"type": "GENERIC", "content": "a" * 1000},
+                {"type": "GENERIC", "content": "b" * 1000},
+                # Code+test
+                {
+                    "type": "PLANNER_RESPONSE",
+                    "input_tokens": 2000,
+                    "cache_read_tokens": 20000,
+                    "output_tokens": 300,
+                    "tool_calls": [{"name": "edit_file", "args": {"Path": '"/repo/tools/usage.py"'}}],
+                },
+                {"type": "GENERIC", "content": "ok"},
+                {
+                    "type": "PLANNER_RESPONSE",
+                    "input_tokens": 1500,
+                    "cache_read_tokens": 22000,
+                    "output_tokens": 100,
+                    "tool_calls": [{"name": "run_command", "args": {"CommandLine": '"python3 tools/job.py test"'}}],
+                },
+                {"type": "GENERIC", "content": "PASS"},
+                # Lean 2-turn finish
+                {
+                    "type": "PLANNER_RESPONSE",
+                    "input_tokens": 1000,
+                    "cache_read_tokens": 24000,
+                    "output_tokens": 150,
+                    "tool_calls": [
+                        {"name": "edit_file", "args": {"Path": '"/repo/docs/handoff/H144-test.md"'}},
+                        {"name": "run_command", "args": {"CommandLine": '"python3 tools/job.py done"'}},
+                    ],
+                },
+                {"type": "GENERIC", "content": "ok"},
+                {"type": "GENERIC", "content": "done"},
+                {
+                    "type": "PLANNER_RESPONSE",
+                    "input_tokens": 500,
+                    "cache_read_tokens": 25000,
+                    "output_tokens": 100,
+                    "tool_calls": [],
+                },
+            ]
+            _write_jsonl(clean, clean_rows)
+            res_clean = usage.analyze_transcript(clean)
+            self.assertEqual(res_clean["flags"], [])
+            pmap_clean = {p["phase"]: p for p in res_clean["phases"]}
+            self.assertEqual(pmap_clean["startup"]["turns"], 1)
+            self.assertEqual(pmap_clean["explore"]["turns"], 1)
+            self.assertEqual(pmap_clean["code+test"]["turns"], 2)
+            self.assertEqual(pmap_clean["post-test tail"]["turns"], 2)
+
     def test_discover_agy_transcript_by_session_name_uuid_and_missing(self):
         with tempfile.TemporaryDirectory() as tmp:
             uuid1 = "11111111-2222-3333-4444-555555555555"
