@@ -263,8 +263,30 @@ def overlap(a, b):
     return sorted(handoff.shared_touches(a, b))
 
 
+DEP_ID = re.compile(r"\bH\d+\b")
+
+
+def resolve_dependencies(jobs, st=None):
+    """Return jobs with queued H0NN dependencies resolved against unmerged entries and queue state."""
+    job_states = (st or {}).get("jobs", {})
+    unmerged = {j["id"] for j in jobs if job_states.get(j["id"], {}).get("state") != "merged"}
+    out = []
+    for j in jobs:
+        if j["kind"] == "queued":
+            deps = list(dict.fromkeys(DEP_ID.findall(j["waits"])))
+            if deps:
+                remaining = [d for d in deps if d in unmerged]
+                if not remaining:
+                    j = {**j, "kind": "ready", "waits": ""}
+                elif len(remaining) < len(deps):
+                    j = {**j, "waits": ", ".join(remaining)}
+        out.append(j)
+    return out
+
+
 def takeable(root, st, agent, jobs, order, claims=None):
     """(the job to take or None, [reasons others were passed over]). Returned jobs for the agent come first."""
+    jobs = resolve_dependencies(jobs, st)
     claims = branch_claims(root) if claims is None else claims
     mine = lambda j: j["for"] in (agent, "either")
     back = [j for j in ordered(jobs, order) if st["jobs"].get(j["id"], {}).get("state") == "returned"
@@ -1047,6 +1069,7 @@ def status(cwd, out=print, now=None, readonly=False):
 
 
 def table(root, st, jobs, order, now):
+    jobs = resolve_dependencies(jobs, st)
     rows = ["| Job | For | Status | Item | Handoff | Waits for |", "|---|---|---|---|---|---|"]
     claims = branch_claims(root)
     for j in ordered(jobs, order):

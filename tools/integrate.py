@@ -989,6 +989,70 @@ def clean_up_job(s):
     return s
 
 
+def _rewrite_handoff_status(text, new_status):
+    return re.sub(
+        r"(?m)^(Author:[^\n]*\|\s*Status:\s*)queued\s*\([^)]*\)([^\n]*)$",
+        rf"\g<1>{new_status}\2",
+        text,
+        count=1,
+    )
+
+
+def unblock_queued_jobs(s):
+    """Flip queued handoff entries whose H0NN dependencies are all resolved to open (or trim resolved IDs),
+    rebuild BOARD.md and docs/agent-handoff.md, and commit on main before push_main()."""
+    root, name, say = s.root, s.name, s.say
+    texts = job.handoff_texts(root)
+    if not texts:
+        return s
+    jobs = job.jobs_from(texts)
+    st = job.read_state(job.state_path(root))
+    resolved = job.resolve_dependencies(jobs, st)
+    changed_paths, unblocked, summary_ids = [], [], []
+    for orig, new in zip(jobs, resolved):
+        if orig["kind"] != "queued":
+            continue
+        if new["kind"] == "ready":
+            new_status = "open"
+            note = f"unblocked {orig['id']} (after {orig['waits']})"
+            summary_ids.append(orig["id"])
+        elif new["waits"] != orig["waits"]:
+            new_status = f"queued (after {new['waits']})"
+            note = f"updated {orig['id']} (now waits for {new['waits']})"
+            summary_ids.append(orig["id"])
+        else:
+            continue
+        rel = os.path.join(handoff.FOLDER, orig["name"])
+        p = os.path.join(root, rel)
+        updated = _rewrite_handoff_status(texts[orig["name"]], new_status)
+        if updated != texts[orig["name"]]:
+            open(p, "w", encoding="utf-8").write(updated)
+            changed_paths.append(rel)
+            unblocked.append(note)
+    if not changed_paths:
+        return s
+    bpath = os.path.join(root, job.BOARD)
+    if os.path.isfile(bpath) and job.START in open(bpath, encoding="utf-8").read():
+        if job.board(root, out=say):
+            changed_paths.append(job.BOARD)
+    hpath = os.path.join(root, handoff.HANDOFF)
+    if os.path.isfile(hpath) and handoff.START in open(hpath, encoding="utf-8").read():
+        if handoff.write_list(root):
+            changed_paths.append(handoff.HANDOFF)
+    git("add", *changed_paths, root=root)
+    msg = (f"Unblock {', '.join(summary_ids)}\n\n"
+           f"Auto-unblocked by tools/integrate.py ({name}) after merging.\n\n"
+           f"Co-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>")
+    r = subprocess.run(["git", "-c", "core.hooksPath=.githooks", "commit", "-q", "-F", "-"], input=msg, cwd=root,
+                       capture_output=True, text=True)
+    if r.returncode != 0:
+        say("the unblock commit was refused (left staged):\n" + (r.stdout + r.stderr).strip())
+        return s.stop(1)
+    for line in unblocked:
+        say(line)
+    return s
+
+
 def record_results(s):
     root, state, name, say = s.root, s.payload, s.name, s.say
     drafted = draft_results(root, [tuple(x) for x in state["results"]], name, say)
@@ -1046,7 +1110,7 @@ def draft_results(root, results, name, say):
 
 MERGE_STEPS = (check_start, prepare_log, merge_branch, settle_conflicts, check_touches, number_entries,
                archive_entries, update_statuses, rebuild_and_check, run_gate, pause_for_map)
-FINISH_STEPS = (commit_merge, clean_up_job, record_results, push_main)
+FINISH_STEPS = (commit_merge, clean_up_job, unblock_queued_jobs, record_results, push_main)
 
 
 if __name__ == "__main__":
