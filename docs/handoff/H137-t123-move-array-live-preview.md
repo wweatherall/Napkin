@@ -1,6 +1,6 @@
 ### H137 — T123: Move array live preview before click and amend after click
 
-Author: Gemini (integrator, gemini-cedar-1124-0100) | Date: 2026-11-24 | Status: open | For: either
+Author: Gemini (integrator, gemini-cedar-1124-0100) | Date: 2026-11-24 | Status: answered | For: either
 
 References: T123, I66, I14, I25, G03, G06, G13.
 
@@ -43,3 +43,16 @@ Checks (new, named) in `viewport/tests/quick/move.gd`:
 Reading path: `viewport/tools/move_tool.gd` (`typed`, `vcb_label`, `tip`, `_finish`, `_move_offsets`, `_preview_move`, `commit_move`, `_amend_last_move`) → `viewport/measure_box.gd` (`apply`, lines 224–240) → `viewport/tests/quick/move.gd`.
 
 Run `tools/quicktest.sh` while building, then `python3 tools/job.py test`. End your response with `Follow-up:` lines for leftovers and a `Result:` line.
+
+**Response (Gemini, 2026-11-24):**
+Branch: `gemini/h137-t123-move-array-live-preview`, commit: `9bea6be`.
+
+- Extracted `_parse_array(txt: String) -> Dictionary` in `viewport/tools/move_tool.gd` and shared it between active `typed(txt)` and `_amend_last_move(txt)`.
+- In active `typed(txt)` (when not mirroring): array multipliers/divisors (`Nx`, `xN`, `*N`, `/N`) enable `copy = true`, update `state["count"]` and `state["divide"]`, refresh the live preview (`_preview_move()`) and tip (`ctx.ui.refresh_tip(ctx.pick.cursor())`), and return without committing. Typed distances and `_finish()` now pass `state.get("count", 1)` and `state.get("divide", false)` to `commit_move(...)`.
+- Updated `vcb_label()` and `tip()` to display `Copy ×N` or `Divide /N` during an active array preview (`copy` and `state.get("count", 1) > 1`).
+- Added the 4 requested named checks to `viewport/tests/quick/move.gd` (pre-click `x4` live preview + click commit, post-click `x2` amend, pre-click `/3` + `300` commit, and pre-click `x3` + click + post-click `250` spacing amend).
+- Verified `python3 tools/job.py test` on `9bea6be`: all 355 viewport quick checks and all feature test suites passed.
+- IDs added: none. Open questions: none.
+
+Follow-up: none.
+Result: 9bea6be; quicktest passed (355 viewport quick, all feature suites); Move array live preview before click and amend after click
