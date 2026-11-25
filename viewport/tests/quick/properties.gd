@@ -242,7 +242,7 @@ func run() -> void:
 				m.sel.context == "component:b1"
 				and n_b1 != null and n_b1.material_override == null
 				and n_b3 != null and n_b3.material_override == m.mat_sibling
-				and n_b2 != null and n_b2.material_override == m.mat_ghost,
+				and n_b2 != null and n_b2.material_override == m.pres.mat_ghost,
 				[m.sel.context])
 		m.sel.leave_context()
 		m._apply_context()
