@@ -397,7 +397,7 @@ lc_self_sib = dict(type='property_edit', id='lc_self_sib', mode='plane_fit', bod
 lc_session.sync(lc_chain_ops + [lc_self_sib])
 check('T61 self-sibling fit rejected without mutating',
       lc_session.status()[-1]['status'] == 'failed'
-      and 'different rectangular board' in lc_session.status()[-1].get('message', '')
+      and 'different board' in lc_session.status()[-1].get('message', '')
       and lc_session.model.body('b1').LinkedObject.Tip.SSTargetId == 't1'
       and abs(lvol('b1') - 40 * 20 * 200) < 0.01)
 lc_cross_cyc = dict(type='property_edit', id='lc_cross_cyc', mode='plane_fit', body='b1', target_body='c1', axis=2, face=5, fit_mode=0)
@@ -495,8 +495,89 @@ b2_body.Tip = cut_feat
 sum_session.doc.recompute()
 s_cut = inspect(sum_session.model, 'b2')['summary']
 check('cut board summary falls back to read-only BoundBox extents',
-      'b2' not in inspect(sum_session.model, 'b2')['boards']
+      not inspect(sum_session.model, 'b2')['boards']['b2'].get('rectangular', True)
       and len(s_cut['dimensions']) == 3
       and all(not d['editable'] and d['value_mm'] > 0 for d in s_cut['dimensions']))
 App.closeDocument(sum_session.doc.Name)
+
+# T62: face ties to and from circular, closed-line, and cut boards.
+t62_session = Session(os.path.join(folder, 't62.FCStd'), fresh=True)
+t62_ops = [
+    {'id': 'r1', 'type': 'rect', 'plane': {'normal': [0, 0, 1], 'origin': [0, 0, 0]}, 'size': [40, 40]},
+    {'id': 'p1', 'type': 'push_pull', 'target': {'rect': 'r1'}, 'distance': 20, 'body': 'b_rect'},
+    {'id': 'c1', 'type': 'circle', 'plane': {'normal': [0, 0, 1], 'origin': [20, 20, 120]}, 'radius': 30},
+    {'id': 'p2', 'type': 'push_pull', 'target': {'rect': 'c1'}, 'distance': 20, 'body': 'b_cyl'},
+    {'id': 'r2', 'type': 'rect', 'plane': {'normal': [0, 0, 1], 'origin': [120, 0, 0]}, 'size': [80, 60]},
+    {'id': 'p3', 'type': 'push_pull', 'target': {'rect': 'r2'}, 'distance': 30, 'body': 'b_cut'},
+    {'id': 'rp', 'type': 'rect', 'plane': {'on': {'body': 'b_cut', 'normal': [0, 0, 1], 'point': [160, 30, 30]}}, 'corner': [-10, -10], 'size': [20, 20]},
+    {'id': 'pp', 'type': 'push_pull', 'target': {'rect': 'rp'}, 'distance': -10},
+    {'id': 'r3', 'type': 'rect', 'plane': {'normal': [0, 0, 1], 'origin': [0, 0, 220]}, 'size': [250, 120]},
+    {'id': 'p4', 'type': 'push_pull', 'target': {'rect': 'r3'}, 'distance': 20, 'body': 'b_top'},
+]
+t62_session.sync(t62_ops)
+check('T62 snapshots expose planar faces for circular and cut boards',
+      not plane_fit.snapshot(t62_session.model.body('b_cyl'))['rectangular']
+      and len(plane_fit.planar_faces(t62_session.model.body('b_cyl'))) == 2
+      and not plane_fit.snapshot(t62_session.model.body('b_cut'))['rectangular']
+      and len(plane_fit.planar_faces(t62_session.model.body('b_cut'))) >= 6)
+
+# 1. Tie rectangular board to circular board's bottom face (z=120), then move circular board.
+cyl_faces = plane_fit.planar_faces(t62_session.model.body('b_cyl'))
+cyl_bot = next(i for i, (pt, n) in enumerate(cyl_faces) if n.z < -0.9)
+fit_to_cyl = {'id': 'f_cyl', 'type': 'property_edit', 'mode': 'plane_fit', 'body': 'b_rect',
+              'target_body': 'b_cyl', 'axis': 2, 'face': cyl_bot, 'fit_mode': 0}
+t62_session.sync(t62_ops + [fit_to_cyl])
+check('T62 rectangular board ties to circular board planar face',
+      t62_session.status()[-1]['status'] == 'ok'
+      and abs(t62_session.model.body('b_rect').Shape.Volume - 40 * 40 * 120) < 0.01)
+t62_session.sync(t62_ops + [fit_to_cyl, {'id': 'mv_cyl', 'type': 'move', 'targets': ['b_cyl'], 'vector': [0, 0, 30]}])
+check('T62 moving circular target updates tied rectangular board live',
+      abs(t62_session.model.body('b_rect').Shape.Volume - 40 * 40 * 150) < 0.01)
+
+# 2. Tie rectangular board to cut board's top face (z=30 -> 130 after moving cut board), then move cut board.
+cut_faces = plane_fit.planar_faces(t62_session.model.body('b_cut'))
+cut_top = next(i for i, (pt, n) in enumerate(cut_faces) if n.z > 0.9 and abs(pt.z - 30) < 0.01)
+fit_to_cut = {'id': 'f_cut', 'type': 'property_edit', 'mode': 'plane_fit', 'body': 'b_rect',
+              'target_body': 'b_cut', 'axis': 2, 'face': cut_top, 'fit_mode': 0}
+mv_cut_up = {'id': 'mv_cut0', 'type': 'move', 'targets': ['b_cut'], 'vector': [0, 0, 80]}
+t62_session.sync(t62_ops + [mv_cut_up, fit_to_cut])
+check('T62 rectangular board ties to cut board planar face',
+      t62_session.status()[-1]['status'] == 'ok'
+      and abs(t62_session.model.body('b_rect').Shape.Volume - 40 * 40 * 110) < 0.01)
+t62_session.sync(t62_ops + [mv_cut_up, fit_to_cut, {'id': 'mv_cut1', 'type': 'move', 'targets': ['b_cut'], 'vector': [0, 0, 25]}])
+check('T62 moving cut target updates tied rectangular board live',
+      abs(t62_session.model.body('b_rect').Shape.Volume - 40 * 40 * 135) < 0.01)
+
+# 3. Circular board as source tied to b_top (z=220), moves live, and detaches cleanly on push.
+fit_cyl_src = {'id': 'f_csrc', 'type': 'property_edit', 'mode': 'plane_fit', 'body': 'b_cyl',
+               'target_body': 'b_top', 'axis': 2, 'face': 4, 'fit_mode': 0}
+t62_session.sync(t62_ops + [fit_cyl_src])
+import math
+cyl_area = math.pi * 30 * 30
+check('T62 circular board ties its extrusion end to target face',
+      t62_session.status()[-1]['status'] == 'ok'
+      and abs(t62_session.model.body('b_cyl').Shape.Volume - cyl_area * 100) < 1.0)
+t62_session.sync(t62_ops + [fit_cyl_src, {'id': 'mv_top', 'type': 'move', 'targets': ['b_top'], 'vector': [0, 0, 40]}])
+check('T62 moving target updates circular board extrusion length live',
+      abs(t62_session.model.body('b_cyl').Shape.Volume - cyl_area * 140) < 1.0)
+push_cyl_end = {'id': 'p_cend', 'type': 'push_pull',
+                'target': {'face': {'body': 'b_cyl', 'normal': [0, 0, 1], 'point': [20, 20, 220]}},
+                'distance': 15}
+t62_session.sync(t62_ops + [fit_cyl_src, push_cyl_end])
+check('T62 pushing tied circular end detaches cleanly and resizes',
+      t62_session.status()[-1]['status'] == 'ok'
+      and t62_session.model.body('b_cyl').Tip.TypeId == 'Part::Extrusion'
+      and abs(t62_session.model.body('b_cyl').Shape.Volume - cyl_area * 115) < 1.0)
+
+# 4. Cut board as source tied along its extrusion axis to b_top (z=220), moves live.
+fit_cut_src = {'id': 'f_cutsrc', 'type': 'property_edit', 'mode': 'plane_fit', 'body': 'b_cut',
+               'target_body': 'b_top', 'axis': 2, 'face': 4, 'fit_mode': 0}
+t62_session.sync(t62_ops + [fit_cut_src])
+check('T62 cut board ties its extrusion end to target face while keeping its pocket',
+      t62_session.status()[-1]['status'] == 'ok'
+      and abs(t62_session.model.body('b_cut').Shape.Volume - (80 * 60 * 220 - 20 * 20 * 10)) < 1.0)
+t62_session.sync(t62_ops + [fit_cut_src, {'id': 'mv_top2', 'type': 'move', 'targets': ['b_top'], 'vector': [0, 0, 30]}])
+check('T62 moving target updates cut board extrusion length live',
+      abs(t62_session.model.body('b_cut').Shape.Volume - (80 * 60 * 250 - 20 * 20 * 10)) < 1.0)
+App.closeDocument(t62_session.doc.Name)
 print('PROPERTY TESTS: %d passed, 0 failed' % passed)

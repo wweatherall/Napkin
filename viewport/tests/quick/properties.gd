@@ -247,3 +247,28 @@ func run() -> void:
 		m.sel.leave_context()
 		m._apply_context()
 	m.properties_panel.hide()
+
+	# T62: Properties "Pick face…" can tie a board to a circular board's planar face and updates when target moves.
+	var cyl_scene := harness._plank(1, Vector3.ZERO, Vector3(40, 40, 20))
+	cyl_scene.append({"id": "c1", "type": "circle", "plane": {"origin": [20, 20, 120], "normal": [0, 0, 1]}, "radius": 30.0})
+	cyl_scene.append({"id": "cp1", "type": "push_pull", "target": {"rect": "c1"}, "distance": 20.0, "body": "b2"})
+	await harness._fresh("t62_cyl_fit", cyl_scene)
+	m.set_tool("select")
+	m.properties_panel.show()
+	m.sel.set_selection([harness.id("b1")])
+	await harness._wait_properties()
+	await harness._view(Vector3(20, 20, 70), -32, -25, 0.5)
+	var p62 = m.properties_panel
+	p62.summary.get_child(3).get_child(-1).pressed.emit()
+	await harness._click_at(Vector3(20, 20, 140))
+	harness._ok("T62 Properties Pick face targets circular board planar face", not p62.pending.is_empty(), p62.result.text)
+	if not p62.pending.is_empty():
+		p62.apply_fit.pressed.emit()
+		await harness._wait_confirm()
+		await harness._wait_properties()
+		harness._ok("T62 circular target fit applied", p62.data.boards.b1.fitted and is_equal_approx(float(harness._bodies().b1.volume_mm3), 224000.0), harness._bodies().b1.volume_mm3)
+		m.ops.append({"id": "mv_t62_cyl", "type": "move", "targets": ["b2"], "vector": [0, 0, 30]})
+		m.doc.sync()
+		await harness._wait_confirm()
+		harness._ok("T62 moving circular target updates tied board on screen", is_equal_approx(float(harness._bodies().b1.volume_mm3), 272000.0), harness._bodies().b1.volume_mm3)
+	m.properties_panel.hide()

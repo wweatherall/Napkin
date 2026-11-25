@@ -33,3 +33,12 @@ Checks:
 - `viewport/tests/quick/properties.gd`:
   - Verify Properties "Pick face…" can tie a board to a cut or circular board's planar face and updates when the target moves.
   - All existing `properties.gd` checks stay green.
+
+**Response (Gemini, 2026-11-24):**
+- Branch: `gemini/h127-t62-face-ties-other-shapes`
+- Extended `worker/plane_fit.py` (`_underlying_extrusion`, `source_frame`, `planar_faces`, `face_plane`, `snapshot`, `_inputs`, `update`, `apply`, `resize_face`, `_restore`) so non-rectangular profiles (circles, closed line/arc wires) and cut boards (`Part::Cut`) work as both face-tie targets (via `planar_faces`) and extrusion-axis sources (via `source_frame` + `LengthFwd`, with half-space slicing in `Slice at plane` mode).
+- Updated `worker/push.py` (`op_push_pull`), `worker/object_properties.py` (`_summary`, approved by integrator scope), `viewport/property_panel.gd`, and `viewport/tools/push_tool.gd` to support non-rectangular/cut targets and extrusion sources while preserving read-only BoundBox summaries and self/sibling/cycle rejections.
+- Added T62 tests in `worker/test_properties.py` and `viewport/tests/quick/properties.gd`.
+- Scope note: integrator approved editing `worker/object_properties.py` (`_summary`) with: `"Yes, approved — you may edit worker/object_properties.py (_summary) so non-rectangular/cut boards returned by plane_fit.snapshot() keep their read-only BoundBox summary dimensions (preserving H141's summary contract). Neither H129 nor H147 touches object_properties.py. Note the added file in your response."`
+
+Architecture: `plane_fit.snapshot()` now emits `rectangular: False` and `planar_faces` for non-rectangular and cut boards (used by `stock_frame` and `property_panel.gd`); `object_properties._summary()` checks `rectangular` so non-rectangular/cut boards keep read-only BoundBox summary dimensions.

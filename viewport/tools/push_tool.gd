@@ -244,6 +244,11 @@ static func _target_face_plane(target: Dictionary, face: int) -> Dictionary:
 	var fe = target.get("fitted_end", null)
 	if fe is Dictionary and int(fe.get("face", -1)) == face:
 		return {"point": _vec(fe.point), "normal": _vec(fe.normal)}
+	if not target.get("rectangular", true):
+		var pfaces: Array = target.get("planar_faces", [])
+		if face >= 0 and face < pfaces.size():
+			return {"point": _vec(pfaces[face].point), "normal": _vec(pfaces[face].normal)}
+		return {}
 	var i := floori(face / 2.0)
 	var axis_n := _vec(target.axes[i])
 	var side := face % 2
@@ -266,22 +271,25 @@ func _edge_inference(pt: Dictionary, screen: Vector2) -> void:
 	if body == state.body or target.is_empty(): return
 	var source_size := 0.0
 	if state.rect != "":
-		# Plane-fit stock dimensions describe rectangles. Circle pushes still use point/back-face inference.
 		var profile := ctx.model.profile(state.rect)
-		if profile.get("kind", "rect") != "rect": return
+		if profile.get("kind", "rect") not in ["rect", "circle"]: return
 		if profile.on != "" and not (ctx.ui.new_board() and state.dist > 0): return
 	else:
 		var src := ctx.model.stock_frame(state.body)
-		if src.is_empty() or src.fitted or target.extrusion == src.extrusion: return
-		for i in 3:
+		if src.is_empty() or src.fitted or not src.has("axes"): return
+		if src.get("extrusion", "") != "" and target.get("extrusion", "") == src.extrusion: return
+		var axes_to_check: Array = [0, 1, 2] if src.get("rectangular", true) else [2]
+		for i in axes_to_check:
 			if absf(_vec(src.axes[i]).dot(state.n)) > 0.9999: source_size = src.sizes[i]
 		if source_size <= 0: return
 	var edge_point: Vector3 = pt.get("edge_point",pt.point)
 	var push: Vector3 = state.n
 	if state.rect != "" and state.dist < 0: push = -push
 	var options := []
-	for face in 6:
+	var face_count: int = 6 if target.get("rectangular", true) else target.get("planar_faces", []).size()
+	for face in face_count:
 		var plane := _target_face_plane(target, face)
+		if plane.is_empty(): continue
 		var outward: Vector3 = plane.normal
 		var plane_point: Vector3 = plane.point
 		var denom := outward.dot(push)
@@ -405,7 +413,7 @@ func commit_push(d: float, edge_fit := {}, snapped_to_floor := false) -> void:
 		if ctx.selection.context_assembly() != "": op["assembly"] = ctx.selection.context_assembly()   # drawn inside: it joins (T20)
 	if not edge_fit.is_empty():
 		op["edge_fit"] = edge_fit.duplicate()
-	elif not state.has("region") and state.rect == "" and not ctx.model.stock_frame(on).get("fitted", true):
+	elif not state.has("region") and state.rect == "" and not ctx.model.stock_frame(on).get("fitted", true) and ctx.model.stock_frame(on).get("rectangular", true):
 		op["resize_stock"] = true
 	if snapped_to_floor and d < 0 and on != "" and (state.rect != "" or state.has("region")) \
 			and not (op.has("through") or op.has("body") or op.has("edge_fit") or op.has("resize_stock")):
