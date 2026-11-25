@@ -32,7 +32,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
 - [H127 — T62: face ties on shapes other than plain rectangular boards](handoff/H127-t62-face-ties-other-shapes.md) — status: open; for: either
-- [H130 — T84 step 2: Polygon tool (toolbar button without hotkey, exact FreeCAD sketch polygon)](handoff/H130-t84-polygon-tool.md) — status: queued (after H129); for: either
+- [H130 — T84 step 2: Polygon tool (toolbar button without hotkey, exact FreeCAD sketch polygon)](handoff/H130-t84-polygon-tool.md) — status: open; for: either
 - [H147 — T131: Quiet-by-default tool tests (failures + summary; -v/--verbose for PASS lines)](handoff/H147-quiet-tool-tests.md) — status: open; for: either
 
 <!-- end of open list -->

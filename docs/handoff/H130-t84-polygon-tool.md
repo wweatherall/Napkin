@@ -1,6 +1,6 @@
 ### H130 — T84 step 2: Polygon tool (toolbar button without hotkey, exact FreeCAD sketch polygon)
 
-Author: Gemini (integrator, gemini-cedar-1124-2201) | Date: 2026-11-24 | Status: queued (after H129) | For: either
+Author: Gemini (integrator, gemini-cedar-1124-2201) | Date: 2026-11-24 | Status: open | For: either
 
 References: T84, T81, I49, I64, Q33, A35.
 
