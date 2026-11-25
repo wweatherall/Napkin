@@ -10,11 +10,13 @@ sys.path.insert(0, HERE)
 import startup as s
 
 RESULTS = []
+VERBOSE = "-v" in sys.argv[1:] or "--verbose" in sys.argv[1:]
 
 
 def check(name, ok):
     RESULTS.append(ok)
-    print(("PASS " if ok else "FAIL ") + name)
+    if not ok or VERBOSE:
+        print(("PASS " if ok else "FAIL ") + name)
 
 
 WT = ("worktree /repo\nHEAD abc\nbranch refs/heads/main\n\n"

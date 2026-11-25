@@ -11,11 +11,13 @@ import handoff
 
 ROOT = Path(__file__).resolve().parent.parent
 RESULTS = []
+VERBOSE = "-v" in sys.argv[1:] or "--verbose" in sys.argv[1:]
 
 
 def check(name, condition, detail=""):
     RESULTS.append(bool(condition))
-    print(("PASS " if condition else "FAIL ") + name + ("" if condition else f"  {detail}"))
+    if not condition or VERBOSE:
+        print(("PASS " if condition else "FAIL ") + name + ("" if condition else f"  {detail}"))
 
 
 def run(root, *args, must_pass=False):

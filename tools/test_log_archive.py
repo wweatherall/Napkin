@@ -17,11 +17,13 @@ import sort_decision_log as s
 import startup
 
 RESULTS = []
+VERBOSE = "-v" in sys.argv[1:] or "--verbose" in sys.argv[1:]
 
 
 def check(name, ok):
     RESULTS.append(bool(ok))
-    print(("PASS " if ok else "FAIL ") + name)
+    if not ok or VERBOSE:
+        print(("PASS " if ok else "FAIL ") + name)
 
 
 DH = "| ID | Decision | Status | Replaces / replaced by | Why | Principles | Where in the code | Date |\n|---|---|---|---|---|---|---|---|\n"

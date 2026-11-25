@@ -9,11 +9,13 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import integrator as g
 
 RESULTS = []
+VERBOSE = "-v" in sys.argv[1:] or "--verbose" in sys.argv[1:]
 
 
 def check(name, ok):
     RESULTS.append(ok)
-    print(("PASS " if ok else "FAIL ") + name)
+    if not ok or VERBOSE:
+        print(("PASS " if ok else "FAIL ") + name)
 
 
 quiet = lambda *a: None

@@ -1,16 +1,18 @@
 #!/usr/bin/env python3
 """tools/start_worker.sh (F005): the command it would run in the new Terminal window, checked with DRY_RUN=1."""
-import os, subprocess
+import os, subprocess, sys
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 REPO = os.path.dirname(HERE)
 passed = failed = 0
+VERBOSE = "-v" in sys.argv[1:] or "--verbose" in sys.argv[1:]
 
 
 def check(name, ok, detail=""):
     global passed, failed
     passed, failed = passed + bool(ok), failed + (not ok)
-    print(("PASS " if ok else "FAIL ") + name + ("" if ok else f"  {detail}"))
+    if not ok or VERBOSE:
+        print(("PASS " if ok else "FAIL ") + name + ("" if ok else f"  {detail}"))
 
 
 def dry(*args):

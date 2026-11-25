@@ -19,11 +19,13 @@ REPO = os.path.dirname(HERE)
 NEW = "-" + "new-"   # written in two halves so number_ids.py never numbers this file's examples
 TODAY = "2031-01-02"
 RESULTS = []
+VERBOSE = "-v" in sys.argv[1:] or "--verbose" in sys.argv[1:]
 
 
 def check(name, ok):
     RESULTS.append(bool(ok))
-    print(("PASS " if ok else "FAIL ") + name)
+    if not ok or VERBOSE:
+        print(("PASS " if ok else "FAIL ") + name)
 
 
 def git(root, *args):
