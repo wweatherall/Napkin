@@ -34,6 +34,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H127 — T62: face ties on shapes other than plain rectangular boards](handoff/H127-t62-face-ties-other-shapes.md) — status: open; for: either
 - [H129 — T84 step 1: Rotated Rectangle (R again toggles Rectangle and Rotated Rectangle)](handoff/H129-t84-rotated-rectangle.md) — status: open; for: either
 - [H130 — T84 step 2: Polygon tool (toolbar button without hotkey, exact FreeCAD sketch polygon)](handoff/H130-t84-polygon-tool.md) — status: queued (after H129); for: either
+- [H147 — T131: Quiet-by-default tool tests (failures + summary; -v/--verbose for PASS lines)](handoff/H147-quiet-tool-tests.md) — status: open; for: either
 
 <!-- end of open list -->
 

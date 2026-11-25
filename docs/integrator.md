@@ -76,6 +76,8 @@ Architecture: lines, the response) and CLAUDE.md (commit trailers); this page sa
   read as a branch) is an additional omission detector, not a replacement for review.
 
 ## Writing jobs
+- **Full briefs only on `BOARD.md`**: every handoff entry on the board (whether `open` or `queued (after H0NN)`) must be a complete, ready-to-run brief (`Today`, `Reading path`, `Request`, `Touches`, `Checks`) so H146's auto-unblock works hands-free; partial ideas and unexpanded follow-ons stay in the Work list (`docs/decision-log.md`) until ready for a full brief.
+- **Grep callers before finalizing `Touches`**: when a brief changes a tool's hotkey, input mode, op schema, or function contract, grep the repo for every caller (e.g., `measure_box.gd`, `viewport/tests/harness.gd`, `presenter.gd`) so workers don't hit avoidable scope pauses.
 - Write the next jobs as handoff entries (a Status of open is Ready; "queued (after H0NN)" waits), each with its
   Touches list, and keep the board's Order line. Before marking one Ready, compare its Touches with every Ready or
   claimed job's: two whose lists overlap don't run at once (tell William before starting one that does). A
