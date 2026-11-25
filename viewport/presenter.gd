@@ -891,9 +891,15 @@ func apply_context() -> void:
 		elif node.get_meta("ss_hidden", false):
 			node.visible = true; node.set_meta("ss_hidden", false)
 		var inside: bool = not sel.body_deleted.has(bid) and sel.in_context(bid) and (not hidden or sel.show_hidden)
-		node.material_override = (mat_hidden_ghost if hidden else null) if inside else mat_ghost
+		var comp_sib: bool = not sel.body_deleted.has(bid) and sel.is_context_sibling(bid) and (not hidden or sel.show_hidden)
+		if inside:
+			node.material_override = mat_hidden_ghost if hidden else null
+		elif comp_sib:
+			node.material_override = m.mat_sibling
+		else:
+			node.material_override = mat_ghost
 		var edges: MeshInstance3D = node.get_meta("edges")
-		edges.visible = inside
+		edges.visible = inside or comp_sib
 		for c in node.get_children():
 			if c is StaticBody3D: c.collision_layer = 1 if inside else 0
 	for collider in m.drafts_root.find_children("*", "StaticBody3D", true, false):

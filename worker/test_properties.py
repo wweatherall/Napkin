@@ -452,4 +452,51 @@ check('T61 replace_fit on linked copy detaches and updates all siblings',
       and lc_session.model.body('b1').LinkedObject.Tip.TypeId == 'Part::Extrusion'
       and abs(lvol('b1') - 40 * 20 * 120) < 0.01 and abs(lvol('b2') - 40 * 20 * 120) < 0.01)
 App.closeDocument(lc_session.doc.Name)
+
+# T127: enriched summary in inspect() for plain, assembly, linked, fitted, and cut/non-rectangular boards.
+sum_session = Session(os.path.join(folder, 'summary.FCStd'), fresh=True)
+sum_ops = [
+    {'id': 'sr1', 'type': 'rect', 'plane': {'normal': [0, 0, 1], 'origin': [0, 0, 0]}, 'size': [120, 60]},
+    {'id': 'sp1', 'type': 'push_pull', 'target': {'rect': 'sr1'}, 'distance': 20, 'body': 'b1'},
+    {'id': 'sr2', 'type': 'rect', 'plane': {'normal': [0, 0, 1], 'origin': [0, 0, 200]}, 'size': [150, 80]},
+    {'id': 'sp2', 'type': 'push_pull', 'target': {'rect': 'sr2'}, 'distance': 20, 'body': 'b2'},
+]
+sum_session.sync(sum_ops)
+s_plain = inspect(sum_session.model, 'b1')['summary']
+check('plain board summary has label, Board context, non-parametric, 3 editable dims',
+      s_plain['label'] == sum_session.model.body('b1').Label
+      and s_plain['context'] == 'Board'
+      and s_plain['parametric'] is False
+      and len(s_plain['dimensions']) == 3
+      and all(d['editable'] and not d['linked'] for d in s_plain['dimensions']))
+
+sum_session.sync(sum_ops + [
+    {'id': 'scp', 'type': 'move', 'targets': ['b1'], 'vector': [200, 0, 0], 'copy': True, 'new_ids': ['b3']},
+    {'id': 'sas', 'type': 'make_assembly', 'targets': ['b1'], 'new_id': 'a1', 'name': 'Leg Frame'},
+    {'id': 'sfit', 'type': 'property_edit', 'mode': 'plane_fit', 'body': 'b1', 'target_body': 'b2', 'axis': 2, 'face': 4, 'fit_mode': 0},
+])
+s_linked_asm = inspect(sum_session.model, 'b1')['summary']
+check('linked + assembly + fitted summary has context, parametric=True, and target info',
+      'Part within Leg Frame' in s_linked_asm['context']
+      and 'Linked component (2 instances)' in s_linked_asm['context']
+      and s_linked_asm['parametric'] is True
+      and s_linked_asm['dimensions'][2]['linked'] is True
+      and s_linked_asm['dimensions'][2]['target_label'] == sum_session.model.body('b2').Label
+      and s_linked_asm['dimensions'][2]['target_face'] == 'Bottom face')
+
+# Cut/non-rectangular board (no plane_fit snapshot) still gets read-only BoundBox summary dimensions.
+cut_shape = sum_session.model.body('b2').Tip.Shape.cut(
+    __import__('Part').makeBox(30, 30, 30, App.Vector(0, 0, 195))
+)
+cut_feat = sum_session.doc.addObject('Part::Feature', 'CutBoard')
+cut_feat.Shape = cut_shape
+b2_body = sum_session.model.body('b2')
+b2_body.Tip = cut_feat
+sum_session.doc.recompute()
+s_cut = inspect(sum_session.model, 'b2')['summary']
+check('cut board summary falls back to read-only BoundBox extents',
+      'b2' not in inspect(sum_session.model, 'b2')['boards']
+      and len(s_cut['dimensions']) == 3
+      and all(not d['editable'] and d['value_mm'] > 0 for d in s_cut['dimensions']))
+App.closeDocument(sum_session.doc.Name)
 print('PROPERTY TESTS: %d passed, 0 failed' % passed)

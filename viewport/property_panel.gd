@@ -16,6 +16,13 @@ var direct_link := false
 var picking_axis := -1
 var pending := {}
 var summary: VBoxContainer
+var piece_header: VBoxContainer
+var piece_title: Label
+var piece_subtitle: Label
+var parametric_badge: Label
+var native_toggle: Button
+var native_section: VBoxContainer
+var format_length: Callable = func(mm: float) -> String: return "%.2f mm" % mm
 var result: Label
 var mode_picker: OptionButton
 var apply_fit: Button
@@ -44,17 +51,48 @@ func _ready() -> void:
 	status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	status.text = "Select one piece to inspect its properties."
 	column.add_child(status)
+	piece_header = VBoxContainer.new()
+	piece_header.visible = false
+	column.add_child(piece_header)
+	var title_row := HBoxContainer.new()
+	piece_header.add_child(title_row)
+	piece_title = Label.new()
+	piece_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	piece_title.add_theme_font_size_override("font_size", 15)
+	title_row.add_child(piece_title)
+	parametric_badge = Label.new()
+	parametric_badge.text = "Parametric"
+	parametric_badge.add_theme_font_size_override("font_size", 11)
+	parametric_badge.add_theme_color_override("font_color", Color(0.18, 0.55, 0.85))
+	parametric_badge.visible = false
+	title_row.add_child(parametric_badge)
+	piece_subtitle = Label.new()
+	piece_subtitle.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	piece_subtitle.add_theme_font_size_override("font_size", 11)
+	piece_subtitle.add_theme_color_override("font_color", Color(0.65, 0.65, 0.7))
+	piece_header.add_child(piece_subtitle)
 	summary = VBoxContainer.new()
 	column.add_child(summary)
 	visibility_changed.connect(func(): if not visible: cancel_pick())
+	native_toggle = Button.new()
+	native_toggle.text = "Native FreeCAD properties"
+	native_toggle.toggle_mode = true
+	native_toggle.button_pressed = false
+	native_toggle.visible = false
+	column.add_child(native_toggle)
+	native_section = VBoxContainer.new()
+	native_section.visible = false
+	native_section.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	column.add_child(native_section)
+	native_toggle.toggled.connect(func(on): native_section.visible = on)
 	object_picker = OptionButton.new()
 	object_picker.item_selected.connect(func(_index): _show_feature())
-	column.add_child(object_picker)
+	native_section.add_child(object_picker)
 	help = Label.new()
 	help.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	help.text = "Feature dimensions can affect linked copies. Locations are local to their parent. Use ObjectName.Property for references."
 	help.add_theme_font_size_override("font_size", 11)
-	column.add_child(help)
+	native_section.add_child(help)
 	reference_picker = MenuButton.new()
 	reference_picker.text = "Insert object reference…"
 	reference_picker.tooltip_text = "Choose an expression field first, then insert a native object name"
@@ -62,11 +100,11 @@ func _ready() -> void:
 		if is_instance_valid(active_input):
 			active_input.insert_text_at_caret(str(data.references[index].name) + ".")
 			active_input.grab_focus())
-	column.add_child(reference_picker)
+	native_section.add_child(reference_picker)
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
-	column.add_child(scroll)
+	native_section.add_child(scroll)
 	fields = VBoxContainer.new()
 	fields.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	scroll.add_child(fields)
@@ -74,7 +112,11 @@ func _ready() -> void:
 func message(text: String) -> void:
 	ready_to_edit = false
 	cancel_pick()
+	piece_header.hide()
 	summary.hide()
+	native_toggle.hide()
+	native_section.hide()
+	status.visible = true
 	status.text = text
 	for child in fields.get_children(): child.queue_free()
 
@@ -84,8 +126,17 @@ func display(snapshot: Dictionary) -> void:
 	for ref in data.get("references", []): reference_picker.get_popup().add_item("%s (%s)" % [ref.label, ref.name])
 	ready_to_edit = true
 	cancel_pick()
+	var sum: Dictionary = data.get("summary", {})
+	piece_title.text = str(sum.get("label", data.objects[0].label if not data.get("objects", []).is_empty() else ""))
+	piece_subtitle.text = str(sum.get("context", ""))
+	piece_subtitle.visible = piece_subtitle.text != ""
+	parametric_badge.visible = bool(sum.get("parametric", false))
+	piece_header.show()
+	status.visible = false
+	status.text = piece_title.text
+	native_toggle.show()
+	native_section.visible = native_toggle.button_pressed
 	_build_summary()
-	status.text = str(data.objects[0].label)
 	object_picker.clear()
 	var selected := 0
 	for i in data.objects.size():
@@ -172,16 +223,45 @@ func cancel_pick() -> void:
 	preview_changed.emit(PackedVector3Array())
 	if is_instance_valid(apply_fit): apply_fit.disabled = true
 
+func _format_mm(mm: float) -> String:
+	return str(format_length.call(mm))
+
+
+func _parse_mm(text: String) -> float:
+	var s := text.strip_edges()
+	if s.ends_with(" mm"): s = s.substr(0, s.length() - 3).strip_edges()
+	return float(s)
+
+
 func _build_summary() -> void:
 	for child in summary.get_children():
 		summary.remove_child(child)
 		child.queue_free()
 	var board: Dictionary = data.boards.get(data.body, {})
-	summary.visible = not board.is_empty()
-	if board.is_empty(): return
+	if board.is_empty():
+		var dims: Array = data.get("summary", {}).get("dimensions", [])
+		summary.visible = not dims.is_empty()
+		if dims.is_empty(): return
+		var ro_title := Label.new()
+		ro_title.text = "Dimensions (read-only)"
+		summary.add_child(ro_title)
+		for dim in dims:
+			var row := HBoxContainer.new()
+			summary.add_child(row)
+			var k := Label.new()
+			k.text = str(dim.get("label", ""))
+			k.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+			row.add_child(k)
+			var v := Label.new()
+			v.text = _format_mm(float(dim.get("value_mm", 0.0)))
+			row.add_child(v)
+		return
+	summary.visible = true
 	var title := Label.new()
 	title.text = "Axis     Dimensions             Placement"
 	summary.add_child(title)
+	var sum_dims: Array = data.get("summary", {}).get("dimensions", [])
+	var linked_dim: Dictionary = {}
 	for i in 3:
 		var row := HBoxContainer.new()
 		summary.add_child(row)
@@ -189,12 +269,13 @@ func _build_summary() -> void:
 		axis.text = "XYZ"[i]
 		row.add_child(axis)
 		var field := LineEdit.new()
-		field.text = "%s mm" % board.sizes[i]
-		if board.linked_axis == i: field.text = str(board.result).split(" · ")[0]
-		if board.linked_axis == i: field.focus_entered.connect(func(): field.select_all.call_deferred())
+		field.text = _format_mm(float(board.sizes[i]))
+		if board.linked_axis == i:
+			field.focus_entered.connect(func(): field.select_all.call_deferred())
+			if i < sum_dims.size(): linked_dim = sum_dims[i]
 		field.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 		field.custom_minimum_size.x = 62
-		field.tooltip_text = "Enter a new length to remove the fit" if board.linked_axis == i else "Size along the stock axis · Enter to apply"
+		field.tooltip_text = "Current evaluated length · Enter a new length to remove the fit" if board.linked_axis == i else "Size along the stock axis · Enter to apply"
 		row.add_child(field)
 		if not board.fitted or board.linked_axis == i:
 			field.gui_input.connect(func(event):
@@ -208,7 +289,7 @@ func _build_summary() -> void:
 		for entry in root.fields:
 			if entry.path != path: continue
 			var position_input := LineEdit.new()
-			position_input.text = entry.value
+			position_input.text = _format_mm(_parse_mm(str(entry.value)))
 			position_input.custom_minimum_size.x = 60
 			position_input.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 			position_input.editable = entry.editable and entry.expression == ""
@@ -254,6 +335,16 @@ func _build_summary() -> void:
 	result.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	result.text = board.result
 	summary.add_child(result)
+	if not linked_dim.is_empty():
+		var linked_label := Label.new()
+		linked_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		var tgt := str(linked_dim.get("target_label", ""))
+		var face := str(linked_dim.get("target_face", ""))
+		var off := float(linked_dim.get("offset_mm", 0.0))
+		var header_txt := "🔗 %s · %s" % [tgt, face] if face != "" else "🔗 %s" % tgt
+		if absf(off) > 1e-6: header_txt += " (offset %s)" % _format_mm(off)
+		linked_label.text = "%s\nCurrent evaluated length: %s" % [header_txt, _format_mm(float(linked_dim.get("value_mm", board.sizes[board.linked_axis])))]
+		summary.add_child(linked_label)
 
 func _vec(a: Array) -> Vector3:
 	return Vector3(a[0],a[1],a[2])
@@ -344,8 +435,8 @@ func _preview() -> void:
 	var source_z := _vec(a.axes[2])
 	var relative := Basis(source_x,source_z.cross(source_x),source_z).inverse()*Basis(face_x,face_y,face_z)
 	var angles := relative.get_euler(EULER_ORDER_ZYX)*180.0/PI
-	var size_text := "%.2f mm" % depths.min()
-	if mode_picker.selected == 2: size_text = "%.2f mm" % depths.max()
-	elif mode_picker.selected == 1: size_text = "%.2f–%.2f mm" % [depths.min(),depths.max()]
+	var size_text := _format_mm(depths.min())
+	if mode_picker.selected == 2: size_text = _format_mm(depths.max())
+	elif mode_picker.selected == 1: size_text = "%s–%s" % [_format_mm(depths.min()), _format_mm(depths.max())]
 	result.text = "%s → %s face\nResult: %s · X %.1f°  Y %.1f°  Z %.1f°" % [b.label,FACE_NAMES[face],size_text,angles.x,angles.y,angles.z]
 	apply_fit.disabled = false
