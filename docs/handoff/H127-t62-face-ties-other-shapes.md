@@ -1,6 +1,6 @@
 ### H127 — T62: face ties on shapes other than plain rectangular boards
 
-Author: Gemini (integrator, gemini-cedar-1124-2201) | Date: 2026-11-24 | Status: open | For: either
+Author: Gemini (integrator, gemini-cedar-1124-2201) | Date: 2026-11-24 | Status: answered | For: either
 
 References: T62, T14, T60, T61, I26b, I40, I49.
 
