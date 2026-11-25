@@ -35,7 +35,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H129 — T84 step 1: Rotated Rectangle (R again toggles Rectangle and Rotated Rectangle)](handoff/H129-t84-rotated-rectangle.md) — status: open; for: either
 - [H130 — T84 step 2: Polygon tool (toolbar button without hotkey, exact FreeCAD sketch polygon)](handoff/H130-t84-polygon-tool.md) — status: queued (after H129); for: either
 - [H141 — T127: Enter and edit components, and Component Properties window (prioritizing critical dimensions and linked measurements)](handoff/H141-t127-components-and-properties.md) — status: open; for: either
-- [H146 — T130: Auto-unblock queued jobs immediately when their dependencies merge and push](handoff/H146-auto-unblock-queued-jobs.md) — status: open; for: either
+- [H146 — T130: Auto-unblock queued jobs immediately when their dependencies merge and push](handoff/H146-auto-unblock-queued-jobs.md) — status: answered; for: either
 
 <!-- end of open list -->
 

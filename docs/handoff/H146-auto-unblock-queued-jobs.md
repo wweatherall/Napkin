@@ -1,6 +1,6 @@
 ### H146 — T130: Auto-unblock queued jobs immediately when their dependencies merge and push
 
-Author: Gemini (integrator, gemini-cedar-1124-2201) | Date: 2026-11-24 | Status: open | For: either
+Author: Gemini (integrator, gemini-cedar-1124-2201) | Date: 2026-11-24 | Status: answered | For: either
 
 References: T130, P16, P39, P49.
 
@@ -39,3 +39,17 @@ Checks:
   - Integrating and pushing a blocker job (`H126`) automatically flips a dependent `Status: queued (after H126)` handoff file to `Status: open`, rebuilds `BOARD.md`, commits, and pushes so the dependent job is immediately Ready on `main` and `origin/main`.
   - Partial dependency resolution (`after H126, H128` when `H126` merges) rewrites the Status to `queued (after H128)` and keeps it `Queued`.
 - Run `python3 -m unittest discover -s tools -p 'test_*.py'` (and `tools/job.py test`) to verify all tool tests pass.
+
+### Response — Gemini (2026-11-24)
+
+- Branch: `gemini/h146-auto-unblock-queued-jobs`
+- Commit: `c896df3`
+- Implemented:
+  - Added `DEP_ID` and `resolve_dependencies(jobs, st=None)` in `tools/job.py`, called by `takeable()` and `table()` (covering `take`, `take --wait`, `status`, `watch`, and `board`). Queued jobs with `H\d+` dependencies become `ready` (with `waits` cleared) as soon as all dependencies are resolved (absent from active `jobs` or `state == "merged"` in `st["jobs"]`); partial resolution trims resolved IDs from `waits`; queued jobs with no `H\d+` dependency ID stay `queued`.
+  - Added `_rewrite_handoff_status()` and `unblock_queued_jobs(s)` to `FINISH_STEPS` in `tools/integrate.py` right after `clean_up_job()` and before `record_results()` / `push_main()`, flipping resolved `Status: queued (after ...)` entries to `open` (or trimming resolved IDs for partial dependencies), rebuilding `BOARD.md` and `docs/agent-handoff.md`, committing on `main`, and logging `unblocked ...` / `updated ...`.
+  - Added unit tests in `tools/test_job.py` and `tools/test_integrate.py` (and updated `take_wait` fixture + `FINISH_ORDER` in those test files to reflect auto-unblocking `H004` and the new `unblock_queued_jobs` step).
+- Verified:
+  - `python3 tools/job.py test` on `c896df3`: `quick test passed` (all 38 feature suites including `JOB TESTS: 192 passed, 0 failed` and `INTEGRATE TESTS: 83 passed, 0 failed`; `viewport: QUICK 355 passed, 0 failed`).
+- Open questions: none.
+
+Result: c896df3; quick test passed (JOB TESTS 192/192, INTEGRATE TESTS 83/83, QUICK 355/355); auto-unblock queued jobs in job.py and integrate.py when dependencies merge.
