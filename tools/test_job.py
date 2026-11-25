@@ -379,6 +379,17 @@ job.watch(root, until_new=True, out=lines4.append)
 job.conditions, job.WATCH_POLL = _cond, _poll
 check("watch --next says nothing about what's already true, prints the first new event and stops (H050)",
       len(lines4) == 1 and lines4[0].endswith("new event"), lines4)
+looks_ret = iter([
+    {("in progress", "H001"): "old"},
+    {("in progress", "H001"): "old", ("returned", "H001", 100.0, "gemini"): "returned: H001 waits for a gemini worker"},
+    {("returned", "H001", 100.0, "gemini"): "returned: H001 waits for a gemini worker", ("done", "H002", 101.0): "done: H002"},
+])
+job.conditions, job.WATCH_POLL = (lambda *a, **k: next(looks_ret)), 0
+lines_ret = []
+job.watch(root, until_new=True, out=lines_ret.append)
+job.conditions, job.WATCH_POLL = _cond, _poll
+check("watch --next ignores self-triggered returned events and wakes on the next worker event",
+      len(lines_ret) == 1 and lines_ret[0].endswith("done: H002"), lines_ret)
 
 # --- returned resumes ---
 sh(root, "git", "worktree", "remove", "--force", wt1)

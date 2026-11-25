@@ -12,8 +12,9 @@ Architecture: lines, the response) and CLAUDE.md (commit trailers); this page sa
   pre-/clear state note in one step) with
   `python3 tools/integrator.py take <your session name> --william [--archive <ID> --push]` (drop `--william` if the
   lock is free; refused if another holds it without `--william`, P19; standalone archiving is
-  `python3 tools/handoff.py archive <ID> --push`). Commands that write `.git/` or push (`integrator.py take`,
-  `handoff.py archive --push`, `integrate.py`) require running outside the sandbox (`BypassSandbox: true`).
+  `python3 tools/handoff.py archive <ID> --push`). Commands that write `.git/`, push, launch Terminal windows, or
+  read transcripts outside the workspace (`integrator.py take`, `handoff.py archive --push`, `integrate.py`,
+  `osascript` worker launches, and `tools/usage.py`) require running outside the sandbox (`BypassSandbox: true`).
 - It keeps BOARD.md (nobody else edits it), assigns jobs, reviews, merges into main and pushes without asking once
   review and tests pass (P16, P49), and pushes verified integrator commits on main directly. Other sessions never
   merge or push.
@@ -21,8 +22,9 @@ Architecture: lines, the response) and CLAUDE.md (commit trailers); this page sa
 ## The queue watch
 - No timed check-ins (P39): run `python3 tools/job.py watch --next` in the background (it flushes stdout on every
   event and works read-only if `.git/` is sandboxed; no Monitor needed); it wakes you
-  once on the first new event (a job done, a job stale: its deadline passed, check its branch and worktree; a
-  worker waiting on William; a job returned; the queue empty while a worker waits on `take --wait`: check in with William). Start
+  once on the first new worker/queue event (a job done, a job stale: its deadline passed, check its branch and worktree; a
+  worker waiting on William; the queue empty while a worker waits on `take --wait`: check in with William — self-triggered
+  `returned` events are ignored by `--next` and reported only by `--once`). Start
   it again after each. After a context clear, re-arm it.
 - A worker's question (T114) shows as `waiting: H0NN asks the integrator (scope): <q>` or `waiting: H0NN asks
   William: <q>`. Answer a scope question with `python3 tools/job.py answer H0NN "<text>"`; relay William's answer
@@ -30,11 +32,12 @@ Architecture: lines, the response) and CLAUDE.md (commit trailers); this page sa
   it reads them arrive together, in recorded order (P47).
 - `python3 tools/job.py status` shows the queue; `python3 tools/job.py board` rebuilds the board's job table (the
   commit hook does it on main).
-- Spinning up a Gemini worker window (tell William): run
+- Spinning up a Gemini worker window (tell William; run outside sandbox / `BypassSandbox: true`): run
   `osascript -e 'tell application "Terminal" to do script "cd /Users/Will/Sites/fretchup && agy --model gemini-4-neon-medium -i \"Gemini go! Check the board.\""'`
   (adjust `--model` if William asks for another; `agy models` lists them).
 - Passive job usage (T117, T126): `job.py` (`take`, `done`, `return`) and `integrate.py` (`merge`) call
-  `tools/usage.py` fail-open, appending snapshots to untracked `.git/shopsketch-usage.jsonl`. Inspect with
+  `tools/usage.py` fail-open, appending snapshots to untracked `.git/shopsketch-usage.jsonl`. Inspect (outside
+  sandbox / `BypassSandbox: true` so `~/.gemini/antigravity-cli/brain` and `~/.claude/projects` are readable) with
   `python3 tools/usage.py orient` (startup benchmark), `bench` (worker + integrator summary with 5h % estimates),
   `viz` (`--solo --sort burn`, `--job <H0NN>`), `report --only-measured`, `overhead`, `compare`, or
   `holes <H0NN>` (Claude & AGY/Gemini transcripts).

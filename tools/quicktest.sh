@@ -43,7 +43,7 @@ viewport_tests() {
     sed -n "s/^QUICK .* in \(.*\)$/TIMING quick lane $((i + 1)): \1/p" "$OUT/vp$((i + 1)).log"
   done
   cat "$OUT"/stopped.log 2>/dev/null
-  grep -hE "QUICK FAIL|SCRIPT ERROR" "$OUT"/vp*.log
+  grep -hE "QUICK FAIL|SCRIPT ERROR" "$OUT"/vp*.log && VP=1
   # one summary: checks added up over the lanes, the slowest lane's time
   Q=$(cat "$OUT"/vp*.log | awk '/^QUICK [0-9]+ passed/ {p+=$2; f+=$4; n++; if ($7+0 > t) t=$7+0}
     END {if (n) printf "QUICK %d passed, %d failed in %.1f s (%d window%s)", p, f, t, n, (n>1 ? "s side by side" : "")}')

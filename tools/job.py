@@ -1005,7 +1005,8 @@ def conditions(root, st, jobs, order, now, procs=None):
 
 def watch(cwd, once=False, out=print, now=None, until_new=False):
     """until_new: say nothing about what's true now, wait for the first new event, print it and stop: one wake for
-    a watcher run in the background (Bash run_in_background), no timer (H050)."""
+    a watcher run in the background (Bash run_in_background), no timer (H050). Ignores self-triggered returned events
+    (only the integrator returns/reassigns jobs) so returning a job doesn't self-wake the watch."""
     root = main_root(cwd)
     seen = None if until_new else set()
     while True:
@@ -1013,7 +1014,9 @@ def watch(cwd, once=False, out=print, now=None, until_new=False):
         jobs, order = main_view(root)
         with state_read(state_path(cwd)) as st:
             cur = conditions(root, st, jobs, order, t)
-        new = [line for key, line in cur.items() if seen is not None and key not in seen]
+        new = [line for key, line in cur.items()
+               if seen is not None and key not in seen
+               and not (until_new and isinstance(key, tuple) and key[:1] == ("returned",))]
         for line in new:
             out(f"{hhmm(t)} {line}")
         sys.stdout.flush()
