@@ -94,7 +94,8 @@ func _view(target_m: Vector3, yaw_deg: float, pitch_deg: float, d: float) -> voi
 	await _frames(3)
 
 func _rect(start_m: Vector3, toward_m: Vector3, dims: String) -> void:
-	await _key(KEY_R)
+	if m.tool != "rect": await _key(KEY_R)
+	else: m.set_tool("rect"); await _frames(1)
 	await _drag_to(start_m, 10); await _press()
 	await _drag_to(toward_m, 10)
 	await _type(dims + "\n")
@@ -210,6 +211,7 @@ func _fresh(name: String, ops := [], own_file := false) -> void:
 	m.doc.restore_counters()
 	m.sync()
 	await _wait_confirm()
+	m.tools["rect"].rotated = false
 	m.set_tool("rect")
 	_q_fresh_ms += Time.get_ticks_msec() - _q_mark
 

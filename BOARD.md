@@ -63,10 +63,9 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H147 | either | **Ready** | T131: Quiet-by-default tool tests (failures + summary; -v/--verbose for PASS lines) | [H147](docs/handoff/H147-quiet-tool-tests.md) |  |
-| H129 | either | In progress (gemini since 22:08) | T84 step 1: Rotated Rectangle (R again toggles Rectangle and Rotated Rectangle) | [H129](docs/handoff/H129-t84-rotated-rectangle.md) |  |
-| H127 | either | **Ready** | T62: face ties on shapes other than plain rectangular boards | [H127](docs/handoff/H127-t62-face-ties-other-shapes.md) |  |
-| H130 | either | Queued | T84 step 2: Polygon tool (toolbar button without hotkey, exact FreeCAD sketch polygon) | [H130](docs/handoff/H130-t84-polygon-tool.md) | H129 |
+| H147 | either | **Done**: for review (gemini) | T131: Quiet-by-default tool tests (failures + summary; -v/--verbose for PASS lines) | [H147](docs/handoff/H147-quiet-tool-tests.md) |  |
+| H127 | either | In progress (gemini since 22:41) | T62: face ties on shapes other than plain rectangular boards | [H127](docs/handoff/H127-t62-face-ties-other-shapes.md) |  |
+| H130 | either | **Ready** | T84 step 2: Polygon tool (toolbar button without hotkey, exact FreeCAD sketch polygon) | [H130](docs/handoff/H130-t84-polygon-tool.md) |  |
 
 <!-- end of job table -->
 

@@ -32,7 +32,6 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
 - [H127 — T62: face ties on shapes other than plain rectangular boards](handoff/H127-t62-face-ties-other-shapes.md) — status: open; for: either
-- [H129 — T84 step 1: Rotated Rectangle (R again toggles Rectangle and Rotated Rectangle)](handoff/H129-t84-rotated-rectangle.md) — status: open; for: either
 - [H130 — T84 step 2: Polygon tool (toolbar button without hotkey, exact FreeCAD sketch polygon)](handoff/H130-t84-polygon-tool.md) — status: queued (after H129); for: either
 - [H147 — T131: Quiet-by-default tool tests (failures + summary; -v/--verbose for PASS lines)](handoff/H147-quiet-tool-tests.md) — status: open; for: either
 
@@ -42,6 +41,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 Full entries in [handoff-archive.md](handoff-archive.md).
 
+- H129 — T84 step 1: Rotated Rectangle (R again toggles Rectangle and Rotated Rectangle). Resolved: merged into main by the integrator, 2026-11-24.
 - H141 — T127: Enter and edit components, and Component Properties window (prioritizing critical dimensions and linked measurements). Resolved: merged into main by the integrator, 2026-11-24.
 - H146 — T130: Auto-unblock queued jobs immediately when their dependencies merge and push. Resolved: merged into main by the integrator, 2026-11-24.
 - H137 — T123: Move array live preview before click and amend after click. Resolved: merged into main by the integrator, 2026-11-24.

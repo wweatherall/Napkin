@@ -277,17 +277,20 @@ func apply() -> void:
 			if tool == "arc" and active.radius_input() and txt.to_lower().ends_with("r"):
 				suffix = "r"
 				txt = txt.left(-1).strip_edges()
-			var texts := txt.split(",") if tool == "rect" else PackedStringArray([txt])
+			var wants_pair: bool = tool == "rect" and (not active.has_method("expects_pair") or active.expects_pair())
+			var allow_pair: bool = wants_pair or (tool == "rect" and active.has_method("accepts_pair") and active.accepts_pair())
+			var pair_input: bool = wants_pair or (allow_pair and txt.contains(","))
+			var texts := txt.split(",") if pair_input else PackedStringArray([txt])
 			var du := default_unit()
 			# Worked out here, at once, the way FreeCAD would (units.gd evaluate_length: 150, 3/4", 1' 6 1/2",
 			# 5in + 23mm, 1'-6" = 6", I35; bare numbers in the model's units, I59): drafts never wait for FreeCAD.
 			# What it declines goes to FreeCAD (T32).
-			var here := Units.evaluate_pair(txt, du) if tool == "rect" else Units.evaluate_length(txt, du)
+			var here := Units.evaluate_pair(txt, du) if pair_input else Units.evaluate_length(txt, du)
 			if here.ok:
 				length_pending = {}
 				if _adopt_typed_units(txt):
-					active.typed("%.12f,%.12f" % [here.a_mm, here.b_mm] if tool == "rect" else ("%.12f" % here.mm) + suffix)
-			elif texts.size() != (2 if tool == "rect" else 1):
+					active.typed("%.12f,%.12f" % [here.a_mm, here.b_mm] if pair_input else ("%.12f" % here.mm) + suffix)
+			elif texts.size() != (2 if pair_input else 1):
 				m.ui_sync.text = "Enter two lengths separated by a comma"
 			else:
 				length_id += 1

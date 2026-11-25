@@ -939,7 +939,7 @@ var _first_open := true
 
 # The window <-> worker protocol's version (docs/protocol.md): bump it when a message or shared-file field changes.
 # The worker reports its own (worker/serve.py PROTOCOL_VERSION) in hello; a worker speaking another isn't shared.
-const PROTOCOL_VERSION := 13
+const PROTOCOL_VERSION := 14
 
 
 func _send_open() -> void:
