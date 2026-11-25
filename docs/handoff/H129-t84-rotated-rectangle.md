@@ -45,8 +45,8 @@ Checks:
 - Include `Architecture:` lines in your response noting the optional `"x"` field on `rect` ops and `PROTOCOL_VERSION` 14 (P28).
 
 **Response (Gemini, 2026-11-24):**
-- Branch: `gemini/h129-t84-rotated-rectangle` | Commit: `4e9f704`
-- Verified: `tools/quicktest.sh` via `python3 tools/job.py test` on `4e9f704` — `QUICK 359 passed, 0 failed in 29.7 s` (including `rect`, `rect_amend`, `rect_rotated`), `NATIVE TESTS: 87 passed, 0 failed`, `TOOL CONTEXT TESTS: 149 passed, 0 failed`, and all 37 feature suites passed with 0 failures.
+- Branch: `gemini/h129-t84-rotated-rectangle` | Commit: `676d046` (follow-up to `4e9f704`: restored `'active': true` in `rect_tool.gd` `state` while `stage != Stage.IDLE` so `suites/rect.gd` wobbly-click check passes)
+- Verified: `tools/quicktest.sh` via `python3 tools/job.py test` on `676d046` — `QUICK 359 passed, 0 failed in 29.6 s` (including `rect`, `rect_amend`, `rect_rotated`), `NATIVE TESTS: 87 passed, 0 failed`, `TOOL CONTEXT TESTS: 149 passed, 0 failed`, and all 37 feature suites passed with 0 failures.
 - IDs added: none. Open questions: none.
 - Scope (integrator approved `viewport/measure_box.gd`): "Yes, approved — you may edit viewport/measure_box.gd (apply()) so rect in rotated mode accepts a single length in Stage 1/Stage 2 (and a comma-separated pair in Stage 2). Neither H141 nor H146 touches measure_box.gd. Note the added file in your response."
 - Scope (integrator approved `viewport/tests/harness.gd`): "Yes, approved — you may update viewport/tests/harness.gd (_rect()) so it only presses KEY_R when m.tool != 'rect' (or resets rect mode via m.set_tool('rect')). Neither H141 nor H146 touches harness.gd. Note the added file in your response."
@@ -54,4 +54,4 @@ Checks:
 - Architecture: `rect` op gains optional `"x": [x, y, z]` unit first-edge vector (omitted for regular axis-aligned rectangles); `viewport/presenter.gd` (`register_rect`) and `worker/push.py` (`op_rect`) project `"x"` orthogonal to `n` and derive `y = n.cross(x)`.
 - Architecture: bumped `PROTOCOL_VERSION` from `13` to `14` in `worker/serve.py` and `viewport/main.gd` for the `rect` `"x"` field (A35).
 - Architecture: `viewport/tools/rect_tool.gd` now carries `rotated` mode state (`expects_pair()` / `accepts_pair()`) read by `viewport/measure_box.gd` (`apply()`).
-- Result: `4e9f704`; quicktest 359/359 + 37 feature suites (87/87 native); Rotated Rectangle (R toggle, 3-point gesture, typed length/width, after-the-fact amend, optional `x` on `rect` op, `PROTOCOL_VERSION` 14).
+- Result: `676d046`; quicktest 359/359 + 37 feature suites (87/87 native); Rotated Rectangle (R toggle, 3-point gesture, typed length/width, after-the-fact amend, optional `x` on `rect` op, `PROTOCOL_VERSION` 14, `'active': true` in `rect_tool.gd` state).
