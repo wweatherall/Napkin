@@ -65,14 +65,13 @@ Run `tools/featuretest.sh` and `tools/quicktest.sh` while building, then `python
 ---
 
 **Response (Gemini, 2026-11-24):**
-- Branch: `gemini/h138-t124-units-from-first-typed-length`, commit `61044ac`.
+- Branch: `gemini/h138-t124-units-from-first-typed-length`, commit `d15cf4a`.
 - Implemented `Units.detect_typed_spec(text)` in `viewport/units.gd` to infer canonical display specs (`ft-in:1/16`, `in-dec:0.01`, `in-frac:1/16`, `mm:0.1`, `cm:0.1`, `m:0.01`) from the first explicit unit in a typed length, pair, or expression (preferring `ft-in:1/16` when feet and inches appear together, and returning `""` for bare numbers, array counts, or function names like `sin(30)`).
-- Added `units_explicit` tracking and `_adopt_typed_units(raw_txt)` in `viewport/measure_box.gd`: unset/new models keep previous/preference defaults without sending `set_units` on open; the first valid typed length (local `apply()` or FreeCAD-evaluated `on_length()`) adopts and saves an explicit unit (or keeps and locks the default unit if bare), while malformed inputs, raw counts/angles, saved-units models, and manually chosen Units menu specs never flip units.
-- Added 29 `detect_typed_spec()` cases and MeasureBox lifecycle/adoption checks in `viewport/test_units.gd`, plus end-to-end checks for all 6 `What can fail` cases in `viewport/tests/quick/units.gd`.
-- Verified with `tools/featuretest.sh` and `python3 tools/job.py test`: `UNITS TESTS: 167 passed, 0 failed`, all feature suites passed, `viewport: QUICK 340 passed, 0 failed`.
+- Added `units_explicit` tracking, `has_saved_default_units()`, and `_adopt_typed_units(raw_txt)` in `viewport/measure_box.gd`: unset/new models keep previous/preference defaults without sending `set_units` on open; on a fresh install with no preference or saved `units/last` (I70), a bare first typed length (both local `apply()` and FreeCAD-evaluated `on_length()`) prompts in `m.ui_sync.text` without committing and keeps the gesture live; once an explicit unit is typed or picked (or a preference/last-used default exists), the first valid typed length adopts/locks `units_explicit = true` and persists via `set_units`, while malformed inputs, raw counts/angles, saved-units models, and manually chosen Units menu specs never flip units.
+- Fixed the `viewport/tests/quick/units.gd` malformed-input check to start with a digit (`1abc mm, 3//4"`) so tool hotkeys do not cancel rect (0 `SCRIPT ERROR` lines), fixed section 5f to expect `in-dec:0.1` after switching from `mm:0.1`, and added named I70 checks in `viewport/test_units.gd` and `viewport/tests/quick/units.gd`.
+- Verified with `python3 tools/job.py test` on `d15cf4a`: `UNITS TESTS: 173 passed, 0 failed`, all feature suites passed, `viewport: QUICK 349 passed, 0 failed` (0 `SCRIPT ERROR` lines).
 - IDs added: none. Open questions: none.
 
-Changed from the brief: request item 2 hesitated on whether a bare first typed length should leave `units_explicit = false` or lock; locked `units_explicit = true` (and persisted current default units) on a bare first typed length; serves William's "first typed length" rule and prevents a later explicit-unit override (such as `3/4"` after bare `100` in `viewport/tests/quick/circle.gd`) from flipping a model whose user already typed bare numbers in the default unit.
+Changed from the brief: request item 2 hesitated on whether a bare first typed length should leave `units_explicit = false` or lock; per I70 (integrator notes), a bare first typed length prompts without committing when no saved/preference default exists, and otherwise locks `units_explicit = true` (persisting the current default units) so later explicit-unit overrides don't flip the model.
 Architecture: none.
-Follow-up: none.
-Result: 61044ac; featuretest + job.py test passed (UNITS 167/0, QUICK 340/0); added Units.detect_typed_spec and MeasureBox units_explicit auto-adoption on first typed length (T124, I67)
+Result: d15cf4a; job.py test passed (UNITS 173/0, QUICK 349/0, 0 SCRIPT ERROR); added Units.detect_typed_spec, MeasureBox units_explicit auto-adoption, and I70 first-ever bare-length unit prompt (T124, I67, I70)
