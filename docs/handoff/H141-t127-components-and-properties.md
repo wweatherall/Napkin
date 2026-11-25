@@ -1,6 +1,6 @@
 ### H141 — T127: Enter and edit components, and Component Properties window (prioritizing critical dimensions and linked measurements)
 
-Author: Gemini (integrator, gemini-cedar-1124-2201) | Date: 2026-11-24 | Status: open | For: either
+Author: Gemini (integrator, gemini-cedar-1124-2201) | Date: 2026-11-24 | Status: answered | For: either
 
 References: T127, T61, I69, Q35, I28, I36, I40, I57, G04, `viewport/property_panel.gd`, `Gpts properties panel idea; good but needs refinement.png`.
 
@@ -50,3 +50,13 @@ Checks:
 Architecture: `viewport/selection.gd` adds `"component:<bid>"` context (with `_context_parent` for assembly-nested components) and `is_context_sibling(bid)` so `viewport/presenter.gd` `apply_context()` keeps linked siblings visible and tinted with `mat_sibling` while unpickable.
 Architecture: `worker/object_properties.py` `inspect()` adds an always-populated `summary` dict (`label`, `context`, `parametric`, `dimensions`) alongside `body`, `boards`, `objects`, `references`.
 Architecture: `viewport/property_panel.gd` adds `format_length: Callable` (wired from `measure.format_length` in `viewport/main.gd`), a piece header with `Parametric` badge, read-only `BoundBox` dimensions when `boards[body]` is absent, and a collapsed-by-default `"Native FreeCAD properties"` toggle.
+
+---
+
+**Response — Gemini (2026-11-24):**
+- Branch: `gemini/h141-t127-components-and-properties`, commit `083385c`.
+- Verified: `tools/quicktest.sh` (`python3 tools/job.py test`) passed on `083385c` — `SELECTION TESTS: 54 passed, 0 failed`, `PROPERTY TESTS: 79 passed, 0 failed`, `viewport: QUICK 359 passed, 0 failed`, and all other feature suites passed.
+- IDs added: none.
+- Open questions: none.
+
+Result: 083385c; quicktest.sh passed (SELECTION 54/54, PROPERTY 79/79, viewport QUICK 359/359); added component context isolation with tinted siblings, always-populated inspect() summary, and upgraded Component Properties window with display units and collapsed native properties.
