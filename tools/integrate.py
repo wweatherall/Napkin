@@ -986,6 +986,7 @@ def clean_up_job(s):
             jids.append(jid2)
     for merged_id in jids:
         job.record_usage(root, "merge", merged_id, quiet=False)
+        job.record_journal(root, f"merged {merged_id} ({branch})")
     return s
 
 

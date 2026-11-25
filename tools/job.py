@@ -84,6 +84,15 @@ RESPONSE = re.compile(r"^[#*\s]*Response\b", re.M)
 USAGE_TOOL = os.path.join(os.path.dirname(os.path.abspath(__file__)), "usage.py")
 
 
+def record_journal(root, line):
+    """Fail-open: append a one-line breadcrumb to the rolling 20-line integrator journal."""
+    try:
+        import integrator
+        integrator.note(integrator.journal_path(root), line, out=lambda *_: None)
+    except Exception:
+        pass
+
+
 def record_usage(root, event, jid, agent=None, session=None, quiet=True):
     """Notify job-usage passively at a job lifecycle boundary; fail-open so it never blocks a command (T117)."""
     tool = os.environ.get("SHOPSKETCH_USAGE_TOOL", USAGE_TOOL)
@@ -714,6 +723,7 @@ def answer(cwd, jid, text, source="integrator", now=None, out=print):
         j.update(state="in progress", beat=now)
         event(st, "answered", jid, text, now)
     out(f"{jid}: answer from {who} recorded")
+    record_journal(main_root(cwd), f"answered {jid} ({who}): {text[:100]}")
     return True
 
 
@@ -867,6 +877,7 @@ def return_job(cwd, jid, notes, now=None, out=print):
         event(st, "returned", jid, notes, now)
     out(f"{jid} returned: the next {j['agent']} worker to take a job resumes {j['branch']}")
     record_usage(main_root(cwd), "return", jid, quiet=True)
+    record_journal(main_root(cwd), f"returned {jid} ({j['agent']}): {notes[:100]}")
     return True
 
 
@@ -937,6 +948,7 @@ def reassign_job(cwd, jid, to_agent, notes=None, now=None, out=print):
         if dirty:
             out(f"{jid}: {len(dirty)} files not committed in {wt}")
     out(f"{jid} reassigned to {agent}: the next {agent} worker resumes {branch} in {wt}")
+    record_journal(root, f"reassigned {jid} -> {agent}: {note[:100]}")
     return True
 
 
