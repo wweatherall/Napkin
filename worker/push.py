@@ -149,11 +149,12 @@ class PushActions:
             import plane_fit
             board, _, normal = self.resolve_face(tgt["face"])
             source_id = tgt["face"]["body"]
-            frame = plane_fit.stock(self.body(source_id))
+            src_board = self.body(source_id)
+            frame = plane_fit.source_frame(src_board)
             if not frame:
-                raise OpError("Source is no longer rectangular stock")
+                raise OpError("Source has no extrudable stock")
             axis = next((i for i,v in enumerate(frame[2]) if abs(v.dot(normal)) > 0.9999), None)
-            if axis is None:
+            if axis is None or (plane_fit.stock(src_board) is None and axis != 2):
                 raise OpError("Source face no longer matches the chosen dimension")
             return plane_fit.apply(self, dict(body=source_id, target_body=fit["target_body"],
                                    axis=axis, face=fit["face"], fit_mode=fit.get("fit_mode", 0), reverse=frame[2][axis].dot(normal)<0))

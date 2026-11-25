@@ -238,23 +238,48 @@ func _build_summary() -> void:
 		summary.remove_child(child)
 		child.queue_free()
 	var board: Dictionary = data.boards.get(data.body, {})
-	if board.is_empty():
+	if board.is_empty() or not board.get("rectangular", true):
 		var dims: Array = data.get("summary", {}).get("dimensions", [])
-		summary.visible = not dims.is_empty()
-		if dims.is_empty(): return
-		var ro_title := Label.new()
-		ro_title.text = "Dimensions (read-only)"
-		summary.add_child(ro_title)
-		for dim in dims:
-			var row := HBoxContainer.new()
-			summary.add_child(row)
-			var k := Label.new()
-			k.text = str(dim.get("label", ""))
-			k.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-			row.add_child(k)
-			var v := Label.new()
-			v.text = _format_mm(float(dim.get("value_mm", 0.0)))
-			row.add_child(v)
+		summary.visible = not dims.is_empty() or not board.is_empty()
+		if not dims.is_empty():
+			var ro_title := Label.new()
+			ro_title.text = "Dimensions (read-only)"
+			summary.add_child(ro_title)
+			for dim in dims:
+				var row := HBoxContainer.new()
+				summary.add_child(row)
+				var k := Label.new()
+				k.text = str(dim.get("label", ""))
+				k.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+				row.add_child(k)
+				var v := Label.new()
+				v.text = _format_mm(float(dim.get("value_mm", 0.0)))
+				row.add_child(v)
+		if not board.is_empty() and str(board.get("extrusion", "")) != "":
+			var pick := Button.new()
+			pick.text = "Pick face…"
+			pick.pressed.connect(func():
+				cancel_pick()
+				picking_axis = 2
+				result.text = "Click a planar face, edge or corner on another board · Esc cancels")
+			summary.add_child(pick)
+			var actions := HBoxContainer.new()
+			summary.add_child(actions)
+			mode_picker = OptionButton.new()
+			for item in ["Butt to plane","Slice at plane","Fully reach plane"]: mode_picker.add_item(item)
+			mode_picker.item_selected.connect(func(_i): _preview())
+			actions.add_child(mode_picker)
+			apply_fit = Button.new()
+			apply_fit.text = "Apply fit"
+			apply_fit.disabled = true
+			apply_fit.pressed.connect(func():
+				if not pending.is_empty():
+					edit_requested.emit({"body":data.body,"mode":"plane_fit","axis":pending.axis,"target_body":pending.target,"face":pending.face,"fit_mode":mode_picker.selected,"reverse":board.get("reverse",false)}))
+			actions.add_child(apply_fit)
+			result = Label.new()
+			result.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+			result.text = str(board.get("result", ""))
+			summary.add_child(result)
 		return
 	summary.visible = true
 	var title := Label.new()
@@ -353,6 +378,11 @@ func _target_face_plane(b: Dictionary, face: int) -> Dictionary:
 	var fe = b.get("fitted_end", null)
 	if fe is Dictionary and int(fe.get("face", -1)) == face:
 		return {"point": _vec(fe.point), "normal": _vec(fe.normal)}
+	if not b.get("rectangular", true):
+		var pfaces: Array = b.get("planar_faces", [])
+		if face >= 0 and face < pfaces.size():
+			return {"point": _vec(pfaces[face].point), "normal": _vec(pfaces[face].normal)}
+		return {}
 	var i := floori(face / 2.0)
 	var axis_n := _vec(b.axes[i])
 	var side := face % 2
@@ -360,15 +390,22 @@ func _target_face_plane(b: Dictionary, face: int) -> Dictionary:
 
 func pick_reference(hit: Dictionary) -> void:
 	var target: String = hit.get("body","")
-	if target == data.body or not data.boards.has(target) or data.boards[target].extrusion == data.boards[data.body].extrusion:
-		result.text = "Pick a face on another rectangular board."
+	if target == data.body or not data.boards.has(target):
+		result.text = "Pick a planar face on another board."
+		return
+	var src_ext := str(data.boards.get(data.body, {}).get("extrusion", ""))
+	var dst_ext := str(data.boards[target].get("extrusion", ""))
+	if src_ext != "" and src_ext == dst_ext:
+		result.text = "Pick a planar face on another board."
 		return
 	var b: Dictionary = data.boards[target]
 	var direction := _vec(data.boards[data.body].axes[picking_axis])
 	var edge_point: Vector3 = hit.get("edge_point",hit.get("point",Vector3.ZERO))
 	var candidates := []
-	for face in 6:
+	var face_count: int = 6 if b.get("rectangular", true) else b.get("planar_faces", []).size()
+	for face in face_count:
 		var plane := _target_face_plane(b, face)
+		if plane.is_empty(): continue
 		var outward: Vector3 = plane.normal
 		var score := absf(outward.dot(direction))
 		if hit.has("normal"):
@@ -427,8 +464,13 @@ func _preview() -> void:
 	for j in 4: lines.append_array(PackedVector3Array([corners[j],ends[j],ends[j],ends[(j+1)%4]]))
 	preview_changed.emit(lines)
 	var face_z := n
-	var face_x := _vec(b.axes[(i+1)%3])
-	if absf(face_x.dot(face_z)) > 0.999: face_x = _vec(b.axes[(i+2)%3])
+	var face_x := Vector3.RIGHT
+	if b.get("rectangular", true):
+		face_x = _vec(b.axes[(i+1)%3])
+		if absf(face_x.dot(face_z)) > 0.999: face_x = _vec(b.axes[(i+2)%3])
+	else:
+		face_x = Vector3.RIGHT if absf(face_z.x) < 0.9 else Vector3.UP
+		face_x = face_z.cross(face_x).normalized()
 	var face_y := face_z.cross(face_x).normalized()
 	face_x = face_y.cross(face_z).normalized()
 	var source_x := _vec(a.axes[0])

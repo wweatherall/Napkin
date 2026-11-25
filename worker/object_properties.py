@@ -105,7 +105,7 @@ def _summary(model, body, boards, objs):
     parametric = is_fitted or has_expr
 
     dimensions = []
-    if board:
+    if board and board.get('rectangular', True):
         linked_axis = board.get('linked_axis', -1)
         tip = getattr(defn, 'Tip', None)
         target_label = ''
