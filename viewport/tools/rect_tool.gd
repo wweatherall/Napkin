@@ -95,13 +95,13 @@ func click(screen: Vector2) -> void:
 		if ctx.selection.edit_blocked(on): return
 		var n: Vector3 = p["normal"]
 		if rotated:
-			state = {"origin": p["point"], "end": p["point"], "n": n, "x": Vector3.ZERO, "y": Vector3.ZERO,
+			state = {"active": true, "origin": p["point"], "end": p["point"], "n": n, "x": Vector3.ZERO, "y": Vector3.ZERO,
 				"on": on, "du": 0.0, "dv": 0.0, "rotated": true, "point_snap": false}
 			stage = Stage.EDGE
 			ctx.ui.refresh_measurements()
 		else:
 			var b := Geo.plane_basis(n)
-			state = {"origin": p["point"], "n": n, "x": b[0], "y": b[1], "on": on,
+			state = {"active": true, "origin": p["point"], "n": n, "x": b[0], "y": b[1], "on": on,
 				"du": 0.0, "dv": 0.0, "rotated": false, "point_snap": false}
 			stage = Stage.WIDTH
 			press_started(screen)
