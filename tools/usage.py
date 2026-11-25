@@ -993,7 +993,64 @@ def discover_transcript(record, agy_brain=None):
     return None, None
 
 
-def _extract_tool_target(tinput):
+_READ_TOOLS = {"read", "read_file", "view_file"}
+_READ_SEARCH_TOOLS = {
+    "read",
+    "read_file",
+    "view_file",
+    "view_file_outline",
+    "view_code_item",
+    "grep",
+    "grep_search",
+    "glob",
+    "find_by_name",
+    "list_dir",
+    "ls",
+}
+_EDIT_TOOLS = {
+    "edit_file",
+    "write_file",
+    "edit",
+    "write",
+    "replace_file_content",
+    "multi_replace_file_content",
+    "write_to_file",
+    "notebookedit",
+}
+_SHELL_TOOLS = {"run_command", "bash", "execute_command", "run_shell_command", "shell"}
+_PHASE_ORDER = ("startup", "explore", "code+test", "post-test tail")
+
+
+def _unquote_json_str(val):
+    if val is None:
+        return ""
+    s = str(val)
+    if len(s) >= 2 and s[0] == '"' and s[-1] == '"':
+        try:
+            decoded = json.loads(s)
+            if isinstance(decoded, str):
+                return decoded
+        except (ValueError, TypeError):
+            pass
+        return s[1:-1]
+    return s
+
+
+def _parse_int(val):
+    if val is None or isinstance(val, bool):
+        return None
+    if isinstance(val, int):
+        return val
+    s = _unquote_json_str(val).strip()
+    if not s:
+        return None
+    try:
+        return int(s)
+    except ValueError:
+        return None
+
+
+def _extract_tool_target(tinput, max_len=90):
     if not isinstance(tinput, dict):
         return ""
     for key in (
@@ -1011,9 +1068,180 @@ def _extract_tool_target(tinput):
     ):
         val = tinput.get(key)
         if val:
-            s = str(val)
-            return s[:87] + "..." if len(s) > 90 else s
+            s = _unquote_json_str(val)
+            if s:
+                if max_len is not None and len(s) > max_len:
+                    return s[: max_len - 3] + "..."
+                return s
     return ""
+
+
+def _extract_read_range(tinput):
+    """Return inclusive 1-based (start, end) line range for a read call; full file -> (1, inf)."""
+    if not isinstance(tinput, dict):
+        return (1, float("inf"))
+    start = _parse_int(tinput.get("StartLine"))
+    if start is None:
+        start = _parse_int(tinput.get("start_line"))
+    end = _parse_int(tinput.get("EndLine"))
+    if end is None:
+        end = _parse_int(tinput.get("end_line"))
+    if start is not None or end is not None:
+        s = max(1, start) if start is not None else 1
+        e = max(s, end) if end is not None else float("inf")
+        return (s, e)
+
+    offset = _parse_int(tinput.get("offset"))
+    limit = _parse_int(tinput.get("limit"))
+    if offset is not None or limit is not None:
+        s = max(1, offset) if offset is not None else 1
+        e = s + max(1, limit) - 1 if limit is not None else float("inf")
+        return (s, e)
+
+    return (1, float("inf"))
+
+
+def _ranges_overlap(r1, r2):
+    return r1[0] <= r2[1] and r2[0] <= r1[1]
+
+
+def _fmt_read_range(rng):
+    s, e = rng
+    if e == float("inf"):
+        return "full" if s <= 1 else f"{s}-eof"
+    return f"{s}-{int(e)}"
+
+
+def _load_full_generic_sizes(path, expected_count):
+    """If path is AGY transcript.jsonl with a readable matching sibling transcript_full.jsonl,
+    return untruncated GENERIC content char lengths aligned by GENERIC row order."""
+    if not path or os.path.basename(path) != "transcript.jsonl" or expected_count <= 0:
+        return None
+    full_path = os.path.join(os.path.dirname(path), "transcript_full.jsonl")
+    if not os.path.isfile(full_path):
+        return None
+    sizes = []
+    try:
+        with open(full_path, "r", encoding="utf-8", errors="replace") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    row = json.loads(line)
+                except ValueError:
+                    continue
+                if isinstance(row, dict) and row.get("type") == "GENERIC":
+                    rc = row.get("content")
+                    chars = len(rc) if isinstance(rc, str) else len(json.dumps(rc))
+                    sizes.append(chars)
+    except OSError:
+        return None
+    if len(sizes) != expected_count:
+        return None
+    return sizes
+
+
+def _is_handoff_path(target):
+    norm = target.replace("\\", "/")
+    return (
+        "/docs/handoff/" in norm
+        or norm.startswith("docs/handoff/")
+        or norm.endswith("docs/agent-handoff.md")
+    )
+
+
+def _is_startup_cmd(tname, target):
+    if tname.lower() not in _SHELL_TOOLS or not target:
+        return False
+    return bool(re.search(r"\b(?:tools/)?job\.py\s+take\b|\b(?:tools/)?startup\.py\b", target))
+
+
+def _is_test_cmd(tname, target):
+    if tname.lower() not in _SHELL_TOOLS or not target:
+        return False
+    return bool(
+        re.search(
+            r"\b(?:tools/)?job\.py\s+test\b|\bquicktest\.sh\b|\bfeaturetest\.sh\b|\bpytest\b|\bunittest\b",
+            target,
+        )
+    )
+
+
+def _is_code_edit(tname, target):
+    if tname.lower() not in _EDIT_TOOLS:
+        return False
+    if target and _is_handoff_path(target):
+        return False
+    return True
+
+
+def _classify_phases(turn_records, total_prompt):
+    """Assign each token-bearing turn to startup / explore / code+test / post-test tail."""
+    n = len(turn_records)
+    buckets = {
+        p: {"phase": p, "turns": 0, "prompt_tokens": 0, "output_tokens": 0, "prompt_pct": 0.0}
+        for p in _PHASE_ORDER
+    }
+    if n == 0:
+        return [buckets[p] for p in _PHASE_ORDER], []
+
+    first_edit_idx = None
+    for i, tr in enumerate(turn_records):
+        if any(_is_code_edit(tn, tg) for tn, tg in tr["tool_calls"]):
+            first_edit_idx = i
+            break
+
+    startup_limit = first_edit_idx if first_edit_idx is not None else n
+    startup_hits = [
+        i
+        for i in range(startup_limit)
+        if any(_is_startup_cmd(tn, tg) for tn, tg in turn_records[i]["tool_calls"])
+    ]
+    startup_end = max(startup_hits) if startup_hits else 0
+
+    edit_or_test_indices = [
+        i
+        for i in range(startup_end + 1, n)
+        if any(
+            _is_code_edit(tn, tg) or _is_test_cmd(tn, tg)
+            for tn, tg in turn_records[i]["tool_calls"]
+        )
+    ]
+
+    if first_edit_idx is not None:
+        work_start = first_edit_idx if first_edit_idx > startup_end else startup_end + 1
+        work_end = max([first_edit_idx] + edit_or_test_indices)
+        if work_end < work_start:
+            work_end = work_start - 1
+    elif edit_or_test_indices:
+        work_start = edit_or_test_indices[0]
+        work_end = edit_or_test_indices[-1]
+    else:
+        work_start = n
+        work_end = n - 1
+
+    turn_phases = []
+    for i, tr in enumerate(turn_records):
+        if i <= startup_end:
+            pname = "startup"
+        elif i < work_start:
+            pname = "explore"
+        elif i <= work_end:
+            pname = "code+test"
+        else:
+            pname = "post-test tail"
+        turn_phases.append(pname)
+        b = buckets[pname]
+        b["turns"] += 1
+        b["prompt_tokens"] += tr["prompt_tokens"]
+        b["output_tokens"] += tr["output_tokens"]
+
+    if total_prompt > 0:
+        for b in buckets.values():
+            b["prompt_pct"] = round(b["prompt_tokens"] / total_prompt * 100.0, 1)
+
+    return [buckets[p] for p in _PHASE_ORDER], turn_phases
 
 
 def analyze_transcript(path):
@@ -1022,18 +1250,22 @@ def analyze_transcript(path):
     if not rows:
         return {"error": f"No readable JSONL entries in {path}"}
 
+    compact_generic_count = sum(1 for r in rows if r.get("type") == "GENERIC")
+    full_generic_sizes = _load_full_generic_sizes(path, compact_generic_count)
+    generic_idx = 0
+
     input_toks = 0
     output_toks = 0
     cache_read = 0
     cache_create = 0
     turns = 0
     ctx_curve = []
+    turn_records = []  # [{"prompt_tokens": int, "output_tokens": int, "tool_calls": [(name, raw_target)]}]
 
-    tool_uses = {}  # Claude: tool_use_id -> (name, target)
-    pending_agy_tools = collections.deque()  # AGY: FIFO of (name, target)
-    tool_outputs = []  # (chars, tool_name, target)
-    file_reads = collections.Counter()
-    file_read_chars = collections.Counter()
+    tool_uses = {}  # Claude: tool_use_id -> (name, disp_target, read_event)
+    pending_agy_tools = collections.deque()  # AGY: FIFO of (name, disp_target, read_event)
+    tool_outputs = []  # (chars, tool_name, disp_target)
+    file_read_events = collections.defaultdict(list)  # norm_fp -> [{"range": (s,e), "chars": int}]
 
     for row in rows:
         rtype = row.get("type")
@@ -1046,46 +1278,69 @@ def analyze_transcript(path):
             inp = int(row.get("input_tokens") or 0)
             out = int(row.get("output_tokens") or 0)
             cr = int(row.get("cache_read_tokens") or 0)
+            turn_tcs = []
+            for tc in row.get("tool_calls") or []:
+                if not isinstance(tc, dict):
+                    continue
+                tname = tc.get("name") or "tool"
+                args_dict = tc.get("args")
+                raw_target = _extract_tool_target(args_dict, max_len=None)
+                disp_target = raw_target[:87] + "..." if len(raw_target) > 90 else raw_target
+                turn_tcs.append((tname, raw_target))
+                read_event = None
+                if tname.lower() in _READ_TOOLS and raw_target:
+                    norm_fp = os.path.normpath(raw_target)
+                    read_event = {"range": _extract_read_range(args_dict), "chars": 0}
+                    file_read_events[norm_fp].append(read_event)
+                pending_agy_tools.append((tname, disp_target, read_event))
             if inp or out or cr:
                 turns += 1
                 input_toks += inp
                 output_toks += out
                 cache_read += cr
                 ctx_curve.append(inp + cr)
-            for tc in row.get("tool_calls") or []:
-                if not isinstance(tc, dict):
-                    continue
-                tname = tc.get("name") or "tool"
-                target = _extract_tool_target(tc.get("args"))
-                pending_agy_tools.append((tname, target))
-                if tname.lower() in ("read", "read_file", "view_file") and target:
-                    file_reads[target] += 1
+                turn_records.append({
+                    "prompt_tokens": inp + cr,
+                    "output_tokens": out,
+                    "tool_calls": turn_tcs,
+                })
             continue
         if rtype == "GENERIC":
             rc = row.get("content")
-            chars = len(rc) if isinstance(rc, str) else len(json.dumps(rc))
-            tname, target = pending_agy_tools.popleft() if pending_agy_tools else ("tool_output", "")
-            tool_outputs.append((chars, tname, target))
-            if tname.lower() in ("read", "read_file", "view_file") and target:
-                file_read_chars[target] += chars
+            compact_chars = len(rc) if isinstance(rc, str) else len(json.dumps(rc))
+            chars = full_generic_sizes[generic_idx] if full_generic_sizes is not None else compact_chars
+            generic_idx += 1
+            tname, disp_target, read_event = (
+                pending_agy_tools.popleft() if pending_agy_tools else ("tool_output", "", None)
+            )
+            tool_outputs.append((chars, tname, disp_target))
+            if read_event is not None:
+                read_event["chars"] += chars
             continue
 
         # Claude Code format: message.usage + tool_use/tool_result content blocks
         msg = row.get("message") if isinstance(row.get("message"), dict) else row
         usage = msg.get("usage") or row.get("usage")
+        has_usage_turn = False
+        turn_prompt = 0
+        turn_out = 0
         if isinstance(usage, dict):
             inp = int(usage.get("input_tokens") or 0)
             out = int(usage.get("output_tokens") or 0)
             cr = int(usage.get("cache_read_input_tokens") or 0)
             cc = int(usage.get("cache_creation_input_tokens") or 0)
             if inp or out or cr or cc:
+                has_usage_turn = True
+                turn_prompt = inp + cr + cc
+                turn_out = out
                 turns += 1
                 input_toks += inp
                 output_toks += out
                 cache_read += cr
                 cache_create += cc
-                ctx_curve.append(inp + cr + cc)
+                ctx_curve.append(turn_prompt)
 
+        turn_tcs = []
         content = msg.get("content")
         if isinstance(content, list):
             for block in content:
@@ -1095,39 +1350,118 @@ def analyze_transcript(path):
                 if btype == "tool_use":
                     tid = block.get("id")
                     tname = block.get("name") or "tool"
-                    target = _extract_tool_target(block.get("input"))
+                    tinput = block.get("input")
+                    raw_target = _extract_tool_target(tinput, max_len=None)
+                    disp_target = raw_target[:87] + "..." if len(raw_target) > 90 else raw_target
+                    turn_tcs.append((tname, raw_target))
+                    read_event = None
+                    if tname.lower() in _READ_TOOLS and raw_target:
+                        norm_fp = os.path.normpath(raw_target)
+                        read_event = {"range": _extract_read_range(tinput), "chars": 0}
+                        file_read_events[norm_fp].append(read_event)
                     if tid:
-                        tool_uses[tid] = (tname, target)
-                    if tname.lower() in ("read", "read_file", "view_file") and target:
-                        file_reads[target] += 1
+                        tool_uses[tid] = (tname, disp_target, read_event)
                 elif btype == "tool_result":
                     tid = block.get("tool_use_id")
-                    tname, target = tool_uses.get(tid, ("tool_result", ""))
+                    tname, disp_target, read_event = tool_uses.get(tid, ("tool_result", "", None))
                     rc = block.get("content")
                     chars = len(rc) if isinstance(rc, str) else len(json.dumps(rc))
-                    tool_outputs.append((chars, tname, target))
-                    if tname.lower() in ("read", "read_file", "view_file") and target:
-                        file_read_chars[target] += chars
+                    tool_outputs.append((chars, tname, disp_target))
+                    if read_event is not None:
+                        read_event["chars"] += chars
+        if has_usage_turn:
+            turn_records.append({
+                "prompt_tokens": turn_prompt,
+                "output_tokens": turn_out,
+                "tool_calls": turn_tcs,
+            })
 
     tool_outputs.sort(reverse=True)
-    repeated_reads = [
-        (fp, count, file_read_chars[fp])
-        for fp, count in file_reads.most_common()
-        if count >= 2
-    ]
+    repeated_reads_raw = []
+    for fp, events in file_read_events.items():
+        if len(events) < 2:
+            continue
+        overlap_indices = [
+            i
+            for i in range(len(events))
+            if any(
+                i != j and _ranges_overlap(events[i]["range"], events[j]["range"])
+                for j in range(len(events))
+            )
+        ]
+        if len(overlap_indices) >= 2:
+            ov_chars = sum(events[i]["chars"] for i in overlap_indices)
+            ov_ranges = [_fmt_read_range(events[i]["range"]) for i in overlap_indices]
+            repeated_reads_raw.append((len(overlap_indices), ov_chars, fp, ov_ranges, len(events)))
+    repeated_reads_raw.sort(key=lambda x: (x[0], x[1], x[2]), reverse=True)
 
     total_prompt = input_toks + cache_read + cache_create
     cache_hit_pct = (cache_read / total_prompt * 100.0) if total_prompt > 0 else None
+    phases, turn_phases = _classify_phases(turn_records, total_prompt)
 
     flags = []
-    for fp, count, chars in repeated_reads[:5]:
-        flags.append(f"Re-read {os.path.basename(fp)} {count}x (~{fmt_tokens(chars // 4)} est tokens)")
+    for cnt, chars, fp, _ov_ranges, _total_cnt in repeated_reads_raw[:5]:
+        flags.append(f"Re-read {os.path.basename(fp)} {cnt}x (~{fmt_tokens(chars // 4)} est tokens)")
     for chars, tname, target in tool_outputs[:3]:
         est_tok = chars // 4
         if est_tok >= 4000:
             flags.append(f"Large {tname} output (~{fmt_tokens(est_tok)} est tokens): {target or '(no target)'}")
     if cache_hit_pct is not None and cache_hit_pct < 60.0 and turns >= 5:
         flags.append(f"Low cache hit rate ({cache_hit_pct:.1f}%) across {turns} turns — check prompt churn")
+
+    # Actionable turn x context waste flags
+    phase_map = {p["phase"]: p for p in phases}
+    tail = phase_map["post-test tail"]
+    if tail["turns"] >= 5 and tail["prompt_pct"] >= 20.0:
+        flags.append(
+            f"Long post-test tail: {tail['turns']} turns, "
+            f"{fmt_tokens(tail['prompt_tokens'])} prompt tokens ({tail['prompt_pct']:.1f}%)"
+        )
+
+    best_streak = 0
+    best_streak_toks = 0
+    cur_streak = 0
+    cur_streak_toks = 0
+    for tr, pname in zip(turn_records, turn_phases):
+        tcs = tr["tool_calls"]
+        if (
+            pname == "explore"
+            and len(tcs) == 1
+            and tcs[0][0].lower() in _READ_SEARCH_TOOLS
+            and tr["prompt_tokens"] >= 40000
+        ):
+            cur_streak += 1
+            cur_streak_toks += tr["prompt_tokens"]
+            if cur_streak > best_streak:
+                best_streak = cur_streak
+                best_streak_toks = cur_streak_toks
+        else:
+            cur_streak = 0
+            cur_streak_toks = 0
+    if best_streak >= 4:
+        flags.append(
+            f"Unbatched lookup streak: {best_streak} consecutive single-read/search explore turns "
+            f"at >=40k context (~{fmt_tokens(best_streak_toks)} prompt tokens)"
+        )
+
+    seen_dup_cmds = set()
+    for i in range(1, len(turn_records)):
+        prev_cmds = [
+            tg.strip()
+            for tn, tg in turn_records[i - 1]["tool_calls"]
+            if tn.lower() in _SHELL_TOOLS and tg.strip()
+        ]
+        curr_cmds = [
+            tg.strip()
+            for tn, tg in turn_records[i]["tool_calls"]
+            if tn.lower() in _SHELL_TOOLS and tg.strip()
+        ]
+        if prev_cmds and curr_cmds:
+            for cmd in curr_cmds:
+                if cmd in prev_cmds and (i, cmd) not in seen_dup_cmds:
+                    seen_dup_cmds.add((i, cmd))
+                    disp = cmd[:77] + "..." if len(cmd) > 80 else cmd
+                    flags.append(f"Duplicate immediate command (turns {i}->{i + 1}): {disp}")
 
     return {
         "path": path,
@@ -1140,13 +1474,21 @@ def analyze_transcript(path):
         "ctx_start": ctx_curve[0] if ctx_curve else None,
         "ctx_median": int(statistics.median(ctx_curve)) if ctx_curve else None,
         "ctx_peak": max(ctx_curve) if ctx_curve else None,
+        "phases": phases,
         "top_tool_outputs": [
             {"chars": c, "est_tokens": c // 4, "tool": n, "target": t}
             for c, n, t in tool_outputs[:10]
         ],
         "repeated_reads": [
-            {"file": fp, "count": cnt, "est_tokens": ch // 4}
-            for fp, cnt, ch in repeated_reads[:10]
+            {
+                "file": fp,
+                "count": cnt,
+                "overlap_reads": cnt,
+                "total_reads": total_cnt,
+                "est_tokens": ch // 4,
+                "overlapping_ranges": ov_ranges,
+            }
+            for cnt, ch, fp, ov_ranges, total_cnt in repeated_reads_raw[:10]
         ],
         "flags": flags,
     }
@@ -1836,6 +2178,28 @@ def cmd_holes(args):
             f"Context curve: start {fmt_tokens(res['ctx_start'])} -> "
             f"median {fmt_tokens(res['ctx_median'])} -> peak {fmt_tokens(res['ctx_peak'])}"
         )
+
+    if res.get("phases"):
+        phase_rows = [
+            [
+                p["phase"],
+                p["turns"],
+                fmt_tokens(p["prompt_tokens"]),
+                f"{p['prompt_pct']:.1f}%",
+                fmt_tokens(p["output_tokens"]),
+            ]
+            for p in res["phases"]
+            if p["turns"] > 0
+        ]
+        if phase_rows:
+            print("\nPhases:")
+            print(
+                format_table(
+                    ["Phase", "Turns", "Prompt Tok", "Share", "Out Tok"],
+                    phase_rows,
+                    ["<", ">", ">", ">", ">"],
+                )
+            )
 
     if res["flags"]:
         print("\nFlags:")

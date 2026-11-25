@@ -64,7 +64,6 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
 | H127 | either | Queued | T62: face ties on shapes other than plain rectangular boards | [H127](docs/handoff/H127-t62-face-ties-other-shapes.md) | H126 |
-| H144 | either | **Ready** | T129: Improve `tools/usage.py holes` diagnostics (line-range overlap, full transcript sizes, phase & tail-turn burn) | [H144](docs/handoff/H144-t129-usage-holes-diagnostics.md) |  |
 | H137 | either | **Ready** | T123: Move array live preview before click and amend after click | [H137](docs/handoff/H137-t123-move-array-live-preview.md) |  |
 | H141 | either | Queued | T127: Enter and edit components, and Component Properties window (prioritizing critical dimensions and linked measurements) | [H141](docs/handoff/H141-t127-components-and-properties.md) | H126 |
 | H129 | either | Queued | T84 step 1: Rotated Rectangle (R again toggles Rectangle and Rotated Rectangle) | [H129](docs/handoff/H129-t84-rotated-rectangle.md) | H128 |
