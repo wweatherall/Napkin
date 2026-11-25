@@ -21,7 +21,8 @@ var doc                             # document.gd: ops, counters, sync()
 var has_board: Callable = func(_b): return true   # is this board in the model (confirmed or drafted)
 
 var selection: Array = []
-var context := ""                   # "" outside; "assembly:<id>" or "row:<original>" inside
+var context := ""                   # "" outside; "assembly:<id>", "row:<original>", or "component:<bid>" inside
+var _context_parent := ""           # parent context when entering a component from inside an assembly
 var body_assembly := {}             # board id -> assembly id, "" if none
 var body_row := {}                  # board id -> the original its array row was copied from, "" if none
 var body_family := {}               # board id -> its family (shared definition), "" if it isn't linked
@@ -53,6 +54,13 @@ func set_boards(data: Array) -> void:
 			var next := ""
 			for b in body_row:
 				if previous.get(b, "") == source and body_row[b] != "": next = "row:" + body_row[b]; break
+			context = next
+			context_changed.emit()
+	elif context.begins_with("component:"):
+		var entered := context.substr(10)
+		if not body_family.has(entered):
+			var next := _context_parent if (_context_parent != "" and body_assembly.values().has(_context_parent.substr(9))) else ""
+			_context_parent = ""
 			context = next
 			context_changed.emit()
 	selection = selection.filter(func(b): return body_family.has(b))
@@ -101,8 +109,14 @@ func _assembly_row(bid: String) -> Dictionary:
 func in_context(bid: String) -> bool:
 	if context == "" or bid == "": return true
 	if context.begins_with("assembly:"): return body_assembly.get(bid, "") == context.substr(9)
+	if context.begins_with("component:"): return bid == context.substr(10)
 	var row := _assembly_row(bid)
 	return row.get("source", body_row.get(bid, "")) == context.substr(4)
+
+
+func is_context_sibling(bid: String) -> bool:
+	if not context.begins_with("component:") or bid == "": return false
+	return siblings_of(context.substr(10)).has(bid)
 
 
 func context_assembly() -> String:
@@ -124,7 +138,7 @@ func mirror_plane_of_context() -> Array:
 
 func edit_blocked(bid: String) -> bool:
 	"""From outside, an assembly's boards are edited by entering it (SketchUp)."""
-	if not context.begins_with("assembly:") and body_assembly.get(bid, "") != "":
+	if not context.begins_with("assembly:") and not context.begins_with("component:") and body_assembly.get(bid, "") != "":
 		say.emit("Double-click the assembly (Select tool) to edit inside it")
 		return true
 	return false
@@ -167,19 +181,31 @@ func set_selection(ids: Array) -> void:
 
 
 func enter_context_of(bid: String) -> void:
-	if bid == "" or context.begins_with("assembly:"): return
+	if bid == "" or context.begins_with("component:"): return
+	if context.begins_with("assembly:"):
+		if body_family.get(bid, "") == "" or body_assembly.get(bid, "") != context.substr(9): return
+		_context_parent = context
+		context = "component:" + bid
+		set_selection([])
+		context_changed.emit()
+		return
 	var row := _assembly_row(bid)
 	if context == "" and not row.is_empty(): context = "row:" + row["source"]
 	elif body_assembly.get(bid, "") != "": context = "assembly:" + body_assembly[bid]
 	elif body_row.get(bid, "") != "": context = "row:" + body_row[bid]
+	elif body_family.get(bid, "") != "": context = "component:" + bid
 	else: return
+	_context_parent = ""
 	set_selection([])
 	context_changed.emit()
 
 
 func leave_context() -> void:
 	var parent := ""
-	if context.begins_with("assembly:"):
+	if context.begins_with("component:"):
+		parent = _context_parent
+		_context_parent = ""
+	elif context.begins_with("assembly:"):
 		var members := members_of(context.substr(9))
 		if not members.is_empty():
 			var row := _assembly_row(members[0])

@@ -110,7 +110,7 @@ Request: `cmd: "inspect_properties"`, `model: string`, `body: string` (BodyId), 
 
 ```json
 {"cmd":"inspect_properties","model":"/tmp/chair.FCStd","body":"b1","seq":4,"request_id":9}
-{"ok":true,"cmd":"inspect_properties","model":"/tmp/chair.FCStd","seq":4,"request_id":9,"properties":{"body":"b1","boards":{},"objects":[],"references":[]}}
+{"ok":true,"cmd":"inspect_properties","model":"/tmp/chair.FCStd","seq":4,"request_id":9,"properties":{"body":"b1","boards":{},"summary":{"label":"Board 1","context":"Board","parametric":false,"dimensions":[]},"objects":[],"references":[]}}
 ```
 
 The illustrative empty arrays above stand for the native data. Snapshot fields:

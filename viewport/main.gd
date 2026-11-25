@@ -270,6 +270,7 @@ func _ready() -> void:
 	_make_tools()                 # after the world: inference and the tool context take the camera and overlays
 	_make_keys()
 	ui.make_ui()
+	properties_panel.format_length = measure.format_length
 	_init_preferences()
 	menus.make_menus()
 	_set_title()
@@ -599,7 +600,7 @@ func _make_selection() -> void:
 func _on_context_changed() -> void:
 	_apply_context()
 	if context == "": ui_hint.text = tools[tool].hint()
-	else: ui_hint.text = "Inside %s. Esc to leave" % ("the assembly" if context.begins_with("assembly:") else "the array")
+	else: ui_hint.text = "Inside %s. Esc to leave" % ("the assembly" if context.begins_with("assembly:") else ("the component" if context.begins_with("component:") else "the array"))
 
 
 func _on_hidden_changed(by_op: bool) -> void:

@@ -82,10 +82,83 @@ def describe(obj):
     rows.sort(key=lambda row: (priority.get(row['path'], 10 if row['path'].startswith('Placement.') else 20), row['path']))
     return dict(name=obj.Name, label=obj.Label, type=obj.TypeId, fields=rows)
 
+FACE_NAMES = ['Left', 'Right', 'Front', 'Back', 'Bottom', 'Top']
+AXIS_LABELS = ['Length', 'Width', 'Thickness']
+
+
+def _summary(model, body, boards, objs):
+    root = model.body(body)
+    all_bodies = model.bodies()
+    parts = []
+    asm = model.assembly_of(root)
+    if asm is not None:
+        parts.append('Part within ' + asm.Label)
+    defn = model.definition(root)
+    n_instances = sum(1 for o in all_bodies.values() if model.definition(o).Name == defn.Name)
+    if n_instances >= 2:
+        parts.append('Linked component (%d instances)' % n_instances)
+    context = ' · '.join(parts) if parts else 'Board'
+
+    board = boards.get(body)
+    is_fitted = bool(board and board.get('fitted', False))
+    has_expr = any(bool(getattr(o, 'ExpressionEngine', [])) for o in objs)
+    parametric = is_fitted or has_expr
+
+    dimensions = []
+    if board:
+        linked_axis = board.get('linked_axis', -1)
+        tip = getattr(defn, 'Tip', None)
+        target_label = ''
+        target_face = ''
+        offset_mm = 0.0
+        if is_fitted and linked_axis >= 0 and tip is not None:
+            target_id = getattr(tip, 'SSTargetId', '') or ''
+            target_obj = all_bodies.get(target_id)
+            target_label = target_obj.Label if target_obj is not None else target_id
+            face_idx = int(getattr(tip, 'SSFace', -1))
+            if 0 <= face_idx < len(FACE_NAMES):
+                target_face = FACE_NAMES[face_idx] + ' face'
+            offset_mm = float(getattr(tip, 'SSOffset', 0.0) or 0.0)
+        for i, size in enumerate(board['sizes'][:3]):
+            linked = (linked_axis == i)
+            dimensions.append({
+                'axis': i,
+                'label': AXIS_LABELS[i],
+                'value_mm': float(size),
+                'editable': True,
+                'linked': linked,
+                'target_label': target_label if linked else '',
+                'target_face': target_face if linked else '',
+                'offset_mm': offset_mm if linked else 0.0,
+            })
+    else:
+        bb = root.Shape.BoundBox
+        for i, extent in enumerate([bb.XLength, bb.YLength, bb.ZLength]):
+            dimensions.append({
+                'axis': i,
+                'label': AXIS_LABELS[i],
+                'value_mm': float(extent),
+                'editable': False,
+                'linked': False,
+                'target_label': '',
+                'target_face': '',
+                'offset_mm': 0.0,
+            })
+
+    return {
+        'label': root.Label,
+        'context': context,
+        'parametric': parametric,
+        'dimensions': dimensions,
+    }
+
+
 def inspect(model, body):
     from plane_fit import snapshot
     boards = {key: info for key, obj in model.bodies().items() if (info := snapshot(obj))}
-    return dict(body=body, boards=boards, objects=[describe(o) for o in related(model, body)],
+    objs = related(model, body)
+    return dict(body=body, boards=boards, summary=_summary(model, body, boards, objs),
+                objects=[describe(o) for o in objs],
                 references=[dict(name=o.Name, label=o.Label) for o in model.doc.Objects if hasattr(o, 'Shape')])
 
 def apply(model, op):

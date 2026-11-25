@@ -182,6 +182,39 @@ func _init() -> void:
 	s.set_boards([{"id": "b5", "row": "b5"}])
 	check("Entered row follows promoted original", s.context == "row:b5")
 
+	# --- component context (I69) ---
+	r = make(); s = r[0]; d = r[1]; seen = r[2]
+	s.enter_context_of("b3")
+	check("double-click standalone linked board enters component context",
+		s.context == "component:b3" and s.in_context("b3")
+		and s.is_context_sibling("b4") and s.is_context_sibling("b5")
+		and not s.is_context_sibling("b3") and not s.is_context_sibling("b6")
+		and not s.in_context("b4") and not s.in_context("b6"))
+	s.leave_context()
+	check("Esc from standalone component context returns to root", s.context == "")
+
+	s.set_boards([
+		{"id": "b7", "assembly": "a2", "family": "f2"},
+		{"id": "b8", "assembly": "a2"},
+		{"id": "b9", "family": "f2"},
+	])
+	s.enter_context_of("b7")
+	check("double-click linked board in assembly enters assembly first", s.context == "assembly:a2")
+	s.enter_context_of("b7")
+	check("double-click linked board inside assembly enters component context",
+		s.context == "component:b7" and s.in_context("b7")
+		and s.is_context_sibling("b9") and not s.is_context_sibling("b8")
+		and not s.edit_blocked("b7"))
+	s.leave_context()
+	check("first Esc from assembly-nested component returns to assembly", s.context == "assembly:a2")
+	s.leave_context()
+	check("second Esc returns to root", s.context == "")
+
+	s.enter_context_of("b7")
+	s.enter_context_of("b7")
+	s.set_boards([{"id": "b8", "assembly": "a2"}, {"id": "b9", "family": "f2"}])
+	check("if entered component disappears, context falls back to parent assembly", s.context == "assembly:a2")
+
 	for n in made: n.free()
 	print("SELECTION TESTS: %d passed, %d failed" % [passed, failed])
 	quit(1 if failed else 0)

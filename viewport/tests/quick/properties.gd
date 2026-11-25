@@ -26,6 +26,7 @@ func run() -> void:
 				if entry.path == "Length": width = entry
 	harness._ok("the native rectangle length is editable", width.get("editable", false))
 	if not width.is_empty():
+		m.properties_panel.native_toggle.button_pressed = true
 		m.properties_panel.object_picker.select(snapshot.objects.find(plane))
 		m.properties_panel._show_feature()
 		await harness._shot("properties_dimensions")
@@ -211,4 +212,38 @@ func run() -> void:
 				is_equal_approx(float(harness._bodies().b1.volume_mm3), 304000.0)
 				and is_equal_approx(float(harness._bodies().b3.volume_mm3), 304000.0),
 				[harness._bodies().b1.volume_mm3, harness._bodies().b3.volume_mm3])
+
+		# T127: Upgraded Component Properties window + component context isolation.
+		m.properties_panel.show()
+		m.properties_panel.native_toggle.button_pressed = false
+		m.sel.set_selection([harness.id("b1")])
+		await harness._wait_properties()
+		var p = m.properties_panel
+		harness._ok("properties header shows label, linked subtitle, and Parametric badge",
+				p.piece_title.text != "" and "Linked component (2 instances)" in p.piece_subtitle.text
+				and p.parametric_badge.visible and not p.native_section.visible,
+				[p.piece_title.text, p.piece_subtitle.text, p.parametric_badge.visible, p.native_section.visible])
+
+		p.display({
+			"body": "b_cut", "boards": {},
+			"summary": {"label": "Cut board", "context": "Board", "parametric": false,
+				"dimensions": [{"axis": 0, "label": "Length", "value_mm": 120.0, "editable": false, "linked": false, "target_label": "", "target_face": "", "offset_mm": 0.0}]},
+			"objects": [{"name": "Cut", "label": "Cut board", "type": "Part::Cut", "fields": []}],
+			"references": [],
+		})
+		harness._ok("cut board summary stays visible with read-only dimensions", p.summary.visible and p.summary.get_child_count() >= 2)
+
+		m.sel.enter_context_of("b1")
+		m._apply_context()
+		var n_b1 = m.bodies_root.get_node_or_null("b1")
+		var n_b3 = m.bodies_root.get_node_or_null("b3")
+		var n_b2 = m.bodies_root.get_node_or_null("b2")
+		harness._ok("component context isolates entered board, tints siblings, ghosts others",
+				m.sel.context == "component:b1"
+				and n_b1 != null and n_b1.material_override == null
+				and n_b3 != null and n_b3.material_override == m.mat_sibling
+				and n_b2 != null and n_b2.material_override == m.pres.mat_ghost,
+				[m.sel.context])
+		m.sel.leave_context()
+		m._apply_context()
 	m.properties_panel.hide()
