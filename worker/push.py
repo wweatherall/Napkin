@@ -119,6 +119,13 @@ class PushActions:
         if self.rect_obj(rid) is not None:
             raise OpError(f"rect id '{rid}' already exists")
         origin, x, y, n, on = self.plane_from(op["plane"])
+        if op.get("x") is not None:
+            rx = vec(op["x"])
+            rx = rx - n * rx.dot(n)
+            if rx.Length < TOL:
+                raise OpError("rect x axis is degenerate")
+            x = unit(rx)
+            y = unit(n.cross(x))
         u, v = op.get("corner", [0, 0])
         w, h = op["size"]
         if w <= 0 or h <= 0:

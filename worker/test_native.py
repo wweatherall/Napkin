@@ -547,4 +547,29 @@ check("it opens again (the page and its views are cleared from the live document
       and "b1" in s.model.bodies() and not s.drawing, (qp, s.drawing))
 s.close()
 
+# ---------- R. rotated rectangle (H129, T84) ----------
+import plane_fit
+NR = [{"id": "r1", "type": "rect", "plane": {"origin": [10, 20, 0], "normal": [0, 0, 1]},
+       "corner": [0, -50], "size": [100, 50], "x": [0.6, 0.8, 0]},
+      push("p1", "r1", 19, "b1")]
+s = Session(None)
+s.sync(NR)
+r1_obj = s.model.rect_obj("r1")
+r1_verts = sorted((round(v.X, 3), round(v.Y, 3), round(v.Z, 3)) for v in r1_obj.Shape.Vertexes)
+expected_verts = sorted([(50.0, -10.0, 0.0), (110.0, 70.0, 0.0), (70.0, 100.0, 0.0), (10.0, 20.0, 0.0)])
+check("rotated rect creates Part::Plane at rotated corners",
+      r1_obj.TypeId == "Part::Plane" and r1_verts == expected_verts, (r1_obj.TypeId, r1_verts))
+rf = plane_fit.stock(s.model.body("b1"))
+check("extruded rotated rect produces rectangular stock",
+      rf is not None and sorted(round(d, 3) for d in rf[3]) == [19.0, 50.0, 100.0], rf)
+for bad_x in ([0, 0, 0], [0, 0, 1]):
+    raised = False
+    try:
+        s.model.op_rect({"id": "r_bad", "type": "rect", "plane": {"origin": [0, 0, 0], "normal": [0, 0, 1]},
+                         "corner": [0, 0], "size": [10, 10], "x": bad_x})
+    except OpError:
+        raised = True
+    check(f"degenerate rect x={bad_x} raises OpError", raised)
+s.close()
+
 print(f"\nNATIVE TESTS: {R[0]} passed, {R[1]} failed")

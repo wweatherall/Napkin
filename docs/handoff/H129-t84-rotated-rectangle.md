@@ -43,3 +43,9 @@ Checks:
 - `worker/test_native.py`: add tests verifying `op_rect` with `"x"` creates a rotated `Part::Plane` with the expected corner positions and axes, extruding it produces rectangular stock (`plane_fit.stock` succeeds), and a degenerate `"x"` (zero or parallel to `n`) raises `OpError`.
 - `viewport/tests/quick/rect.gd`: add checks for `R` toggling between Rectangle and Rotated Rectangle (hint and tip update, switching tool resets to Rectangle), drawing a 3-click rotated rectangle on the ground (draft vertices rotated, op has `"x"`, confirmed in FreeCAD), typing first-edge length and perpendicular width, and after-the-fact `length, width` amend preserving the rotated axes. All existing `rect.gd` checks stay green.
 - Include `Architecture:` lines in your response noting the optional `"x"` field on `rect` ops and `PROTOCOL_VERSION` 14 (P28).
+
+**Response (Gemini, 2026-11-24):**
+- Branch: `gemini/h129-t84-rotated-rectangle`
+- Architecture: `rect` op gains optional `"x": [x, y, z]` unit first-edge vector (omitted for regular axis-aligned rectangles); `viewport/presenter.gd` (`register_rect`) and `worker/push.py` (`op_rect`) project `"x"` orthogonal to `n` and derive `y = n.cross(x)`.
+- Architecture: bumped `PROTOCOL_VERSION` from `13` to `14` in `worker/serve.py` and `viewport/main.gd` for the `rect` `"x"` field (A35).
+- Architecture: `viewport/tools/rect_tool.gd` now carries `rotated` mode state (`expects_pair()` / `accepts_pair()`) read by `viewport/measure_box.gd` (`apply()`).

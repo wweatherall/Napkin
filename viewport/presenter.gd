@@ -441,6 +441,11 @@ func register_rect(op: Dictionary) -> void:
 	var origin := Vector3(src["point"][0], src["point"][1], src["point"][2]) if pl.has("on") else Vector3(src["origin"][0], src["origin"][1], src["origin"][2])
 	var n := Vector3(src["normal"][0], src["normal"][1], src["normal"][2])
 	var b: Array = Geo.plane_basis(n)
+	if op["type"] == "rect" and op.get("x") != null:
+		var bx := Vector3(op["x"][0], op["x"][1], op["x"][2])
+		bx = (bx - n * bx.dot(n)).normalized()
+		if bx.length() > 0.5:
+			b = [bx, n.cross(bx).normalized()]
 	var pts: PackedVector3Array
 	var tris: PackedVector3Array
 	var lines := PackedVector3Array()
