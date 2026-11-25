@@ -11,6 +11,7 @@
                                                    the lock is taken (--commit stages+commits; --push also pushes main)
   python3 tools/integrator.py touch <name>         mark it still in use (tools/integrate.py does this)
   python3 tools/integrator.py release <name>       give it up
+  python3 tools/integrator.py note "<line>"        append one line to the rolling 20-line integrator journal
 
 A session takes the lock only when William has told it, in that session, that it is the integrator. Holding the
 lock is what lets tools/integrate.py merge; a session that isn't the holder is a worker."""
@@ -25,6 +26,27 @@ def lock_path(cwd=None):
     common = subprocess.run(["git", "rev-parse", "--git-common-dir"], cwd=cwd, capture_output=True, text=True).stdout.strip()
     common = os.path.abspath(os.path.join(cwd or os.getcwd(), common))
     return os.path.join(common, "shopsketch-integrator.lock")
+
+
+def journal_path(cwd=None):
+    return os.path.join(os.path.dirname(lock_path(cwd)), "shopsketch-integrator-journal.log")
+
+
+def note(path, text, limit=20, out=print):
+    line = " ".join(text.split())
+    if not line:
+        out("note cannot be empty")
+        return False
+    existing = []
+    if os.path.isfile(path):
+        existing = [l.rstrip() for l in open(path, encoding="utf-8").read().splitlines() if l.strip()]
+    entry = f"{stamp()} {line}"
+    kept = (existing + [entry])[-limit:]
+    tmp = path + ".tmp"
+    open(tmp, "w", encoding="utf-8").write("\n".join(kept) + "\n")
+    os.replace(tmp, path)
+    out(entry)
+    return True
 
 
 def read(path):
@@ -138,12 +160,14 @@ def main(argv):
     if not argv or argv[0] == "status":
         print(status_line(path))
         return 0
-    if len(argv) < 2 or argv[0] not in ("take", "touch", "release"):
+    if len(argv) < 2 or argv[0] not in ("take", "touch", "release", "note"):
         print(__doc__)
         return 2
     cmd, name = argv[0], argv[1]
     try:
-        if cmd == "take":
+        if cmd == "note":
+            ok = note(journal_path(), " ".join(argv[1:]))
+        elif cmd == "take":
             william, archives, commit, push, err = parse_take_args(argv[2:])
             if err:
                 print(err)

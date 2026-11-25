@@ -117,6 +117,19 @@ def ready_jobs(board, branch_names):
     return out
 
 
+def queued_jobs(board):
+    """Board's Jobs rows whose Status is Queued -> [(job, for, item, waits_for)]."""
+    out = []
+    for line in section(board, "Jobs"):
+        if not line.startswith("|"):
+            continue
+        c = cells(line)
+        if len(c) < 4 or c[2] != "Queued":
+            continue
+        out.append((c[0], c[1], c[3], c[5] if len(c) > 5 else ""))
+    return out
+
+
 def notes(board, n=3):
     return [l for l in section(board, "Notes") if l.strip()][:n]
 
@@ -250,10 +263,33 @@ def waiting_on_william(log, entries, board, lock_held):
     return lines
 
 
-def follow_up_lines(text):
+def follow_up_lines(text, limit=None):
     """The report's lines for docs/follow-ups.md (P26, T97): one per open follow-up, or "(none)"."""
     rows = [l for l in (text or "").split("\n") if re.match(r"^- \S+ \([^)]*\): ", l)]
-    return ["  " + l.removeprefix("- ").rstrip() for l in rows] or ["  (none)"]
+    if not rows:
+        return ["  (none)"]
+    if limit is not None and len(rows) > limit:
+        older = len(rows) - limit
+        return [f"  ... ({older} earlier in docs/follow-ups.md)"] + [
+            "  " + l.removeprefix("- ").rstrip() for l in rows[-limit:]
+        ]
+    return ["  " + l.removeprefix("- ").rstrip() for l in rows]
+
+
+def journal_lines(root, limit=20):
+    """Last `limit` lines of the rolling integrator journal in git-common-dir (read-only)."""
+    common = git("rev-parse", "--git-common-dir", cwd=root).strip()
+    if not common:
+        return []
+    path = os.path.join(common if os.path.isabs(common) else os.path.join(root, common),
+                        "shopsketch-integrator-journal.log")
+    if not os.path.isfile(path):
+        return []
+    try:
+        lines = [l.rstrip() for l in open(path, encoding="utf-8").read().splitlines() if l.strip()]
+    except OSError:
+        return []
+    return lines[-limit:]
 
 
 ROLES = ("integrator", "worker")
@@ -527,6 +563,12 @@ def main(argv):
         print(f"  {job_id} ({who}) {item}" + (f"  - claimed by {claim}" if claim else ""))
     if not jobs:
         print("  (none)")
+    if role == "integrator":
+        qjobs = queued_jobs(board)
+        if qjobs:
+            print("Queued on the board (main:BOARD.md):")
+            for job_id, who, item, waits in qjobs:
+                print(f"  {job_id} ({who}) {item}" + (f"  [waits for {waits}]" if waits else ""))
     for l in notes(board):
         print("  Note: " + l.strip().removeprefix("- "))
     try:                     # the live queue (P24): read-only so startup works inside a sandbox too
@@ -557,10 +599,15 @@ def main(argv):
         print("Waiting on William (from main):")
         print("\n".join(waiting_on_william(log, texts, board, bool(lock_info))))
         print("Follow-ups (docs/follow-ups.md, from main):")
-        print("\n".join(follow_up_lines(git("show", "main:docs/follow-ups.md", cwd=root))))
+        print("\n".join(follow_up_lines(git("show", "main:docs/follow-ups.md", cwd=root), limit=5)))
         inotes = integrator_notes(texts)
         state_note_ids = [h.split()[0] for h, p in inotes if is_state_note(os.path.basename(p), texts.get(os.path.basename(p), ""))]
         if role == "integrator":
+            jlines = journal_lines(root)
+            if jlines:
+                print("Integrator journal (last 20 lines):")
+                for jl in jlines:
+                    print("  " + jl)
             print("Interrupted merges:")
             if merge_info:
                 print(f"  {merge_info['summary']} -> {merge_info['action']}")

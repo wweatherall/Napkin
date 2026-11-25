@@ -338,6 +338,9 @@ def root_dir():
 
 def main(argv=None):
     argv = sys.argv[1:] if argv is None else argv
+    if "-h" in argv or "--help" in argv:
+        print(__doc__)
+        return 0
     try:
         pos, opts, flags = parse(argv)
         if not pos:
