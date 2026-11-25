@@ -35,15 +35,17 @@ worktree (T102).
    "What can fail" case or a check, only change how one is met.
 4. Run tests and long commands in the background as `python3 tools/job.py run -- <command>`: past 10 minutes it
    stops them and prints HUNG, and the fix is yours (P40); `python3 tools/job.py check` lists your processes.
-   Quick test (`tools/quicktest.sh`) after every change; commit when it passes. Set no timer: after 30 minutes
-   with no commit, test or job.py command, the integrator is told (P24).
+   Quick test (`tools/quicktest.sh` — don't invoke `godot` directly without a running worker) after every change;
+   commit when it passes. Set no timer: after 30 minutes with no commit, test or job.py command, the integrator is told (P24).
 5. To touch a file or function outside Touches, ask the integrator: `python3 tools/job.py wait --scope
    "<the question>"`. For behaviour, wording or what is saved, ask William in chat and run `python3 tools/job.py
    wait "<the question>"`. Run either in the background; on a timeout run the same command again. Quote the
    answer in your response (T114).
 6. Finish cleanly in two turns (don't re-read `tools/job.py` or your handoff — `job.py done` automatically reuses a
    clean `job.py test` pass across handoff-only commits):
-   - Commit your code changes first, then run `python3 tools/job.py test` once.
+   - Commit your code changes first (if committing watched code with `Architecture-Impact: in the handoff - <ID>`,
+     include the `Architecture: <what>` line(s) in the handoff in that commit so the pre-commit hook passes), then
+     run `python3 tools/job.py test` once.
    - Append your response to the handoff entry (dated and signed: branch, commit, what you verified, IDs you added,
      open questions; then a line each: `Changed from the brief: <what it said>; <what you did>; <why>` per departure
      (P44); `Architecture: <what>`; `Follow-up: <what>` per thing left; `For the integrator: <what>` per merge step
