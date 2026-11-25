@@ -12,11 +12,13 @@ import handoff
 import number_ids as n
 
 RESULTS = []
+VERBOSE = "-v" in sys.argv[1:] or "--verbose" in sys.argv[1:]
 
 
 def check(name, ok):
     RESULTS.append(bool(ok))
-    print(("PASS " if ok else "FAIL ") + name)
+    if not ok or VERBOSE:
+        print(("PASS " if ok else "FAIL ") + name)
 
 
 LOG = """# log

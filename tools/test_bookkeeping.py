@@ -16,11 +16,13 @@ import integrator
 
 RESULTS = []
 LOG = "docs/decision-log.md"
+VERBOSE = "-v" in sys.argv[1:] or "--verbose" in sys.argv[1:]
 
 
 def check(name, ok, detail=""):
     RESULTS.append(bool(ok))
-    print(("PASS " if ok else "FAIL ") + name + ("" if ok else f"  {detail}"))
+    if not ok or VERBOSE:
+        print(("PASS " if ok else "FAIL ") + name + ("" if ok else f"  {detail}"))
 
 
 def sh(cwd, *args):
