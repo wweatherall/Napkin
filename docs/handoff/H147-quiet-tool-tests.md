@@ -1,6 +1,6 @@
 ### H147 — T131: Quiet-by-default tool tests (failures + summary; -v/--verbose for PASS lines)
 
-Author: Gemini (integrator, gemini-cedar-1124-2201) | Date: 2026-11-24 | Status: open | For: either
+Author: Gemini (integrator, gemini-cedar-1124-2201) | Date: 2026-11-24 | Status: answered | For: either
 
 References: T131.
 
@@ -24,3 +24,17 @@ Request:
 Checks:
 - Run each of the 13 `tools/test_*.py` scripts both without flags (verify 0 `PASS ` lines, summary line printed, exit 0) and with `-v` (verify `PASS ` lines printed, exit 0).
 - Run `python3 tools/job.py test` to confirm `tools/featuretest.py` and the full quick test pass cleanly.
+
+#### Response (Gemini, 2026-11-24)
+
+Branch: `gemini/h147-quiet-tool-tests` | Commit: `ffc7a0b`
+
+- Updated all 13 `tools/test_*.py` scripts listed in `Touches` so `check(...)` suppresses `PASS ` lines by default and prints only `FAIL ` lines plus the final `<SUITE> TESTS: N passed, M failed` summary line.
+- Added `VERBOSE = "-v" in sys.argv[1:] or "--verbose" in sys.argv[1:]` in each script so passing `-v` or `--verbose` prints every `PASS ` line as before.
+- Verified:
+  - Ran all 13 `tools/test_*.py` scripts without flags (0 `PASS ` lines, summary line printed, exit 0) and with `-v` (`PASS ` lines printed, summary line printed, exit 0).
+  - Ran `python3 tools/job.py test` on `ffc7a0b`: parse passed (8 s), feature tests passed (118 s), viewport tests passed (85 s; QUICK 359 passed, 0 failed).
+- IDs added: none.
+- Open questions: none.
+
+Result: ffc7a0b; all 13 tools/test_*.py quiet/verbose + quicktest passed; quiet-by-default tool tests with -v/--verbose for PASS lines
