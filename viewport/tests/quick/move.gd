@@ -38,3 +38,83 @@ func run() -> void:
 	await harness._press()
 	await harness._wait_wave()
 	harness._ok("a corner dragged onto another board's corner snaps to it", kind == "endpoint" and harness._bbox(harness.id("b2")).slice(0, 2) == [250.0, 50.0], [kind, harness._bbox(harness.id("b2"))])
+
+	# Pre-click array preview (xN / /N) and post-click amend (T123 / I66)
+	await harness._fresh("move_array_preview", harness._plank(1, Vector3.ZERO, Vector3(100, 50, 18)))
+	await harness._view(Vector3(300, 25, 0), -30, -45, 2.0)
+	await harness._grab(Vector3(0, 25, 18))
+	await harness._key(KEY_RIGHT)
+	await harness._drag_to(Vector3(150, 25, 18), 6)
+	await harness._type("x4\n")
+	var mv_vec: Vector3 = m.move_state.get("vec", Vector3.ZERO)
+	var single_count: int = m.body_tris[harness.id("b1")].size()
+	var preview_verts: PackedVector3Array = m.overlay.mesh.surface_get_arrays(0)[Mesh.ARRAY_VERTEX] if m.overlay.mesh != null else PackedVector3Array()
+	var preview_xs := []
+	if preview_verts.size() == 4 * single_count and single_count > 0:
+		for ci in 4:
+			var min_x := INF
+			for vi in range(ci * single_count, (ci + 1) * single_count):
+				min_x = minf(min_x, preview_verts[vi].x * 1000.0)
+			preview_xs.append(min_x)
+	var preview_ok := preview_xs.size() == 4
+	if preview_ok:
+		for ci in 4:
+			if absf(preview_xs[ci] - (ci + 1) * mv_vec.x) > 0.5:
+				preview_ok = false
+	harness._ok("typing x4 before clicking stays active, enables copy, and previews 4 shifted copies",
+		m.tools["move"].in_gesture() and m.tools["move"].copy and m.move_state.get("count", 0) == 4 and preview_ok,
+		[m.tools["move"].in_gesture(), m.tools["move"].copy, m.move_state.get("count", 0), preview_xs, mv_vec.x])
+	await harness._press()
+	await harness._wait_wave()
+	var ids_x4 := harness._shown_ids()
+	var last_x4: String = ids_x4.back()
+	harness._ok("clicking after x4 preview commits all 4 copies in one op",
+		ids_x4.size() == 5 and m.ops.back().get("count", 0) == 4 and absf(harness._bbox(last_x4)[0] - 4.0 * mv_vec.x) < 1.0,
+		[ids_x4, m.ops.back(), harness._bbox(last_x4)])
+
+	# Amend pre-previewed x4 down to x2 after clicking
+	await harness._type("x2\n")
+	await harness._wait_wave()
+	harness._ok("typing x2 after clicking a pre-previewed x4 array amends it to 2 copies",
+		harness._shown_ids().size() == 3 and m.ops.back().get("count", 0) == 2,
+		[harness._shown_ids(), m.ops.back()])
+
+	# Pre-click /3 + typed distance 300
+	await harness._fresh("move_divide_preview", harness._plank(1, Vector3.ZERO, Vector3(100, 50, 18)))
+	await harness._view(Vector3(200, 25, 0), -30, -45, 1.8)
+	await harness._grab(Vector3(0, 25, 18))
+	await harness._key(KEY_ALT)
+	await harness._key(KEY_RIGHT)
+	await harness._drag_to(Vector3(150, 25, 18), 6)
+	await harness._type("/3\n")
+	harness._ok("typing /3 before clicking enables divide preview",
+		m.tools["move"].in_gesture() and m.move_state.get("divide", false) and m.move_state.get("count", 0) == 3,
+		[m.tools["move"].in_gesture(), m.move_state.get("divide", false), m.move_state.get("count", 0)])
+	await harness._type("300\n")
+	await harness._wait_wave()
+	var div_xs := []
+	for bid in harness._shown_ids():
+		if bid != harness.id("b1"):
+			div_xs.append(harness._bbox(bid)[0])
+	div_xs.sort()
+	harness._ok("typing 300 after /3 preview commits 3 evenly distributed copies at 100, 200, 300 mm",
+		div_xs == [100.0, 200.0, 300.0], [harness._shown_ids(), div_xs])
+
+	# Pre-click x3 + click, then amend spacing to 250
+	await harness._fresh("move_array_amend_dist", harness._plank(1, Vector3.ZERO, Vector3(100, 50, 18)))
+	await harness._view(Vector3(400, 25, 0), -30, -45, 2.2)
+	await harness._grab(Vector3(0, 25, 18))
+	await harness._key(KEY_RIGHT)
+	await harness._drag_to(Vector3(150, 25, 18), 6)
+	await harness._type("x3\n")
+	await harness._press()
+	await harness._wait_wave()
+	await harness._type("250\n")
+	await harness._wait_wave()
+	var amend_xs := []
+	for bid in harness._shown_ids():
+		if bid != harness.id("b1"):
+			amend_xs.append(harness._bbox(bid)[0])
+	amend_xs.sort()
+	harness._ok("typing 250 after clicking a pre-previewed x3 array amends spacing to 250 mm keeping 3 copies",
+		amend_xs == [250.0, 500.0, 750.0], [harness._shown_ids(), amend_xs])

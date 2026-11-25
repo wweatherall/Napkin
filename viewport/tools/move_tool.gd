@@ -80,6 +80,15 @@ func key(e: InputEventKey) -> bool:
 	return false
 
 
+func _parse_array(txt: String) -> Dictionary:
+	var t := txt.strip_edges().to_lower()
+	if t.begins_with("/") and t.substr(1).is_valid_int():
+		return {"ok": true, "count": maxi(1, int(t.substr(1))), "divide": true}
+	if (t.ends_with("x") and t.left(-1).is_valid_int()) or ((t.begins_with("x") or t.begins_with("*")) and t.substr(1).is_valid_int()):
+		return {"ok": true, "count": maxi(1, int(t.trim_suffix("x").trim_prefix("x").trim_prefix("*"))), "divide": false}
+	return {"ok": false}
+
+
 func typed(txt: String) -> void:
 	if not state.get("active", false):
 		_amend_last_move(txt)
@@ -100,13 +109,24 @@ func typed(txt: String) -> void:
 				c = state["hi"][ax] + d if side >= 0 else state["lo"][ax] - d
 			commit_mirror_move(ax, c)
 		return
+	var parsed := _parse_array(txt)
+	if parsed["ok"]:
+		copy = true
+		state["count"] = parsed["count"]
+		state["divide"] = parsed["divide"]
+		_preview_move()
+		ctx.ui.refresh_tip(ctx.pick.cursor())
+		return
 	var tl := txt.to_lower()
 	if tl.is_valid_float() and state["vec"].length() >= GEOMETRY_TOLERANCE_MM:
-		commit_move(state["vec"].normalized() * absf(float(tl)))
+		commit_move(state["vec"].normalized() * absf(float(tl)), state.get("count", 1), state.get("divide", false))
 
 
 func vcb_label() -> String:
-	return "Face to plane" if mirror else ("Copy distance" if copy else "Distance")
+	if mirror: return "Face to plane"
+	if copy and state.get("active", false) and state.get("count", 1) > 1:
+		return ("Divide /%d" if state.get("divide", false) else "Copy ×%d") % state["count"]
+	return "Copy distance" if copy else "Distance"
 
 
 func vcb_value() -> String:
@@ -128,7 +148,14 @@ func tip() -> String:
 			ctx.ui.format_length(g), ctx.ui.format_length(2.0 * g)]
 	if state.get("active", false):
 		var k: String = state.get("kind", "")
-		return "%s  %s%s" % ["Copy +" if copy else "Move", ctx.ui.format_length(state["vec"].length()), ("\n" + k) if k != "" else ""]
+		var prefix := "Move"
+		if copy:
+			var cnt: int = state.get("count", 1)
+			if cnt > 1:
+				prefix = ("Divide /%d" if state.get("divide", false) else "Copy ×%d") % cnt
+			else:
+				prefix = "Copy +"
+		return "%s  %s%s" % [prefix, ctx.ui.format_length(state["vec"].length()), ("\n" + k) if k != "" else ""]
 	if last_oid != "" and copy:
 		return "type 5x or /5 for more copies"
 	if copy or mirror:
@@ -291,7 +318,7 @@ func _finish() -> void:
 		else: commit_mirror_move(state["mir_ax"], state["mir_c"])
 	else:
 		if not pointer_distance_ok(state["vec"].length(), state.get("point_snap", false)): return
-		commit_move(state["vec"])
+		commit_move(state["vec"], state.get("count", 1), state.get("divide", false))
 
 
 func _move_move(screen: Vector2) -> void:
@@ -503,12 +530,10 @@ func _amend_last_move(txt: String) -> bool:
 	var count: int = op.get("count", 1)
 	var divide: bool = op.get("divide", false)
 	var t := txt.strip_edges().to_lower()
-	if t.begins_with("/") and t.substr(1).is_valid_int():
+	var parsed := _parse_array(txt)
+	if parsed["ok"]:
 		if not op["copy"]: return false
-		count = maxi(1, int(t.substr(1))); divide = true
-	elif (t.ends_with("x") and t.left(-1).is_valid_int()) or ((t.begins_with("x") or t.begins_with("*")) and t.substr(1).is_valid_int()):
-		if not op["copy"]: return false
-		count = maxi(1, int(t.trim_suffix("x").trim_prefix("x").trim_prefix("*"))); divide = false
+		count = parsed["count"]; divide = parsed["divide"]
 	elif t.is_valid_float():
 		# a new distance along the same direction (for an array this sets the spacing; for divide, the total)
 		vec = vec.normalized() * absf(float(t))
