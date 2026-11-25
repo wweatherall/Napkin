@@ -317,7 +317,7 @@ shutil.rmtree(root)
 #    the documented order, independent of the production tuples. Wrappers still run each step's real work.
 MERGE_ORDER = ["check_start", "prepare_log", "merge_branch", "settle_conflicts", "check_touches", "number_entries",
                "archive_entries", "update_statuses", "rebuild_and_check", "run_gate", "pause_for_map"]
-FINISH_ORDER = ["commit_merge", "clean_up_job", "record_results", "push_main"]
+FINISH_ORDER = ["commit_merge", "clean_up_job", "unblock_queued_jobs", "record_results", "push_main"]
 
 
 @contextlib.contextmanager
@@ -801,6 +801,67 @@ check("usage hook: merge succeeds when SHOPSKETCH_USAGE_TOOL raises (fail-open)"
       rc == 0 and job.read_state(job.state_path(root))["jobs"]["H094"]["state"] == "merged", (rc, said))
 shutil.rmtree(root)
 shutil.rmtree(usage_tmp)
+
+# --- Auto-unblock queued jobs on merge and push (H146 / T130) ---
+ub_base = tempfile.mkdtemp(prefix="integrate-unblock-")
+ub_bare = os.path.join(ub_base, "origin.git")
+sh(ub_base, "git", "init", "--bare", "-q", "-b", "main", ub_bare)
+ub_root = os.path.join(ub_base, "repo")
+sh(ub_base, "git", "clone", "-q", ub_bare, ub_root)
+sh(ub_root, "git", "config", "user.email", "t@example.invalid"); sh(ub_root, "git", "config", "user.name", "t")
+sh(ub_root, "git", "checkout", "-qb", "main")
+os.makedirs(os.path.join(ub_root, "docs", "handoff"))
+write(ub_root, "docs/decision-log.md", "# Log\n\n## Work list\n\n| # | Item | Status |\n|---|---|---|\n| T126 | a | Open |\n")
+write(ub_root, "docs/handoff-archive.md", "# Archive\n")
+write(ub_root, "docs/handoff/H126-blocker.md",
+      "### H126 — T126: blocker\n\nAuthor: Codex | Date: 2026-11-24 | Status: open | For: either\n\nTouches: notes.md.\n")
+write(ub_root, "docs/handoff/H127-dep.md",
+      "### H127 — T127: dependent\n\nAuthor: Codex | Date: 2026-11-24 | Status: queued (after H126) | For: either\n\nTouches: other.md.\n")
+write(ub_root, "docs/handoff/H128-other.md",
+      "### H128 — T128: second blocker\n\nAuthor: Codex | Date: 2026-11-24 | Status: open | For: either\n\nTouches: z.md.\n")
+write(ub_root, "docs/handoff/H129-multi.md",
+      "### H129 — T129: multi dep\n\nAuthor: Codex | Date: 2026-11-24 | Status: queued (after H126, H128) | For: either\n\nTouches: m.md.\n")
+write(ub_root, "BOARD.md",
+      f"# Work board\n\nOrder: H126, H128, H127, H129\n\n## Jobs\n\n{job.START}\n\n(none)\n\n{job.END}\n")
+write(ub_root, "docs/agent-handoff.md",
+      "# Handoff\n\n## Open exchanges\n\n<!-- open list: built from docs/handoff/ by tools/handoff.py; don't edit by "
+      "hand -->\n\n(none open)\n\n<!-- end of open list -->\n\n## Archived\n")
+write(ub_root, "notes.md", "one\n")
+sh(ub_root, "git", "add", "-A"); sh(ub_root, "git", "commit", "-qm", "base")
+sh(ub_root, "git", "push", "-q", "-u", "origin", "main")
+
+# Branch for H126 (no Result line so --push without --yes pushes immediately).
+sh(ub_root, "git", "checkout", "-qb", "claude/h126-blocker")
+write(ub_root, "notes.md", "two\n")
+write(ub_root, "docs/handoff/H126-blocker.md",
+      "### H126 — T126: blocker\n\nAuthor: Codex | Date: 2026-11-24 | Status: answered | For: either\n\nTouches: notes.md.\n\nResponse: done.\n")
+sh(ub_root, "git", "add", "-A"); sh(ub_root, "git", "commit", "-qm", "H126 done")
+sh(ub_root, "git", "checkout", "-q", "main")
+open(job.state_path(ub_root), "w").write(json.dumps({"jobs": {"H126": {"branch": "claude/h126-blocker", "state": "done"}}, "events": []}))
+integrator.take(integrator.lock_path(ub_root), "tester", out=lambda *a: None)
+
+cwd = os.getcwd(); os.chdir(ub_root)
+out_ub = io.StringIO()
+try:
+    with contextlib.redirect_stdout(out_ub):
+        rc_ub = integrate.main(["claude/h126-blocker", "--as", "tester", "--no-gate", "--push"])
+finally:
+    os.chdir(cwd)
+said_ub = out_ub.getvalue()
+h127_main = open(os.path.join(ub_root, "docs/handoff/H127-dep.md"), encoding="utf-8").read()
+h129_main = open(os.path.join(ub_root, "docs/handoff/H129-multi.md"), encoding="utf-8").read()
+board_main = open(os.path.join(ub_root, "BOARD.md"), encoding="utf-8").read()
+h127_origin = sh(ub_root, "git", "show", "origin/main:docs/handoff/H127-dep.md").stdout
+board_origin = sh(ub_root, "git", "show", "origin/main:BOARD.md").stdout
+check("integrate --push unblocks H127 to Status: open on main and origin/main",
+      rc_ub == 0 and "| Status: open |" in h127_main and "| Status: open |" in h127_origin
+      and "unblocked H127 (after H126)" in said_ub, (rc_ub, h127_main, said_ub))
+check("integrate --push rebuilds BOARD.md with H127 Ready on main and origin/main",
+      "| H127 | either | **Ready** |" in board_main and "| H127 | either | **Ready** |" in board_origin, board_main)
+check("partial dep resolution rewrites H129 to queued (after H128) and keeps it Queued",
+      "| Status: queued (after H128) |" in h129_main and "| H129 | either | Queued |" in board_main,
+      (h129_main, board_main))
+shutil.rmtree(ub_base)
 
 print(f"INTEGRATE TESTS: {sum(RESULTS)} passed, {len(RESULTS) - sum(RESULTS)} failed")
 raise SystemExit(0 if all(RESULTS) else 1)   # a failed check fails the run, not only its summary

@@ -501,7 +501,8 @@ def fake_sleep(sec):
         commit(root, "H008 Ready")
 
 
-run(job.take, root, "codex", "c1")                    # takes H005: nothing else Ready for Codex
+run(job.take, root, "codex", "c0")                    # takes H005
+run(job.take, root, "codex", "c1")                    # takes H004 (auto-unblocked after H001 merged): nothing else Ready for Codex
 r, out = run(job.take_wait, root, "codex", "c2", wait=60, poll=5, sleep=fake_sleep, clock=lambda: clock[0])
 check("take --wait takes a job that turns Ready while it waits", r == "H008" and len(slept) == 2
       and "waiting up to" in out and "took H008" in out, out)
@@ -1269,6 +1270,91 @@ for w in [l.split()[1] for l in sh(agy_root, "git", "worktree", "list", "--porce
           if l.startswith("worktree ")][1:]:
     sh(agy_root, "git", "worktree", "remove", "--force", w)
 shutil.rmtree(agy_base)
+
+# --- Auto-unblock queued jobs (H146 / T130) ---
+dep_base = tempfile.mkdtemp(prefix="job-dep-test-")
+dep_root = os.path.join(dep_base, "repo")
+os.makedirs(os.path.join(dep_root, "docs", "handoff"))
+sh(dep_root, "git", "init", "-q", "-b", "main")
+sh(dep_root, "git", "config", "user.email", "t@example.invalid"); sh(dep_root, "git", "config", "user.name", "t")
+dep_files = {
+    "H126-blocker-one.md": entry("H126", "either", "open", "tools/a.py.", "T126: blocker one"),
+    "H128-blocker-two.md": entry("H128", "either", "open", "tools/b.py.", "T128: blocker two"),
+    "H127-wait-one.md": entry("H127", "either", "queued (after H126)", "tools/c.py.", "T127: waits on H126"),
+    "H129-wait-two.md": entry("H129", "either", "queued (after H126, H128)", "tools/d.py.", "T129: waits on two"),
+    "H130-wait-text.md": entry("H130", "either", "queued (waiting on William)", "tools/e.py.", "T130: text wait"),
+    "H131-wait-bare.md": entry("H131", "either", "queued", "tools/f.py.", "T131: bare queued"),
+}
+for n, t in dep_files.items():
+    open(os.path.join(dep_root, "docs", "handoff", n), "w").write(t)
+open(os.path.join(dep_root, "BOARD.md"), "w").write(
+    f"# Work board\n\nOrder: H126, H128, H127, H129, H130, H131\n\n## Jobs\n\n{job.START}\n\n(none)\n\n{job.END}\n"
+)
+open(os.path.join(dep_root, "docs", "agent-handoff.md"), "w").write(
+    "# Handoff\n\n## Open exchanges\n\n<!-- open list: built from docs/handoff/ by tools/handoff.py; don't edit by "
+    "hand -->\n\n(none open)\n\n<!-- end of open list -->\n\n## Archived\n"
+)
+open(os.path.join(dep_root, "docs", "handoff-archive.md"), "w").write("# Archive\n")
+sh(dep_root, "git", "add", "-A"); sh(dep_root, "git", "commit", "-qm", "dep base")
+
+# While H126 and H128 are open, H127/H129/H130/H131 stay Queued.
+dep_jobs, dep_order = job.main_view(dep_root)
+dep_st = job.read_state(job.state_path(dep_root))
+tbl0 = job.table(dep_root, dep_st, dep_jobs, dep_order, 1000)
+pick0, _ = job.takeable(dep_root, dep_st, "gemini", dep_jobs, dep_order)
+check("queued (after H126) stays Queued while H126 is open",
+      pick0 and pick0["id"] == "H126" and "| H127 | either | Queued |" in tbl0 and "| H129 | either | Queued |" in tbl0,
+      (pick0, tbl0))
+
+# Mark H126 answered in handoff + state: H127 still stays Queued.
+open(os.path.join(dep_root, "docs", "handoff", "H126-blocker-one.md"), "w").write(
+    entry("H126", "either", "answered", "tools/a.py.", "T126: blocker one")
+)
+commit(dep_root, "H126 answered")
+dep_jobs, dep_order = job.main_view(dep_root)
+dep_st["jobs"]["H126"] = {"state": "done", "branch": "gemini/h126-blocker-one"}
+tbl1 = job.table(dep_root, dep_st, dep_jobs, dep_order, 1000)
+pick1, _ = job.takeable(dep_root, dep_st, "gemini", dep_jobs, dep_order)
+check("queued (after H126) stays Queued while H126 is answered/done",
+      pick1 and pick1["id"] == "H128" and "| H127 | either | Queued |" in tbl1, (pick1, tbl1))
+
+# Mark H126 merged in state (even before H126 file is archived): H127 becomes Ready, H129 shows only H128.
+dep_st["jobs"]["H126"] = {"state": "merged", "branch": "gemini/h126-blocker-one"}
+with open(job.state_path(dep_root), "w") as f:
+    json.dump(dep_st, f)
+tbl2 = job.table(dep_root, dep_st, dep_jobs, dep_order, 1000)
+pick2, _ = job.takeable(dep_root, dep_st, "gemini", dep_jobs, dep_order)
+_, status_out2 = run(job.status, dep_root)
+check("once H126 is merged in state, H127 becomes Ready in table() and takeable()",
+      pick2 and pick2["id"] == "H128"
+      and "| H127 | either | **Ready** | T127: waits on H126 | [H127](docs/handoff/H127-wait-one.md) |  |" in tbl2,
+      (pick2, tbl2))
+check("multi-dep H129 stays Queued showing only H128 when only H126 is merged",
+      "| H129 | either | Queued | T129: waits on two | [H129](docs/handoff/H129-wait-two.md) | H128 |" in tbl2,
+      tbl2)
+
+# Remove H126 and H128 from docs/handoff/ (archived) and clear state: H127 and H129 are Ready, H130/H131 stay Queued.
+os.remove(os.path.join(dep_root, "docs", "handoff", "H126-blocker-one.md"))
+os.remove(os.path.join(dep_root, "docs", "handoff", "H128-blocker-two.md"))
+commit(dep_root, "archive H126 and H128")
+with open(job.state_path(dep_root), "w") as f:
+    json.dump({"jobs": {}, "events": []}, f)
+dep_jobs3, dep_order3 = job.main_view(dep_root)
+dep_st3 = job.read_state(job.state_path(dep_root))
+tbl3 = job.table(dep_root, dep_st3, dep_jobs3, dep_order3, 1000)
+_, status_out3 = run(job.status, dep_root)
+r_dep_take, _ = run(job.take, dep_root, "gemini", "s-dep")
+check("once blockers are absent from docs/handoff/, H127 and H129 become Ready and H127 is taken by take()",
+      "| H127 | either | **Ready** |" in tbl3 and "| H129 | either | **Ready** |" in tbl3
+      and "next for Gemini: H127" in status_out3 and r_dep_take == "H127",
+      (tbl3, status_out3, r_dep_take))
+check("non-ID wait and bare queued are NOT auto-unblocked",
+      "| H130 | either | Queued |" in tbl3 and "| H131 | either | Queued |" in tbl3, tbl3)
+
+for w in [l.split()[1] for l in sh(dep_root, "git", "worktree", "list", "--porcelain").stdout.split("\n")
+          if l.startswith("worktree ")][1:]:
+    sh(dep_root, "git", "worktree", "remove", "--force", w)
+shutil.rmtree(dep_base)
 
 print(f"JOB TESTS: {sum(RESULTS)} passed, {len(RESULTS) - sum(RESULTS)} failed")
 sys.exit(0 if all(RESULTS) else 1)

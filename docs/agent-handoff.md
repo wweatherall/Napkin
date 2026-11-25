@@ -35,7 +35,6 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H129 — T84 step 1: Rotated Rectangle (R again toggles Rectangle and Rotated Rectangle)](handoff/H129-t84-rotated-rectangle.md) — status: open; for: either
 - [H130 — T84 step 2: Polygon tool (toolbar button without hotkey, exact FreeCAD sketch polygon)](handoff/H130-t84-polygon-tool.md) — status: queued (after H129); for: either
 - [H141 — T127: Enter and edit components, and Component Properties window (prioritizing critical dimensions and linked measurements)](handoff/H141-t127-components-and-properties.md) — status: open; for: either
-- [H146 — T130: Auto-unblock queued jobs immediately when their dependencies merge and push](handoff/H146-auto-unblock-queued-jobs.md) — status: open; for: either
 
 <!-- end of open list -->
 
@@ -43,6 +42,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 Full entries in [handoff-archive.md](handoff-archive.md).
 
+- H146 — T130: Auto-unblock queued jobs immediately when their dependencies merge and push. Resolved: merged into main by the integrator, 2026-11-24.
 - H137 — T123: Move array live preview before click and amend after click. Resolved: merged into main by the integrator, 2026-11-24.
 - H144 — T129: Improve `tools/usage.py holes` diagnostics (line-range overlap, full transcript sizes, phase & tail-turn burn). Resolved: merged into main by the integrator, 2026-11-24.
 - H138 — T124: Auto-set document units from first typed length with an explicit unit. Resolved: merged into main by the integrator, 2026-11-24.
