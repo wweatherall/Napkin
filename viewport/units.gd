@@ -276,6 +276,39 @@ static func default_unit_of(spec: String) -> String:
 	return parsed["unit"] if parsed.ok else FORMATS[parse_spec(DEFAULT_SPEC)["format"]]["unit"]
 
 
+static func detect_typed_spec(text: String) -> String:
+	"""Infer a canonical display unit spec from the first explicit unit in a typed length or pair (T124, I67).
+	Returns '' for bare numbers, array counts (3x, /3), or strings without a recognized unit suffix."""
+	var raw := text.strip_edges().to_lower()
+	if raw.is_empty(): return ""
+	if _rx("^(?:[0-9]+x|[x*][0-9]+|/[0-9]+)$").search(raw) != null: return ""
+	var unit_re := _rx("(?<![a-z_0-9.])((?:\\d+\\s+)?\\d+\\s*/\\s*\\d+|(?:\\d+\\.\\d*|\\.\\d+)|\\d+|\\))\\s*(mm|cm|ft|in|m|\"|')(?![a-z_])")
+	for part in raw.split(",", true):
+		var matches := unit_re.search_all(part)
+		if matches.is_empty(): continue
+		var first_spec := ""
+		var has_ft := false
+		for m in matches:
+			var num: String = m.get_string(1)
+			var u: String = m.get_string(2)
+			if u in ["ft", "'"]:
+				has_ft = true
+				if first_spec == "": first_spec = "ft-in:1/16"
+			elif first_spec == "":
+				match u:
+					"in", "\"":
+						var is_dec := num.contains(".") and not num.contains("/")
+						first_spec = "in-dec:0.01" if is_dec else "in-frac:1/16"
+					"mm": first_spec = "mm:0.1"
+					"cm": first_spec = "cm:0.1"
+					"m": first_spec = "m:0.01"
+		if has_ft and first_spec in ["in-frac:1/16", "in-dec:0.01", "ft-in:1/16"]:
+			return "ft-in:1/16"
+		if first_spec != "":
+			return first_spec
+	return ""
+
+
 static func precision_label(fmt: String, prec: String) -> String:
 	if fmt in ["ft-in", "in-frac", "in-dec"]: return prec + "\""
 	return prec + " " + fmt

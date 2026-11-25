@@ -9,6 +9,7 @@ extends Node
 ## new selection.
 
 const Units := preload("res://units.gd")
+const FIRST_UNIT_PROMPT := "Include a unit on your first length (e.g. 4\" or 100mm); future lengths use that system (change in Preferences)."
 
 var m                               # main.gd: tools, tool, ui_sync, client, doc, model_path, seq, UI styling
 var vcb := ""                       # the text typed so far
@@ -23,6 +24,7 @@ var settings_path := ""             # user://settings.cfg in the app; "" in test
 var pref_default_units := ""        # from preferences.json units.default (I62, I63); "" if not set
 var units_dirty := false            # local choice not yet acknowledged by the worker (resent on reconnect)
 var units_user_set := false         # user picked units for this model before its open reply arrived
+var units_explicit := false         # true once units came from saved Meta, Units menu, or first typed explicit unit (I67)
 var units_pending_rev := 0          # revision a set_units reply said it will save as (resent if worker restarts unsaved)
 var units_seq := 0                  # numbers set_units requests; stale replies are ignored
 
@@ -39,6 +41,7 @@ func init_units(cfg_path := "", fallback := Units.DEFAULT_SPEC) -> void:
 	units = default_units()
 	units_dirty = false
 	units_user_set = false
+	units_explicit = false
 	units_pending_rev = 0
 
 
@@ -53,6 +56,17 @@ func default_units() -> String:
 			var saved := Units.parse_spec(String(cfg.get_value("units", "last", "")))
 			if saved.ok: return saved.spec
 	return fallback_spec
+
+
+func has_saved_default_units() -> bool:
+	"""True if test isolation (no settings_path), a valid preference default, or a saved last-used unit exists (I70)."""
+	if settings_path == "": return true
+	if pref_default_units != "":
+		if Units.parse_spec(pref_default_units).ok: return true
+	var cfg := ConfigFile.new()
+	if cfg.load(settings_path) == OK:
+		if Units.parse_spec(String(cfg.get_value("units", "last", ""))).ok: return true
+	return false
 
 
 func _remember_units(spec: String) -> void:
@@ -97,6 +111,7 @@ func set_units(spec: String, from_user := true) -> bool:
 	units = parsed.spec
 	if from_user:
 		units_user_set = true
+		units_explicit = true
 		_remember_units(units)
 	units_dirty = true
 	_notify_units_changed()
@@ -116,6 +131,7 @@ func reset_for_model() -> void:
 	"""Switching models: forget the old model's in-flight units request and start from last units used."""
 	units_seq += 1
 	units_user_set = false
+	units_explicit = false
 	units_dirty = false
 	units_pending_rev = 0
 	units = default_units()
@@ -124,36 +140,40 @@ func reset_for_model() -> void:
 
 func on_opened(resp: Dictionary, adopt := true) -> void:
 	"""Model opened: adopt its saved units unless the user already picked units meanwhile; if none saved (new or
-	pre-T66 / unreadable file, I62), keep last units used and save them to the model."""
+	pre-T66 / unreadable file, I62/I67), keep last units used without locking so the first typed length with an
+	explicit unit can set them."""
 	if not adopt:
 		if units_user_set: _send_units()
 		return
 	if units_user_set:
+		units_explicit = true
 		_send_units()
 		return
 	var saved := Units.parse_spec(String(resp.get("units", "")))
 	if saved.ok:
 		units = saved.spec
+		units_explicit = true
 		units_dirty = false
 		units_pending_rev = 0
 		_notify_units_changed()
 	else:
-		units_dirty = true
-		_send_units()
+		units_explicit = false
+		units_dirty = false
 
 
 func on_reloaded(resp: Dictionary) -> void:
-	"""Outside save reloaded (A36): take the units from FreeCAD's file (or save ours if the file has none)."""
+	"""Outside save reloaded (A36): take the units from FreeCAD's file (or leave unset if the file has none)."""
 	units_user_set = false
 	var saved := Units.parse_spec(String(resp.get("units", "")))
 	if saved.ok:
 		units = saved.spec
+		units_explicit = true
 		units_dirty = false
 		units_pending_rev = 0
 		_notify_units_changed()
 	else:
-		units_dirty = true
-		_send_units()
+		units_explicit = false
+		units_dirty = false
 
 
 func on_set_units_reply(resp: Dictionary) -> void:
@@ -221,6 +241,25 @@ func stop_typing() -> void:
 	if typing: typing = false; update()
 
 
+func _adopt_typed_units(raw_txt: String) -> bool:
+	"""If this model has no explicit units yet, adopt the explicit unit from the first valid typed length (I67).
+	If the user has never chosen a unit (no preference default or saved last-used unit) and typed a bare number,
+	prompt for a unit without committing (I70). Otherwise a bare first typed length locks the current default units."""
+	if units_explicit: return true
+	var detected := Units.detect_typed_spec(raw_txt)
+	if detected != "":
+		set_units(detected, true)
+		return true
+	if not has_saved_default_units():
+		if m != null and m.ui_sync != null:
+			m.ui_sync.text = FIRST_UNIT_PROMPT
+		return false
+	units_explicit = true
+	units_dirty = true
+	if _is_opened(): _send_units()
+	return true
+
+
 func apply() -> void:
 	var tool: String = m.tool
 	var active = m.tools[tool]
@@ -246,13 +285,14 @@ func apply() -> void:
 			var here := Units.evaluate_pair(txt, du) if tool == "rect" else Units.evaluate_length(txt, du)
 			if here.ok:
 				length_pending = {}
-				active.typed("%.12f,%.12f" % [here.a_mm, here.b_mm] if tool == "rect" else ("%.12f" % here.mm) + suffix)
+				if _adopt_typed_units(txt):
+					active.typed("%.12f,%.12f" % [here.a_mm, here.b_mm] if tool == "rect" else ("%.12f" % here.mm) + suffix)
 			elif texts.size() != (2 if tool == "rect" else 1):
 				m.ui_sync.text = "Enter two lengths separated by a comma"
 			else:
 				length_id += 1
 				length_pending = {"id": length_id, "tool": tool, "model": m.model_path, "seq": m.seq,
-					"state": active.state.duplicate(true), "suffix": suffix}
+					"state": active.state.duplicate(true), "suffix": suffix, "raw_txt": txt}
 				m.client.send({"cmd": "length", "id": length_id, "texts": Array(texts), "default_unit": du})
 				m.ui_sync.text = "Evaluating length…"
 	update()
@@ -267,6 +307,9 @@ func on_length(resp: Dictionary) -> void:
 	if m.tools[tool].state != pending.state: return
 	if not resp.get("ok", false):
 		m.ui_sync.text = "Length: " + str(resp.get("error", "Invalid input"))
+		return
+	if not _adopt_typed_units(String(pending.get("raw_txt", ""))):
+		update()
 		return
 	var values := PackedStringArray()
 	for value in resp.values: values.append("%.12f" % float(value))
