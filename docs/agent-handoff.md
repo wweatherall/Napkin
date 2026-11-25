@@ -36,7 +36,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H130 — T84 step 2: Polygon tool (toolbar button without hotkey, exact FreeCAD sketch polygon)](handoff/H130-t84-polygon-tool.md) — status: queued (after H129); for: either
 - [H137 — T123: Move array live preview before click and amend after click](handoff/H137-t123-move-array-live-preview.md) — status: open; for: either
 - [H141 — T127: Enter and edit components, and Component Properties window (prioritizing critical dimensions and linked measurements)](handoff/H141-t127-components-and-properties.md) — status: queued (after H126); for: either
-- [H144 — T129: Improve `tools/usage.py holes` diagnostics (line-range overlap, full transcript sizes, phase & tail-turn burn)](handoff/H144-t129-usage-holes-diagnostics.md) — status: open; for: either
+- [H144 — T129: Improve `tools/usage.py holes` diagnostics (line-range overlap, full transcript sizes, phase & tail-turn burn)](handoff/H144-t129-usage-holes-diagnostics.md) — status: answered; for: either
 
 <!-- end of open list -->
 

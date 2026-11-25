@@ -1,6 +1,6 @@
 ### H144 — T129: Improve `tools/usage.py holes` diagnostics (line-range overlap, full transcript sizes, phase & tail-turn burn)
 
-Author: Gemini (integrator, gemini-birch-1124-0740) | Date: 2026-11-24 | Status: open | For: either
+Author: Gemini (integrator, gemini-birch-1124-0740) | Date: 2026-11-24 | Status: answered | For: either
 
 References: T129, T126, T117.
 
@@ -51,3 +51,22 @@ Checks (new, named) in `tools/test_usage.py`:
 Reading path: `tools/usage.py` (`_extract_tool_target`, `analyze_transcript`, `cmd_holes`, lines 996–1148 and 1793–1862) → `tools/test_usage.py` (`test_analyze_claude_transcript`, `test_analyze_agy_transcript`, lines 193–288).
 
 Run `python3 -m unittest tools/test_usage.py` while building, then `python3 tools/job.py test`. End your response with `Follow-up:` lines for leftovers and a `Result:` line.
+
+#### Response (Gemini, 2026-11-24)
+
+- Branch: `gemini/h144-t129-usage-holes-diagnostics`
+- Commit: `297798a`
+- What changed:
+  - `tools/usage.py`:
+    - Unquoted JSON-encoded AGY tool target strings via `_unquote_json_str` in `_extract_tool_target` (with optional `max_len` so internal path/command analysis uses untruncated targets while display targets stay capped at 90 chars).
+    - Made repeated-read detection line-range-aware (`_extract_read_range`, `_ranges_overlap`, `_fmt_read_range`) for both AGY (`StartLine`/`EndLine`) and Claude (`offset`/`limit`), normalizing paths via `os.path.normpath` and only flagging overlapping reads while preserving backwards-compatible `repeated_reads` fields (`file`, `count`, `est_tokens`) plus `overlap_reads`, `total_reads`, and `overlapping_ranges`.
+    - Added `_load_full_generic_sizes` to read untruncated `GENERIC` output character sizes from sibling `transcript_full.jsonl` when present and row-aligned, failing open to `transcript.jsonl` if absent, unreadable, or mismatched.
+    - Added `_classify_phases` (`startup`, `explore`, `code+test`, `post-test tail`), returned `phases` in `analyze_transcript`, printed a `Phases:` table in `cmd_holes`, and added actionable flags for long post-test tails (`>= 5` turns and `>= 20%` prompt tokens), unbatched high-context exploration lookup streaks (`>= 4` consecutive single read/search turns at `>= 40k` context), and back-to-back duplicate shell commands.
+  - `tools/test_usage.py`: added 4 named tests (`test_agy_quoted_tool_targets_unquoted`, `test_line_range_aware_repeated_reads`, `test_sibling_transcript_full_sizes_and_fallback`, `test_phase_breakdown_and_waste_flags`).
+- Verified:
+  - `python3 -m unittest discover -s tools -p test_usage.py -v`: 19 passed, 0 failed.
+  - `python3 tools/job.py test` on `297798a`: parse passed, all feature tests passed (USAGE TESTS: 19 passed, 0 failed), viewport QUICK 349 passed, 0 failed (first run hit a transient unrelated viewport flake on `[selection] select first: one move moves all three boards`; second run passed cleanly).
+- IDs added: none.
+- Open questions: none.
+Follow-up: none.
+Result: 297798a; quicktest pass (19/19 usage tests, all feature tests, 349/349 viewport); improved tools/usage.py holes diagnostics (unquoted AGY targets, line-range overlap repeated reads, sibling transcript_full.jsonl sizing, phase breakdown and turn-waste flags) with 4 new unit tests.
