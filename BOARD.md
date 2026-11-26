@@ -65,7 +65,6 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H148 | either | **Done**: for review (claude) | T144 step 1: a corner fillet radius too big for its edges says why | [H148](docs/handoff/H148-t144-fillet-too-big-status.md) |  |
 
 <!-- end of job table -->
 

@@ -169,6 +169,15 @@ func _angled_corner() -> void:
 	await harness._key(KEY_ESCAPE)
 	await harness._click_at(Vector3(60, 0.25, 0))
 	await harness._click_at(Vector3(54, 72, 0))
+	var corner: Dictionary = m.tools.arc.state.get("corner", {})
+	var largest: float = minf(corner.from.length(), corner.to.length()) * tan(corner.half_angle) \
+		if not corner.is_empty() else 0.0
+	var ops_before: int = m.ops.size()
+	await harness._type("5000r\n")
+	harness._ok("a fillet radius too big for the corner says the largest that fits",
+		m.ops.size() == ops_before and m.tools.arc.busy()
+		and m.ui_sync.text == "Radius must be at most %s for this corner" % m.tool_ctx.ui.format_length(largest),
+		[m.ui_sync.text, largest])
 	await harness._type("50r\n")
 	var arc: Dictionary = m.ops.back()
 	tangent_mid = Vector3(100, 50, 0) - Vector3(2, 1, 0).normalized() * 50.0
@@ -176,6 +185,22 @@ func _angled_corner() -> void:
 		arc.type == "arc" and _xyz(arc.plane.origin).distance_to(Vector3(100, 0, 0)) < 0.001
 		and _xyz(arc.end).distance_to(Vector3(60, 80, 0)) < 0.001
 		and _xyz(arc.mid).distance_to(tangent_mid) < 0.001, arc)
+	await harness._wait_confirm()
+	# The same corner afresh: 90 is its largest radius, computed a hair under in floats.
+	await harness._fresh("arc_largest_fillet")
+	await harness._view(Vector3(75, 55, 0), -25, -55, 0.7)
+	await harness._key(KEY_L)
+	for point in [Vector3.ZERO, Vector3(180, 0, 0), Vector3(120, 160, 0), Vector3.ZERO]:
+		await harness._click_at(point)
+	await harness.get_tree().physics_frame
+	await harness._key(KEY_A)
+	await harness._click_at(Vector3(60, 0.25, 0))
+	await harness._click_at(Vector3(54, 72, 0))
+	await harness._type("90r\n")
+	arc = m.ops.back()
+	harness._ok("typing the largest radius the message names places the fillet",
+		arc.type == "arc" and _xyz(arc.plane.origin).distance_to(Vector3(180, 0, 0)) < 0.001
+		and _xyz(arc.end).distance_to(Vector3(108, 144, 0)) < 0.001, [arc, m.ui_sync.text])
 	await harness._wait_confirm()
 
 
