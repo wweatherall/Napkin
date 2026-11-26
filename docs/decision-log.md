@@ -40,7 +40,7 @@ One subject per decision; the Decisions column is generated.
 | Product | What Shop Sketch is for and the feel it aims at. | I01, P04, P51 |
 | Architecture | The processes, the worker link, the app and the code's main boundaries. | A02, A03, A06, A08, A09, A27, A29, A30, A31, A33b, A34, A35, A40, W13 |
 | Files, saving and undo | The .FCStd model and its journal, saving, opening, undo and redo. | A21, A23, A24, A25, A28, A32, A36, A37, A38, A39, I38, I42, I54, I55, U01, U02, U03 |
-| Drawing tools | Rectangle, Circle, Line: how a drawing gesture starts, follows and ends. | I02, I04b, I09, I11, I43, I44, I49, I50, I51, I58, I60, I61, I64, I65 |
+| Drawing tools | Rectangle, Circle, Line: how a drawing gesture starts, follows and ends. | I02, I04b, I09, I11, I43, I44, I49, I50, I51, I58, I60, I61, I64, I65, I71, I72 |
 | Push/Pull | Extruding, cutting, and fitting a board's end to another board. | I05, I08, I23, I24, I34, I40, I41, I45, I56 |
 | Move, copies and arrays | Move, linked copies, arrays, mirrors, components and assemblies. | A10, A11b, A22c, A26, I10, I12c, I13b, I14, I15, I16, I17, I20, I21, I25, I28, I32, I46, I52, I53, I66, I69 |
 | Snapping | Points, edges, axes and the grid, shared by every tool. | I03b, I18, I19 |
@@ -59,7 +59,7 @@ Each states one idea; Explains (generated) lists the decisions that name it. Wil
 |---|---|---|---|---|
 | G01 | Feel first: a draft appears the moment you act and input never waits on FreeCAD; FreeCAD catches up and the wave confirms it. | Active | A02, A06, A08, A23, A24, A27, A28, A29, I01, I11, I16, I17, I23, I43, I44, I45, I68, W01, W02, W03, W04, W07, W09 | 2026-11-22 |
 | G02 | The .FCStd file is the model: every action becomes ordinary, editable FreeCAD features, and Shop Sketch is a view of them. | Active | A05, A07, A09, A21, A23, A25, A26, D01, D02, I36, I37, I42, I68, M01, M02, M03, P04, P06 | 2026-11-22 |
-| G03 | Work as SketchUp does, and as a Mac app does, unless there's a reason not to; a decision that departs from SketchUp says why. | Active | A06, A30, I01, I02, I04b, I05, I09, I10, I14, I18, I22, I28, I30, I31, I37, I38, I49, I50, I51, I58, I59, I60, I61, I62, I64, I65, I66, I67, I69, I70, P04, W14 | 2026-11-22 |
+| G03 | Work as SketchUp does, and as a Mac app does, unless there's a reason not to; a decision that departs from SketchUp says why. | Active | A06, A30, I01, I02, I04b, I05, I09, I10, I14, I18, I22, I28, I30, I31, I37, I38, I49, I50, I51, I58, I59, I60, I61, I62, I64, I65, I66, I67, I69, I70, I71, I72, P04, W14 | 2026-11-22 |
 | G04 | Relationships stay live: copies, arrays, mirrors and fits follow later edits, and you can detach one on purpose. | Active | A10, A11b, A22c, A26, I21, I24, I25, I28, I32, I34, I40, I41, I46, I52, I53, I69 | 2026-11-22 |
 | G05 | One key per idea, meaning the same thing in every tool. | Active | I03b, I12c, I15, I20, I33, I48, I50, I56 | 2026-11-22 |
 | G06 | Typed values follow what you're doing: the direction you drag, and the model's units for a bare number; any unit you type, written however you write it, is understood. | Active | I02, I13b, I14, I19, I35, I57, I59, I62, I63, I65, I66, I67, I70 | 2026-11-22 |
@@ -142,6 +142,8 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | I61 | An arc started on a corner, where two edges of a face or profile meet, defaults to tangent to both edges (a rounded corner); FreeCAD's own fillet on a board's edges is a separate item (after edge selection). | Active | Builds on the Arc tool (T83) | Your call, 2026-11-22: 'If you make an arc on the corner, it should default to tangency', and FreeCAD's fillet later. | G03 | Not built: T83 step 2 (H086) | 2026-11-22 |
 | I64 | Rotated Rectangle and Polygon (T84): pressing R again while Rectangle is active toggles Rectangle and Rotated Rectangle (click start, click end of first edge, drag perpendicular width; hint and tip name the active mode, like Arc's I60 toggle). Polygon is its own toolbar button with no keyboard shortcut for now (Q33), default 6 sides (typed Ns like 8s), drawn from centre and radius as an exact regular polygon in a FreeCAD sketch like Circle (T81). | Active | Builds on I49, I60; opens Q33 | William, 2026-11-23: R again for Rotated Rectangle; Polygon as a button with no hotkey yet and exact FreeCAD sketch geometry like Circle. | G03 | T84 | 2026-11-23 |
 | I65 | Numbers typed after creating a rectangle, before any other action, alter that rectangle's dimensions (keeping its origin, plane and direction signs), just as after-the-fact typing amends a Move (I14). | Active | Matches I14 | William, 2026-11-24: after playing with Shop Sketch, typing dimensions right after placing a rectangle should resize it. | G03, G06 | viewport/tools/rect_tool.gd | 2026-11-24 |
+| I71 | A corner fillet radius too big for the corner's edges (typed 50r on a corner) leaves the arc unplaced and says why in the status line: 'Radius must be at most <largest that fits> for this corner', like the chord's 'Radius must be at least half the chord'. | Active | Builds on I61 | William, 2026-11-26: add a status line for it (follow-up H086). | G03 | viewport/tools/arc_tool.gd (typed) | 2026-11-26 |
+| I72 | A click that starts a Polygon gesture clears side-count digits typed before it and not entered, so a radius typed next starts from an empty box (an entered 8s still sets the sides). | Active | Builds on I64 | William, 2026-11-26: clear the box; starting a polygon has no other side effect (follow-up H130). | G03 | viewport/tools/polygon_tool.gd (click) | 2026-11-26 |
 
 ### Push/Pull
 
@@ -356,6 +358,7 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | T141 | William tries the Polygon tool by eye in a rebuilt app (tools/build_app.sh). | Open | T84 | Waiting on William: H130 merged 2026-11-25, not yet seen. |
 | T142 | A Work list item is marked Done automatically when the job (or last of its jobs) that covers all its parts merges: integrate.py checks the job's response covers every part of the item and sets the status, instead of leaving it Open with a Result. | Open | T91, P17, T130 | William, 2026-11-26: after seven items sat Open with merged results during the Gemini trial. To settle before a brief: how a job says it covers all of an item (a field in the brief, e.g. Completes: T122). |
 | T143 | Move tools/usage.py (2,760 lines, token benchmarking) and its tests out of the project's tools; where to, settle later. | Open | T126, T129 | William, 2026-11-26: later. |
+| T144 | Two tool follow-ups: a too-big corner fillet radius says why (H086's follow-up); Polygon's first click clears digits not entered (H130's follow-up). | Open | I61, I64 | Jobs written 2026-11-26. H148 (fillet message) and H149 (Polygon box) open, side by side; follow-ups H086 and H130 moved into them. |
 
 ## Tunables
 
