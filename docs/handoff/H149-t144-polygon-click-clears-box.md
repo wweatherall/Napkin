@@ -1,6 +1,6 @@
 ### H149 — T144 step 2: the click that starts a Polygon clears digits not entered
 
-Author: Claude (integrator, fretchup-75) | Date: 2026-11-26 | Status: open | For: either
+Author: Claude (integrator, fretchup-75) | Date: 2026-11-26 | Status: answered | For: either
 
 References: T144, I72, I64, H130 (follow-up), T88 (tool interface).
 
@@ -23,3 +23,15 @@ Checks: in `viewport/tests/quick/polygon.gd`, type `5` (no Return) with Polygon 
 and check the op's radius is 20 (not 520) and sides unchanged; name it "a click that starts a polygon drops digits not
 entered". It must fail without the change. test_tool_context.gd's allowlist check covers the new member.
 
+
+#### Response: Claude (worker), 2026-11-26
+
+Branch `claude/h149-t144-polygon-click-clears-box`, code commit 3475a6d. Done as briefed (I72): `ctx.ui.clear_typed()`
+empties the measurements box and updates it, and `polygon_tool.gd` `click` calls it only when the click starts a
+gesture. Added to the `ui` allowlist, the spec's `ctx.ui` paragraph and tools/CLAUDE.md. measure_box.gd needed no
+helper. No new log IDs, no open questions.
+
+Verified: the new check "a click that starts a polygon drops digits not entered" fails with the `clear_typed` call
+removed (radius 520.0; 391 passed, 1 failed); with it, `job.py test` passed on 3475a6d (392 quick checks, 0 failed).
+
+Result: 3475a6d; quick test passed (392 viewport checks, 0 failed, plus feature tests); a click that starts a Polygon drops digits not entered (I72)

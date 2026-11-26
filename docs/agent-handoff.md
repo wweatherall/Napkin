@@ -32,7 +32,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
 - [H148 — T144 step 1: a corner fillet radius too big for its edges says why](handoff/H148-t144-fillet-too-big-status.md) — status: open; for: either
-- [H149 — T144 step 2: the click that starts a Polygon clears digits not entered](handoff/H149-t144-polygon-click-clears-box.md) — status: open; for: either
+- [H149 — T144 step 2: the click that starts a Polygon clears digits not entered](handoff/H149-t144-polygon-click-clears-box.md) — status: answered; for: either
 
 <!-- end of open list -->
 
