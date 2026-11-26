@@ -328,9 +328,9 @@ class UiCapability extends _Capability:
 		"""What's in the measurements box so far."""
 		return _measure.vcb
 
-	func format_length(mm: float) -> String:
-		"""Format a length in mm in the model's display units (I57)."""
-		return _measure.format_length(mm) if _measure != null else Units.format_length(mm)
+	func format_length(mm: float, down := false) -> String:
+		"""Format a length in mm in the model's display units (I57); `down` rounds toward zero (a limit to type, I71)."""
+		return _measure.format_length(mm, down) if _measure != null else Units.format_length(mm, Units.DEFAULT_SPEC, 0, down)
 
 	func refresh_measurements() -> void:
 		_measure.update()

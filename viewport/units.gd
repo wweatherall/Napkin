@@ -344,8 +344,9 @@ static func _resolve_spec(system_or_spec: String, precision: int) -> Dictionary:
 	return {"ok": false}
 
 
-static func _format_fraction_inches(mm: float, denom: int, with_feet: bool) -> String:
-	var ticks := roundi(absf(mm) / 25.4 * float(denom) + 1e-9)
+static func _format_fraction_inches(mm: float, denom: int, with_feet: bool, down := false) -> String:
+	var exact_ticks := (absf(mm) + (ROUND_TOL_MM if down else 0.0)) / 25.4 * float(denom) + 1e-9   # down: noise within the tolerance stays the same size
+	var ticks := floori(exact_ticks) if down else roundi(exact_ticks)
 	var rounded_mm := float(ticks) * 25.4 / float(denom)
 	if mm < 0.0 and ticks > 0: rounded_mm = -rounded_mm
 	var approx := absf(mm - rounded_mm) > ROUND_TOL_MM
@@ -370,12 +371,13 @@ static func _format_fraction_inches(mm: float, denom: int, with_feet: bool) -> S
 	return ("~" + result) if approx else result
 
 
-static func _format_decimal(mm: float, factor: float, suffix: String, prec: String) -> String:
+static func _format_decimal(mm: float, factor: float, suffix: String, prec: String, down := false) -> String:
 	var dot := prec.find(".")
 	var dec := 0 if dot < 0 else (prec.length() - dot - 1)
 	var scale := pow(10.0, float(dec))
 	var val := mm / factor
-	var steps: float = round(absf(val) * scale + 1e-9)
+	var exact_steps := (absf(mm) + (ROUND_TOL_MM if down else 0.0)) / factor * scale + 1e-9
+	var steps: float = floorf(exact_steps) if down else roundf(exact_steps)
 	var rounded_abs: float = steps / scale
 	var rounded_mm: float = (-rounded_abs if (val < 0.0 and steps > 0.0) else rounded_abs) * factor
 	var approx := absf(mm - rounded_mm) > ROUND_TOL_MM
@@ -387,20 +389,21 @@ static func _format_decimal(mm: float, factor: float, suffix: String, prec: Stri
 	return ("~" + result) if approx else result
 
 
-static func format_length(mm: float, system_or_spec: String = DEFAULT_SPEC, precision: int = 0) -> String:
+static func format_length(mm: float, system_or_spec: String = DEFAULT_SPEC, precision: int = 0, down := false) -> String:
 	"""Format a length in mm for display (I57). Accepts a canonical spec ('ft-in:1/16', 'in-frac:1/16',
 	'in-dec:0.01', 'm:0.001', 'cm:0.1', 'mm:0.1') or legacy ('metric'/'imperial', denom). Prepends '~' when
-	rounding changed the length beyond ROUND_TOL_MM. Non-finite or invalid spec => ''."""
+	rounding changed the length beyond ROUND_TOL_MM; `down` rounds the size toward zero (a limit the user can type, I71).
+	Non-finite or invalid spec => ''."""
 	if not is_finite(mm): return ""
 	var spec := _resolve_spec(system_or_spec, precision)
 	if not spec.ok: return ""
 	var fmt: String = spec["format"]
 	var prec: String = spec["precision"]
 	match fmt:
-		"ft-in": return _format_fraction_inches(mm, int(prec.substr(2)), true)
-		"in-frac": return _format_fraction_inches(mm, int(prec.substr(2)), false)
-		"in-dec": return _format_decimal(mm, 25.4, "\"", prec)
-		"m": return _format_decimal(mm, 1000.0, " m", prec)
-		"cm": return _format_decimal(mm, 10.0, " cm", prec)
-		"mm": return _format_decimal(mm, 1.0, " mm", prec)
+		"ft-in": return _format_fraction_inches(mm, int(prec.substr(2)), true, down)
+		"in-frac": return _format_fraction_inches(mm, int(prec.substr(2)), false, down)
+		"in-dec": return _format_decimal(mm, 25.4, "\"", prec, down)
+		"m": return _format_decimal(mm, 1000.0, " m", prec, down)
+		"cm": return _format_decimal(mm, 10.0, " cm", prec, down)
+		"mm": return _format_decimal(mm, 1.0, " mm", prec, down)
 	return ""

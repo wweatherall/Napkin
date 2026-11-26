@@ -93,7 +93,7 @@ class FakeMeasure:
 	var vcb := ""
 	var unit_spec := "mm:1"
 	func update() -> void: updates += 1
-	func format_length(mm: float) -> String: return load("res://units.gd").format_length(mm, unit_spec)
+	func format_length(mm: float, down := false) -> String: return load("res://units.gd").format_length(mm, unit_spec, 0, down)
 
 
 class FakeClient:

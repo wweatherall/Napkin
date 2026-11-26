@@ -176,7 +176,7 @@ func _angled_corner() -> void:
 	await harness._type("5000r\n")
 	harness._ok("a fillet radius too big for the corner says the largest that fits",
 		m.ops.size() == ops_before and m.tools.arc.busy()
-		and m.ui_sync.text == "Radius must be at most %s for this corner" % m.tool_ctx.ui.format_length(largest),
+		and m.ui_sync.text == "Radius must be at most %s for this corner" % m.tool_ctx.ui.format_length(largest, true),
 		[m.ui_sync.text, largest])
 	await harness._type("50r\n")
 	var arc: Dictionary = m.ops.back()
