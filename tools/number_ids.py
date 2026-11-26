@@ -16,7 +16,7 @@ before the next: two branches merged together would share their I-new-N.
   python3 tools/number_ids.py --dry-run    print what it would do, change nothing
 
 "Next free" counts the IDs that are taken: the decision log's table rows and ### sections, in both its files
-(docs/decision-log.md and docs/decision-archive.md, P23), the ### headings of the
+(03_Past_Decisions/decision-log.md and 03_Past_Decisions/decision-archive.md, P23), the ### headings of the
 handoff, its archive and docs/handoff/, and the handoff files' names. Numbers are padded like the kind's
 existing IDs (A01, T7, H036)."""
 import os

@@ -174,13 +174,13 @@ def find_either(log, archive, ident):
 
 
 def report_ids(log, ids, archive=""):
-    """Lines for each ID asked for, from docs/decision-log.md or docs/decision-archive.md; returns (lines, unknown IDs)."""
+    """Lines for each ID asked for, from 03_Past_Decisions/decision-log.md or 03_Past_Decisions/decision-archive.md; returns (lines, unknown IDs)."""
     lines, unknown, wl = [], [], work_list_ids(log) | work_list_ids(archive, "Done work")
     for ident in ids:
         row, note = find_either(log, archive, ident)
         if row is None:
             unknown.append(ident)
-            lines.append(f"{ident}: not found in docs/decision-log.md or docs/decision-archive.md")
+            lines.append(f"{ident}: not found in 03_Past_Decisions/decision-log.md or 03_Past_Decisions/decision-archive.md")
             continue
         lines.append(f"== {ident}" + note)
         lines.append(row.strip() + details_note(row))
@@ -488,7 +488,7 @@ def role_brief(role):
             "Worker checklist (BOARD.md):",
             "  Guide: follow BOARD.md (and AGENTS.md / GEMINI.md for your agent); one job per session (P37).",
             "  Take: python3 tools/job.py take --as <claude|codex|gemini> (Gemini also passes --session <name>).",
-            "  Scope: work only in /Users/Will/Sites/fretchup-jobs/<id> and only on Touches; ask scope via job.py wait --scope.",
+            "  Scope: work only in ../.worktrees/<checkout>/<id> (P63) and only on Touches; ask scope via job.py wait --scope.",
             "  Done: run tools/quicktest.sh, record response + Result:, set Status: answered, run python3 tools/job.py done, tell William.",
         ]
     return []
@@ -587,7 +587,7 @@ def main(argv):
     job_ctx = worker_job_context(root, branch, texts)
     merge_info = interrupted_merge(root) if role != "worker" else None
 
-    log = git("show", "main:docs/decision-log.md", cwd=root) if (role != "worker" or ids) else ""
+    log = git("show", "main:03_Past_Decisions/decision-log.md", cwd=root) if (role != "worker" or ids) else ""
     if role != "worker":
         import handoff   # the open jobs' Touches lists, from main (P11): a file two open jobs both list
         clash = handoff.overlaps_in(texts)
@@ -641,10 +641,10 @@ def main(argv):
         print("\n".join(role_brief("worker")))
 
     if ids:
-        archive = git("show", "main:docs/decision-archive.md", cwd=root)
+        archive = git("show", "main:03_Past_Decisions/decision-archive.md", cwd=root)
         lines, unknown = report_ids(log, ids, archive)
         print()
-        print("Decision log (main:docs/decision-log.md, then main:docs/decision-archive.md):")
+        print("Decision log (main:03_Past_Decisions/decision-log.md, then main:03_Past_Decisions/decision-archive.md):")
         print("\n".join(lines))
         if unknown:
             return 1

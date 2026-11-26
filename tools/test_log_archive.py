@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Checks the decision log's two files (P23, T94): tidying into docs/decision-archive.md, the generated Subjects
+"""Checks the decision log's two files (P23, T94): tidying into 03_Past_Decisions/decision-archive.md, the generated Subjects
 index and principles' Explains, the checks across both files, numbering across both, startup.py's ID report,
 and integrate.py settling a branch written in the layout before P23. Prints PASS/FAIL per check and one summary
 line: LOG ARCHIVE TESTS: N passed, M failed."""
@@ -82,7 +82,7 @@ check("a decision with an empty Principles cell is reported", any("P01: no princ
 root = os.path.join(HERE, "..")
 rl = open(os.path.join(root, s.LIVE), encoding="utf-8").read()
 ra = open(os.path.join(root, s.ARCHIVE), encoding="utf-8").read()
-check("docs/decision-log.md and docs/decision-archive.md have no problems", s.check_files(rl, ra) == [])
+check("03_Past_Decisions/decision-log.md and 03_Past_Decisions/decision-archive.md have no problems", s.check_files(rl, ra) == [])
 check("the live file holds no Superseded, Decided or Done row",
       not any(c[2] in ("Superseded", "Decided", "Done") for c in (s.cells(l) for l in rl.split("\n") if s.row_id(l))))
 
@@ -90,6 +90,7 @@ check("the live file holds no Superseded, Decided or Done row",
 tmp = tempfile.mkdtemp()
 try:
     os.makedirs(os.path.join(tmp, "docs"))
+    os.makedirs(os.path.join(tmp, "03_Past_Decisions"))
     # the placeholders are IDs (H073): a Work list row and a principle row define them
     l2 = s.insert_row(live, "| T-new-1 | New item. | Open | Q1 | Next. |", "## Work list")
     l2 = s.insert_row(l2, "| G-new-1 | Keep it small. | Tentative |  | 2026-11-22 |", "## Principles")
@@ -106,7 +107,7 @@ lines, unknown = startup.report_ids(live, ["T1", "I18"], arch)
 check("startup finds an archived row and says so", "== T1" + startup.ARCHIVE_NOTE in lines and not unknown)
 check("a live row is reported without the archive note", "== I18" in lines)
 lines, unknown = startup.report_ids(live, ["Z9"], arch)
-check("an ID in neither file is unknown", unknown == ["Z9"] and "or docs/decision-archive.md" in lines[0])
+check("an ID in neither file is unknown", unknown == ["Z9"] and "or 03_Past_Decisions/decision-archive.md" in lines[0])
 
 # integrate.py: a branch in the old layout settles into the new one
 OLD_DH = DH.replace("Principles", "Area")
@@ -154,11 +155,12 @@ check("the integrator asked about no subject for it", asks == [])
 tmp = tempfile.mkdtemp()
 try:
     os.makedirs(os.path.join(tmp, "docs"))
+    os.makedirs(os.path.join(tmp, "03_Past_Decisions"))
     open(os.path.join(tmp, s.LIVE), "w").write(live)
     open(os.path.join(tmp, s.ARCHIVE), "w").write(arch)
     msg = integrate.set_status(tmp, "T2", "Done")
     l2, a2 = (open(os.path.join(tmp, p)).read() for p in (s.LIVE, s.ARCHIVE))
-    check("--status T2=Done moves it to the archive and says so", "moved to docs/decision-archive.md" in msg
+    check("--status T2=Done moves it to the archive and says so", "moved to 03_Past_Decisions/decision-archive.md" in msg
           and "| T2 " not in l2 and "| T2 | Faster. | Done |" in a2)
     msg = integrate.set_status(tmp, "T2", "In progress")
     check("--status on an archived item changes it there, nothing moves", "moved" not in msg

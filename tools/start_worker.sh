@@ -1,6 +1,6 @@
 #!/bin/bash
 # Opens a Terminal window running a Claude worker with Remote Control (F005, P38): the same as typing
-#   cd ~/Sites/fretchup ; claude ; /remote-control ; Check the board
+#   cd <this checkout> ; claude ; /remote-control ; Check the board
 # so you can follow it, or answer it, from the Claude app on your phone. One job, then it asks for a /clear (P37).
 #   tools/start_worker.sh [name]     name shown in the Claude app (default worker-HHMM)
 # DRY_RUN=1 prints the command instead of opening the window. The first run may ask you to let Terminal be

@@ -11,7 +11,7 @@
   `git commit`) require running outside the sandbox (`BypassSandbox: true`).
 - "Check the board": follow [BOARD.md](BOARD.md) with `--as codex` (your branch: `codex/<id>-<slug>`). Nothing
   Ready and you can't wait in the background: say so and stop.
-- Work only in the job's worktree; never switch branches in /Users/Will/Sites/fretchup (Claude's). Merge main into
+- Work only in the job's worktree; never switch branches in /Users/Will/Sites/Organization/08_Code_Bases/Napkin (Claude's). Merge main into
   an open job's branch at least daily. Workers never merge into main or push (P16); only the integrator merges and
   pushes (docs/integrator.md, P49).
 - A brief's rule that, followed to the letter, would defeat its purpose: do what serves it and add a

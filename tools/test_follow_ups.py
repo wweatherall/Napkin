@@ -49,7 +49,7 @@ def repo(n="060"):
     root = tempfile.mkdtemp(prefix="follow-ups-test-")
     sh(root, "git", "init", "-q", "-b", "main")
     sh(root, "git", "config", "user.email", "t@example.invalid"); sh(root, "git", "config", "user.name", "t")
-    write(root, "docs/decision-log.md", "# Log\n\n## Work list\n\n| # | Item | Status | Covers | Notes |\n"
+    write(root, "03_Past_Decisions/decision-log.md", "# Log\n\n## Work list\n\n| # | Item | Status | Covers | Notes |\n"
           "|---|---|---|---|---|\n| T7 | a tool | Open | P20 | |\n")
     write(root, "docs/agent-handoff.md", "# Handoff\n\n## Open exchanges\n\n<!-- open list: built from docs/handoff/ by "
           "tools/handoff.py; don't edit by hand -->\n\n(none open)\n\n<!-- end of open list -->\n\n## Archived\n")
@@ -183,7 +183,7 @@ check("a placeholder entry's follow-up is recorded under its number, not 'H'",
       rc == 0 and len(fu) == 1 and re.match(r"- H\d+ \(", fu[0]) and fu[0].endswith(": a leftover"), (read(root, FU) or "") + said)
 num = fu[0].split()[1] if fu else "?"
 check("... its Result goes into its item's row, committed under that number",
-      "Result (abc1234" in read(root, "docs/decision-log.md") and f"T7 ({num})" in sh(root, "git", "log", "-1", "--format=%s").stdout, said)
+      "Result (abc1234" in read(root, "03_Past_Decisions/decision-log.md") and f"T7 ({num})" in sh(root, "git", "log", "-1", "--format=%s").stdout, said)
 check("... and it is archived under that number", f"### {num} — T7" in read(root, "docs/handoff-archive.md")
       and not os.listdir(os.path.join(root, "docs/handoff")), said)
 shutil.rmtree(root)

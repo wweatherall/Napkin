@@ -13,7 +13,7 @@ Implementation below was checked against `main` at `950a030`; later feature bran
 | What development workflow and test commands apply? | [CLAUDE.md](CLAUDE.md); Codex-specific instructions in [AGENTS.md](AGENTS.md) |
 | What local rules, traps and tests apply to this part? | [Worker guide](worker/CLAUDE.md), [viewport guide](viewport/CLAUDE.md), [tool guide](viewport/tools/CLAUDE.md) |
 | How do components fit together; who owns state and durable data? | This architecture map |
-| What has William approved, and what work is open or done? | [Decision log](docs/decision-log.md) (live) and [its archive](docs/decision-archive.md) (history), edited directly in the repo (P09, P23) |
+| What has William approved, and what work is open or done? | [Decision log](03_Past_Decisions/decision-log.md) (live) and [its archive](03_Past_Decisions/decision-archive.md) (history), edited directly in the repo (P09, P23) |
 | What does the other agent need to know about a delivery? | [Handoff](docs/agent-handoff.md) (rules and open list; each open entry a file in docs/handoff/, T77); resolved exchanges in its archive |
 | What is proposed, and what native capabilities could support it? | [Suggestions](<Codex's suggestions.md>), [design specs](docs/specs/U01-history.md), [FreeCAD feature map](FREECAD_FEATURE_MAP.md) |
 
@@ -330,7 +330,7 @@ For FreeCAD transaction/Draft/boolean traps and viewport drawing rules, use the 
 ## Planned boundaries
 
 Current owners are in the component and state tables above. The remaining proposals live in the
-[decision log Work list](docs/decision-log.md#work-list): T35–T36 for durable branching history,
+[decision log Work list](03_Past_Decisions/decision-log.md#work-list): T35–T36 for durable branching history,
 [Window ↔ worker protocol](docs/protocol.md) is the comprehensive reference (T44); T50 covers explicit worker imports.
 T39/T41/T42/T43/T51 are represented by the existing controllers, worker modules, folder guides and test suites.
 See [U01](docs/specs/U01-history.md) for the history design; proposals do not describe implemented behaviour.

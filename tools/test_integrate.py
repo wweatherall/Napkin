@@ -34,7 +34,8 @@ def repo():
     sh(root, "git", "init", "-q", "-b", "main")
     sh(root, "git", "config", "user.email", "t@example.invalid"); sh(root, "git", "config", "user.name", "t")
     os.makedirs(os.path.join(root, "docs", "handoff"))
-    open(os.path.join(root, "docs", "decision-log.md"), "w").write("# Log\n\n## Work list\n\n| # | Item | Status |\n|---|---|---|\n| T1 | a | Open |\n")
+    os.makedirs(os.path.join(root, "03_Past_Decisions"))
+    open(os.path.join(root, "03_Past_Decisions", "decision-log.md"), "w").write("# Log\n\n## Work list\n\n| # | Item | Status |\n|---|---|---|\n| T1 | a | Open |\n")
     open(os.path.join(root, "docs", "agent-handoff.md"), "w").write("# Handoff\n\n## Open exchanges\n\n<!-- open list: built from docs/handoff/ by tools/handoff.py; don't edit by hand -->\n\n(none open)\n\n<!-- end of open list -->\n\n## Archived\n")
     open(os.path.join(root, "docs", "handoff-archive.md"), "w").write("# Archive\n")
     open(os.path.join(root, "notes.md"), "w").write("one\n")
@@ -366,7 +367,7 @@ with trace_steps() as (calls, states):
 check("main runs every named step in documented order", rc == 0 and calls == MERGE_ORDER + FINISH_ORDER, calls)
 check("each step takes and returns the same run state", len({id(s) for s in states}) == 1)
 check("the ordered run gates, commits, and records the merge result",
-      "GATE PASS" in said and "Result (abc1234, merged" in open(os.path.join(root, "docs/decision-log.md")).read()
+      "GATE PASS" in said and "Result (abc1234, merged" in open(os.path.join(root, "03_Past_Decisions/decision-log.md")).read()
       and not os.path.exists(integrate.state_file(root)), said)
 shutil.rmtree(root)
 
@@ -390,7 +391,7 @@ check("continue runs only validation and the shared steps after the pause",
       and len({id(s) for s in states}) == 1 and not os.path.exists(integrate.state_file(root)), said + str(calls))
 check("continue includes the reviewed map and records the merge result",
       "Updated after review." in sh(root, "git", "show", "HEAD:ARCHITECTURE.md").stdout
-      and "Result (abc1234, merged" in open(os.path.join(root, "docs/decision-log.md")).read(), said)
+      and "Result (abc1234, merged" in open(os.path.join(root, "03_Past_Decisions/decision-log.md")).read(), said)
 shutil.rmtree(root)
 
 root = ordered_repo(gate_rc=1)
@@ -498,7 +499,7 @@ shutil.rmtree(root)
 #    instead of the word diff of the whole Work list row (H104).
 root = repo()
 old_history = "Long pre-existing T1 history paragraph that should not be reprinted at merge."
-write(root, "docs/decision-log.md",
+write(root, "03_Past_Decisions/decision-log.md",
       f"# Log\n\n## Work list\n\n| # | Item | Status | Notes |\n|---|---|---|---|\n"
       f"| T1 | a | Open | {old_history} |\n"
       f"| T2 | b | Open | |\n")
@@ -530,7 +531,7 @@ check("result step prints the commit's oneline after the summary lines, with no 
       f"integrate: committed {result_oneline}" in out_lines
       and out_lines.index(expected_long_line) < out_lines.index(f"integrate: committed {result_oneline}")
       and "{+" not in said and old_history not in said, said)
-log_now = open(os.path.join(root, "docs/decision-log.md")).read()
+log_now = open(os.path.join(root, "03_Past_Decisions/decision-log.md")).read()
 check("the result commit itself still writes the full uncut Result text to the Work list row",
       f"Result (1111aaa, merged {merge_sha}): {long_text}." in log_now
       and f"Result (2222bbb, merged {merge_sha}): {short_text}." in log_now, log_now)
@@ -813,7 +814,7 @@ sh(ub_base, "git", "clone", "-q", ub_bare, ub_root)
 sh(ub_root, "git", "config", "user.email", "t@example.invalid"); sh(ub_root, "git", "config", "user.name", "t")
 sh(ub_root, "git", "checkout", "-qb", "main")
 os.makedirs(os.path.join(ub_root, "docs", "handoff"))
-write(ub_root, "docs/decision-log.md", "# Log\n\n## Work list\n\n| # | Item | Status |\n|---|---|---|\n| T126 | a | Open |\n")
+write(ub_root, "03_Past_Decisions/decision-log.md", "# Log\n\n## Work list\n\n| # | Item | Status |\n|---|---|---|\n| T126 | a | Open |\n")
 write(ub_root, "docs/handoff-archive.md", "# Archive\n")
 write(ub_root, "docs/handoff/H126-blocker.md",
       "### H126 — T126: blocker\n\nAuthor: Codex | Date: 2026-11-24 | Status: open | For: either\n\nTouches: notes.md.\n")

@@ -391,15 +391,19 @@ def classify_claude_role(row, repo):
     """Classify a Claude session row as ('integrator', None) or ('worker', job_id) or ('other', None)."""
     cwd = os.path.realpath(row.get("cwd") or "") if row.get("cwd") else ""
     repo_real = os.path.realpath(repo)
-    jobs_dir = os.path.realpath(os.path.join(os.path.dirname(repo_real), os.path.basename(repo_real) + "-jobs"))
+    parent, name = os.path.dirname(repo_real), os.path.basename(repo_real)
+    # Job worktrees: ../.worktrees/<checkout>/<id> (P63); before the move, ../<checkout>-jobs/<id>.
+    jobs_dirs = [os.path.realpath(os.path.join(parent, ".worktrees", name)),
+                 os.path.realpath(os.path.join(parent, name + "-jobs"))]
     if not cwd:
         return "unknown", None
     if cwd == repo_real or cwd.startswith(repo_real + os.sep):
         return "integrator", None
-    if cwd == jobs_dir or cwd.startswith(jobs_dir + os.sep):
-        rel = os.path.relpath(cwd, jobs_dir).split(os.sep)[0]
-        m = re.match(r"^(h\d+)$", rel, re.I)
-        return "worker", (m.group(1).upper() if m else rel.upper())
+    for jobs_dir in jobs_dirs:
+        if cwd == jobs_dir or cwd.startswith(jobs_dir + os.sep):
+            rel = os.path.relpath(cwd, jobs_dir).split(os.sep)[0]
+            m = re.match(r"^(h\d+)$", rel, re.I)
+            return "worker", (m.group(1).upper() if m else rel.upper())
     base = os.path.basename(cwd)
     m = re.match(r"^fretchup-(h\d+)$", base, re.I)
     if m:
@@ -587,7 +591,7 @@ def classify_agy_transcript(path, conv_id=None):
                 m = re.search(r"(gemini-[a-z0-9-]+)", tstr)
                 if m:
                     session_name = m.group(1)
-            if "job.py take" in tstr or "fretchup-jobs/" in tstr:
+            if "job.py take" in tstr or "fretchup-jobs/" in tstr or "/.worktrees/" in tstr:
                 is_worker = True
                 if not session_name:
                     m = re.search(r"--session\s+(gemini-[a-z0-9-]+)", tstr)
@@ -597,7 +601,7 @@ def classify_agy_transcript(path, conv_id=None):
     if is_integrator and not is_worker:
         role = "integrator"
     elif is_integrator and is_worker:
-        # An integrator may inspect worktrees in fretchup-jobs/; integrator.py take / --role integrator wins
+        # An integrator may inspect job worktrees; integrator.py take / --role integrator wins
         role = "integrator"
     elif is_worker:
         role = "worker"
@@ -978,7 +982,7 @@ def discover_transcript(record, agy_brain=None):
             if jid:
                 jl = jid.lower()
                 ju = jid.upper()
-                if f"fretchup-jobs/{jl}" in text or f"fretchup-jobs/{ju}" in text:
+                if any(f"{d}/{j}" in text for d in ("fretchup-jobs", "Napkin") for j in (jl, ju)):
                     score += 5
                 elif (ju in text or jl in text) and ("job.py take" in text or "job.py done" in text):
                     score += 3

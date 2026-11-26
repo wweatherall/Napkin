@@ -5,8 +5,8 @@ while the model stays a real, editable FreeCAD file with FreeCAD's drawings. Ble
 Owner: William (teacher; shop and construction background). He thinks in systems and likes values he can tune.
 
 ## Before changing behaviour, read the decision log
-`docs/decision-log.md` (P09, P23) is what's live: a Subjects index, Principles, Decisions grouped by subject, Open
-questions, Work list, Tunables, Details; `docs/decision-archive.md` is its history (superseded, decided, done), same
+`03_Past_Decisions/decision-log.md` (P09, P23) is what's live: a Subjects index, Principles, Decisions grouped by subject, Open
+questions, Work list, Tunables, Details; `03_Past_Decisions/decision-archive.md` is its history (superseded, decided, done), same
 IDs. Don't read it whole: start with the top, down to `## Decisions` (~7 KB: the subjects and the principles), then
 `python3 tools/log.py show <subject>` for your subject's group and `log.py show <ID>` for one row (its Details and
 principles come with it); add rows with `log.py add`, never by hand. Grep both files by ID (a row ending "(Details below.)" has its full text at `### <ID>` in the same file); edit the
@@ -40,7 +40,7 @@ marked Superseded (never deleted). Ask William before countermanding an Active d
   reason>`, which the reviewer checks.
 - Scratch files and logs go in `scratch/` inside your worktree, never /private/tmp (P25).
 - Handoff entries: `docs/agent-handoff.md`. Don't read big shared documents whole: grep the decision log by ID
-  (`grep "^| I34 " docs/decision-*.md`); read `Codex's suggestions.md`, `FREECAD_FEATURE_MAP.md` and
+  (`grep "^| I34 " 03_Past_Decisions/decision-*.md`); read `Codex's suggestions.md`, `FREECAD_FEATURE_MAP.md` and
   `ARCHITECTURE.md` by section.
 
 ## How it works

@@ -64,6 +64,7 @@ def repo():
     base = tempfile.mkdtemp(prefix="job-test-")
     root = os.path.join(base, "repo")
     os.makedirs(os.path.join(root, "docs", "handoff"))
+    os.makedirs(os.path.join(root, "03_Past_Decisions"))
     sh(root, "git", "init", "-q", "-b", "main")
     sh(root, "git", "config", "user.email", "t@example.invalid"); sh(root, "git", "config", "user.name", "t")
     files = {
@@ -78,7 +79,7 @@ def repo():
     for n, t in files.items():
         open(os.path.join(root, "docs", "handoff", n), "w").write(t)
     open(os.path.join(root, "BOARD.md"), "w").write(BOARD)
-    open(os.path.join(root, "docs", "decision-log.md"), "w").write(
+    open(os.path.join(root, "03_Past_Decisions", "decision-log.md"), "w").write(
         "# Log\n\n## Work list\n\n| # | Item | Status |\n|---|---|---|\n| T1 | a | Open |\n")
     open(os.path.join(root, "docs", "agent-handoff.md"), "w").write(
         "# Handoff\n\n## Open exchanges\n\n<!-- open list: built from docs/handoff/ by tools/handoff.py; don't edit by "
@@ -643,11 +644,11 @@ finally:
 sh(root, "git", "worktree", "remove", "--force", wt)
 shutil.rmtree(base)
 
-# --- job worktrees live in <checkout>-jobs/<id> (H099) ---
+# --- job worktrees live in ../.worktrees/<checkout>/<id> (H099, P63) ---
 base, root = repo()
-jobs_dir = os.path.join(os.path.dirname(root), f"{os.path.basename(root)}-jobs")
-check("worktree_for puts jobs in <checkout>-jobs/<id>",
-      job.worktree_for(root, "H001") == os.path.join(jobs_dir, "h001"),
+jobs_dir = job.jobs_dir(root)
+check("worktree_for puts jobs in ../.worktrees/<checkout>/<id> (P63)",
+      job.worktree_for(root, "H001") == os.path.join(os.path.dirname(root), ".worktrees", os.path.basename(root), "h001"),
       job.worktree_for(root, "H001"))
 check("fresh fixture repo starts with no -jobs folder", not os.path.exists(jobs_dir))
 r, out = run(job.take, root, "claude", "h99-new")
@@ -701,7 +702,7 @@ shutil.rmtree(base)
 
 # --- reassign_job and waiting_workers under take --wait (H104) ---
 base, root = repo()
-jobs_dir = os.path.join(os.path.dirname(root), f"{os.path.basename(root)}-jobs")
+jobs_dir = job.jobs_dir(root)
 now0 = time.time()
 
 # 1. Reassign of a returned job with an old-style worktree and uncommitted work -> moved, session uncounted, resumed by new agent.
@@ -740,7 +741,7 @@ os.rmdir(target3)
 # Successful reassign of returned H003 from codex to gemini.
 r_re, out_re = run(job.reassign_job, root, "H003", "gemini", now=now0 + 30)
 j3 = state(root)["jobs"]["H003"]
-check("reassign of a returned job moves its worktree into <checkout>-jobs/, updates agent/state/notes/event",
+check("reassign of a returned job moves its worktree into ../.worktrees/<checkout>/, updates agent/state/notes/event",
       r_re and j3["agent"] == "gemini" and j3["state"] == "returned" and j3["session"] is None
       and j3["notes"] == "reassigned from codex by the integrator"
       and j3["worktree"] == target3 and os.path.isdir(target3) and not os.path.exists(old_wt3)

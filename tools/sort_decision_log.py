@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
-"""Keep the decision log tidy (P23): two files with the same IDs, docs/decision-log.md (live) and
-docs/decision-archive.md (history). Tables sort by ID: A01, A02 ... A06, A06a, A07 ... then D, G, I, M, P, W;
+"""Keep the decision log tidy (P23): two files with the same IDs, 03_Past_Decisions/decision-log.md (live) and
+03_Past_Decisions/decision-archive.md (history). Tables sort by ID: A01, A02 ... A06, A06a, A07 ... then D, G, I, M, P, W;
 Q1 ... Q31; T1 ... T49 (numbers in number order, a letter after a number comes after it).
 
   python3 tools/sort_decision_log.py [live [archive]]   default both files; rewrites only what changes
@@ -23,8 +23,8 @@ import os
 import re
 import sys
 
-LIVE = "docs/decision-log.md"
-ARCHIVE = "docs/decision-archive.md"
+LIVE = "03_Past_Decisions/decision-log.md"
+ARCHIVE = "03_Past_Decisions/decision-archive.md"
 # live section -> (archive section, the statuses that move there)
 MOVES = {"## Decisions": ("## Superseded decisions", {"Superseded"}),
          "## Open questions": ("## Decided questions", {"Decided"}),

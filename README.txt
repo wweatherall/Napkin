@@ -44,5 +44,5 @@ Documentation
 - ARCHITECTURE.md: system map, state ownership, communication and persistence.
 - worker/CLAUDE.md, viewport/CLAUDE.md, viewport/tools/CLAUDE.md: local rules and tests.
 - viewport/README.md: direct Godot launch and command-line overrides.
-- docs/decision-log.md: approved decisions, open questions and the Work list.
+- 03_Past_Decisions/decision-log.md: approved decisions, open questions and the Work list.
   Current capabilities and planned work are tracked there, rather than duplicated in a "not yet" list.

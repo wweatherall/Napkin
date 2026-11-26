@@ -4,7 +4,7 @@
 Worker (run in your job's worktree unless it says otherwise):
   python3 tools/job.py take [--as claude|codex|gemini] [--session <name>] [--wait]
                                 the first Ready job for you (in the board's order) whose files don't overlap a job
-                                in progress: makes ../fretchup-jobs/<id> and <agent>/<id>-<slug> from main, marks it in
+                                in progress: makes ../.worktrees/<checkout>/<id> (P63) and <agent>/<id>-<slug> from main, marks it in
                                 progress and prints the handoff. A returned job comes first and resumes its branch.
                                 One job at a time per session, at most MAX_JOBS per session (P37): then a /clear,
                                 which gives a Claude session a new CLAUDE_CODE_SESSION_ID. Run it anywhere in the
@@ -47,7 +47,7 @@ Integrator:
                                 put a reviewed job back on the queue; the next worker continues its branch
   python3 tools/job.py reassign <id> --to claude|codex|gemini ["<notes>"]
                                 hand a returned, in-progress or waiting job to another agent (moves its worktree
-                                into <checkout>-jobs/ if needed and drops it from the old session's count)
+                                into ../.worktrees/<checkout>/ if needed and drops it from the old session's count)
 tools/integrate.py marks a merged job merged and deletes its worktree and branch.
 
 The live state (claims, beats, done) is a JSON file beside the integrator lock in git's common folder
@@ -442,8 +442,13 @@ def guard_checkout(cwd, out=print):
     return False
 
 
+def jobs_dir(root):
+    """Where a checkout's job worktrees go: <parent>/.worktrees/<checkout>/ (P63), one hidden place for every code base."""
+    return os.path.join(os.path.dirname(root), ".worktrees", os.path.basename(root))
+
+
 def worktree_for(root, jid):
-    return os.path.join(os.path.dirname(root), f"{os.path.basename(root)}-jobs", jid.lower())
+    return os.path.join(jobs_dir(root), jid.lower())
 
 
 def counted(session):
@@ -910,17 +915,17 @@ def reassign_job(cwd, jid, to_agent, notes=None, now=None, out=print):
             if not stale(j, act, now):
                 mins = max(0, int((now - act) // 60))
                 beat_warn = f"{jid}: its worker beat {mins} min ago; tell that worker to stop"
-        jobs_dir = os.path.realpath(os.path.dirname(worktree_for(root, jid)))
+        wt_dir = os.path.realpath(os.path.dirname(worktree_for(root, jid)))
         target = os.path.realpath(worktree_for(root, jid))
         wt = j.get("worktree")
         if wt:
             wt_real = os.path.realpath(wt)
-            if not wt_real.startswith(jobs_dir + os.sep):
+            if not wt_real.startswith(wt_dir + os.sep):
                 if os.path.isdir(wt_real):
                     if os.path.exists(target):   # git worktree move into an existing folder nests the worktree inside it (exit 0)
                         out(f"refused: couldn't move worktree {wt_real} to {target}: target already exists")
                         return False
-                    os.makedirs(jobs_dir, exist_ok=True)
+                    os.makedirs(wt_dir, exist_ok=True)
                     r = git(root, "worktree", "move", wt_real, target)
                     if r.returncode != 0:
                         err = r.stderr.strip() or r.stdout.strip() or f"exit {r.returncode}"

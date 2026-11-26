@@ -15,7 +15,7 @@ import integrate
 import integrator
 
 RESULTS = []
-LOG = "docs/decision-log.md"
+LOG = "03_Past_Decisions/decision-log.md"
 VERBOSE = "-v" in sys.argv[1:] or "--verbose" in sys.argv[1:]
 
 
@@ -119,11 +119,11 @@ shutil.rmtree(root); shutil.rmtree(bare)
 
 # 4. Done moves the row to the archive: the result goes with it.
 root = repo()
-write(root, "docs/decision-archive.md", "# Archive\n\n## Done work\n\n| # | Item | Status | Covers | Notes |\n|---|---|---|---|---|\n")
+write(root, "03_Past_Decisions/decision-archive.md", "# Archive\n\n## Done work\n\n| # | Item | Status | Covers | Notes |\n|---|---|---|---|---|\n")
 sh(root, "git", "add", "-A"); sh(root, "git", "commit", "-qm", "archive")
 respond(root, "\nResult: 0123abc; 4/4; the tool.\n")
 rc, said = run(root, "--status", "T7=Done")
-arch = read(root, "docs/decision-archive.md")
+arch = read(root, "03_Past_Decisions/decision-archive.md")
 check("a Done item's result lands in the archive, where its row went",
       rc == 0 and "| T7 " in arch and "Result (0123abc, merged" in arch and "| T7 " not in read(root, LOG), said + arch)
 shutil.rmtree(root)

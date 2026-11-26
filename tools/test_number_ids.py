@@ -78,7 +78,7 @@ def entry(hid, subject, status="open", extra=""):
 
 def tree(files):
     root = tempfile.mkdtemp(prefix="number-ids-")
-    base = {"docs/decision-log.md": LOG, "docs/agent-handoff.md": HANDOFF, "docs/handoff-archive.md": ARCHIVE,
+    base = {"03_Past_Decisions/decision-log.md": LOG, "docs/agent-handoff.md": HANDOFF, "docs/handoff-archive.md": ARCHIVE,
             "docs/handoff/H036-current.md": entry("H036", "Current")}
     base.update(files)
     for rel, text in base.items():
@@ -103,7 +103,7 @@ def run(root, dry=False):
 
 # no placeholders: nothing changes
 root = tree({})
-before = {r: read(root, r) for r in ["docs/decision-log.md", "docs/agent-handoff.md"]}
+before = {r: read(root, r) for r in ["03_Past_Decisions/decision-log.md", "docs/agent-handoff.md"]}
 got, said = run(root)
 check("no placeholders: nothing numbered, nothing changed, it says so",
       got == {} and said == ["no placeholders"] and all(read(root, r) == t for r, t in before.items()))
@@ -112,11 +112,11 @@ shutil.rmtree(root)
 # two kinds at once, and a placeholder cited in several files
 log = LOG.replace("| T77 | seventy-seven |", "| T77 | seventy-seven |\n| T-new-1 | build it, for I-new-1 |")
 log = log.replace("| I48 | forty-eight |", "| I48 | forty-eight |\n| I-new-1 | new rule |")
-root = tree({"docs/decision-log.md": log,
+root = tree({"03_Past_Decisions/decision-log.md": log,
              "docs/handoff/H036-current.md": entry("H036", "Current", extra="Logged I-new-1; work in T-new-1.\n"),
              "viewport/tool.gd": "# the rule from I-new-1\n"})
 got, said = run(root)
-text = read(root, "docs/decision-log.md")
+text = read(root, "03_Past_Decisions/decision-log.md")
 check("two kinds at once: I-new-1 -> I49, T-new-1 -> T78", got == {"I-new-1": "I49", "T-new-1": "T78"})
 check("the log's rows get the numbers", "| I49 | new rule |" in text and "| T78 | build it, for I49 |" in text)
 check("a placeholder cited in several files gets one number everywhere",
@@ -124,7 +124,7 @@ check("a placeholder cited in several files gets one number everywhere",
       and "the rule from I49" in read(root, "viewport/tool.gd"))
 check("no placeholder is left", not any(n.PLACEHOLDER.search(read(root, r)) for r in n.tracked(root)))
 check("the report names each placeholder, its number and its files",
-      any(s.startswith("I-new-1 -> I49") and "viewport/tool.gd" in s and "docs/decision-log.md" in s for s in said))
+      any(s.startswith("I-new-1 -> I49") and "viewport/tool.gd" in s and "03_Past_Decisions/decision-log.md" in s for s in said))
 check("examples written with N are left alone", "placeholders like I-new-N" in read(root, "docs/agent-handoff.md"))
 check("the log is sorted again after numbering", text.index("| I48 ") < text.index("| I49 ")
       and text.index("| T77 ") < text.index("| T78 "))
@@ -135,18 +135,18 @@ shutil.rmtree(root)
 # several of one kind, a lettered one, numbers taken in the archive and Superseded
 log = LOG.replace("| I48 | forty-eight |", "| I48 | forty-eight |\n| I-new-2 | second |\n| I-new-1 | first |\n"
                   "| I-new-1b | first, b |")
-root = tree({"docs/decision-log.md": log})
+root = tree({"03_Past_Decisions/decision-log.md": log})
 got, _ = run(root)
-text = read(root, "docs/decision-log.md")
+text = read(root, "03_Past_Decisions/decision-log.md")
 check("placeholders of one kind are numbered in their own order", got == {"I-new-1": "I49", "I-new-2": "I50"})
 check("a lettered placeholder keeps its letter", "| I49b | first, b |" in text)
 shutil.rmtree(root)
 
 log = LOG.replace("| I47 | old |", "| I47 | old |\n| I52 | superseded later |").replace("| A01 | one |",
                                                                                          "| A01 | one |\n| A-new-1 | arch |")
-root = tree({"docs/decision-log.md": log, "docs/handoff-archive.md": ARCHIVE + "\n### H040 — Later\n"})
+root = tree({"03_Past_Decisions/decision-log.md": log, "docs/handoff-archive.md": ARCHIVE + "\n### H040 — Later\n"})
 got, _ = run(root)
-check("a number taken only in Superseded counts as taken", got["A-new-1"] == "A02" and "I52" in read(root, "docs/decision-log.md"))
+check("a number taken only in Superseded counts as taken", got["A-new-1"] == "A02" and "I52" in read(root, "03_Past_Decisions/decision-log.md"))
 shutil.rmtree(root)
 
 # a new handoff entry: file renamed, heading numbered, padded, open list rebuilt
@@ -229,7 +229,7 @@ shutil.rmtree(root)
 log = LOG.replace("| T77 | seventy-seven |", "| T77 | seventy-seven |\n| T-new-1 | build it, for I-new-1 |")
 log = log.replace("| I48 | forty-eight |", "| I48 | forty-eight |\n| I-new-1 | new rule |")
 board = "| H-new-1 | Claude | Ready | New job |\n"
-root = tree({"docs/decision-log.md": log,
+root = tree({"03_Past_Decisions/decision-log.md": log,
              "docs/handoff-archive.md": ARCHIVE + "\nRequest: log it as P-new-1 and cite it.\n",
              "docs/handoff/H036-current.md": entry("H036", "Current", extra="Logged I-new-1.\nWrite one like Q-new-2.\n"),
              "docs/handoff/H-new-1-new-job.md": entry("H-new-1", "New job", extra="Work in T-new-1.\n"),
@@ -238,7 +238,7 @@ got, said = run(root)
 check("prose examples: real rows and entries still number (I, T, H)",
       got == {"I-new-1": "I49", "T-new-1": "T78", "H-new-1": "H037"})
 check("prose examples: the log rows, the entry and BOARD.md's mention of it are numbered",
-      "| I49 | new rule |" in read(root, "docs/decision-log.md") and "| T78 | build it, for I49 |" in read(root, "docs/decision-log.md")
+      "| I49 | new rule |" in read(root, "03_Past_Decisions/decision-log.md") and "| T78 | build it, for I49 |" in read(root, "03_Past_Decisions/decision-log.md")
       and read(root, "docs/handoff/H037-new-job.md").startswith("### H037 — New job")
       and "Work in T78." in read(root, "docs/handoff/H037-new-job.md") and "| H037 | Claude |" in read(root, "BOARD.md"))
 check("prose examples: an example in the archive stays as written",
@@ -325,8 +325,8 @@ check("a glob with a file extension covers files in its own directory only",
 
 
 # P23: the decision archive's rows count as taken, so a new number never repeats an archived one
-root = tree({"docs/decision-archive.md": "# archive\n\n## Done work\n\n| # | Item | Status |\n|---|---|---|\n| T90 | old | Done |\n",
-             "docs/decision-log.md": LOG.replace("| T77 | seventy-seven |", "| T77 | seventy-seven |\n| T-new-1 | next |"),
+root = tree({"03_Past_Decisions/decision-archive.md": "# archive\n\n## Done work\n\n| # | Item | Status |\n|---|---|---|\n| T90 | old | Done |\n",
+             "03_Past_Decisions/decision-log.md": LOG.replace("| T77 | seventy-seven |", "| T77 | seventy-seven |\n| T-new-1 | next |"),
              "notes.md": "next: T-new-1\n"})
 got, said = run(root)
 check("an archived T90 makes the next Work list number T91", got.get("T-new-1") == "T91")

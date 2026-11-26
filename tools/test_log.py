@@ -35,6 +35,7 @@ def git(root, *args):
 def repo(branch="main"):
     root = tempfile.mkdtemp(prefix="logtest-")
     os.makedirs(os.path.join(root, "docs"))
+    os.makedirs(os.path.join(root, "03_Past_Decisions"))
     for rel in (s.LIVE, s.ARCHIVE):
         shutil.copy(os.path.join(REPO, rel), os.path.join(root, rel))
     git(root, "init", "-q", "-b", "main")

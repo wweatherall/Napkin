@@ -8,7 +8,7 @@ This is a design handoff for William and Claude: a proposed SketchUp catch-up ba
 
 Reconcile proposals with the existing decision log and Work list before assigning implementation work. Preserve existing decision IDs and follow the supersession process in CLAUDE.md. The identifiers below are local to this document, not replacements for the decision log's IDs.
 
-Reconciled for H009 against main 5c0b602 and the revision 60 read-only export in docs/decision-log.md. The original assessment preceded that export; current active decisions override older proposals below. This remains a source review, not a hands-on usability assessment. Check the live Work list and docs/agent-handoff.md for later implementation changes.
+Reconciled for H009 against main 5c0b602 and the revision 60 read-only export in 03_Past_Decisions/decision-log.md. The original assessment preceded that export; current active decisions override older proposals below. This remains a source review, not a hands-on usability assessment. Check the live Work list and docs/agent-handoff.md for later implementation changes.
 
 “Original SketchUp” here means the familiar desktop modelling workflow. Current documentation also describes newer procedural tools; those are not required for the baseline. Branching history and automatic relationship maintenance are proposed Shop Sketch capabilities, not claims about classic SketchUp.
 

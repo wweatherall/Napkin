@@ -33,10 +33,10 @@ Architecture: lines, the response) and CLAUDE.md (commit trailers); this page sa
 - `python3 tools/job.py status` shows the queue; `python3 tools/job.py board` rebuilds the board's job table (the
   commit hook does it on main).
 - Spinning up a Gemini worker window (tell William; run outside sandbox / `BypassSandbox: true`): run
-  `osascript -e 'tell application "Terminal" to do script "cd /Users/Will/Sites/fretchup && agy --model gemini-4-hydrogen-medium -i \"Gemini go! Check the board.\""'`
+  `osascript -e 'tell application "Terminal" to do script "cd /Users/Will/Sites/Organization/08_Code_Bases/Napkin && agy --model gemini-4-hydrogen-medium -i \"Gemini go! Check the board.\""'`
   (models: `gemini-4-hydrogen-medium` for standard jobs, `gemini-4-neon-medium` when asked for Neon; `agy models` lists all).
 - Spinning up a Claude worker window (only when William asks; tell him; outside sandbox): run
-  `osascript -e 'tell application "Terminal" to do script "cd /Users/Will/Sites/fretchup && claude --model sonnet --effort medium --add-dir /Users/Will/Sites/fretchup-jobs --remote-control H0NN-worker \"You are a worker. Check the board.\""'`
+  `osascript -e 'tell application "Terminal" to do script "cd /Users/Will/Sites/Organization/08_Code_Bases/Napkin && claude --model sonnet --effort medium --add-dir /Users/Will/Sites/Organization/08_Code_Bases/.worktrees/Napkin --remote-control H0NN-worker \"You are a worker. Check the board.\""'`
 - Rolling integrator journal (no pre-/clear shutdown commit needed): jot one-line state updates with
   `python3 tools/integrator.py note "<line>"` (stored untracked in `.git/shopsketch-integrator-journal.log`, capped to the last 20 lines and printed inline by `startup.py --role integrator`).
 - Passive job usage (T117, T126): `job.py` (`take`, `done`, `return`) and `integrate.py` (`merge`) call
@@ -56,7 +56,7 @@ Architecture: lines, the response) and CLAUDE.md (commit trailers); this page sa
   files the branch changed outside its job's Touches list; renumbers a PROTOCOL_VERSION bump on top if main moved
   on meanwhile (A35); removes the job's worktree and branch, marks it merged, records Results and pushes `main` without
   stopping (drop `--yes` if you ever want to stop before pushing; `--yes` never skips P28/P44 pauses).
-- Put one that fails review or the gate back with `python3 tools/job.py return <id> "<notes>"`; hand a job to another agent (moving its worktree into `<checkout>-jobs/` if needed) with `python3 tools/job.py reassign <id> --to claude|codex|gemini ["<notes>"]`.
+- Put one that fails review or the gate back with `python3 tools/job.py return <id> "<notes>"`; hand a job to another agent (moving its worktree into `../.worktrees/<checkout>/` if needed, P63) with `python3 tools/job.py reassign <id> --to claude|codex|gemini ["<notes>"]`.
 - Placeholder IDs (T74): integrate.py runs `tools/number_ids.py` at merge, giving each I-new-N, T-new-N, H-new-N
   the next free number. It numbers only placeholders that are IDs (a log row, a handoff entry's file or heading, and
   references to them); any other is left and reported as "not numbered: <file>:<line>" (H073). Jobs you write on
@@ -78,7 +78,7 @@ Architecture: lines, the response) and CLAUDE.md (commit trailers); this page sa
   read as a branch) is an additional omission detector, not a replacement for review.
 
 ## Writing jobs
-- **Full briefs only on `BOARD.md`**: every handoff entry on the board (whether `open` or `queued (after H0NN)`) must be a complete, ready-to-run brief (`Today`, `Reading path`, `Request`, `Touches`, `Checks`) so H146's auto-unblock works hands-free; partial ideas and unexpanded follow-ons stay in the Work list (`docs/decision-log.md`) until ready for a full brief.
+- **Full briefs only on `BOARD.md`**: every handoff entry on the board (whether `open` or `queued (after H0NN)`) must be a complete, ready-to-run brief (`Today`, `Reading path`, `Request`, `Touches`, `Checks`) so H146's auto-unblock works hands-free; partial ideas and unexpanded follow-ons stay in the Work list (`03_Past_Decisions/decision-log.md`) until ready for a full brief.
 - A job adding a tool or an op also lists the places that pin them (H130 asked for them one by one):
   `viewport/keys.gd`, `main.gd` `redo`, `tool_context.gd` and `test_tool_context.gd`, `test_tools.gd`,
   `tools/push_tool.gd`, `tools/CLAUDE.md`, `worker/scenario/99_op_registry.py`.

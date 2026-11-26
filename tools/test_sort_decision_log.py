@@ -44,10 +44,10 @@ AFTER = DOC + "\n## Later\n\ntext\n"
 out = s.sort_text(AFTER)
 check("a section after Details is left alone", out.endswith("## Later\n\ntext\n") and out.index("### A2") < out.index("### I3"))
 
-log = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "docs", "decision-log.md")
+log = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "03_Past_Decisions", "decision-log.md")
 text = open(log, encoding="utf-8").read()
-check("docs/decision-log.md is sorted", s.sort_text(text) == text)
-check("docs/decision-log.md: every (Details below.) row has its section", s.details_problems(text) == [])
+check("03_Past_Decisions/decision-log.md is sorted", s.sort_text(text) == text)
+check("03_Past_Decisions/decision-log.md: every (Details below.) row has its section", s.details_problems(text) == [])
 
 
 LOG = ("## Decisions\n\n| ID | D | Status |\n|---|---|---|\n| A1 | x | Active |\n| A2 | y | Maybe |\n\n"
@@ -58,10 +58,10 @@ check("a decision with a status outside Active/Tentative is reported", any(p.sta
 check("a Work list status a worker invented ('Done (review pending)') is reported", any(p.startswith("T3:") for p in probs))
 check("Done, In progress and 'Open (queued: H041)' are accepted", not any(p[:3] in ("T1:", "T2:", "T4:") for p in probs))
 check("the real decision log uses only allowed statuses",
-      s.status_problems(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "docs", "decision-log.md"), encoding="utf-8").read()) == [])
+      s.status_problems(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "03_Past_Decisions", "decision-log.md"), encoding="utf-8").read()) == [])
 
-arch = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "docs", "decision-archive.md")
-check("docs/decision-log.md and docs/decision-archive.md are tidy as a pair, with no problems (P23)",
+arch = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "03_Past_Decisions", "decision-archive.md")
+check("03_Past_Decisions/decision-log.md and 03_Past_Decisions/decision-archive.md are tidy as a pair, with no problems (P23)",
       s.check_files(text, open(arch, encoding="utf-8").read()) == [])
 check("a live file with no archive beside it (before P23) is only sorted",
       not any("not sorted" in p for p in s.check_files(s.sort_text(DOC))) and any("not sorted" in p for p in s.check_files(DOC)))

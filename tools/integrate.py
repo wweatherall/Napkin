@@ -17,7 +17,7 @@ Run in the main checkout, on main, clean, holding the integrator lock (tools/int
  3. tools/number_ids.py (placeholders get numbers, so an H-new-N entry is H0NN from here on: H060)
  4. the handoff entries the branch answered (each known by the ID its ### heading gives): Status resolved, a
     Resolution line, moved to the archive; --status sets a Work list item's status (Done moves it to
-    docs/decision-archive.md); then number_ids.py again and the decision-log and handoff checks
+    03_Past_Decisions/decision-archive.md); then number_ids.py again and the decision-log and handoff checks
  5. tools/gate.sh (the quick and full tests, tests/known_failures.txt); a failing gate stops here, uncommitted
  6. commit ("Merge <branch>: <its subject>"; --impact adds an Architecture-Impact line), then --push pushes main
  7. the job queue (P24, tools/job.py): the job is marked merged, its worktree removed and its branch deleted;
@@ -735,7 +735,7 @@ def settle_conflicts(s):
         ours = git("show", f"HEAD:{LOG}", root=root).stdout
         merged = carry_rows(ours, git("show", f"{base}:{LOG}", root=root).stdout, git("show", f"{branch}:{LOG}", root=root).stdout)
         open(os.path.join(root, LOG), "w", encoding="utf-8").write(merged)
-        say("settled docs/decision-log.md (main's, plus the branch's own rows and Details sections)")
+        say("settled 03_Past_Decisions/decision-log.md (main's, plus the branch's own rows and Details sections)")
     if job.BOARD in conflicts:
         text, clashes = settle_board(git("show", f"HEAD:{job.BOARD}", root=root).stdout,
                                      git("show", f"{base}:{job.BOARD}", root=root).stdout,

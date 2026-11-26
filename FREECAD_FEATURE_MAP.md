@@ -18,7 +18,7 @@ Implementation guidance:
 - Godot drafts remain provisional previews. Final model geometry is produced through the chosen FreeCAD capability; Blender remains a rendering consumer.
 - Availability does not prove integration. Verify the chosen counterpart, supported inputs and save/reopen behaviour before promising it.
 
-The decision log is docs/decision-log.md (P09). Reconcile representation changes with its active decision IDs, and record new decisions there.
+The decision log is 03_Past_Decisions/decision-log.md (P09). Reconcile representation changes with its active decision IDs, and record new decisions there.
 
 ## How to read the mapping: actions become construction recipes
 
