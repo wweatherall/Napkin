@@ -49,7 +49,7 @@ One subject per decision; the Decisions column is generated.
 | Feedback | The confirmation wave and what colours mean. | I06, W01, W02, W03, W04, W05, W06, W07, W08, W09 |
 | Materials | Wood cards, grain and painting. | A05, I33, M01, M02, M03, M04 |
 | Output | Drawings, cut lists and renders. | A07, D01, D02, I68, P06 |
-| Process | How the agents work, test, merge and record decisions. | P01, P02, P03, P07, P09, P10, P14, P15, P16, P17, P18, P19, P20, P21, P22, P23, P24, P25, P26, P28, P29, P31, P32, P33, P34, P35, P36, P37, P38, P39, P40, P41, P42, P43, P44, P45, P46, P47, P48, P49 |
+| Process | How the agents work, test, merge and record decisions. | P01, P02, P03, P07, P09, P10, P14, P15, P16, P17, P18, P19, P20, P21, P22, P23, P24, P25, P26, P28, P29, P31, P32, P33, P34, P35, P36, P37, P38, P39, P40, P41, P42, P43, P44, P45, P46, P47, P48, P49, P50 |
 
 ## Principles
 
@@ -67,8 +67,8 @@ Each states one idea; Explains (generated) lists the decisions that name it. Wil
 | G08 | Refer to geometry, never to FreeCAD's internal numbers. | Active | A03, I24, I40, I42 | 2026-11-22 |
 | G09 | Never lose work: always saved, atomically, and undo crosses sessions without hiding changes made in FreeCAD. | Active | A24, A25, A27, A28, A32, A36, A37, A39, I54, I55, U01, U02, U03, W13 | 2026-11-22 |
 | G10 | A rejected action says why and leaves nothing behind. | Active | A23, I06, I08, W06 | 2026-11-22 |
-| G11 | Nothing rests on memory: every decision is logged, every behaviour has a named test, and every prediction of FreeCAD's answer is checked against FreeCAD. | Active | A38, I51, P01, P02, P03, P07, P09, P18, P21, P23, P26, P28, P29, P31, P32, P33, P34, P35, P36 | 2026-11-22 |
-| G12 | Work splits by files, and one integrator merges, numbers and keeps the records. | Active | A31, A33b, A34, A35, P10, P14, P15, P16, P17, P18, P19, P20, P22, P24, P25, P26, P28, P29, P31, P32, P33, P34, P35, P36, P37, P38, P39, P40, P41, P42, P43, P44, P45, P46, P47, P48, P49 | 2026-11-22 |
+| G11 | Nothing rests on memory: every decision is logged, every behaviour has a named test, and every prediction of FreeCAD's answer is checked against FreeCAD. | Active | A38, I51, P01, P02, P03, P07, P09, P18, P21, P23, P26, P28, P29, P31, P32, P33, P34, P35, P36, P50 | 2026-11-22 |
+| G12 | Work splits by files, and one integrator merges, numbers and keeps the records. | Active | A31, A33b, A34, A35, P10, P14, P15, P16, P17, P18, P19, P20, P22, P24, P25, P26, P28, P29, P31, P32, P33, P34, P35, P36, P37, P38, P39, P40, P41, P42, P43, P44, P45, P46, P47, P48, P49, P50 | 2026-11-22 |
 | G13 | Show what an edit will change before it does. | Active | I28, I66, I69 | 2026-11-22 |
 
 ## Decisions
@@ -297,6 +297,7 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | P47 | A worker's question accepts follow-up answers until the worker reads the pending answers. The queue delivers them in recorded order, then closes the question to further answers. | Active | Refines P24 (worker questions, T114) | William confirmed on 2026-11-23 that answers should be delivered in the order the queue records them. | G12 | tools/job.py answer(), wait(); tools/test_job.py | 2026-11-23 |
 | P48 | Trial, from 2026-11-23 for a couple of days: Gemini (neon) is the full integrator in place of a Claude session (P16 otherwise stands). Main is tagged before-gemini-integrator; when Claude is back it reviews before-gemini-integrator..main with William and they decide what stays. A Claude integrator then takes the lock back (P19). | Active | Suspends P16 for the trial | Your call, 2026-11-23: Claude out of tokens for a couple of days; the queue is routine (tooling, tests, refactors). | G12 | docs/integrator.md; tools/integrator.py | 2026-11-23 |
 | P49 | Once integrator review and tests pass, merge and push without stopping to ask: the integrator runs tools/integrate.py <branch> --as <name> --push --yes (and --continue ... --push --yes after P28/P44 pauses), and pushes verified integrator commits on main directly. Workers still never merge or push (P16). | Active | Refines P16, P20 | William, 2026-11-23: integrator review and tests stay required, and reviewed/passing work is always merged and pushed, so remove the extra confirmation stop. | G12 | docs/integrator.md; AGENTS.md; tools/startup.py; tools/integrate.py | 2026-11-23 |
+| P50 | Once T138 is built: each code file carries a one or two sentence description written by the coder and checked by the integrator at review; the map's module lines are generated from them. P28 stands until then. | Tentative | Will amend P28 | William, 2026-11-26: one spot per idea; the start brief needs a small map. | G11, G12 |  | 2026-11-26 |
 
 ## Open questions
 
@@ -356,7 +357,7 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | T135 | Reorganize the organization and code-base folders (principles, habits, case law, personal spaces, jobs, to-dos, roles, tools) as William drew them. | Open | P29, P23 | William, 2026-11-25: docs/proposals/organization-2026-11-25.md; migration over the next few days, nothing in force yet. |
 | T136 | Self-generated architecture map: current and proposed, unbuilt work ghosted, job-board work more solid, moves and deletions crossed. | Open | P28, P36 | William, 2026-11-25: docs/proposals/organization-2026-11-25.md. |
 | T137 | Decimal commas for European typing of measurements. | Open | I35, I57 | William's notes page, 2026-11-25; behaviour to settle. |
-| T138 | Compress ARCHITECTURE.md heavily so the start-up brief can carry the map (about 80 KB today; the module table alone is about 32 KB). | Open | T134, T136, P28 | William agreed it's needed, 2026-11-26. Integrator's own file (P28). |
+| T138 | Compress ARCHITECTURE.md heavily so the start-up brief can carry the map (about 80 KB today; the module table alone is about 32 KB). | Open | T134, T136, P28 | William agreed it's needed, 2026-11-26. Integrator's own file (P28). Plan agreed 2026-11-26: generated one-line-per-module map, brief under 8 KB. |
 
 ## Tunables
 
