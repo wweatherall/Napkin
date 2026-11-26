@@ -314,7 +314,14 @@ func typed(txt: String) -> void:
 	if txt.ends_with("r"):
 		var corner: Dictionary = state.get("corner", {})
 		if not corner.is_empty():
-			_commit_fillet(_fillet(corner, magnitude / tan(corner.half_angle)))
+			var setback: float = magnitude / tan(corner.half_angle)
+			var longest: float = minf(corner.from.length(), corner.to.length())
+			if is_finite(setback) and setback > longest + GEOMETRY_TOLERANCE_MM:
+				ctx.ui.show_status("Radius must be at most %s for this corner"
+					% ctx.ui.format_length(longest * tan(corner.half_angle)))
+				return
+			# Float noise can put the largest radius itself a hair past the edge's end.
+			_commit_fillet(_fillet(corner, minf(setback, longest)))
 			return
 		var half: float = state.first.distance_to(state.second) * 0.5
 		if magnitude < half:
