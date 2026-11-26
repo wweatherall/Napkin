@@ -3,9 +3,8 @@
 The integrator's plan for P54–P59; for William to read before it starts. Nothing moves until he says go.
 
 ## Before
-- Nothing in flight: H148 and H149 merged, `small-fixes` merged, the ultra review's findings taken (or the review
-  paused). The other worktrees are `fretchup-small-fixes`, `fretchup-ultra-gemini` and
-  `fretchup-agent-role-proposal`. Each one is either removed or moved with the repo (step C).
+- Nothing in flight: H148 and H149 merged, `small-fixes` merged. The ultra review is done (William, 2026-11-26); its findings come later. The other worktrees are `fretchup-small-fixes`, `fretchup-ultra-gemini` and
+  `fretchup-agent-role-proposal`. `fretchup-ultra-gemini` stays where it is, because William keeps its Claude session open with the findings: only its link is repaired (`git worktree repair`). The others are removed or moved.
 - Close every Shop Sketch window and every agent session except the integrator.
 
 ## A. The Organization skeleton (new, nothing moved yet)
