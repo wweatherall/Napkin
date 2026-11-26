@@ -314,7 +314,6 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | Q33 | Choose a keyboard shortcut for the Polygon tool (built without a hotkey first, toolbar button only, like Paint Bucket's Q14). | Open | William, 2026-11-23: build Polygon without a hotkey, just a button, and add to future decisions. |
 | Q34 | Revisit retaining automatically created TechDraw drawing pages inside .FCStd (I68 deletes them after PDF creation for now to prevent autosave stalls). | Open | William, 2026-11-24: address issues with retaining TechDraw pages in a later discussion. |
 | Q35 | Extruding off a drawing on a board's face (refines I04b): William leans toward making them two parts within a component rather than joining into one solid; work through the details together before changing behaviour. | Open | William, 2026-11-24: flagged as a future decision to work through alongside components. |
-| Q36 | Three worker types? | Open | William's notes page, 2026-11-25. William, 2026-11-26: an idea, coders for front-end, connector and FreeCAD work. |
 
 ## Work list
 
@@ -358,7 +357,7 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | T136 | Self-generated architecture map: current and proposed, unbuilt work ghosted, job-board work more solid, moves and deletions crossed. | Open | P28, P36 | William, 2026-11-25: docs/proposals/organization-2026-11-25.md. |
 | T137 | Decimal commas for European typing of measurements. | Open | I35, I57 | William's notes page, 2026-11-25; behaviour to settle. |
 | T138 | Compress ARCHITECTURE.md heavily so the start-up brief can carry the map (about 80 KB today; the module table alone is about 32 KB). | Open | T134, T136, P28 | William agreed it's needed, 2026-11-26. Integrator's own file (P28). Plan agreed 2026-11-26: generated one-line-per-module map, brief under 8 KB. |
-| T139 | Rename the app to Napkin: what you see, the built app, folders, and the code and docs that say Shop Sketch or FretchUp; existing models must still open. | Open | Q37 | Name chosen 2026-11-26. To settle before a brief: how far the rename goes (saved files are <model>.shopsketch.json in ~/Documents/Shop Sketch). |
+| T139 | Rename the app to Napkin: what you see, the built app, folders, and the code and docs that say Shop Sketch or FretchUp; existing models must still open. | Open | Q37 | Name chosen 2026-11-26. To settle before a brief: how far the rename goes (saved files are <model>.shopsketch.json in ~/Documents/Shop Sketch). Scope settled (William, 2026-11-26): change every name, including the .shopsketch.json files and (as part of every name) names stored inside .FCStd files. Existing models must still open, so old names are read and converted. |
 
 ## Tunables
 
