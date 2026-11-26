@@ -82,8 +82,8 @@ func default_unit() -> String:
 	return Units.default_unit_of(units)
 
 
-func format_length(mm: float) -> String:
-	return Units.format_length(mm, units)
+func format_length(mm: float, down := false) -> String:
+	return Units.format_length(mm, units, 0, down)
 
 
 func _is_opened() -> bool:

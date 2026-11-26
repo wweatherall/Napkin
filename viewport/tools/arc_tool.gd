@@ -318,7 +318,7 @@ func typed(txt: String) -> void:
 			var longest: float = minf(corner.from.length(), corner.to.length())
 			if is_finite(setback) and setback > longest + GEOMETRY_TOLERANCE_MM:
 				ctx.ui.show_status("Radius must be at most %s for this corner"
-					% ctx.ui.format_length(longest * tan(corner.half_angle)))
+					% ctx.ui.format_length(longest * tan(corner.half_angle), true))
 				return
 			# Float noise can put the largest radius itself a hair past the edge's end.
 			_commit_fillet(_fillet(corner, minf(setback, longest)))
