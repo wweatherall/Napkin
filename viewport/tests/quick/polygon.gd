@@ -80,6 +80,15 @@ func run() -> void:
 	await harness._key(KEY_ESCAPE)
 	harness._ok("Escape cancels the polygon gesture", not tool.busy(), tool.state)
 
+	var sides_were: int = tool.sides
+	count = m.ops.size()
+	await harness._type("5")
+	await harness._click_at(Vector3(200, 150, 0))
+	await harness._type("20\n")
+	harness._ok("a click that starts a polygon drops digits not entered", m.ops.size() == count + 1
+		and is_equal_approx(m.ops.back().get("radius", 0.0), 20.0) and m.ops.back().get("sides") == sides_were and tool.sides == sides_were,
+		[m.ops.back(), tool.sides, m.measure.vcb])
+
 	# keys.gd: only a tool with accepts_idle gets characters before a gesture; hotkeys behave as before
 	var taken := {}
 	for id in ["rect", "circle", "line", "arc", "push", "move", "select", "paint"]:

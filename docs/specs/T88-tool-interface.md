@@ -355,7 +355,7 @@ No tool gets `_tri_mesh`, `_lines`, `_add_collision`, `_base_of`, raw materials,
 ### Measurements, messages and options: `ctx.ui`
 
 `typed_text() -> String` reads measure.vcb; `refresh_measurements()` calls
-measure.update. `refresh_tip(screen)` uses an explicit Main callback to the
+measure.update; `clear_typed()` empties measure.vcb and updates (I72: a click that starts a Polygon). `refresh_tip(screen)` uses an explicit Main callback to the
 current `_update_tip` (it also adds linked-sibling text). `clear_rejection()`
 uses an explicit callback clearing Main's reject_note. `new_board() -> bool`
 reads the current window option. Arc (T83) added `refresh_hint()` (show the active tool's hint again),

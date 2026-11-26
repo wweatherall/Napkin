@@ -335,6 +335,11 @@ class UiCapability extends _Capability:
 	func refresh_measurements() -> void:
 		_measure.update()
 
+	func clear_typed() -> void:
+		"""Empty the measurements box: what was typed but not entered is dropped (I72)."""
+		_measure.vcb = ""
+		_measure.update()
+
 	func refresh_tip(screen: Vector2) -> void:
 		_call(_refresh_tip, [screen])
 

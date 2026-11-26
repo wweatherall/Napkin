@@ -122,7 +122,7 @@ const ALLOW := {
 	"document": ["next_id", "op", "is_last", "append", "remove", "sync"],
 	"view": ["preview", "mirror_preview", "clear_preview", "marker", "hide_marker", "guides", "clear_guides", "selection_box",
 			 "clear_selection_box", "face_highlight", "clear_face_highlight", "register_profile", "register_line", "present_draft"],
-	"ui": ["typed_text", "format_length", "refresh_measurements", "refresh_tip", "clear_rejection", "refresh_hint", "show_status", "tool_active", "new_board"],
+	"ui": ["typed_text", "clear_typed", "format_length", "refresh_measurements", "refresh_tip", "clear_rejection", "refresh_hint", "show_status", "tool_active", "new_board"],
 	"paint": ["current_name", "apply"],
 }
 
