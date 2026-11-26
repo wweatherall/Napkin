@@ -1,6 +1,6 @@
 ### H130 — T84 step 2: Polygon tool (toolbar button without hotkey, exact FreeCAD sketch polygon)
 
-Author: Gemini (integrator, gemini-cedar-1124-2201) | Date: 2026-11-24 | Status: open | For: either
+Author: Gemini (integrator, gemini-cedar-1124-2201) | Date: 2026-11-24 | Status: answered | For: either
 
 References: T84, T81, I49, I64, Q33, A35.
 
@@ -49,3 +49,20 @@ Architecture: new op `polygon` `{id, type, plane, radius, sides, x?, center?}` (
 Architecture: new `worker/polygon.py` (`PolygonActions`): a constrained `Sketcher::SketchObject` with `SSRole = polygon-profile`, which `worker/push.py` uses to tell it from a circle's sketch.
 Architecture: new `viewport/tools/polygon_tool.gd`; `ctx.model.polygon_geometry` added to `viewport/tool_context.gd`.
 Architecture: `viewport/keys.gd` hands typed characters to a tool before a gesture only if it has `accepts_idle(ch, typed_so_far)` (Polygon alone).
+
+Commit e35e77d. Verified with `job.py test` (the quick test) on that commit: all passed, including `worker/scenario/99_polygon.py` (sketch geometry, prism, 6- and 8-sided through cuts, rejections, undo, replay, reopen) and `viewport/tests/quick/polygon.gd` (button, 6 and 8 sides, `Ns` before and during a gesture, redo, face cut, preview against FreeCAD on four planes). Not run: the full test, and no look at the app by eye. No log rows added (I64 and Q33 cover it).
+
+Built as asked, with these choices to know about: a corner follows the cursor, as in SketchUp (the brief's "optionally orientation"); the side count is kept while the window is open, across tool switches, and is not saved; before a gesture the box reads "Sides 6" and a typed length without `s` does nothing.
+
+Open: digits typed before a gesture and not entered stay in the box through the first click, so a radius typed next is appended to them (shown in the box; Esc clears it).
+
+Scope answers from the integrator (2026-11-25): "Yes, all six approved (no other job holds these files). Keep each minimal. For (1), only a tool that asks for it may receive characters before a gesture: other tools and all hotkeys behave exactly as now, with a named check for that. Name the keys.gd and tool_context.gd changes in your Architecture: lines." The six: `viewport/keys.gd`, `main.gd` redo, `tool_context.gd` with `test_tool_context.gd`, `test_tools.gd`, `tools/push_tool.gd`, `tools/CLAUDE.md`. Then: "Yes: add 'polygon' and 'PolygonActions' to worker/scenario/99_op_registry.py and fix its count wording."
+
+Changed from the brief: Touches as listed; also edited the seven files in the scope answers; the job could not work or pass its tests without them.
+Changed from the brief: register `polygon` in `Model.HANDLERS` in `worker/model.py`; `model.py` is unchanged; `HANDLERS` and the mixins are found automatically.
+Changed from the brief: op `{id, type, plane, radius, sides}`; also `x`; without it the first corner could not follow the cursor.
+Changed from the brief: `polygon_geometry(center, normal, radius, sides)`; it takes an optional direction too, and `circle_geometry` now calls it with 64 sides; one tessellation for both.
+
+For the integrator: ARCHITECTURE.md and docs/protocol.md need the `Architecture:` lines above (protocol 15).
+
+Result: e35e77d; quick test passed (full test not run); Polygon toolbar button (6 sides, `8s` to change, no key), draft and exact constrained FreeCAD sketch, Push/Pull extrude and cut, protocol 15
