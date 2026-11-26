@@ -35,6 +35,8 @@ Architecture: lines, the response) and CLAUDE.md (commit trailers); this page sa
 - Spinning up a Gemini worker window (tell William; run outside sandbox / `BypassSandbox: true`): run
   `osascript -e 'tell application "Terminal" to do script "cd /Users/Will/Sites/fretchup && agy --model gemini-4-hydrogen-medium -i \"Gemini go! Check the board.\""'`
   (models: `gemini-4-hydrogen-medium` for standard jobs, `gemini-4-neon-medium` when asked for Neon; `agy models` lists all).
+- Spinning up a Claude worker window (only when William asks; tell him; outside sandbox): run
+  `osascript -e 'tell application "Terminal" to do script "cd /Users/Will/Sites/fretchup && claude --model sonnet --effort medium --add-dir /Users/Will/Sites/fretchup-jobs --remote-control H0NN-worker \"You are a worker. Check the board.\""'`
 - Rolling integrator journal (no pre-/clear shutdown commit needed): jot one-line state updates with
   `python3 tools/integrator.py note "<line>"` (stored untracked in `.git/shopsketch-integrator-journal.log`, capped to the last 20 lines and printed inline by `startup.py --role integrator`).
 - Passive job usage (T117, T126): `job.py` (`take`, `done`, `return`) and `integrate.py` (`merge`) call
@@ -77,6 +79,9 @@ Architecture: lines, the response) and CLAUDE.md (commit trailers); this page sa
 
 ## Writing jobs
 - **Full briefs only on `BOARD.md`**: every handoff entry on the board (whether `open` or `queued (after H0NN)`) must be a complete, ready-to-run brief (`Today`, `Reading path`, `Request`, `Touches`, `Checks`) so H146's auto-unblock works hands-free; partial ideas and unexpanded follow-ons stay in the Work list (`docs/decision-log.md`) until ready for a full brief.
+- A job adding a tool or an op also lists the places that pin them (H130 asked for them one by one):
+  `viewport/keys.gd`, `main.gd` `redo`, `tool_context.gd` and `test_tool_context.gd`, `test_tools.gd`,
+  `tools/push_tool.gd`, `tools/CLAUDE.md`, `worker/scenario/99_op_registry.py`.
 - **Grep callers before finalizing `Touches`**: when a brief changes a tool's hotkey, input mode, op schema, or function contract, grep the repo for every caller (e.g., `measure_box.gd`, `viewport/tests/harness.gd`, `presenter.gd`) so workers don't hit avoidable scope pauses.
 - Write the next jobs as handoff entries (a Status of open is Ready; "queued (after H0NN)" waits), each with its
   Touches list, and keep the board's Order line. Before marking one Ready, compare its Touches with every Ready or
