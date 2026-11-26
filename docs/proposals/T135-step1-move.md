@@ -1,6 +1,6 @@
 # T135 step 1: move the repo under the Organization (plan, 2026-11-26)
 
-The integrator's plan for P54–P59; for William to read before it starts. Nothing moves until he says go.
+The integrator's plan for P54–P59; for William to read before it starts. William said go, 2026-11-26 (P60-P63).
 
 ## Before
 - Nothing in flight: H148 and H149 merged, `small-fixes` merged. The ultra review is done (William, 2026-11-26); its findings come later. The other worktrees are `fretchup-small-fixes`, `fretchup-ultra-gemini` and
@@ -10,8 +10,7 @@ The integrator's plan for P54–P59; for William to read before it starts. Nothi
 ## A. The Organization skeleton (new, nothing moved yet)
 - `~/Sites/Organization/` with `01_Principles`, `02_Habits`, `03_Past_Decisions`, `04_Personal_Space`, `05_Jobs`,
   `06_To-dos` (`waiting_on_William/`, `waiting_on_integrator/`), `07_Org_Chart_and_Roles`, `08_Code_Bases` (P55).
-- `git init`; `.gitignore` holds `08_Code_Bases/*` (P58). The private GitHub repo is created when William gives
-  its name (it is outward-facing).
+- `git init`; `.gitignore` holds `08_Code_Bases/*` (P58). The private GitHub repo is `wweatherall/comitatus` (P62).
 - Seeded from `docs/proposals/organization-2026-11-25.md`: the org chart and roles go in 07, and William's principles
   go in 01, marked "not in force until T140". The rest start empty, each with a one-line README saying what goes there.
 - `05_Jobs` gets one generated file per code base, written by a script in Napkin (`tools/`) that the commit hook
@@ -20,8 +19,7 @@ The integrator's plan for P54–P59; for William to read before it starts. Nothi
 ## B. The move
 - `mv ~/Sites/fretchup ~/Sites/Organization/08_Code_Bases/Napkin`.
 - Job worktrees: `job.py` makes them in `<checkout>-jobs/`, so they would become `08_Code_Bases/Napkin-jobs/`.
-  That's a second folder in 08 that isn't a code base. Proposal: `job.py` uses `08_Code_Bases/.worktrees/Napkin/<id>`
-  (hidden, one place for every code base). A question for William at the time.
+  That's a second folder in 08 that isn't a code base. `job.py` uses `08_Code_Bases/.worktrees/Napkin/<id>` (P63).
 - `git worktree repair` for every worktree that is kept.
 
 ## C. Re-point what names the old path
@@ -32,10 +30,10 @@ The integrator's plan for P54–P59; for William to read before it starts. Nothi
 - Outside the repo: Claude Code's memory folder (`~/.claude/projects/-Users-Will-Sites-fretchup/`) is copied to
   the new path's folder; Codex's trusted-project entry (`~/.codex/config.toml`); Gemini's `settings.json` if it names
   the path. The app's own data (`user://`, "Shop Sketch") doesn't depend on where the repo is.
-- GitHub: renaming `wweatherall/fretchup` to `Napkin` is William's choice (GitHub redirects the old URL).
+- GitHub: `wweatherall/fretchup` is renamed `Napkin` (P62; GitHub redirects the old URL).
 
 ## D. The decision log (P59)
-- `docs/decision-log.md` and `docs/decision-archive.md` move to `02_Past_Decisions/` unchanged. Everything that
+- `docs/decision-log.md` and `docs/decision-archive.md` move to `Napkin/03_Past_Decisions/` unchanged (P61). Everything that
   names them is updated in the same commit: `log.py`, `sort_decision_log.py`, `number_ids.py`, `integrate.py`,
   `startup.py`, the hook, the guides and their tests. That commit gets its own test run.
 - The rest of `docs/` (board, handoff, specs, proposals, integrator guide) stays until a later step.
