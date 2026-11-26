@@ -3,7 +3,7 @@
 "Check the board" sends you here. Only the integrator edits this file; the job table is built from docs/handoff/
 and the job queue.
 
-Order: H147, H129, H127, H130
+Order: H150, H151
 
 ## If you're not the integrator
 
@@ -65,6 +65,8 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
+| H150 | either | **Ready** | T147 step 1: a plane fit keeps its target face when boards are cut, flipped or chained | [H150](docs/handoff/H150-t147-plane-fit-face-identity.md) |  |
+| H151 | either | Queued | T147 step 2: circles and polygons fit flush against a sloped face | [H151](docs/handoff/H151-t147-flush-fits-curved-profiles.md) | H150 |
 
 <!-- end of job table -->
 
