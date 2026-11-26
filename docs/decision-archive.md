@@ -77,6 +77,7 @@ Questions that have their answer; the Notes say where it went.
 | Q29 | Codex suggestion (not approved): keep component geometry linkage independent of array placement membership. | Decided | Decided 2026-11-21: two separate commands. Make unique frees a board's shape (it stays in its array and still moves with spacing/count edits); Detach from array frees its position (it can stay linked in shape). Both in the Edit menu; Make unique also on U. Part of Work list T12. |
 | Q30 | Codex suggestion (not approved): store grain orientation and physical texture scale relative to the part, with stable per-piece grain variation so linked pieces needn't share an identical wood pattern. | Decided | Decided 2026-11-21 (M03): grain runs along a board's longest edge by default; a key (and a menu item) turns it 90°. Saved as a Shop Sketch property in the FreeCAD file; linked copies share it, each with its own patch of texture. |
 | Q31 | Codex suggestion (not approved): explicit material mappings for Godot and Blender, with the shared information kept in FreeCAD. | Decided | Decided 2026-11-21 as M03: FreeCAD material cards; Shop Sketch's own wood library (public data, CC0 textures, face and end grain); card ID + name on each board; textures chosen from the card and grain direction. |
+| Q37 | App name: Napkin / Napkin CAD, Model It, Modeln, SpeedCAD, Build It, Draw Print Build, others? | Decided | William's notes page, 2026-11-25; check for existing products and trademarks before choosing (MathCAD is one). Decided 2026-11-26: Napkin. |
 
 ## Done work
 
