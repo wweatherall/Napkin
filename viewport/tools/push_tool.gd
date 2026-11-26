@@ -69,7 +69,8 @@ func vcb_value() -> String:
 func tip() -> String:
 	if state.has("edge_fit"):
 		var fit: Dictionary = state.edge_fit
-		var face: String = ["Left","Right","Front","Back","Bottom","Top"][fit.face]
+		var names := ["Left","Right","Front","Back","Bottom","Top"]
+		var face: String = names[fit.face] if fit.face < names.size() else "Face %d" % (fit.face + 1)  # cut targets have more planar faces (worker: "Face N")
 		return "%s → %s face · %s · ⌥ end%s" % [state.edge_label, face, FIT_MODES[state.get("fit_mode", 0)],
 				" · Tab face" if state.options.size() > 1 else ""]
 	return "to " + state["snap"] if state.get("active", false) and state.get("snap", "") != "" else ""
