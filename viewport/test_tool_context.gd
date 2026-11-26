@@ -116,7 +116,7 @@ const ALLOW := {
 	"pick": ["hit", "snap", "on_grid", "point", "axis", "axis_dest", "plane_dest", "ray", "project", "cursor",
 			 "grid_enabled", "grid_step", "snap_radius"],
 	"model": ["body_ids", "has_body", "triangles", "profile", "stock_frame", "unit_triangles", "cut_at",
-			  "cut_triangles", "circle_geometry", "lines_on", "drawn_region"],
+			  "cut_triangles", "circle_geometry", "polygon_geometry", "lines_on", "drawn_region"],
 	"selection": ["ids", "context", "assembly_of", "members_of", "unit_of", "in_context", "is_hidden",
 				  "context_assembly", "edit_blocked", "set_ids", "enter"],
 	"document": ["next_id", "op", "is_last", "append", "remove", "sync"],

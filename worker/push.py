@@ -1,4 +1,5 @@
 """Rectangles and Push/Pull: new boards, cuts and joins, through-cuts (I24), pocket-floor ties (T59)."""
+import math
 import Part
 from common import NORMAL_TOL, OpError, TOL, add_props, unit, vec
 
@@ -178,10 +179,16 @@ class PushActions:
             if pl is None:
                 raise OpError(f"unknown rect '{tgt['rect']}'")
             polygonal = getattr(pl, "SSRole", "") == "line-profile"
-            circular = pl.TypeId == "Sketcher::SketchObject"
+            ngon = getattr(pl, "SSRole", "") == "polygon-profile"
+            circular = pl.TypeId == "Sketcher::SketchObject" and not ngon
             if polygonal:
                 world_face = pl.Shape.Faces[0]
                 n = world_face.normalAt(0, 0)
+            elif ngon:
+                p0, ex, ey, n, radius, sides = self.polygon_world(pl)
+                corners = [p0 + (ex * math.cos(2 * math.pi * i / sides) + ey * math.sin(2 * math.pi * i / sides)) * radius
+                           for i in range(sides)]
+                world_face = Part.Face(Part.makePolygon(corners + corners[:1]))
             elif circular:
                 p0, ex, ey, n, radius = self.circle_world(pl)
                 world_face = Part.Face(Part.Wire([Part.makeCircle(radius, p0, n)]))
@@ -230,6 +237,9 @@ class PushActions:
             if pl is not None:
                 if polygonal:
                     base = self.face_feature(world_face, f"{tgt['rect']} outline")
+                elif ngon:
+                    base = self.polygon_feature(p0, ex, ey, radius, sides, f"{tgt['rect']} again",
+                                                existing=pl if loose else None)
                 elif circular:
                     base = self.circle_feature(p0, ex, ey, radius, f"{tgt['rect']} again", existing=pl if loose else None)
                 else:
@@ -265,7 +275,10 @@ class PushActions:
                 base = self.face_feature(fr.shape(world_face), f"{tgt['rect']} outline")
             else:
                 lp0, lex, ley = fr.pt(p0), fr.dir(ex), fr.dir(ey)
-                if circular:
+                if ngon:
+                    base = self.polygon_feature(lp0, lex, ley, radius, sides, f"{tgt['rect']} again",
+                                                existing=pl if loose else None)
+                elif circular:
                     base = self.circle_feature(lp0, lex, ley, radius, f"{tgt['rect']} again", existing=pl if loose else None)
                 elif loose:
                     base = self.plane_feature(lp0, lex, ley, "", existing=pl)

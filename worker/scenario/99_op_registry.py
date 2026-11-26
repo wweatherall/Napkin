@@ -1,17 +1,17 @@
 """The op registry: Model's op types are its op_<type> methods, its mixins every top-level *Actions class
-(model.action_mixins). Pins today's sixteen types; a helper like move_cut is not an op."""
+(model.action_mixins). Pins today's seventeen types; a helper like move_cut is not an op."""
 from model import Model, action_mixins
 
 requires = ()
 
-TYPES = {"arc", "line", "circle", "rect", "push_pull", "mirror", "make_component", "move", "set_material", "detach", "make_unique",
+TYPES = {"arc", "line", "circle", "polygon", "rect", "push_pull", "mirror", "make_component", "move", "set_material", "detach", "make_unique",
          "make_assembly", "turn_grain", "property_edit", "hide", "delete"}
-MIXINS = {"ArcActions", "LineActions", "CircleActions", "AssemblyActions", "DeleteActions", "MirrorActions", "MoveActions", "PaintActions", "PushActions",
+MIXINS = {"ArcActions", "LineActions", "CircleActions", "PolygonActions", "AssemblyActions", "DeleteActions", "MirrorActions", "MoveActions", "PaintActions", "PushActions",
           "VisibilityActions"}
 
 
 def run(ctx):
-    ctx.check("op registry: the op types are the sixteen op_ methods", set(Model.HANDLERS) == TYPES,
+    ctx.check("op registry: the op types are the seventeen op_ methods", set(Model.HANDLERS) == TYPES,
               sorted(set(Model.HANDLERS) ^ TYPES))
     ctx.check("op registry: every *Actions mixin joins Model", {c.__name__ for c in action_mixins()} == MIXINS
               and all(c in Model.__mro__ for c in action_mixins()), [c.__name__ for c in Model.__mro__])

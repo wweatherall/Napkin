@@ -74,7 +74,10 @@ geometry and Main's wrappers agreeing, and no main.gd reference in the context, 
   press-and-drag, I43). Uses Rectangle's snapping and distance policies; the measurements box accepts the same
   length syntax. Makes a `circle` op with an exact radius. Loose profiles share the existing `rects` presentation,
   `r` IDs and `target.rect` Push/Pull path; FreeCAD stores an exact fully constrained sketch circle.
-- `push_tool.gd` (P): click a face, rectangle or circle, move, click or type a distance (minus = cut), or press-and-drag
+- `polygon_tool.gd` (no key yet, Q33; T84, I64): Circle's gesture; a corner follows the cursor (op `x`). `8s` +
+  Return sets 3-64 sides (default 6, kept while the window is open), before or during a gesture: the one tool with
+  `accepts_idle(ch, typed)` (keys.gd). One `polygon` op; FreeCAD keeps a constrained regular-polygon sketch.
+- `push_tool.gd` (P): click a face, rectangle, circle or polygon, move, click or type a distance (minus = cut), or press-and-drag
   (I43). Snaps to faces behind (I23, I45; to the back face = a through-cut, `"through": true`, I24); on a face it
   joins that board, B for a new board (I04b). A pointer cut of a rectangle, circle or region snapped to a face behind
   sends `to_face` (T59, H121): FreeCAD ties its depth to that pocket's floor; a typed depth stays a measured number (I40). Circle profiles use point/back-face depth snaps;

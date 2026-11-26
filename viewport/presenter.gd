@@ -30,7 +30,7 @@ var body_tris := {}                 # body id -> PackedVector3Array (model mm, 3
 var body_verts := {}                # body id -> PackedVector3Array (unique corners)
 var body_edges := {}                # body id -> feature edge segments (model mm)
 var body_cuts := {}                 # body id -> [{op, kind, lo, hi}] from FreeCAD: holes and added pieces
-var rects := {}                     # profile id (rectangle or circle) -> {"tris","n","on","pts"}
+var rects := {}                     # profile id (rectangle, circle or polygon) -> {"tris","n","on","pts"}
 var loose_lines := {}             # line id -> {a, b, n, on}; rebuilt from journal
 var drafts := {}                    # op id -> Node3D
 var stock_frames := {}              # body id -> rectangular stock frame from bodies.json (plane fits, I40)
@@ -461,6 +461,12 @@ func register_rect(op: Dictionary) -> void:
 		var center: Array = op.get("center", [0, 0])
 		var shape := circle_geometry(origin + b[0] * float(center[0]) + b[1] * float(center[1]), n, op["radius"])
 		pts = shape.pts; tris = shape.tris; lines = shape.lines
+	elif op["type"] == "polygon":
+		var center: Array = op.get("center", [0, 0])
+		var toward: Array = op.get("x", [0, 0, 0])
+		var shape := polygon_geometry(origin + b[0] * float(center[0]) + b[1] * float(center[1]), n, op["radius"],
+				int(op["sides"]), Vector3(toward[0], toward[1], toward[2]))
+		pts = shape.pts; tris = shape.tris; lines = shape.lines
 	else:
 		var corner: Array = op.get("corner", [0, 0])
 		var o2: Vector3 = origin + b[0] * float(corner[0]) + b[1] * float(corner[1])
@@ -480,17 +486,24 @@ func register_rect(op: Dictionary) -> void:
 const CIRCLE_SEGMENTS := 64
 
 func circle_geometry(center: Vector3, normal: Vector3, radius: float) -> Dictionary:
+	return polygon_geometry(center, normal, radius, CIRCLE_SEGMENTS)
+
+
+# A regular polygon, its first corner `radius` toward `toward` (zero: the plane's own x), as worker/polygon.py.
+func polygon_geometry(center: Vector3, normal: Vector3, radius: float, sides: int, toward := Vector3.ZERO) -> Dictionary:
 	var basis: Array = Geo.plane_basis(normal)   # pure: works with no Main (T88 step 3)
+	var x: Vector3 = toward - normal * (toward.dot(normal) / normal.length_squared())
+	if x.length() > 1e-6: basis = [x.normalized(), normal.cross(x).normalized()]
 	var pts := PackedVector3Array()
 	var tris := PackedVector3Array()
 	var lines := PackedVector3Array()
-	for i in CIRCLE_SEGMENTS:
-		var angle := 2.0 * PI * i / CIRCLE_SEGMENTS
+	for i in sides:
+		var angle := 2.0 * PI * i / sides
 		pts.append(center + radius * (basis[0] * cos(angle) + basis[1] * sin(angle)))
-	for i in CIRCLE_SEGMENTS:
-		var a := pts[i]; var b := pts[(i + 1) % CIRCLE_SEGMENTS]
+	for i in sides:
+		var a := pts[i]; var b := pts[(i + 1) % sides]
 		lines.append_array(PackedVector3Array([a, b]))
-	for i in range(1, CIRCLE_SEGMENTS - 1):
+	for i in range(1, sides - 1):
 		tris.append_array(PackedVector3Array([pts[0], pts[i], pts[i + 1]]))
 	return {"pts": pts, "tris": tris, "lines": lines}
 
@@ -507,7 +520,7 @@ func rebuild_rect_drafts(ops: Array, used: Dictionary) -> void:
 			if not loose_lines.has(op.id): register_line(op)
 			if used.has(op.id): drop_draft(op.id)
 			continue
-		if op["type"] in ["rect", "circle"]:
+		if op["type"] in ["rect", "circle", "polygon"]:
 			if used.has(op["id"]):
 				register_rect(op); drop_draft(op["id"])
 			elif not drafts.has(op["id"]):
@@ -523,7 +536,7 @@ func forget_op(op: Dictionary, ops: Array, used: Dictionary) -> void:
 	if op.type in ["line", "arc"]:
 		loose_lines.erase(oid); rects.erase(oid); drop_draft("line:" + oid)
 		_refresh_loop_drafts()
-	elif op["type"] in ["rect", "circle"]:
+	elif op["type"] in ["rect", "circle", "polygon"]:
 		rects.erase(oid)
 	elif op["type"] in ["mirror", "move"]:
 		for nid in op.get("new_ids", []):

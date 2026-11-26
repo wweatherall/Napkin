@@ -739,7 +739,7 @@ func redo() -> void:
 		return
 	if op.type in ["line", "arc"]:
 		pres.register_line(op)
-	elif op["type"] in ["rect", "circle"]:
+	elif op["type"] in ["rect", "circle", "polygon"]:
 		if not rects.has(op["id"]): _register_rect(op)
 	elif op["type"] == "push_pull" and not op["target"].has("region"):
 		var rid: String = op["target"].get("rect", "")
@@ -939,7 +939,7 @@ var _first_open := true
 
 # The window <-> worker protocol's version (docs/protocol.md): bump it when a message or shared-file field changes.
 # The worker reports its own (worker/serve.py PROTOCOL_VERSION) in hello; a worker speaking another isn't shared.
-const PROTOCOL_VERSION := 14
+const PROTOCOL_VERSION := 15
 
 
 func _send_open() -> void:

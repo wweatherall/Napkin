@@ -31,7 +31,6 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 <!-- open list: built from docs/handoff/ by tools/handoff.py; don't edit by hand -->
 
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
-- [H130 — T84 step 2: Polygon tool (toolbar button without hotkey, exact FreeCAD sketch polygon)](handoff/H130-t84-polygon-tool.md) — status: open; for: either
 
 <!-- end of open list -->
 
@@ -39,6 +38,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 Full entries in [handoff-archive.md](handoff-archive.md).
 
+- H130 — T84 step 2: Polygon tool (toolbar button without hotkey, exact FreeCAD sketch polygon). Resolved: merged into main by the integrator, 2026-11-25.
 - H127 — T62: face ties on shapes other than plain rectangular boards. Resolved: merged into main by the integrator, 2026-11-24.
 - H147 — T131: Quiet-by-default tool tests (failures + summary; -v/--verbose for PASS lines). Resolved: merged into main by the integrator, 2026-11-24.
 - H129 — T84 step 1: Rotated Rectangle (R again toggles Rectangle and Rotated Rectangle). Resolved: merged into main by the integrator, 2026-11-24.
