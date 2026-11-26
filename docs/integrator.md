@@ -94,9 +94,11 @@ Architecture: lines, the response) and CLAUDE.md (commit trailers); this page sa
   made once the work is done.
 - A job touching saving, reloading or the worker link gets a "What can fail" section in its brief (P42; the
   entry template has it): you write it, from reading the code, since you aren't the builder.
-- A brief that has the worker clear a follow-up lists docs/follow-ups.md on its Touches and asks for it in the
-  code commit, before the quick test: `job.py done` reuses a pass only across commits that change the handoff
-  (H091's worker found "in your last commit" clashed with both).
+- A follow-up a job takes on: clear its line from docs/follow-ups.md yourself when you write the job (the brief names
+  it), so jobs don't all list that file and overlap (H148, H149). If a worker must clear one, it goes on Touches and in
+  the code commit, before the quick test: `job.py done` reuses a pass only across commits that change the handoff (H091).
+- Workers' code commits often lack the `Architecture-Impact:` line (H149): integrate.py then stops; check it and give
+  `--impact "none - <reason>"` on `--continue`.
 - Every rule in a brief says what it's for, in a clause: the invariant it keeps or the case it prevents (P44).
   Before writing a rule that sets one value of a linked pair or group (two angles, a range, a count and its
   list), check the state it leaves the others in. The worker may depart from a rule whose letter defeats its
