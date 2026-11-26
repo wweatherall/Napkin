@@ -42,3 +42,10 @@ Checks:
 - `worker/scenario/99_polygon.py`: create a 6-sided and an 8-sided polygon, verify exact sketch geometry and `sides` edges, extrude one into a board and cut one into a board, and verify invalid sides (`2`, `100`) or zero radius raise `OpError`.
 - `viewport/tests/quick/polygon.gd` (registered in `viewport/tests/quick/registry.gd`): activate Polygon tool, verify default 6 sides and `KEY_NONE`, draw a 6-sided polygon and confirm in FreeCAD, type `8s` + Enter and draw an 8-sided polygon, and Push/Pull it into a board.
 - Include `Architecture:` lines in your response noting the new `polygon` op, `worker/polygon.py`, `viewport/tools/polygon_tool.gd`, and `PROTOCOL_VERSION` bump (P28).
+
+#### Claude response (2026-11-25, branch claude/h130-t84-polygon-tool)
+
+Architecture: new op `polygon` `{id, type, plane, radius, sides, x?, center?}` (`x`: direction from the centre to the first corner, as rect's `x`; sent unrounded); `PROTOCOL_VERSION` 14 → 15 on both sides.
+Architecture: new `worker/polygon.py` (`PolygonActions`): a constrained `Sketcher::SketchObject` with `SSRole = polygon-profile`, which `worker/push.py` uses to tell it from a circle's sketch.
+Architecture: new `viewport/tools/polygon_tool.gd`; `ctx.model.polygon_geometry` added to `viewport/tool_context.gd`.
+Architecture: `viewport/keys.gd` hands typed characters to a tool before a gesture only if it has `accepts_idle(ch, typed_so_far)` (Polygon alone).

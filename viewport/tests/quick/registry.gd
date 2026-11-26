@@ -1,6 +1,6 @@
 extends RefCounted
 ## The tool registry (tool_registry.gd): the toolbar, the Tools menu and the tool keys come from each tool's TOOL.
-## Pins what William sees: these eight tools, in this order, with these tooltips and keys.
+## Pins what William sees: these nine tools, in this order, with these tooltips and keys.
 
 const Main := preload("res://main.gd")
 const Harness := preload("res://tests/harness.gd")
@@ -13,6 +13,7 @@ const WANT := [
 	["paint", "Paint", "Paint (pick the wood in the Wood menu)", "Paint", KEY_NONE],
 	["rect", "Rectangle", "Rectangle (R)", "Rectangle (R)", KEY_R],
 	["circle", "Circle", "Circle (C)", "Circle (C)", KEY_C],
+	["polygon", "Polygon", "Polygon", "Polygon", KEY_NONE],
 	["line", "Line", "Line (L)", "Line (L)", KEY_L],
 	["arc", "Arc", "Arc (A)", "Arc (A)", KEY_A],
 	["push", "Push/Pull", "Push/Pull (P)", "Push/Pull (P)", KEY_P],
@@ -30,7 +31,7 @@ func run() -> void:
 			for id in m.ui.tool_buttons:
 				if m.ui.tool_buttons[id] == b: bar.append([id, b.text, b.tooltip_text])
 	var want_bar: Array = WANT.map(func(w): return [w[0], w[1], w[2]])
-	harness._ok("the toolbar is Select, Paint, Rectangle, Circle, Line, Arc, Push/Pull, Move with their tooltips", bar == want_bar, bar)
+	harness._ok("the toolbar is Select, Paint, Rectangle, Circle, Polygon, Line, Arc, Push/Pull, Move with their tooltips", bar == want_bar, bar)
 	var registry = load("res://tool_registry.gd")
 	var menu: Array = []
 	if NativeMenu.has_feature(NativeMenu.FEATURE_GLOBAL_MENU):

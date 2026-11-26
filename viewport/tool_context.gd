@@ -3,7 +3,7 @@ extends RefCounted
 ## to every tool by `setup_context(ctx)`. It has seven named capabilities, each a small adapter that keeps its
 ## owner private and answers with snapshots (copies a tool may change freely):
 ##   pick       inference.gd: what's under the cursor, snaps, axis and plane moves, camera rays and projection
-##   model      presenter.gd: boards' triangles, profiles (rectangles, circles), stock frames, cuts
+##   model      presenter.gd: boards' triangles, profiles (rectangles, circles, polygons), stock frames, cuts
 ##   selection  selection.gd: the selection, context, assemblies, what a board stands for
 ##   document   document.gd: new ids, op snapshots, is_last, append, remove, sync
 ##   view       presenter / main.gd: previews, the snap marker, guides, the selection box, face highlight,
@@ -121,7 +121,7 @@ class ModelCapability extends _Capability:
 		return PackedVector3Array(_pres.body_tris.get(id, PackedVector3Array()))
 
 	func profile(id: String) -> Dictionary:
-		"""A drawn rectangle or circle: {tris, n, on, pts, kind}; {} if there's none (a missing kind: a rectangle)."""
+		"""A drawn rectangle, circle or polygon: {tris, n, on, pts, kind}; {} if there's none (a missing kind: a rectangle)."""
 		return _pres.rects.get(id, {}).duplicate(true)
 
 	func lines_on(body: String, normal: Vector3, point: Vector3) -> Array:
@@ -146,6 +146,9 @@ class ModelCapability extends _Capability:
 
 	func circle_geometry(center: Vector3, normal: Vector3, radius: float) -> Dictionary:
 		return _pres.circle_geometry(center, normal, radius).duplicate(true)
+
+	func polygon_geometry(center: Vector3, normal: Vector3, radius: float, sides: int, toward := Vector3.ZERO) -> Dictionary:
+		return _pres.polygon_geometry(center, normal, radius, sides, toward).duplicate(true)
 
 
 # ---------------------------------------------------------------- selection and context (selection.gd)

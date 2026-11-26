@@ -47,6 +47,9 @@ func press(e: InputEventKey) -> void:
 	if not (box.vcb != "" and e.keycode == KEY_SHIFT) and t.key(e): return   # the tool's own keys (Move: modifiers, axis locks); while typing, Shift is for " and '
 	if t.busy() and ch != "" and t.accepts(ch):
 		box.type_char(ch); return
+	# Only a tool with accepts_idle takes characters before a gesture (Polygon's `8s`).
+	if not t.busy() and not cmd and ch != "" and t.has_method("accepts_idle") and t.accepts_idle(ch, box.vcb):
+		box.type_char(ch); return
 	if m.tool_keys.has(e.keycode): m.set_tool(m.tool_keys[e.keycode]); return   # each tool's own key (its TOOL)
 	match e.keycode:
 		KEY_G: m.menus.run("grid")

@@ -272,7 +272,7 @@ func _edge_inference(pt: Dictionary, screen: Vector2) -> void:
 	var source_size := 0.0
 	if state.rect != "":
 		var profile := ctx.model.profile(state.rect)
-		if profile.get("kind", "rect") not in ["rect", "circle"]: return
+		if profile.get("kind", "rect") not in ["rect", "circle", "polygon"]: return
 		if profile.on != "" and not (ctx.ui.new_board() and state.dist > 0): return
 	else:
 		var src := ctx.model.stock_frame(state.body)
