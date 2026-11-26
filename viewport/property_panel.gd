@@ -480,5 +480,5 @@ func _preview() -> void:
 	var size_text := _format_mm(depths.min())
 	if mode_picker.selected == 2: size_text = _format_mm(depths.max())
 	elif mode_picker.selected == 1: size_text = "%s–%s" % [_format_mm(depths.min()), _format_mm(depths.max())]
-	result.text = "%s → %s face\nResult: %s · X %.1f°  Y %.1f°  Z %.1f°" % [b.label,FACE_NAMES[face],size_text,angles.x,angles.y,angles.z]
+	result.text = "%s → %s face\nResult: %s · X %.1f°  Y %.1f°  Z %.1f°" % [b.label,FACE_NAMES[face] if face < FACE_NAMES.size() else "Face %d" % (face + 1),size_text,angles.x,angles.y,angles.z]
 	apply_fit.disabled = false

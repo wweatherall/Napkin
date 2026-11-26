@@ -282,7 +282,8 @@ func commit_rect(du: float, dv: float, reuse_oid := "") -> void:
 	var op := {"id": rid, "type": "rect", "plane": plane,
 			   "corner": [minf(0, du), minf(0, dv)], "size": [absf(du), absf(dv)]}
 	if is_rotated:
-		op["x"] = Geo.arr3(state["x"])
+		var x: Vector3 = state["x"]
+		op["x"] = [x.x, x.y, x.z]  # unrounded: a 0.001 step turns a snapped corner up to ~0.7 mm off over 1 m
 	ctx.document.append(op)
 	ctx.view.register_profile(op)
 	last_oid = rid

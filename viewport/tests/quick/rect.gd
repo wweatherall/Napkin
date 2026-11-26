@@ -122,6 +122,10 @@ func run() -> void:
 		and is_equal_approx(float(rot_op["size"][0]), 100.0) and is_equal_approx(float(rot_op["size"][1]), 50.0)
 		and pts_ok and m.doc.confirmed_ids.has(rot_op["id"]) and m.reject_note == "",
 		[label_edge, label_width, rot_op, rot_pts, m.doc.confirmed_ids.has(rot_op.get("id", "")), m.reject_note])
+	var drawn_x: Vector3 = m.tools["rect"].last_meta.get("x", Vector3.ZERO)
+	harness._ok("rotated rectangle sends its direction unrounded (T145 finding 7)",
+		rot_op.has("x") and Vector3(rot_op["x"][0], rot_op["x"][1], rot_op["x"][2]).is_equal_approx(drawn_x),
+		[rot_op.get("x"), drawn_x])
 
 	# Typed first-edge length and perpendicular width, then after-the-fact length, width amend.
 	await harness._drag_to(Vector3(200, 0, 0), 4); await harness._button(true); await harness._button(false)
