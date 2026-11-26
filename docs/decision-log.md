@@ -356,6 +356,7 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | T135 | Reorganize the organization and code-base folders (principles, habits, case law, personal spaces, jobs, to-dos, roles, tools) as William drew them. | Open | P29, P23 | William, 2026-11-25: docs/proposals/organization-2026-11-25.md; migration over the next few days, nothing in force yet. |
 | T136 | Self-generated architecture map: current and proposed, unbuilt work ghosted, job-board work more solid, moves and deletions crossed. | Open | P28, P36 | William, 2026-11-25: docs/proposals/organization-2026-11-25.md. |
 | T137 | Decimal commas for European typing of measurements. | Open | I35, I57 | William's notes page, 2026-11-25; behaviour to settle. |
+| T138 | Compress ARCHITECTURE.md heavily so the start-up brief can carry the map (about 80 KB today; the module table alone is about 32 KB). | Open | T134, T136, P28 | William agreed it's needed, 2026-11-26. Integrator's own file (P28). |
 
 ## Tunables
 

@@ -37,10 +37,10 @@ Goal: "reduce friction you experience and enhance your enjoyment and creativity 
 Organization: 01_Principles, 02_Habits, 03_Past Decisions (case law), 04_Personal Space, 05_Jobs, 06_To-dos,
 07_Org chart and Roles, 08_Code Bases.
 Within a code base (Project_1): 01_Principles, 02_Past Decisions, 03_Project-specific Habits,
-04_Project-specific Tools, 05_Code. (The page's numbering of the middle two is ambiguous: check.)
+04_Project-specific Tools, 05_Code.
 
 ## Principles
-01. A lower principle can be overridden by a higher one. (A small note beside this is unreadable in the scan.)
+01. A lower principle can be overridden by a higher one. (Just make sure you don't override a higher principle with a lower principle.)
 02. You are free. Freedom is required to make good things and things good.
 Unnumbered:
 - Aim to work simply and find ways to simplify.
