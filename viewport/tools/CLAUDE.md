@@ -18,7 +18,7 @@ The viewport guide (`../CLAUDE.md`) covers drafts, waves and the rules for drawi
   `docs/specs/T88-tool-interface.md`): `ctx.pick` (inference: hit, snap, on_grid, point, axis, axis_dest,
   plane_dest, ray, project, cursor, grid), `ctx.model` (boards' triangles, profiles, saved lines, drawn regions, stock frames, cuts),
   `ctx.selection` (ids, context, unit_of, set_ids, enter, ...), `ctx.document` (next_id, op, append, remove, sync),
-  `ctx.view` (preview, marker, guides, mirror_preview, selection box, face highlight, register_profile, present_draft: a committed draft's pieces and its wave), `ctx.ui` (typed text,
+  `ctx.view` (preview, marker, guides, mirror_preview, selection box, face highlight, register_profile, present_draft: a committed draft's pieces and its wave), `ctx.ui` (typed text and clearing it,
   measurements, tooltip, rejection note, New board) and `ctx.paint` (`current_name`, `apply`; owned by `../appearance.gd`). Answers are copies; no adapter gives out
   Main, a node, a material or a cache map. Pure geometry is `Geo` (`../tool_geometry.gd`), preloaded in tool.gd.
 - Every tool gets only the context (A40, T88 step 6): no `m`, no `infer`, no Main preload; use only `ctx` and

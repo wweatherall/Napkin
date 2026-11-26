@@ -65,8 +65,7 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H148 | either | **Ready** | T144 step 1: a corner fillet radius too big for its edges says why | [H148](docs/handoff/H148-t144-fillet-too-big-status.md) |  |
-| H149 | either | **Ready** | T144 step 2: the click that starts a Polygon clears digits not entered | [H149](docs/handoff/H149-t144-polygon-click-clears-box.md) |  |
+| H148 | either | **Done**: for review (claude) | T144 step 1: a corner fillet radius too big for its edges says why | [H148](docs/handoff/H148-t144-fillet-too-big-status.md) |  |
 
 <!-- end of job table -->
 

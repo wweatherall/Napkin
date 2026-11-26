@@ -32,7 +32,6 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
 - [H148 — T144 step 1: a corner fillet radius too big for its edges says why](handoff/H148-t144-fillet-too-big-status.md) — status: open; for: either
-- [H149 — T144 step 2: the click that starts a Polygon clears digits not entered](handoff/H149-t144-polygon-click-clears-box.md) — status: open; for: either
 
 <!-- end of open list -->
 
@@ -40,6 +39,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 Full entries in [handoff-archive.md](handoff-archive.md).
 
+- H149 — T144 step 2: the click that starts a Polygon clears digits not entered. Resolved: merged into main by the integrator, 2026-11-26.
 - H130 — T84 step 2: Polygon tool (toolbar button without hotkey, exact FreeCAD sketch polygon). Resolved: merged into main by the integrator, 2026-11-25.
 - H127 — T62: face ties on shapes other than plain rectangular boards. Resolved: merged into main by the integrator, 2026-11-24.
 - H147 — T131: Quiet-by-default tool tests (failures + summary; -v/--verbose for PASS lines). Resolved: merged into main by the integrator, 2026-11-24.

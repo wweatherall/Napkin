@@ -47,6 +47,7 @@ func click(screen: Vector2) -> void:
 	var on: String = p["body"]
 	if p["rect"] != "": on = ctx.model.profile(p["rect"]).get("on", "")
 	state = {"active": true, "origin": p["point"], "n": p["normal"], "on": on, "radius": 0.0, "x": Vector3.ZERO}
+	ctx.ui.clear_typed()   # digits not entered before this click aren't the start of the radius (I72)
 	press_started(screen)
 
 
