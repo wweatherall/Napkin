@@ -15,6 +15,7 @@ const Geo := preload("res://tool_geometry.gd")
 const Inference := preload("res://inference.gd")
 const Presenter := preload("res://presenter.gd")
 const Preferences := preload("res://preferences.gd")
+const LivePreferences := preload("res://live_preferences.gd")
 const Tool := preload("res://tools/tool.gd")
 const GRID := Inference.GRID          # the grid and snap settings are inference's (T88); old names for consumers
 const SNAP_PX := Inference.SNAP_PX
@@ -142,7 +143,7 @@ func _make_presenter() -> void:
 	pres.m = self
 	pres.sel = sel
 	add_child(pres)
-	pres.boards_read.connect(_on_boards_read)
+	pres.boards_read.connect(history._on_boards_read)
 	pres.wave_rejected_done.connect(_on_wave_rejected_done)
 
 
@@ -289,18 +290,18 @@ func _ready() -> void:
 	doc.client = client
 	doc.start_fresh = test_mode and not heavy_test
 	add_child(doc)
-	doc.sync_started.connect(_on_sync_started)
+	doc.sync_started.connect(history._on_sync_started)
 	doc.sent.connect(func(n: int): sent_clock[n] = movie_clock)
-	doc.synced.connect(_on_synced)
-	doc.sync_failed.connect(_on_sync_failed)
+	doc.synced.connect(history._on_synced)
+	doc.sync_failed.connect(history._on_sync_failed)
 	doc.save_changed.connect(ui.update_saved)
 	prompts.name = "SavePrompts"
 	add_child(prompts)
 	doc.close_ready.connect(prompts.close_now)
 	doc.close_blocked.connect(prompts.ask_close)
 	get_tree().set_auto_accept_quit(false)       # closing waits for the latest save first (I55, prompts.request_close)
-	doc.op_removed.connect(_on_op_removed)
-	doc.removed.connect(_on_removed)
+	doc.op_removed.connect(history._on_op_removed)
+	doc.removed.connect(history._on_removed)
 	doc.idle.connect(_request_properties)
 	doc.outside_waiting.connect(prompts.on_outside_waiting)
 	doc.outside_failed.connect(prompts.on_outside_failed)
@@ -309,7 +310,7 @@ func _ready() -> void:
 	doc.reloaded.connect(prompts.on_reloaded)
 	doc.kept_mine.connect(prompts.on_kept_mine)
 	_make_selection()
-	client.replied.connect(_on_worker)
+	client.replied.connect(history._on_worker)
 	client.link_up.connect(_on_link_up)
 	client.link_down.connect(_on_link_down)
 	client.start(worker.resolve_port(port))
@@ -700,200 +701,15 @@ static func _axis_vec(ax: int) -> Vector3: return Geo.axis_vector(ax)
 static func reflect_tris(tris: PackedVector3Array, p: Vector3, n: Vector3) -> PackedVector3Array: return Geo.reflect_tris(tris, p, n)
 static func _mirror_tris(tris: PackedVector3Array, ax: int, c: float) -> PackedVector3Array: return Geo.mirror_triangles(tris, ax, c)
 
-# ---------------- open, undo ----------------
-func _on_open(resp: Dictionary) -> void:
-	if not doc.is_current_open(resp):           # an answer to an older open (a model since left): ignored (T70)
-		print("SHOPSKETCH ignored a late open reply for %s" % resp.get("model", "?"))
-		return
-	if resp.get("error", "") == "already_open":
-		if _model_before == "":
-			# launched on a model another window has: that window came forward, this one isn't needed (W13)
-			print("SHOPSKETCH %s is open in another window: closing this one" % model_path)
-			get_tree().quit()
-		else:
-			var name := model_path.get_file()
-			switch_model(_model_before)
-			worker.say_worker("%s is open in another window" % name)
-		return
-	_model_before = ""
-	if not resp.get("ok", false):
-		ui_sync.text = "✗ couldn't open %s: %s" % [model_path, resp.get("error", "?")]
-		ui_sync.add_theme_color_override("font_color", Color(0.75, 0.1, 0.1))
-		return
-	var adopt := not (test_mode and not heavy_test and _first_open)   # tests start clean; a model opened later (switch_model) adopts its history
-	_first_open = false
-	doc.on_opened(resp, adopt)
-	measure.on_opened(resp, adopt)
-	if not adopt: return
-	_rebuild_rect_drafts()
-	sync()
-	if resp.get("external", false):
-		reject_note = ""
-		ui_sync.text = "opened %s - changed in FreeCAD since Shop Sketch last saved it" % model_path.get_file()
-
-
-func undo() -> void:
-	if doc.at_undo_floor():
-		ui_sync.text = "✗ can't undo past changes made in FreeCAD (yet)"
-		ui_sync.add_theme_color_override("font_color", Color(0.75, 0.1, 0.1))
-		return
-	doc.undo()
-
-
-# ---------------- redo (T31) ----------------
-# Linear redo (the document controller keeps the stack and says when it's over); here it's drawn again.
-func redo() -> void:
-	var op: Dictionary = doc.take_redo()
-	if op.is_empty():
-		_say_status("Nothing to redo")
-		return
-	if op.type in ["line", "arc"]:
-		pres.register_line(op)
-	elif op["type"] in ["rect", "circle", "polygon"]:
-		if not rects.has(op["id"]): _register_rect(op)
-	elif op["type"] == "push_pull" and not op["target"].has("region"):
-		var rid: String = op["target"].get("rect", "")
-		if drafts.has(rid): drafts[rid].queue_free(); drafts.erase(rid)
-	_show_state(_ops_key(ops))                 # the state it led to, if remembered: on screen at once
-	_apply_context()
-	sync()
-	ui_sync.text = "↷ redone - FreeCAD catching up (%d ops)" % ops.size()
-
-
-func _on_op_removed(op: Dictionary) -> void:
-	"""The document dropped an op (undo, rejection): take away what it drew."""
-	pres.forget_op(op, ops, doc.consumed_rects())
-
-
-func _on_removed() -> void:
-	var k := _ops_key(ops)
-	if k != shown_key and _show_state(k):      # undo: the state before this op, remembered, on screen at once
-		predicted_undo = true
-	_apply_context()                           # an undone hide shows its boards again at once (T28)
-
-
-func _rebuild_rect_drafts() -> void:
-	pres.rebuild_rect_drafts(ops, doc.consumed_rects())
-
-
-# ---------------- worker sync ----------------
-func oplog() -> Dictionary:
-	return doc.oplog()
-
-
-func sync() -> void:
-	doc.sync()
-
-
-func _on_sync_started() -> void:
-	properties_seq = -1
-	if properties_panel != null and properties_panel.visible: properties_panel.message("Waiting for FreeCAD…")
-	ui_sync.text = "● draft - FreeCAD catching up (%d ops)" % ops.size()
-	if predicted_undo:
-		ui_sync.text = "↶ undone - FreeCAD catching up (%d ops)" % ops.size()
-		predicted_undo = false
-	ui_sync.add_theme_color_override("font_color", Color(0.75, 0.45, 0.0))
-
-
-func _on_worker(resp: Dictionary) -> void:
-	if resp.get("cmd", "") == "inspect_properties":
-		_on_properties(resp)
-		return
-	if resp.get("cmd", "") == "length":
-		_on_length(resp)
-		return
-	if resp.get("cmd", "") == "focus":               # someone tried to open this window's model: come forward
-		DisplayServer.window_move_to_foreground()
-		return
-	if resp.get("cmd", "") == "open":
-		_on_open(resp)
-		return
-	if resp.get("cmd", "") == "saved":
-		doc.on_saved(resp)
-		return
-	if resp.get("cmd", "") == "save_failed":         # T79: the indicator says why (I54)
-		doc.on_save_failed(resp)
-		return
-	if resp.get("cmd", "") == "flush":               # what it saved and couldn't (T79); closing waits on it
-		doc.on_flush_reply(resp)
-		return
-	if resp.get("cmd", "") == "outside_save":        # FreeCAD saved this model (A36, T64)
-		doc.on_outside_save(resp)
-		return
-	if resp.get("cmd", "") == "reload":
-		doc.on_reload_reply(resp)
-		return
-	if resp.get("cmd", "") == "keep_mine":
-		doc.on_keep_mine_reply(resp)
-		return
-	if resp.get("cmd", "") == "set_units":
-		measure.on_set_units_reply(resp)
-		return
-	if not resp.get("cmd", "") in ["sync", "replay"]:   # flush, hello, bye, quit, or an error for some other request:
-		if not resp.get("ok", false):                    # never sync state (T70)
-			worker.say_worker("✗ worker error: %s" % resp.get("error", "?"))
-		return
-	if true_latency and resp.get("ok", false) and resp.has("wall_ms") and not resp.get("_released", false):
-		held_resp = resp
-		return
-	doc.on_sync_reply(resp)
-
-
-func _on_sync_failed(error: String) -> void:
-	ui_sync.text = "✗ worker error: %s" % error
-	ui_sync.add_theme_color_override("font_color", Color(0.75, 0.1, 0.1))
-
-
-func _on_synced(resp: Dictionary) -> void:
-	"""FreeCAD's answer for what's on screen: confirmed boards replace drafts, waves finish or go red."""
-	var res: Dictionary = resp["result"]
-	var drop_now := []
-	for o in res["ops"]:
-		var w = op_waves.get(o["id"])
-		if o["status"] == "ok":
-			if w != null and w["state"] == "pending": w["state"] = "ok"
-		else:
-			_on_rejected(o, w, drop_now)
-	var ok_ids := {}
-	for o in res["ops"]:
-		if o["status"] == "ok": ok_ids[o["id"]] = true
-	var key := _ops_key(ops.filter(func(op): return ok_ids.has(op["id"])))
-	pres.show_confirmed(resp["outdir"], key)          # unless already on screen (an undo shown from the cache)
-	pres.drop_confirmed_drafts(doc.consumed_rects())  # a rejected draft stays until its red wave is done
-	if true_latency: doc.last_sync_ms = int((movie_clock - float(sent_clock.get(seq, movie_clock))) * 1000.0)
-	ui_sync.text = "✓ FreeCAD confirmed  (round trip %d ms)" % last_sync_ms
-	if res.get("how", "") == "rebuilt":
-		ui_sync.text = "✓ FreeCAD rebuilt the model (undo past its 20-step history, %d ms)" % last_sync_ms
-	ui_sync.add_theme_color_override("font_color", Color(0.1, 0.5, 0.15))
-	if reject_note != "":
-		ui_sync.text = "✗ rejected " + doc.readable_ids(reject_note)
-		ui_sync.add_theme_color_override("font_color", Color(0.75, 0.1, 0.1))
-	elif _startup_prefs_problem != "":
-		_say_status(_startup_prefs_problem)
-		_startup_prefs_problem = ""
-	confirmed.emit(seq)
-	if resp["result"].has("export_ms") and drawing_pending:
-		drawing_pending = false
-		_run_drawing_script()
-	for oid in drop_now:
-		doc.remove_op(oid)
-
-
-# ---------------- confirmed boards (presenter.gd) ----------------
-func _apply_confirmed(dir: String, key: String) -> void:
-	pres.apply_confirmed(dir, key)
-
-
-func _on_boards_read(data: Array, dir: String) -> void:
-	"""bodies.json, before the presenter builds from it: what each board belongs to, and its wood."""
-	sel.set_boards(data)
-	if appearance.wood_library.is_empty() and appearance.load_library(dir): menus.build_materials_menu()
-	appearance.set_boards(data)
-	pres.forget_siblings()
-
-
-static func _ops_key(list: Array) -> String:
-	return Document.ops_key(list)
+# ---------------- open, undo, sync (history.gd) ----------------
+var history = load("res://history.gd").new(self)
+func undo() -> void: history.undo()
+func redo() -> void: history.redo()
+func _rebuild_rect_drafts() -> void: history._rebuild_rect_drafts()
+func sync() -> void: history.sync()
+func _on_worker(resp: Dictionary) -> void: history._on_worker(resp)
+func _on_sync_failed(error: String) -> void: history._on_sync_failed(error)
+static func _ops_key(list: Array) -> String: return Document.ops_key(list)
 
 
 # ---------------- the frame ----------------
@@ -1054,111 +870,23 @@ func _reset_model_state() -> void:
 	marker.visible = false
 
 
-# ---------------- preferences (I63, T111) ----------------
-const PREFERENCES_PATH := "user://preferences.json"
-const PREFERENCES_KEY := KEY_MASK_META | KEY_COMMA
-var preferences_path := PREFERENCES_PATH
-var prefs := Preferences.new()
-var _prefs_timer: Timer
-var _startup_prefs_problem := ""
-
-
-func _init_preferences() -> void:
-	if test_mode: return
-	_start_preferences()
-
-
-func _start_preferences() -> void:
-	"""Load preferences_path and start the 0.5 s poll timer (skipped at startup in test_mode, I63)."""
-	_load_preferences(true)
-	if not doc.opened and not measure.units_user_set:
-		measure.units = measure.default_units()
-		measure.update()
-	if _prefs_timer == null:
-		_prefs_timer = Timer.new()
-		_prefs_timer.name = "PreferencesTimer"
-		_prefs_timer.wait_time = 0.5
-		_prefs_timer.one_shot = false
-		_prefs_timer.timeout.connect(_poll_preferences)
-		add_child(_prefs_timer)
-	_prefs_timer.start()
-
-
-func _poll_preferences() -> void:
-	if prefs.changed_on_disk(preferences_path):
-		_load_preferences(false)
-
-
-func _load_preferences(at_start: bool) -> void:
-	var res := prefs.load_from(preferences_path)
-	_apply_preferences(res["values"])
-	var msg := _preferences_status(res, at_start)
-	if msg != "":
-		_say_status(msg)
-		if at_start and not doc.opened and not res["problems"].is_empty():
-			_startup_prefs_problem = msg
-	elif res["problems"].is_empty():
-		_startup_prefs_problem = ""
-
-
-func _apply_preferences(values: Dictionary) -> void:
-	"""Apply preferences values ({units, tuning}, or a tuning dictionary) to live tunables and default units."""
-	var t: Dictionary = values["tuning"] if typeof(values.get("tuning")) == TYPE_DICTIONARY else values
-	if t.has("GRID"): Inference.grid = float(t["GRID"])
-	if t.has("SNAP_PX"): Inference.snap_px = float(t["SNAP_PX"])
-	if t.has("EDGE_PX"): Inference.edge_px = float(t["EDGE_PX"])
-	if t.has("INFER_DEG"): Inference.infer_deg = float(t["INFER_DEG"])
-	if t.has("RELEASE_DEG"): Inference.release_deg = float(t["RELEASE_DEG"])
-	if t.has("DRAG_PX"): Tool.drag_px = float(t["DRAG_PX"])
-	if t.has("HOLD_MS"): Tool.hold_ms = int(t["HOLD_MS"])
-	if t.has("TRACKPAD_PX"): camera_rig.trackpad_px = float(t["TRACKPAD_PX"])
-	if t.has("ZOOM_STEP"): camera_rig.zoom_step = float(t["ZOOM_STEP"])
-	if typeof(values.get("units")) == TYPE_DICTIONARY:
-		var def_u = values["units"].get("default")
-		measure.pref_default_units = String(def_u) if typeof(def_u) == TYPE_STRING else ""
-
-
-func _preferences_status(res: Dictionary, at_start: bool) -> String:
-	var problems: Array = res.get("problems", [])
-	if not problems.is_empty():
-		var first: String = problems[0]
-		if problems.size() > 1:
-			return "%s (and %d more)" % [first, problems.size() - 1]
-		return first
-	if at_start:
-		return ""
-	var changed: Array = res.get("changed", [])
-	if changed.is_empty():
-		return ""
-	var parts: Array[String] = []
-	for k in changed:
-		if k == "units.default":
-			parts.append("default units %s" % (measure.pref_default_units if measure.pref_default_units != "" else "none"))
-		else:
-			parts.append("%s %s" % [k, Preferences.format_num(_live_tuning(k))])
-	return "Preferences: " + ", ".join(parts)
-
-
-func _live_tuning(key: String) -> float:
-	match key:
-		"GRID": return Inference.grid
-		"SNAP_PX": return Inference.snap_px
-		"EDGE_PX": return Inference.edge_px
-		"INFER_DEG": return Inference.infer_deg
-		"RELEASE_DEG": return Inference.release_deg
-		"DRAG_PX": return Tool.drag_px
-		"HOLD_MS": return float(Tool.hold_ms)
-		"TRACKPAD_PX": return camera_rig.trackpad_px
-		"ZOOM_STEP": return camera_rig.zoom_step
-	return 0.0
-
-
-func _open_preferences() -> void:
-	var err := prefs.write_defaults(preferences_path)
-	if err != OK and err != ERR_ALREADY_EXISTS:
-		_say_status("Couldn't write preferences.json: %s" % error_string(err))
-		return
-	OS.shell_open(ProjectSettings.globalize_path(preferences_path))
+# ---------------- preferences (live_preferences.gd, I63, T111) ----------------
+const PREFERENCES_PATH := LivePreferences.PREFERENCES_PATH
+const PREFERENCES_KEY := LivePreferences.PREFERENCES_KEY
+var live_prefs := LivePreferences.new(self)
+var preferences_path: String:
+	get: return live_prefs.preferences_path
+	set(v): live_prefs.preferences_path = v
+var prefs: Preferences:
+	get: return live_prefs.prefs
+	set(v): live_prefs.prefs = v
+var _prefs_timer: Timer:
+	get: return live_prefs._prefs_timer
+	set(v): live_prefs._prefs_timer = v
+func _init_preferences() -> void: live_prefs._init_preferences()
+func _start_preferences() -> void: live_prefs._start_preferences()
+func _apply_preferences(values: Dictionary) -> void: live_prefs._apply_preferences(values)
+func _open_preferences() -> void: live_prefs._open_preferences()
 
 
 func new_window() -> void:

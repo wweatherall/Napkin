@@ -46,8 +46,10 @@ One-line index per module (`tools/architecture_map.py`). Per-file details, warni
 - `viewport/appearance.gd` — Wood library, board materials, and Paint and grain commands (T15, M03)
 - `viewport/camera_rig.gd` — Orbit, pan and zoom for mouse and trackpad (T113)
 - `viewport/document.gd` — The document controller (A31, T39): one model's action list and its sync with FreeCAD
+- `viewport/history.gd` — History & worker replies: open, undo, redo, worker sync dispatch, and confirmed-board glue (`m.history`)
 - `viewport/inference.gd` — The one snapping and inference engine every tool uses (T4, Q16): what's under the cursor (pick), point snaps in SketchUp's order (endpoint > midpoint > on edge…
 - `viewport/keys.gd` — The keyboard (T75): tool keys (each tool declares its own, tool_registry.gd), shortcuts, Esc, Enter, Delete / Backspace, typed values, Tab / ⌥ for Push/Pull
+- `viewport/live_preferences.gd` — Live preferences (I63, T111): loads, watches and applies user://preferences.json to live tunables and default units
 - `viewport/main.gd` — Shop Sketch: tool-first viewport
 - `viewport/measure_box.gd` — The measurements box (VCB, T75): the typed value at the bottom right, what it's labelled, and where the typed text goes
 - `viewport/menus.gd` — The native menu bar and menu command dispatch (T113)

@@ -75,7 +75,7 @@ Request: `cmd: "open"`, `model: string`, `fresh?: boolean = false`, `seq?: integ
 
 A refusal has exactly `ok: false`, `cmd: "open"`, `error: "already_open"`, `model: string`, `seq`. The owning connection receives a `focus` event. Other errors use the generic envelope below. On an outside edit, the worker adopts successful journal operations but prevents undo below `undo_floor`; without a valid journal it marks the file external. `undo_floor` counts operations, not FreeCAD transactions. Failed journal operations are omitted when reopening.
 
-Producer/consumer: [worker/serve.py](../worker/serve.py):`serve.handle`, `session_for`, `claim`; [worker/session.py](../worker/session.py):`Session._open_existing`; [viewport/document.gd](../viewport/document.gd):`send_open`, `on_opened`; [viewport/main.gd](../viewport/main.gd):`_on_open` (first drops a reply `is_current_open` rejects; then adopts history and requests sync, or closes a duplicate launch/reverts a refused switch).
+Producer/consumer: [worker/serve.py](../worker/serve.py):`serve.handle`, `session_for`, `claim`; [worker/session.py](../worker/session.py):`Session._open_existing`; [viewport/document.gd](../viewport/document.gd):`send_open`, `on_opened`; [viewport/history.gd](../viewport/history.gd):`_on_open` (first drops a reply `is_current_open` rejects; then adopts history and requests sync, or closes a duplicate launch/reverts a refused switch).
 
 ### `sync`
 
@@ -113,7 +113,7 @@ OpStatus: `id: string`, `type: string`, `status: "ok" | "failed"`, `ms: number`;
 
 Sync keeps the common canonical op prefix, undoes the rest, then applies the new suffix. If required native undo is unavailable it rebuilds; crossing an external undo floor is a request error. Export finishes before the reply (and `status.json` in one-off replay or when `SERVE_STATUS_FILE=1`). Changed/drawing sessions then enter the pending-save map; `saved` is a separate event after persistence.
 
-Producer/consumer: [worker/serve.py](../worker/serve.py):`run_sync`, `serve.handle`; [worker/session.py](../worker/session.py):`canon`, `Session.sync`, `_apply`, `status`, `export`; [viewport/document.gd](../viewport/document.gd):`oplog`, `_send`, `on_sync_reply`; [viewport/main.gd](../viewport/main.gd):`_on_synced`, `_on_rejected`; [viewport/presenter.gd](../viewport/presenter.gd):`show_confirmed`, `apply_confirmed`.
+Producer/consumer: [worker/serve.py](../worker/serve.py):`run_sync`, `serve.handle`; [worker/session.py](../worker/session.py):`canon`, `Session.sync`, `_apply`, `status`, `export`; [viewport/document.gd](../viewport/document.gd):`oplog`, `_send`, `on_sync_reply`; [viewport/history.gd](../viewport/history.gd):`_on_synced`; [viewport/main.gd](../viewport/main.gd):`_on_rejected`; [viewport/presenter.gd](../viewport/presenter.gd):`show_confirmed`, `apply_confirmed`.
 
 ### `length`
 
@@ -224,7 +224,7 @@ All four are unsolicited, worker → window only; there is no matching request o
 {"ok":true,"cmd":"focus","model":"/tmp/chair.FCStd"}
 ```
 
-Producer/consumer: [worker/serve.py](../worker/serve.py):`save_pending`, `serve.hold`, `serve.handle`; [viewport/main.gd](../viewport/main.gd):`_on_worker`, `_on_open`; [viewport/document.gd](../viewport/document.gd):`on_saved` (matches normalized model path; monotonically advances saved revision; clears `save_error`), `on_save_failed` (sets `save_error`, the message without the exception's name), `on_outside_save`.
+Producer/consumer: [worker/serve.py](../worker/serve.py):`save_pending`, `serve.hold`, `serve.handle`; [viewport/main.gd](../viewport/main.gd):`_on_worker`; [viewport/history.gd](../viewport/history.gd):`_on_open`; [viewport/document.gd](../viewport/document.gd):`on_saved` (matches normalized model path; monotonically advances saved revision; clears `save_error`), `on_save_failed` (sets `save_error`, the message without the exception's name), `on_outside_save`.
 
 ### Generic request errors
 
@@ -308,7 +308,7 @@ JSON outputs use `atomic_json` (`<path>.tmp`, then `os.replace`; `materials.json
 
 ### `bodies.json`
 
-JSON array, one entry per live board, including hidden boards and excluding deleted/source/definition objects. Source: [worker/session.py](../worker/session.py):`Session.export`; consumers [viewport/presenter.gd](../viewport/presenter.gd):`apply_confirmed`, `_build_board`, `_load_cuts`; [viewport/selection.gd](../viewport/selection.gd):`set_boards`; [viewport/main.gd](../viewport/main.gd):`_on_boards_read`.
+JSON array, one entry per live board, including hidden boards and excluding deleted/source/definition objects. Source: [worker/session.py](../worker/session.py):`Session.export`; consumers [viewport/presenter.gd](../viewport/presenter.gd):`apply_confirmed`, `_build_board`, `_load_cuts`; [viewport/selection.gd](../viewport/selection.gd):`set_boards`; [viewport/history.gd](../viewport/history.gd):`_on_boards_read`.
 
 | Field | Type and meaning |
 |---|---|

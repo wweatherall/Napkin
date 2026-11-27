@@ -69,7 +69,6 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H177 | Gemini | **Done**: for review (gemini) | main.gd step 1: history replies and live preferences move to their own files, behaviour unchanged | [H177](docs/handoff/H177-split-main-gd.md) |  |
 
 <!-- end of job table -->
 
