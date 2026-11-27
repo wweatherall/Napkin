@@ -1,6 +1,6 @@
 ### H152 — T146 step 1: one file per ruling in Napkin/03_Past_Decisions/rulings/, written and read by log.py
 
-Author: Claude (integrator, napkin-77) | Date: 2026-11-26 | Status: open | For: either
+Author: Claude (integrator, napkin-77) | Date: 2026-11-26 | Status: answered | For: either
 
 References: T146, P65 (H153 does Q and T next), P61 (move first, split later), P23 (live and archive halves), P09, P01, T92 (log.py), T74 (placeholder
 IDs), P57/P60/P64 (the comitatus layout), T138/T134 (smaller briefs: the reason for this).
@@ -110,3 +110,21 @@ Checks, each failing without the change:
 - tools/test_startup.py: "a named ID's lines come from its ruling file".
 - tools/test_integrate.py: "merging a branch that added a ruling file and one that edited an old row ends tidy".
 - `tools/featuretest.sh` and the quick test pass (the tools' tests run in the feature tests).
+
+Response (Gemini, gemini-elm-1126-1855, 2026-11-26):
+Branch `gemini/h152-t146-one-file-per-ruling`, commit `82cd248`.
+
+Converted all rulings into `03_Past_Decisions/rulings/<ID>.md` and replaced the ruling tables in `03_Past_Decisions/decision-log.md` and `03_Past_Decisions/decision-archive.md` with generated indexes (`| ID | Principle/Decision | Status |`), keeping `Q`, `T`, and `Tunables` tables unchanged.
+
+- `tools/sort_decision_log.py`: added reusable folder/entry helpers (`folder_ids`, `parse_entry`, `read_entry`, `read_entries`, `write_entry`, `format_ruling`, `row_to_ruling`, `index_row`, `generate_indexes`) for H153 reuse; `tidy` atomizes any ruling rows in tables into `rulings/<ID>.md` and rebuilds the indexes; `check_files` refuses ruling rows left in tables, IDs in both a table and a file, or out-of-sync index/file entries.
+- `tools/atomize_log.py`: converts and verifies every cell and Details section. Output on the real log: `atomized 222 rulings (13 principles, 173 active/tentative decisions, 36 superseded decisions, 35 with details); 222 files in 03_Past_Decisions/rulings, verified 222/222 cells+details`.
+- `tools/log.py`: `add` writes ruling files (placeholders on a branch); `set <ID> --status/--where/--rel` edits ruling files and refreshes indexes; `show <ID>` prints the ruling file and its named principles' title+status lines; `show <subject>` prints the subject's index and each ruling's status line + Decision text without Details.
+- `tools/number_ids.py`: counts `03_Past_Decisions/rulings/` in `taken()` and `defined()`, renames `rulings/I-new-N.md` to numbered files at merge, and tidies the log/indexes.
+- `tools/startup.py`: `report_ids` reads `main:03_Past_Decisions/rulings/<ID>.md` (falling back to tables).
+- `tools/integrate.py`: `settle_log` skips 3-column index lines, atomizes old-branch ruling rows, and regenerates indexes; `IGNORED` includes `03_Past_Decisions/rulings/`.
+- `.githooks/pre-commit`: triggers tidy/check when `03_Past_Decisions/rulings/` is staged.
+- Docs updated: `03_Past_Decisions/decision-log.md`, `03_Past_Decisions/decision-archive.md`, `CLAUDE.md`, `docs/agent-handoff.md`.
+- Verified: `tools/sort_decision_log.py --check` passed; `tools/job.py test` (all feature tests + quicktest: 22/22 `test_sort_decision_log.py`, 62/62 `test_log.py`, 53/53 `test_number_ids.py`, 60/60 `test_startup.py`, 84/84 `test_integrate.py`, 395/395 viewport quick) passed on `82cd248`. No open questions.
+
+Architecture: 03_Past_Decisions/rulings/<ID>.md holds one file per ruling; decision-log.md and decision-archive.md keep generated 3-column indexes for rulings while Q, T, and Tunables remain tables.
+Result: 82cd248; quicktest + featuretest passed (22/22 sort, 62/62 log, 53/53 number_ids, 60/60 startup, 84/84 integrate, 395/395 viewport); rulings moved to 03_Past_Decisions/rulings/<ID>.md with generated indexes and reusable log/numbering helpers
