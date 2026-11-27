@@ -48,7 +48,7 @@ One subject per decision; the Decisions column is generated.
 | Feedback | The confirmation wave and what colours mean. | I06, W01, W02, W03, W04, W05, W06, W07, W08, W09 |
 | Materials | Wood cards, grain and painting. | A05, I33, M01, M02, M03, M04 |
 | Output | Drawings, cut lists and renders. | A07, D01, D02, I68, P06 |
-| Process | How the agents work, test, merge and record decisions. | P01, P02, P03, P07, P09, P10, P14, P15, P16, P17, P18, P19, P20, P21, P22, P23, P24, P25, P26, P28, P29, P31, P32, P33, P34, P35, P36, P37, P38, P39, P40, P41, P42, P43, P44, P45, P46, P47, P49, P50, P52, P53, P54, P56, P57, P58, P60, P61, P62, P63, P64, P65 |
+| Process | How the agents work, test, merge and record decisions. | P01, P02, P03, P07, P09, P10, P14, P15, P16, P17, P18, P19, P20, P21, P22, P23, P24, P25, P26, P28, P29, P31, P32, P33, P34, P35, P36, P37, P38, P39, P40, P41, P42, P43, P44, P45, P46, P47, P49, P50, P52, P53, P54, P56, P57, P58, P60, P61, P62, P63, P64, P65, P66 |
 
 ## Principles
 
@@ -311,6 +311,7 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | P63 | Job worktrees live in Organization/08_Code_Bases/.worktrees/<code base>/<id> (hidden, o... | Active |
 | P64 | The organization is named comitatus, and so is its folder: ~/Sites/comitatus (was ~/Sit... | Active |
 | P65 | Work list items (T) and open questions (Q) become one file each too, like rulings (T146... | Active |
+| P66 | Generated files in the comitatus repo (05_Jobs, 06_To-dos, the principles ranking) are ... | Active |
 
 ## Open questions
 
