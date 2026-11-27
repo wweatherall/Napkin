@@ -62,15 +62,15 @@ check("prompt names the model-specific personal space",
 
 g = launch.agent_command("gemini", root, "/x/p file.txt", "gemini-a")
 check("Gemini runs agy with the hydrogen model by default, NAPKIN_SPACE, and the prompt file",
-      g == "cd /x/comitatus/08_Code_Bases/Napkin && NAPKIN_SPACE=gemini-hydrogen-coder agy --model gemini-4-hydrogen-medium -i \"$(cat '/x/p file.txt')\"", g)
+      g == "cd /x/comitatus/08_Code_Bases/Napkin && NAPKIN_SPACE=gemini-hydrogen-coder agy --model gemini-4-hydrogen-medium --dangerously-skip-permissions -i \"$(cat '/x/p file.txt')\"", g)
 c = launch.agent_command("claude", root, "/x/p.txt", "claude-a")
 check("Claude runs sonnet at medium effort with NAPKIN_SPACE, the worktrees folder and remote control",
       "NAPKIN_SPACE=sonnet-coder claude --model sonnet --effort medium --add-dir /x/comitatus/08_Code_Bases/.worktrees/Napkin --remote-control claude-a" in c, c)
 x = launch.agent_command("codex", root, "/x/p.txt", "codex-a")
 check("Codex gets NAPKIN_SPACE, its root and the worktrees folder", "NAPKIN_SPACE=codex-coder codex -C /x/comitatus/08_Code_Bases/Napkin --add-dir "
       "/x/comitatus/08_Code_Bases/.worktrees/Napkin \"$(cat /x/p.txt)\"" in x, x)
-check("no command adds a bypass or full-access flag",
-      not any(w in g + c + x for w in ("dangerously", "skip-permissions", "full-auto", "yolo", "bypass")))
+check("only Gemini skips permissions (for now, William 2026-11-27); Claude and Codex add no bypass or full-access flag",
+      not any(w in c + x for w in ("dangerously", "skip-permissions", "full-auto", "yolo", "bypass")))
 check("--model replaces the default and updates NAPKIN_SPACE",
       "--model gemini-4-neon-medium" in launch.agent_command("gemini", root, "/p", "n", "gemini-4-neon-medium")
       and "NAPKIN_SPACE=gemini-neon-coder" in launch.agent_command("gemini", root, "/p", "n", "gemini-4-neon-medium")
@@ -89,7 +89,7 @@ out = subprocess.run([sys.executable, os.path.join(os.path.dirname(os.path.abspa
                       "--dry-run", "--name", "gemini-test-dryrun"], capture_output=True, text=True)
 made = os.path.join(launch.main_root(), "scratch", "launch", "gemini-test-dryrun.txt")
 check("--dry-run prints the command, writes the prompt with the real brief, opens nothing",
-      out.returncode == 0 and "agy --model gemini-4-hydrogen-medium -i" in out.stdout and os.path.exists(made)
+      out.returncode == 0 and "agy --model gemini-4-hydrogen-medium --dangerously-skip-permissions -i" in out.stdout and os.path.exists(made)
       and "Worker checklist" in open(made).read(), out.stdout + out.stderr)
 if os.path.exists(made):
     os.remove(made)

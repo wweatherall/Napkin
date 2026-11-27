@@ -6,7 +6,9 @@ and can't skip the brief.
 
 Runs `tools/startup.py --role worker` in the main checkout, writes the brief and the worker's instruction ("check the
 board") to scratch/launch/<name>.txt, and opens a Terminal window running the agent with that file as its first
-prompt. William's own permission settings apply: no bypass or full-access flag is ever added. --dry-run prints the
+prompt. William's own permission settings apply, with one exception: Gemini runs with --dangerously-skip-permissions
+for now (William, 2026-11-27), while we find out which prompt stalls Gemini workers before they commit; set
+GEMINI_SKIP_PERMISSIONS to False to stop. Claude and Codex never get a bypass or full-access flag. --dry-run prints the
 Terminal command and the prompt's first lines instead of opening the window. Run outside the sandbox (osascript).
 
 Models: Gemini `gemini-4-hydrogen-medium` (default; `gemini-4-neon-medium` when asked), Claude `sonnet` at medium effort
@@ -23,6 +25,7 @@ AGENTS = ("claude", "codex", "gemini")
 DEFAULT_MODEL = {"claude": "sonnet", "gemini": "gemini-4-hydrogen-medium", "codex": None}
 CLAUDE_FAMILIES = ("sonnet", "opus", "haiku", "fable")
 GEMINI_VARIANTS = ("hydrogen", "neon")
+GEMINI_SKIP_PERMISSIONS = True  # temporary, William 2026-11-27: Gemini workers stall on a permission prompt
 WORDS = ("juniper", "cedar", "maple", "alder", "birch", "walnut", "cherry", "ash", "elm", "larch", "spruce", "teak")
 
 
@@ -88,7 +91,8 @@ def agent_command(agent, root, prompt_file, name, model=None):
     first = f'"$(cat {shlex.quote(prompt_file)})"'
     wt = shlex.quote(worktrees_dir(root))
     if agent == "gemini":
-        run = f"agy --model {shlex.quote(model)} -i {first}"
+        skip = " --dangerously-skip-permissions" if GEMINI_SKIP_PERMISSIONS else ""
+        run = f"agy --model {shlex.quote(model)}{skip} -i {first}"
     elif agent == "claude":
         run = (f"claude --model {shlex.quote(model)} --effort medium --add-dir {wt} --remote-control "
                f"{shlex.quote(name)} {first}")
