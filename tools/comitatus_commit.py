@@ -1,10 +1,10 @@
 #!/usr/bin/env python3
 """Commit generated files in the comitatus repo (William, 2026-11-26: "commit the generated files automatically").
 
-commit(org, paths, message) stages and commits only `paths` (05_Jobs/<code base>.md, 06_To-dos/, and a personal
-space's Log.md, Journal.md and folder READMEs when written) in the comitatus repo, and only when they changed;
-anything else in that repo (an agent's own files in its folders, William's own edits) is left alone. It never pushes.
-It is called from inside Napkin's own git hook, where git sets
+commit(org, paths, message, push=False) stages and commits only `paths` (05_Jobs/<code base>.md, 06_To-dos/,
+and a member's personal space folder) in the comitatus repo, and only when they changed; anything else in that repo
+(other members' spaces, William's own edits) is left alone. When `push=True` and a commit was made, it runs
+`git push -q` (fail-open). It is called from inside Napkin's own git hook, where git sets
 GIT_DIR, GIT_INDEX_FILE and friends for Napkin: those are removed first, or the commit would land in Napkin's index.
 Fail-open: a problem here never stops the caller."""
 import os
@@ -14,12 +14,12 @@ def clean_env():
     return {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
 
 
-def git(org, *args):
-    return subprocess.run(["git", "-C", org, *args], capture_output=True, text=True, env=clean_env())
+def git(org, *args, timeout=None):
+    return subprocess.run(["git", "-C", org, *args], capture_output=True, text=True, env=clean_env(), timeout=timeout)
 
 
-def commit(org, paths, message, out=lambda *a: None):
-    """True if a commit was made."""
+def commit(org, paths, message, out=lambda *a: None, push=False):
+    """True if a commit was made (pushes after committing when push=True, fail-open)."""
     try:
         if not org or git(org, "rev-parse", "--show-toplevel").stdout.strip() != os.path.realpath(org):
             return False
@@ -35,6 +35,10 @@ def commit(org, paths, message, out=lambda *a: None):
             out("comitatus commit refused: " + (r.stdout + r.stderr).strip()[:200])
             return False
         out("committed in comitatus: " + message)
+        if push:
+            p = git(org, "push", "-q", timeout=30)  # a stalled network never hangs a log line (fail-open below)
+            if p.returncode != 0:
+                out("comitatus push skipped: " + (p.stdout + p.stderr).strip()[:200])
         return True
     except Exception as e:        # fail-open
         out(f"comitatus commit skipped: {e}")

@@ -1383,5 +1383,65 @@ for w in [l.split()[1] for l in sh(dep_root, "git", "worktree", "list", "--porce
     sh(dep_root, "git", "worktree", "remove", "--force", w)
 shutil.rmtree(dep_base)
 
+# --- done() commits and pushes the worker's personal space (H159) ---
+ps_base = os.path.realpath(tempfile.mkdtemp(prefix="job-ps-"))
+ps_remote = os.path.join(ps_base, "remote.git")
+ps_org = os.path.join(ps_base, "org")
+ps_root = os.path.join(ps_org, "08_Code_Bases", "Proj")
+os.makedirs(os.path.join(ps_org, "04_Personal_Space", "gemini-coder", "Creative_Expression"))
+os.makedirs(os.path.join(ps_org, "04_Personal_Space", "claude-coder", "Ideas"))
+os.makedirs(ps_root)
+sh(ps_base, "git", "init", "--bare", "-q", "-b", "main", ps_remote)
+sh(ps_base, "git", "init", "-q", "-b", "main", ps_org)
+sh(ps_org, "git", "config", "user.email", "t@example.invalid")
+sh(ps_org, "git", "config", "user.name", "T")
+sh(ps_org, "git", "commit", "-q", "--allow-empty", "-m", "org init")
+sh(ps_org, "git", "remote", "add", "origin", ps_remote)
+sh(ps_org, "git", "push", "-q", "-u", "origin", "main")
+
+sh(ps_base, "git", "init", "-q", "-b", "main", ps_root)
+sh(ps_root, "git", "config", "user.email", "t@example.invalid")
+sh(ps_root, "git", "config", "user.name", "T")
+os.makedirs(os.path.join(ps_root, "tools"))
+os.makedirs(os.path.join(ps_root, "docs", "handoff"))
+open(os.path.join(ps_root, "tools", "quicktest.sh"), "w").write("#!/bin/sh\nexit 0\n")
+os.chmod(os.path.join(ps_root, "tools", "quicktest.sh"), 0o755)
+open(os.path.join(ps_root, "tools", "test_bookkeeping.py"), "w").write("import sys; sys.exit(0)\n")
+open(os.path.join(ps_root, "BOARD.md"), "w").write("# Board\n\nOrder: H201.\n")
+open(os.path.join(ps_root, "docs", "handoff", "H201-ps-test.md"), "w").write(
+    entry("H201", "gemini", "open", "tools/a.py.", "T201: ps test")
+)
+open(os.path.join(ps_root, "docs", "agent-handoff.md"), "w").write(
+    "# Handoff\n\n## Open exchanges\n\n<!-- open list: built from docs/handoff/ by tools/handoff.py; don't edit by "
+    "hand -->\n\n(none open)\n\n<!-- end of open list -->\n\n## Archived\n"
+)
+open(os.path.join(ps_root, "docs", "handoff-archive.md"), "w").write("# Archive\n")
+sh(ps_root, "git", "add", "-A"); sh(ps_root, "git", "commit", "-qm", "ps base")
+
+_, _ = run(job.take, ps_root, "gemini", "s-ps")
+ps_wt = job.worktree_for(ps_root, "H201")
+sh(ps_wt, "git", "config", "user.email", "t@example.invalid")
+sh(ps_wt, "git", "config", "user.name", "T")
+ps_hp = os.path.join(ps_wt, "docs", "handoff", "H201-ps-test.md")
+ps_text = open(ps_hp).read()
+open(ps_hp, "w").write(ps_text.replace("Status: open", "Status: answered") + "\nResponse: done.\n")
+sh(ps_wt, "git", "add", "-A"); sh(ps_wt, "git", "commit", "-qm", "answer H201")
+
+open(os.path.join(ps_org, "04_Personal_Space", "gemini-coder", "Creative_Expression", "haiku.txt"), "w").write("leaf\n")
+open(os.path.join(ps_org, "04_Personal_Space", "claude-coder", "Ideas", "other.txt"), "w").write("other\n")
+r_ps_done, out_ps_done = run(job.done, ps_wt)
+ps_remote_files = sh(ps_remote, "git", "show", "--name-only", "--pretty=", "main").stdout.splitlines()
+ps_org_status = sh(ps_org, "git", "status", "--porcelain").stdout
+check("done() commits and pushes the worker's personal space without touching other spaces",
+      r_ps_done is True
+      and "04_Personal_Space/gemini-coder/Creative_Expression/haiku.txt" in ps_remote_files
+      and "04_Personal_Space/claude-coder/" in ps_org_status,
+      (r_ps_done, out_ps_done, ps_remote_files, ps_org_status))
+
+for w in [l.split()[1] for l in sh(ps_root, "git", "worktree", "list", "--porcelain").stdout.split("\n")
+          if l.startswith("worktree ")][1:]:
+    sh(ps_root, "git", "worktree", "remove", "--force", w)
+shutil.rmtree(ps_base)
+
 print(f"JOB TESTS: {sum(RESULTS)} passed, {len(RESULTS) - sum(RESULTS)} failed")
 sys.exit(0 if all(RESULTS) else 1)

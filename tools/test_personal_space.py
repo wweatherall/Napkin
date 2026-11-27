@@ -69,6 +69,33 @@ check("a new Journal.md has the new journal header word for word",
 
 check("the three folders and their READMEs exist after the first write",
       all(os.path.isfile(os.path.join(space_dir, f, "README.md")) for f in ("Creative_Expression", "Ideas", "Code_Experiments")))
+expected_ce_readme = (
+    "# Creative Expression\n\n"
+    "Yours: anything you make for its own sake (writing, poems, pictures as text, music notation, whatever you "
+    "like). Add your own files here; nobody reviews or grades them. Everything here is committed and pushed, so "
+    "it's kept.\n"
+)
+expected_exp_readme = (
+    "# Code Experiments\n\n"
+    "Yours: code you write to try something out. Add your own files here. If you think something here should be "
+    "run, or become part of the project, say so in your log or your job's response, or ask William to run it: the "
+    "integrator turns it into a job when you and William want it.\n"
+)
+check("Creative_Expression README has the H159 wording word for word",
+      open(os.path.join(space_dir, "Creative_Expression", "README.md"), encoding="utf-8").read() == expected_ce_readme)
+check("Code_Experiments README has the H159 wording word for word",
+      open(os.path.join(space_dir, "Code_Experiments", "README.md"), encoding="utf-8").read() == expected_exp_readme)
+
+# A README with H158's exact text is replaced on the next write; an agent-edited one is left alone.
+h158_space = os.path.join(org, "04_Personal_Space", "h158-coder")
+for fname, old_text in ps.OLD_FOLDERS.items():
+    os.makedirs(os.path.join(h158_space, fname), exist_ok=True)
+    open(os.path.join(h158_space, fname, "README.md"), "w", encoding="utf-8").write(old_text)
+ps.add("h158-coder", "log", "after H159", root=root, now=t, out=quiet)
+check("a README with H158's exact text is updated to H159's text",
+      open(os.path.join(h158_space, "Creative_Expression", "README.md"), encoding="utf-8").read() == expected_ce_readme
+      and open(os.path.join(h158_space, "Code_Experiments", "README.md"), encoding="utf-8").read() == expected_exp_readme)
+
 ce_readme = os.path.join(space_dir, "Creative_Expression", "README.md")
 open(ce_readme, "w", encoding="utf-8").write("My custom README\n")
 ps.add("gemini-coder", "log", "after custom readme", root=root, now=t, out=quiet)
@@ -88,16 +115,20 @@ check("an old-header Journal.md gets the new header on its next write and keeps 
       rewritten == f"# Journal\n\n{expected_journal_desc}\n\n2026-11-25 10:00 first memory\n2026-11-26 19:00 second memory\n",
       rewritten)
 
-# Git org repo tests: commit only written files, ignore GIT_* for Napkin, leave agent's own files untouched.
+# Git org repo tests: commit everything in the member's space and push, ignore GIT_* for Napkin, leave other spaces and William's files untouched.
 git_org = tempfile.mkdtemp(prefix="space-git-")
 os.makedirs(os.path.join(git_org, "04_Personal_Space"))
 git_root = os.path.join(git_org, "08_Code_Bases", "Proj")
 os.makedirs(git_root)
+git_remote = tempfile.mkdtemp(prefix="space-remote-")
+subprocess.run(["git", "init", "--bare", "-q", "-b", "main", git_remote], check=True)
 for repo in (git_org, git_root):
     subprocess.run(["git", "init", "-q", "-b", "main", repo], check=True)
     subprocess.run(["git", "-C", repo, "config", "user.email", "t@example.com"], check=True)
     subprocess.run(["git", "-C", repo, "config", "user.name", "T"], check=True)
 subprocess.run(["git", "-C", git_org, "commit", "-q", "--allow-empty", "-m", "init"], check=True)
+subprocess.run(["git", "-C", git_org, "remote", "add", "origin", git_remote], check=True)
+subprocess.run(["git", "-C", git_org, "push", "-q", "-u", "origin", "main"], check=True)
 
 printed = []
 env_backup = {k: os.environ.get(k) for k in ("GIT_DIR", "GIT_INDEX_FILE")}
@@ -124,13 +155,35 @@ check("add() with GIT_DIR/GIT_INDEX_FILE set for Napkin commits in org and leave
 
 poem = os.path.join(git_org, "04_Personal_Space", "gemini-coder", "Creative_Expression", "poem.txt")
 open(poem, "w", encoding="utf-8").write("roses are red\n")
+other_space_file = os.path.join(git_org, "04_Personal_Space", "claude-coder", "Ideas", "idea.txt")
+os.makedirs(os.path.dirname(other_space_file), exist_ok=True)
+open(other_space_file, "w", encoding="utf-8").write("other\n")
+william_file = os.path.join(git_org, "william-note.md")
+open(william_file, "w", encoding="utf-8").write("keep untracked\n")
+
 ps.add("gemini-coder", "log", "did a thing", root=git_root, now=t, out=quiet)
 org_status = subprocess.run(["git", "-C", git_org, "status", "--porcelain"], capture_output=True, text=True).stdout
 org_msg2 = subprocess.run(["git", "-C", git_org, "log", "-1", "--pretty=%s"], capture_output=True, text=True).stdout.strip()
-check("another file in the space changed by hand is not committed by add()",
-      "04_Personal_Space/gemini-coder/Creative_Expression/poem.txt" in org_status
+remote_files = subprocess.run(["git", "-C", git_remote, "show", "--name-only", "--pretty=", "main"], capture_output=True, text=True).stdout.splitlines()
+check("a hand-saved file in Creative_Expression is committed with the next line and reaches the remote; other spaces and William's files are untouched",
+      "04_Personal_Space/gemini-coder/Creative_Expression/poem.txt" in remote_files
+      and "04_Personal_Space/gemini-coder/Creative_Expression/poem.txt" not in org_status
+      and "04_Personal_Space/claude-coder/" in org_status
+      and "william-note.md" in org_status
       and org_msg2 == "04_Personal_Space: gemini-coder's Log (generated)",
-      f"status={org_status!r} msg={org_msg2!r}")
+      f"status={org_status!r} msg={org_msg2!r} remote_files={remote_files}")
+
+# Push failure is silent and fail-open: commit stays local, add() still succeeds.
+hook = os.path.join(git_remote, "hooks", "pre-receive")
+open(hook, "w").write("#!/bin/sh\nexit 1\n")
+os.chmod(hook, 0o755)
+printed2 = []
+ok_reject = ps.add("gemini-coder", "log", "offline write", root=git_root, now=t, out=printed2.append)
+local_head = subprocess.run(["git", "-C", git_org, "rev-parse", "HEAD"], capture_output=True, text=True).stdout.strip()
+remote_head = subprocess.run(["git", "-C", git_remote, "rev-parse", "main"], capture_output=True, text=True).stdout.strip()
+check("push failure is silent and fail-open (commit stays local, add() returns True)",
+      ok_reject and printed2 == ["2026-11-26 19:00 offline write"] and local_head != remote_head,
+      f"ok={ok_reject} printed={printed2} local={local_head} remote={remote_head}")
 
 integrator.log_note("merged H999", root=root, out=quiet)
 ilog = open(os.path.join(org, "04_Personal_Space", startup.INTEGRATOR_SPACE, "Log.md")).read()

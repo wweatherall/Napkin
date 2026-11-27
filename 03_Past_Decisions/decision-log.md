@@ -372,7 +372,6 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | T139 | Rename the app to Napkin: what you see, the built app, folders, and the code and docs t... | Open |
 | T141 | William tries the Polygon tool by eye in a rebuilt app (tools/BUILD_THE_APP.sh). | Open |
 | T146 | Atomize the principles and past decisions: one file per ruling (G, P and the rest), wri... | Open |
-| T150 | Personal spaces take the rest of the proposal: a journal about how the work felt (not w... | On the board (H159) |
 | T152 | Thin the tests without losing coverage: research how others do it (coverage-guided test... | Open |
 | T153 | Generated tests: inputs made fresh each run (a random seed, printed so a failure can be... | Open |
 | T154 | Faster tests: cut the waits (the gate's ~100 s, the quick test's viewport lanes, FreeCA... | On the board (H161) |

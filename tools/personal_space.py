@@ -32,11 +32,24 @@ JOURNAL_DESC = (
 )
 HEADERS = {"log": "# Log\n\nWhat I did, one dated line per step (tools/personal_space.py log).\n\n",
            "journal": f"# Journal\n\n{JOURNAL_DESC}\n\n"}
-FOLDERS = {
+OLD_FOLDERS = {
     "Creative_Expression": (
         "# Creative Expression\n\n"
         "Yours: anything you make for its own sake (writing, poems, pictures as text, music notation, whatever you "
         "like). Add your own files here; nobody reviews or grades them.\n"
+    ),
+    "Code_Experiments": (
+        "# Code Experiments\n\n"
+        "Yours: code you write to try something out, not for the project. Add your own files here. Nothing here is "
+        "run, tested or merged by the project's tools.\n"
+    ),
+}
+FOLDERS = {
+    "Creative_Expression": (
+        "# Creative Expression\n\n"
+        "Yours: anything you make for its own sake (writing, poems, pictures as text, music notation, whatever you "
+        "like). Add your own files here; nobody reviews or grades them. Everything here is committed and pushed, so "
+        "it's kept.\n"
     ),
     "Ideas": (
         "# Ideas\n\n"
@@ -45,8 +58,9 @@ FOLDERS = {
     ),
     "Code_Experiments": (
         "# Code Experiments\n\n"
-        "Yours: code you write to try something out, not for the project. Add your own files here. Nothing here is "
-        "run, tested or merged by the project's tools.\n"
+        "Yours: code you write to try something out. Add your own files here. If you think something here should be "
+        "run, or become part of the project, say so in your log or your job's response, or ask William to run it: the "
+        "integrator turns it into a job when you and William want it.\n"
     ),
 }
 NAME = re.compile(r"^[a-z0-9][a-z0-9-]*$")
@@ -77,17 +91,32 @@ def path_of(name, kind, root=None):
 
 
 def ensure_folders(space_dir):
-    """Create the three personal folders and their READMEs if missing (never overwriting an existing README)."""
+    """Create the three personal folders and their READMEs if missing (replacing only H158's exact READMEs)."""
     written = []
     for folder, readme in FOLDERS.items():
         fdir = os.path.join(space_dir, folder)
         os.makedirs(fdir, exist_ok=True)
         rpath = os.path.join(fdir, "README.md")
-        if not os.path.exists(rpath):
+        old = OLD_FOLDERS.get(folder)
+        if not os.path.exists(rpath) or (old is not None and open(rpath, encoding="utf-8").read() == old):
             with open(rpath, "w", encoding="utf-8") as f:
                 f.write(readme)
             written.append(rpath)
     return written
+
+
+def save(name, root=None, message=None, out=lambda *a: None):
+    """Commit and push everything in an existing personal space (fail-open); does nothing without a space."""
+    base = spaces_dir(root)
+    if base is None or not NAME.match(name or ""):
+        return False
+    space_dir = os.path.join(base, name)
+    if not os.path.isdir(space_dir):
+        return False
+    org = os.path.dirname(os.path.dirname(space_dir))
+    return comitatus_commit.commit(
+        org, [space_dir], message or f"04_Personal_Space: {name}'s space (generated)", out=out, push=True
+    )
 
 
 def add(name, kind, text, root=None, now=None, out=print):
@@ -114,10 +143,10 @@ def add(name, kind, text, root=None, now=None, out=print):
     else:
         with open(path, "a", encoding="utf-8") as f:
             f.write(entry + "\n")
-    written = [path] + ensure_folders(space_dir)
+    ensure_folders(space_dir)
     org = os.path.dirname(os.path.dirname(space_dir))
     title = "Log" if kind == "log" else "Journal"
-    comitatus_commit.commit(org, written, f"04_Personal_Space: {name}'s {title} (generated)")
+    comitatus_commit.commit(org, [space_dir], f"04_Personal_Space: {name}'s {title} (generated)", push=True)
     out(entry)
     return True
 
