@@ -266,7 +266,8 @@ check("a commit after the wait counts as that beat", j["state"] == "in progress"
 job.QUICKTEST = ["sh", "-c", "exit 1"]
 hpath = os.path.join(wt1, "docs", "handoff", "H001-first-job.md")
 r, out = run(job.done, wt1)
-check("done refuses with no response in the handoff", not r and "has no response" in out, out)
+check("done refuses with no response in the handoff",
+      not r and "has no response" in out and "personal time:" not in out, out)
 open(hpath, "a").write("\nResponse — Claude (worker), 2026-11-22: built it.\n")
 r, out = run(job.done, wt1)
 check("done refuses unless Status is answered", not r and "Status to answered" in out, out)
@@ -285,7 +286,7 @@ job.handoff.write_list(wt1)
 commit(wt1, "answered")
 r, out = run(job.done, wt1)
 check("done runs the quick test when the latest commit has no pass, and refuses on a failure",
-      not r and "QUICK TEST FAILED" in out and "refused" in out, out)
+      not r and "QUICK TEST FAILED" in out and "refused" in out and "personal time:" not in out, out)
 job.QUICKTEST = ["true"]
 r, out = run(job.test, wt1)
 head = sh(wt1, "git", "rev-parse", "HEAD").stdout.strip()
@@ -351,7 +352,8 @@ check("after handoff-only commits done runs only bookkeeping and names the reuse
 check("done marks the job done once all is in order", r and j["state"] == "done" and "ready for review: H001" in out, out)
 check("done notes a response with no Result line (T91)", "has no line \"Result:" in out, out)
 check("done's closing message after a session's one job: ready for a /clear (P37)",
-      "ready for a /clear" in out and "take --wait" not in out, out)
+      "ready for a /clear" in out and "take --wait" not in out
+      and "personal time:" in out and out.index("personal time:") < out.index("next:"), out)
 check("done tells the integrator (an event in the queue)", any(e["kind"] == "done" and e["job"] == "H001"
                                                               for e in state(root)["events"]))
 r, out = run(job.take, root, "claude", "s1")
@@ -530,7 +532,8 @@ check("the fallback session (no real ID) isn't counted", "sessions" not in state
 job.MAX_JOBS = _max_jobs
 out1 = job.next_step({"sessions": {"w": ["H001"]}}, "w")
 check("at the default, done after the first job says ready for a /clear (P37)",
-      "ready for a /clear" in out1 and "take --wait" not in out1, out1)
+      "ready for a /clear" in out1 and "take --wait" not in out1
+      and "personal time:" in out1 and out1.index("personal time:") < out1.index("next:"), out1)
 
 clock = [0.0]
 slept = []

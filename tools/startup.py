@@ -644,6 +644,196 @@ def space_lines(root, space):
     return lines
 
 
+PERSONAL_TIME = {
+    "worker": (
+        "When your job comes back clean (submitted with its tests passing), you may spend up to 1% of your 5-hour "
+        "window in your personal space: journal, Creative_Expression, Ideas, Code_Experiments (P71)."
+    ),
+    "integrator": (
+        "You may spend up to 3% of your 5-hour window in your personal space whenever you need the time (P71)."
+    ),
+}
+
+
+def comitatus_root(root):
+    """Return (comitatus_dir or None, main_repo_dir) for a checkout or worktree."""
+    common = git("rev-parse", "--git-common-dir", cwd=root).strip()
+    main_repo = (os.path.dirname(os.path.realpath(os.path.join(root, common)))
+                 if common else os.path.realpath(root))
+    parent = os.path.dirname(main_repo)
+    org = os.path.dirname(parent)
+    if os.path.basename(parent) == "08_Code_Bases" and os.path.isdir(org):
+        return org, main_repo
+    return None, main_repo
+
+
+def _read_text(path):
+    try:
+        return open(path, encoding="utf-8").read()
+    except OSError:
+        return None
+
+
+def role_doc_lines(text):
+    """Lines of a role doc without its leading '# ...' title line or blank lines."""
+    lines = text.splitlines()
+    if lines and lines[0].startswith("#"):
+        lines = lines[1:]
+    return [l.rstrip() for l in lines if l.strip()]
+
+
+def who_lines(role, org):
+    """'Who you are:' and 'Who William is:' from comitatus/07_Org_Chart_and_Roles, or [] if missing."""
+    if not org or role not in ROLES:
+        return []
+    role_file = "integrator.md" if role == "integrator" else "coders.md"
+    out = []
+    for title, fname in (("Who you are:", role_file), ("Who William is:", "william.md")):
+        raw = _read_text(os.path.join(org, "07_Org_Chart_and_Roles", fname))
+        if not raw:
+            continue
+        body = role_doc_lines(raw)
+        if body:
+            out.append(title)
+            out.extend("  " + l for l in body)
+    return out
+
+
+def parse_ranking(text):
+    """Parse ranking.md table rows in rank order -> ['<rank>. <text>']; fall back to plain principle lines."""
+    ranked = []
+    for line in text.splitlines():
+        if not line.startswith("|"):
+            continue
+        c = cells(line)
+        if len(c) >= 4 and c[0].isdigit():
+            body = c[4] if len(c) >= 5 else c[-1]
+            if body:
+                ranked.append((int(c[0]), body))
+    if ranked:
+        return [f"{rank}. {body}" for rank, body in sorted(ranked)]
+    plain = []
+    for line in text.splitlines():
+        s_line = line.strip()
+        if (not s_line or s_line.startswith("#") or s_line.startswith("<!--")
+                or s_line.startswith("|") or s_line.startswith("Higher wins when two pull")):
+            continue
+        plain.append(line.rstrip())
+    return plain
+
+
+def principles_lines(org, main_repo):
+    """'Principles:' from comitatus and the code base's 01_Principles/ranking.md, or [] if neither exists."""
+    sources = []
+    if org:
+        sources.append(("Comitatus", os.path.join(org, "01_Principles", "ranking.md")))
+    if main_repo:
+        sources.append((os.path.basename(main_repo), os.path.join(main_repo, "01_Principles", "ranking.md")))
+    sections = []
+    for label, path in sources:
+        raw = _read_text(path)
+        if not raw:
+            continue
+        parsed = parse_ranking(raw)
+        if parsed:
+            sections.append((label, parsed))
+    if not sections:
+        return []
+    out = [
+        "Principles:",
+        "  Higher wins when two pull against each other; a code base's principles answer to the organization's (P70).",
+    ]
+    for label, items in sections:
+        out.append(f"  {label}:")
+        out.extend("    " + item for item in items)
+    return out
+
+
+def readme_list_lines(text):
+    """Extract markdown list items (and their indented continuation lines) from a README, as written."""
+    out, in_item = [], False
+    for line in text.splitlines():
+        if line.startswith(("- ", "* ")):
+            out.append(line.rstrip())
+            in_item = True
+        elif in_item and line.startswith("  ") and line.strip():
+            out.append(line.rstrip())
+        else:
+            in_item = False
+    return out
+
+
+def _named_lists_section(heading, sources):
+    """Format a section from [(label, path), ...] using readme_list_lines, skipping missing/empty files."""
+    parts = []
+    for label, path in sources:
+        raw = _read_text(path)
+        if not raw:
+            continue
+        items = readme_list_lines(raw)
+        if items:
+            parts.append((label, items))
+    if not parts:
+        return []
+    out = [heading]
+    for label, items in parts:
+        out.append(f"  {label}:")
+        out.extend("    " + item for item in items)
+    return out
+
+
+def habits_lines(org, main_repo):
+    """'Habits:' from comitatus/02_Habits/README.md and <code base>/02_Habits/README.md."""
+    sources = []
+    if org:
+        sources.append(("Comitatus (02_Habits/README.md)", os.path.join(org, "02_Habits", "README.md")))
+    if main_repo:
+        sources.append((f"{os.path.basename(main_repo)} (02_Habits/README.md)",
+                        os.path.join(main_repo, "02_Habits", "README.md")))
+    return _named_lists_section("Habits:", sources)
+
+
+def tools_lines(org, main_repo):
+    """'Tools:' from comitatus/09_Tools/README.md and <code base>/tools/README.md."""
+    sources = []
+    if org:
+        sources.append(("Comitatus (09_Tools/README.md)", os.path.join(org, "09_Tools", "README.md")))
+    if main_repo:
+        sources.append((f"{os.path.basename(main_repo)} (tools/README.md)",
+                        os.path.join(main_repo, "tools", "README.md")))
+    return _named_lists_section("Tools:", sources)
+
+
+def personal_time_lines(role):
+    """'Personal time:' allowance line for worker or integrator (P71)."""
+    line = PERSONAL_TIME.get(role)
+    return ["Personal time:", "  " + line] if line else []
+
+
+def org_todos_lines(org):
+    """'Organization to-dos (comitatus/06_To-dos/):' counts and waiting_on_William filenames (integrator only)."""
+    if not org:
+        return []
+    base = os.path.join(org, "06_To-dos")
+    if not os.path.isdir(base):
+        return []
+    def _files(sub):
+        d = os.path.join(base, sub)
+        try:
+            return [f for f in sorted(os.listdir(d)) if not f.startswith(".") and os.path.isfile(os.path.join(d, f))]
+        except OSError:
+            return []
+    w_files = _files("waiting_on_William")
+    i_files = _files("waiting_on_integrator")
+    out = [
+        "Organization to-dos (comitatus/06_To-dos/):",
+        f"  waiting_on_William: {len(w_files)}",
+    ]
+    out.extend("    " + f for f in w_files)
+    out.append(f"  waiting_on_integrator: {len(i_files)}")
+    return out
+
+
 def main(argv):
     if "-h" in argv or "--help" in argv:
         print(__doc__)
@@ -657,6 +847,10 @@ def main(argv):
     if not root:
         print("startup.py: not inside a git checkout")
         return 1
+    org, main_repo = comitatus_root(root)
+    if role in ROLES:
+        for line in who_lines(role, org) + principles_lines(org, main_repo):
+            print(line)
     branch = git("branch", "--show-current", cwd=root).strip() or "(detached)"
     changed = [l for l in git("status", "--porcelain", cwd=root).splitlines() if l.strip()]
     print(f"This checkout: {root} on {branch}, " + ("clean" if not changed else f"{len(changed)} changed file" + ("s" if len(changed) > 1 else "")))
@@ -779,6 +973,13 @@ def main(argv):
         print("\n".join(role_brief("worker")))
         if space:
             print("\n".join(space_lines(root, space)))
+
+    if role == "integrator":
+        for line in org_todos_lines(org):
+            print(line)
+    if role in ROLES:
+        for line in habits_lines(org, main_repo) + tools_lines(org, main_repo) + personal_time_lines(role):
+            print(line)
 
     if ids:
         archive = git("show", "main:03_Past_Decisions/decision-archive.md", cwd=root)
