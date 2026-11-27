@@ -65,6 +65,7 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
+| H158 | Gemini | **Ready** | Personal spaces: a journal about how it felt, three folders of your own, changes committed by themselves | [H158](docs/handoff/H158-personal-spaces-journal-and-own-folders.md) |  |
 
 <!-- end of job table -->
 
