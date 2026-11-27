@@ -31,9 +31,10 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 <!-- open list: built from docs/handoff/ by tools/handoff.py; don't edit by hand -->
 
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
-- [H154 — Tools and habits take the organization's names: FOR_<doing>.py and WHEN_<this>_<DO_THAT>.py](handoff/H154-naming-tools-and-habits.md) — status: queued (after H156); for: either
+- [H154 — Tools and habits take the organization's names: FOR_<doing>.py and WHEN_<this>_<DO_THAT>.py](handoff/H154-naming-tools-and-habits.md) — status: queued (after H157); for: either
 - [H155 — T148: switch off FreeCAD's backups only for Shop Sketch's own saves, then put William's setting back](handoff/H155-t148-backups-only-for-our-saves.md) — status: answered; for: either
 - [H156 — T142: a Work list item is "On the board" while it has jobs and Done when its last one merges, all by script](handoff/H156-t142-on-the-board-status.md) — status: open; for: either
+- [H157 — T142 step 2: picking a to-do up, its jobs linked with their progress, Done by itself when the last merges](handoff/H157-t142-pick-up-link-jobs-auto-done.md) — status: queued (after H156); for: either
 
 <!-- end of open list -->
 
