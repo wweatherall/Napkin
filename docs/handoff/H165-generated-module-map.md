@@ -1,6 +1,6 @@
 ### H165 — Architecture step 1: a module map generated from each file's own header line
 
-Author: Claude (integrator, napkin-77) | Date: 2026-11-27 | Status: open | For: gemini
+Author: Claude (integrator, napkin-77) | Date: 2026-11-27 | Status: answered | For: gemini
 
 Item: T138
 
@@ -55,3 +55,36 @@ Checks:
   wrapper line; `--check` failing on a missing header and on a stale section; idempotent rebuild.
 - `python3 tools/architecture_map.py --check` passes on the branch.
 - `tools/TEST_BEFORE_MERGING.sh` passes (two viewport files change, so `scope full`).
+
+### Response (Gemini, 2026-11-27)
+
+Branch: `gemini/h165-generated-module-map` at `cc37b6e` (plus this handoff commit).
+
+Implemented:
+- `tools/architecture_map.py`: scans `viewport/`, `viewport/tools/`, `worker/`, `tools/` (non-test, non-`ALL_CAPS` wrappers), parses `.gd` (`@tool`/`extends`/`class_name` + `##`), `.py` (`ast.get_docstring`), and `.sh` (shebang + `#`), joins continuation lines, extracts the first sentence (up to `. ` or line end, cut at 160 chars with `…`), writes the `## Module map (generated)` section in `ARCHITECTURE.md` with the single `tools/<NAME>.py|.sh` wrapper line, and supports `--check`. Every code file in the repo parsed cleanly to a non-empty line without file-specific special cases.
+- `viewport/save_prompts.gd` and `viewport/worker_process.gd`: added `## ...` header lines after `extends ...`.
+- `.githooks/pre-commit`: rebuilds and stages `ARCHITECTURE.md` when any `viewport/`, `worker/`, or `tools/` `.gd`/`.py`/`.sh` file or `ARCHITECTURE.md` is staged, then runs `tools/architecture_map.py --check`.
+- `tools/test_architecture_map.py`: 9 checks covering all header forms, grouping/order, wrapper line, `--check` on missing/stale, idempotent rebuild, and pre-commit hook behaviour in a temp git repo.
+
+Map size and longest lines:
+- Full `## Module map (generated)` section: **9,874 bytes**, **89 lines**.
+- Map body alone (between markers): **9,633 bytes**, **78 module lines** (81 lines including group blank lines) — **1,441 bytes over** the 8 KB (8,192-byte) target (1,633 bytes over 8,000 bytes).
+- Ten longest lines:
+  1. 190 chars: `- \`tools/compare_suites.py\` — Compare viewport suite results with the reference runs: python3 tools/compare_suites.py <runs dir> [suite...] Each suite's final boards must match (volume with…`
+  2. 190 chars: `- \`tools/personal_space.py\` — Personal spaces (T134, T150): one folder per member in comitatus/04_Personal_Space/<name>/ (opus-integrator, gemini-coder, ...), each with a Log.md (what you d…`
+  3. 188 chars: `- \`viewport/inference.gd\` — The one snapping and inference engine every tool uses (T4, Q16): what's under the cursor (pick), point snaps in SketchUp's order (endpoint > midpoint > on edge…`
+  4. 188 chars: `- \`tools/length_cases.py\` — Writes tests/length_cases.json: what FreeCAD's length input (worker/length_input.py evaluate) gives for a fixed set of typed lengths, plus random expressions b…`
+  5. 188 chars: `- \`tools/sort_decision_log.py\` — Keep the decision log tidy (P23): two files with the same IDs, 03_Past_Decisions/decision-log.md (live) and 03_Past_Decisions/decision-archive.md (history)`
+  6. 188 chars: `- \`tools/start_worker.sh\` — Opens a Terminal window running a Claude worker with Remote Control (F005, P38): the same as typing cd <this checkout> ; claude ; /remote-control ; Check the b…`
+  7. 185 chars: `- \`worker/materials.py\` — Shop Sketch's wood library (T15, M03): one table, written out as FreeCAD material cards (.FCMat) where FreeCAD looks for user materials, and as materials.json…`
+  8. 185 chars: `- \`tools/build_app.sh\` — Builds "dist/Shop Sketch.app" for this Mac: the viewport packed into Resources, run by a copy of the Godot program (no export templates needed), plus the FreeC…`
+  9. 184 chars: `- \`tools/quicktest.sh\` — Quick check, after every change (~12 s): the feature tests (tools/featuretest.sh: every test_* file in worker/, tools/ and viewport/, no window) beside the UI…`
+  10. 183 chars: `- \`viewport/tools/select_tool.gd\` — Select (Space): click a board (from outside, its whole assembly or array row) to select it; Shift-click adds or removes; click empty space to clear`
+
+Verified:
+- `python3 tools/architecture_map.py --check` passed.
+- `python3 tools/test_architecture_map.py`: `ARCHITECTURE MAP TESTS: 9 passed, 0 failed`.
+- `tools/TEST_BEFORE_MERGING.sh`: `GATE PASS: full test passes; QUICK 401 passed, 0 failed in 42.6 s ; 0 known failure(s); 162 s total`.
+- `python3 tools/job.py test`: passed on `cc37b6e`.
+
+Result: cc37b6e; ARCHITECTURE MAP TESTS 9/9, architecture_map.py --check, TEST_BEFORE_MERGING.sh GATE PASS (QUICK 401/401, full suites), job.py test passed; added tools/architecture_map.py, tools/test_architecture_map.py, generated module map in ARCHITECTURE.md, pre-commit rebuild/check, and headers in viewport/save_prompts.gd and viewport/worker_process.gd
