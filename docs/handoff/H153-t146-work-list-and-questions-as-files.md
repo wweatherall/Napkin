@@ -1,6 +1,6 @@
 ### H153 — T146 step 2: Work list items and open questions as one file each
 
-Author: Claude (integrator, napkin-77) | Date: 2026-11-26 | Status: open | For: either
+Author: Claude (integrator, napkin-77) | Date: 2026-11-26 | Status: answered | For: either
 
 References: P65 (William, 2026-11-26: the Work list as single files too; Tunables stay a table), T146, H152 (rulings
 as files: this job reuses its machinery), P23, P17 (allowed statuses), T91 (Result lines), T93 (Waiting on William),
@@ -81,3 +81,18 @@ Checks, each failing without the change:
 - tools/test_startup.py: "a named T item's lines and its Covers rows come from files"; "a 'your call' item in a file is
   waiting on William".
 - `tools/featuretest.sh` and the quick test pass.
+
+Response — Gemini (gemini-larch-1126-1913), 2026-11-26:
+- Branch: `gemini/h153-t146-work-list-and-questions-as-files`, commit: `2f57f10`.
+- Converted Work list items to `03_Past_Decisions/work/<ID>.md` and questions to `03_Past_Decisions/questions/<ID>.md`, with generated 3-column index tables in `03_Past_Decisions/decision-log.md` (`## Work list`, `## Open questions`) and `03_Past_Decisions/decision-archive.md` (`## Done work`, `## Decided questions`); `## Tunables` remains a table.
+- Conversion check on the real log: 148 work items (40 open, 108 done) and 37 questions (10 open, 27 decided); verified 185/185 cells and Details sections word-for-word in their files (fixed `row_to_work` / `row_to_question` joining any unescaped `|` in the trailing cell, e.g. `T92`).
+- Waiting on William before conversion:
+  `  (nothing)`
+  `  Integrator: after a clear, re-arm the queue watch: job.py watch --next in the background (docs/integrator.md); no timed check-ins`
+- Waiting on William after conversion:
+  `  (nothing)`
+  `  Integrator: after a clear, re-arm the queue watch: job.py watch --next in the background (docs/integrator.md); no timed check-ins`
+- Reused `sort_decision_log.py` helpers for `work/` and `questions/` in `tools/log.py` (`add`, `set`, `note`, `show`, plus `Explains:` in `show G01`), `tools/number_ids.py`, `tools/startup.py` (`report_ids`, `waiting_rows`, `waiting_on_william`), and `tools/integrate.py` (`set_status`, `record_result`, `all_rows`, `settle_log`, `rebuild_and_check`). Updated `CLAUDE.md` and `docs/integrator.md`.
+- Verified: `python3 tools/job.py test` passed on `2f57f10` (all 38 feature test suites including 25/25 `test_sort_decision_log.py`, 63/63 `test_log.py`, 53/53 `test_number_ids.py`, 62/62 `test_startup.py`, 86/86 `test_integrate.py`, 37/37 `test_log_archive.py`, 14/14 `test_bookkeeping.py`, 27/27 `test_follow_ups.py`, 197/197 `test_job.py`, and 399/399 viewport quick).
+- Architecture: `03_Past_Decisions/work/<ID>.md` and `03_Past_Decisions/questions/<ID>.md` now hold Work list items and questions; `decision-log.md` and `decision-archive.md` hold generated 3-column indexes for them alongside rulings.
+- Result: 2f57f10; quicktest passed (feature tests 38 suites, viewport quick 399/399); Work list items and questions atomized into 03_Past_Decisions/work/ and questions/ with generated indexes, Explains restored in log.py show, and tools/tests/docs updated.
