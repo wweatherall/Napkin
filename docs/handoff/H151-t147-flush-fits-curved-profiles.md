@@ -1,6 +1,6 @@
 ### H151 — T147 step 2: circles and polygons fit flush against a sloped face
 
-Author: Claude (integrator, napkin-77) | Date: 2026-11-26 | Status: queued (after H150) | For: either
+Author: Claude (integrator, napkin-77) | Date: 2026-11-26 | Status: open | For: either
 
 References: T147, T145 (finding 6), P21 (where the viewport predicts FreeCAD, a test compares the two), H127, T84.
 
@@ -15,7 +15,7 @@ Reading path:
 4. `viewport/tools/push_tool.gd` `_edge_inference`: the preview measures `depth` and `far` over `state.tris`, the
    profile's own triangles, so the viewport already predicts the flush length; the worker doesn't match it.
 
-Today (checked 2026-11-26 on main 3d0e9d4): a 100 mm circle butted to a face at 30° stops short by about the distance
+Today (rechecked 2026-11-26 on main 4e3e051, after H150: `update` now finds the target plane with `_resolve_face`; the depths are measured as before): a 100 mm circle butted to a face at 30° stops short by about the distance
 between the bounding square's nearest corner and the circle (around 12 mm, the review's figure); the draft shows a
 flush fit, FreeCAD's mesh replaces it with a gap. Rectangles are unaffected (the profile is its bounding rectangle).
 

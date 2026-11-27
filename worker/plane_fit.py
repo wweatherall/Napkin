@@ -53,6 +53,24 @@ def _driving_body(model, dfn, tip, bodies, promote=False):
     return src
 
 
+def _dependent_bodies(dfn, bodies):
+    """Live body BodyIds whose feature graph depends on `dfn` (e.g. a flip or mirror of a source/deleted board)."""
+    seen = set()
+    stack = [dfn]
+    out = []
+    while stack:
+        cur = stack.pop()
+        if cur.Name in seen:
+            continue
+        seen.add(cur.Name)
+        for parent in getattr(cur, 'InList', ()):
+            if getattr(parent, 'SSRole', '') == 'body' and getattr(parent, 'BodyId', '') in bodies:
+                out.append(parent.BodyId)
+            elif getattr(parent, 'TypeId', '') != 'App::DocumentObjectGroup':
+                stack.append(parent)
+    return out
+
+
 def _active_tips(model, bodies, promote=False):
     """All live PlaneFit tips as (tip, dfn, driving_board, family_ids)."""
     out = []
@@ -64,6 +82,11 @@ def _active_tips(model, bodies, promote=False):
             continue
         fam = _family_bodies(model, dfn, bodies)
         if not fam:
+            if getattr(dfn, 'SSRole', '') in ('source', 'deleted'):
+                dep_fam = _dependent_bodies(dfn, bodies)
+                if dep_fam:
+                    out.append((tip, dfn, dfn, dep_fam))
+                    continue
             if promote:
                 tip.SSTargetId = ''
                 if hasattr(tip, 'SSSourceBodyId'):
@@ -84,6 +107,25 @@ def _underlying_extrusion(obj):
         if getattr(cur, 'TypeId', '') == 'Part::Extrusion':
             return cur
         if hasattr(cur, 'Base'):
+            cur = cur.Base
+        elif getattr(cur, 'TypeId', '') == 'Part::MultiFuse' and getattr(cur, 'Shapes', None):
+            cur = cur.Shapes[0]
+        else:
+            break
+    return None
+
+
+def _underlying_plane_fit(obj):
+    """Walk down Base/Shapes from a tip or boolean feature to its underlying PlaneFit, or None."""
+    seen = set()
+    cur = obj
+    while cur is not None and cur.Name not in seen:
+        seen.add(cur.Name)
+        if hasattr(cur, 'SSStock'):
+            return cur
+        if getattr(cur, 'TypeId', '') == 'Part::Mirroring' and getattr(cur, 'Source', None) is not None:
+            cur = getattr(cur.Source, 'Tip', None)
+        elif hasattr(cur, 'Base'):
             cur = cur.Base
         elif getattr(cur, 'TypeId', '') == 'Part::MultiFuse' and getattr(cur, 'Shapes', None):
             cur = cur.Shapes[0]
@@ -238,6 +280,38 @@ def face_plane(target, face):
     return None
 
 
+def _target_local_plane(target, world_point, world_normal):
+    """Convert a world (point, normal) to `target`'s definition-local frame."""
+    _, placement = _def(target)
+    inv = placement.inverse()
+    n_local = inv.Rotation.multVec(world_normal)
+    n_local.normalize()
+    return inv.multVec(world_point), n_local
+
+
+def _resolve_face(target, tip):
+    """Return (face_index, (world_point, world_normal)) for `tip`'s target face on `target`, or (None, None)."""
+    if target is None:
+        return None, None
+    faces = planar_faces(target)
+    if not faces:
+        return None, None
+    n_local = getattr(tip, 'SSTargetNormal', None)
+    if n_local is not None and n_local.Length > 1e-6:
+        _, placement = _def(target)
+        want_n = placement.Rotation.multVec(n_local)
+        want_n.normalize()
+        want_pt = placement.multVec(tip.SSTargetPoint)
+        matches = [(i, p) for i, p in enumerate(faces) if p[1].dot(want_n) > 0.9999]
+        if not matches:
+            return None, None
+        return min(matches, key=lambda item: abs((item[1][0] - want_pt).dot(want_n)))
+    face = int(getattr(tip, 'SSFace', -1))
+    if 0 <= face < len(faces):
+        return face, faces[face]
+    return None, None
+
+
 def snapshot(board):
     frame = stock(board)
     dfn, _ = _def(board)
@@ -270,7 +344,16 @@ def snapshot(board):
         end = fitted_end(board)
         if end is not None:
             n, pt = end
-            out['fitted_end'] = {'face': fitted_face(board), 'normal': list(n), 'point': list(pt)}
+            if frame:
+                fe_face = fitted_face(board)
+            else:
+                fe_face = next(
+                    (i for i, (fpt, fn) in enumerate(faces)
+                     if fn.dot(n) > 0.9999 and abs((fpt - pt).dot(n)) < 1e-4),
+                    None,
+                )
+            if fe_face is not None:
+                out['fitted_end'] = {'face': fe_face, 'normal': list(n), 'point': list(pt)}
     return out
 
 
@@ -324,16 +407,19 @@ def _inputs(board, tip, bodies):
         return (obj.Label, ext.Name, tuple(origin), tuple(tuple(v) for v in axes), tuple(sizes),
                 getattr(getattr(dfn, 'Tip', None), 'Name', None))
 
-    def dst_key(obj, face):
+    def dst_key(obj, fit_tip):
         if obj is None:
             return None
-        plane = face_plane(obj, face)
+        if stock(obj) is None:
+            from export import shape_key
+            return ('shape', obj.Label, shape_key(obj))
+        _, plane = _resolve_face(obj, fit_tip)
         p_key = (tuple(plane[0]), tuple(plane[1])) if plane is not None else None
-        return (obj.Label, p_key)
+        return ('rect', obj.Label, p_key)
 
     target = bodies.get(tip.SSTargetId)
     return (tip.SSTargetId, tip.SSAxis, tip.SSFace, tip.SSMode, getattr(tip, 'SSReverse', False),
-            src_key(board, tip), dst_key(target, tip.SSFace))
+            src_key(board, tip), dst_key(target, tip))
 
 
 def refit_inputs(model):
@@ -341,6 +427,37 @@ def refit_inputs(model):
     bodies = model.bodies()
     return {tip.Name: _inputs(src, tip, bodies)
             for tip, _, src, _ in _active_tips(model, bodies, promote=False)}
+
+
+def _recompute_chain(target, recomputed):
+    """Recompute `target`'s feature chain from its PlaneFit (or Mirroring) up to its Tip, once per pass."""
+    dfn, _ = _def(target)
+    root = dfn if dfn is not None else target
+    if root is None or root.Name in recomputed:
+        return
+    recomputed.add(root.Name)
+    tip = getattr(dfn, 'Tip', None) if dfn is not None else target
+    if tip is None:
+        return
+    chain = []
+    seen = set()
+    cur = tip
+    while cur is not None and cur.Name not in seen:
+        seen.add(cur.Name)
+        if hasattr(cur, 'SSStock'):
+            break
+        chain.append(cur)
+        if getattr(cur, 'TypeId', '') == 'Part::Mirroring' and getattr(cur, 'Source', None) is not None:
+            _recompute_chain(cur.Source, recomputed)
+            break
+        if hasattr(cur, 'Base'):
+            cur = cur.Base
+        elif getattr(cur, 'TypeId', '') == 'Part::MultiFuse' and getattr(cur, 'Shapes', None):
+            cur = cur.Shapes[0]
+        else:
+            break
+    for obj in reversed(chain):
+        obj.recompute()
 
 
 def refit_changed(model, before):
@@ -352,14 +469,21 @@ def refit_changed(model, before):
     bodies = model.bodies()
     unvisited = _active_tips(model, bodies, promote=True)
     affected = set()
+    recomputed = set()
     changed = []
     while unvisited:
         unvisited_ids = {bid for _, _, _, fam in unvisited for bid in fam}
         ready = [item for item in unvisited if item[0].SSTargetId not in unvisited_ids]
         if not ready:
+            for tip, _, _, _ in unvisited:
+                tip.SSFitResult = 'Reference unavailable · last geometry retained'
             break  # Defensive cycle guard.
         remaining = [item for item in unvisited if item[0].SSTargetId in unvisited_ids]
         for tip, _, src, fam in ready:
+            if tip.SSTargetId in affected:
+                target = bodies.get(tip.SSTargetId)
+                if target is not None:
+                    _recompute_chain(target, recomputed)
             if tip.SSTargetId in affected or before.get(tip.Name) != _inputs(src, tip, bodies):
                 update(model, src, tip)
                 affected.update(fam)
@@ -387,11 +511,21 @@ def update(model, board, tip):
         return
     target = model.bodies().get(tip.SSTargetId)
     src = source_frame(board, tip)
-    plane = face_plane(target, tip.SSFace) if target is not None else None
+    face_idx, plane = _resolve_face(target, tip)
     if not src or plane is None:
         tip.SSTargetId = ''
         tip.SSFitResult = 'Reference unavailable · last geometry retained'
         return
+    n_local = getattr(tip, 'SSTargetNormal', None)
+    if n_local is None or n_local.Length <= 1e-6:
+        if 'SSTargetNormal' not in tip.PropertiesList:
+            tip.addProperty('App::PropertyVector', 'SSTargetNormal')
+        if 'SSTargetPoint' not in tip.PropertiesList:
+            tip.addProperty('App::PropertyVector', 'SSTargetPoint')
+        pt_l, n_l = _target_local_plane(target, plane[0], plane[1])
+        tip.SSTargetPoint = pt_l
+        tip.SSTargetNormal = n_l
+    tip.SSFace = face_idx
     dst = stock(target)
     corners, ends, depths = geometry(src, dst, tip.SSAxis, tip.SSFace, tip.SSMode,
                                      getattr(tip, "SSReverse", False), target_plane=plane)
@@ -463,8 +597,8 @@ def apply(model, op):
         if cur_dfn.Name in seen:
             raise ValueError('This fit would create a cycle')
         seen.add(cur_dfn.Name)
-        cur_tip = getattr(cur_dfn, 'Tip', None)
-        next_id = getattr(cur_tip, 'SSTargetId', '') if hasattr(cur_tip, 'SSStock') else ''
+        cur_tip = _underlying_plane_fit(getattr(cur_dfn, 'Tip', None))
+        next_id = getattr(cur_tip, 'SSTargetId', '') if cur_tip is not None else ''
         cur = bodies.get(next_id) if next_id else None
     geometry(src, stock(target), axis, face, mode, op.get("reverse", False), target_plane=t_plane)
     tip = board_dfn.Tip
@@ -473,13 +607,20 @@ def apply(model, op):
         tip.Label = 'Fit to plane'
         tip.addProperty('App::PropertyLink','SSStock')
         tip.SSStock = board_dfn.Tip
-        for name,typ in [('SSTargetId','String'),('SSAxis','Integer'),('SSFace','Integer'),('SSMode','Integer'),('SSFitResult','String'),('SSFitCorners','VectorList'),('SSSourceBodyId','String')]:
+        for name,typ in [('SSTargetId','String'),('SSAxis','Integer'),('SSFace','Integer'),('SSMode','Integer'),('SSFitResult','String'),('SSFitCorners','VectorList'),('SSSourceBodyId','String'),('SSTargetNormal','Vector'),('SSTargetPoint','Vector')]:
             tip.addProperty('App::Property'+typ,name)
         model.set_tip(board_dfn,tip)
     if "SSReverse" not in tip.PropertiesList:
         tip.addProperty("App::PropertyBool","SSReverse")
     if "SSSourceBodyId" not in tip.PropertiesList:
         tip.addProperty("App::PropertyString","SSSourceBodyId")
+    if "SSTargetNormal" not in tip.PropertiesList:
+        tip.addProperty("App::PropertyVector","SSTargetNormal")
+    if "SSTargetPoint" not in tip.PropertiesList:
+        tip.addProperty("App::PropertyVector","SSTargetPoint")
+    pt_l, n_l = _target_local_plane(target, t_plane[0], t_plane[1])
+    tip.SSTargetPoint = pt_l
+    tip.SSTargetNormal = n_l
     tip.SSReverse = op.get("reverse",False)
     tip.SSSourceBodyId = board.BodyId if board_dfn is not board else ''
     tip.SSTargetId,tip.SSAxis,tip.SSFace,tip.SSMode = target.BodyId,axis,face,mode

@@ -19,7 +19,7 @@ Shared scratchpad for Claude and Codex. Created by Codex on 2026-11-21 at Willia
 
 ## References and authority
 
-- [Decision log](../03_Past_Decisions/decision-log.md) and [rulings](../03_Past_Decisions/rulings/): William's rulings, open questions, Work list and tunables (P09). Either agent records a decision William makes (`tools/log.py add`), in the commit it belongs to. Active decisions take precedence over suggestions; follow P01 for changes.
+- [Decision log](decision-log.md): William's decisions, open questions, Work list and tunables (P09). Either agent records a decision William makes, in the commit it belongs to. Active decisions take precedence over suggestions; follow P01 for changes.
 - [Codex's suggestions](../Codex%27s%20suggestions.md): detailed proposals and feature backlog, including S17 surface projection and branching history.
 - [FreeCAD feature map](../FREECAD_FEATURE_MAP.md): native FreeCAD counterparts and capability checks.
 - [Architecture](../ARCHITECTURE.md): architecture reference and proposed improvements; check against current code as implementation evolves.
@@ -31,8 +31,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 <!-- open list: built from docs/handoff/ by tools/handoff.py; don't edit by hand -->
 
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
-- [H150 — T147 step 1: a plane fit keeps its target face when boards are cut, flipped or chained](handoff/H150-t147-plane-fit-face-identity.md) — status: open; for: either
-- [H151 — T147 step 2: circles and polygons fit flush against a sloped face](handoff/H151-t147-flush-fits-curved-profiles.md) — status: queued (after H150); for: either
+- [H151 — T147 step 2: circles and polygons fit flush against a sloped face](handoff/H151-t147-flush-fits-curved-profiles.md) — status: open; for: either
 - [H152 — T146 step 1: one file per ruling in Napkin/03_Past_Decisions/rulings/, written and read by log.py](handoff/H152-t146-one-file-per-ruling.md) — status: answered; for: either
 - [H153 — T146 step 2: Work list items and open questions as one file each](handoff/H153-t146-work-list-and-questions-as-files.md) — status: queued (after H152); for: either
 
@@ -42,6 +41,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 Full entries in [handoff-archive.md](handoff-archive.md).
 
+- H150 — T147 step 1: a plane fit keeps its target face when boards are cut, flipped or chained. Resolved: merged into main by the integrator, 2026-11-26.
 - H148 — T144 step 1: a corner fillet radius too big for its edges says why. Resolved: merged into main by the integrator, 2026-11-26.
 - H149 — T144 step 2: the click that starts a Polygon clears digits not entered. Resolved: merged into main by the integrator, 2026-11-26.
 - H130 — T84 step 2: Polygon tool (toolbar button without hotkey, exact FreeCAD sketch polygon). Resolved: merged into main by the integrator, 2026-11-25.
