@@ -80,17 +80,27 @@ def first_sentence(text, limit=90):
 
 def comitatus_root(root):
     """Return (comitatus_dir or None, main_repo_dir) for a checkout or worktree.
-    NAPKIN_COMITATUS=<dir> overrides the comitatus directory when set."""
-    r = subprocess.run(["git", "rev-parse", "--git-common-dir"], cwd=root, capture_output=True, text=True)
-    common = r.stdout.strip() if r.returncode == 0 else ""
-    main_repo = (os.path.dirname(os.path.realpath(os.path.join(root, common)))
-                 if common else os.path.realpath(root))
+    NAPKIN_COMITATUS=<dir> overrides the comitatus directory for this repo's checkouts/worktrees."""
+    r_top = subprocess.run(["git", "rev-parse", "--show-toplevel"], cwd=root, capture_output=True, text=True)
+    top = r_top.stdout.strip() if r_top.returncode == 0 else ""
+    if top and os.path.realpath(top) == os.path.realpath(root):
+        r = subprocess.run(["git", "rev-parse", "--git-common-dir"], cwd=root, capture_output=True, text=True)
+        common = r.stdout.strip() if r.returncode == 0 else ""
+        main_repo = (os.path.dirname(os.path.realpath(os.path.join(root, common)))
+                     if common else os.path.realpath(root))
+    else:
+        main_repo = os.path.realpath(root)
     parent = os.path.dirname(main_repo)
     org = os.path.dirname(parent)
     if os.path.basename(parent) == "08_Code_Bases" and os.path.isdir(org):
         env_org = os.environ.get("NAPKIN_COMITATUS", "").strip()
         if env_org and os.path.isdir(env_org):
-            return os.path.realpath(env_org), main_repo
+            r_self = subprocess.run(["git", "rev-parse", "--git-common-dir"],
+                                    cwd=os.path.dirname(os.path.abspath(__file__)), capture_output=True, text=True)
+            self_common = r_self.stdout.strip() if r_self.returncode == 0 else ""
+            self_main = os.path.dirname(os.path.realpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), self_common))) if self_common else ""
+            if main_repo == self_main:
+                return os.path.realpath(env_org), main_repo
         return org, main_repo
     return None, main_repo
 
