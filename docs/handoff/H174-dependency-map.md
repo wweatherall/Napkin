@@ -69,3 +69,26 @@ Branch: `gemini/h174-dependency-map` | Commit: `a185f1c`
     - `Tests: tools/test_log_archive.py (\`apply\`), tools/test_number_ids.py (\`apply\`), viewport/test_tool_context.gd (\`apply\`), viewport/test_units.gd (\`apply\`), worker/test_floor_copy.py (\`apply\`), worker/test_native.py (\`apply\`)`
 
 Result: done. Ready for integrator review.
+
+**Response (Gemini, gemini-ash-1127-1004, 2026-11-27, follow-up on review):**
+
+Branch: `gemini/h174-dependency-map` | Commit: `dc814b0`
+
+- **Qualified call resolution**:
+  - **Python** (`ast`-based, scope-aware): resolves `import mod`, `import mod as alias`, `from mod import fn`, `from mod import fn as alias`, `__import__('mod')`, `ClassName(...)` / `self.<attr>` instance types, and bare calls inside the defining file. Comments, docstrings, strings, and shadowed local imports (e.g. `from object_properties import apply` in `worker/model.py`) are excluded. Untyped `<obj>.fn(` calls go to `Unresolved (check by hand):`.
+  - **GDScript** (comment/string-stripped): resolves `preload`/`load` aliases, `class_name`, typed `var`/`param` declarations, `.new()` assignments (with or without `var`), `extends` inheritance (e.g. `var ctx: ToolContext` from `tool.gd`), `main.gd` `m.` forwarders, `ToolContext.*Capability` forwarders (`ctx.document`, `_document`), and bare/`self.` calls inside the defining file or subclasses. Untyped receiver calls go to `Unresolved (check by hand):`.
+- **Quoted outputs**:
+  - `python3 tools/dependency_map.py touches worker/plane_fit.py:apply`:
+    - `note: 'apply' is defined in 8 files (tools/number_ids.py, viewport/appearance.gd, viewport/measure_box.gd, viewport/test_tool_context.gd, viewport/tool_context.gd, worker/model.py, worker/object_properties.py, worker/plane_fit.py); showing qualified calls to worker/plane_fit.py.`
+    - `Touches: worker/plane_fit.py (\`apply\`), worker/model.py (\`apply\`), worker/push.py (\`apply\`)`
+  - `python3 tools/dependency_map.py touches viewport/document.gd:next_id`:
+    - `note: 'next_id' is defined in 4 files (tools/log.py, viewport/document.gd, viewport/test_selection.gd, viewport/tool_context.gd); showing qualified calls to viewport/document.gd.`
+    - `Touches: viewport/document.gd (\`next_id\`), viewport/appearance.gd (\`next_id\`), viewport/main.gd (\`next_id\`), viewport/tool_context.gd (\`next_id\`), viewport/tools/arc_tool.gd (\`next_id\`), viewport/tools/circle_tool.gd (\`next_id\`), viewport/tools/line_tool.gd (\`next_id\`), viewport/tools/move_tool.gd (\`next_id\`), viewport/tools/polygon_tool.gd (\`next_id\`), viewport/tools/push_tool.gd (\`next_id\`), viewport/tools/rect_tool.gd (\`next_id\`)`
+    - `Unresolved (check by hand): viewport/selection.gd (\`next_id\`:225,278,279,296,305), viewport/test_document.gd (\`next_id\`:115,118,126,137,138), viewport/test_tool_context.gd (\`next_id\`:257,258,261,263)`
+    - (`tools/log.py`, `tools/test_log.py`, `viewport/test_selection.gd`, comments, and strings are excluded.)
+- **Checks**:
+  - `python3 tools/test_dependency_map.py`: `DEPENDENCY MAP TESTS: 18 passed, 0 failed`.
+  - `python3 tools/dependency_map.py --check`: exit 0.
+  - `python3 tools/TEST_BEFORE_MERGING.sh`: `GATE PASS (scope tools): tools quick test passes; 36 s total`.
+
+Result: done. Ready for integrator review.
