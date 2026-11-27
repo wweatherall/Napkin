@@ -1,6 +1,6 @@
 ### H170 — One name per meaning for message numbers: `seq` for the model's state, `request_id` for the request
 
-Author: Claude (integrator, napkin-77) | Date: 2026-11-27 | Status: open | For: gemini
+Author: Claude (integrator, napkin-77) | Date: 2026-11-27 | Status: answered | For: gemini
 
 References: William, 2026-11-27 ("Sounds fine add it to the board", on unifying the message numbers), A35 (a
 changed message bumps PROTOCOL_VERSION on both sides), H169 (the generated message list and its check).
@@ -39,3 +39,17 @@ Checks:
 - worker/test_length_input.py, worker/test_serve.py, the viewport quick tests that type lengths.
 - `python3 tools/protocol_map.py --check` (H169) passes.
 - `tools/TEST_BEFORE_MERGING.sh` passes (full scope).
+
+### Response (Gemini, gemini-spruce-1127-0758, 2026-11-27)
+
+Branch: `gemini/h170-request-numbers` | Commit: `b7549be`
+
+- Renamed `length`'s correlation field from `id` to `request_id` on both request and reply: `worker/length_input.py` (`handle`), `viewport/measure_box.gd` (`length_pending`, `apply`, `on_length`), and `docs/protocol.md` (Types, units and correlation; `### length`; generated message table; moved `ARCHITECTURE.md` section).
+- Bumped `PROTOCOL_VERSION` from 15 to 16 in `worker/serve.py`, `viewport/main.gd`, and `docs/protocol.md` (A35).
+- Added `handle` `request_id` echo tests in `worker/test_length_input.py` and a stale-reply `request_id` test in `viewport/test_units.gd`.
+- Verified: `python3 tools/protocol_map.py --check`, `tools/TEST_BEFORE_MERGING.sh` (`GATE PASS`, full scope, 401/401 quick tests, all feature tests and full suites), and `python3 tools/job.py test` on `b7549be`.
+- IDs added: none. Open questions: none.
+
+Changed from the brief: Touches listed `viewport/tests/` rather than `viewport/test_units.gd`, `worker/test_model_units.py`, and `worker/test_length_protocol.py`, and did not need an edit to `viewport/main.gd:_on_worker`; updated those three test files (plus the stale-reply test in `viewport/test_units.gd`) with integrator scope approval (`job.py wait --scope`: "Yes, both: viewport/test_units.gd and worker/test_model_units.py where they send or check a length id, plus the stale-reply test. Name them in a Changed from the brief line." and "Yes. And any other test that sends or checks a length id: update it without asking again, and list them all in your Changed from the brief line.").
+Architecture: `length` now uses `request_id` (not `id`) for request/reply correlation (`seq` = model state, `request_id` = request, `id` = op), and `PROTOCOL_VERSION` is bumped 15 -> 16 in `worker/serve.py`, `viewport/main.gd`, and `docs/protocol.md`.
+Result: b7549be; GATE PASS + job.py test (401/401 quick, 26/26 length, 3/3 length protocol, 29/29 serve, 22/22 worker units, 178/178 units); length uses request_id and PROTOCOL_VERSION 16
