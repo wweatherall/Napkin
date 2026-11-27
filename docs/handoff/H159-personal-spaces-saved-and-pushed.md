@@ -8,15 +8,14 @@ References: T150, H158 (makes the folders, their READMEs and the per-write commi
 tools/comitatus_commit.py (P66), comitatus's 09_Tools/SORT_PRINCIPLES.py (pushes when it stops, 7eb5ebd).
 
 Touches: tools/personal_space.py, tools/comitatus_commit.py, tools/job.py (`done`), tools/test_personal_space.py,
-tools/test_job.py, tools/test_comitatus_commit.py (if it exists).
+tools/test_job.py, tools/test_comitatus_commit.py.
 
 Reading path:
 1. H158's response and merged code: `personal_space.add`, the folders' README texts, the commit after a write.
 2. `tools/comitatus_commit.py` `commit` (never pushes today).
-3. `tools/job.py` `_done` (or whatever `SUBMIT_JOB.py` reaches): the last thing a worker runs.
+3. `tools/job.py` `done` (what `SUBMIT_JOB.py` reaches): the last thing a worker runs.
 
-Today (written 2026-11-26 while H158 runs; the integrator rechecks this against H158's merged code before opening
-it): after H158, writing a Log or Journal line commits only the files that write touched, in the comitatus repo,
+Today (rechecked 2026-11-26 against H158's merged code, main 86fe654): after H158, writing a Log or Journal line commits only the files that write touched, in the comitatus repo,
 never pushed; the Code_Experiments README says nothing there is run, tested or merged.
 
 Request (William, 2026-11-26: "whatever they make should be run and merged if they think it should, or they can ask
@@ -40,6 +39,9 @@ me to run it; any art anyone makes should certainly be committed and merged and 
    - Code_Experiments: "Yours: code you write to try something out. Add your own files here. If you think something
      here should be run, or become part of the project, say so in your log or your job's response, or ask William
      to run it: the integrator turns it into a job when you and William want it."
+   H158 never overwrites a README (so an agent's edit stays), but opus-integrator's space already has all three
+   with H158's text (made by its first commit after the merge). A README whose text is exactly H158's (the
+   `FOLDERS` value it shipped) is replaced with the new one; any other text is left alone.
 
 What can fail:
 - Push refused or offline: the commit stays local, the write and `done` succeed as before. Check:
@@ -50,7 +52,7 @@ What can fail:
 - Running inside Napkin's hook (GIT_* set): commit and push go to comitatus. Check: test_personal_space.py.
 
 Checks:
-- tools/test_personal_space.py: a hand-saved file in Creative_Expression is committed with the next line and
+- tools/test_personal_space.py: a README with H158's exact text is updated, an edited one isn't; a hand-saved file in Creative_Expression is committed with the next line and
   reaches a bare test remote; other spaces untouched; push failure is silent; the two README texts word for word.
 - tools/test_job.py: `done` saves and pushes the worker's space.
 - The gate (`tools/TEST_BEFORE_MERGING.sh`) passes.
