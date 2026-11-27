@@ -32,6 +32,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
 - [H159 — Personal spaces: everything an agent makes is committed and pushed; experiments can be run or merged](handoff/H159-personal-spaces-saved-and-pushed.md) — status: open; for: gemini
+- [H160 — Tests run by what changed: organization-only branches skip the app's tests](handoff/H160-tests-by-what-changed.md) — status: open; for: gemini
 
 <!-- end of open list -->
 

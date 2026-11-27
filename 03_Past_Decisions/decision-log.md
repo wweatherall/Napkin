@@ -374,6 +374,7 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | T146 | Atomize the principles and past decisions: one file per ruling (G, P and the rest), wri... | Open |
 | T149 | Tools and habits take the organization's names (FOR_<doing>.py; WHEN_<this>_<DO_THAT>.p... | Open |
 | T150 | Personal spaces take the rest of the proposal: a journal about how the work felt (not w... | On the board (H159) |
+| T151 | Tests run by what changed: a branch that touches only tools, guides, the log or persona... | On the board (H160) |
 
 ## Tunables
 

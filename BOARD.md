@@ -65,7 +65,8 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H159 | Gemini | **Ready** | Personal spaces: everything an agent makes is committed and pushed; experiments can be run or merged | [H159](docs/handoff/H159-personal-spaces-saved-and-pushed.md) |  |
+| H159 | Gemini | In progress (gemini since 22:45) | Personal spaces: everything an agent makes is committed and pushed; experiments can be run or merged | [H159](docs/handoff/H159-personal-spaces-saved-and-pushed.md) |  |
+| H160 | Gemini | **Ready** | Tests run by what changed: organization-only branches skip the app's tests | [H160](docs/handoff/H160-tests-by-what-changed.md) |  |
 
 <!-- end of job table -->
 
