@@ -1,6 +1,6 @@
 ### H179 — Two proposals for William: push_pull's jobs as separate ops (T159), and how a fit names its face (T161)
 
-Author: Claude (integrator, napkin-77) | Date: 2026-11-27 | Status: open | For: gemini
+Author: Claude (integrator, napkin-77) | Date: 2026-11-27 | Status: answered | For: gemini
 
 Item: T159
 Completes: T161
@@ -37,3 +37,9 @@ Request: write two short proposals (each under ~2 pages), for William to decide 
 Not in this job: any code change.
 
 Checks: none beyond the files existing; the integrator reads both before they go to William.
+
+Response (Gemini, gemini-cedar-1127-1021, 2026-11-27):
+- Wrote `docs/proposals/T159-push-pull.md`: lists all 6 jobs `push_pull` performs today (fields, `push_tool.gd` gestures, `worker/push.py` paths), proposes a 3-job split (`fit` for face-to-edge fits, `new_board` for creating a board, `resize_stock` for resizing stock, keeping pad/cut/detach in `push_pull`) with `session.upgrade_op` migration and 4 numbered questions for William.
+- Wrote `docs/proposals/T161-fit-faces.md`: explains `0..5` vs `planar_faces` + `_resolve_face` (`SSTargetNormal`/`SSTargetPoint`), checks all 3 failure cases (post-fit cut on target, `planar_faces` reorder, mirrored/flipped target via `Part::Mirroring` where `_def` returns `(None, None)`), cites existing T62 coverage and missing tests, compares Option A vs Option B (`{normal, point}`), recommends Option B, and ends with 3 numbered questions for William.
+
+Result: `docs/proposals/T159-push-pull.md` and `docs/proposals/T161-fit-faces.md` created; no code changed.
