@@ -52,7 +52,7 @@ One subject per decision; the Decisions column is generated.
 
 ## Principles
 
-Each states one idea; Explains (generated) lists the decisions that name it. William reviewed and approved them 2026-11-22 (G04 split into G04 and G13).
+Each states one idea; its file is `03_Past_Decisions/rulings/<ID>.md` (`python3 tools/log.py show G01`). William reviewed and approved them 2026-11-22 (G04 split into G04 and G13).
 
 | ID | Principle | Status |
 |---|---|---|

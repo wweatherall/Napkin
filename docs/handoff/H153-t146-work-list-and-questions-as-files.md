@@ -21,8 +21,11 @@ Reading path:
    `waiting_rows` (an Open row whose last column says "your call" with no decision ID after it shows under Waiting on
    William, T93), `report_ids`; `sort_decision_log.py` `status_problems` (allowed statuses, and `Open (queued: H040)`).
 
-Today: after H152 merges, rulings are files and these two lists are still tables (check against main when you start,
-and re-date this line).
+Today (checked 2026-11-26 on main 8ed856c, H152 merged): rulings are files in `03_Past_Decisions/rulings/`, with
+H152's helpers in `tools/sort_decision_log.py` to reuse: `RULINGS_DIR`, `RULING_SECTIONS`, `folder_ids`, `parse_entry`,
+`read_entry`, `read_entries`, `write_entry`, `format_ruling`, `row_to_ruling`, `index_row`, `generate_indexes`,
+`_ruling_rows_in`. The questions and Work list are still tables. H152 dropped the principles' generated Explains
+column (a 4-column index line would be read as a ruling row to convert): item 6 brings it back in `log.py show`.
 
 Request: every Work list item becomes `03_Past_Decisions/work/<ID>.md` and every question
 `03_Past_Decisions/questions/<ID>.md`, whatever its status (Open, Done, Decided and the rest stay in the same folder;
@@ -56,6 +59,8 @@ only the indexes change, as for rulings). Tunables stay a table in `decision-log
    today's). `job.py` `done` finds the Work list item in `work/`.
 5. **Converting**: the same tidy as H152's (a T or Q row found in a table becomes its file), so a branch made before
    this change is converted when it merges.
+6. **Explains, back (lost in H152)**: `log.py show G01` ends with `Explains: <the IDs of the Active and Tentative
+   rulings whose Principles name G01>`, worked out from the files (none: `Explains: —`). Nothing is stored for it.
 
 What can fail (P42: the project's memory again):
 - A cell lost in conversion: every T and Q row's cells and Details come through word for word.
@@ -72,6 +77,7 @@ Checks, each failing without the change:
 - tools/test_log.py: "note appends to a Work list file's Result line"; "add T writes a placeholder file on a branch".
 - tools/test_integrate.py: "a job's Result line is appended to its Work list file"; "--status Done keeps the file and
   moves its index line".
+- tools/test_log.py: "show G01 lists the rulings that name it (Explains)".
 - tools/test_startup.py: "a named T item's lines and its Covers rows come from files"; "a 'your call' item in a file is
   waiting on William".
 - `tools/featuretest.sh` and the quick test pass.
