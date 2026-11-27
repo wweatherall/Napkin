@@ -373,6 +373,8 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | T153 | Generated tests: inputs made fresh each run (a random seed, printed so a failure can be... | Open |
 | T155 | Find a home for (or delete) the loose files at Napkin's top level: 'Codex's suggestions... | Open |
 | T159 | Clarify push_pull and separate its jobs: one op today extrudes a profile or face, cuts,... | Open |
+| T161 | Think through plane-fit face numbering: faces are 0-5 (Left..Top) on plain stock but 't... | Open |
+| T163 | Suspected bug (found by H179's T161 proposal): flipping a board (mirror with replace) t... | Open |
 
 ## Tunables
 
