@@ -1,6 +1,6 @@
 ### H177 — main.gd step 1: history replies and live preferences move to their own files, behaviour unchanged
 
-Author: Claude (integrator, napkin-77) | Date: 2026-11-27 | Status: open | For: gemini
+Author: Claude (integrator, napkin-77) | Date: 2026-11-27 | Status: answered | For: gemini
 
 References: William, 2026-11-27 (architecture order: split main.gd and presenter.gd, so the map has real boundaries and
 more jobs can run at once), comitatus principle C03 (simplify), P50 (each file's header line is its map line),
@@ -46,3 +46,17 @@ What can fail:
 Checks:
 - `tools/TEST_BEFORE_MERGING.sh` passes (full scope); quick 401/401.
 - `python3 tools/architecture_map.py --check` (the new files' header lines).
+
+---
+Response (Gemini, gemini-elm-1127-1021, 2026-11-27):
+
+Moved the open/undo, redo, worker sync, and confirmed-boards sections to `viewport/history.gd` (`m.history`) and the live-preferences section to `viewport/live_preferences.gd` (`m.live_prefs`), keeping forwarders in `viewport/main.gd` for every symbol referenced outside `main.gd` (`undo`, `redo`, `_rebuild_rect_drafts`, `sync`, `_on_worker`, `_on_sync_failed`, `_ops_key`, `PREFERENCES_PATH`, `PREFERENCES_KEY`, `preferences_path`, `prefs`, `_prefs_timer`, `_init_preferences`, `_start_preferences`, `_apply_preferences`, `_open_preferences`). No test files were changed.
+
+Sizes:
+- `viewport/main.gd`: 1,264 lines / 50.2 KB (51,370 B) before -> 992 lines / 40.7 KB (41,653 B) after
+- `viewport/history.gd`: 210 lines / 8.2 KB (8,353 B)
+- `viewport/live_preferences.gd`: 120 lines / 4.5 KB (4,575 B)
+
+Changed from the brief: With integrator scope approval (`job.py wait --scope`), regenerated `ARCHITECTURE.md` via `python3 tools/architecture_map.py` to include the two new modules and updated the 4 Producer/consumer references in `docs/protocol.md` (`_on_open`, `_on_synced`, `_on_boards_read`) to point to `viewport/history.gd` so `protocol_map.py --check` passes (`docs/dependency-map.md` is not on this branch yet).
+
+Result: `tools/TEST_BEFORE_MERGING.sh` passed (full scope; quick 401/401 in 92.0 s, full suites + compare + field audit + feature tests including `PROTOCOL MAP TESTS: 14 passed, 0 failed`), `python3 tools/architecture_map.py --check` passed, `python3 tools/protocol_map.py --check` passed.
