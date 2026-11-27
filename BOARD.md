@@ -65,8 +65,7 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H155 | either | In progress (gemini since 19:43) | T148: switch off FreeCAD's backups only for Shop Sketch's own saves, then put William's setting back | [H155](docs/handoff/H155-t148-backups-only-for-our-saves.md) |  |
-| H156 | either | In progress (gemini since 19:43) | T142: a Work list item is "On the board" while it has jobs and Done when its last one merges, all by script | [H156](docs/handoff/H156-t142-on-the-board-status.md) |  |
+| H156 | either | **Done**: for review (gemini) | T142: a Work list item is "On the board" while it has jobs and Done when its last one merges, all by script | [H156](docs/handoff/H156-t142-on-the-board-status.md) |  |
 | H157 | either | Queued | T142 step 2: picking a to-do up, its jobs linked with their progress, Done by itself when the last merges | [H157](docs/handoff/H157-t142-pick-up-link-jobs-auto-done.md) | H156 |
 | H154 | either | Queued | Tools and habits take the organization's names: FOR_<doing>.py and WHEN_<this>_<DO_THAT>.py | [H154](docs/handoff/H154-naming-tools-and-habits.md) | H157 |
 

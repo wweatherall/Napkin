@@ -319,12 +319,16 @@ def fcbak_files(folder):
     return [n for n in os.listdir(folder) if ".FCBak" in n]
 
 
+prefs = App.ParamGet("User parameter:BaseApp/Preferences/Document")
+had_pref = "CreateBackupFiles" in prefs.GetBools()
+orig_pref = prefs.GetBool("CreateBackupFiles", True)
+
 # 1. Explicit drawing export writes views.json, leaves no TechDraw in model.FCStd, clears s.drawing, clean Label & no .FCBak
 p = model("drawing-oneshot")
 folder = os.path.dirname(p)
 out = os.path.join(folder, "out")
 os.makedirs(out, exist_ok=True)
-App.ParamGet("User parameter:BaseApp/Preferences/Document").SetBool("CreateBackupFiles", True)
+prefs.SetBool("CreateBackupFiles", True)
 s = Session(p, fresh=True)
 ops = board(1)
 s.sync(ops)
@@ -364,6 +368,8 @@ d = App.openDocument(p)
 S.add_drawing_page(d, [o for o in d.Objects if getattr(o, "SSRole", None) == "body"])
 d.save()
 App.closeDocument(d.Name)
+for n in fcbak_files(folder):
+    os.remove(os.path.join(folder, n))  # d.save() was FreeCAD's own save with backups on
 s = Session(p)
 check("reopening a .FCStd with a TechDraw page strips it and leaves drawing=False",
       not [o for o in s.doc.Objects if o.TypeId.startswith("TechDraw")] and not s.drawing, s.drawing)
@@ -448,6 +454,63 @@ try:
     s.close()
 finally:
     S.write_glb = real_write_glb
+
+# 5. Backup preference (CreateBackupFiles) is restored after every save and untouched on import (A41, T148)
+import importlib
+
+try:
+    p = model("backup-on")
+    folder = os.path.dirname(p)
+    prefs.SetBool("CreateBackupFiles", True)
+    s = Session(p, fresh=True)
+    ops = board(1)
+    s.sync(ops)
+    s.save()
+    s.sync(ops + board(2))
+    s.save()
+    check("a save leaves the backup preference as it found it (on)",
+          prefs.GetBool("CreateBackupFiles", False) is True and fcbak_files(folder) == [],
+          (prefs.GetBool("CreateBackupFiles", False), fcbak_files(folder)))
+    s.close()
+
+    p = model("backup-off")
+    prefs.SetBool("CreateBackupFiles", False)
+    s = Session(p, fresh=True)
+    s.sync(board(1))
+    s.save()
+    check("a save leaves the backup preference as it found it (off)",
+          "CreateBackupFiles" in prefs.GetBools() and prefs.GetBool("CreateBackupFiles", True) is False,
+          ("CreateBackupFiles" in prefs.GetBools(), prefs.GetBool("CreateBackupFiles", True)))
+    s.close()
+
+    p = model("backup-readonly")
+    folder = os.path.dirname(p)
+    s = Session(p, fresh=True)
+    s.sync(board(1))
+    prefs.SetBool("CreateBackupFiles", True)
+    os.chmod(folder, 0o555)
+    raised_ro = False
+    try:
+        s.save()
+    except PermissionError:
+        raised_ro = True
+    finally:
+        os.chmod(folder, 0o755)
+    check("a save that fails still puts the preference back",
+          raised_ro and prefs.GetBool("CreateBackupFiles", False) is True,
+          (raised_ro, prefs.GetBool("CreateBackupFiles", False)))
+    s.close()
+
+    prefs.SetBool("CreateBackupFiles", True)
+    importlib.reload(S)
+    check("importing session no longer changes the preference",
+          prefs.GetBool("CreateBackupFiles", False) is True,
+          prefs.GetBool("CreateBackupFiles", False))
+finally:
+    if had_pref:
+        prefs.SetBool("CreateBackupFiles", orig_pref)
+    else:
+        prefs.RemBool("CreateBackupFiles")
 
 print(f"\nGENERATION TESTS: {R[0]} passed, {R[1]} failed", flush=True)
 sys.exit(1 if R[1] else 0)
