@@ -32,6 +32,9 @@ subprocess.run(["git", "init", "-q", "-b", "main", root], check=True)
 open(os.path.join(root, "03_Past_Decisions", "decision-log.md"), "w").write(
     "# Log\n\n## Work list\n\n| # | Item | Status | Covers | Result / next step |\n|---|---|---|---|---|\n"
     "| T9 | Pick a wood | Open | — | Your call: oak or ash. |\n| T10 | Built | Open | — | Done soon. |\n")
+os.makedirs(os.path.join(root, "03_Past_Decisions", "work"))
+open(os.path.join(root, "03_Past_Decisions", "work", "T11.md"), "w").write(
+    "# T11 — Choose a finish\n\nStatus: Open | Covers: —\n\nChoose a finish.\n\nResult / next step: Your call: oil or wax.\n")
 open(os.path.join(root, "docs", "handoff", "H5-review-me.md"), "w").write(
     "### H5 — Make the thing\n\nAuthor: x | Date: 2026-11-26 | Status: answered | For: either\n")
 open(os.path.join(root, "docs", "follow-ups.md"), "w").write("# Follow-ups\n\n- H4 (2026-11-26): Tidy the drawer later.\n")
@@ -44,9 +47,8 @@ run = lambda: subprocess.run([sys.executable, os.path.join(TOOLS, "org_todos.py"
                              capture_output=True, text=True)
 r = run()
 names_w, names_i = sorted(os.listdir(w)), sorted(os.listdir(i))
-check("a 'your call' Work list item becomes a file waiting on William",
-      "Proj_T9_YOUR_CALL_OAK_OR_ASH.md" in names_w and "oak or ash" in open(os.path.join(w, "Proj_T9_YOUR_CALL_OAK_OR_ASH.md")).read(),
-      names_w + [r.stdout, r.stderr])
+check("a 'your call' Work list item in its own file (H153) waits on William too",
+      any(n.startswith("Proj_T11_") for n in names_w), names_w)
 check("an item that isn't waiting on William gets no file", not any("T10" in n for n in names_w), names_w)
 check("a job answered for review and a follow-up wait on the integrator",
       "Proj_H5_MAKE_THE_THING.md" in names_i and "Proj_H4_TIDY_THE_DRAWER_LATER.md" in names_i, names_i)

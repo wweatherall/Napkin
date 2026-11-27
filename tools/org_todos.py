@@ -49,7 +49,10 @@ def william_items(root):
     entries = {n: read(root, f"docs/handoff/{n}") for n in sorted(os.listdir(folder))} if os.path.isdir(folder) else {}
     board = read(root, "BOARD.md")
     out = []
-    for line in startup.waiting_on_william(log, entries, board, False):
+    work = os.path.join(root, startup.s.WORK_DIR)
+    work_entries = ({n[:-3]: read(work, n) for n in sorted(os.listdir(work)) if n.endswith(".md")}
+                    if os.path.isdir(work) else None)
+    for line in startup.waiting_on_william(log, entries, board, False, work_entries=work_entries):
         m = LINE.match(line)
         if m:
             out.append((m.group(1), m.group(2), m.group(3)))
