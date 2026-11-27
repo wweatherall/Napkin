@@ -368,7 +368,6 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | T135 | Reorganize the organization and code-base folders (principles, habits, case law, person... | Open |
 | T136 | Self-generated architecture map: current and proposed, unbuilt work ghosted, job-board ... | Open |
 | T137 | Decimal commas for European typing of measurements. | Open |
-| T138 | Compress ARCHITECTURE.md heavily so the start-up brief can carry the map (about 80 KB t... | On the board (H165) |
 | T139 | Rename the app to Napkin: what you see, the built app, folders, and the code and docs t... | Open |
 | T141 | William tries the Polygon tool by eye in a rebuilt app (tools/BUILD_THE_APP.sh). | Open |
 | T146 | Atomize the principles and past decisions: one file per ruling (G, P and the rest), wri... | Open |

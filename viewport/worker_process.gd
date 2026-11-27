@@ -1,4 +1,5 @@
 extends RefCounted
+## FreeCAD worker process lifecycle (T6, W13): probes or starts the shared or private worker, watches and restarts it, and shuts it down on quit.
 
 # ---------------- the FreeCAD worker (T6) ----------------
 # Shop Sketch starts its own worker (freecadcmd worker/replay.py) on a free port, watches it, and starts it

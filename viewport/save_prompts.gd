@@ -1,4 +1,5 @@
 extends Node
+## Closing-save and outside-save prompts (I55, A36): asks when a closing save stalls or FreeCAD saves with actions pending, and runs reload or keep-mine.
 
 var m: Node
 

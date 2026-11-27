@@ -58,6 +58,96 @@ flowchart LR
 
 TCP carries commands/status and output paths. Geometry is read from shared local files. This is not currently a remote-worker protocol: the client and worker assume access to the same filesystem.
 
+## Module map (generated)
+
+One-line index of every code module, generated from each file's own header line (`tools/architecture_map.py`).
+
+<!-- module map: built by tools/architecture_map.py; don't edit by hand -->
+
+- `viewport/appearance.gd` — Wood library, board materials, and Paint and grain commands (T15, M03)
+- `viewport/camera_rig.gd` — Orbit, pan and zoom for mouse and trackpad (T113)
+- `viewport/document.gd` — The document controller (A31, T39): one model's action list and its sync with FreeCAD
+- `viewport/inference.gd` — The one snapping and inference engine every tool uses (T4, Q16): what's under the cursor (pick), point snaps in SketchUp's order (endpoint > midpoint > on edge…
+- `viewport/keys.gd` — The keyboard (T75): tool keys (each tool declares its own, tool_registry.gd), shortcuts, Esc, Enter, Delete / Backspace, typed values, Tab / ⌥ for Push/Pull
+- `viewport/main.gd` — Shop Sketch: tool-first viewport
+- `viewport/measure_box.gd` — The measurements box (VCB, T75): the typed value at the bottom right, what it's labelled, and where the typed text goes
+- `viewport/menus.gd` — The native menu bar and menu command dispatch (T113)
+- `viewport/preferences.gd` — User preferences (I63, T111): reads, validates, watches and seeds a JSON file with default units and input-feel tunables
+- `viewport/presenter.gd` — Geometry presentation (A33b, T41), `m.pres`: what the model looks like on screen
+- `viewport/property_panel.gd` — Native FreeCAD properties
+- `viewport/regions.gd` — Planar arrangements in model mm (I51)
+- `viewport/save_prompts.gd` — Closing-save and outside-save prompts (I55, A36): asks when a closing save stalls or FreeCAD saves with actions pending, and runs reload or keep-mine
+- `viewport/selection.gd` — Selection and context (A33b, T41): what a click stands for and what's picked
+- `viewport/tests.gd` — Test-mode entry point
+- `viewport/tool_context.gd` — What a tool may use (T88, docs/specs/T88-tool-interface.md): one ToolContext, built once by main.gd and handed to every tool by `setup_context(ctx)`
+- `viewport/tool_geometry.gd` — Pure geometry shared by tools, inference and main.gd (T88 step 0): units, rounding for ops, plane bases, prisms, feature edges, reflections
+- `viewport/tool_registry.gd` — The tool registry: every script in tools/ that declares a `TOOL` constant is a tool (see tools/CLAUDE.md)
+- `viewport/ui.gd` — The viewport interface (T24: Mac-like)
+- `viewport/units.gd` — Lengths are millimetres internally
+- `viewport/worker_client.gd` — Newline-delimited JSON client for the FreeCAD worker (worker/replay.py)
+- `viewport/worker_process.gd` — FreeCAD worker process lifecycle (T6, W13): probes or starts the shared or private worker, watches and restarts it, and shuts it down on quit
+
+- `viewport/tools/arc_tool.gd` — I60: both gestures save the start, halfway point and end of one circular arc
+- `viewport/tools/circle_tool.gd` — Circle (C): centre, then radius; the same click/drag gesture as Rectangle (I43)
+- `viewport/tools/line_tool.gd` — I58: click-click chain or a single press-drag-release segment
+- `viewport/tools/move_tool.gd` — Move (M), SketchUp style: grab a point on a board (or a hole's wall: the hole), move, click or type a distance
+- `viewport/tools/paint_tool.gd` — Paint: click a board to give it the wood picked in the Wood menu (T15)
+- `viewport/tools/polygon_tool.gd` — Polygon (T84, I64): centre, then circumradius; Circle's click/drag gesture (I43)
+- `viewport/tools/push_tool.gd` — Push/Pull (P): click a face, rectangle or circle, move, then click or type a distance + Return (minus = cut)
+- `viewport/tools/rect_tool.gd` — Rectangle (R): click a face or the ground, then click or type  width, height  + Return
+- `viewport/tools/select_tool.gd` — Select (Space): click a board (from outside, its whole assembly or array row) to select it; Shift-click adds or removes; click empty space to clear
+- `viewport/tools/tool.gd` — A tool owns its state; main.gd hands it the cursor, clicks, keys and typed values (T4)
+
+- `worker/arc.py` — Saved circular drawings (T83)
+- `worker/assembly.py` — Assemblies (T20): grouping boards and moving a group with its arrays
+- `worker/circle.py` — Exact editable circle profiles (T81); only the viewport tessellates them
+- `worker/common.py` — Shared by every worker module: FreeCAD, units and tolerances, OpError, Frame, the wood cards
+- `worker/deletion.py` — T34, I46: Delete
+- `worker/drawing.py` — Compose a shop drawing (A3, third-angle) from the worker's outputs
+- `worker/export.py` — Outputs for the viewport and renders: bodies.json entries, mesh files, model.glb, the TechDraw page
+- `worker/length_input.py` — Length-only evaluation using FreeCAD; no model-property references
+- `worker/line.py` — Saved, editable straight drawings and polygon profiles (T82)
+- `worker/materials.py` — Shop Sketch's wood library (T15, M03): one table, written out as FreeCAD material cards (.FCMat) where FreeCAD looks for user materials, and as materials.json…
+- `worker/mirror.py` — Mirrored copies (Part::Mirroring) and mirror groups (A11b, T26)
+- `worker/model.py` — Model: Shop Sketch operations on a FreeCAD document
+- `worker/move.py` — Move and copy: moving boards and holes, linked copies and arrays (A22c, T12), detach and make unique
+- `worker/object_properties.py` — Inspectable native properties and journalled edits, shared by the worker and tests
+- `worker/paint.py` — Paint and grain (T15, M03): materials on a board definition, grain directions
+- `worker/plane_fit.py` — Board-local face references for Shop Sketch stock and extruded/cut boards
+- `worker/polygon.py` — Exact editable regular polygon profiles (T84): a native constrained sketch, like circle.py's circles
+- `worker/push.py` — Rectangles and Push/Pull: new boards, cuts and joins, through-cuts (I24), pocket-floor ties (T59)
+- `worker/replay.py` — Shop Sketch worker: keeps a live FreeCAD document and edits it with native features
+- `worker/serve.py` — The connection loop: one worker serving every window (W13), and the one-off replay (main)
+- `worker/session.py` — Session: one live document bound to one .FCStd file; sync, undo, journal, saving (A23, A24)
+- `worker/visibility.py` — Hide and unhide (T28, I37): SketchUp-style hiding, kept as a board property so it is undoable and saved
+
+- `tools/architecture_map.py` — Generate and check the module map in ARCHITECTURE.md from each code file's own header line (T138)
+- `tools/build_app.sh` — Builds "dist/Shop Sketch.app" for this Mac: the viewport packed into Resources, run by a copy of the Godot program (no export templates needed), plus the FreeC…
+- `tools/check_architecture.py` — Flag code changes whose architecture impact must be reviewed
+- `tools/comitatus_commit.py` — Commit generated files in the comitatus repo (William, 2026-11-26: "commit the generated files automatically")
+- `tools/compare_suites.py` — Compare viewport suite results with the reference runs: python3 tools/compare_suites.py <runs dir> [suite...] Each suite's final boards must match (volume with…
+- `tools/featuretest.sh` — Feature tests (~34 s): everything that checks Shop Sketch's answers with no window, all side by side
+- `tools/fulltest.sh` — Full check (~20 s): when tools/quicktest.sh fails, or before a merge
+- `tools/gate.sh` — The merge gate (P18): quick then full, one verdict; successful quick checks are reused (T90)
+- `tools/handoff.py` — The handoff's entries, one file each (T77): docs/handoff/H037-short-slug.md holds one entry, headed "### H037 — Subject" with the usual Author | Date | Status…
+- `tools/integrate.py` — Merge one agent branch into main (P20): the integrator's steps, in one command
+- `tools/integrator.py` — Who is the integrator (P19): one lock, shared by every worktree (it lives in git's common folder, untracked)
+- `tools/job.py` — The job queue (P24): a worker takes a job and says done; a dead man's switch flags one gone quiet
+- `tools/launch.py` — Start a worker session with its start-up brief already in its first message (T134), so it skips the start-up round and can't skip the brief
+- `tools/length_cases.py` — Writes tests/length_cases.json: what FreeCAD's length input (worker/length_input.py evaluate) gives for a fixed set of typed lengths, plus random expressions b…
+- `tools/log.py` — Add to and read the decision log (T92, P09, P23) without editing its tables by hand
+- `tools/number_ids.py` — Give placeholder IDs their numbers at merge (T74), so two branches never take the same number
+- `tools/org_todos.py` — Fill comitatus/06_To-dos (T134, P57's way): one file per thing waiting on someone, from this code base's main
+- `tools/parsecheck.sh` — Loads every viewport script once, headless, and prints any parse error
+- `tools/personal_space.py` — Personal spaces (T134, T150): one folder per member in comitatus/04_Personal_Space/<name>/ (opus-integrator, gemini-coder, ...), each with a Log.md (what you d…
+- `tools/quicktest.sh` — Quick check, after every change (~12 s): the feature tests (tools/featuretest.sh: every test_* file in worker/, tools/ and viewport/, no window) beside the UI…
+- `tools/sort_decision_log.py` — Keep the decision log tidy (P23): two files with the same IDs, 03_Past_Decisions/decision-log.md (live) and 03_Past_Decisions/decision-archive.md (history)
+- `tools/start_worker.sh` — Opens a Terminal window running a Claude worker with Remote Control (F005, P38): the same as typing cd <this checkout> ; claude ; /remote-control ; Check the b…
+- `tools/startup.py` — Session startup report (T56): run this instead of reading the big documents
+- `tools/<NAME>.py|.sh` — one named script per action, listed in tools/README.md (H154)
+
+<!-- end module map -->
+
 ## Where responsibilities live
 
 | Location | Current responsibility | Useful entry points |
