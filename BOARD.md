@@ -65,8 +65,7 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H157 | either | **Ready** | T142 step 2: picking a to-do up, its jobs linked with their progress, Done by itself when the last merges | [H157](docs/handoff/H157-t142-pick-up-link-jobs-auto-done.md) |  |
-| H154 | either | Queued | Tools and habits take the organization's names: FOR_<doing>.py and WHEN_<this>_<DO_THAT>.py | [H154](docs/handoff/H154-naming-tools-and-habits.md) | H157 |
+| H157 | either | **Done**: for review (gemini) | T142 step 2: picking a to-do up, its jobs linked with their progress, Done by itself when the last merges | [H157](docs/handoff/H157-t142-pick-up-link-jobs-auto-done.md) |  |
 
 <!-- end of job table -->
 

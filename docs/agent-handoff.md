@@ -31,7 +31,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 <!-- open list: built from docs/handoff/ by tools/handoff.py; don't edit by hand -->
 
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
-- [H154 — Tools and habits take the organization's names: FOR_<doing>.py and WHEN_<this>_<DO_THAT>.py](handoff/H154-naming-tools-and-habits.md) — status: queued (after H157); for: either
+- [H154 — Tools and habits take the organization's names: FOR_<doing>.py and WHEN_<this>_<DO_THAT>.py](handoff/H154-naming-tools-and-habits.md) — status: draft (names being settled with William; not a job yet); for: either
 - [H157 — T142 step 2: picking a to-do up, its jobs linked with their progress, Done by itself when the last merges](handoff/H157-t142-pick-up-link-jobs-auto-done.md) — status: open; for: either
 
 <!-- end of open list -->

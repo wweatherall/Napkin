@@ -1,6 +1,8 @@
 ### H154 — Tools and habits take the organization's names: FOR_<doing>.py and WHEN_<this>_<DO_THAT>.py
 
-Author: Claude (integrator, napkin-77) | Date: 2026-11-26 | Status: queued (after H157) | For: either
+Author: Claude (integrator, napkin-77) | Date: 2026-11-26 | Status: draft (names being settled with William; not a job yet) | For: either
+
+Item: T149
 
 References: T149 (this item), comitatus's proposal (docs/proposals/organization-2026-11-25.md, "Habits" and
 "Tools"), P60 (the folders come later: this job renames in place), T134, T143 (usage.py may move out later).
@@ -24,31 +26,31 @@ wrong in use is a later change, not this job's):
 
 | Now | New | Kind |
 |---|---|---|
-| job.py | FOR_RUNNING_THE_JOB_QUEUE.py | tool |
-| integrate.py | FOR_MERGING_A_JOB.py | tool |
-| integrator.py | FOR_HOLDING_THE_INTEGRATOR_LOCK.py | tool |
-| startup.py | WHEN_YOU_START_UP_REMEMBER_WHO_YOU_ARE.py | habit (the proposal's own example) |
-| launch.py | FOR_LAUNCHING_A_WORKER.py | tool |
-| log.py | FOR_RECORDING_DECISIONS.py | tool |
-| handoff.py | FOR_KEEPING_THE_HANDOFF.py | tool |
-| number_ids.py | FOR_NUMBERING_NEW_IDS.py | tool |
-| personal_space.py | FOR_KEEPING_A_LOG_AND_JOURNAL.py | tool |
-| SORT_PRINCIPLES.py | FOR_SORTING_PRINCIPLES.py | tool |
-| usage.py | FOR_MEASURING_TOKEN_USE.py | tool |
-| compare_suites.py | FOR_COMPARING_TEST_SUITES.py | tool |
-| cut_chain_check.py | FOR_TIMING_CUT_CHAINS.py | tool |
-| length_cases.py | FOR_CHECKING_LENGTH_CASES.py | tool |
-| atomize_log.py | FOR_ATOMIZING_THE_LOG.py | tool |
-| quicktest.sh | FOR_QUICK_TESTING.sh | tool |
-| fulltest.sh | FOR_FULL_TESTING.sh | tool |
-| featuretest.sh | FOR_FEATURE_TESTING.sh | tool |
-| gate.sh | FOR_GATING_A_MERGE.sh | tool |
-| parsecheck.sh | FOR_PARSE_CHECKING.sh | tool |
-| start_worker.sh | FOR_STARTING_A_FREECAD_WORKER.sh | tool |
-| build_app.sh | FOR_BUILDING_THE_APP.sh | tool (watched code: see below) |
-| sort_decision_log.py | WHEN_THE_LOG_IS_COMMITTED_TIDY_IT.py | habit (the hook runs it) |
-| check_architecture.py | WHEN_WATCHED_CODE_IS_COMMITTED_CHECK_THE_MAP.py | habit (the hooks run it) |
-| org_todos.py | WHEN_MAIN_CHANGES_FILL_THE_TO_DOS.py | habit (the hook runs it) |
+| job.py | FOR_RUNNING_THE_JOB_QUEUE.py | tool | GET_A_JOB
+| integrate.py | FOR_MERGING_A_JOB.py | tool | MERGE_JOB
+| integrator.py | FOR_HOLDING_THE_INTEGRATOR_LOCK.py | tool | HOLD_THE_INTEGRATOR_LOCK
+| startup.py | WHEN_YOU_START_UP_REMEMBER_WHO_YOU_ARE.py | habit (the proposal's own example) | REMEMEMBER_WHO_YOU_ARE
+| launch.py | FOR_LAUNCHING_A_WORKER.py | tool | LAUNCH_A_WORKER
+| log.py | FOR_RECORDING_DECISIONS.py | tool | RECORD_A_DECISION
+| handoff.py | FOR_KEEPING_THE_HANDOFF.py | tool | not sure, let's talk
+| number_ids.py | FOR_NUMBERING_NEW_IDS.py | tool | NUMBER_A_NEW_ID
+| personal_space.py | FOR_KEEPING_A_LOG_AND_JOURNAL.py | tool | how does this tool work? it seems overloaded
+| SORT_PRINCIPLES.py | FOR_SORTING_PRINCIPLES.py | tool | SORT_PRINCIPLES
+| usage.py | FOR_MEASURING_TOKEN_USE.py | tool | MEASURE_TOKEN_USE
+| compare_suites.py | FOR_COMPARING_TEST_SUITES.py | tool | COMPARE_TEST_SUITES
+| cut_chain_check.py | FOR_TIMING_CUT_CHAINS.py | tool | not sure what this tool does
+| length_cases.py | FOR_CHECKING_LENGTH_CASES.py | tool | not sure what this tool does
+| atomize_log.py | FOR_ATOMIZING_THE_LOG.py | tool | ATOMIZE_YOUR_LOG
+| quicktest.sh | FOR_QUICK_TESTING.sh | tool | TEST_YOUR_CODE_FAST
+| fulltest.sh | FOR_FULL_TESTING.sh | tool | TEST_YOUR_CODE_THOROUGHLY
+| featuretest.sh | FOR_FEATURE_TESTING.sh | tool | not sure what this tool does
+| gate.sh | FOR_GATING_A_MERGE.sh | tool | not sure what this tool does
+| parsecheck.sh | FOR_PARSE_CHECKING.sh | tool | not sure what this tool does
+| start_worker.sh | FOR_STARTING_A_FREECAD_WORKER.sh | tool | START_A_WORKER
+| build_app.sh | FOR_BUILDING_THE_APP.sh | tool (watched code: see below) | BUILD_THE_APP
+| sort_decision_log.py | WHEN_THE_LOG_IS_COMMITTED_TIDY_IT.py | habit (the hook runs it) |good
+| check_architecture.py | WHEN_WATCHED_CODE_IS_COMMITTED_CHECK_THE_MAP.py | habit (the hooks run it) | good
+| org_todos.py | WHEN_MAIN_CHANGES_FILL_THE_TO_DOS.py | habit (the hook runs it) | good
 
 Rules that go with it:
 1. **Tests keep their names** (`tools/test_job.py` etc.): they are found by `test_*`, and that convention is the test
