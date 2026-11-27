@@ -1,6 +1,6 @@
 ### H166 — T146 step 3: Process rulings to comitatus, and comitatus's principles one file each with one add command
 
-Author: Claude (integrator, napkin-77) | Date: 2026-11-27 | Status: open | For: gemini
+Author: Claude (integrator, napkin-77) | Date: 2026-11-27 | Status: answered | For: gemini
 
 Item: T146
 
@@ -113,3 +113,22 @@ Checks:
 - `NAPKIN_COMITATUS=<your comitatus worktree> python3 tools/sort_decision_log.py --check` passes, and
   `python3 tools/log.py show P16` / `show Process` / `show G12` print what they print on main today.
 - `tools/TEST_BEFORE_MERGING.sh` passes (scope tools).
+
+### Response (Gemini, 2026-11-27)
+
+- Napkin branch `gemini/h166-org-case-law` (`5b0fc7b`); comitatus branch `gemini/h166-org-case-law` (`254b8e3`, worktree `/Users/Will/Sites/comitatus/08_Code_Bases/.worktrees/comitatus/h166`).
+- Moved all 67 `Subject: Process` rulings from `Napkin/03_Past_Decisions/rulings/` to `comitatus/03_Past_Decisions/rulings/` (leaving `P04`, `P05`, `P06`, `P51`, and all `G*` rulings in Napkin). Byte-for-byte check: `67 files, 0 diffs`; `diff -u scratch/before_ids.txt scratch/after_ids.txt` across both folders is empty (230 ruling IDs total).
+- Updated `tools/sort_decision_log.py` (`comitatus_root`, `comitatus_rulings_dir`, `ruling_dirs`, `move_process_rulings`, `--move-process`, multi-dir `folder_ids`/`read_entry`/`read_entries`/`layout_problems`), `tools/startup.py` (re-exports `comitatus_root`; `report_ids` falls back to `comitatus_rulings_dir`), `tools/number_ids.py` (`taken` counts comitatus rulings; `tidy_log` passes `ruling_dirs`), `tools/log.py` (`add` on main writes Process rulings to comitatus and commits+pushes; on a branch writes placeholder in Napkin; `set` on a comitatus ruling from a branch refuses with `P16 lives in comitatus; the integrator changes it on main`; `show`/`principles` read `ruling_dirs`), `tools/integrate.py` (`settle_conflicts` and `number_entries` move Process rulings to comitatus and commit+push there), `.githooks/pre-commit`, `03_Past_Decisions/decision-log.md`, and `CLAUDE.md`.
+- Split `comitatus/01_Principles/principles.md` into `C01.md`–`C12.md`, made `principles.md` generated, updated `01_Principles/README.md`, `03_Past_Decisions/README.md`, `09_Tools/README.md`, `09_Tools/SORT_PRINCIPLES.py` (reads `C*.md` leaving out `C01`, labels by ID `C02`..`C12`), and added `09_Tools/ADD_A_PRINCIPLE.py` + `09_Tools/test_add_a_principle.py`.
+- Verified `NAPKIN_COMITATUS=... python3 tools/sort_decision_log.py --check` passes, and `log.py show P16`, `log.py show Process`, `log.py show G12` produce identical output to `main` (`diff -u` empty), and `startup.py P16` prints the same P16 entry:
+  - `log.py show P16`: `# P16 — One Claude session is the integrator: it keeps the Work list and the board, hands out j...` / `Status: Active | Subject: Process | Principles: G12 | Date: 2026-11-22`
+  - `startup.py P16`: `== P16` / `One Claude session is the integrator: it keeps the Work list and the board, hands out j... [Status: Active; Subject: Process; Principles: G12]`
+- Regenerated `comitatus/01_Principles/ranking.md` (ratings and comparison counts unchanged):
+  - `| 1 | 1064 | 4 | C02 | You are free. Freedom is required to make good things and things good. |` ... `| 11 | 936 | 4 | C06 | Documentation should be in one spot per idea; if in several, can it be written automatically? |`
+- Tests:
+  - Comitatus: `python3 09_Tools/test_sort_principles.py` (12 passed, 0 failed), `python3 09_Tools/test_add_a_principle.py` (12 passed, 0 failed).
+  - Napkin: `env -u NAPKIN_SPACE NAPKIN_COMITATUS=/Users/Will/Sites/comitatus/08_Code_Bases/.worktrees/comitatus/h166 python3 tools/TEST_BEFORE_MERGING.sh` (GATE PASS scope tools, 25 s) and `python3 tools/job.py test` on `5b0fc7b` (all 20 feature suites passed, including `LOG SORT TESTS: 36/36`, `LOG TESTS: 70/70`, `ID TESTS: 54/54`, `INTEGRATE TESTS: 89/89`, `STARTUP TESTS: 74/74`).
+
+Follow-up: `tools/test_job.py` H201 personal-space check fails when `NAPKIN_SPACE` is set in the caller's environment (as in worker sessions); unsetting `NAPKIN_SPACE` in H201 (as H202 already does) would let `quicktest.sh`/`gate.sh` pass without `env -u NAPKIN_SPACE`.
+For the integrator: Merge comitatus branch `gemini/h166-org-case-law` (`254b8e3`) first, then Napkin branch `gemini/h166-org-case-law` (`5b0fc7b`), then remove the comitatus worktree `/Users/Will/Sites/comitatus/08_Code_Bases/.worktrees/comitatus/h166`.
+Result: 5b0fc7b; tools gate 25s and comitatus tests 24/24; moved 67 Process rulings to comitatus, split C01-C12, added ADD_A_PRINCIPLE.py, updated Napkin log tools

@@ -31,7 +31,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 <!-- open list: built from docs/handoff/ by tools/handoff.py; don't edit by hand -->
 
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
-- [H166 — T146 step 3: Process rulings to comitatus, and comitatus's principles one file each with one add command](handoff/H166-org-case-law.md) — status: open; for: gemini
+- [H166 — T146 step 3: Process rulings to comitatus, and comitatus's principles one file each with one add command](handoff/H166-org-case-law.md) — status: answered; for: gemini
 
 <!-- end of open list -->
 
