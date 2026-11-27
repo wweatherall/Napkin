@@ -342,7 +342,7 @@ def pick(root, ident, who="integrator", today=None):
     if status != "Open":
         raise LogError(f"{ident} is {status}, not Open")
     who = clean(who, "--as") or "integrator"
-    today = today or date.today().isoformat()
+    today = today or datetime.date.today().isoformat()
     new_status = f"Picked up ({who}, {today})"
     content = s.format_work(
         ident, entry["body"], new_status,
