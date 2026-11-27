@@ -38,6 +38,7 @@ LOG = sort_decision_log.LIVE
 ARCHIVE = sort_decision_log.ARCHIVE
 ENTRY_FOLDERS = [sort_decision_log.RULINGS_DIR, sort_decision_log.WORK_DIR, sort_decision_log.QUESTIONS_DIR]
 ID_FILES = [LOG, ARCHIVE, "docs/agent-handoff.md", "docs/handoff-archive.md"]
+HISTORY_FILES = (ARCHIVE, "docs/handoff-archive.md")
 SKIP = {"tools/test_number_ids.py", "tools/test_log_archive.py"}   # their checks are written with real placeholders
 
 
@@ -100,6 +101,67 @@ def read_text(path):
         return None
 
 
+def _head_text(root, rel):
+    """HEAD:<rel> when root is a git checkout with HEAD, else None."""
+    try:
+        top = subprocess.run(["git", "rev-parse", "--show-toplevel"], cwd=root,
+                             capture_output=True, text=True, check=True).stdout.strip()
+        if os.path.realpath(top) != os.path.realpath(root):
+            return None
+        r = subprocess.run(["git", "show", f"HEAD:{rel}"], cwd=root, capture_output=True, text=True)
+        return r.stdout if r.returncode == 0 else None
+    except (OSError, subprocess.CalledProcessError):
+        return None
+
+
+def _archived_lines(root, rel, text):
+    """1-based line numbers in a history file that belong to already-archived entries (never rewritten)."""
+    if rel not in HISTORY_FILES or not text:
+        return set()
+    lines = text.split("\n")
+    head = _head_text(root, rel)
+    skip = set()
+    if rel == "docs/handoff-archive.md":
+        head_chunks = {c.strip() for c in re.split(r"(?m)(?=^### )", head) if c.strip()} if head is not None else set()
+        head_ids = {m.group(1) for m in re.finditer(r"(?m)^### ([A-Z]+\d+[a-z]*)\b", head)} if head is not None else set()
+        i = 0
+        while i < len(lines):
+            if lines[i].startswith("### "):
+                j = next((k for k in range(i + 1, len(lines)) if lines[k].startswith("### ")), len(lines))
+                chunk = "\n".join(lines[i:j]).strip()
+                m = re.match(r"^### ([A-Z]+\d+[a-z]*)\b", lines[i])
+                is_old = (chunk in head_chunks or (m and m.group(1) in head_ids)) if head is not None else bool(m)
+                if is_old:
+                    skip.update(range(i + 1, j + 1))
+                i = j
+            else:
+                i += 1
+        return skip
+    # decision-archive.md: lines/Details sections already in HEAD (or numbered rows/sections when outside git)
+    if head is not None:
+        head_lines = set(head.split("\n"))
+        head_ids = {m.group(1) for m in re.finditer(r"(?m)^### ([A-Z]+\d+[a-z]*)\b", head)}
+        in_old_details = False
+        for idx, line in enumerate(lines, 1):
+            if line.startswith("### "):
+                m = re.match(r"^### ([A-Z]+\d+[a-z]*)\b", line)
+                in_old_details = bool(m and m.group(1) in head_ids)
+            elif line.startswith("## "):
+                in_old_details = False
+            if in_old_details or (line.strip() and line in head_lines):
+                skip.add(idx)
+        return skip
+    in_old_details = False
+    for idx, line in enumerate(lines, 1):
+        if line.startswith("### "):
+            in_old_details = bool(re.match(r"^### ([A-Z]+\d+[a-z]*)\b", line))
+        elif line.startswith("## "):
+            in_old_details = False
+        if in_old_details or (line.startswith("| ") and not DEFINES_ROW.match(line)):
+            skip.add(idx)
+    return skip
+
+
 def defined(root, files):
     """{(kind, n)} of the placeholders that are IDs (H073): a ruling file (`rulings/I-new-N.md`), a decision-log
     row a branch adds (`| X-new-N |`) or its `### X-new-N` Details section, in either log file; in docs/handoff/,
@@ -113,14 +175,20 @@ def defined(root, files):
             if m:
                 found.add((m.group(1), int(m.group(2))))
             continue
-        in_log, in_handoff = rel in (LOG, ARCHIVE), rel.startswith(handoff.FOLDER.rstrip("/") + "/")
-        if not (in_log or in_handoff):
+        in_log = rel in (LOG, ARCHIVE)
+        in_handoff = rel.startswith(handoff.FOLDER.rstrip("/") + "/")
+        in_handoff_archive = rel == "docs/handoff-archive.md"
+        if not (in_log or in_handoff or in_handoff_archive):
             continue
         if in_handoff:
             m = DEFINES_FILE.match(os.path.basename(rel))
             if m:
                 found.add((m.group(1), int(m.group(2))))
-        for line in (read_text(os.path.join(root, rel)) or "").split("\n"):
+        text = read_text(os.path.join(root, rel)) or ""
+        archived = _archived_lines(root, rel, text) if rel in HISTORY_FILES else set()
+        for idx, line in enumerate(text.split("\n"), 1):
+            if idx in archived:
+                continue
             m = DEFINES_HEADING.match(line) or (in_log and DEFINES_ROW.match(line))
             if m:
                 found.add((m.group(1), int(m.group(2))))
@@ -144,9 +212,13 @@ def plan(root, files=None):
         for m in PLACEHOLDER.finditer(rel):
             key = (m.group(1), int(m.group(2)))
             cite(key, rel) if key in ids else left.append((rel, 0, m.group(0)))
-        for i, line in enumerate((read_text(os.path.join(root, rel)) or "").split("\n"), 1):
+        text = read_text(os.path.join(root, rel)) or ""
+        archived = _archived_lines(root, rel, text)
+        for i, line in enumerate(text.split("\n"), 1):
             for m in PLACEHOLDER.finditer(line):
                 key = (m.group(1), int(m.group(2)))
+                if i in archived and key in ids:
+                    continue
                 cite(key, rel) if key in ids else left.append((rel, i, m.group(0)))
     have = taken(root)
     numbers = {}
@@ -183,8 +255,18 @@ def apply(root, files=None, dry_run=False, out=print):
     for rel in files:
         path = os.path.join(root, rel)
         text = read_text(path)
-        if text and PLACEHOLDER.search(text) and replace(text, numbers) != text:
-            open(path, "w", encoding="utf-8").write(replace(text, numbers))
+        if not text or not PLACEHOLDER.search(text):
+            continue
+        archived = _archived_lines(root, rel, text)
+        if archived:
+            new_text = "\n".join(
+                line if idx in archived else replace(line, numbers)
+                for idx, line in enumerate(text.split("\n"), 1)
+            )
+        else:
+            new_text = replace(text, numbers)
+        if new_text != text:
+            open(path, "w", encoding="utf-8").write(new_text)
     for old, new in renames:
         if os.path.exists(os.path.join(root, new)):
             raise SystemExit(f"can't rename {old}: {new} already exists")

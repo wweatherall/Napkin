@@ -1095,14 +1095,8 @@ def board_statuses(root, queue_state=None):
         new_status = status
         if status == "Open" or PICKED_UP.match(status) or ON_BOARD.match(status) or LEGACY_QUEUED.match(status):
             unfinished = [jid for jid, st in ordered_jobs if not st.startswith("merged") and st != "dropped"]
-            any_merged = any(st.startswith("merged") for _, st in ordered_jobs)
             if unfinished:
                 new_status = f"On the board ({', '.join(unfinished)})"
-            elif ordered_jobs and any_merged:
-                if ON_BOARD.match(status) or PICKED_UP.match(status):
-                    new_status = "Done"
-                elif LEGACY_QUEUED.match(status):
-                    new_status = "Open"
             else:
                 new_status = "Open"
         if new_status != status or new_jobs != old_jobs:

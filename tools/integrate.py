@@ -3,8 +3,8 @@
 
   python3 tools/integrate.py <branch> --as <name> [--status T33=Done ...] [--subject I-new-N=Snapping ...]
                              [--push [--yes]] [--no-gate] [--impact "<reason>"] [--job H0NN]
-  python3 tools/integrate.py --continue --as <name> [--push [--yes]] [--impact "<reason>"]
-                             after a merge stopped for the map (P28), brief changes (P44) or a refused commit
+  python3 tools/integrate.py --continue [--regate] --as <name> [--push [--yes]] [--impact "<reason>"]
+                             after a merge stopped for the map (P28), brief changes (P44), a gate failure, or a refused commit
 
 Run in the main checkout, on main, clean, holding the integrator lock (tools/integrator.py). In order:
  1. git merge --no-ff --no-commit <branch>
@@ -420,17 +420,46 @@ def keep_board_ours(ours, merged):
     return text, changed
 
 
-def settle_handoff(root, branch):
-    """Keep main's docs/agent-handoff.md; bring in the branch's inline "### H..." entries, then split them out."""
-    git("checkout", "--ours", handoff.HANDOFF, root=root)
-    ours = open(os.path.join(root, handoff.HANDOFF), encoding="utf-8").read()
+def _handoff_handwritten(text):
+    """docs/agent-handoff.md with its generated sections (open list, ## Archived) and inline entries stripped."""
+    if handoff.START in text and handoff.END in text:
+        a = text.index(handoff.START) + len(handoff.START)
+        b = text.index(handoff.END)
+        text = text[:a] + "\n" + text[b:]
+    lines = text.split("\n")
+    if "## Archived" in lines:
+        a = lines.index("## Archived")
+        b = next((i for i in range(a + 1, len(lines)) if lines[i].startswith("## ")), len(lines))
+        text = "\n".join(lines[:a] + ["## Archived", ""] + lines[b:])
+    stop = text.find("\n## Archived")
+    head, tail = (text[:stop], text[stop:]) if stop >= 0 else (text, "")
+    head = re.sub(r"(?ms)^### H\d+ .*?(?=^### |^## |\Z)", "", head)
+    return re.sub(r"\n{3,}", "\n\n", head + tail).strip() + "\n"
+
+
+def settle_handoff(root, branch, base=None):
+    """Settle docs/agent-handoff.md three-way on its hand-written text, then split inline entries and tidy generated lists.
+    Returns True if settled, False if both main and the branch changed the hand-written text."""
+    base = base or git("merge-base", "HEAD", branch, root=root).stdout.strip()
+    ours = git("show", f"HEAD:{handoff.HANDOFF}", root=root).stdout
+    base_text = git("show", f"{base}:{handoff.HANDOFF}", root=root).stdout
     theirs = git("show", f"{branch}:{handoff.HANDOFF}", root=root).stdout
-    stop = theirs.find("\n## Archived")
-    inline = re.findall(r"(?ms)^### H\d+ .*?(?=^### |^## )", theirs[:stop if stop > 0 else len(theirs)])
-    if inline:
-        ours = ours.replace("\n## Archived", "\n" + "\n".join(x.rstrip() + "\n" for x in inline) + "\n## Archived", 1)
-        open(os.path.join(root, handoff.HANDOFF), "w", encoding="utf-8").write(ours)
+    hw_o, hw_b, hw_t = _handoff_handwritten(ours), _handoff_handwritten(base_text), _handoff_handwritten(theirs)
+    if hw_o == hw_b:
+        chosen = theirs
+    elif hw_t == hw_b or hw_t == hw_o:
+        chosen = ours
+        stop = theirs.find("\n## Archived")
+        inline = re.findall(r"(?ms)^### H\d+ .*?(?=^### |^## )", theirs[:stop if stop > 0 else len(theirs)])
+        if inline:
+            chosen = chosen.replace("\n## Archived", "\n" + "\n".join(x.rstrip() + "\n" for x in inline) + "\n## Archived", 1)
+    else:
+        return False
+    open(os.path.join(root, handoff.HANDOFF), "w", encoding="utf-8").write(chosen)
     handoff.split(root)
+    if handoff.START in open(os.path.join(root, handoff.HANDOFF), encoding="utf-8").read():
+        handoff.tidy(root)
+    return True
 
 
 def answered_by(root, branch, base):
@@ -638,16 +667,17 @@ def format_result_summary(tid, hid, commit, rest, merge, limit=RESULT_SUMMARY_LI
     return f"{tid} ({hid}): Result ({commit}, merged {merge}): {text}"
 
 
-def record_result(root, tid, commit, rest, merge):
-    """Append "Result (<commit>, merged <merge>): <rest>" to tid's Work list file (or table row).
+def record_result(root, tid, commit, rest, merge, step=None):
+    """Append "Result (<commit>, merged <merge>[, step merged (<hid>)]): <rest>" to tid's Work list file (or table row).
     Returns (the file changed or None, what happened)."""
     rest = clean_result_text(rest)
+    tag = f"merged {merge}, {step}" if step else f"merged {merge}"
     wdir = os.path.join(root, sort_decision_log.WORK_DIR)
     entry = sort_decision_log.read_entry(wdir, tid) if sort_decision_log.is_work_id(tid) else None
     if entry is not None:
         if f"Result ({commit}" in entry["result"]:
             return None, f"{tid}: result {commit} is already in its row"
-        add = f"Result ({commit}, merged {merge}): {rest}"
+        add = f"Result ({commit}, {tag}): {rest}"
         new_result = f"{entry['result']} {add}" if entry["result"] else add
         content = sort_decision_log.format_work(
             tid, entry["body"], entry["meta"].get("Status", "Open"),
@@ -669,7 +699,7 @@ def record_result(root, tid, commit, rest, merge):
         c = sort_decision_log.cells(lines[i])
         if f"Result ({commit}" in c[-1]:
             return None, f"{tid}: result {commit} is already in its row"
-        add = f"Result ({commit}, merged {merge}): {rest}"
+        add = f"Result ({commit}, {tag}): {rest}"
         c[-1] = f"{c[-1]} {add}" if c[-1] else add
         lines[i] = sort_decision_log.make_row(c)
         open(p, "w", encoding="utf-8").write("\n".join(lines))
@@ -744,6 +774,8 @@ def check_start(s):
         say("run this in the checkout that has main"); return s.stop(1)
     if git("status", "--porcelain", "--untracked-files=no", root=root).stdout.strip():
         say("main has uncommitted changes: commit or put them away first"); return s.stop(1)
+    if git("rev-parse", "-q", "--verify", "MERGE_HEAD", root=root).returncode != 0 and os.path.isfile(state_file(root)):
+        os.remove(state_file(root))
     delivers = None
     if jid:
         delivers = job_branch(root, jid)
@@ -793,9 +825,14 @@ def settle_conflicts(s):
     show = lambda ref, rel: git("show", f"{ref}:{rel}", root=root).stdout
     if handoff.HANDOFF in conflicts or os.path.exists(os.path.join(root, handoff.HANDOFF)):
         if handoff.HANDOFF in conflicts:
-            settle_handoff(root, branch); say("settled docs/agent-handoff.md (main's, with the branch's entries moved to files)")
+            if not settle_handoff(root, branch, base):
+                say(f"{handoff.HANDOFF}: main and the branch both changed the hand-written text: settle it by hand "
+                    "(the merge is left in progress)"); return s.stop(1)
+            say("settled docs/agent-handoff.md (three-way on hand-written text, rebuilt generated lists)")
         else:
             handoff.split(root)
+            if handoff.START in open(os.path.join(root, handoff.HANDOFF), encoding="utf-8").read():
+                handoff.tidy(root)
     if settled and (LOG in conflicts or ARCHIVE in conflicts or old_layout(show(branch, LOG))):
         open(os.path.join(root, LOG), "w", encoding="utf-8").write(settled[0])
         open(os.path.join(root, ARCHIVE), "w", encoding="utf-8").write(settled[1])
@@ -907,6 +944,7 @@ def rebuild_and_check(s):
     else:
         for line in sort_decision_log.board_statuses(root):
             say(line)
+    number_ids.tidy_log(root)
     git("add", "-A", root=root)
     arch = os.path.join(root, ARCHIVE)
     rdir = os.path.join(root, sort_decision_log.RULINGS_DIR)
@@ -929,31 +967,39 @@ def rebuild_and_check(s):
     return s
 
 
+def _build_merge_state(s):
+    msg = f"Merge {s.branch}: {s.subject}\n\nMerged by tools/integrate.py ({s.name})."
+    if s.bumped:
+        msg += f" Protocol version {s.bumped[0]} renumbered to {s.bumped[1]}."
+    if s.extra:
+        msg += "\nOutside its Touches list: " + ", ".join(s.extra) + "."
+    for hid, what in s.payload.get("changed", []):
+        msg += f"\nChanged from the brief ({hid}): {what}"
+    s.payload.update(branch=s.branch, job_branch=s.delivers if s.delivers != s.branch else None, msg=msg, impact=s.impact)
+
+
 def run_gate(s):
     root, argv, say = s.root, s.argv, s.say
+    _build_merge_state(s)
     if "--no-gate" not in argv:
         gate = os.path.join(root, "tools", "gate.sh") if os.path.exists(os.path.join(root, "tools", "gate.sh")) else os.path.join(HERE, "gate.sh")
         rc, output = job.stream_command([gate], root)
         verdict = (output.strip().split("\n") or [""])[-1]
         say(verdict)
         if rc != 0:
-            print(output[-2000:], flush=True); say("the merge is left uncommitted"); return s.stop(1)
+            s.payload["gate_failed"] = True
+            save_state(root, s.payload)
+            print(output[-2000:], flush=True)
+            cont = ("python3 tools/MERGE_JOB.py --continue --regate --as " + s.name
+                    + (" --push" if "--push" in argv else "") + (" --yes" if "--yes" in argv else ""))
+            say("the merge is left uncommitted (fix it, then: " + cont + ")"); return s.stop(1)
     return s
 
 
 def pause_for_map(s):
-    root, branch, name, impact, argv, say = s.root, s.branch, s.name, s.impact, s.argv, s.say
-    subject, bumped, extra, delivers = s.subject, s.bumped, s.extra, s.delivers
+    root, name, impact, argv, say = s.root, s.name, s.impact, s.argv, s.say
     state = s.payload
     now, maps, changed = state["now"], state["maps"], state.get("changed", [])
-    msg = f"Merge {branch}: {subject}\n\nMerged by tools/integrate.py ({name})."
-    if bumped:
-        msg += f" Protocol version {bumped[0]} renumbered to {bumped[1]}."
-    if extra:
-        msg += "\nOutside its Touches list: " + ", ".join(extra) + "."
-    for hid, what in changed:
-        msg += f"\nChanged from the brief ({hid}): {what}"
-    state.update(branch=branch, job_branch=delivers if delivers != branch else None, msg=msg, impact=impact)
     need_map = bool(maps and not impact and not map_staged(root))
     need_brief = bool(changed)
     if need_map or need_brief:
@@ -1005,8 +1051,8 @@ def map_staged(root):
 
 
 def resume(argv):
-    """integrate.py --continue --as <name> [--push [--yes]] [--impact "<reason>"]: commit a merge that stopped for
-    the map (P28), brief changes (P44) or a refused commit, then do the rest (the job merged, the Result drafts, the push)."""
+    """integrate.py --continue [--regate] --as <name> [--push [--yes]] [--impact "<reason>"]: commit a merge that stopped
+    for the map (P28), brief changes (P44), a gate failure, or a refused commit, then finish the rest."""
     if "--as" not in argv:
         print(__doc__)
         return 2
@@ -1024,16 +1070,36 @@ def load_continuation(s):
     if not os.path.isfile(path):
         say("nothing to continue: no paused merge"); return s.stop(1)
     if git("rev-parse", "-q", "--verify", "MERGE_HEAD", root=root).returncode:
-        say(f"no merge in progress: nothing to commit (remove {path} if that merge was given up)"); return s.stop(1)
+        os.remove(path)
+        say("no merge in progress: removed stale merge state (nothing to continue)"); return s.stop(1)
     state = json.load(open(path, encoding="utf-8"))
     impact = impact or state.get("impact")
-    git("add", "-u", "--", *MAP_FILES, root=root)     # only the map edits: nothing else joins the merge unseen
-    moved = [p for p in git("diff", "--name-only", state.get("tree") or "HEAD", git("write-tree", root=root).stdout.strip(),
-                            root=root).stdout.split() if p not in MAP_FILES] if state.get("tree") else []
-    if moved:
-        say("refused: the merge changed outside the map since the gate passed (" + ", ".join(moved) + "): rerun "
-            "the gate (tools/gate.sh) and integrate again, or undo those changes")
+    regate = "--regate" in s.argv
+    if state.get("gate_failed") and not regate:
+        say("the gate failed on this merge: fix it and run with --continue --regate --as " + name)
         return s.stop(1)
+    if regate:
+        git("add", "-A", root=root)
+        gate = os.path.join(root, "tools", "gate.sh") if os.path.exists(os.path.join(root, "tools", "gate.sh")) else os.path.join(HERE, "gate.sh")
+        rc, output = job.stream_command([gate], root)
+        say((output.strip().split("\n") or [""])[-1])
+        if rc != 0:
+            state["gate_failed"] = True
+            save_state(root, state)
+            print(output[-2000:], flush=True)
+            say("the gate still fails: the merge is left uncommitted")
+            return s.stop(1)
+        state.pop("gate_failed", None)
+        state["tree"] = git("write-tree", root=root).stdout.strip()
+        save_state(root, state)
+    else:
+        git("add", "-u", "--", *MAP_FILES, root=root)     # only the map edits: nothing else joins the merge unseen
+        moved = [p for p in git("diff", "--name-only", state.get("tree") or "HEAD", git("write-tree", root=root).stdout.strip(),
+                                root=root).stdout.split() if p not in MAP_FILES] if state.get("tree") else []
+        if moved:
+            say("refused: the merge changed outside the map since the gate passed (" + ", ".join(moved) + "): rerun "
+                "with --continue --regate --as " + name + ", or undo those changes")
+            return s.stop(1)
     if state.get("maps") and not impact and not map_staged(root):
         say("ARCHITECTURE.md / docs/protocol.md aren't changed yet: write the Architecture lines in first (or give "
             "--impact \"<why the map stays as it is>\")")
@@ -1179,8 +1245,10 @@ def draft_results(root, results, name, say, completes=()):
         return False
     merge = git("rev-parse", "--short", "HEAD", root=root).stdout.strip()
     changed, items, summaries = set(), [], []
+    completes_set = set(completes)
     for hid, tid, commit, rest in results:
-        rel, what = record_result(root, tid, commit, rest, merge)
+        step = f"step merged ({hid})" if tid not in completes_set else None
+        rel, what = record_result(root, tid, commit, rest, merge, step=step)
         if rel:
             changed.add(rel); items.append(f"{tid} ({hid})")
             summaries.append(format_result_summary(tid, hid, commit, rest, merge))
