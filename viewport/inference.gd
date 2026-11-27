@@ -2,6 +2,11 @@ extends RefCounted
 ## The one snapping and inference engine every tool uses (T4, Q16): what's under the cursor (pick), point snaps
 ## in SketchUp's order (endpoint > midpoint > on edge), axis inference with hysteresis, and moves along an axis
 ## or across a plane. Model space (Z-up mm) in and out.
+##
+## Never references Main; inputs (camera, physics world, read-only presenter caches, selection `is_hidden`, grid toggle)
+## are wired once by Main. Owns built-in snap/grid constants and live preference static vars (`grid`, `snap_px`,
+## `edge_px`, `infer_deg`, `release_deg`).
+## Entry points: pick, snap, on_grid, point, axis, axis_dest, plane_dest, ray, project.
 
 ##
 ## Its inputs are explicit (T88 step 0), wired once by main.gd: the camera, the physics world, the presenter's

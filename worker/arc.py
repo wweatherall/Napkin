@@ -1,4 +1,8 @@
-"""Saved circular drawings (T83)."""
+"""Saved circular drawings (T83).
+
+Auto-discovered `ArcActions`: `op_arc` creates one Block-constrained native `Part.Arc` in `Lines` (`SSLineId`,
+`OnBody`), refusing non-finite, off-plane, coincident or collinear points.
+Entry points: op_arc."""
 import math
 
 import FreeCAD as App

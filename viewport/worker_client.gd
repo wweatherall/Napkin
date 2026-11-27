@@ -2,6 +2,8 @@ extends Node
 ## Newline-delimited JSON client for the FreeCAD worker (worker/replay.py).
 ## Reconnects on its own; queues lines until connected. Tells the app when the link goes down and comes back,
 ## so a request lost with a stopped worker can be sent again.
+##
+## Entry points: send, _process, _drain.
 
 signal replied(resp: Dictionary)
 signal link_up(first: bool)       # connected; first = the first time since start

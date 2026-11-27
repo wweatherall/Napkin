@@ -1,5 +1,8 @@
 extends "res://tools/tool.gd"
 ## Circle (C): centre, then radius; the same click/drag gesture as Rectangle (I43).
+##
+## Context-only: faceted preview through `ctx.model` and exact `circle` op through `ctx.document`.
+## Entry points: TOOL, commit_circle.
 
 const TOOL := {"id": "circle", "label": "Circle", "tip": "Circle (C)", "key": KEY_C, "order": 35, "show_links": true}
 

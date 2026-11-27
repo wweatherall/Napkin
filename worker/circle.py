@@ -1,4 +1,8 @@
-"""Exact editable circle profiles (T81); only the viewport tessellates them."""
+"""Exact editable circle profiles (T81); only the viewport tessellates them (its 64-sided disk's facets never enter
+the native circle operation).
+
+Auto-discovered `CircleActions`: shares legacy `RectId` identity.
+Entry points: op_circle, circle_feature, circle_world."""
 import math
 import FreeCAD as App
 import Part

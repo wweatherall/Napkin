@@ -1,5 +1,11 @@
 extends RefCounted
 ## FreeCAD worker process lifecycle (T6, W13): probes or starts the shared or private worker, watches and restarts it, and shuts it down on quit.
+##
+## `--freecad=`, `--worker=`, `--worker-log=`, `--shared-port=` override its paths. `worker_identity` computes the MD5
+## of every worker .py except test_* (must match serve.py:worker_identity); `probe_worker` / `worker_of` share only if
+## protocol and hash match (otherwise starts a private worker, at most WORKER_MAX_RESTARTS/min). `shutdown_worker` sends
+## `bye` for shared, `quit` then kill for private.
+## Entry points: pick_worker, resolve_port, watch_worker, shutdown_worker, worker_identity, worker_of, log_worker, say_worker.
 
 # ---------------- the FreeCAD worker (T6) ----------------
 # Shop Sketch starts its own worker (freecadcmd worker/replay.py) on a free port, watches it, and starts it

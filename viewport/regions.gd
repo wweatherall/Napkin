@@ -1,6 +1,10 @@
 extends RefCounted
 ## Planar arrangements in model mm (I51). Pure functions; no scene or model state.
 ## Split intersections, weld within native tolerance, prune dangling branches, walk bounded faces.
+##
+## Bridges holes; polyline drawings (an arc's facets) are bridged only at their two flagged ends. Checked by
+## `test_regions.gd` and `worker/scenario/99_regions.py` / `99_mixed_loops.py` against FreeCAD.
+## Entry points: find, all_faces.
 const Geo := preload("res://tool_geometry.gd")
 const EPS := 0.001
 

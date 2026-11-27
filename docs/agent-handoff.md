@@ -31,7 +31,6 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 <!-- open list: built from docs/handoff/ by tools/handoff.py; don't edit by hand -->
 
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
-- [H167 — Architecture step 2: ARCHITECTURE.md down to a hand-written core under 8 KB, nothing lost](handoff/H167-architecture-core.md) — status: open; for: gemini
 - [H168 — A script that keeps docs/agent-handoff.md tidy: short, current, every link working](handoff/H168-tidy-the-handoff.md) — status: open; for: gemini
 - [H169 — protocol.md's message list generated from the code, and a check that keeps the rest honest](handoff/H169-protocol-from-code.md) — status: queued (after H167); for: gemini
 - [H170 — One name per meaning for message numbers: `seq` for the model's state, `request_id` for the request](handoff/H170-request-numbers.md) — status: queued (after H169); for: gemini
@@ -42,6 +41,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 Full entries in [handoff-archive.md](handoff-archive.md).
 
+- H167 — Architecture step 2: ARCHITECTURE.md down to a hand-written core under 8 KB, nothing lost. Resolved: merged into main by the integrator, 2026-11-27.
 - H166 — T146 step 3: Process rulings to comitatus, and comitatus's principles one file each with one add command. Resolved: merged into main by the integrator, 2026-11-27.
 - H164 — One personal space per model and job, every new one made the same from a template. Resolved: merged into main by the integrator, 2026-11-27.
 - H163 — Onboarding: the start-up brief carries who you are, the principles, habits, tools and personal time. Resolved: merged into main by the integrator, 2026-11-27.

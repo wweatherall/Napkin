@@ -1,6 +1,7 @@
 """Shared by every worker module: FreeCAD, units and tolerances, OpError, Frame, the wood cards.
 
-Worker modules import the shared names they use explicitly."""
+Worker modules import the shared names they use explicitly (T50).
+Entry points: material_card, Frame, vec, unit, add_props."""
 import os
 import re
 

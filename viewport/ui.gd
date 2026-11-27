@@ -1,5 +1,9 @@
 extends RefCounted
 ## The viewport interface (T24: Mac-like).
+##
+## Builds the light/dark palette (`c`, `box`), toolbar segments (from tool_registry; actions go to m.menus.run(tag)),
+## Properties panel, status bar and cursor tooltip; updates toggle buttons and the save indicator.
+## Entry points: make_ui, update_toggles, update_saved, c, box.
 # System font, macOS colours (light or dark, your accent colour), a segmented control for the tools,
 # push buttons, a quiet status bar and a measurements field that lights up while you type.
 const Units := preload("res://units.gd")

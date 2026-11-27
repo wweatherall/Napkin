@@ -1,4 +1,10 @@
-"""Saved, editable straight drawings and polygon profiles (T82)."""
+"""Saved, editable straight drawings and polygon profiles (T82).
+
+Auto-discovered `LineActions`: each segment is a Block-constrained Sketcher line tagged `SSLineId` in `Lines`.
+A simple closed outline also makes a `Part::Feature` profile (`RectId`, `SSRole=line-profile`). Region pushes
+(`region_face`, `ground_region_sheet`, `native_region`) extrude straight cells directly or slice curved faces/sheets
+(`is_ground=True` rejects unclosed loops touching the sheet's outer wire).
+Entry points: op_line, polygon_face, region_face, ground_region_sheet, native_region."""
 import math
 import FreeCAD as App
 import Part

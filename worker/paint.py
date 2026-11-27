@@ -1,4 +1,8 @@
-"""Paint and grain (T15, M03): materials on a board definition, grain directions."""
+"""Paint and grain (T15, M03): materials on a board definition, grain directions.
+
+Auto-discovered `PaintActions`: `op_set_material` sets the shared definition's `SSMaterial` and Tip `ShapeMaterial`
+(`set_tip` carries it forward); `SSGrain` is definition-local (defaults to longest axis) and `op_turn_grain` switches
+longest/middle axes."""
 import FreeCAD as App
 import Part
 from common import OpError, material_card, unit

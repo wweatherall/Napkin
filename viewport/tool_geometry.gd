@@ -2,6 +2,9 @@ extends RefCounted
 ## Pure geometry shared by tools, inference and main.gd (T88 step 0): units, rounding for ops, plane bases,
 ## prisms, feature edges, reflections. No state and no scene: every function is static. main.gd keeps wrappers
 ## under the old names (`Main.m2g`, `Main._rect_pts`, ...) while its other consumers move here.
+##
+## Never references Main. Rounds op coordinates (`arr3`) to 0.001 mm.
+## Entry points: m2g, g2m, arr3, plane_basis, prism, feature_edges, reflect_tris.
 ## Model space is Z-up millimetres; Godot is Y-up metres.
 
 

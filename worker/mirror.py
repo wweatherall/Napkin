@@ -1,4 +1,7 @@
-"""Mirrored copies (Part::Mirroring) and mirror groups (A11b, T26)."""
+"""Mirrored copies (Part::Mirroring) and mirror groups (A11b, T26).
+
+Auto-discovered `MirrorActions`: linked sources need a compound wrapper to preserve placement; always use
+`mirror_source()` rather than assuming `.Source` is the board. Moving the mirror plane itself is not implemented."""
 from common import OpError, add_props, board_label, unit, vec
 
 

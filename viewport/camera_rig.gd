@@ -1,5 +1,9 @@
 extends RefCounted
 ## Orbit, pan and zoom for mouse and trackpad (T113).
+##
+## Owns orbit target, angles, distance, drag state and live tunables (`trackpad_px`, `zoom_step`); zooms toward cursor
+## via `m.pick`; `handle_input` returns false for non-camera events (left button, plain motion).
+## Entry points: handle_input, update_camera.
 
 const Geo := preload("res://tool_geometry.gd")
 

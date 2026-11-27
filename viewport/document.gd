@@ -4,6 +4,19 @@ extends Node
 ## the redo stack and the save revisions. Tools append to `ops` and call sync(); FreeCAD's replies come in here and
 ## go out as signals. It knows nothing of meshes, shaders or the camera: main.gd draws what the signals say.
 ## Undo and (later) branching history (U01, T36) go through here.
+##
+## `next_id(prefix)` is the only ID allocator (`<prefix><friendly serial>_<32 hex>`, checked against `reserved_ids`,
+## which outlive undo, rejection, reload and reopen and are cleared only by `reset`). `board_name`/`readable_ids` strip
+## the random hex. Owns rejection bookkeeping (REJECT_WINDOW_MS, _rejected cleared in reset, _op_refs, _op_makes,
+## _op_touches) and outside-save state (outside, outside_seq, dropped, _ops_at_reload; sync stays held after failed
+## reload, sync or keep_mine). `on_sync_reply` only passes on a reply for the current seq with nothing newer waiting;
+## only the reply to the request in flight clears `in_flight`. `is_current_open` gates open replies by seq and model.
+## main.gd routes replies by cmd: lifecycle replies (flush, hello, bye, quit) and length replies never touch sync
+## state. New asynchronous work must keep this discipline. A sync's confirmation is never proof of durability; only
+## `saved` is. After an outside save, only a sync that succeeds triggers A39.
+## `redo_stack` is linear and in-memory only; any other change ends it. `save_error` holds failed-save reasons until `saved`.
+## Entry points: sync, on_sync_reply, on_opened, on_saved, on_outside_save, on_link_up, reset, open, remove_op(s),
+## undo, take_redo, next_id, reserve_values, restore_counters, reject, rejected_ids.
 
 signal sync_started                 # a new desired state is on its way to FreeCAD (sync())
 signal sent(seq_no: int)            # a sync request left, with this seq

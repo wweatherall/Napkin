@@ -1,4 +1,10 @@
-"""Board-local face references for Shop Sketch stock and extruded/cut boards."""
+"""Board-local face references for Shop Sketch stock and extruded/cut boards.
+
+`snapshot()` exports `fitted_end` on fitted boards and `rectangular: False` + `planar_faces` on non-rectangular/cut
+boards. `_resolve_face()` stores target plane in target local frame (`SSTargetNormal`, `SSTargetPoint`) and rewrites
+`SSFace`. `refit_inputs()` / `refit_changed()` propagate through chains and component families in one pass.
+Entry points: snapshot, fitted_face, fitted_end, face_plane, _underlying_plane_fit, _recompute_chain, refit_inputs,
+refit_changed, family_bodies."""
 import math
 import FreeCAD as App
 import Part

@@ -80,6 +80,14 @@ with TemporaryDirectory(prefix="arch-map-test-") as folder:
     clean = run(root, sys.executable, "tools/architecture_map.py", "--check")
     check("--check passes after rebuild", clean.returncode == 0, clean.stderr)
 
+    # Hand-written core over 8 KB fails --check and reports bytes over
+    saved_arch = arch.read_text()
+    arch.write_text(saved_arch + ("\n" + "x" * am.MAX_CORE_BYTES))
+    oversize = run(root, sys.executable, "tools/architecture_map.py", "--check")
+    check("--check fails when hand-written core exceeds 8 KB",
+          oversize.returncode == 1 and "over" in oversize.stderr, oversize.stderr)
+    arch.write_text(saved_arch)
+
     # Missing header fails --check and names the file
     (root / "viewport/no_header.gd").write_text("extends Node\n# just a single hash\nvar y := 2\n")
     bad = run(root, sys.executable, "tools/architecture_map.py", "--check")

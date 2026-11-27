@@ -1,4 +1,9 @@
-"""The connection loop: one worker serving every window (W13), and the one-off replay (main)."""
+"""The connection loop: one worker serving every window (W13), and the one-off replay (main).
+
+Select-based multi-client loop executing geometry serially; single-window ownership by absolute path; `WATCH_S`
+(0.25 s) outside-save stat watch; `save_pending` (0.25 s quiet, skips held or failed models); `SERVE_PORT=0` /
+`SERVE_PORT_FILE`; `SERVE_IDLE_EXIT`.
+Entry points: handle, claim, let_go, release, save_pending, session_for."""
 import hashlib
 import json
 import os

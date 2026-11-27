@@ -1,4 +1,8 @@
-"""Exact editable regular polygon profiles (T84): a native constrained sketch, like circle.py's circles."""
+"""Exact editable regular polygon profiles (T84): a native constrained sketch, like circle.py's circles.
+
+Auto-discovered `PolygonActions`: Sketcher::SketchObject marked `SSRole = polygon-profile` (distinguished from
+circle sketches by push.py). Shares `RectId`.
+Entry points: op_polygon, polygon_feature, polygon_world."""
 import math
 import FreeCAD as App
 from ProfileLib.RegularPolygon import makeRegularPolygon

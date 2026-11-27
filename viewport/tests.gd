@@ -1,5 +1,8 @@
 extends Node
 ## Test-mode entry point. Suites share one harness and keep their existing command-line flags.
+##
+## Runtime-loads `viewport/tests/suites/` and `viewport/tests/quick/` (`QUICK_LANES` in `tests/quick_runner.gd`)
+## using one shared `tests/harness.gd` Node per window.
 
 const Main := preload("res://main.gd")
 const Harness := preload("res://tests/harness.gd")

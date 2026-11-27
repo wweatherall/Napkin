@@ -1,4 +1,10 @@
-"""Rectangles and Push/Pull: new boards, cuts and joins, through-cuts (I24), pocket-floor ties (T59)."""
+"""Rectangles and Push/Pull: new boards, cuts and joins, through-cuts (I24), pocket-floor ties (T59).
+
+Auto-discovered `PushActions`: handles rect, rectangle/circle/polygon/line-profile/region pushes, through-cuts
+(`SSThrough`, `through_all`; does not imply arbitrary face-attachment), pocket-floor ties (`_find_floor_cutter`,
+`tie_to_floor`, `SSTiedTo`, `_detach_floor_cuts`), `edge_fit`, and `resize_stock` (returning sibling `BodyId`s via
+`plane_fit.family_bodies`). Consecutive cuts share `Part::Cut` with compound cutters; consecutive additions use
+`Part::MultiFuse` (older per-op chains remain supported). Cutter identity follows `SSOp` (`cutter_of`/`tools_of`)."""
 import math
 import Part
 from common import NORMAL_TOL, OpError, TOL, add_props, unit, vec

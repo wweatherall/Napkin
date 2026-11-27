@@ -1,5 +1,9 @@
 extends RefCounted
 ## The native menu bar and menu command dispatch (T113). Main and its controllers own the actions.
+##
+## Builds application, File, Edit, Tools (from tool_registry), View, Units and Wood menus; keeps RIDs and check marks;
+## drops duplicate commands arriving via both menu shortcut and window key; shows New/Open dialogs.
+## Entry points: make_menus, run, update_menu_checks, update_units_menu, build_materials_menu, update_wood_checks.
 
 const Units := preload("res://units.gd")
 

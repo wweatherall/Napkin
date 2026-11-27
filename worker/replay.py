@@ -8,6 +8,8 @@ so FreeCAD's undo, a save, a reopen or an edit made in FreeCAD all stay consiste
 
 Run with:
   SERVE_PORT=7878 freecadcmd replay.py            long-running worker (newline JSON over TCP)
+
+Entry point only: puts worker/ on sys.path and calls serve.main() (freecadcmd runs it by name).
   SERVE_PORT=0 SERVE_PORT_FILE=f freecadcmd replay.py   on a free port it picks itself, written to f (T47)
   OPLOG=ops.json OUTDIR=out freecadcmd replay.py  one-off: build out/model.FCStd from an op log
 

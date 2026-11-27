@@ -2,6 +2,9 @@ extends "res://tools/tool.gd"
 ## Polygon (T84, I64): centre, then circumradius; Circle's click/drag gesture (I43). A corner follows the cursor.
 ## Before a gesture the box is the side count: type 8 (Return optional; the centre click takes it) or 8s. During one,
 ## `8s` + Return sets the sides and a plain number is the radius (I73). No key yet (Q33).
+##
+## Context-only: `Ns` sets 3 to 64 sides (kept while window is open); draft through `ctx.model.polygon_geometry`.
+## Entry points: TOOL, commit_polygon, set_sides, accepts_idle.
 
 const TOOL := {"id": "polygon", "label": "Polygon", "tip": "Polygon", "key": KEY_NONE, "order": 36, "show_links": true}
 const DEFAULT_SIDES := 6

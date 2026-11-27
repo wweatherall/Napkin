@@ -1,5 +1,8 @@
 extends "res://tools/tool.gd"
 ## I58: click-click chain or a single press-drag-release segment. Model mm throughout.
+##
+## Context-only: one saved `line` op per segment; the closing segment carries the loop's `outline`.
+## Entry points: TOOL, commit.
 const TOOL := {"id": "line", "label": "Line", "tip": "Line (L)", "key": KEY_L, "order": 37, "show_links": true}
 var state := {}
 

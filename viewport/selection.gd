@@ -10,6 +10,11 @@ extends Node
 ## join the assembly; inside an array a copy moves alone (it leaves the row). Esc clears the selection, then leaves.
 ## Hide (T28, I37) is an ordinary undoable op ("hide", saved as each board's SSHidden), so the hidden set follows
 ## from the ops at once: hide and its undo show at once.
+##
+## Entered context covers assembly, array row, or linked component (`component:<bid>` with `_context_parent`).
+## Predicts deleted IDs from desired `delete` ops so presenter suppresses confirmed nodes and draft collisions at once.
+## Entry points: set_boards, unit_of, in_context, is_context_sibling, edit_blocked, enter_context_of, leave_context,
+## set_selection, refresh_hidden, is_hidden, delete_selected, hide_selected, unhide, make_assembly, linked_op.
 
 signal selection_changed            # `selection` was set
 signal context_changed              # entered or left an assembly / array

@@ -17,6 +17,16 @@ EXTENSIONS = {".gd", ".py", ".sh"}
 WRAPPER_LINE = "`tools/<NAME>.py|.sh` — one named script per action, listed in tools/README.md (H154)"
 ALL_CAPS_STEM = re.compile(r"^[A-Z][A-Z0-9_]*$")
 MAX_SENTENCE_LEN = 160
+MAX_CORE_BYTES = 8 * 1024
+
+
+def core_bytes(text: str) -> int:
+    """Return UTF-8 byte length of ARCHITECTURE.md outside the generated module map."""
+    if START not in text or END not in text:
+        raise SystemExit(f"{ARCHITECTURE} has no module map markers ({START} ... {END})")
+    a = text.index(START)
+    b = text.index(END) + len(END)
+    return len((text[:a] + text[b:]).encode("utf-8"))
 
 
 def is_all_caps_wrapper(rel_path: str) -> bool:
@@ -179,6 +189,11 @@ def main(argv=None) -> int:
     if check_only:
         if new_text != text:
             print(f"{ARCHITECTURE} module map is out of date; run: python3 tools/architecture_map.py", file=sys.stderr)
+            return 1
+        size = core_bytes(text)
+        if size > MAX_CORE_BYTES:
+            over = size - MAX_CORE_BYTES
+            print(f"{ARCHITECTURE} hand-written core is {over} bytes over the {MAX_CORE_BYTES}-byte limit ({size} B)", file=sys.stderr)
             return 1
         return 0
     if new_text != text:

@@ -1,6 +1,11 @@
 extends RefCounted
 ## A tool owns its state; main.gd hands it the cursor, clicks, keys and typed values (T4). All tools snap
 ## through the one engine in inference.gd and use the capabilities offered by ctx.
+##
+## Every tool gets only the tool context (`setup_context`, A40) — never Main. Holds live preference static vars
+## `drag_px` and `hold_ms`, and implements the shared press-and-drag / click-and-click rule (I43).
+## Entry points: setup_context, reset, click, double_click, release, mouse_moved, key, typed,
+## press_started, press_moved, press_released.
 
 const ToolContext := preload("res://tool_context.gd")
 const Geo := preload("res://tool_geometry.gd")

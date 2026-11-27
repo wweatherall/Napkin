@@ -1,4 +1,8 @@
-"""Inspectable native properties and journalled edits, shared by the worker and tests."""
+"""Inspectable native properties and journalled edits, shared by the worker and tests.
+
+`_summary()` checks `rectangular` so non-rectangular/cut boards keep read-only BoundBox dimensions. `apply()` checks
+dependency chain, writability, and `expected` snapshot before mutating.
+Entry points: related, describe, inspect, apply."""
 import math
 import FreeCAD as App
 

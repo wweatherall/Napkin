@@ -1,6 +1,9 @@
 extends "res://tools/tool.gd"
 ## Select (Space): click a board (from outside, its whole assembly or array row) to select it; Shift-click adds or
 ## removes; click empty space to clear. Double-click enters an assembly or an array (T20); Esc leaves.
+##
+## Context-only: left-to-right box requires all projected triangles contained; right-to-left tests intersection.
+## Entry points: Tool event methods, box_ids.
 
 const TOOL := {"id": "select", "label": "Select", "tip": "Select (Space)", "key": KEY_SPACE, "order": 10}   # the toolbar, the Tools menu and the key (tool_registry.gd)
 

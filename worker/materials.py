@@ -1,5 +1,7 @@
 """Shop Sketch's wood library (T15, M03): one table, written out as FreeCAD material cards (.FCMat) where FreeCAD
 looks for user materials, and as materials.json for the viewport.
+Twelve-species library (`SPECIES`); `install` writes FreeCAD cards under the user `Material/Shop Sketch` directory.
+Entry points: install, write_library, SPECIES.
 
 Numbers: USDA Forest Products Laboratory, Wood Handbook, Centennial ed. (GTR-190, 2010), chapter 5 (Kretschmann):
 Table 5-3a (12 % moisture content: specific gravity, modulus of elasticity, side hardness), Table 5-1 (elastic

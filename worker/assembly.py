@@ -1,4 +1,8 @@
-"""Assemblies (T20): grouping boards and moving a group with its arrays."""
+"""Assemblies (T20): grouping boards and moving a group with its arrays.
+
+Auto-discovered `AssemblyActions`: uses `App::DocumentObjectGroup` with `SSRole=assembly` and `AssemblyId`
+(not transformed `App::Part` containers, avoiding link/mirror scope issues). Assembly rows keep one array holder
+per source board with expressions tying follower holders to the first holder."""
 import FreeCAD as App
 from common import OpError, add_props, unit
 
