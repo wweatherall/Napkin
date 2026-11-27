@@ -25,7 +25,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 <!-- open list: built from docs/handoff/ by tools/handoff.py; don't edit by hand -->
 
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
-- [H170 — One name per meaning for message numbers: `seq` for the model's state, `request_id` for the request](handoff/H170-request-numbers.md) — status: queued (after H169); for: gemini
+- [H170 — One name per meaning for message numbers: `seq` for the model's state, `request_id` for the request](handoff/H170-request-numbers.md) — status: open; for: gemini
 
 <!-- end of open list -->
 

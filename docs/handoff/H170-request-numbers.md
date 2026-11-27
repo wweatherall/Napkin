@@ -1,6 +1,6 @@
 ### H170 — One name per meaning for message numbers: `seq` for the model's state, `request_id` for the request
 
-Author: Claude (integrator, napkin-77) | Date: 2026-11-27 | Status: queued (after H169) | For: gemini
+Author: Claude (integrator, napkin-77) | Date: 2026-11-27 | Status: open | For: gemini
 
 References: William, 2026-11-27 ("Sounds fine add it to the board", on unifying the message numbers), A35 (a
 changed message bumps PROTOCOL_VERSION on both sides), H169 (the generated message list and its check).
