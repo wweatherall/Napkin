@@ -61,10 +61,107 @@ check("the real decision log uses only allowed statuses",
       s.status_problems(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "03_Past_Decisions", "decision-log.md"), encoding="utf-8").read()) == [])
 
 arch = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "03_Past_Decisions", "decision-archive.md")
-check("03_Past_Decisions/decision-log.md and 03_Past_Decisions/decision-archive.md are tidy as a pair, with no problems (P23)",
-      s.check_files(text, open(arch, encoding="utf-8").read()) == [])
+rdir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "03_Past_Decisions", "rulings")
+check("03_Past_Decisions/decision-log.md, archive and rulings/ are tidy with no problems (P23)",
+      s.check_files(text, open(arch, encoding="utf-8").read(), rulings_dir=rdir) == [])
 check("a live file with no archive beside it (before P23) is only sorted",
       not any("not sorted" in p for p in s.check_files(s.sort_text(DOC))) and any("not sorted" in p for p in s.check_files(DOC)))
+
+import shutil
+import tempfile
+
+FIX_LIVE = (
+    "# Log\n\n## Subjects\n\n| Subject | Covers | Decisions |\n|---|---|---|\n| Snapping | Snap. | — |\n\n"
+    "## Principles\n\n| ID | Principle | Status | Explains | Date |\n|---|---|---|---|---|\n"
+    "| G01 | Keep it simple. | Tentative | — | 2026-11-22 |\n\n"
+    "## Decisions\n\n### Snapping\n\n"
+    "| ID | Decision | Status | Replaces / replaced by | Why | Principles | Where in the code | Date |\n"
+    "|---|---|---|---|---|---|---|---|\n"
+    "| I10 | Snap to corners. (Details below.) | Active |  | Fast. | G01 | snap.gd | 2026-11-21 |\n\n"
+    "## Details\n\n### I10\n\nCorner snap details here.\n"
+)
+FIX_ARCH = (
+    "# Archive\n\n## Superseded decisions\n\n"
+    "| ID | Decision | Status | Replaces / replaced by | Why | Area | Where in the code | Date |\n"
+    "|---|---|---|---|---|---|---|---|\n"
+    "| I03 | Old snap. | Superseded | Replaced by I10 | Old way. | Snapping; G01 |  | 2026-11-20 |\n\n"
+    "## Details\n"
+)
+
+tmp = tempfile.mkdtemp(prefix="sortlog-")
+trdir = os.path.join(tmp, "rulings")
+l2, a2 = s.tidy(FIX_LIVE, FIX_ARCH, rulings_dir=trdir)
+
+exp_i10 = (
+    "# I10 — Snap to corners.\n\n"
+    "Status: Active | Subject: Snapping | Principles: G01 | Date: 2026-11-21\n"
+    "Replaces / replaced by: —\n"
+    "Where in the code: snap.gd\n\n"
+    "Snap to corners.\n\n"
+    "Why: Fast.\n\n"
+    "## Details\n\n"
+    "Corner snap details here.\n"
+)
+exp_g01 = (
+    "# G01 — Keep it simple.\n\n"
+    "Status: Tentative | Date: 2026-11-22\n\n"
+    "Keep it simple.\n"
+)
+exp_i03 = (
+    "# I03 — Old snap.\n\n"
+    "Status: Superseded | Subject: Snapping | Principles: G01 | Date: 2026-11-20\n"
+    "Replaces / replaced by: Replaced by I10\n"
+    "Where in the code: —\n\n"
+    "Old snap.\n\n"
+    "Why: Old way.\n"
+)
+check("every ruling row becomes its file, word for word",
+      open(os.path.join(trdir, "I10.md"), encoding="utf-8").read() == exp_i10
+      and open(os.path.join(trdir, "G01.md"), encoding="utf-8").read() == exp_g01
+      and open(os.path.join(trdir, "I03.md"), encoding="utf-8").read() == exp_i03)
+
+check("the index lists each Active ruling under its subject, and Superseded ones in the archive's index",
+      "| I10 | Snap to corners. | Active |" in l2
+      and "| G01 | Keep it simple. | Tentative |" in l2
+      and "| I03 | Old snap. | Superseded |" in a2
+      and "| Snapping | Snap. | I10 |" in l2)
+
+old_branch_live = l2.replace(
+    "| I10 | Snap to corners. | Active |",
+    "| I10 | Snap to corners. | Active |\n"
+    "| I11 | Snap to edges. | Active |  | Helpful. | G01 | edge.gd | 2026-11-22 |",
+)
+# Simulate an old branch adding a full 8-column row into the table
+old_branch_live = s.insert_row(
+    l2,
+    "| I11 | Snap to edges. | Active |  | Helpful. | G01 | edge.gd | 2026-11-22 |",
+    "## Decisions", "Snapping",
+)
+# Wait: insert_row puts it into the 3-column index table; test with an 8-column table row in ## Decisions
+old_branch_live2 = l2.replace(
+    "| I10 | Snap to corners. | Active |",
+    "| I10 | Snap to corners. | Active |\n\n"
+    "| ID | Decision | Status | Replaces / replaced by | Why | Principles | Where in the code | Date |\n"
+    "|---|---|---|---|---|---|---|---|\n"
+    "| I11 | Snap to edges. | Active |  | Helpful. | G01 | edge.gd | 2026-11-22 |",
+)
+l3, a3 = s.tidy(old_branch_live2, a2, rulings_dir=trdir)
+check("a ruling row added by an old branch is moved into its file by the tidy",
+      os.path.isfile(os.path.join(trdir, "I11.md"))
+      and "| I11 | Snap to edges. | Active |" in l3
+      and "Helpful." not in l3)
+
+both_bad = l3.replace(
+    "| I10 | Snap to corners. | Active |",
+    "| I10 | Snap to corners. | Active |\n\n"
+    "| ID | Decision | Status | Replaces / replaced by | Why | Principles | Where in the code | Date |\n"
+    "|---|---|---|---|---|---|---|---|\n"
+    "| I10 | Snap to corners. | Active |  | Fast. | G01 | snap.gd | 2026-11-21 |",
+)
+check("--check refuses an ID both in a table and a file",
+      any("I10 is in both" in p for p in s.check_files(both_bad, a3, rulings_dir=trdir)))
+
+shutil.rmtree(tmp)
 
 print(f"LOG SORT TESTS: {sum(RESULTS)} passed, {len(RESULTS) - sum(RESULTS)} failed")
 raise SystemExit(0 if all(RESULTS) else 1)   # a failed check fails the run, not only its summary

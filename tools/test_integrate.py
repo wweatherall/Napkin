@@ -866,5 +866,37 @@ check("partial dep resolution rewrites H129 to queued (after H128) and keeps it 
       (h129_main, board_main))
 shutil.rmtree(ub_base)
 
+# Merging a branch that added a ruling file and one that edited an old row ends tidy
+r_tmp = tempfile.mkdtemp(prefix="int-ruling-")
+r_dir = os.path.join(r_tmp, "rulings")
+r_base_live = (
+    "# Log\n\n## Subjects\n\n| Subject | Covers | Decisions |\n|---|---|---|\n| Snapping | Snap. | I10 |\n\n"
+    "## Principles\n\n| ID | Principle | Status |\n|---|---|---|\n| G01 | Keep it simple. | Active |\n\n"
+    "## Decisions\n\n### Snapping\n\n| ID | Decision | Status |\n|---|---|---|\n| I10 | Snap corners. | Active |\n\n"
+    "## Details\n"
+)
+r_base_arch = "# Archive\n\n## Superseded decisions\n\n| ID | Decision | Status |\n|---|---|---|\n\n## Details\n"
+import integrate
+import sort_decision_log
+sort_decision_log.write_entry(r_dir, "G01", sort_decision_log.format_ruling("G01", "Keep it simple.", "Active", "2026-11-22"))
+sort_decision_log.write_entry(r_dir, "I10", sort_decision_log.format_ruling("I10", "Snap corners.", "Active", "2026-11-21", subject="Snapping", principles="G01"))
+sort_decision_log.write_entry(r_dir, "I11", sort_decision_log.format_ruling("I11", "Snap edges.", "Active", "2026-11-26", subject="Snapping", principles="G01"))
+theirs_old_row = r_base_live.replace(
+    "| I10 | Snap corners. | Active |",
+    "| I10 | Snap corners. | Active |\n\n"
+    "| ID | Decision | Status | Replaces / replaced by | Why | Principles | Where in the code | Date |\n"
+    "|---|---|---|---|---|---|---|---|\n"
+    "| I12 | Snap midpoints. | Active |  | Helpful. | G01 | snap.gd | 2026-11-22 |",
+)
+settled_pair, asks_r = integrate.settle_log((r_base_live, r_base_arch), (r_base_live, r_base_arch), (theirs_old_row, r_base_arch), rulings_dir=r_dir)
+check("merging a branch that added a ruling file and one that edited an old row ends tidy",
+      not asks_r
+      and sort_decision_log.check_files(*settled_pair, rulings_dir=r_dir) == []
+      and os.path.isfile(os.path.join(r_dir, "I12.md"))
+      and "| I11 | Snap edges. | Active |" in settled_pair[0]
+      and "| I12 | Snap midpoints. | Active |" in settled_pair[0]
+      and "Helpful." not in settled_pair[0])
+shutil.rmtree(r_tmp)
+
 print(f"INTEGRATE TESTS: {sum(RESULTS)} passed, {len(RESULTS) - sum(RESULTS)} failed")
 raise SystemExit(0 if all(RESULTS) else 1)   # a failed check fails the run, not only its summary

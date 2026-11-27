@@ -332,5 +332,20 @@ got, said = run(root)
 check("an archived T90 makes the next Work list number T91", got.get("T-new-1") == "T91")
 shutil.rmtree(root)
 
+# A branch's rulings/I-new-1.md is renamed to its number and its citations renumbered
+root = tree({
+    "03_Past_Decisions/rulings/I48.md": "# I48 — Existing.\n\nStatus: Active | Subject: Snapping | Principles: — | Date: 2026-11-21\n",
+    "03_Past_Decisions/rulings/I-new-1.md": "# I-new-1 — New rule.\n\nStatus: Active | Subject: Snapping | Principles: — | Date: 2026-11-26\n\nNew rule.\n",
+    "notes.md": "follows I-new-1\n",
+})
+got, said = run(root)
+check("a branch's rulings/I-new-1.md is renamed to its number and its citations renumbered",
+      got.get("I-new-1") == "I49"
+      and not os.path.exists(os.path.join(root, "03_Past_Decisions/rulings/I-new-1.md"))
+      and os.path.isfile(os.path.join(root, "03_Past_Decisions/rulings/I49.md"))
+      and "# I49 — New rule." in read(root, "03_Past_Decisions/rulings/I49.md")
+      and "follows I49" in read(root, "notes.md"))
+shutil.rmtree(root)
+
 print(f"ID TESTS: {sum(RESULTS)} passed, {len(RESULTS) - sum(RESULTS)} failed")
 raise SystemExit(0 if all(RESULTS) else 1)   # a failed check fails the run, not only its summary

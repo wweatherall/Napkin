@@ -16,6 +16,7 @@ import sys
 import time
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import sort_decision_log as s
 
 ID_RE = re.compile(r"\b([A-Z]{1,2}\d+[a-z]?)\b")
 SHORT = 200
@@ -173,10 +174,31 @@ def find_either(log, archive, ident):
     return (row, ARCHIVE_NOTE) if row is not None else (None, "")
 
 
-def report_ids(log, ids, archive=""):
-    """Lines for each ID asked for, from 03_Past_Decisions/decision-log.md or 03_Past_Decisions/decision-archive.md; returns (lines, unknown IDs)."""
+def _ruling_line(raw, ident):
+    """Format a ruling file into a compact summary line (no longer than a table row)."""
+    e = s.parse_entry(raw, ident=ident)
+    status = e["meta"].get("Status", "")
+    note = ARCHIVE_NOTE if status == "Superseded" else ""
+    det = "  (has ## Details)" if e["details"] else ""
+    parts = [f"Status: {status}"]
+    if e["meta"].get("Subject"):
+        parts.append(f"Subject: {e['meta']['Subject']}")
+    if e["meta"].get("Principles") and e["meta"]["Principles"] != "—":
+        parts.append(f"Principles: {e['meta']['Principles']}")
+    summary = shorten(f"{e['title']} [{'; '.join(parts)}]", SHORT) + det
+    return note, summary
+
+
+def report_ids(log, ids, archive="", read_ruling=None):
+    """Lines for each ID asked for, from rulings/<ID>.md or decision-log/decision-archive; returns (lines, unknown IDs)."""
     lines, unknown, wl = [], [], work_list_ids(log) | work_list_ids(archive, "Done work")
     for ident in ids:
+        raw = read_ruling(ident) if read_ruling and s.is_ruling_id(ident) else None
+        if raw:
+            note, summary = _ruling_line(raw, ident)
+            lines.append(f"== {ident}" + note)
+            lines.append(summary)
+            continue
         row, note = find_either(log, archive, ident)
         if row is None:
             unknown.append(ident)
@@ -186,8 +208,13 @@ def report_ids(log, ids, archive=""):
         lines.append(row.strip() + details_note(row))
         if ident in wl:
             for cid in cited_ids(row):
-                crow, cnote = find_either(log, archive, cid)
-                lines.append(f"  {cid}: " + (shorten(crow) + details_note(crow) + cnote if crow else "not found"))
+                craw = read_ruling(cid) if read_ruling and s.is_ruling_id(cid) else None
+                if craw:
+                    cnote, csum = _ruling_line(craw, cid)
+                    lines.append(f"  {cid}: " + csum + cnote)
+                else:
+                    crow, cnote = find_either(log, archive, cid)
+                    lines.append(f"  {cid}: " + (shorten(crow) + details_note(crow) + cnote if crow else "not found"))
     return lines, unknown
 
 
@@ -642,7 +669,10 @@ def main(argv):
 
     if ids:
         archive = git("show", "main:03_Past_Decisions/decision-archive.md", cwd=root)
-        lines, unknown = report_ids(log, ids, archive)
+        lines, unknown = report_ids(
+            log, ids, archive,
+            read_ruling=lambda ident: git("show", f"main:{s.RULINGS_DIR}/{ident}.md", cwd=root) or None,
+        )
         print()
         print("Decision log (main:03_Past_Decisions/decision-log.md, then main:03_Past_Decisions/decision-archive.md):")
         print("\n".join(lines))

@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 """Add to and read the decision log (T92, P09, P23) without editing its tables by hand.
 
-  python3 tools/log.py add <kind> "<text>" [options]   add a row; prints the row it wrote
+  python3 tools/log.py add <kind> "<text>" [options]   add a ruling file or Q/T row
+  python3 tools/log.py set <ID> [--status S] [--where "..."] [--rel "..."]
+                                                       update a ruling's status, where, or replaces line
   python3 tools/log.py add tunable <NAME> --value V --does "..." --where <file> --decision <IDs>
                                                        add a Tunables row (a setting has a name, not an ID)
   python3 tools/log.py note <ID> "<text>"              append text to a Work list row's last column
@@ -78,9 +80,15 @@ def subjects(live):
     return [s.cells(lines[r])[0] for h, hc, rs, sec, g in s.tables(lines) if sec == "## Subjects" for r in rs]
 
 
-def principles(live):
+def principles(live, root=None):
     lines = live.split("\n")
-    return {s.cells(lines[r])[0]: lines[r] for h, hc, rs, sec, g in s.tables(lines) if sec == "## Principles" for r in rs}
+    out = {s.cells(lines[r])[0]: lines[r] for h, hc, rs, sec, g in s.tables(lines) if sec == "## Principles" for r in rs}
+    if root is not None:
+        rdir = os.path.join(root, s.RULINGS_DIR)
+        for ident, e in s.read_entries(rdir).items():
+            if s.kind_of(ident) == "G" and e["meta"].get("Status") in ("Active", "Tentative"):
+                out[ident] = e
+    return out
 
 
 def match_subject(live, name):
@@ -106,8 +114,12 @@ def next_id(root, kind, on_main):
 
 
 def defined_placeholders(root, kind):
-    """The N of each kind-new-N that a table row or a ### heading of the log's two files defines."""
+    """The N of each kind-new-N that a ruling file, table row or ### heading defines."""
     out = set()
+    for ident in s.folder_ids(os.path.join(root, s.RULINGS_DIR)):
+        m = number_ids.PLACEHOLDER.fullmatch(ident)
+        if m and m.group(1) == kind:
+            out.add(int(m.group(2)))
     for rel in (LIVE, ARCHIVE):
         for line in (read(root, rel) or "").split("\n"):
             first = line.split("|")[1].strip() if line.startswith("| ") else line[4:].split()[0] if line.startswith("### ") and line[4:].split() else ""
@@ -190,7 +202,7 @@ def add(root, kind, text, opts, on_main=None, today=None):
         names = re.findall(r"\b[A-Z]+(?:\d+|-new-\d+)[a-z]*\b", o["principles"])
         if not names and o["principles"] != s.NONE:
             raise LogError(f"--principles should name principles (G01,G04) or be {s.NONE}")
-        known = principles(live)
+        known = principles(live, root)
         missing = [p for p in names if p not in known and "-new-" not in p]
         if missing:
             raise LogError(f"no principle {', '.join(missing)} (they are: {', '.join(known)})")
@@ -205,12 +217,37 @@ def add(root, kind, text, opts, on_main=None, today=None):
     if o["status"] not in allowed:
         raise LogError(f"status '{o['status']}' isn't one of {', '.join(sorted(allowed))} ({section[3:]})")
     ident = next_id(root, kind, on_main)
+    rdir = os.path.join(root, s.RULINGS_DIR)
+    if s.is_ruling_id(kind):
+        content = s.format_ruling(
+            ident, text, o["status"], o["date"],
+            subject=group or "",
+            principles=o.get("principles", ""),
+            rel=o.get("rel", ""),
+            where=o.get("where", ""),
+            why=o.get("why", ""),
+        )
+        s.write_entry(rdir, ident, content)
+        if archive is None:
+            new_live, new_arch = s.sort_text(live), None
+        else:
+            new_live, new_arch = s.tidy(live, archive, rulings_dir=rdir)
+            if new_arch != archive:
+                write(root, ARCHIVE, new_arch)
+        write(root, LIVE, new_live)
+        for text_ in (new_live, new_arch or ""):
+            lines = text_.split("\n")
+            i = s.find_row(lines, ident)
+            if i is not None:
+                return lines[i]
+        return s.index_row(s.parse_entry(content, ident=ident))
+
     row = s.make_row([ident, text] + [o.get(c, "") for c in cols])
     live = s.insert_row(live, row, section, group)
     if archive is None:
         new_live, new_arch = s.sort_text(live), None
     else:
-        new_live, new_arch = s.tidy(live, archive)
+        new_live, new_arch = s.tidy(live, archive, rulings_dir=rdir if os.path.isdir(rdir) else None)
         if new_arch != archive:
             write(root, ARCHIVE, new_arch)
     write(root, LIVE, new_live)
@@ -220,6 +257,45 @@ def add(root, kind, text, opts, on_main=None, today=None):
         if i is not None:
             return lines[i]
     return row
+
+
+def set_ruling(root, ident, opts):
+    """Update a ruling file's status, where, or rel without hand-editing; refreshes the indexes."""
+    rdir = os.path.join(root, s.RULINGS_DIR)
+    entry = s.read_entry(rdir, ident)
+    if entry is None:
+        raise LogError(f"no ruling {ident} in {s.RULINGS_DIR}")
+    o = {k: clean(v, "--" + k) for k, v in opts.items() if v is not None}
+    stray = sorted(set(o) - {"status", "where", "rel"})
+    if stray:
+        raise LogError(f"set takes --status, --where, --rel (not --{', --'.join(stray)})")
+    if not o:
+        raise LogError("set needs at least one of --status, --where, --rel")
+    meta = entry["meta"]
+    status = o.get("status", meta.get("Status", "Active"))
+    if status not in ("Active", "Tentative", "Superseded"):
+        raise LogError(f"status '{status}' isn't Active, Tentative, or Superseded")
+    content = s.format_ruling(
+        ident,
+        entry["body"],
+        status,
+        meta.get("Date", ""),
+        subject=meta.get("Subject", ""),
+        principles=meta.get("Principles", ""),
+        rel=o.get("rel", meta.get("Replaces / replaced by", "")),
+        where=o.get("where", meta.get("Where in the code", "")),
+        why=entry["why"],
+        details=entry["details"],
+    )
+    s.write_entry(rdir, ident, content)
+    live, archive = read(root, LIVE), read(root, ARCHIVE)
+    if live is not None and archive is not None:
+        new_live, new_arch = s.tidy(live, archive, rulings_dir=rdir)
+        if new_live != live:
+            write(root, LIVE, new_live)
+        if new_arch != archive:
+            write(root, ARCHIVE, new_arch)
+    return "\n".join(content.splitlines()[:3])
 
 
 def note(root, ident, text):
@@ -250,7 +326,7 @@ def top(live):
     return "\n".join(lines[:end])
 
 
-def subject_group(live, name):
+def subject_group(live, name, root=None):
     lines = live.split("\n")
     rng = s.section_range(lines, "## Decisions")
     head = "### " + name
@@ -259,12 +335,40 @@ def subject_group(live, name):
     body = lines[a:b]
     while body and body[-1] == "":
         body.pop()
-    return "\n".join(body)
+    out = ["\n".join(body)]
+    if root is not None:
+        rdir = os.path.join(root, s.RULINGS_DIR)
+        for line in body:
+            ident = s.row_id(line)
+            if ident and s.is_ruling_id(ident):
+                e = s.read_entry(rdir, ident)
+                if e:
+                    status_line = next((l for l in e["raw"].splitlines() if l.startswith("Status:")), "")
+                    out.append(f"{ident}: {status_line}\n{e['body']}")
+    return "\n\n".join(out)
 
 
 def show_id(root, ident):
-    """Its row under its table's header, its Details, and the principles it names."""
+    """For a ruling: its file and its principles' title + status lines. For Q/T: its row, Details, and principles."""
     live = read(root, LIVE) or ""
+    rdir = os.path.join(root, s.RULINGS_DIR)
+    if s.is_ruling_id(ident):
+        entry = s.read_entry(rdir, ident)
+        if entry is not None:
+            out = [entry["raw"].rstrip()]
+            pcell = entry["meta"].get("Principles", "")
+            named_blocks = []
+            for p in re.findall(s.CITE, pcell):
+                pe = s.read_entry(rdir, p)
+                if pe is not None:
+                    plines = pe["raw"].splitlines()
+                    title_line = plines[0] if plines else f"# {p}"
+                    status_line = next((l for l in plines if l.startswith("Status:")), "")
+                    named_blocks.append(f"{title_line}\n{status_line}".strip())
+            if named_blocks:
+                out += ["", "Principles it names:", ""] + named_blocks
+            return "\n".join(out)
+
     for rel in (LIVE, ARCHIVE):
         text = read(root, rel)
         if not text:
@@ -281,10 +385,17 @@ def show_id(root, ident):
                 if "Principles" in hc or "Area" in hc:
                     col = hc.index("Principles") if "Principles" in hc else hc.index("Area")
                     c = s.cells(lines[r])
-                    known = principles(live)
+                    known = principles(live, root)
                     named = [p for p in re.findall(s.CITE, c[col] if col < len(c) else "") if p in known]
                     if named:
-                        out += ["", "Principles it names:", ""] + [known[p] for p in named]
+                        out += ["", "Principles it names:", ""]
+                        for p in named:
+                            if isinstance(known[p], dict):
+                                plines = known[p]["raw"].splitlines()
+                                out.append(plines[0])
+                                out.append(next((l for l in plines if l.startswith("Status:")), ""))
+                            else:
+                                out.append(known[p])
                 return "\n".join(out)
     raise LogError(f"no row {ident} in {LIVE} or {ARCHIVE}")
 
@@ -298,7 +409,7 @@ def show(root, what, with_top=False):
         if s.ROW.match(what):
             parts.append(show_id(root, what))
         else:
-            parts.append(subject_group(live, match_subject(live, what)))
+            parts.append(subject_group(live, match_subject(live, what), root=root))
     elif not with_top:
         raise LogError("show what? a subject, an ID, or --top")
     return "\n\n".join(parts)
@@ -354,12 +465,16 @@ def main(argv=None):
             if len(rest) != 2 or opts:
                 raise LogError('usage: log.py note <ID> "<text>"')
             print(note(root, rest[0], rest[1]))
+        elif cmd == "set":
+            if len(rest) != 1:
+                raise LogError('usage: log.py set <ID> [--status S] [--where "..."] [--rel "..."]')
+            print(set_ruling(root, rest[0], opts))
         elif cmd == "show":
             if len(rest) > 1 or opts:
                 raise LogError("usage: log.py show <subject|ID> [--top], or log.py show --top")
             print(show(root, rest[0] if rest else None, "top" in flags))
         else:
-            raise LogError(f"unknown command '{cmd}' (add, note, show)")
+            raise LogError(f"unknown command '{cmd}' (add, set, note, show)")
     except LogError as e:
         print(f"log.py: {e}", file=sys.stderr)
         return 1

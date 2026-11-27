@@ -19,7 +19,7 @@ Shared scratchpad for Claude and Codex. Created by Codex on 2026-11-21 at Willia
 
 ## References and authority
 
-- [Decision log](decision-log.md): William's decisions, open questions, Work list and tunables (P09). Either agent records a decision William makes, in the commit it belongs to. Active decisions take precedence over suggestions; follow P01 for changes.
+- [Decision log](../03_Past_Decisions/decision-log.md) and [rulings](../03_Past_Decisions/rulings/): William's rulings, open questions, Work list and tunables (P09). Either agent records a decision William makes (`tools/log.py add`), in the commit it belongs to. Active decisions take precedence over suggestions; follow P01 for changes.
 - [Codex's suggestions](../Codex%27s%20suggestions.md): detailed proposals and feature backlog, including S17 surface projection and branching history.
 - [FreeCAD feature map](../FREECAD_FEATURE_MAP.md): native FreeCAD counterparts and capability checks.
 - [Architecture](../ARCHITECTURE.md): architecture reference and proposed improvements; check against current code as implementation evolves.

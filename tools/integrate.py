@@ -117,7 +117,8 @@ def renumber_protocol(root, base, branch):
     return (t, new)
 
 
-IGNORED = ("docs/handoff/", "docs/agent-handoff.md", "docs/handoff-archive.md", LOG, ARCHIVE)
+IGNORED = ("docs/handoff/", "docs/agent-handoff.md", "docs/handoff-archive.md", LOG, ARCHIVE,
+           sort_decision_log.RULINGS_DIR + "/")
 
 
 def outside_touches(root, branch, base):
@@ -197,11 +198,13 @@ def old_layout(text):
 
 
 def all_rows(live, archive):
-    """{ID: (file 0 live / 1 archive, section, group, row)} across both files."""
+    """{ID: (file 0 live / 1 archive, section, group, row)} across both files (skips 3-column ruling index rows)."""
     out = {}
     for n, text in enumerate((live, archive)):
         lines = text.split("\n")
         for h, hc, rs, sec, g in sort_decision_log.tables(lines):
+            if sec in sort_decision_log.RULING_SECTIONS and len(hc) < 4:
+                continue
             for r in rs:
                 k = sort_decision_log.row_id(lines[r])
                 if k:
@@ -216,7 +219,7 @@ def tunable_rows(text):
             if sec == "## Tunables" for r in rs}
 
 
-def settle_log(ours, base, theirs, subjects=None):
+def settle_log(ours, base, theirs, subjects=None, rulings_dir=None):
     """Main's two log files plus the rows, Tunables and Details the branch added or changed since base.
     ours, base, theirs: (live, archive) texts (archive "" when that side has none). Returns
     ((live, archive), asks): asks lists (ID, Area, decision) for new old-layout decisions with no clear subject,
@@ -276,7 +279,7 @@ def settle_log(ours, base, theirs, subjects=None):
         for k in (0, 1):
             texts[k], _ = S.take_details(texts[k], key)
         texts[0] = S.add_details(texts[0], body)
-    return S.tidy(*texts), []
+    return S.tidy(*texts, rulings_dir=rulings_dir), []
 
 
 def subject_names(live):
@@ -305,7 +308,8 @@ def set_status(root, tid, status):
     if arch is None:
         open(p, "w", encoding="utf-8").write(texts[0])
         return f"{tid}: {status}"
-    live2, arch2 = sort_decision_log.tidy(texts[0], texts[1])
+    rdir = os.path.join(root, sort_decision_log.RULINGS_DIR)
+    live2, arch2 = sort_decision_log.tidy(texts[0], texts[1], rulings_dir=rdir if os.path.isdir(rdir) else None)
     open(p, "w", encoding="utf-8").write(live2)
     open(a, "w", encoding="utf-8").write(arch2)
     moved = found == 0 and sort_decision_log.find_row(arch2.split("\n"), tid) is not None
@@ -736,6 +740,7 @@ def settle_conflicts(s):
         merged = carry_rows(ours, git("show", f"{base}:{LOG}", root=root).stdout, git("show", f"{branch}:{LOG}", root=root).stdout)
         open(os.path.join(root, LOG), "w", encoding="utf-8").write(merged)
         say("settled 03_Past_Decisions/decision-log.md (main's, plus the branch's own rows and Details sections)")
+    number_ids.tidy_log(root)
     if job.BOARD in conflicts:
         text, clashes = settle_board(git("show", f"HEAD:{job.BOARD}", root=root).stdout,
                                      git("show", f"{base}:{job.BOARD}", root=root).stdout,
@@ -828,8 +833,10 @@ def rebuild_and_check(s):
         job.board(root, out=say)
     git("add", "-A", root=root)
     arch = os.path.join(root, ARCHIVE)
+    rdir = os.path.join(root, sort_decision_log.RULINGS_DIR)
     problems = sort_decision_log.check_files(open(os.path.join(root, LOG), encoding="utf-8").read(),
-                                             open(arch, encoding="utf-8").read() if os.path.isfile(arch) else None)
+                                             open(arch, encoding="utf-8").read() if os.path.isfile(arch) else None,
+                                             rulings_dir=rdir if os.path.isdir(rdir) else None)
     text = open(os.path.join(root, handoff.HANDOFF), encoding="utf-8").read()
     if handoff.with_list(text, root) != text:
         problems.append("the handoff's open list doesn't match docs/handoff/")
