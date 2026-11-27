@@ -26,6 +26,13 @@ if [ "$(git branch --show-current)" = main ] && grep -q "job table: built by too
   # job.py board also moves Work list statuses (H156: On the board / Open) and their indexes: stage those too.
   git add 03_Past_Decisions
 fi
+# ARCHITECTURE.md's module map is built from each file's header (tools/architecture_map.py): rebuild and stage it.
+if grep -q "module map: built by tools/architecture_map.py" ARCHITECTURE.md 2>/dev/null &&
+   git diff --cached --name-only | grep -qE "^(viewport|worker|tools)/.*\.(gd|py|sh)$|^ARCHITECTURE\.md$"; then
+  python3 tools/architecture_map.py || exit 1
+  git add ARCHITECTURE.md
+  python3 tools/architecture_map.py --check || exit 1
+fi
 # comitatus/06_To-dos fills itself from main (T134): one file per thing waiting on William or the integrator.
 # Fail-open: a to-do file is never a reason to refuse a commit.
 if [ "$(git branch --show-current)" = main ]; then
