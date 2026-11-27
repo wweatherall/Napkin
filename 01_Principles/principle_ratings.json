@@ -1,52 +1,82 @@
 {
  "ratings": {
   "a4a8d1407b54": {
-   "rating": 984.0,
-   "comparisons": 1,
-   "id": "Napkin G01",
+   "rating": 1016.0,
+   "comparisons": 3,
+   "id": "napkin G01",
    "text": "Feel first: a draft appears the moment you act and input never waits on FreeCAD; FreeCAD catches up and the wave confirms it."
   },
   "c736a42607db": {
-   "rating": 1016.0,
-   "comparisons": 1,
-   "id": "Napkin G06",
+   "rating": 1000.73,
+   "comparisons": 2,
+   "id": "napkin G06",
    "text": "Typed values follow what you're doing: the direction you drag, and the model's units for a bare number; any unit you type, written however you write it, is understood."
   },
   "193b00b0cacf": {
-   "rating": 984.0,
-   "comparisons": 1,
-   "id": "Napkin G08",
+   "rating": 952.0,
+   "comparisons": 3,
+   "id": "napkin G08",
    "text": "Refer to geometry, never to FreeCAD's internal numbers."
   },
   "119a36d022c6": {
-   "rating": 1016.0,
-   "comparisons": 1,
-   "id": "Napkin G04",
+   "rating": 1047.24,
+   "comparisons": 3,
+   "id": "napkin G04",
    "text": "Relationships stay live: copies, arrays, mirrors and fits follow later edits, and you can detach one on purpose."
   },
   "3b97b911fdc1": {
    "rating": 984.0,
-   "comparisons": 1,
-   "id": "Napkin G13",
+   "comparisons": 3,
+   "id": "napkin G13",
    "text": "Show what an edit will change before it does."
   },
   "3fa59e25b2a2": {
-   "rating": 1016.0,
-   "comparisons": 1,
-   "id": "Napkin G09",
+   "rating": 1048.0,
+   "comparisons": 3,
+   "id": "napkin G09",
    "text": "Never lose work: always saved, atomically, and undo crosses sessions without hiding changes made in FreeCAD."
   },
   "a2b6c5b8eeda": {
-   "rating": 984.0,
-   "comparisons": 1,
-   "id": "Napkin G12",
+   "rating": 967.3,
+   "comparisons": 2,
+   "id": "napkin G12",
    "text": "Work splits by files, and one integrator merges, numbers and keeps the records."
   },
   "2a256b8ac812": {
    "rating": 1016.0,
-   "comparisons": 1,
-   "id": "Napkin G10",
+   "comparisons": 3,
+   "id": "napkin G10",
    "text": "A rejected action says why and leaves nothing behind."
+  },
+  "9cbbafbb8f03": {
+   "rating": 984.0,
+   "comparisons": 3,
+   "id": "napkin G03",
+   "text": "Work as SketchUp does, and as a Mac app does, unless there's a reason not to; a decision that departs from SketchUp says why."
+  },
+  "6874b0e5d925": {
+   "rating": 985.44,
+   "comparisons": 3,
+   "id": "napkin G07",
+   "text": "One meaning per colour: violet cuts, red rejects, amber is new; nothing else uses them except the red/green/blue axis guides."
+  },
+  "a4cacff8de44": {
+   "rating": 1016.0,
+   "comparisons": 3,
+   "id": "napkin G02",
+   "text": "The .FCStd file is the model: every action becomes ordinary, editable FreeCAD features, and Shop Sketch is a view of them."
+  },
+  "fa60aab189bd": {
+   "rating": 984.0,
+   "comparisons": 3,
+   "id": "napkin G11",
+   "text": "Nothing rests on memory: every decision is logged, every behaviour has a named test, and every prediction of FreeCAD's answer is checked against FreeCAD."
+  },
+  "c7469ea24127": {
+   "rating": 999.29,
+   "comparisons": 2,
+   "id": "napkin G05",
+   "text": "One key per idea, meaning the same thing in every tool."
   }
  },
  "answers": [
@@ -73,6 +103,90 @@
    "b": "2a256b8ac812",
    "score_a": 0.0,
    "when": "2026-11-26 19:54"
+  },
+  {
+   "a": "9cbbafbb8f03",
+   "b": "6874b0e5d925",
+   "score_a": 1.0,
+   "when": "2026-11-26 22:08"
+  },
+  {
+   "a": "a4cacff8de44",
+   "b": "fa60aab189bd",
+   "score_a": 1.0,
+   "when": "2026-11-26 22:10"
+  },
+  {
+   "a": "6874b0e5d925",
+   "b": "c7469ea24127",
+   "score_a": 0.0,
+   "when": "2026-11-26 22:11"
+  },
+  {
+   "a": "fa60aab189bd",
+   "b": "193b00b0cacf",
+   "score_a": 1.0,
+   "when": "2026-11-26 22:11"
+  },
+  {
+   "a": "a4a8d1407b54",
+   "b": "3b97b911fdc1",
+   "score_a": 1.0,
+   "when": "2026-11-26 22:11"
+  },
+  {
+   "a": "119a36d022c6",
+   "b": "c7469ea24127",
+   "score_a": 1.0,
+   "when": "2026-11-26 22:12"
+  },
+  {
+   "a": "a4cacff8de44",
+   "b": "3fa59e25b2a2",
+   "score_a": 0.0,
+   "when": "2026-11-26 22:12"
+  },
+  {
+   "a": "9cbbafbb8f03",
+   "b": "2a256b8ac812",
+   "score_a": 0.0,
+   "when": "2026-11-26 22:12"
+  },
+  {
+   "a": "6874b0e5d925",
+   "b": "a2b6c5b8eeda",
+   "score_a": 1.0,
+   "when": "2026-11-26 22:12"
+  },
+  {
+   "a": "c736a42607db",
+   "b": "119a36d022c6",
+   "score_a": 0.0,
+   "when": "2026-11-26 22:12"
+  },
+  {
+   "a": "3b97b911fdc1",
+   "b": "193b00b0cacf",
+   "score_a": 1.0,
+   "when": "2026-11-26 22:13"
+  },
+  {
+   "a": "fa60aab189bd",
+   "b": "a4a8d1407b54",
+   "score_a": 0.0,
+   "when": "2026-11-26 22:13"
+  },
+  {
+   "a": "9cbbafbb8f03",
+   "b": "a4cacff8de44",
+   "score_a": 0.0,
+   "when": "2026-11-26 22:13"
+  },
+  {
+   "a": "3fa59e25b2a2",
+   "b": "2a256b8ac812",
+   "score_a": 1.0,
+   "when": "2026-11-26 22:13"
   }
  ]
 }
