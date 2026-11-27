@@ -33,6 +33,8 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
 - [H167 — Architecture step 2: ARCHITECTURE.md down to a hand-written core under 8 KB, nothing lost](handoff/H167-architecture-core.md) — status: open; for: gemini
 - [H168 — A script that keeps docs/agent-handoff.md tidy: short, current, every link working](handoff/H168-tidy-the-handoff.md) — status: open; for: gemini
+- [H169 — protocol.md's message list generated from the code, and a check that keeps the rest honest](handoff/H169-protocol-from-code.md) — status: queued (after H167); for: gemini
+- [H170 — One name per meaning for message numbers: `seq` for the model's state, `request_id` for the request](handoff/H170-request-numbers.md) — status: queued (after H169); for: gemini
 
 <!-- end of open list -->
 

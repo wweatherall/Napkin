@@ -65,8 +65,10 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H167 | Gemini | **Ready** | Architecture step 2: ARCHITECTURE.md down to a hand-written core under 8 KB, nothing lost | [H167](docs/handoff/H167-architecture-core.md) |  |
-| H168 | Gemini | **Ready** | A script that keeps docs/agent-handoff.md tidy: short, current, every link working | [H168](docs/handoff/H168-tidy-the-handoff.md) |  |
+| H167 | Gemini | **Done**: for review (gemini) | Architecture step 2: ARCHITECTURE.md down to a hand-written core under 8 KB, nothing lost | [H167](docs/handoff/H167-architecture-core.md) |  |
+| H168 | Gemini | **Done**: for review (gemini) | A script that keeps docs/agent-handoff.md tidy: short, current, every link working | [H168](docs/handoff/H168-tidy-the-handoff.md) |  |
+| H169 | Gemini | Queued | protocol.md's message list generated from the code, and a check that keeps the rest honest | [H169](docs/handoff/H169-protocol-from-code.md) | H167 |
+| H170 | Gemini | Queued | One name per meaning for message numbers: `seq` for the model's state, `request_id` for the request | [H170](docs/handoff/H170-request-numbers.md) | H169 |
 
 <!-- end of job table -->
 
