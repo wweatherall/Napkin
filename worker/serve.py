@@ -61,44 +61,8 @@ def open_reply(s, seq):
 
 
 def serve(port):
-    """Long-running worker: newline-delimited JSON over localhost TCP. One worker serves every Shop Sketch window,
-    each on its own FreeCAD document; a model belongs to one window at a time (W13).
-      {"cmd": "hello"} -> {"ok", "cmd": "hello", "app": "shopsketch", "protocol": PROTOCOL_VERSION,
-                           "worker": <md5 of the worker's scripts>, "pid"}
-      {"cmd": "open", "model": ".../model.FCStd", "fresh": false}
-          -> {"ok", "cmd": "open", "ops", "undo_floor", "external", "rev", "units"?, "recovered"?}
-             units: canonical display units from doc.Meta["ShopSketchUnits"] when valid (omitted when unset/unreadable, I57/I62)
-             recovered: {"from": "new"|"prev", "rev", "why"} once, when opening found a save that stopped part way
-             and put the newest whole pair in place (A32)
-          -> {"ok": false, "cmd": "open", "error": "already_open", "model"} when another window has it; that window
-             is sent {"cmd": "focus", "model"} so it can come to the front
-      {"cmd": "set_units", "model": "...", "units": "in-frac:1/16", "seq": n}
-          -> {"ok", "cmd": "set_units", "model", "units", "rev", "seq"} (schedules save; not an undoable op, I57)
-      {"cmd": "sync", "model": "...", "oplog": {...}, "outdir": "...", "seq": n, "drawing": false}
-          -> {"ok", "cmd": "sync", "result": {...status...}, "outdir" (bodies.json, meshes/), "seq", "wall_ms"}
-      {"cmd": "replay", ...}  same as sync on a fresh document (one-shot rebuild)
-      {"cmd": "flush", "model"?}  save everything now (or only that model);  {"cmd": "bye"}  save this window's model and let it go
-      {"cmd": "quit"}   save, and stop if no other window is connected (else just this window leaves)
-          flush / bye / quit answer with what they saved and what they couldn't (T79):
-          {"ok": <nothing failed>, "saved": [{"model", "rev"}], "failed": [{"model", "rev", "error"}], "error"?}
-          quit stops even when a save failed (the window has asked you first, I55).
-    The reply goes out first; the autosave waits until every window has been quiet for IDLE_SAVE_S, so quick
-    successive actions never queue behind a save. When a save lands the window that owns the model is told:
-          {"cmd": "saved", "model": "...", "rev": n}   (the viewport's quiet 'Saved' indicator, Q22)
-    and when one fails: {"cmd": "save_failed", "model", "rev" (the one it tried), "error"}. A failed save stays
-    pending: the autosave doesn't keep trying it, but the next sync, flush, bye or quit does (T79, I54).
-    Outside saves (A36, T64): every WATCH_S the worker stats each open model's file; a change that holds still for
-    one look and isn't our own bytes is FreeCAD's save. The model is held at once (no autosave writes over it;
-    each save also looks just before writing) and its window is told:
-          {"cmd": "outside_save", "model", "rev" (the file's ShopSketchRev), "unsaved": <actions not on disk>}
-    The window answers, once its actions have landed or it has asked:
-      {"cmd": "reload", "model", "outdir", "seq"} -> the open reply's fields with "cmd": "reload", plus "changed"
-          (boards whose shape, place, wood or hiding differ), "removed", "dropped" (ops the file didn't hold: they
-          leave the list and stay in the journal as dropped, T65), "outdir" (bodies.json written)
-      {"cmd": "keep_mine", "model", "outdir"?, "seq"} -> FreeCAD's file is copied to <model>.freecad-<time>.FCStd,
-          then ours is saved over it: {"ok", "cmd": "keep_mine", "model", "aside", "rev"}
-    A held model that has to be saved anyway (flush, bye, quit, a window gone) keeps both the same way.
-    SERVE_IDLE_EXIT=<s>: save and exit that long after the last window leaves (the shared worker windows start)."""
+    """Long-running worker serving Shop Sketch windows over localhost TCP (one worker per protocol version, W13).
+    Wire messages, request/reply fields, events and save lifecycle are documented in docs/protocol.md."""
     import select
     import socket
     sessions = {}

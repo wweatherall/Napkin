@@ -65,8 +65,7 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H169 | Gemini | **Ready** | protocol.md's message list generated from the code, and a check that keeps the rest honest | [H169](docs/handoff/H169-protocol-from-code.md) |  |
-| H170 | Gemini | Queued | One name per meaning for message numbers: `seq` for the model's state, `request_id` for the request | [H170](docs/handoff/H170-request-numbers.md) | H169 |
+| H170 | Gemini | **Ready** | One name per meaning for message numbers: `seq` for the model's state, `request_id` for the request | [H170](docs/handoff/H170-request-numbers.md) |  |
 
 <!-- end of job table -->
 

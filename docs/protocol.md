@@ -12,7 +12,7 @@ The window probes port 7878 using `hello`. A worker reporting another protocol v
 
 Sources: [worker/replay.py](../worker/replay.py):entry point; [worker/serve.py](../worker/serve.py):`worker_files`, `worker_identity`, `main`, `serve`; [viewport/worker_process.gd](../viewport/worker_process.gd):`worker_identity`, `probe_worker`, `hello`, `worker_of`, `pick_worker`, `_start_worker`, `_await_port_file`.
 
-One worker holds many sessions but evaluates requests serially on one thread. One connection owns at most one model at a time. Ownership keys are `os.path.abspath` paths, without symlink resolution or OS-wide file locking. Claiming a different available model saves and releases the old one; claiming an occupied model leaves the current ownership alone. Released sessions remain cached. Disconnection saves/releases owned models. Autosave waits for **all** clients to be quiet for 0.25 s after the last handled request. `SERVE_IDLE_EXIT` seconds after the last connection leaves controls worker exit (0 disables; macOS app supplies 10).
+One worker holds many sessions but evaluates requests serially on one thread. One connection owns at most one model at a time. Ownership keys are `os.path.abspath` paths, without symlink resolution or OS-wide file locking. Claiming a different available model saves and releases the old one; claiming an occupied model leaves the current ownership alone. Released sessions remain cached. Disconnection saves/releases owned models. Autosave waits for **all** clients to be quiet for 0.25 s after the last handled request. `SERVE_IDLE_EXIT` seconds after the last connection leaves saves pending work and exits the worker (0 disables; macOS app supplies 10 s for the shared worker windows start).
 
 Sources: [worker/serve.py](../worker/serve.py):`serve`, nested `claim`, `let_go`, `release`, `session_for`, `save_pending`.
 
@@ -30,13 +30,36 @@ On reconnect the TCP client retries every 0.5 s and drains queued lines; the doc
 
 Examples are illustrative JSON lines; timing values, paths, IDs and hashes vary. Fields shown as optional below may be absent; explicit JSON `null` is not generally interchangeable with omission. Every command is dispatched by [worker/serve.py](../worker/serve.py):`serve.handle` (a nested function), except the length evaluator's reply, built by `length_input.handle`.
 
+<!-- protocol map: built by tools/protocol_map.py; don't edit by hand -->
+
+| Message | Kind | Request fields | Reply / payload keys | Handler |
+|---|---|---|---|---|
+| `length` | command | `id?`, `default_unit?`, `texts` | `cmd`, `id`, `ok`, `values`, `error` | `worker/length_input.py:handle` |
+| `hello` | command | `seq?` | `ok`, `cmd`, `seq`, `app`, `protocol`, `worker`, `pid` | `worker/serve.py:serve.handle` |
+| `quit` | command | `seq?` | `ok`, `cmd`, `seq`, `**saves`, `**extra`, `error?`, `stopped` | `worker/serve.py:serve.handle` |
+| `bye` | command | `seq?` | `ok`, `cmd`, `seq`, `**saves`, `**extra`, `error?` | `worker/serve.py:serve.handle` |
+| `flush` | command | `model`, `seq?` | `ok`, `cmd`, `seq`, `**saves`, `**extra`, `error?` | `worker/serve.py:serve.handle` |
+| `open` | command | `model`, `fresh?`, `seq?` | `ok`, `cmd`, `error`, `model`, `seq`, `rev`, `ops`, `undo_floor`, `external`, `reserved_ids`, `units?`, `recovered?` | `worker/serve.py:serve.handle` |
+| `reload` | command | `model`, `outdir?`, `seq?` | `ok`, `cmd`, `model`, `rev`, `ops`, `undo_floor`, `external`, `seq`, `reserved_ids`, `units?`, `recovered?`, `outdir`, `**info` | `worker/serve.py:serve.handle` |
+| `keep_mine` | command | `model`, `outdir?`, `seq?` | `ok`, `cmd`, `model`, `aside`, `rev`, `seq` | `worker/serve.py:serve.handle` |
+| `set_units` | command | `model`, `units?`, `seq?` | `ok`, `cmd`, `model`, `units`, `rev`, `seq` | `worker/serve.py:serve.handle` |
+| `inspect_properties` | command | `model`, `request_id`, `body`, `seq?` | `ok`, `cmd`, `seq`, `model`, `request_id`, `properties` | `worker/serve.py:serve.handle` |
+| `sync` | command | `model?`, `outdir`, `ops`, `oplog`, `drawing?`, `name?`, `seq?` | `ok`, `cmd`, `result`, `outdir`, `seq`, `wall_ms` | `worker/serve.py:serve.handle` |
+| `replay` | command | `model?`, `outdir`, `ops`, `oplog`, `drawing?`, `name?`, `seq?` | `ok`, `cmd`, `result`, `outdir`, `seq`, `wall_ms` | `worker/serve.py:serve.handle` |
+| `focus` | event | — | `ok`, `cmd`, `model` | `worker/serve.py:serve.handle` |
+| `outside_save` | event | — | `ok`, `cmd`, `model`, `rev`, `unsaved` | `worker/serve.py:serve.hold` |
+| `save_failed` | event | — | `model`, `rev`, `error`, `ok`, `cmd` | `worker/serve.py:serve.save_pending` |
+| `saved` | event | — | `ok`, `cmd`, `model`, `rev` | `worker/serve.py:serve.save_pending` |
+
+<!-- end protocol map -->
+
 ### `hello`
 
 Request: `cmd: "hello"`, `seq?`. Success: `ok: true`, `cmd: "hello"`, `seq` (echo or null), `app: "shopsketch"`, `protocol: integer` (the protocol version, currently 15), `worker: string` (32 lowercase hex MD5), `pid: integer`. The window uses the worker only if `protocol` equals its own version and `worker` its own identity.
 
 ```json
 {"cmd":"hello"}
-{"ok":true,"cmd":"hello","seq":null,"app":"shopsketch","protocol":3,"worker":"0123456789abcdef0123456789abcdef","pid":1234}
+{"ok":true,"cmd":"hello","seq":null,"app":"shopsketch","protocol":15,"worker":"0123456789abcdef0123456789abcdef","pid":1234}
 ```
 
 Producer/consumer: [worker/serve.py](../worker/serve.py):`serve.handle`, `worker_identity`; [viewport/worker_process.gd](../viewport/worker_process.gd):`probe_worker` (`hello`, `worker_of`). Probing uses a separate short-lived connection.
@@ -48,6 +71,7 @@ Request: `cmd: "open"`, `model: string`, `fresh?: boolean = false`, `seq?: integ
 ```json
 {"cmd":"open","model":"/tmp/chair.FCStd","fresh":false,"seq":7}
 {"ok":true,"cmd":"open","model":"/tmp/chair.FCStd","rev":3,"ops":[],"undo_floor":0,"external":false,"seq":7}
+{"ok":false,"cmd":"open","error":"already_open","model":"/tmp/chair.FCStd","seq":7}
 ```
 
 A refusal has exactly `ok: false`, `cmd: "open"`, `error: "already_open"`, `model: string`, `seq`. The owning connection receives a `focus` event. Other errors use the generic envelope below. On an outside edit, the worker adopts successful journal operations but prevents undo below `undo_floor`; without a valid journal it marks the file external. `undo_floor` counts operations, not FreeCAD transactions. Failed journal operations are omitted when reopening.
@@ -126,11 +150,27 @@ Producer/consumer: [worker/serve.py](../worker/serve.py):`serve.handle`; [worker
 
 ### `reload` and `keep_mine`
 
-After an `outside_save` event (below), the window answers with one of these. `reload`: request `cmd: "reload"`, `model`, `outdir`, `seq`; reply: the `open` reply's fields with `cmd: "reload"`, plus `changed` / `removed` (BodyIds whose box, volume, area, wood or hiding differ; BodyIds gone), `dropped` (ops the file's revision didn't hold) and `outdir` (bodies.json written there). `keep_mine`: request `cmd: "keep_mine"`, `model`, `outdir?`, `seq`; reply `ok`, `cmd: "keep_mine"`, `model`, `aside` (FreeCAD's file, copied to `<model>.freecad-<YYYYmmdd-HHMMSS>.FCStd`, `-2`... if taken), `rev` (ours, saved over it). A `flush`, `bye` or `quit` of a held model with unsaved actions does the same as `keep_mine`; its `saved` entries carry `aside`. The reload reply carries the `units` in FreeCAD's file (absent if none); `keep_mine` keeps the window's.
+After an `outside_save` event (below), the window answers with one of these. `reload`: request `cmd: "reload"`, `model`, `outdir`, `seq`; reply: the `open` reply's fields with `cmd: "reload"`, plus `changed` / `removed` (BodyIds whose box, volume, area, wood or hiding differ; BodyIds gone), `dropped` (ops the file's revision didn't hold: they leave the op list and stay in the journal as `dropped`, T65) and `outdir` (bodies.json written there). `keep_mine`: request `cmd: "keep_mine"`, `model`, `outdir?`, `seq`; reply `ok`, `cmd: "keep_mine"`, `model`, `aside` (FreeCAD's file, copied to `<model>.freecad-<YYYYmmdd-HHMMSS>.FCStd`, `-2`... if taken), `rev` (ours, saved over it), `seq`. A held model that has to be saved anyway (`flush`, `bye`, `quit`, or a window disconnecting) keeps both the same way; its `saved` entries carry `aside`. The reload reply carries the `units` in FreeCAD's file (absent if none); `keep_mine` keeps the window's.
+
+```json
+{"cmd":"reload","model":"/tmp/chair.FCStd","outdir":"/tmp/chair-out","seq":10}
+{"ok":true,"cmd":"reload","model":"/tmp/chair.FCStd","rev":4,"ops":[],"undo_floor":0,"external":false,"seq":10,"reserved_ids":[],"outdir":"/tmp/chair-out","changed":[],"removed":[],"dropped":[]}
+{"cmd":"keep_mine","model":"/tmp/chair.FCStd","seq":11}
+{"ok":true,"cmd":"keep_mine","model":"/tmp/chair.FCStd","aside":"/tmp/chair.freecad-20261127-075000.FCStd","rev":5,"seq":11}
+```
+
+Producer/consumer: [worker/serve.py](../worker/serve.py):`serve.handle`, `keep_both`, `save_pending`; [worker/session.py](../worker/session.py):`Session.reload_outside`, `Session.copy_outside_aside`; [viewport/main.gd](../viewport/main.gd):`_on_worker`; [viewport/document.gd](../viewport/document.gd):`on_outside_save`, `on_reload_reply`, `on_keep_mine_reply`.
 
 ### `set_units`
 
 Request: `cmd: "set_units"`, `model`, `units` (one of `ft-in:1/8`…`1/64`, `in-frac:1/8`…`1/64`, `in-dec:0.1`/`0.01`/`0.001`, `m:0.1`/`0.01`/`0.001`, `cm:1`/`0.1`/`0.01`, `mm:1`/`0.1`/`0.01`; worker/session.py `UNIT_SPECS`), `seq`. Reply: `ok`, `cmd: "set_units"`, `model`, `units`, `rev` (the revision the change will be saved as), `seq`. Not an op: undo doesn't change it. It schedules a save like an action (so the change is kept with nothing after it); an unknown value is an error. The window shows the new units at once and sends them again after an open or a reconnect if the reply never came.
+
+```json
+{"cmd":"set_units","model":"/tmp/chair.FCStd","units":"in-frac:1/16","seq":12}
+{"ok":true,"cmd":"set_units","model":"/tmp/chair.FCStd","units":"in-frac:1/16","rev":5,"seq":12}
+```
+
+Producer/consumer: [worker/serve.py](../worker/serve.py):`serve.handle`; [worker/session.py](../worker/session.py):`Session.set_units`, `UNIT_SPECS`; [viewport/main.gd](../viewport/main.gd):`_on_worker`; [viewport/measure_box.gd](../viewport/measure_box.gd):`on_set_units_reply`.
 
 ### `flush`, `bye`, `quit`
 
@@ -159,21 +199,33 @@ Producer: [worker/serve.py](../worker/serve.py):`serve.handle`, `save_pending`, 
 
 ### `saved`, `save_failed`, `outside_save` and `focus` events
 
-`outside_save`: `cmd: "outside_save"`, `model`, `rev` (the file's ShopSketchRev), `unsaved: boolean` (actions not yet on disk). FreeCAD saved the open model; the worker holds it (no autosave writes over the file) until the window sends `reload` or `keep_mine`.
+All four are unsolicited, worker → window only; there is no matching request or `seq`.
 
-
-Both are unsolicited, worker → window only; there is no matching request or seq.
+- `saved`: `ok: true`, `cmd: "saved"`, `model: absolute string`, `rev: integer`, sent only to the owner after successful pending save (drives the viewport's quiet 'Saved' indicator, Q22).
 
 ```json
 {"ok":true,"cmd":"saved","model":"/tmp/chair.FCStd","rev":4}
-{"ok":false,"cmd":"save_failed","model":"/tmp/chair.FCStd","rev":5,"error":"PermissionError: the folder tmp is read-only"}
-{"ok":true,"cmd":"focus","model":"/tmp/chair.FCStd"}
-{"ok":false,"cmd":"open","error":"already_open","model":"/tmp/chair.FCStd","seq":7}
 ```
 
-`saved` includes `model: absolute string`, `rev: integer`, sent only to the owner after successful pending save. `save_failed` includes `model`, `rev` (the revision it tried; the session's own revision doesn't move, so the retry saves that one) and `error` (`ExceptionType: message`; a read-only folder says so), sent to the owner after each failed attempt; the window shows "Couldn't save: <message>" until a `saved`. `focus` includes `model: absolute string`, sent to the existing owner when another connection's **open** is refused. Sync/inspection ownership errors do not send focus. The owner foregrounds its window; the refusing reply goes to the second connection.
+- `save_failed`: `ok: false`, `cmd: "save_failed"`, `model`, `rev` (the revision it tried; the session's own revision doesn't move, so the retry saves that one) and `error` (`ExceptionType: message`; a read-only folder says so), sent to the owner after each failed attempt; the window shows "Couldn't save: <message>" until a `saved`.
 
-Producer/consumer: [worker/serve.py](../worker/serve.py):`save_pending`, `serve.handle`; [viewport/main.gd](../viewport/main.gd):`_on_worker`, `_on_open`; [viewport/document.gd](../viewport/document.gd):`on_saved` (matches normalized model path; monotonically advances saved revision; clears `save_error`), `on_save_failed` (sets `save_error`, the message without the exception's name).
+```json
+{"ok":false,"cmd":"save_failed","model":"/tmp/chair.FCStd","rev":5,"error":"PermissionError: the folder tmp is read-only"}
+```
+
+- `outside_save`: `ok: true`, `cmd: "outside_save"`, `model`, `rev` (the file's ShopSketchRev), `unsaved: boolean` (actions not yet on disk). Every `WATCH_S` (0.25 s) the worker stats each open model's file; a change that holds still for one look and isn't our own bytes is FreeCAD's save (each save also looks just before writing, A36, T64). The worker holds the model (no autosave writes over the file) until the window sends `reload` or `keep_mine`.
+
+```json
+{"ok":true,"cmd":"outside_save","model":"/tmp/chair.FCStd","rev":4,"unsaved":true}
+```
+
+- `focus`: `ok: true`, `cmd: "focus"`, `model: absolute string`, sent to the existing owner when another connection's **open** is refused. Sync/inspection ownership errors do not send focus. The owner foregrounds its window; the refusing reply goes to the second connection.
+
+```json
+{"ok":true,"cmd":"focus","model":"/tmp/chair.FCStd"}
+```
+
+Producer/consumer: [worker/serve.py](../worker/serve.py):`save_pending`, `serve.hold`, `serve.handle`; [viewport/main.gd](../viewport/main.gd):`_on_worker`, `_on_open`; [viewport/document.gd](../viewport/document.gd):`on_saved` (matches normalized model path; monotonically advances saved revision; clears `save_error`), `on_save_failed` (sets `save_error`, the message without the exception's name), `on_outside_save`.
 
 ### Generic request errors
 
@@ -292,7 +344,7 @@ The worker writes only absent geometry keys and removes the previous file tracke
 
 Array of library entries, in species insertion order. Fields: `key: string`, `name: string`, `uuid: string`, `color: [number,number,number]`, `texture: string` JPEG basename, `grain: "u" | "v"` texture grain axis, `size_mm: number` square texture extent, `end_texture: string` JPEG basename, `end_size_mm: number`. Consumer resolves textures in project/bundle `materials/textures`, not relative to outdir. Example entry: `{"key":"white-oak","name":"White Oak","uuid":"9b5e3aa9-aa43-5250-bdc5-2c87fffe21a0","color":[0.809,0.668,0.456],"texture":"Wood022.jpg","grain":"u","size_mm":600,"end_texture":"white-oak_end.jpg","end_size_mm":175}`.
 
-Sources: [worker/materials.py](../worker/materials.py):`library`, `material_uuid`, `write_library`; [worker/session.py](../worker/session.py):`Session.export`; [viewport/main.gd](../viewport/main.gd):`_load_wood_library`, `_wood_material`.
+Sources: [worker/materials.py](../worker/materials.py):`library`, `material_uuid`, `write_library`; [worker/session.py](../worker/session.py):`Session.export`; [viewport/appearance.gd](../viewport/appearance.gd):`load_library`, `wood_material`.
 
 ### `model.glb`
 
