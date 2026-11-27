@@ -27,7 +27,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
 - [H174 — A generated dependency map: who uses which file, and who calls a function](handoff/H174-dependency-map.md) — status: open; for: gemini
 - [H175 — The merge tools: six things the integrator did by hand on 2026-11-27, made automatic](handoff/H175-merge-tool-fixes.md) — status: open; for: gemini
-- [H177 — main.gd step 1: history replies and live preferences move to their own files, behaviour unchanged](handoff/H177-split-main-gd.md) — status: queued (after H176); for: gemini
+- [H177 — main.gd step 1: history replies and live preferences move to their own files, behaviour unchanged](handoff/H177-split-main-gd.md) — status: open; for: gemini
 - [H178 — The full test fails on an op field that's sent but never read (a misspelt field can't run as its default)](handoff/H178-unread-op-fields.md) — status: open; for: gemini
 
 <!-- end of open list -->

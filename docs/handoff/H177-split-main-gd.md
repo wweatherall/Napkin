@@ -1,6 +1,6 @@
 ### H177 — main.gd step 1: history replies and live preferences move to their own files, behaviour unchanged
 
-Author: Claude (integrator, napkin-77) | Date: 2026-11-27 | Status: queued (after H176) | For: gemini
+Author: Claude (integrator, napkin-77) | Date: 2026-11-27 | Status: open | For: gemini
 
 References: William, 2026-11-27 (architecture order: split main.gd and presenter.gd, so the map has real boundaries and
 more jobs can run at once), comitatus principle C03 (simplify), P50 (each file's header line is its map line),
