@@ -31,7 +31,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 <!-- open list: built from docs/handoff/ by tools/handoff.py; don't edit by hand -->
 
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
-- [H159 — Personal spaces: everything an agent makes is committed and pushed; experiments can be run or merged](handoff/H159-personal-spaces-saved-and-pushed.md) — status: open; for: gemini
+- [H159 — Personal spaces: everything an agent makes is committed and pushed; experiments can be run or merged](handoff/H159-personal-spaces-saved-and-pushed.md) — status: answered; for: gemini
 
 <!-- end of open list -->
 
