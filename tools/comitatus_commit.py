@@ -14,8 +14,8 @@ def clean_env():
     return {k: v for k, v in os.environ.items() if not k.startswith("GIT_")}
 
 
-def git(org, *args):
-    return subprocess.run(["git", "-C", org, *args], capture_output=True, text=True, env=clean_env())
+def git(org, *args, timeout=None):
+    return subprocess.run(["git", "-C", org, *args], capture_output=True, text=True, env=clean_env(), timeout=timeout)
 
 
 def commit(org, paths, message, out=lambda *a: None, push=False):
@@ -36,7 +36,7 @@ def commit(org, paths, message, out=lambda *a: None, push=False):
             return False
         out("committed in comitatus: " + message)
         if push:
-            p = git(org, "push", "-q")
+            p = git(org, "push", "-q", timeout=30)  # a stalled network never hangs a log line (fail-open below)
             if p.returncode != 0:
                 out("comitatus push skipped: " + (p.stdout + p.stderr).strip()[:200])
         return True
