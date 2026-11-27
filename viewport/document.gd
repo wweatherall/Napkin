@@ -90,7 +90,7 @@ static func ops_key(list: Array) -> String:
 
 func oplog() -> Dictionary:
 	reserve_values(ops)
-	return {"format": "oplog/0.1", "units": "mm", "name": "Shop Sketch session", "ops": ops,
+	return {"format": "oplog/0.1", "units": "mm", "ops": ops,
 		"reserved_ids": reserved_ids.keys()}
 
 

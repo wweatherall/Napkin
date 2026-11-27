@@ -43,3 +43,5 @@ What can fail:
 Checks:
 - worker/test_serve.py: `replay` gets the unknown-command error; a sync without nested name works; protocol 18.
 - `python3 tools/protocol_map.py --check`; `tools/TEST_BEFORE_MERGING.sh` passes (full scope).
+
+Architecture: `worker/serve.py` drops the `replay` command from `serve.handle` (returning the generic unknown-command error), `viewport/document.gd:oplog()` drops nested `oplog.name` (top-level `name` is the sole session name source), and `PROTOCOL_VERSION` is bumped to 18 in `worker/serve.py` and `viewport/main.gd`.
