@@ -68,6 +68,7 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 | H161 | Gemini | In progress (gemini since 23:27) | Faster tests: find where the gate's time goes and cut it, every check kept | [H161](docs/handoff/H161-faster-tests.md) |  |
 | H163 | Gemini | Queued | Onboarding: the start-up brief carries who you are, the principles, habits, tools and personal time | [H163](docs/handoff/H163-onboarding-rows.md) | H161 |
 | H164 | Gemini | Queued | One personal space per model and job, every new one made the same from a template | [H164](docs/handoff/H164-space-per-model-from-template.md) | H163 |
+| H165 | Gemini | **Ready** | Architecture step 1: a module map generated from each file's own header line | [H165](docs/handoff/H165-generated-module-map.md) |  |
 
 <!-- end of job table -->
 
