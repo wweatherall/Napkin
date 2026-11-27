@@ -85,12 +85,12 @@ def comitatus_root(root):
     common = r.stdout.strip() if r.returncode == 0 else ""
     main_repo = (os.path.dirname(os.path.realpath(os.path.join(root, common)))
                  if common else os.path.realpath(root))
-    env_org = os.environ.get("NAPKIN_COMITATUS", "").strip()
-    if env_org and os.path.isdir(env_org):
-        return os.path.realpath(env_org), main_repo
     parent = os.path.dirname(main_repo)
     org = os.path.dirname(parent)
     if os.path.basename(parent) == "08_Code_Bases" and os.path.isdir(org):
+        env_org = os.environ.get("NAPKIN_COMITATUS", "").strip()
+        if env_org and os.path.isdir(env_org):
+            return os.path.realpath(env_org), main_repo
         return org, main_repo
     return None, main_repo
 
