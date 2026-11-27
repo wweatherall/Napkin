@@ -65,8 +65,7 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H175 | Gemini | **Done**: for review (gemini) | The merge tools: six things the integrator did by hand on 2026-11-27, made automatic | [H175](docs/handoff/H175-merge-tool-fixes.md) |  |
-| H177 | Gemini | In progress (gemini since 10:21) | main.gd step 1: history replies and live preferences move to their own files, behaviour unchanged | [H177](docs/handoff/H177-split-main-gd.md) |  |
+| H177 | Gemini | Waiting on the integrator (scope) (gemini): H177: docs/protocol.md has 4 symbol references (viewport/main.gd:_on_open, _on_synced, _on_boards_read) that moved to viewport/history.gd (flagged by protocol_map.py --check), and ARCHITECTURE.md was updated by architecture_map.py for the two new files. May I update those 4 links in docs/protocol.md and commit ARCHITECTURE.md? | main.gd step 1: history replies and live preferences move to their own files, behaviour unchanged | [H177](docs/handoff/H177-split-main-gd.md) |  |
 | H179 | Gemini | **Done**: for review (gemini) | Two proposals for William: push_pull's jobs as separate ops (T159), and how a fit names its face (T161) | [H179](docs/handoff/H179-op-design-proposals.md) |  |
 
 <!-- end of job table -->

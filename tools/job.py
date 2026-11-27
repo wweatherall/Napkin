@@ -49,6 +49,8 @@ Integrator:
   python3 tools/job.py reassign <id> --to claude|codex|gemini ["<notes>"]
                                 hand a returned, in-progress or waiting job to another agent (moves its worktree
                                 into ../.worktrees/<checkout>/ if needed and drops it from the old session's count)
+  python3 tools/job.py merged <id>
+                                mark a job merged in the queue (for any merge finished outside integrate.py)
 tools/integrate.py marks a merged job merged and deletes its worktree and branch.
 
 The live state (claims, beats, done) is a JSON file beside the integrator lock in git's common folder
@@ -1064,6 +1066,26 @@ def merged(root, branch, now=None, out=print):
     return k
 
 
+def merged_job(cwd, jid, now=None, out=print):
+    """Mark job jid merged in the queue (and clean up its worktree/branch if present), for merges finished outside integrate.py."""
+    root = main_root(cwd)
+    now = now or time.time()
+    path = state_path(root)
+    with locked(path) as st:
+        j = st["jobs"].get(jid)
+        if not j:
+            out(f"no such job {jid} in the queue")
+            return False
+        branch = j.get("branch")
+        if not branch:
+            j.update(state="merged", merged=now)
+            event(st, "merged", jid, "", now)
+            out(f"marked {jid} merged")
+            return True
+    merged(root, branch, now=now, out=out)
+    return True
+
+
 # ---- what the integrator sees ----
 
 def live_label(job, act, now):
@@ -1303,6 +1325,8 @@ def main(argv):
         return 0
     if cmd == "return" and len(argv) >= 3:
         return 0 if return_job(cwd, argv[1].upper(), argv[2]) else 1
+    if cmd == "merged" and len(argv) >= 2:
+        return 0 if merged_job(cwd, argv[1].upper()) else 1
     if cmd == "reassign":
         to = (opt("--to") or "").lower()
         pos, i = [], 1

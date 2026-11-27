@@ -1494,5 +1494,29 @@ for w in [l.split()[1] for l in sh(ps_root, "git", "worktree", "list", "--porcel
     sh(ps_root, "git", "worktree", "remove", "--force", w)
 shutil.rmtree(ps_base)
 
+# H175: job.py merged <ID> marks a job merged in the queue (for hand-committed merges)
+m_base, m_root = repo()
+m_jid, m_take_out = run(job.take, m_root, "gemini", "s-merged")
+m_wt = job.worktree_for(m_root, m_jid)
+sh(m_wt, "git", "config", "user.email", "t@example.invalid")
+sh(m_wt, "git", "config", "user.name", "T")
+m_hp = next(os.path.join(m_wt, "docs", "handoff", n) for n in os.listdir(os.path.join(m_wt, "docs", "handoff"))
+            if n.startswith(f"{m_jid}-"))
+m_br = state(m_root)["jobs"][m_jid]["branch"]
+open(m_hp, "w").write(open(m_hp).read().replace("Status: open", "Status: answered") + "\nResponse: done.\n")
+sh(m_wt, "git", "add", "-A"); sh(m_wt, "git", "commit", "-qm", f"{m_jid} answered")
+job.QUICKTEST = ["true"]
+run(job.done, m_wt)
+sh(m_root, "git", "merge", "--no-ff", "-m", f"hand merge {m_jid}", m_br)
+ok_m, out_m = run(job.merged_job, m_root, m_jid)
+ok_missing, out_missing = run(job.merged_job, m_root, "H999")
+check("job.py merged <ID> marks a done job merged, removes worktree/branch, and rejects unknown IDs",
+      ok_m and state(m_root)["jobs"][m_jid]["state"] == "merged"
+      and not os.path.isdir(m_wt)
+      and m_br not in sh(m_root, "git", "branch").stdout
+      and not ok_missing and "no such job H999" in out_missing,
+      (ok_m, state(m_root)["jobs"][m_jid], out_m, ok_missing, out_missing))
+shutil.rmtree(m_base)
+
 print(f"JOB TESTS: {sum(RESULTS)} passed, {len(RESULTS) - sum(RESULTS)} failed")
 sys.exit(0 if all(RESULTS) else 1)

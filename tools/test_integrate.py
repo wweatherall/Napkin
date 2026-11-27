@@ -416,7 +416,7 @@ with trace_steps() as (calls, _):
 check("a failed gate stops before the map pause and every finishing step",
       rc == 1 and calls == MERGE_ORDER[:-1] and "GATE FAIL" in said
       and sh(root, "git", "rev-parse", "HEAD").stdout == head0
-      and not os.path.exists(integrate.state_file(root)), said + str(calls))
+      and os.path.exists(integrate.state_file(root)), said + str(calls))
 shutil.rmtree(root)
 
 # 8. Live gate progress streaming (H088): progress lines arrive before the gate ends; non-progress lines are held
@@ -506,7 +506,7 @@ check("a failing gate streams progress live without leaking non-progress lines f
       (rc, alive, before_release, lines))
 check("a failing gate says the verdict, prints the last 2000 chars of output, and leaves the merge uncommitted",
       verdict_idx >= 0 and "noise before fail" in tail_text and "stderr-detail-line" in tail_text
-      and "early-marker-trimmed" not in tail_text and lines[-1] == "integrate: the merge is left uncommitted"
+      and "early-marker-trimmed" not in tail_text and lines[-1].startswith("integrate: the merge is left uncommitted")
       and sh(root, "git", "rev-parse", "HEAD").stdout == head0, (verdict_idx, lines[-10:]))
 shutil.rmtree(root)
 
@@ -548,8 +548,8 @@ check("result step prints the commit's oneline after the summary lines, with no 
       and "{+" not in said and old_history not in said, said)
 log_now = open(os.path.join(root, "03_Past_Decisions/decision-log.md")).read()
 check("the result commit itself still writes the full uncut Result text to the Work list row",
-      f"Result (1111aaa, merged {merge_sha}): {long_text}." in log_now
-      and f"Result (2222bbb, merged {merge_sha}): {short_text}." in log_now, log_now)
+      f"Result (1111aaa, merged {merge_sha}, step merged (H081)): {long_text}." in log_now
+      and f"Result (2222bbb, merged {merge_sha}, step merged (H082)): {short_text}." in log_now, log_now)
 shutil.rmtree(root)
 
 # 10. Changed from the brief (P44): scoped to the response (outside code blocks), stops staged before commit
@@ -987,7 +987,9 @@ t2_final = open(os.path.join(c_wdir, "T2.md"), encoding="utf-8").read()
 t3_final = open(os.path.join(c_wdir, "T3.md"), encoding="utf-8").read()
 check("a merged job without it leaves the item On the board while another job remains, else Open with the Result",
       rc_c2 == 0 and "Status: On the board (H092)" in t2_final and "Result (2222bbb" in t2_final
-      and "Status: Open" in t3_final and "Result (3333ccc" in t3_final,
+      and "step merged (H091)" in t2_final
+      and "Status: Open" in t3_final and "Result (3333ccc" in t3_final
+      and "step merged (H093)" in t3_final,
       (t2_final, t3_final))
 shutil.rmtree(c_root)
 
@@ -1070,6 +1072,142 @@ check("merging pre-move branch moves P-new-1 and P16 edit to comitatus only, kee
       and "New process rule." in p17_after,
       (rc_m, os.listdir(m_proj_rdir), os.listdir(m_org_rdir)))
 shutil.rmtree(m_org)
+
+# H175 item 1: settle_handoff three-way on hand-written text, rebuilt generated lists, conflict stops when both change
+h_root = repo()
+write(h_root, "docs/agent-handoff.md",
+      f"# Agent handoff\n\n## How to\n\nOriginal rule.\n\n## Open exchanges\n\n{integrate.handoff.START}\n\n(none open)\n\n{integrate.handoff.END}\n\n"
+      "## Archived\n\nFull entries in [handoff-archive.md](handoff-archive.md).\n\nOlder: docs/handoff-archive.md (0 entries; find one with grep \"^### H0NN\" docs/handoff-archive.md)\n")
+write(h_root, "docs/handoff-archive.md", "# Archive\n")
+write(h_root, "docs/handoff/H010-one.md", "### H010 — One\n\nAuthor: Gemini | Date: 2026-11-27 | Status: open | For: gemini\n")
+sh(h_root, "git", "add", "-A"); sh(h_root, "git", "commit", "-qm", "handoff base")
+
+sh(h_root, "git", "checkout", "-qb", "agent/handoff-rewrite")
+write(h_root, "docs/agent-handoff.md",
+      f"# Agent handoff\n\n## How to\n\nUpdated rule on branch.\n\n## Open exchanges\n\n{integrate.handoff.START}\n\n- old\n\n{integrate.handoff.END}\n\n"
+      "## Archived\n\nFull entries in [handoff-archive.md](handoff-archive.md).\n")
+write(h_root, "docs/handoff/H010-one.md",
+      "### H010 — One\n\nAuthor: Gemini | Date: 2026-11-27 | Status: answered | For: gemini\n\nResult: aaa1111; tests 1/1; ok\n")
+sh(h_root, "git", "add", "-A"); sh(h_root, "git", "commit", "-qm", "branch rewrites how-to")
+
+sh(h_root, "git", "checkout", "-q", "main")
+write(h_root, "docs/handoff/H011-two.md", "### H011 — Two\n\nAuthor: Gemini | Date: 2026-11-27 | Status: open | For: gemini\n")
+integrate.handoff.tidy(h_root)
+sh(h_root, "git", "add", "-A"); sh(h_root, "git", "commit", "-qm", "main adds H011")
+integrate.integrator.take(integrate.integrator.lock_path(h_root), "tester")
+cwd = os.getcwd(); os.chdir(h_root)
+try:
+    with contextlib.redirect_stdout(io.StringIO()):
+        rc_h1 = integrate.main(["agent/handoff-rewrite", "--as", "tester", "--no-gate"])
+finally:
+    os.chdir(cwd)
+h_after = open(os.path.join(h_root, "docs/agent-handoff.md"), encoding="utf-8").read()
+check("settle_handoff takes branch's hand-written text when main only changed generated lists, and tidies lists",
+      rc_h1 == 0 and "Updated rule on branch." in h_after and "H011" in h_after and "H010 — One. Resolved:" in h_after,
+      (rc_h1, h_after))
+
+sh(h_root, "git", "checkout", "-qb", "agent/handoff-clash")
+write(h_root, "docs/agent-handoff.md", h_after.replace("Updated rule on branch.", "Branch clash edit."))
+sh(h_root, "git", "add", "-A"); sh(h_root, "git", "commit", "-qm", "branch clash")
+sh(h_root, "git", "checkout", "-q", "main")
+write(h_root, "docs/agent-handoff.md", h_after.replace("Updated rule on branch.", "Main clash edit."))
+sh(h_root, "git", "add", "-A"); sh(h_root, "git", "commit", "-qm", "main clash")
+cwd = os.getcwd(); os.chdir(h_root)
+buf_hc = io.StringIO()
+try:
+    with contextlib.redirect_stdout(buf_hc):
+        rc_hc = integrate.main(["agent/handoff-clash", "--as", "tester", "--no-gate"])
+finally:
+    os.chdir(cwd)
+check("settle_handoff stops with a conflict when both main and branch changed hand-written text",
+      rc_hc == 1 and "both changed" in buf_hc.getvalue(), (rc_hc, buf_hc.getvalue()))
+sh(h_root, "git", "merge", "--abort")
+shutil.rmtree(h_root)
+
+# H175 item 3: --continue --regate after gate failure (fails if gate still fails, finishes on pass, removes state file)
+g_root = repo()
+write(g_root, "tools/gate.sh", "#!/bin/sh\ntest -f ok.txt\n")
+os.chmod(os.path.join(g_root, "tools/gate.sh"), 0o755)
+write(g_root, "ok.txt", "ok\n")
+write(g_root, "docs/handoff/H050-gate.md", "### H050 — T1: gate test\n\nAuthor: Gemini | Date: 2026-11-27 | Status: open | For: gemini\n")
+write(g_root, "03_Past_Decisions/decision-log.md", "# Log\n\n## Work list\n\n| # | Item | Status |\n|---|---|---|\n| T1 | Gate. | On the board (H050) |\n")
+write(g_root, "03_Past_Decisions/decision-archive.md", "# Archive\n\n## Done work\n\n| # | Item | Status |\n|---|---|---|\n")
+sh(g_root, "git", "add", "-A"); sh(g_root, "git", "commit", "-qm", "gate base")
+
+sh(g_root, "git", "checkout", "-qb", "agent/gate-fail")
+os.remove(os.path.join(g_root, "ok.txt"))
+write(g_root, "docs/handoff/H050-gate.md",
+      "### H050 — T1: gate test\n\nAuthor: Gemini | Date: 2026-11-27 | Status: answered | For: gemini\n\n"
+      "Completes: T1\n\nResult: bbb2222; tests 1/1; fixed\n")
+sh(g_root, "git", "add", "-A"); sh(g_root, "git", "commit", "-qm", "breaks gate")
+sh(g_root, "git", "checkout", "-q", "main")
+integrate.integrator.take(integrate.integrator.lock_path(g_root), "tester")
+cwd = os.getcwd(); os.chdir(g_root)
+try:
+    with contextlib.redirect_stdout(io.StringIO()):
+        rc_gf = integrate.main(["agent/gate-fail", "--as", "tester"])
+    sf = integrate.state_file(g_root)
+    has_state_after_fail = os.path.isfile(sf)
+    with contextlib.redirect_stdout(io.StringIO()) as b_noreg:
+        rc_noreg = integrate.main(["--continue", "--as", "tester"])
+    with contextlib.redirect_stdout(io.StringIO()) as b_stillfail:
+        rc_stillfail = integrate.main(["--continue", "--regate", "--as", "tester"])
+    still_paused = os.path.isfile(sf) and sh(g_root, "git", "rev-parse", "-q", "--verify", "MERGE_HEAD").returncode == 0
+    write(g_root, "ok.txt", "fixed\n")
+    with contextlib.redirect_stdout(io.StringIO()) as b_pass:
+        rc_pass = integrate.main(["--continue", "--regate", "--as", "tester"])
+finally:
+    os.chdir(cwd)
+check("gate failure saves state; --continue without --regate or with still-failing gate refuses; --continue --regate finishes on pass and removes state",
+      rc_gf == 1 and has_state_after_fail
+      and rc_noreg == 1 and "--regate" in b_noreg.getvalue()
+      and rc_stillfail == 1 and still_paused
+      and rc_pass == 0 and not os.path.isfile(integrate.state_file(g_root))
+      and "| T1 | Gate. | Done |" in open(os.path.join(g_root, "03_Past_Decisions/decision-archive.md"), encoding="utf-8").read(),
+      (rc_gf, has_state_after_fail, rc_noreg, rc_stillfail, still_paused, rc_pass, b_pass.getvalue()))
+shutil.rmtree(g_root)
+
+# H175 item 2: merged log is tidied with both rulings folders before the gate runs
+l_org = os.path.realpath(tempfile.mkdtemp(prefix="log-tidy-gate-"))
+l_proj = os.path.join(l_org, "08_Code_Bases", "Proj")
+l_org_r = os.path.join(l_org, "03_Past_Decisions", "rulings")
+l_proj_r = os.path.join(l_proj, "03_Past_Decisions", "rulings")
+os.makedirs(l_org_r); os.makedirs(l_proj_r)
+sh(l_org, "git", "init", "-q", "-b", "main")
+sh(l_org, "git", "config", "user.email", "t@example.invalid"); sh(l_org, "git", "config", "user.name", "T")
+open(os.path.join(l_org_r, "P01.md"), "w").write("# P01 — Org.\n\nStatus: Active | Subject: Process | Principles: — | Date: 2026-11-22\n\nOrg.\n")
+sh(l_org, "git", "add", "-A"); sh(l_org, "git", "commit", "-qm", "org")
+sh(l_proj, "git", "init", "-q", "-b", "main")
+sh(l_proj, "git", "config", "user.email", "t@example.invalid"); sh(l_proj, "git", "config", "user.name", "T")
+write(l_proj, "03_Past_Decisions/decision-log.md",
+      "# Log\n\n## Subjects\n\n| Subject | Purpose |\n|---|---|\n| Process | Process. |\n\n"
+      "## Decisions\n\n### Process\n\n| ID | Decision | Status | Date | Summary |\n|---|---|---|---|---|\n"
+      "| P01 | Org. | Active | 2026-11-22 | Org. |\n\n## Work list\n\n| # | Item | Status |\n|---|---|---|\n")
+write(l_proj, "03_Past_Decisions/decision-archive.md", "# Archive\n\n## Superseded decisions\n\n| ID | Decision | Status | Date | Summary |\n|---|---|---|---|---|\n\n## Done work\n\n| # | Item | Status |\n|---|---|---|\n")
+write(l_proj, "docs/handoff-archive.md", "# Archive\n")
+write(l_proj, "docs/agent-handoff.md", f"# Handoff\n\n{integrate.handoff.START}\n\n{integrate.handoff.END}\n")
+write(l_proj, "tools/gate.sh", "#!/bin/sh\ngrep -q '| P02 |' 03_Past_Decisions/decision-log.md && grep -q '| P01 |' 03_Past_Decisions/decision-log.md\n")
+os.chmod(os.path.join(l_proj, "tools/gate.sh"), 0o755)
+sh(l_proj, "git", "add", "-A"); sh(l_proj, "git", "commit", "-qm", "base")
+sh(l_proj, "git", "checkout", "-qb", "agent/new-p")
+write(l_proj, "03_Past_Decisions/rulings/P-new-1.md", "# P-new-1 — New.\n\nStatus: Active | Subject: Process | Principles: — | Date: 2026-11-27\n\nNew.\n")
+write(l_proj, "docs/handoff/H060-p.md", "### H060 — P\n\nAuthor: Gemini | Date: 2026-11-27 | Status: answered | For: gemini\n\nResult: ccc3333; tests 1/1; ok\n")
+sh(l_proj, "git", "add", "-A"); sh(l_proj, "git", "commit", "-qm", "new process ruling")
+sh(l_proj, "git", "checkout", "-q", "main")
+integrate.integrator.take(integrate.integrator.lock_path(l_proj), "tester")
+old_env_l = os.environ.get("NAPKIN_COMITATUS")
+os.environ.pop("NAPKIN_COMITATUS", None)
+cwd = os.getcwd(); os.chdir(l_proj)
+buf_lt = io.StringIO()
+try:
+    with contextlib.redirect_stdout(buf_lt):
+        rc_lt = integrate.main(["agent/new-p", "--as", "tester"])
+finally:
+    os.chdir(cwd)
+    if old_env_l is not None:
+        os.environ["NAPKIN_COMITATUS"] = old_env_l
+check("merged log is tidied with both rulings folders before gate.sh runs", rc_lt == 0, (rc_lt, buf_lt.getvalue()))
+shutil.rmtree(l_org)
 
 print(f"INTEGRATE TESTS: {sum(RESULTS)} passed, {len(RESULTS) - sum(RESULTS)} failed")
 raise SystemExit(0 if all(RESULTS) else 1)   # a failed check fails the run, not only its summary
