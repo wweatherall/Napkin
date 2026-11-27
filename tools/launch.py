@@ -40,6 +40,11 @@ def session_name(agent, now=None):
     return f"{agent}-{random.choice(WORDS)}-{now:%m%d-%H%M}"
 
 
+def space_of(agent):
+    """The worker's personal space (T134): comitatus/04_Personal_Space/<agent>-coder."""
+    return f"{agent}-coder"
+
+
 def take_command(agent, name):
     """No --session: job.py names a Gemini session from ANTIGRAVITY_CONVERSATION_ID itself (GEMINI.md)."""
     return f"python3 tools/job.py take --as {agent}"
@@ -51,7 +56,10 @@ def prompt(agent, name, brief):
     return (f"You are a {agent.capitalize()} worker in Napkin (session {name}). Your start-up brief is below: "
             f"tools/startup.py --role worker has already been run for you, so don't run it again.\n\n{brief.strip()}\n\n"
             f"Now check the board: run `{take_command(agent, name)}` (outside the sandbox) and follow BOARD.md and "
-            f"{guide} for that one job (P37).\n")
+            f"{guide} for that one job (P37).\n\nYour personal space is {space_of(agent)}: log what you do with "
+            f"`python3 tools/personal_space.py log {space_of(agent)} \"<line>\"`, and keep a journal of your own (what you "
+            f"noticed, liked, found hard, want to try) with `python3 tools/personal_space.py journal {space_of(agent)} "
+            f"\"<line>\"`; the next {agent.capitalize()} worker sees the last ten lines of each.\n")
 
 
 def agent_command(agent, root, prompt_file, name, model=None):
@@ -96,8 +104,8 @@ def main(argv=None):
     o = parse(sys.argv[1:] if argv is None else argv)
     root = main_root()
     name = o["name"] or session_name(o["agent"])
-    r = subprocess.run([sys.executable, os.path.join(root, "tools", "startup.py"), "--role", "worker"], cwd=root,
-                       capture_output=True, text=True)
+    r = subprocess.run([sys.executable, os.path.join(root, "tools", "startup.py"), "--role", "worker", "--space",
+                        space_of(o["agent"])], cwd=root, capture_output=True, text=True)
     if r.returncode != 0:
         print(r.stdout + r.stderr)
         return 1

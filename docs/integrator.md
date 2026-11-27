@@ -40,8 +40,11 @@ Architecture: lines, the response) and CLAUDE.md (commit trailers); this page sa
   (models: `gemini-4-hydrogen-medium` for standard jobs, `gemini-4-neon-medium` when asked for Neon; `agy models` lists all).
 - Spinning up a Claude worker window (only when William asks; tell him; outside sandbox): run
   `osascript -e 'tell application "Terminal" to do script "cd /Users/Will/Sites/comitatus/08_Code_Bases/Napkin && claude --model sonnet --effort medium --add-dir /Users/Will/Sites/comitatus/08_Code_Bases/.worktrees/Napkin --remote-control H0NN-worker \"You are a worker. Check the board.\""'`
-- Rolling integrator journal (no pre-/clear shutdown commit needed): jot one-line state updates with
-  `python3 tools/integrator.py note "<line>"` (stored untracked in `.git/shopsketch-integrator-journal.log`, capped to the last 20 lines and printed inline by `startup.py --role integrator`).
+- Your Log and Journal (T134): `python3 tools/integrator.py note "<line>"` (or `personal_space.py log opus-integrator`)
+  adds a dated line to your Log, `comitatus/04_Personal_Space/opus-integrator/Log.md` (what you did; `job.py` and
+  `integrate.py` add their own lines); `python3 tools/personal_space.py journal opus-integrator "<line>"` adds to
+  your Journal (yours: what you noticed, liked, found hard). `startup.py --role integrator` prints the last ten lines
+  of each, so no pre-/clear shutdown commit is needed.
 - Passive job usage (T117, T126): `job.py` (`take`, `done`, `return`) and `integrate.py` (`merge`) call
   `tools/usage.py` fail-open, appending snapshots to untracked `.git/shopsketch-usage.jsonl`. Inspect (outside
   sandbox / `BypassSandbox: true` so `~/.gemini/antigravity-cli/brain` and `~/.claude/projects` are readable) with

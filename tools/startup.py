@@ -5,6 +5,8 @@
   python3 tools/startup.py --role integrator   full report plus open integrator notes and checklist
   python3 tools/startup.py --role worker       lean worker report (checkout, recent main, board, queue, checklist)
   python3 tools/startup.py [--role R] T54 ...  also each Work list row asked for, with the rows its Covers column cites
+  python3 tools/startup.py --space <name> ...  also the last ten lines of that member's Log and Journal (T134;
+                                               the integrator's, opus-integrator, are shown without it)
 
 Read-only. Works from any worktree: the board and the decision log are read from main (`git show main:<path>`),
 since a worktree's copy can be stale."""
@@ -514,7 +516,7 @@ def role_brief(role):
         return [
             "Worker checklist (BOARD.md):",
             "  Guide: follow BOARD.md (and AGENTS.md / GEMINI.md for your agent); one job per session (P37).",
-            "  Take: python3 tools/job.py take --as <claude|codex|gemini> (Gemini also passes --session <name>).",
+            "  Take: python3 tools/job.py take --as <claude|codex|gemini> (Gemini without --session: job.py reads its conversation id, GEMINI.md).",
             "  Scope: work only in ../.worktrees/<checkout>/<id> (P63) and only on Touches; ask scope via job.py wait --scope.",
             "  Done: run tools/quicktest.sh, record response + Result:, set Status: answered, run python3 tools/job.py done, tell William.",
         ]
@@ -543,7 +545,34 @@ def collect_live_jobs(root):
         return []
 
 
+INTEGRATOR_SPACE = "opus-integrator"   # the integrator's personal space (T134), comitatus/04_Personal_Space/<name>
+
+
+def split_space(argv):
+    """[--space <name> | --space=<name>] -> (name or None, the other arguments)."""
+    space, rest, i = None, [], 0
+    while i < len(argv):
+        if argv[i] == "--space" and i + 1 < len(argv):
+            space, i = argv[i + 1], i + 2
+        elif argv[i].startswith("--space="):
+            space, i = argv[i].split("=", 1)[1], i + 1
+        else:
+            rest.append(argv[i]); i += 1
+    return space, rest
+
+
+def space_lines(root, space):
+    """The last ten lines of the member's Log and Journal (T134), or the old journal file when there's no space."""
+    try:
+        import personal_space
+        lines = personal_space.brief_lines(space, 10, personal_space.main_root(root))
+    except Exception:
+        lines = []
+    return lines
+
+
 def main(argv):
+    space, argv = split_space(argv)
     role, ids, err = parse_args(argv)
     if err:
         print(err)
@@ -630,7 +659,10 @@ def main(argv):
         inotes = integrator_notes(texts)
         state_note_ids = [h.split()[0] for h, p in inotes if is_state_note(os.path.basename(p), texts.get(os.path.basename(p), ""))]
         if role == "integrator":
-            jlines = journal_lines(root)
+            slines = space_lines(root, space or INTEGRATOR_SPACE)
+            jlines = [] if slines else journal_lines(root)
+            for sl in slines:
+                print(sl)
             if jlines:
                 print("Integrator journal (last 20 lines):")
                 for jl in jlines:
@@ -666,6 +698,8 @@ def main(argv):
             if touches:
                 print(f"  {touches}")
         print("\n".join(role_brief("worker")))
+        if space:
+            print("\n".join(space_lines(root, space)))
 
     if ids:
         archive = git("show", "main:03_Past_Decisions/decision-archive.md", cwd=root)

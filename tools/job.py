@@ -89,7 +89,7 @@ def record_journal(root, line):
     """Fail-open: append a one-line breadcrumb to the rolling 20-line integrator journal."""
     try:
         import integrator
-        integrator.note(integrator.journal_path(root), line, out=lambda *_: None)
+        integrator.log_note(line, root=root, out=lambda *_: None)
     except Exception:
         pass
 
