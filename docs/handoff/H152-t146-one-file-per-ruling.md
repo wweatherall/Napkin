@@ -2,7 +2,7 @@
 
 Author: Claude (integrator, napkin-77) | Date: 2026-11-26 | Status: open | For: either
 
-References: T146, P61 (move first, split later), P23 (live and archive halves), P09, P01, T92 (log.py), T74 (placeholder
+References: T146, P65 (H153 does Q and T next), P61 (move first, split later), P23 (live and archive halves), P09, P01, T92 (log.py), T74 (placeholder
 IDs), P57/P60/P64 (the comitatus layout), T138/T134 (smaller briefs: the reason for this).
 
 Touches: tools/log.py, tools/sort_decision_log.py, tools/number_ids.py, tools/startup.py (`report_ids`, `tentative_principles`, the log-top printing), tools/integrate.py (`settle_log`, `LOG`, `ARCHIVE`), .githooks/pre-commit (the decision-log block), 03_Past_Decisions/, tools/atomize_log.py (new), tools/test_log.py, tools/test_sort_decision_log.py, tools/test_number_ids.py, tools/test_startup.py, tools/test_integrate.py, tools/test_log_archive.py, tools/test_bookkeeping.py, tools/test_follow_ups.py, tools/test_job.py, CLAUDE.md (the decision-log paragraph), docs/integrator.md (lines naming the log's tables), docs/agent-handoff.md (its References line only).
@@ -26,9 +26,10 @@ rulings still sends an agent to grep two large files, and two branches that add 
 (`settle_log` exists for that).
 
 Request: every **ruling** (a principle, G, and every decision: A, D, I, M, P, U, W and any other decision letter,
-Active, Tentative or Superseded) becomes one file, `03_Past_Decisions/rulings/<ID>.md`. Questions (Q), Work list
-items (T) and Tunables stay as tables in the two files they are in now: they are working lists, not rulings (T146 is
-about rulings; a later step can take them on).
+Active, Tentative or Superseded) becomes one file, `03_Past_Decisions/rulings/<ID>.md`. Questions (Q) and Work list
+items (T) stay as tables in this job: H153, queued after this one, gives them files the same way (P65); Tunables
+stay a table for good. Build the file reading, writing, indexing and numbering so H153 can reuse it for a second
+and third folder (`work/`, `questions/`) without copying it.
 
 1. **The file (the format; keep it exactly so, other tools will read it):**
 
@@ -83,7 +84,7 @@ about rulings; a later step can take them on).
    docs/integrator.md: only lines that name the tables' layout.
 
 Not in this job: moving the Process rulings and the G principles to comitatus/03_Past_Decisions (T146 step 2, on the
-Work list), Q/T/Tunables files, and any change to what a ruling says.
+Work list), Q and T files (H153), and any change to what a ruling says.
 
 What can fail (P42: this rewrites the project's memory, so nothing may be lost):
 - A cell lost or changed in conversion: every ruling's every cell and its Details must come through word for word
