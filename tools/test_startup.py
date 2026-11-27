@@ -223,12 +223,13 @@ r = subprocess.run([sys.executable, os.path.join(HERE, "startup.py"), "--role", 
 check("smoke: --role worker prints a lean worker brief with live queue and still resolves IDs",
       r.returncode == 0 and "Ready on the board" in r.stdout and "Worker checklist (BOARD.md):" in r.stdout
       and "Job queue (tools/job.py status):" in r.stdout and "Job queue: not read" not in r.stdout
-      and "| T1 |" in r.stdout and "Follow-ups (docs/follow-ups.md" not in r.stdout
+      and "== T1" in r.stdout and "Follow-ups (docs/follow-ups.md" not in r.stdout
       and "Waiting on William" not in r.stdout)
 r = subprocess.run([sys.executable, os.path.join(HERE, "startup.py"), "--role", "wizard"], capture_output=True, text=True, timeout=120)
 check("smoke: an unknown --role exits 1", r.returncode == 1 and "unknown role" in r.stdout)
 r = subprocess.run([sys.executable, os.path.join(HERE, "startup.py"), "T1"], capture_output=True, text=True, timeout=120)
-check("smoke: asking for T1 prints its row", r.returncode == 0 and "| T1 |" in r.stdout)
+check("smoke: asking for T1 prints its item (from its file since H153)", r.returncode == 0 and "== T1" in r.stdout
+      and "Mirror fix" in r.stdout)
 r = subprocess.run([sys.executable, os.path.join(HERE, "startup.py"), "T99999"], capture_output=True, text=True, timeout=120)
 check("smoke: an unknown ID exits 1", r.returncode == 1 and "T99999: not found" in r.stdout)
 
