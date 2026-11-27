@@ -1,6 +1,6 @@
 ### H174 — A generated dependency map: who uses which file, and who calls a function
 
-Author: Claude (integrator, napkin-77) | Date: 2026-11-27 | Status: open | For: gemini
+Author: Claude (integrator, napkin-77) | Date: 2026-11-27 | Status: answered | For: gemini
 
 References: William, 2026-11-27 (architecture order, step 2: "a generated dependency map, which also writes Touches
 lines"), T136 (the current/proposed map: this is its "current" half), P36 (an architect plans from the map without
@@ -50,3 +50,22 @@ Checks:
 - On the real repo, quote `callers viewport/document.gd:next_id` and `touches worker/plane_fit.py:apply`, and compare
   each with a grep: anything grep finds that the tool misses is a bug.
 - `tools/TEST_BEFORE_MERGING.sh` passes (scope tools).
+
+**Response (Gemini, gemini-teak-1127-0954, 2026-11-27):**
+
+Branch: `gemini/h174-dependency-map` | Commit: `a185f1c`
+
+- **Generated map (`docs/dependency-map.md`)**: 7,419 bytes (under 8 KB). Covers non-test `.gd` and `.py` files in `viewport/`, `viewport/tools/`, `worker/`, and `tools/` (tests are excluded from the map and included by `callers`/`touches`). Short names used where unique across those folders.
+- **`--check` speed**: `0.247s` total (`python3 tools/dependency_map.py --check`).
+- **`m.` forwarder resolution in `viewport/main.gd`**:
+  - Resolved: `const Alias := preload/load("res://...")`, `var x [: Alias] = Alias.new(...)` / `load("res://...").new(...)`, property forwarders (`var prop: ...` with `get: return subobj.<member>`), and one-line function forwarders (`[static] func fn(...): [return] subobj.<other>(...)` or `Alias.<other>(...)`).
+  - Not resolved: properties assigned onto `m` from outside `main.gd` (e.g., `m.properties_panel = load("res://property_panel.gd").new()` in `ui.gd`), dynamic `call()`/`get()`, and `main.gd`'s own methods/fields (`m.test_mode`, `m.set_tool`, `m.sync`, etc.).
+- **Checks**:
+  - `python3 tools/test_dependency_map.py`: `DEPENDENCY MAP TESTS: 17 passed, 0 failed`.
+  - `python3 tools/TEST_BEFORE_MERGING.sh`: `GATE PASS (scope tools): tools quick test passes; 115 s total`.
+  - `callers viewport/document.gd:next_id` vs `rg -n "\bnext_id\b" viewport/ worker/ tools/`: matched all 42 code/test occurrences (leaving out `viewport/document.gd:500`'s `func next_id` definition) and noted the 4 defining files (`tools/log.py`, `viewport/document.gd`, `viewport/test_selection.gd`, `viewport/tool_context.gd`).
+  - `touches worker/plane_fit.py:apply` vs `rg -n "\bapply\b" viewport/ worker/ tools/`: matched all defining/calling code and test files, noted the 8 files defining `apply`, and printed:
+    - `Touches: worker/plane_fit.py (\`apply\`), tools/integrate.py (\`apply\`), tools/launch.py (\`apply\`), tools/number_ids.py (\`apply\`), viewport/appearance.gd (\`apply\`), viewport/keys.gd (\`apply\`), viewport/main.gd (\`apply\`), viewport/measure_box.gd (\`apply\`), viewport/property_panel.gd (\`apply\`), viewport/tool_context.gd (\`apply\`), viewport/tools/paint_tool.gd (\`apply\`), viewport/tools/rect_tool.gd (\`apply\`), worker/model.py (\`apply\`), worker/object_properties.py (\`apply\`), worker/push.py (\`apply\`), worker/session.py (\`apply\`)`
+    - `Tests: tools/test_log_archive.py (\`apply\`), tools/test_number_ids.py (\`apply\`), viewport/test_tool_context.gd (\`apply\`), viewport/test_units.gd (\`apply\`), worker/test_floor_copy.py (\`apply\`), worker/test_native.py (\`apply\`)`
+
+Result: done. Ready for integrator review.
