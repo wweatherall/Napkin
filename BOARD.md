@@ -69,6 +69,7 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 | H175 | Gemini | Waiting on the integrator (scope) (gemini): H175 item 7: board_statuses in tools/sort_decision_log.py (line 1102) marks an On-the-board item Done when its last linked job merges, even without Completes:. Can I update tools/sort_decision_log.py (and tools/test_sort_decision_log.py) so it returns to Open instead? | The merge tools: six things the integrator did by hand on 2026-11-27, made automatic | [H175](docs/handoff/H175-merge-tool-fixes.md) |  |
 | H176 | Gemini | In progress (gemini since 09:56) | The two old protocol findings: drop the unused `replay` command, and one place for a session's name | [H176](docs/handoff/H176-protocol-findings.md) |  |
 | H177 | Gemini | Queued | main.gd step 1: history replies and live preferences move to their own files, behaviour unchanged | [H177](docs/handoff/H177-split-main-gd.md) | H176 |
+| H178 | Gemini | **Ready** | The full test fails on an op field that's sent but never read (a misspelt field can't run as its default) | [H178](docs/handoff/H178-unread-op-fields.md) |  |
 
 <!-- end of job table -->
 

@@ -375,7 +375,7 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | T157 | Replay's reply says cmd sync (protocol finding 6): a consumer matching a reply's cmd to... | On the board (H176) |
 | T158 | The window sends the op list's name nested (oplog.name) but the worker's run_sync reads... | On the board (H176) |
 | T159 | Clarify push_pull and separate its jobs: one op today extrudes a profile or face, cuts,... | Open |
-| T160 | Check every field the window sends in an op is one the worker reads (today unknown fiel... | Open |
+| T160 | Check every field the window sends in an op is one the worker reads (today unknown fiel... | On the board (H178) |
 | T161 | Think through plane-fit face numbering: faces are 0-5 (Left..Top) on plain stock but 't... | Open |
 
 ## Tunables
