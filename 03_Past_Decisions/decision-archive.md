@@ -34,6 +34,15 @@ Kept for history (P01: never deleted). Each names the decision that replaced it.
 | I47 | Copying a whole assembly (from outside it) makes a new assembly holding linked copies o... | Superseded |
 | I72 | A click that starts a Polygon gesture clears side-count digits typed before it and not ... | Superseded |
 | P05 | Interaction principles: immediate and predictable. | Superseded |
+| P08 | Small fixes (nothing you'd notice, no protocol / format / boundary / saving change, ~30... | Superseded |
+| P11 | Agents work in parallel by files, not topics: each job lists the files it expects to to... | Superseded |
+| P12 | One Claude session is the integrator: it keeps the Work list, hands out jobs to other C... | Superseded |
+| P13 | One Claude session is the integrator: it keeps the Work list, hands out jobs to other C... | Superseded |
+| P27 | A worker session does at most 3 jobs in a row: after job.py done it takes the next Read... | Superseded |
+| P30 | The target architect reasons about abstractions and owns the architecture map without r... | Superseded |
+| P48 | Trial, from 2026-11-23 for a couple of days: Gemini (neon) is the full integrator in pl... | Superseded |
+| P55 | Paths use underscores, and the code base is named after the app: ~/Sites/Organization/0... | Superseded |
+| P59 | The first move takes decision-log.md and decision-archive.md into Napkin/02_Past_Decisi... | Superseded |
 | W03a | Hard cell-shaped pigment and per-cell flip timing. | Superseded |
 | W04a | Wave starts only after FreeCAD confirms. | Superseded |
 | W05a | Edits: pigment ripple only; while waiting, an extra amber ring pulses. | Superseded |

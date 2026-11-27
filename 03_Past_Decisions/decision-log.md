@@ -49,7 +49,7 @@ One subject per decision; the Decisions column is generated.
 | Feedback | The confirmation wave and what colours mean. | I06, W01, W02, W03, W04, W05, W06, W07, W08, W09 |
 | Materials | Wood cards, grain and painting. | A05, I33, M01, M02, M03, M04 |
 | Output | Drawings, cut lists and renders. | A07, D01, D02, I68, P06 |
-| Process | How the agents work, test, merge and record decisions. | — |
+| Process | How the agents work, test, merge and record decisions. | P01, P02, P03, P07, P09, P10, P14, P15, P16, P17, P18, P19, P20, P21, P22, P23, P24, P25, P26, P28, P29, P31, P32, P33, P34, P35, P36, P37, P38, P39, P40, P41, P42, P43, P44, P45, P46, P47, P49, P50, P52, P53, P54, P56, P57, P58, P60, P61, P62, P63, P64, P65, P66, P67, P68, P69, P70, P71 |
 
 ## Principles
 
@@ -261,6 +261,64 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 
 | ID | Decision | Status |
 |---|---|---|
+| P01 | This log is the reference. | Active |
+| P02 | Test hooks (forced rejection, worker delay_ms, --fxtest/--breathtest) are for testing o... | Active |
+| P03 | Recordings use --true-latency: each FreeCAD reply is held until the video clock has run... | Active |
+| P07 | Two kinds of test: feature tests check answers against FreeCAD with no window (featuret... | Active |
+| P09 | The decision log is docs/decision-log.md in the repo, edited directly by whichever agen... | Active |
+| P10 | Give documentation distinct owners and link rather than repeat: architecture owns bound... | Active |
+| P14 | The work board: BOARD.md at the top of the repo lists each agent's next job and notes f... | Active |
+| P15 | The agent startup report is `python3 tools/startup.py [IDs]`: checkout and worktrees, r... | Active |
+| P16 | One Claude session is the integrator: it keeps the Work list and the board, hands out j... | Active |
+| P17 | Workers don't edit the Work list: a worker's result goes in its handoff response, and t... | Active |
+| P18 | The merge gate is tools/gate.sh: the quick test, then the full test, one verdict. | Active |
+| P19 | One integrator at a time, by lock: tools/integrator.py keeps the lock in git's common f... | Active |
+| P20 | The integrator merges with tools/integrate.py <branch> --as <name>: merge, settle hando... | Active |
+| P21 | Every place the viewport predicts what FreeCAD will compute (lengths today; circles, sp... | Active |
+| P22 | Small fixes take P08's light path (nothing you'd notice, no protocol / format / boundar... | Active |
+| P23 | The decision log is two files with the same IDs: docs/decision-log.md is what's live (a... | Active |
+| P24 | Jobs run through a queue with two buttons: a worker takes a job (its own worktree, bran... | Active |
+| P25 | A job's scratch files, logs and measurements go in scratch/ inside its worktree (ignore... | Active |
+| P26 | Leftovers reach the integrator's list by themselves: a worker writes each one as its ow... | Active |
+| P28 | ARCHITECTURE.md and docs/protocol.md are the integrator's: a worker doesn't edit them; ... | Active |
+| P29 | Target agent system separates worker, integrator, architect, dispatcher/time manager, i... | Tentative |
+| P31 | Workers must supply an abstract structural report explaining how their new code integra... | Tentative |
+| P32 | The integrator verifies worker structural reports against implementation as part of its... | Tentative |
+| P33 | The target dispatcher/time manager manages agent starting, pausing and waking, and dete... | Tentative |
+| P34 | The ideator is William’s partner for exploring ideas; the decision partner reasons thro... | Tentative |
+| P35 | The ideator and decision partner primarily consult the architect for technical structur... | Tentative |
+| P36 | The architect plans from the map without reading code: it reads ARCHITECTURE.md and the... | Tentative |
+| P37 | A worker session does one job: take, work, done, then it stops and tells you it's ready... | Active |
+| P38 | Workers are started in a visible Terminal window with Remote Control, so you can follow... | Active |
+| P39 | The integrator has no timed check-ins: it is woken only by the queue, with job.py watch... | Active |
+| P40 | A worker deals with its own hung processes; the integrator hears only of a worker that ... | Active |
+| P41 | H059 includes the direct ID allocation sites in viewport/tools/, selection.gd and main.... | Active |
+| P42 | A brief for a job that touches saving, reloading or the worker link has a 'What can fai... | Active |
+| P43 | The integrator doesn't run a light /code-review on every merge; review stays as docs/in... | Active |
+| P44 | A brief's rule says what it's for as well as what to do. | Active |
+| P45 | Agents work in parallel by files, not topics, as P11 said (each job lists its Touches a... | Active |
+| P46 | A worker may update, without asking first, a tools/test_*.py check outside its Touches ... | Active |
+| P47 | A worker's question accepts follow-up answers until the worker reads the pending answers. | Active |
+| P49 | Once integrator review and tests pass, merge and push without stopping to ask: the inte... | Active |
+| P50 | Once T138 is built: each code file carries a one or two sentence description written by... | Tentative |
+| P52 | The Gemini-integrator trial (P48) is closed: its work on main is kept, and the integrat... | Active |
+| P53 | William's gate on work is choosing which Work list items become jobs; once a job's revi... | Active |
+| P54 | The organization is the parent folder (01_Principles ... | Active |
+| P56 | The code (viewport/, worker/, tools/, tests/, the .command files) moves into Napkin/05_... | Active |
+| P57 | Each code base keeps its own job system (board, briefs, job tools, worktrees) since a j... | Active |
+| P58 | Organization is its own git repo with a private GitHub remote the integrator pushes to;... | Active |
+| P60 | Code base folders use the Organization's numbers, so a number means the same thing at b... | Active |
+| P61 | The first move takes decision-log.md and decision-archive.md into Napkin/03_Past_Decisi... | Active |
+| P62 | The Organization repo is named comitatus (private GitHub repo wweatherall/comitatus); t... | Active |
+| P63 | Job worktrees live in Organization/08_Code_Bases/.worktrees/<code base>/<id> (hidden, o... | Active |
+| P64 | The organization is named comitatus, and so is its folder: ~/Sites/comitatus (was ~/Sit... | Active |
+| P65 | Work list items (T) and open questions (Q) become one file each too, like rulings (T146... | Active |
+| P66 | Generated files in the comitatus repo (05_Jobs, 06_To-dos, the principles ranking) are ... | Active |
+| P67 | A Work list item goes Open -> On the board (H0NN, ...) when a job naming it is written,... | Active |
+| P68 | A Work list item is a to-do with a life story: Open -> Picked up (when the integrator t... | Active |
+| P69 | The organization's tools live in comitatus/09_Tools (a code base's own stay in its tool... | Active |
+| P70 | comitatus's principles (comitatus/01_Principles/principles.md) and the org chart (comit... | Active |
+| P71 | Personal time: a coder whose job comes back clean (merged without being returned) may s... | Active |
 
 ## Open questions
 
