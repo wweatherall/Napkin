@@ -919,14 +919,24 @@ def done(cwd, jid=None, now=None, out=print):
     return True
 
 
+PERSONAL_TIME = (
+    "personal time: When your job comes back clean (submitted with its tests passing), you may spend up to 1% "
+    "of your 5-hour window in your personal space: journal, Creative_Expression, Ideas, Code_Experiments (P71)."
+)
+
+
 def next_step(st, session):
     """What done tells the worker to do next (P27)."""
     n = len(jobs_taken(st, session))
     if n >= MAX_JOBS:
-        return f"next: this session has done {n} jobs: tell William you're ready for a /clear"
-    return ("next: run `python3 tools/GET_A_JOB.py --wait` in the background (run_in_background): it takes the next "
+        next_line = f"next: this session has done {n} jobs: tell William you're ready for a /clear"
+    else:
+        next_line = (
+            "next: run `python3 tools/GET_A_JOB.py --wait` in the background (run_in_background): it takes the next "
             f"job, or stops after {WORKER_WAIT // 60} min with nothing (then tell William)"
-            + (f"; job {n} of {MAX_JOBS} for this session" if counted(session) else ""))
+            + (f"; job {n} of {MAX_JOBS} for this session" if counted(session) else "")
+        )
+    return PERSONAL_TIME + "\n" + next_line
 
 
 def return_job(cwd, jid, notes, now=None, out=print):

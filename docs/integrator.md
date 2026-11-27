@@ -7,7 +7,7 @@ Architecture: lines, the response) and CLAUDE.md (commit trailers); this page sa
 ## The role and the lock
 - One Claude session is the integrator (P16), and it holds the lock (`python3 tools/integrator.py status`, P19).
   Start with `python3 02_Habits/REMEMBER_WHO_YOU_ARE.py --role integrator` and this page only — skip `CLAUDE.md` and `BOARD.md` upfront
-  (`REMEMBER_WHO_YOU_ARE.py` already summarizes the board and prints pre-/clear state notes inline).
+  (`REMEMBER_WHO_YOU_ARE.py` carries who you are, the principles, the board, pre-/clear state notes, `06_To-dos` counts, habits, tools, and personal time).
   You're the integrator only if William said so in this session: take the lock (and archive, commit and push any
   pre-/clear state note in one step) with
   `python3 tools/HOLD_THE_INTEGRATOR_LOCK.py <your session name> --william [--archive <ID> --push]` (drop `--william` if the

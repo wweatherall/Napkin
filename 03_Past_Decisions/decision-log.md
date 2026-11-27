@@ -364,7 +364,6 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | T118 | 3-Point Circle: draw a circle from three points on its edge (like FreeCAD's 3-point cir... | Open |
 | T132 | Integrator startup friction: (1) startup.py brief prints a ready-to-run 'integrator.py ... | Open |
 | T133 | Polygon: scrolling the mouse wheel between the centre click and the radius click change... | Open |
-| T134 | One start script per agent role that loads its onboarding context (identity, principles... | On the board (H163) |
 | T135 | Reorganize the organization and code-base folders (principles, habits, case law, person... | Open |
 | T136 | Self-generated architecture map: current and proposed, unbuilt work ghosted, job-board ... | Open |
 | T137 | Decimal commas for European typing of measurements. | Open |

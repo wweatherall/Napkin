@@ -4,6 +4,7 @@ script. Prints PASS/FAIL per check and one summary line: STARTUP TESTS: N passed
 import os
 import subprocess
 import sys
+import tempfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -270,6 +271,101 @@ check("a named item's lines include its Jobs line",
 w_rows = s.waiting_rows("", work_entries={"T147": work_text})
 check("a 'your call' item in a file is waiting on William",
       w_rows == [("T147", "Your call: pick the snap rule.")])
+
+# --- Onboarding brief sections (H163) ---
+check("parse_ranking sorts table rows by rank regardless of input order",
+      s.parse_ranking("| # | Rating | Compared | Principle | |\n|---|---|---|---|---|\n"
+                      "| 2 | 1000 | 2 | org U2 | Second rule. |\n"
+                      "| 1 | 1050 | 3 | org 02 | First rule. |\n")
+      == ["1. First rule.", "2. Second rule."])
+check("parse_ranking falls back to plain principle lines when there is no table",
+      s.parse_ranking("# Principles\n\nHigher wins when two pull against each other.\n\n"
+                      "- Alpha rule.\n- Beta rule.\n")
+      == ["- Alpha rule.", "- Beta rule."])
+
+with tempfile.TemporaryDirectory(prefix="startup-h163-") as tmp:
+    org = os.path.join(tmp, "comitatus")
+    repo = os.path.join(org, "08_Code_Bases", "Shop")
+    os.makedirs(os.path.join(org, "07_Org_Chart_and_Roles"))
+    os.makedirs(os.path.join(org, "01_Principles"))
+    os.makedirs(os.path.join(org, "02_Habits"))
+    os.makedirs(os.path.join(org, "09_Tools"))
+    os.makedirs(os.path.join(org, "06_To-dos", "waiting_on_William"))
+    os.makedirs(os.path.join(org, "06_To-dos", "waiting_on_integrator"))
+    os.makedirs(os.path.join(repo, "01_Principles"))
+    os.makedirs(os.path.join(repo, "02_Habits"))
+    os.makedirs(os.path.join(repo, "tools"))
+
+    open(os.path.join(org, "07_Org_Chart_and_Roles", "coders.md"), "w").write(
+        "# Coders\n\nCode solutions and tests.\n")
+    open(os.path.join(org, "07_Org_Chart_and_Roles", "integrator.md"), "w").write(
+        "# Integrator\n\nReview and merge.\n")
+    open(os.path.join(org, "07_Org_Chart_and_Roles", "william.md"), "w").write(
+        "# William\n\nDirection and testing.\n")
+    open(os.path.join(org, "01_Principles", "ranking.md"), "w").write(
+        "| # | Rating | Compared | Principle | |\n|---|---|---|---|---|\n"
+        "| 1 | 1050 | 3 | org 02 | Org first. |\n")
+    open(os.path.join(repo, "01_Principles", "ranking.md"), "w").write(
+        "| # | Rating | Compared | Principle | |\n|---|---|---|---|---|\n"
+        "| 1 | 1040 | 2 | shop G01 | Shop first. |\n")
+    open(os.path.join(org, "02_Habits", "README.md"), "w").write("# Habits\n\n- `ORG_HABIT.py` — org habit.\n")
+    open(os.path.join(repo, "02_Habits", "README.md"), "w").write("# Habits\n\n- `REPO_HABIT.py` — repo habit.\n")
+    open(os.path.join(org, "09_Tools", "README.md"), "w").write(
+        "# Tools\n\n- `ORG_TOOL.py` — org tool\n  with continuation.\n")
+    open(os.path.join(repo, "tools", "README.md"), "w").write("# Tools\n\n- `REPO_TOOL.py` — repo tool.\n")
+    open(os.path.join(org, "06_To-dos", "waiting_on_William", "Shop_T1_ASK.md"), "w").write("x")
+    open(os.path.join(org, "06_To-dos", "waiting_on_integrator", "Shop_T2_DO.md"), "w").write("x")
+    open(os.path.join(org, "06_To-dos", "waiting_on_integrator", "Shop_T3_DO.md"), "w").write("x")
+
+    who_w = "\n".join(s.who_lines("worker", org))
+    who_i = "\n".join(s.who_lines("integrator", org))
+    check("who_lines strips title and loads coders.md for worker, integrator.md for integrator, plus William",
+          "# Coders" not in who_w and "Code solutions and tests." in who_w and "Direction and testing." in who_w
+          and "# Integrator" not in who_i and "Review and merge." in who_i and "Direction and testing." in who_i)
+
+    princ = "\n".join(s.principles_lines(org, repo))
+    check("principles_lines prints P70 header, Comitatus then code base in order",
+          "answer to the organization's (P70)." in princ
+          and princ.index("Comitatus:") < princ.index("1. Org first.") < princ.index("Shop:") < princ.index("1. Shop first."))
+
+    hab = "\n".join(s.habits_lines(org, repo))
+    tls = "\n".join(s.tools_lines(org, repo))
+    check("habits_lines and tools_lines keep comitatus then code base lists including continuations",
+          hab.index("ORG_HABIT.py") < hab.index("REPO_HABIT.py")
+          and tls.index("ORG_TOOL.py") < tls.index("with continuation.") < tls.index("REPO_TOOL.py"))
+
+    todos = "\n".join(s.org_todos_lines(org))
+    check("org_todos_lines counts both queues and lists waiting_on_William filenames",
+          "waiting_on_William: 1" in todos and "Shop_T1_ASK.md" in todos and "waiting_on_integrator: 2" in todos)
+
+    check("personal_time_lines gives 1% to worker and 3% to integrator",
+          "1%" in "\n".join(s.personal_time_lines("worker"))
+          and "3%" in "\n".join(s.personal_time_lines("integrator")))
+
+    outside = os.path.join(tmp, "standalone")
+    os.makedirs(outside)
+    subprocess.run(["git", "init", "-q"], cwd=outside, check=True)
+    check("missing sources and checkouts outside comitatus are skipped silently",
+          s.comitatus_root(outside) == (None, os.path.realpath(outside))
+          and s.who_lines("worker", None) == []
+          and s.principles_lines(None, outside) == []
+          and s.habits_lines(None, outside) == []
+          and s.tools_lines(None, outside) == []
+          and s.org_todos_lines(None) == [])
+
+r_int = subprocess.run([sys.executable, os.path.join(HERE, "startup.py"), "--role", "integrator"],
+                       capture_output=True, text=True, timeout=120)
+r_wrk = subprocess.run([sys.executable, os.path.join(HERE, "startup.py"), "--role", "worker"],
+                       capture_output=True, text=True, timeout=120)
+check("smoke: --role integrator has Principles, Habits, Tools, and 3% Personal time",
+      r_int.returncode == 0
+      and all(h in r_int.stdout for h in ("Principles:", "Habits:", "Tools:", "Personal time:", "3%")))
+check("smoke: --role worker has Principles, Habits, Tools, 1% Personal time, and no Organization to-dos",
+      r_wrk.returncode == 0
+      and all(h in r_wrk.stdout for h in ("Principles:", "Habits:", "Tools:", "Personal time:", "1%"))
+      and "Organization to-dos" not in r_wrk.stdout
+      and r_wrk.stdout.find("Principles:") < r_wrk.stdout.find("This checkout:")
+      and r_wrk.stdout.find("Worker checklist") < r_wrk.stdout.find("Habits:") < r_wrk.stdout.find("Tools:") < r_wrk.stdout.find("Personal time:"))
 
 print(f"STARTUP TESTS: {sum(RESULTS)} passed, {len(RESULTS) - sum(RESULTS)} failed")
 sys.exit(0 if all(RESULTS) else 1)
