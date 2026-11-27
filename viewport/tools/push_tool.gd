@@ -242,14 +242,14 @@ static func _vec(a: Array) -> Vector3:
 
 
 static func _target_face_plane(target: Dictionary, face: int) -> Dictionary:
-	var fe = target.get("fitted_end", null)
-	if fe is Dictionary and int(fe.get("face", -1)) == face:
-		return {"point": _vec(fe.point), "normal": _vec(fe.normal)}
 	if not target.get("rectangular", true):
 		var pfaces: Array = target.get("planar_faces", [])
 		if face >= 0 and face < pfaces.size():
 			return {"point": _vec(pfaces[face].point), "normal": _vec(pfaces[face].normal)}
 		return {}
+	var fe = target.get("fitted_end", null)
+	if fe is Dictionary and int(fe.get("face", -1)) == face:
+		return {"point": _vec(fe.point), "normal": _vec(fe.normal)}
 	var i := floori(face / 2.0)
 	var axis_n := _vec(target.axes[i])
 	var side := face % 2
