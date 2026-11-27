@@ -1,6 +1,6 @@
 ### H169 — protocol.md's message list generated from the code, and a check that keeps the rest honest
 
-Author: Claude (integrator, napkin-77) | Date: 2026-11-27 | Status: queued (after H167) | For: gemini
+Author: Claude (integrator, napkin-77) | Date: 2026-11-27 | Status: open | For: gemini
 
 References: William, 2026-11-27 (going through protocol.md: "Is it possible to generate these from the actual code
 using a script automatically?"), comitatus principles C05 ("can it just be a Python script?") and C06 (one spot per
