@@ -279,7 +279,7 @@ func _build_summary() -> void:
 			apply_fit.disabled = true
 			apply_fit.pressed.connect(func():
 				if not pending.is_empty():
-					edit_requested.emit({"body":data.body,"mode":"plane_fit","axis":pending.axis,"target_body":pending.target,"face":pending.face,"fit_mode":mode_picker.selected,"reverse":board.get("reverse",false)}))
+					edit_requested.emit({"type":"fit","body":data.body,"axis":pending.axis,"target_body":pending.target,"face":pending.face,"fit_mode":mode_picker.selected,"reverse":board.get("reverse",false)}))
 			actions.add_child(apply_fit)
 			result = Label.new()
 			result.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -332,7 +332,7 @@ func _build_summary() -> void:
 		var prop: String = ["Length", "Width", "LengthFwd"][i]
 		field.text_submitted.connect(func(value):
 			if board.linked_axis == i:
-				edit_requested.emit({"body":data.body,"mode":"replace_fit","axis":i,"value":value})
+				edit_requested.emit({"type":"unfit","body":data.body,"axis":i,"value":value})
 				return
 			for obj in data.objects:
 				if obj.name != native_name: continue
@@ -359,7 +359,7 @@ func _build_summary() -> void:
 	apply_fit.disabled = true
 	apply_fit.pressed.connect(func():
 		if not pending.is_empty():
-			edit_requested.emit({"body":data.body,"mode":"plane_fit","axis":pending.axis,"target_body":pending.target,"face":pending.face,"fit_mode":mode_picker.selected,"reverse":board.get("reverse",false)}))
+			edit_requested.emit({"type":"fit","body":data.body,"axis":pending.axis,"target_body":pending.target,"face":pending.face,"fit_mode":mode_picker.selected,"reverse":board.get("reverse",false)}))
 	actions.add_child(apply_fit)
 	result = Label.new()
 	result.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART

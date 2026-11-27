@@ -37,7 +37,7 @@ def run(ctx):
                 dict(id=bid+'p', type='push_pull', target=dict(rect=bid+'r'), distance=20, body=bid)]
 
     def fit(bid, target):
-        return dict(id=bid+'fit', type='property_edit', mode='plane_fit', body=bid,
+        return dict(id=bid+'fit', type='fit', body=bid,
                     target_body=target, axis=2, face=4, fit_mode=0)
 
     def move(bid, delta):

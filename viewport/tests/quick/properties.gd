@@ -81,7 +81,7 @@ func run() -> void:
 		await harness._click_at(mid_edge)
 		await harness._wait_confirm()
 		await harness._wait_properties()
-		harness._ok("dimension click links an edge midpoint without Apply",m.ops.back().get("mode","") == "plane_fit" and m.ops.back().get("face",-1) == 5 and panel.data.boards.b1.fitted,m.ops.back())
+		harness._ok("dimension click links an edge midpoint without Apply",m.ops.back().get("type","") == "fit" and m.ops.back().get("id","").begins_with("ft") and m.ops.back().get("face",-1) == 5 and panel.data.boards.b1.fitted,m.ops.back())
 		var visible_box: AABB = m.pres._sel_overlay.mesh.get_aabb()
 		var actual := AABB(Main.m2g(m.body_tris.b1[0]),Vector3.ZERO)
 		for vertex in m.body_tris.b1: actual = actual.expand(Main.m2g(vertex))
@@ -95,7 +95,7 @@ func run() -> void:
 		await harness._click_at(Vector3(-20,-10,100) + tilt*10)
 		await harness._wait_confirm()
 		await harness._wait_properties()
-		harness._ok("dimension corner click commits the inferred face",m.ops.back().get("mode","") == "plane_fit" and m.ops.back().get("face",-1) == 5 and panel.data.boards.b1.fitted,m.ops.back())
+		harness._ok("dimension corner click commits the inferred face",m.ops.back().get("type","") == "fit" and m.ops.back().get("id","").begins_with("ft") and m.ops.back().get("face",-1) == 5 and panel.data.boards.b1.fitted,m.ops.back())
 	m.properties_panel.hide()
 	await harness._fresh("edge_fit",fit_scene)
 	await harness._view(Vector3(55,30,65), -32,-25,0.45)
@@ -159,7 +159,7 @@ func run() -> void:
 	var chain_scene := harness._plank(1, Vector3(-100, 0, 200), Vector3(120, 60, 20))
 	chain_scene.append_array(harness._plank(2, Vector3(0, 0, 80), Vector3(80, 40, 20)))
 	chain_scene.append_array(harness._plank(3, Vector3(100, 0, 0), Vector3(40, 40, 20)))
-	chain_scene.append({"id": "fit_b2", "type": "property_edit", "mode": "plane_fit", "body": "b2",
+	chain_scene.append({"id": "fit_b2", "type": "fit", "body": "b2",
 			"target_body": "b1", "axis": 2, "face": 4, "fit_mode": 0})
 	await harness._fresh("chain_fit", chain_scene)
 	await harness._view(Vector3(60, 20, 120), -35, -28, 0.65)
@@ -278,7 +278,7 @@ func run() -> void:
 	nonrect_fit_scene.append({"id": "c2", "type": "circle", "plane": {"origin": [20, 20, 120], "normal": [0, 0, 1]}, "radius": 30.0})
 	nonrect_fit_scene.append({"id": "cp2", "type": "push_pull", "target": {"rect": "c2"}, "distance": 20.0, "body": "b2"})
 	nonrect_fit_scene.append_array(harness._plank(3, Vector3(120, 0, 200), Vector3(40, 40, 20)))
-	nonrect_fit_scene.append({"id": "fit_b2", "type": "property_edit", "mode": "plane_fit", "body": "b2",
+	nonrect_fit_scene.append({"id": "fit_b2", "type": "fit", "body": "b2",
 			"target_body": "b3", "axis": 2, "face": 4, "fit_mode": 0})
 	await harness._fresh("t147_nonrect_fitted_end", nonrect_fit_scene)
 	m.set_tool("select")

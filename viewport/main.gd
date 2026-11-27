@@ -661,8 +661,10 @@ func _edit_property(change: Dictionary) -> void:
 		return
 	if selection.size() != 1 or change.body != selection[0]: return
 	var op := change.duplicate(true)
-	op["id"] = doc.next_id("pr")
-	op["type"] = "property_edit"
+	var kind: String = str(op.get("type", "property_edit"))
+	var prefix := "ft" if kind == "fit" else ("uf" if kind == "unfit" else "pr")
+	op["id"] = doc.next_id(prefix)
+	op["type"] = kind
 	ops.append(op)
 	properties_panel.message("Applying property…")
 	sync()
@@ -947,7 +949,7 @@ var _first_open := true
 
 # The window <-> worker protocol's version (docs/protocol.md): bump it when a message or shared-file field changes.
 # The worker reports its own (worker/serve.py PROTOCOL_VERSION) in hello; a worker speaking another isn't shared.
-const PROTOCOL_VERSION := 16
+const PROTOCOL_VERSION := 17
 
 
 func _send_open() -> void:

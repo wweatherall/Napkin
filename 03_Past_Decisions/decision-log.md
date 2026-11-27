@@ -379,7 +379,6 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | T159 | Clarify push_pull and separate its jobs: one op today extrudes a profile or face, cuts,... | Open |
 | T160 | Check every field the window sends in an op is one the worker reads (today unknown fiel... | Open |
 | T161 | Think through plane-fit face numbering: faces are 0-5 (Left..Top) on plain stock but 't... | Open |
-| T162 | Fits become their own ops: plane_fit and replace_fit leave property_edit as fit and unf... | On the board (H171) |
 
 ## Tunables
 

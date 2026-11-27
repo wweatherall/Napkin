@@ -1,6 +1,6 @@
 # Window ↔ worker protocol
 
-The wire protocol's version is **16**: the worker reports it in `hello` (`protocol`), defined once per side (`worker/serve.py` `PROTOCOL_VERSION`, `viewport/main.gd` `PROTOCOL_VERSION`). **Rule: bump it on both sides when a message or a shared-file field changes** (added, removed, renamed or its meaning changed), and update this document. There is no negotiation: a window shares a worker only when the version matches. Existing embedded format identifiers are `oplog/0.1` and `shopsketch-journal/0.1`; binary meshes use Godot's Variant array encoding. Version history, job tags and the old producer/consumer findings: [protocol-archive.md](protocol-archive.md).
+The wire protocol's version is **17**: the worker reports it in `hello` (`protocol`), defined once per side (`worker/serve.py` `PROTOCOL_VERSION`, `viewport/main.gd` `PROTOCOL_VERSION`). **Rule: bump it on both sides when a message or a shared-file field changes** (added, removed, renamed or its meaning changed), and update this document. There is no negotiation: a window shares a worker only when the version matches. Existing embedded format identifiers are `oplog/0.1` and `shopsketch-journal/0.1`; binary meshes use Godot's Variant array encoding. Version history, job tags and the old producer/consumer findings: [protocol-archive.md](protocol-archive.md).
 
 ## Transport, identity and lifetime
 
@@ -55,11 +55,11 @@ Examples are illustrative JSON lines; timing values, paths, IDs and hashes vary.
 
 ### `hello`
 
-Request: `cmd: "hello"`, `seq?`. Success: `ok: true`, `cmd: "hello"`, `seq` (echo or null), `app: "shopsketch"`, `protocol: integer` (the protocol version, currently 16), `worker: string` (32 lowercase hex MD5), `pid: integer`. The window uses the worker only if `protocol` equals its own version and `worker` its own identity.
+Request: `cmd: "hello"`, `seq?`. Success: `ok: true`, `cmd: "hello"`, `seq` (echo or null), `app: "shopsketch"`, `protocol: integer` (the protocol version, currently 17), `worker: string` (32 lowercase hex MD5), `pid: integer`. The window uses the worker only if `protocol` equals its own version and `worker` its own identity.
 
 ```json
 {"cmd":"hello"}
-{"ok":true,"cmd":"hello","seq":null,"app":"shopsketch","protocol":16,"worker":"0123456789abcdef0123456789abcdef","pid":1234}
+{"ok":true,"cmd":"hello","seq":null,"app":"shopsketch","protocol":17,"worker":"0123456789abcdef0123456789abcdef","pid":1234}
 ```
 
 Producer/consumer: [worker/serve.py](../worker/serve.py):`serve.handle`, `worker_identity`; [viewport/worker_process.gd](../viewport/worker_process.gd):`probe_worker` (`hello`, `worker_of`). Probing uses a separate short-lived connection.
@@ -263,10 +263,10 @@ FaceRef = `{body: string, normal: Vec3, point: Vec3}`: world face identified geo
 | `hide` | `targets: string[]`, `hidden?: boolean = true` | [visibility.py](../worker/visibility.py):`VisibilityActions.op_hide` |
 | `delete` | `targets: string[]`, deduplicated; invalid target aborts whole action; preserves definitions still needed by survivors | [deletion.py](../worker/deletion.py):`DeleteActions.op_delete` |
 | `property_edit` | `body: string`, `object: string` native name, `property: string` native path, `value: string`, `mode: "value" | "expression"`; `expected?: {value: string, expression: string}` guards stale forms | [object_properties.py](../worker/object_properties.py):`apply`; [model.py](../worker/model.py):`Model.op_property_edit` |
-| `property_edit`, plane fit | `mode: "plane_fit"`, `body: string`, `target_body: string`, `axis: integer 0..2`, `face: integer` (0..5 on rectangular stock, else an index into the target's `planar_faces`; the worker keeps it by geometry after `apply`), `fit_mode: integer 0..2`, `reverse?: boolean = false`; no object/property/value required | [plane_fit.py](../worker/plane_fit.py):`apply` |
-| `property_edit`, replace fit | `mode: "replace_fit"`, `body: string`, `axis: integer` matching existing fit, `value: string` positive length; restores plain stock and detaches fit | [plane_fit.py](../worker/plane_fit.py):`replace`, `_restore` |
+| `fit` | `body: string`, `target_body: string`, `axis: integer 0..2`, `face: integer` (0..5 on rectangular stock, else an index into the target's `planar_faces`; the worker keeps it by geometry after `apply`), `fit_mode: integer 0..2`, `reverse?: boolean = false` | [plane_fit.py](../worker/plane_fit.py):`apply`; [model.py](../worker/model.py):`Model.op_fit` |
+| `unfit` | `body: string`, `axis: integer` matching existing fit, `value: string` positive length; restores plain stock and detaches fit | [plane_fit.py](../worker/plane_fit.py):`replace`, `_restore`; [model.py](../worker/model.py):`Model.op_unfit` |
 
-Plane-fit faces: 0 Left, 1 Right, 2 Front, 3 Back, 4 Bottom, 5 Top in **target stock-local axes**. Modes: 0 Butt to plane, 1 Slice at plane, 2 Fully reach plane. Axis 0/1/2 denotes source stock length/width/extrusion axis, not necessarily world X/Y/Z. Selection moves resolve shared sources once; assembly rows are currently refused. Handler rejection is conveyed through OpStatus, not a separate command.
+Plane-fit faces: 0 Left, 1 Right, 2 Front, 3 Back, 4 Bottom, 5 Top in **target stock-local axes**. Modes: 0 Butt to plane, 1 Slice at plane, 2 Fully reach plane. Axis 0/1/2 denotes source stock length/width/extrusion axis, not necessarily world X/Y/Z. Selection moves resolve shared sources once; assembly rows are currently refused. Handler rejection is conveyed through OpStatus, not a separate command. Files saved before protocol 17 have their fits upgraded when opened.
 
 Example minimal board op list:
 
@@ -424,6 +424,6 @@ The loop multiplexes sockets with `select` but executes geometry serially; it is
 ### Plane fits, pocket-floor ties, and hide wire fields
 
 - `push_pull.edge_fit` carries `{target_body, face, fit_mode}` (`0` Butt / `1` Slice / `2` Fully reach; absent = Butt). `push_pull.resize_stock` resizes an entire ordinary stock face. `push_pull.to_face` carries `{point, normal}` on a pointer cut whose snap is "face behind" (never on a typed distance, nor with `through`, `body`, `edge_fit`, or `resize_stock`).
-- `property_edit` with mode `plane_fit` records source and target `BodyId`s, local axis, semantic face and end condition; `replace_fit` restores the native extrusion with the entered dimension.
+- `fit` records source and target `BodyId`s, local axis, semantic face and end condition; `unfit` restores the native extrusion with the entered dimension.
 - `plane_fit.snapshot()` exports `fitted_end: {face, normal, point}` on fitted boards, and `rectangular: False` with `planar_faces` (point and normal per face; `fitted_end.face` is its index in that list) on non-rectangular/cut boards; `bodies.json` carries `stock_frame` and `hidden`.
 - `hide` carries `targets` and `hidden` (one op per Hide/Unhide command).

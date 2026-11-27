@@ -40,7 +40,7 @@ var model_path := ""                # the FreeCAD file: the model itself (A21)
 var out_dir := ""                   # where the worker writes this model's meshes and exports
 
 var ops: Array = []
-var counters := {"pr": 0, "r": 0, "b": 0, "pp": 0, "m": 0, "mv": 0, "mu": 0, "dt": 0, "as": 0, "a": 0, "sm": 0, "tg": 0, "hd": 0, "del": 0}
+var counters := {"pr": 0, "ft": 0, "uf": 0, "r": 0, "b": 0, "pp": 0, "m": 0, "mv": 0, "mu": 0, "dt": 0, "as": 0, "a": 0, "sm": 0, "tg": 0, "hd": 0, "del": 0}
 # Reservations outlive undo, rejected actions and abandoned futures; only reset() changes documents.
 var reserved_ids := {}
 var _crypto := Crypto.new()
@@ -574,7 +574,8 @@ static func _op_refs(op: Dictionary) -> Array:
 	if tg.has("face"): out.append(tg["face"]["body"])
 	out.append_array(op.get("targets", []))
 	if op.has("cut"): out.append_array([op["cut"]["body"], op["cut"]["op"]])
-	if op["type"] in ["make_component", "property_edit"]: out.append(op["body"])
+	if op["type"] in ["make_component", "property_edit", "unfit"]: out.append(op["body"])
+	if op["type"] == "fit": out.append_array([op["body"], op["target_body"]])
 	return out
 
 

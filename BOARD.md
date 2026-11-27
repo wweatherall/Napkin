@@ -65,7 +65,6 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H171 | Gemini | **Ready** | Fits become their own ops (`fit`, `unfit`), and old files' fits are upgraded when opened | [H171](docs/handoff/H171-fit-op.md) |  |
 
 <!-- end of job table -->
 
