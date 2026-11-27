@@ -90,7 +90,7 @@ Architecture: lines, the response) and CLAUDE.md (commit trailers); this page sa
 - A job adding a tool or an op also lists the places that pin them (H130 asked for them one by one):
   `viewport/keys.gd`, `main.gd` `redo`, `tool_context.gd` and `test_tool_context.gd`, `test_tools.gd`,
   `tools/push_tool.gd`, `tools/CLAUDE.md`, `worker/scenario/99_op_registry.py`.
-- **Grep callers before finalizing `Touches`**: when a brief changes a tool's hotkey, input mode, op schema, or function contract, grep the repo for every caller (e.g., `measure_box.gd`, `viewport/tests/harness.gd`, `presenter.gd`) so workers don't hit avoidable scope pauses.
+- **Find callers before finalizing `Touches`**: when a brief changes a tool's hotkey, input mode, op schema, or function contract, run `python3 tools/dependency_map.py touches <file>:<function> [...]` (H174): it prints a ready Touches line from qualified calls, tests on their own, and lists calls it can't resolve for you to check by hand; `callers <file>:<function>` shows each call site. docs/dependency-map.md says which files use which.
 - Write the next jobs as handoff entries (a Status of open is Ready; "queued (after H0NN)" waits), each with its
   Touches list, and keep the board's Order line. Before marking one Ready, compare its Touches with every Ready or
   claimed job's: two whose lists overlap don't run at once (tell William before starting one that does). A
