@@ -66,6 +66,8 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
 | H177 | Gemini | Waiting on the integrator (scope) (gemini): H177: docs/protocol.md has 4 symbol references (viewport/main.gd:_on_open, _on_synced, _on_boards_read) that moved to viewport/history.gd (flagged by protocol_map.py --check), and ARCHITECTURE.md was updated by architecture_map.py for the two new files. May I update those 4 links in docs/protocol.md and commit ARCHITECTURE.md? | main.gd step 1: history replies and live preferences move to their own files, behaviour unchanged | [H177](docs/handoff/H177-split-main-gd.md) |  |
+| H180 | Gemini | **Ready** | The structural report: the merge works out what changed in the structure, the worker only explains it | [H180](docs/handoff/H180-structural-report.md) |  |
+| H181 | Gemini | **Ready** | presenter.gd step 1: confirmation waves and selection drawing move to their own files, behaviour unchanged | [H181](docs/handoff/H181-split-presenter-gd.md) |  |
 
 <!-- end of job table -->
 

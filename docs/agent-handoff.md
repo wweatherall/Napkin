@@ -26,6 +26,8 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
 - [H177 — main.gd step 1: history replies and live preferences move to their own files, behaviour unchanged](handoff/H177-split-main-gd.md) — status: open; for: gemini
+- [H180 — The structural report: the merge works out what changed in the structure, the worker only explains it](handoff/H180-structural-report.md) — status: open; for: gemini
+- [H181 — presenter.gd step 1: confirmation waves and selection drawing move to their own files, behaviour unchanged](handoff/H181-split-presenter-gd.md) — status: open; for: gemini
 
 <!-- end of open list -->
 
