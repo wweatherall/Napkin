@@ -695,8 +695,11 @@ def prepare_log(s):
     subjects = dict(argv[i + 1].split("=", 1) for i, a in enumerate(argv) if a == "--subject" and i + 1 < len(argv))
     show = lambda ref, rel: git("show", f"{ref}:{rel}", root=root).stdout
     log_changed = bool(git("diff", "--name-only", base, branch, "--", LOG, ARCHIVE, root=root).stdout.strip())
+    # Main unchanged since the branch's base: git's own merge takes the branch's log, nothing to settle (and a branch
+    # that changes the log's layout, like H152, then merges without main's older tools reading the new layout).
+    main_changed = bool(git("diff", "--name-only", base, "HEAD", "--", LOG, ARCHIVE, root=root).stdout.strip())
     settled = None
-    if log_changed and not old_layout(show("HEAD", LOG)):
+    if log_changed and main_changed and not old_layout(show("HEAD", LOG)):
         settled, asks = settle_log((show("HEAD", LOG), show("HEAD", ARCHIVE)), (show(base, LOG), show(base, ARCHIVE)),
                                    (show(branch, LOG), show(branch, ARCHIVE)), subjects)
         if asks:
