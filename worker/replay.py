@@ -17,7 +17,7 @@ Writes beside the model:
   model.FCStd                the document (autosaved atomically after every change)
   model.shopsketch.json      journal: the op list, statuses, revision, file hash
 and into the output folder:
-  bodies.json  status.json  meshes/<board>-<key>.bin (one per board, rewritten only when it changes)
+  bodies.json  status.json (one-off replay, or SERVE_STATUS_FILE=1)  meshes/<board>-<key>.bin (one per board, rewritten only when it changes)
   model.glb at each autosave (views.json when a drawing is asked for)
 
 The code is split by job (T42): common.py (shared basics), model.py (the document and building blocks), one file

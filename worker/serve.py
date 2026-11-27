@@ -2,7 +2,7 @@
 
 Select-based multi-client loop executing geometry serially; single-window ownership by absolute path; `WATCH_S`
 (0.25 s) outside-save stat watch; `save_pending` (0.25 s quiet, skips held or failed models); `SERVE_PORT=0` /
-`SERVE_PORT_FILE`; `SERVE_IDLE_EXIT`.
+`SERVE_PORT_FILE`; `SERVE_IDLE_EXIT`; `SERVE_STATUS_FILE`.
 Entry points: handle, claim, let_go, release, save_pending, session_for."""
 import hashlib
 import json
@@ -29,7 +29,8 @@ def run_sync(session, req):
     status = session.status()
     result = {"oplog": req.get("name", "live"), "total_ms": ms, "export_ms": export_ms, "how": how,
               "ops": status, "rev": session.rev + (1 if (session.dirty or session.drawing) else 0), "model": session.path}
-    atomic_json(os.path.join(outdir, "status.json"), result)
+    if not os.environ.get("SERVE_PORT") or os.environ.get("SERVE_STATUS_FILE") == "1":
+        atomic_json(os.path.join(outdir, "status.json"), result)
     return result, outdir
 
 
