@@ -26,6 +26,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
 - [H170 — One name per meaning for message numbers: `seq` for the model's state, `request_id` for the request](handoff/H170-request-numbers.md) — status: open; for: gemini
+- [H171 — Fits become their own ops (`fit`, `unfit`), and old files' fits are upgraded when opened](handoff/H171-fit-op.md) — status: queued (after H170); for: gemini
 
 <!-- end of open list -->
 
