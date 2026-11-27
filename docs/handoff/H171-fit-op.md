@@ -1,6 +1,6 @@
 ### H171 — Fits become their own ops (`fit`, `unfit`), and old files' fits are upgraded when opened
 
-Author: Claude (integrator, napkin-77) | Date: 2026-11-27 | Status: queued (after H170) | For: gemini
+Author: Claude (integrator, napkin-77) | Date: 2026-11-27 | Status: open | For: gemini
 
 Item: T162
 
