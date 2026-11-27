@@ -2,6 +2,8 @@ extends Node
 ## The measurements box (VCB, T75): the typed value at the bottom right, what it's labelled, and where the typed
 ## text goes. `m.measure`; main.gd forwards the old names (`m.vcb`, `m.typing`, `m.apply_vcb()`, `m._update_vcb()`,
 ## `m.length_pending`, `m.ui_vcb_box`, ...), so tools and tests don't change.
+## A worker length reply reaches `typed()` only if the tool, model, sequence and tool state it was asked for still
+## hold: a keypress, click or tool change cancels the pending input.
 ##
 ## Routes count syntax and anything a tool's `typed_raw()` claims (Centre Arc degrees) to tools; strips/restores
 ## Arc's `r` radius suffix around length evaluation; evaluates lengths locally (`units.gd`), sends what it declines

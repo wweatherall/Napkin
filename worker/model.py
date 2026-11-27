@@ -5,7 +5,7 @@ The op types Model handles are its op_<type> methods (HANDLERS).
 `action_mixins()` discovers every top-level `*Actions` class by reading sources with `ast` before importing;
 a method name defined by two mixins is an error. `resolve_face` finds a planar face by normal and point containment
 (rejecting missing/ambiguous matches). `edit_frame()` translates edits through component placements and mirrors into
-definition coordinates.
+definition coordinates: new tools must not assume world and local frames coincide.
 Entry points: apply, HANDLERS, action_mixins, resolve_face, edit_frame, boolean."""
 import ast
 import importlib

@@ -11,6 +11,9 @@ extends Node
 ## _op_touches) and outside-save state (outside, outside_seq, dropped, _ops_at_reload; sync stays held after failed
 ## reload, sync or keep_mine). `on_sync_reply` only passes on a reply for the current seq with nothing newer waiting;
 ## only the reply to the request in flight clears `in_flight`. `is_current_open` gates open replies by seq and model.
+## main.gd routes replies by cmd: lifecycle replies (flush, hello, bye, quit) and length replies never touch sync
+## state. New asynchronous work must keep this discipline. A sync's confirmation is never proof of durability; only
+## `saved` is. After an outside save, only a sync that succeeds triggers A39.
 ## `redo_stack` is linear and in-memory only; any other change ends it. `save_error` holds failed-save reasons until `saved`.
 ## Entry points: sync, on_sync_reply, on_opened, on_saved, on_outside_save, on_link_up, reset, open, remove_op(s),
 ## undo, take_redo, next_id, reserve_values, restore_counters, reject, rejected_ids.

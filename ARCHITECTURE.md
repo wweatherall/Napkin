@@ -79,7 +79,7 @@ One-line index per module (`tools/architecture_map.py`). Per-file details, warni
 
 - `worker/arc.py` — Saved circular drawings (T83)
 - `worker/assembly.py` — Assemblies (T20): grouping boards and moving a group with its arrays
-- `worker/circle.py` — Exact editable circle profiles (T81); only the viewport tessellates them
+- `worker/circle.py` — Exact editable circle profiles (T81); only the viewport tessellates them (its 64-sided disk's facets never enter the native circle operation)
 - `worker/common.py` — Shared by every worker module: FreeCAD, units and tolerances, OpError, Frame, the wood cards
 - `worker/deletion.py` — T34, I46: Delete
 - `worker/drawing.py` — Compose a shop drawing (A3, third-angle) from the worker's outputs
