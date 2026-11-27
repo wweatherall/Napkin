@@ -50,7 +50,7 @@ worktree (T102).
      open questions; then a line each: `Changed from the brief: <what it said>; <what you did>; <why>` per departure
      (P44); `Architecture: <what>`; `Follow-up: <what>` per thing left; `For the integrator: <what>` per merge step
      (P26); last, `Result: <commit>; <tests>; <what changed>`, no `|` (T91)), set Status to `answered`, and in one
-     chained command run `python3 tools/handoff.py list && git add docs/agent-handoff.md docs/handoff/<file> && git -c core.hooksPath=.githooks commit -m "<ID>: record response and mark answered" && python3 tools/SUBMIT_JOB.py`.
+     chained command run `python3 tools/handoff.py tidy && git add docs/agent-handoff.md docs/handoff/<file> && git -c core.hooksPath=.githooks commit -m "<ID>: record response and mark answered" && python3 tools/SUBMIT_JOB.py`.
 7. Once `SUBMIT_JOB.py` succeeds (it checks the response, Status, quick-test pass and hung processes), tell William
    "ready for review: <ID>" and stop: one job a session (P37). Don't take the integrator lock.
 
@@ -65,7 +65,6 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H168 | Gemini | **Done**: for review (gemini) | A script that keeps docs/agent-handoff.md tidy: short, current, every link working | [H168](docs/handoff/H168-tidy-the-handoff.md) |  |
 | H169 | Gemini | **Ready** | protocol.md's message list generated from the code, and a check that keeps the rest honest | [H169](docs/handoff/H169-protocol-from-code.md) |  |
 | H170 | Gemini | Queued | One name per meaning for message numbers: `seq` for the model's state, `request_id` for the request | [H170](docs/handoff/H170-request-numbers.md) | H169 |
 

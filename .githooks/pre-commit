@@ -13,12 +13,12 @@ if git diff --cached --name-only | grep -q "^03_Past_Decisions/rulings/\|^03_Pas
   [ -d 03_Past_Decisions/rulings ] && git add 03_Past_Decisions/rulings
   python3 02_Habits/WHEN_THE_LOG_IS_COMMITTED_TIDY_IT.py --check || exit 1
 fi
-# The handoff's open list is built from docs/handoff/ (T77): rebuild it and stage it, so a hand edit can't disagree.
-if git diff --cached --name-only | grep -q "^docs/handoff/\|^docs/agent-handoff.md$"; then
+# The handoff's open list and Archived summary are built by tools/handoff.py tidy: rebuild and stage them.
+if git diff --cached --name-only | grep -q "^docs/handoff/\|^docs/agent-handoff\.md$\|^docs/handoff-archive\.md$"; then
   python3 tools/handoff.py check --staged || exit 1
-  python3 tools/handoff.py list >/dev/null || exit 1
+  python3 tools/handoff.py tidy >/dev/null || exit 1
   git add docs/agent-handoff.md
-  python3 tools/handoff.py list --check || exit 1
+  python3 tools/handoff.py tidy --check || exit 1
 fi
 # BOARD.md's job table is built from docs/handoff/ and the job queue (P24, tools/job.py): rebuild it on main only
 # (workers don't edit the board, so their branches never carry a rebuilt table to conflict with main's).

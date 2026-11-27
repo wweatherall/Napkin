@@ -5,6 +5,8 @@ and an open list this script builds from the folder, between its two marker line
 
   python3 tools/handoff.py list            rebuild the open list (tools/number_ids.py does this at every merge)
   python3 tools/handoff.py list --check    exit 1 if the list doesn't match the folder
+  python3 tools/handoff.py tidy            rebuild the open list, trim Archived to 10, check relative links
+  python3 tools/handoff.py tidy --check    exit 1 if anything would change or a relative link is broken
   python3 tools/handoff.py split           move any entry written straight into docs/agent-handoff.md (a "### H..."
                                            section before "## Archived") into its own file, then rebuild the list;
                                            an entry that has a file and was answered inline (on a branch made
@@ -23,6 +25,7 @@ import re
 import subprocess
 import sys
 from fnmatch import fnmatchcase
+from urllib.parse import unquote
 
 FOLDER = "docs/handoff"
 HANDOFF = "docs/agent-handoff.md"
@@ -80,6 +83,100 @@ def write_list(root):
     path = os.path.join(root, HANDOFF)
     text = open(path, encoding="utf-8").read()
     new = with_list(text, root)
+    if new != text:
+        open(path, "w", encoding="utf-8").write(new)
+    return new != text
+
+
+LINK = re.compile(r"\[[^\]]*\]\(([^)]+)\)")
+
+
+def _archive_entries(root):
+    """Return [(id, heading, outcome)] in archive order from docs/handoff-archive.md."""
+    arch_path = os.path.join(root, ARCHIVE)
+    if not os.path.isfile(arch_path):
+        return []
+    out = []
+    hid = head = None
+    outcome = "see the archive"
+    for line in open(arch_path, encoding="utf-8").read().splitlines():
+        if line.startswith("### ") and re.match(r"^H\d+\b", line[4:].strip()):
+            if hid is not None:
+                out.append((hid, head, outcome))
+            head = line[4:].strip()
+            hid = head.split()[0]
+            outcome = "see the archive"
+        elif hid is not None and line.startswith("Resolution:"):
+            outcome = line[len("Resolution:"):].strip()
+    if hid is not None:
+        out.append((hid, head, outcome))
+    return out
+
+
+def with_archived(text, root):
+    """Rebuild "## Archived" with the last 10 archived entries (newest first) and an Older: summary line."""
+    lines = text.split("\n")
+    if "## Archived" not in lines:
+        return text
+    arch_entries = _archive_entries(root)
+    arch_ids = {hid for hid, _, _ in arch_entries}
+    a = lines.index("## Archived")
+    b = next((i for i in range(a + 1, len(lines)) if lines[i].startswith("## ")), len(lines))
+    for line in lines[a + 1:b]:
+        if line.startswith("- "):
+            m = re.match(r"^- (H\d+)\b", line)
+            if m and m.group(1) not in arch_ids:
+                raise SystemExit(f"{HANDOFF}: archived entry {m.group(1)} is not in {ARCHIVE}; refusing to cut")
+    section = [
+        "## Archived",
+        "",
+        "Full entries in [handoff-archive.md](handoff-archive.md).",
+    ]
+    recent = [f"- {head}. Resolved: {outcome}" for _, head, outcome in reversed(arch_entries[-10:])]
+    if recent:
+        section.extend(["", *recent])
+    section.extend([
+        "",
+        f'Older: {ARCHIVE} ({len(arch_entries)} entries; find one with grep "^### H0NN" {ARCHIVE})',
+    ])
+    if b < len(lines):
+        section.append("")
+    after = lines[b:] if b < len(lines) else ([""] if text.endswith("\n") else [])
+    return "\n".join(lines[:a] + section + after)
+
+
+def broken_links(text, root):
+    """Return [(line_number, target)] for relative markdown links in HANDOFF that do not resolve to an existing path."""
+    base_dir = os.path.dirname(os.path.join(root, HANDOFF))
+    broken = []
+    for lineno, line in enumerate(text.splitlines(), 1):
+        for match in LINK.finditer(line):
+            target = match.group(1).strip()
+            if not target or target.startswith(("http://", "https://", "mailto:", "#")):
+                continue
+            rel = unquote(target.split("#", 1)[0])
+            if rel and not os.path.exists(os.path.join(base_dir, rel)):
+                broken.append((lineno, target))
+    return broken
+
+
+def tidy_changes(text, root):
+    """Return (new_text, changes, broken) for docs/agent-handoff.md without writing."""
+    changes = []
+    after_list = with_list(text, root)
+    if after_list != text:
+        changes.append(f"{HANDOFF}: open list does not match {FOLDER}/")
+    after_arch = with_archived(after_list, root)
+    if after_arch != after_list:
+        changes.append(f"{HANDOFF}: Archived list does not match {ARCHIVE}")
+    return after_arch, changes, broken_links(after_arch, root)
+
+
+def tidy(root):
+    """Rebuild the open list and Archived summary in docs/agent-handoff.md; return True if the file changed."""
+    path = os.path.join(root, HANDOFF)
+    text = open(path, encoding="utf-8").read()
+    new, _, _ = tidy_changes(text, root)
     if new != text:
         open(path, "w", encoding="utf-8").write(new)
     return new != text
@@ -172,24 +269,16 @@ def _preflight_commit(root, entry_name, push=False):
 
 
 def archive(root, hid):
-    """Move entry hid (e.g. "H037") to the archive's bottom and index it under "## Archived" (newest first)."""
+    """Move entry hid (e.g. "H037") to the archive's bottom and tidy docs/agent-handoff.md."""
     entry_name = _archive_entry_file(root, hid)
     path = os.path.join(root, FOLDER, entry_name)
     body = open(path, encoding="utf-8").read().strip("\n")
     head = next(l[4:].strip() for l in body.split("\n") if l.startswith("### "))
-    res = [l[len("Resolution:"):].strip() for l in body.split("\n") if l.startswith("Resolution:")]
-    outcome = res[-1] if res else "see the archive"
     arch = os.path.join(root, ARCHIVE)
     text = open(arch, encoding="utf-8").read().rstrip("\n")
     open(arch, "w", encoding="utf-8").write(text + "\n\n" + body + "\n")
-    hpath = os.path.join(root, HANDOFF)
-    lines = open(hpath, encoding="utf-8").read().split("\n")
-    a = lines.index("## Archived")
-    first = next((k for k in range(a + 1, len(lines)) if lines[k].startswith("- ") or lines[k].startswith("## ")), len(lines))
-    lines.insert(first, f"- {head}. Resolved: {outcome}")
-    open(hpath, "w", encoding="utf-8").write("\n".join(lines))
     os.remove(path)
-    write_list(root)
+    tidy(root)
     return head
 
 
@@ -428,6 +517,23 @@ def main():
                 sys.exit(1)
         elif write_list(root):
             print(f"rebuilt the open list in {HANDOFF}")
+    elif args[:1] == ["tidy"]:
+        path = os.path.join(root, HANDOFF)
+        text = open(path, encoding="utf-8").read()
+        new, changes, broken = tidy_changes(text, root)
+        if "--check" in args:
+            for msg in changes:
+                print(msg)
+            for lineno, target in broken:
+                print(f"{HANDOFF}:{lineno}: broken link: {target}")
+            if changes or broken:
+                sys.exit(1)
+        else:
+            if new != text:
+                open(path, "w", encoding="utf-8").write(new)
+                print(f"tidied {HANDOFF}")
+            for lineno, target in broken:
+                print(f"{HANDOFF}:{lineno}: broken link: {target}")
     elif args[:1] == ["check"]:
         staged = args[1:] == ["--staged"]
         problems = check_touches(root, () if staged else args[1:], staged=staged)

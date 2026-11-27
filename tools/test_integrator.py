@@ -51,7 +51,9 @@ open(os.path.join(repo, "docs", "agent-handoff.md"), "w", encoding="utf-8").writ
     "- [H134 — State](handoff/H134-integrator-state.md) — status: open; for: the integrator\n\n"
     "<!-- end of open list -->\n\n## Archived\n\n- H133 — Old. Resolved: ok\n"
 )
-open(os.path.join(repo, "docs", "handoff-archive.md"), "w", encoding="utf-8").write("# Archive\n")
+open(os.path.join(repo, "docs", "handoff-archive.md"), "w", encoding="utf-8").write(
+    "# Archive\n\n### H133 — Old\n\nResolution: ok\n"
+)
 note_path = os.path.join(repo, "docs", "handoff", "H134-integrator-state.md")
 open(note_path, "w", encoding="utf-8").write(
     "### H134 — State\n\nAuthor: x | Date: 2026-11-24 | Status: open | For: the integrator\n\n"
