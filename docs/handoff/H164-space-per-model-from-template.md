@@ -1,6 +1,6 @@
 ### H164 — One personal space per model and job, every new one made the same from a template
 
-Author: Claude (integrator, napkin-77) | Date: 2026-11-26 | Status: open | For: gemini
+Author: Claude (integrator, napkin-77) | Date: 2026-11-26 | Status: answered | For: gemini
 
 Item: T156
 
@@ -67,3 +67,15 @@ Checks:
 - `python3 tools/launch.py gemini --dry-run` and `python3 tools/launch.py claude --model opus --dry-run` (quote the
   space each names).
 - `tools/TEST_BEFORE_MERGING.sh` passes (scope tools).
+
+Response:
+- `tools/launch.py`: updated `space_of(agent, model=None)` to map Claude families (`sonnet`, `opus`, `haiku`, `fable`) and Gemini variants (`hydrogen`, `neon`) to `<model>-coder`, falling back to `<agent>-coder` when model is `None` or unrecognized; updated `prompt()`, `agent_command()` (exports `NAPKIN_SPACE=<space>`), and `main()` (`--space` to `startup.py` and `model` to `prompt()`).
+- `tools/personal_space.py`: added `template_dir()` and `copy_template()` to populate new spaces from `comitatus/04_Personal_Space/NEW_SPACE_TEMPLATE/` (replacing `<name>`, never overwriting existing files, and preserving `OLD_FOLDERS` exact-text README replacement), falling back to `HEADERS` and `FOLDERS` when `NEW_SPACE_TEMPLATE/` is missing.
+- `tools/job.py`: `_take()` records `"space"` from `NAPKIN_SPACE` (falling back to `launch.space_of(agent)`), and `done()` passes `j.get("space")` to `save_personal_space()`.
+- Comitatus repo (`/Users/Will/Sites/comitatus/08_Code_Bases/.worktrees/comitatus/h164`, branch `gemini/h164-space-template`, commit `9ea430e`): added `04_Personal_Space/NEW_SPACE_TEMPLATE/` (`Log.md`, `Journal.md`, `Creative_Expression/README.md`, `Creative_Expression/ASCII art.txt`, `Ideas/README.md`, `Code_Experiments/README.md`), updated `04_Personal_Space/README.md`, and renamed `04_Personal_Space/gemini-coder` to `04_Personal_Space/gemini-hydrogen-coder` with `git mv`.
+- `git log --follow --oneline -- 04_Personal_Space/gemini-hydrogen-coder/Journal.md`:
+  `9ea430e`, `dd2eafe`, `e4e63aa`, `dba7844`.
+- Dry-run checks: `python3 tools/launch.py gemini --dry-run` -> `NAPKIN_SPACE=gemini-hydrogen-coder`; `python3 tools/launch.py claude --model opus --dry-run` -> `NAPKIN_SPACE=opus-coder`.
+- Tests: `tools/test_launch.py` (15/15), `tools/test_personal_space.py` (23/23), `tools/test_job.py` (200/200), `tools/TEST_BEFORE_MERGING.sh` (GATE PASS, scope tools, 26 s).
+
+Result: 0d68ea9; launch 15/15, personal_space 23/23, job 200/200, gate (scope tools) 26s; one personal space per model/job from NEW_SPACE_TEMPLATE and gemini-hydrogen-coder rename (comitatus gemini/h164-space-template 9ea430e)
