@@ -375,6 +375,9 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | T149 | Tools and habits take the organization's names (FOR_<doing>.py; WHEN_<this>_<DO_THAT>.p... | Open |
 | T150 | Personal spaces take the rest of the proposal: a journal about how the work felt (not w... | On the board (H159) |
 | T151 | Tests run by what changed: a branch that touches only tools, guides, the log or persona... | On the board (H160) |
+| T152 | Thin the tests without losing coverage: research how others do it (coverage-guided test... | Open |
+| T153 | Generated tests: inputs made fresh each run (a random seed, printed so a failure can be... | Open |
+| T154 | Faster tests: cut the waits (the gate's ~100 s, the quick test's viewport lanes, FreeCA... | Open |
 
 ## Tunables
 
