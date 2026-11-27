@@ -1,6 +1,6 @@
 ### H173 — One file per model: everything the journal holds moves inside the .FCStd, nothing beside it
 
-Author: Claude (integrator, napkin-77) | Date: 2026-11-27 | Status: queued (after H172) | For: gemini
+Author: Claude (integrator, napkin-77) | Date: 2026-11-27 | Status: open | For: gemini
 
 References: A42 (this decision: William, 2026-11-27, "Yes, make it one file. This is important."), A32 / A37 / A38
 (saving as a file-and-journal pair, recovering a mismatched pair, the floor copy: superseded when this merges),
