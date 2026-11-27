@@ -19,8 +19,10 @@ Tidying, in order:
 table allows, an ID is in both files, a subject heading isn't in the index (or the reverse), or a decision names
 a principle that doesn't exist. A live file without an archive beside it (the layout before P23) is only sorted.
 The pre-commit hook (.githooks/pre-commit) runs this whenever either file is committed."""
+import json
 import os
 import re
+import subprocess
 import sys
 
 LIVE = "03_Past_Decisions/decision-log.md"
@@ -204,12 +206,15 @@ def _details_text(details_lines):
     return "\n".join(body).strip("\n")
 
 
-def format_work(ident, text, status, covers="", result="", details=""):
+def format_work(ident, text, status, covers="", jobs="", result="", details=""):
     """Format a Work list file (03_Past_Decisions/work/<ID>.md) from its fields."""
     clean_text = strip_details_note(text)
     title = first_sentence(clean_text)
     cov = covers.strip() if covers and covers.strip() else NONE
-    lines = [f"# {ident} — {title}", "", f"Status: {status} | Covers: {cov}", "", clean_text, ""]
+    lines = [f"# {ident} — {title}", "", f"Status: {status} | Covers: {cov}"]
+    if jobs and jobs.strip():
+        lines.append(f"Jobs: {jobs.strip()}")
+    lines += ["", clean_text, ""]
     lines.append(f"Result / next step: {result.strip()}" if result and result.strip() else "Result / next step:")
     if details and details.strip():
         lines += ["", "## Details", "", details.strip("\n")]
@@ -376,10 +381,16 @@ STATUSES = {   # the only statuses each table may use (P17): workers write resul
 ON_BOARD = re.compile(r"^On the board \(H(?:\d+|-new-\d+)(?:, H(?:\d+|-new-\d+))*\)$")
 QUEUED = ON_BOARD   # alias kept for tools/log.py; On the board (H040) replaced Open (queued: H040)
 LEGACY_QUEUED = re.compile(r"^Open \(queued: H\d+\)$")
+PICKED_UP = re.compile(r"^Picked up \([^,)]+, \d{4}-\d{2}-\d{2}\)$")
+
+
+def is_work_status(status):
+    """True when status is valid for a ## Work list item."""
+    return status in STATUSES["## Work list"] or bool(QUEUED.match(status)) or bool(PICKED_UP.match(status))
 
 
 def status_problems(text):
-    """Every table row's Status must be one its section allows; a Work list item may also be "On the board (H040)"."""
+    """Every table row's Status must be one its section allows; a Work list item may also be "On the board (H040)" or "Picked up (...)"."""
     out, section = [], None
     for line in text.split("\n"):
         if line.startswith("## "):
@@ -388,7 +399,7 @@ def status_problems(text):
         if section in STATUSES and line.startswith("| ") and not line.startswith("| ID ") and ID.match(line.split("|")[1].strip()):
             cells = [c.strip() for c in line.split("|")]
             status = cells[3] if len(cells) > 3 else ""
-            if status not in STATUSES[section] and not (section == "## Work list" and QUEUED.match(status)):
+            if status not in STATUSES[section] and not (section == "## Work list" and is_work_status(status)):
                 out.append(f"{cells[1]}: status '{status}' isn't one of {sorted(STATUSES[section])} ({section[3:]})")
     return out
 
@@ -778,7 +789,7 @@ def _check_qt_folder(folder, live_idx, arch_idx, allowed_statuses, closed_status
     entries = read_entries(folder)
     for ident, e in sorted(entries.items(), key=lambda kv: key(f"| {kv[0]} |")):
         st = e["meta"].get("Status", "")
-        if st not in allowed_statuses and not (allow_queued and QUEUED.match(st)):
+        if st not in allowed_statuses and not (allow_queued and is_work_status(st)):
             out.append(f"{ident}: status '{st}' in {folder}/{ident}.md isn't one of {sorted(allowed_statuses)}")
         elif st == closed_status:
             if ident not in arch_idx:
@@ -876,68 +887,171 @@ def layout_problems(live, archive, rulings_dir=None, work_dir=None, questions_di
     return out
 
 
-def _handoff_item_jobs(handoff_dir):
-    """Map Work list ID -> set of active job IDs from docs/handoff/ (open, queued, in progress, answered)."""
+def _read_queue_jobs(root):
+    """Read live queue jobs from git-common-dir/shopsketch-jobs.json if available, else {}."""
+    candidates = []
+    try:
+        r = subprocess.run(["git", "rev-parse", "--git-common-dir"], cwd=root, capture_output=True, text=True)
+        if r.returncode == 0 and r.stdout.strip():
+            cdir = os.path.realpath(os.path.join(root, r.stdout.strip()))
+            candidates.append(os.path.join(cdir, "shopsketch-jobs.json"))
+    except OSError:
+        pass
+    candidates.append(os.path.join(root, ".git", "shopsketch-jobs.json"))
+    for p in candidates:
+        try:
+            data = json.load(open(p, encoding="utf-8"))
+            if isinstance(data, dict) and isinstance(data.get("jobs"), dict):
+                return data["jobs"]
+        except (OSError, ValueError):
+            pass
+    return {}
+
+
+def _entry_author_fields(text):
+    meta_line = next((l for l in text.splitlines() if l.startswith("Author:")), "")
+    fields = {}
+    for part in meta_line.split(" | "):
+        if ":" in part:
+            k, v = part.split(":", 1)
+            fields[k.strip()] = v.strip()
+    return fields
+
+
+def _entry_items(text, head_line):
+    items = re.findall(r"\bT\d+\b", head_line or "")
+    for line in text.splitlines():
+        if re.match(r"^(?:#{1,6}[ \t]+Response\b|\*\*Response\b|Response (?:—|from\b))", line):
+            break
+        if line.startswith("Author:") and " | " in line:
+            for part in line.split(" | "):
+                if part.strip().startswith(("Item:", "Completes:")):
+                    items.extend(re.findall(r"\bT\d+\b", part))
+        elif line.startswith(("Item:", "Completes:")):
+            items.extend(re.findall(r"\bT\d+\b", line))
+    return items
+
+
+def _handoff_entry_state(fields, jid, queue_jobs):
+    live = queue_jobs.get(jid)
+    if isinstance(live, dict):
+        qstate = live.get("state")
+        who = live.get("agent", "?")
+        if qstate in ("in progress", "waiting"):
+            return f"in progress ({who})"
+        if qstate == "done":
+            return "for review"
+        if qstate == "returned":
+            return "ready"
+    st = fields.get("Status", "").lower()
+    if st.startswith("answered"):
+        return "for review"
+    if st.startswith("queued"):
+        return "queued"
+    if st.startswith("open"):
+        return "ready"
+    if st.startswith("in progress"):
+        return "in progress"
+    return None
+
+
+def _archive_entry_state(text):
+    res_lines = [l[len("Resolution:"):].strip() for l in text.splitlines() if l.startswith("Resolution:")]
+    last_res = res_lines[-1] if res_lines else ""
+    if re.match(r"^merged\b", last_res, re.I):
+        m = re.search(r"(?m)^Result:\s*([0-9a-f]{7,})\b", text)
+        if not m:
+            m = re.search(r"^merged\s+([0-9a-f]{7,})\b", last_res, re.I)
+        if m:
+            return f"merged {m.group(1)[:7]}"
+        return "merged"
+    return "dropped"
+
+
+def _handoff_item_jobs(root, queue_jobs=None):
+    """Map Work list ID -> {job ID: state} from docs/handoff/ and docs/handoff-archive.md."""
     out = {}
-    if not os.path.isdir(handoff_dir):
-        return out
-    for name in sorted(os.listdir(handoff_dir)):
-        if not name.endswith(".md"):
-            continue
-        text = open(os.path.join(handoff_dir, name), encoding="utf-8").read()
-        meta_line = next((l for l in text.splitlines() if l.startswith("Author:")), "")
-        fields = {}
-        for part in meta_line.split(" | "):
-            if ":" in part:
-                k, v = part.split(":", 1)
-                fields[k.strip()] = v.strip()
-        if fields.get("For", "").lower() not in ("claude", "codex", "gemini", "either"):
-            continue
-        if not fields.get("Status", "").lower().startswith(("open", "queued", "in progress", "answered")):
-            continue
-        head_m = re.search(r"(?m)^###\s+([A-Z]+\d+[a-z]*|[A-Z]+-new-\d+[a-z]*)\b(.*)$", text)
-        jid = head_m.group(1) if head_m else name.split("-")[0]
-        items = re.findall(r"\bT\d+\b", head_m.group(0)) if head_m else []
-        for line in text.splitlines():
-            if re.match(r"^(?:#{1,6}[ \t]+Response\b|\*\*Response\b|Response (?:—|from\b))", line):
-                break
-            if line.startswith("Author:") and " | " in line:
-                for part in line.split(" | "):
-                    if part.strip().startswith("Item:"):
-                        items.extend(re.findall(r"\bT\d+\b", part))
-            elif line.startswith("Item:"):
-                items.extend(re.findall(r"\bT\d+\b", line))
-        for tid in items:
-            out.setdefault(tid, set()).add(jid)
+    qjobs = queue_jobs if queue_jobs is not None else _read_queue_jobs(root)
+    handoff_dir = os.path.join(root, "docs", "handoff")
+    active_jids = set()
+    if os.path.isdir(handoff_dir):
+        for name in sorted(os.listdir(handoff_dir)):
+            if not name.endswith(".md"):
+                continue
+            text = open(os.path.join(handoff_dir, name), encoding="utf-8").read()
+            fields = _entry_author_fields(text)
+            if fields.get("For", "").lower() not in ("claude", "codex", "gemini", "either"):
+                continue
+            head_m = re.search(r"(?m)^###\s+([A-Z]+\d+[a-z]*|[A-Z]+-new-\d+[a-z]*)\b(.*)$", text)
+            jid = head_m.group(1) if head_m else name.split("-")[0]
+            state = _handoff_entry_state(fields, jid, qjobs)
+            if state is None:
+                continue
+            active_jids.add(jid)
+            for tid in _entry_items(text, head_m.group(0) if head_m else ""):
+                out.setdefault(tid, {})[jid] = state
+    arch_path = os.path.join(root, "docs", "handoff-archive.md")
+    if os.path.isfile(arch_path):
+        arch_text = open(arch_path, encoding="utf-8").read()
+        for chunk in re.split(r"(?m)^(?=### [A-Z]+\d+[a-z]*\b)", arch_text):
+            head_m = re.match(r"(?m)^###\s+([A-Z]+\d+[a-z]*)\b(.*)$", chunk)
+            if not head_m:
+                continue
+            jid = head_m.group(1)
+            if jid in active_jids:
+                continue
+            fields = _entry_author_fields(chunk)
+            if fields.get("For", "").lower() not in ("claude", "codex", "gemini", "either"):
+                continue
+            state = _archive_entry_state(chunk)
+            for tid in _entry_items(chunk, head_m.group(0)):
+                out.setdefault(tid, {})[jid] = state
     return out
 
 
-def board_statuses(root):
-    """Sync Work list Open / On the board (...) statuses from docs/handoff/ jobs; returns changed descriptions."""
+def board_statuses(root, queue_state=None):
+    """Sync Work list Status and Jobs lines from docs/handoff/, docs/handoff-archive.md, and queue state; returns changed descriptions."""
     wdir = os.path.join(root, WORK_DIR)
     if not os.path.isdir(wdir):
         return []
-    item_jobs = _handoff_item_jobs(os.path.join(root, "docs", "handoff"))
+    qjobs = queue_state.get("jobs", {}) if isinstance(queue_state, dict) and "jobs" in queue_state else queue_state
+    item_jobs = _handoff_item_jobs(root, queue_jobs=qjobs)
     changed = []
     for ident in folder_ids(wdir):
         path = os.path.join(wdir, f"{ident}.md")
         raw = open(path, encoding="utf-8").read()
         entry = parse_entry(raw, ident=ident)
         status = entry["meta"].get("Status", "")
-        if not (status == "Open" or ON_BOARD.match(status) or LEGACY_QUEUED.match(status)):
-            continue
-        jids = sorted(item_jobs.get(ident, set()), key=lambda j: key(f"| {j} |"))
-        new_status = f"On the board ({', '.join(jids)})" if jids else "Open"
-        if new_status != status:
-            new_raw = re.sub(
-                r"(?m)^(Status:\s*)([^\n|]+?)(\s*(?:\||$))",
-                lambda m: f"{m.group(1)}{new_status}{m.group(3)}",
-                raw,
-                count=1,
+        old_jobs = entry["meta"].get("Jobs", "")
+        jobs_map = item_jobs.get(ident, {})
+        ordered_jobs = sorted(jobs_map.items(), key=lambda kv: key(f"| {kv[0]} |"))
+        new_jobs = " · ".join(f"{jid} {st}" for jid, st in ordered_jobs)
+        new_status = status
+        if status == "Open" or PICKED_UP.match(status) or ON_BOARD.match(status) or LEGACY_QUEUED.match(status):
+            unfinished = [jid for jid, st in ordered_jobs if not st.startswith("merged") and st != "dropped"]
+            any_merged = any(st.startswith("merged") for _, st in ordered_jobs)
+            if unfinished:
+                new_status = f"On the board ({', '.join(unfinished)})"
+            elif ordered_jobs and any_merged:
+                if ON_BOARD.match(status) or PICKED_UP.match(status):
+                    new_status = "Done"
+                elif LEGACY_QUEUED.match(status):
+                    new_status = "Open"
+            else:
+                new_status = "Open"
+        if new_status != status or new_jobs != old_jobs:
+            new_raw = format_work(
+                ident,
+                entry["body"],
+                new_status,
+                covers=entry["meta"].get("Covers", ""),
+                jobs=new_jobs,
+                result=entry["result"],
+                details=entry["details"],
             )
             if new_raw != raw:
                 open(path, "w", encoding="utf-8").write(new_raw)
-                changed.append(f"{ident}: {new_status}")
+                changed.append(f"{ident}: {new_status}" if new_status != status else f"{ident}: jobs updated")
     if changed:
         live_p = os.path.join(root, LIVE)
         arch_p = os.path.join(root, ARCHIVE)

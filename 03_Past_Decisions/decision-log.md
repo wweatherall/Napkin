@@ -370,7 +370,7 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | T139 | Rename the app to Napkin: what you see, the built app, folders, and the code and docs t... | Open |
 | T140 | Decide when and how William's new organization principles take effect, and how they sit... | Open |
 | T141 | William tries the Polygon tool by eye in a rebuilt app (tools/build_app.sh). | Open |
-| T142 | A Work list item is marked Done automatically when the job (or last of its jobs) that c... | On the board (H157) |
+| T142 | A Work list item is marked Done automatically when the job (or last of its jobs) that c... | Open |
 | T143 | Move tools/usage.py (2,760 lines, token benchmarking) and its tests out of the project'... | Open |
 | T146 | Atomize the principles and past decisions: one file per ruling (G, P and the rest), wri... | Open |
 | T149 | Tools and habits take the organization's names (FOR_<doing>.py; WHEN_<this>_<DO_THAT>.p... | Open |

@@ -252,7 +252,8 @@ check("a named ID's lines come from its ruling file",
 
 work_text = (
     "# T147 — Plane fits keep their target.\n\n"
-    "Status: Open | Covers: I34\n\n"
+    "Status: Open | Covers: I34\n"
+    "Jobs: H150 merged 4bb59a0 · H151 in progress (gemini)\n\n"
     "Plane fits keep their target.\n\n"
     "Result / next step: Your call: pick the snap rule.\n"
 )
@@ -264,6 +265,8 @@ wlines, wunknown = s.report_ids(
 check("a named T item's lines and its Covers rows come from files",
       not wunknown and wlines[0] == "== T147" and "Plane fits keep their target." in wlines[1]
       and any(l.startswith("  I34: Pushing a piece toward another") for l in wlines))
+check("a named item's lines include its Jobs line",
+      any("Jobs: H150 merged 4bb59a0 · H151 in progress (gemini)" in l for l in wlines))
 w_rows = s.waiting_rows("", work_entries={"T147": work_text})
 check("a 'your call' item in a file is waiting on William",
       w_rows == [("T147", "Your call: pick the snap rule.")])

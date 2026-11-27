@@ -299,6 +299,7 @@ def set_status(root, tid, status):
         content = sort_decision_log.format_work(
             tid, entry["body"], status,
             covers=entry["meta"].get("Covers", ""),
+            jobs=entry["meta"].get("Jobs", ""),
             result=entry["result"],
             details=entry["details"],
         )
@@ -649,6 +650,7 @@ def record_result(root, tid, commit, rest, merge):
         content = sort_decision_log.format_work(
             tid, entry["body"], entry["meta"].get("Status", "Open"),
             covers=entry["meta"].get("Covers", ""),
+            jobs=entry["meta"].get("Jobs", ""),
             result=new_result,
             details=entry["details"],
         )

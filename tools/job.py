@@ -1164,7 +1164,7 @@ def board(cwd, now=None, out=print):
     except ImportError:
         sort_decision_log = None
     if sort_decision_log is not None:
-        for line in sort_decision_log.board_statuses(top):
+        for line in sort_decision_log.board_statuses(top, queue_state=st):
             out(line)
     write_org_jobs(top, new, out=out)
     return new != text

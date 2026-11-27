@@ -215,7 +215,7 @@ def add(root, kind, text, opts, on_main=None, today=None):
         o.setdefault("status", "Active")
         o["date"] = today
     allowed = s.STATUSES[section]
-    if o["status"] not in allowed and not (kind == "T" and s.QUEUED.match(o["status"])):
+    if o["status"] not in allowed and not (kind == "T" and s.is_work_status(o["status"])):
         raise LogError(f"status '{o['status']}' isn't one of {', '.join(sorted(allowed))} ({section[3:]})")
     ident = next_id(root, kind, on_main)
     rdir = os.path.join(root, s.RULINGS_DIR)
@@ -277,11 +277,12 @@ def set_ruling(root, ident, opts):
             raise LogError(f"no Work list item {ident} in {s.WORK_DIR}")
         meta = entry["meta"]
         status = o.get("status", meta.get("Status", "Open"))
-        if status not in s.STATUSES["## Work list"] and not s.QUEUED.match(status):
+        if not s.is_work_status(status):
             raise LogError(f"status '{status}' isn't one of {sorted(s.STATUSES['## Work list'])} (Work list)")
         content = s.format_work(
             ident, entry["body"], status,
             covers=o.get("rel", meta.get("Covers", "")),
+            jobs=meta.get("Jobs", ""),
             result=entry["result"], details=entry["details"],
         )
         s.write_entry(wdir, ident, content)
@@ -329,6 +330,39 @@ def set_ruling(root, ident, opts):
     return "\n".join(content.splitlines()[:3])
 
 
+def pick(root, ident, who="integrator", today=None):
+    """Mark an Open Work list item Picked up (<who>, <date>); refuses if its status isn't Open."""
+    if not s.is_work_id(ident):
+        raise LogError(f"{ident} isn't a Work list item (T<n>)")
+    wdir = os.path.join(root, s.WORK_DIR)
+    entry = s.read_entry(wdir, ident)
+    if entry is None:
+        raise LogError(f"no Work list item {ident} in {s.WORK_DIR}")
+    status = entry["meta"].get("Status", "Open")
+    if status != "Open":
+        raise LogError(f"{ident} is {status}, not Open")
+    who = clean(who, "--as") or "integrator"
+    today = today or date.today().isoformat()
+    new_status = f"Picked up ({who}, {today})"
+    content = s.format_work(
+        ident, entry["body"], new_status,
+        covers=entry["meta"].get("Covers", ""),
+        jobs=entry["meta"].get("Jobs", ""),
+        result=entry["result"], details=entry["details"],
+    )
+    s.write_entry(wdir, ident, content)
+    rdir = os.path.join(root, s.RULINGS_DIR)
+    qdir = os.path.join(root, s.QUESTIONS_DIR)
+    live, archive = read(root, LIVE), read(root, ARCHIVE)
+    if live is not None and archive is not None:
+        new_live, new_arch = s.tidy(live, archive, rulings_dir=rdir, work_dir=wdir, questions_dir=qdir)
+        if new_live != live:
+            write(root, LIVE, new_live)
+        if new_arch != archive:
+            write(root, ARCHIVE, new_arch)
+    return "\n".join(content.splitlines()[:3])
+
+
 def note(root, ident, text):
     """Append text to a Work list file's Result / next step (or a question file's Notes); falls back to table rows."""
     text = clean(text, "the note")
@@ -341,7 +375,8 @@ def note(root, ident, text):
             new_result = f"{entry['result']} {text}" if entry["result"] else text
             content = s.format_work(
                 ident, entry["body"], entry["meta"].get("Status", "Open"),
-                covers=entry["meta"].get("Covers", ""), result=new_result, details=entry["details"],
+                covers=entry["meta"].get("Covers", ""), jobs=entry["meta"].get("Jobs", ""),
+                result=new_result, details=entry["details"],
             )
             s.write_entry(wdir, ident, content)
             return f"Result / next step: {new_result}"
@@ -504,7 +539,7 @@ def parse(argv):
                 raise LogError(f"{a} needs a value")
             name = "subject" if name == "area" else name
             if name not in {"subject", "principles", "rel", "why", "where", "covers", "result", "notes", "status", "value", "does",
-                            "decision"}:
+                            "decision", "as"}:
                 raise LogError(f"unknown option {a}")
             opts[name] = val
         else:
@@ -540,6 +575,10 @@ def main(argv=None):
             if len(rest) != 1:
                 raise LogError('usage: log.py set <ID> [--status S] [--where "..."] [--rel "..."]')
             print(set_ruling(root, rest[0], opts))
+        elif cmd == "pick":
+            if len(rest) != 1 or set(opts) - {"as"}:
+                raise LogError('usage: log.py pick <ID> [--as <name>]')
+            print(pick(root, rest[0], opts.get("as", "integrator")))
         elif cmd == "show":
             if len(rest) > 1 or opts:
                 raise LogError("usage: log.py show <subject|ID> [--top], or log.py show --top")

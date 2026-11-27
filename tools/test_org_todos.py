@@ -36,9 +36,11 @@ os.makedirs(os.path.join(root, "03_Past_Decisions", "work"))
 open(os.path.join(root, "03_Past_Decisions", "work", "T11.md"), "w").write(
     "# T11 — Choose a finish\n\nStatus: Open | Covers: —\n\nChoose a finish.\n\nResult / next step: Your call: oil or wax.\n")
 open(os.path.join(root, "03_Past_Decisions", "work", "T12.md"), "w").write(
-    "# T12 — Partial job\n\nStatus: Open | Covers: —\n\nPartial job.\n\nResult / next step: Result (abc1234, merged def5678): step 1 done.\n")
+    "# T12 — Picked up item\n\nStatus: Picked up (integrator, 2026-11-26) | Covers: —\n\nPicked up.\n\nResult / next step:\n")
 open(os.path.join(root, "03_Past_Decisions", "work", "T13.md"), "w").write(
-    "# T13 — Never had a job\n\nStatus: Open | Covers: —\n\nLater.\n\nResult / next step: Later.\n")
+    "# T13 — Ready for integrator\n\nStatus: Open | Covers: —\n\nLater.\n\nResult / next step: Later.\n")
+open(os.path.join(root, "03_Past_Decisions", "work", "T14.md"), "w").write(
+    "# T14 — Already on board\n\nStatus: On the board (H5) | Covers: —\n\nOn board.\n\nResult / next step:\n")
 open(os.path.join(root, "docs", "handoff", "H5-review-me.md"), "w").write(
     "### H5 — Make the thing\n\nAuthor: x | Date: 2026-11-26 | Status: answered | For: either\n")
 open(os.path.join(root, "docs", "follow-ups.md"), "w").write("# Follow-ups\n\n- H4 (2026-11-26): Tidy the drawer later.\n")
@@ -56,8 +58,13 @@ check("a 'your call' Work list item in its own file (H153) waits on William too"
 check("an item that isn't waiting on William gets no file", not any("T10" in n for n in names_w), names_w)
 check("a job answered for review and a follow-up wait on the integrator",
       "Proj_H5_MAKE_THE_THING.md" in names_i and "Proj_H4_TIDY_THE_DRAWER_LATER.md" in names_i, names_i)
-check("an Open item whose job merged without completing it waits on the integrator",
-      any(n.startswith("Proj_T12_") for n in names_i) and not any(n.startswith("Proj_T13_") for n in names_i), names_i)
+check("an Open item not waiting on William is an integrator to-do",
+      any(n.startswith("Proj_T13_") for n in names_i) and not any(n.startswith("Proj_T11_") for n in names_i), names_i)
+t12_files = [n for n in names_i if n.startswith("Proj_T12_")]
+check("a picked-up item's to-do says picked up",
+      len(t12_files) == 1 and "picked up 2026-11-26" in open(os.path.join(i, t12_files[0])).read(), names_i)
+check("an item On the board has no to-do file",
+      not any(n.startswith("Proj_T14_") for n in names_i), names_i)
 check("a stale generated file is removed, a hand-written one kept",
       "Proj_T1_OLD.md" not in names_w and "MY_OWN_NOTE.md" in names_w, names_w)
 check("each file says it is generated", open(os.path.join(i, "Proj_H5_MAKE_THE_THING.md")).read().startswith("<!-- generated"))
