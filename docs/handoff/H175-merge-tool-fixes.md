@@ -1,6 +1,6 @@
 ### H175 — The merge tools: six things the integrator did by hand on 2026-11-27, made automatic
 
-Author: Claude (integrator, napkin-77) | Date: 2026-11-27 | Status: open | For: gemini
+Author: Claude (integrator, napkin-77) | Date: 2026-11-27 | Status: answered | For: gemini
 
 References: William, 2026-11-27 ("What is being done by hand that should be automated?"), comitatus principles C05
 ("can it just be a Python script?") and C08 (make your work environment better), docs/follow-ups.md (two of these
@@ -62,3 +62,17 @@ What can fail:
 Checks:
 - The four test files above, one case per item.
 - `tools/TEST_BEFORE_MERGING.sh` passes (scope tools).
+
+Response — Gemini (gemini-cherry-1127-0955), 2026-11-27:
+Done all seven items:
+1. `tools/integrate.py` (`settle_handoff`, `_handoff_handwritten`): settles `docs/agent-handoff.md` three-way on the hand-written text (taking branch when main is unchanged from base, main + inline entries when branch is unchanged, stopping with a conflict when both changed) and rebuilds the open list and `## Archived` with `handoff.split` and `handoff.tidy`.
+2. `tools/integrate.py` (`rebuild_and_check`): runs `number_ids.tidy_log(root)` (which passes both rulings folders via `sort_decision_log.ruling_dirs(root)`) before `check_files` and `run_gate`.
+3. `tools/integrate.py` (`run_gate`, `load_continuation`, `check_start`): saves merge state (`gate_failed: True`) on gate failure; `--continue --regate` stages working-tree fixes and re-runs the gate, finishing only on pass; `--continue` without `--regate` refuses while `gate_failed` is set; stale state files are removed when a merge finishes, is aborted (`MERGE_HEAD` missing), or a new merge starts.
+4. `tools/job.py` (`merged_job`, `merged <ID>`): marks a job merged in the queue and cleans up its worktree/branch for merges finished outside `integrate.py`.
+5. `tools/launch.py` (`session_name`): adds seconds (`%m%d-%H%M%S`) and appends `-2`, `-3`, ... when `scratch/launch/<name>.txt` already exists.
+6. `tools/number_ids.py` (`_archived_lines`, `defined`, `plan`, `apply`): skips already-archived entries in `docs/handoff-archive.md` and `03_Past_Decisions/decision-archive.md` while still numbering new entries being archived in the merge; cleared both follow-up lines in `docs/follow-ups.md`.
+7. `tools/integrate.py` (`record_result`, `draft_results`) & `tools/sort_decision_log.py` (`board_statuses`): items without `Completes: T<n>` return to `Open` when their linked jobs finish, with `step merged (H0NN)` in their result; `Completes: T<n>` marks them `Done`. Updated `docs/integrator.md`.
+
+Changed from the brief: With integrator scope approval (`job.py wait --scope`), updated `tools/sort_decision_log.py` (`board_statuses`) and `tools/test_sort_decision_log.py` so `On the board` items return to `Open` when their last linked job merges without `Completes:`, and updated `tools/test_bookkeeping.py` for the `step merged (H060)` result format.
+
+Result: 743ad20; `tools/TEST_BEFORE_MERGING.sh` (scope tools) passed (148 s); `test_launch.py` 16/16, `test_number_ids.py` 55/55, `test_job.py` 201/201, `test_integrate.py` 93/93, `test_sort_decision_log.py` 36/36, `test_bookkeeping.py` 14/14; automated 7 merge-tool fixes.
