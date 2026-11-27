@@ -46,7 +46,6 @@ PY_SCRIPTS = [
     ("tools/WRITE_IN_YOUR_JOURNAL.py", "personal_space.py", sys.executable),
     ("tools/ARCHIVE_A_FINISHED_JOB.py", "handoff.py", sys.executable),
     ("tools/CHECK_JOBS_DONT_OVERLAP.py", "handoff.py", sys.executable),
-    ("tools/MEASURE_TOKEN_USE.py", "usage", sys.executable),
     ("tools/COMPARE_TEST_SUITES.py", "compare_suites.py", sys.executable),
     ("tools/CHECK_TYPED_LENGTHS_AGAINST_FREECAD.py", "length_cases.py", sys.executable),
     ("02_Habits/REMEMBER_WHO_YOU_ARE.py", "startup.py", sys.executable),

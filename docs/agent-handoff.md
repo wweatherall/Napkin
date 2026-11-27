@@ -33,7 +33,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
 - [H159 — Personal spaces: everything an agent makes is committed and pushed; experiments can be run or merged](handoff/H159-personal-spaces-saved-and-pushed.md) — status: open; for: gemini
 - [H161 — Faster tests: find where the gate's time goes and cut it, every check kept](handoff/H161-faster-tests.md) — status: open; for: gemini
-- [H162 — Move the token benchmarker (tools/usage.py) to comitatus/09_Tools as MEASURE_TOKEN_USE.py](handoff/H162-move-usage-to-comitatus-tools.md) — status: open; for: gemini
+- [H162 — Move the token benchmarker (tools/usage.py) to comitatus/09_Tools as MEASURE_TOKEN_USE.py](handoff/H162-move-usage-to-comitatus-tools.md) — status: answered; for: gemini
 
 <!-- end of open list -->
 

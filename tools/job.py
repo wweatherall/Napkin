@@ -82,7 +82,6 @@ ACTIVE = ("in progress", "waiting", "done", "returned")     # a job in one of th
 WORKING = ("in progress", "waiting")                         # ... and in one of these, its session
 INTERESTING = re.compile(r"godot|freecad|\.sh\b|python", re.I)
 RESPONSE = re.compile(r"^[#*\s]*Response\b", re.M)
-USAGE_TOOL = os.path.join(os.path.dirname(os.path.abspath(__file__)), "usage.py")
 
 
 def record_journal(root, line):
@@ -127,6 +126,18 @@ def common_dir(cwd=None):
 def main_root(cwd=None):
     """The main checkout (the one whose .git is the common folder)."""
     return os.path.dirname(common_dir(cwd))
+
+
+def _usage_tool():
+    """comitatus/09_Tools/MEASURE_TOKEN_USE.py when the main checkout sits under 08_Code_Bases, else ''."""
+    top = main_root(HERE)
+    parent = os.path.dirname(top)
+    if os.path.basename(parent) != "08_Code_Bases":
+        return ""
+    return os.path.join(os.path.dirname(parent), "09_Tools", "MEASURE_TOKEN_USE.py")
+
+
+USAGE_TOOL = _usage_tool()
 
 
 def toplevel(cwd=None):

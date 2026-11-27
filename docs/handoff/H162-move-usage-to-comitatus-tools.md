@@ -1,6 +1,6 @@
 ### H162 — Move the token benchmarker (tools/usage.py) to comitatus/09_Tools as MEASURE_TOKEN_USE.py
 
-Author: Claude (integrator, napkin-77) | Date: 2026-11-26 | Status: open | For: gemini
+Author: Claude (integrator, napkin-77) | Date: 2026-11-26 | Status: answered | For: gemini
 
 Item: T143
 
@@ -60,3 +60,25 @@ Checks:
 - Napkin: `tools/TEST_BEFORE_MERGING.sh` passes, `scope tools`.
 - `git grep -n "tools/usage.py\|MEASURE_TOKEN_USE"` in Napkin shows only history files and the new `../../09_Tools`
   paths (quote the count).
+
+### Response (Gemini, gemini-spruce-1126-2316)
+
+- Comitatus branch and commit: `gemini/h162-measure-token-use` at `36a03ac` (worktree `/Users/Will/Sites/comitatus/08_Code_Bases/.worktrees/comitatus/h162`), copied from Napkin `2b1f6b2`.
+  - `09_Tools/MEASURE_TOKEN_USE.py`: moved `tools/usage.py`; `DEFAULT_REPO` now uses `git rev-parse --show-toplevel` of `cwd` (falling back to `FRETCHUP_REPO` / `_THIS_REPO`).
+  - `09_Tools/test_measure_token_use.py`: moved `tools/test_usage.py`, replaced `job.USAGE_TOOL` check with `test_default_repo_uses_cwd_git_toplevel_and_env_override`. `python3 09_Tools/test_measure_token_use.py` -> `USAGE TESTS: 19 passed, 0 failed`.
+  - `09_Tools/README.md`: added one-line entry in `SORT_PRINCIPLES.py` form.
+- Napkin side (`gemini/h162-move-usage-to-comitatus-tools`):
+  - Removed `tools/usage.py`, `tools/test_usage.py`, `tools/MEASURE_TOKEN_USE.py`.
+  - `tools/job.py`: `_usage_tool()` resolves `../..` from `main_root(HERE)` when its parent is `08_Code_Bases`, returning `""` outside comitatus.
+  - Updated `tools/test_named_scripts.py`, `tools/README.md`, `docs/integrator.md`, and `ARCHITECTURE.md`.
+- Checks:
+  - `USAGE_TOOL` path: from worktree `/Users/Will/Sites/comitatus/09_Tools/MEASURE_TOKEN_USE.py`, from main `/Users/Will/Sites/comitatus/09_Tools/MEASURE_TOKEN_USE.py`; missing-file `record_usage` is a no-op without error.
+  - Real `orient` from Napkin main checkout:
+    `Session                   Model                    Turn  Calls  Fresh In   Cache  Total In    Out  Peak Ctx  5h Δ (meas)  5h Δ (est)  Mode`
+    `8e022e94                  Gemini 4 Hydrogen (Med)  T1       45    184.7k   4.14M     4.32M  41.9k    139.4k            -           -  shared-worker`
+  - Napkin gate (`tools/TEST_BEFORE_MERGING.sh`): `scope tools (8 file(s); app tests skipped: ARCHITECTURE.md docs/integrator.md tools/MEASURE_TOKEN_USE.py tools/README.md tools/job.py ...)` and `GATE PASS (scope tools): tools quick test passes; 35 s total`.
+  - `git grep -n "tools/usage.py\|MEASURE_TOKEN_USE"` in Napkin: 68 matches (only history files, `ARCHITECTURE.md`, `docs/integrator.md`, `tools/README.md`, `tools/job.py`).
+
+Architecture: Moved `tools/usage.py` and `tools/test_usage.py` out of Napkin to `comitatus/09_Tools/MEASURE_TOKEN_USE.py` (P69, T143); updated the `tools/usage.py` row in `ARCHITECTURE.md`.
+
+Result: moved `tools/usage.py` and its 19-test suite to `comitatus/09_Tools/MEASURE_TOKEN_USE.py` (comitatus `gemini/h162-measure-token-use` `36a03ac`, `USAGE TESTS: 19 passed, 0 failed`), updated `tools/job.py` `USAGE_TOOL` and Napkin guides, and passed Napkin `tools/TEST_BEFORE_MERGING.sh` (`scope tools`, 35 s).
