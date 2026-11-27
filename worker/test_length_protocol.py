@@ -16,9 +16,9 @@ with tempfile.TemporaryDirectory(dir=os.environ.get('TESTDIR') if os.path.isdir(
             else: raise AssertionError('worker did not start')
             conn.settimeout(10); stream=conn.makefile('r')
             for ident, texts, expected in [(1,['1in + 5mm','3/4"'],[30.4,19.05]),(2,['1-1/2"'],[12.7]),(3,['19'],[19])]:
-                conn.sendall((json.dumps(dict(cmd='length',id=ident,texts=texts))+'\n').encode())
+                conn.sendall((json.dumps(dict(cmd='length',request_id=ident,texts=texts))+'\n').encode())
                 reply=json.loads(stream.readline())
-                assert reply['cmd']=='length' and reply['id']==ident,reply
+                assert reply['cmd']=='length' and reply['request_id']==ident,reply
                 assert reply['ok']==(expected is not None),reply
                 if expected:
                     assert all(abs(a-b)<1e-8 for a,b in zip(reply['values'],expected)),reply

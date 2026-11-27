@@ -24,7 +24,7 @@ var m                               # main.gd: tools, tool, ui_sync, client, doc
 var vcb := ""                       # the text typed so far
 var typing := false                 # the measurements box has Delete/Backspace: since a click on it or a typed key, until a click in the view (I48)
 var length_id := 0
-var length_pending := {}            # a length FreeCAD is working out: {id, tool, model, seq, state}
+var length_pending := {}            # a length FreeCAD is working out: {request_id, tool, model, seq, state}
 
 # Display units (I57, I59, I62): shown immediately, saved in the model's .FCStd Meta via set_units.
 var units := Units.DEFAULT_SPEC     # canonical '<format>:<rounding>'
@@ -308,15 +308,15 @@ func apply() -> void:
 				m.ui_sync.text = "Enter two lengths separated by a comma"
 			else:
 				length_id += 1
-				length_pending = {"id": length_id, "tool": tool, "model": m.model_path, "seq": m.seq,
+				length_pending = {"request_id": length_id, "tool": tool, "model": m.model_path, "seq": m.seq,
 					"state": active.state.duplicate(true), "suffix": suffix, "raw_txt": txt}
-				m.client.send({"cmd": "length", "id": length_id, "texts": Array(texts), "default_unit": du})
+				m.client.send({"cmd": "length", "request_id": length_id, "texts": Array(texts), "default_unit": du})
 				m.ui_sync.text = "Evaluating length…"
 	update()
 
 
 func on_length(resp: Dictionary) -> void:
-	if length_pending.is_empty() or resp.get("id") != length_pending.id: return
+	if length_pending.is_empty() or resp.get("request_id") != length_pending.request_id: return
 	var pending := length_pending
 	length_pending = {}
 	var tool: String = m.tool

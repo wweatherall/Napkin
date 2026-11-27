@@ -50,6 +50,6 @@ def evaluate(text, default_unit="mm"):
 def handle(req):
     try:
         values = [evaluate(t, req.get("default_unit", "mm")) for t in req["texts"]]
-        return {"cmd": "length", "id": req.get("id"), "ok": True, "values": values}
+        return {"cmd": "length", "request_id": req.get("request_id"), "ok": True, "values": values}
     except Exception as exc:
-        return {"cmd": "length", "id": req.get("id"), "ok": False, "error": str(exc)}
+        return {"cmd": "length", "request_id": req.get("request_id"), "ok": False, "error": str(exc)}

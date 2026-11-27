@@ -25,7 +25,6 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 <!-- open list: built from docs/handoff/ by tools/handoff.py; don't edit by hand -->
 
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
-- [H170 — One name per meaning for message numbers: `seq` for the model's state, `request_id` for the request](handoff/H170-request-numbers.md) — status: open; for: gemini
 - [H171 — Fits become their own ops (`fit`, `unfit`), and old files' fits are upgraded when opened](handoff/H171-fit-op.md) — status: queued (after H170); for: gemini
 
 <!-- end of open list -->
@@ -34,6 +33,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 Full entries in [handoff-archive.md](handoff-archive.md).
 
+- H170 — One name per meaning for message numbers: `seq` for the model's state, `request_id` for the request. Resolved: merged into main by the integrator, 2026-11-27.
 - H169 — protocol.md's message list generated from the code, and a check that keeps the rest honest. Resolved: merged into main by the integrator, 2026-11-27.
 - H168 — A script that keeps docs/agent-handoff.md tidy: short, current, every link working. Resolved: merged into main by the integrator, 2026-11-27.
 - H167 — Architecture step 2: ARCHITECTURE.md down to a hand-written core under 8 KB, nothing lost. Resolved: merged into main by the integrator, 2026-11-27.
@@ -43,9 +43,8 @@ Full entries in [handoff-archive.md](handoff-archive.md).
 - H165 — Architecture step 1: a module map generated from each file's own header line. Resolved: merged into main by the integrator, 2026-11-27.
 - H161 — Faster tests: find where the gate's time goes and cut it, every check kept. Resolved: merged into main by the integrator, 2026-11-27.
 - H159 — Personal spaces: everything an agent makes is committed and pushed; experiments can be run or merged. Resolved: merged into main by the integrator, 2026-11-26.
-- H162 — Move the token benchmarker (tools/usage.py) to comitatus/09_Tools as MEASURE_TOKEN_USE.py. Resolved: merged into main by the integrator, 2026-11-26.
 
-Older: docs/handoff-archive.md (167 entries; find one with grep "^### H0NN" docs/handoff-archive.md)
+Older: docs/handoff-archive.md (168 entries; find one with grep "^### H0NN" docs/handoff-archive.md)
 
 ## Entry template
 

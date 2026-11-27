@@ -284,8 +284,8 @@ func _measure_box_units_lifecycle() -> void:
 	fm.ui_sync.text = ""
 	mb.vcb = "sqrt(4) * foo"
 	mb.apply()
-	var fresh_bare_id: int = client.by_cmd("length").back()["id"]
-	mb.on_length({"cmd": "length", "id": fresh_bare_id, "ok": true, "values": [254.0]})
+	var fresh_bare_id: int = client.by_cmd("length").back()["request_id"]
+	mb.on_length({"cmd": "length", "request_id": fresh_bare_id, "ok": true, "values": [254.0]})
 	check("fresh install FreeCAD-evaluated bare length prompts without committing (I70)",
 		ft.last_typed == "" and not mb.units_explicit and client.by_cmd("set_units").is_empty()
 		and fm.ui_sync.text == MeasureBox.FIRST_UNIT_PROMPT, [ft.last_typed, mb.units_explicit, fm.ui_sync.text])
@@ -357,14 +357,14 @@ func _measure_box_units_lifecycle() -> void:
 	var before_bad_units: String = mb.units
 	mb.vcb = "abc mm"
 	mb.apply()
-	var bad_id: int = client.by_cmd("length").back()["id"]
-	mb.on_length({"cmd": "length", "id": bad_id, "ok": false, "error": "bad"})
+	var bad_id: int = client.by_cmd("length").back()["request_id"]
+	mb.on_length({"cmd": "length", "request_id": bad_id, "ok": false, "error": "bad"})
 	check("rejected FreeCAD length with unit does not change or lock units",
 		mb.units == before_bad_units and not mb.units_explicit)
 	mb.vcb = "1ft^1"
 	mb.apply()
-	var ok_id: int = client.by_cmd("length").back()["id"]
-	mb.on_length({"cmd": "length", "id": ok_id, "ok": true, "values": [304.8]})
+	var ok_id: int = client.by_cmd("length").back()["request_id"]
+	mb.on_length({"cmd": "length", "request_id": ok_id, "ok": true, "values": [304.8]})
 	check("accepted FreeCAD length adopts ft-in:1/16 and locks units",
 		mb.units == "ft-in:1/16" and mb.units_explicit and absf(float(ft.last_typed) - 304.8) < 1e-6)
 
@@ -407,4 +407,18 @@ func _measure_box_units_lifecycle() -> void:
 	var lens := client.by_cmd("length")
 	check("declined length request carries the model's default_unit",
 		lens.size() == lens_before + 1 and lens.back()["default_unit"] == "in", lens)
+	# Stale length reply with an older request_id is dropped; only the matching request_id applies (H170).
+	var stale_id: int = lens.back()["request_id"]
+	mb.vcb = "sqrt(9) * foo"
+	mb.apply()
+	var current_id: int = client.by_cmd("length").back()["request_id"]
+	ft.last_typed = ""
+	mb.on_length({"cmd": "length", "request_id": stale_id, "ok": true, "values": [999.0]})
+	check("stale length reply with older request_id is dropped",
+		ft.last_typed == "" and not mb.length_pending.is_empty() and mb.length_pending.request_id == current_id,
+		[ft.last_typed, mb.length_pending])
+	mb.on_length({"cmd": "length", "request_id": current_id, "ok": true, "values": [76.2]})
+	check("matching length request_id reply is applied",
+		absf(float(ft.last_typed) - 76.2) < 1e-6 and mb.length_pending.is_empty(),
+		[ft.last_typed, mb.length_pending])
 	DirAccess.remove_absolute(cfg)

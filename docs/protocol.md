@@ -1,6 +1,6 @@
 # Window ↔ worker protocol
 
-The wire protocol's version is **15**: the worker reports it in `hello` (`protocol`), defined once per side (`worker/serve.py` `PROTOCOL_VERSION`, `viewport/main.gd` `PROTOCOL_VERSION`). **Rule: bump it on both sides when a message or a shared-file field changes** (added, removed, renamed or its meaning changed), and update this document. There is no negotiation: a window shares a worker only when the version matches. Existing embedded format identifiers are `oplog/0.1` and `shopsketch-journal/0.1`; binary meshes use Godot's Variant array encoding. Version history, job tags and the old producer/consumer findings: [protocol-archive.md](protocol-archive.md).
+The wire protocol's version is **16**: the worker reports it in `hello` (`protocol`), defined once per side (`worker/serve.py` `PROTOCOL_VERSION`, `viewport/main.gd` `PROTOCOL_VERSION`). **Rule: bump it on both sides when a message or a shared-file field changes** (added, removed, renamed or its meaning changed), and update this document. There is no negotiation: a window shares a worker only when the version matches. Existing embedded format identifiers are `oplog/0.1` and `shopsketch-journal/0.1`; binary meshes use Godot's Variant array encoding. Version history, job tags and the old producer/consumer findings: [protocol-archive.md](protocol-archive.md).
 
 ## Transport, identity and lifetime
 
@@ -22,7 +22,7 @@ Notation: `number` is a JSON number; `integer` is an integral number; `Vec3` is 
 
 The window converts `(x,y,z)` mm to `(x,z,-y)/1000` metres for Godot. The mesh file stays in model coordinates; GLB has already been converted to Y-up metres. Sources: [viewport/main.gd](../viewport/main.gd):`m2g`, `g2m`; [viewport/presenter.gd](../viewport/presenter.gd):`_build_board`; [worker/export.py](../worker/export.py):`mesh_of`, `board_mesh_file`.
 
-`document.gd` owns monotonic `seq` and coalesces desired-state syncs: one request in flight, newest state sent after its answer if dirty. A successful sync answer is applied only when its `seq` equals the current sequence and no newer state is waiting. Failures of the request in flight are reported before that freshness check. `inspect_properties` echoes both `seq` and `request_id`; `length` uses its separate `id`. Every other reply (open, hello, flush, bye, quit, errors) echoes the request's `seq`, `null` when the request had none; events (`saved`, `focus`) carry none. Only the reply whose `seq` is the request in flight clears `in_flight`, so an answer from before a reconnect can't stop the next sync being sent. `send_open` advances `seq` and remembers it as the open's; `document.gd:is_current_open` accepts an open reply (success, refusal or error) only with that `seq` and, when it names one, the current model. `main.gd:_on_worker` routes by `cmd`: only `sync` replies reach `on_sync_reply`.
+`document.gd` owns monotonic `seq` and coalesces desired-state syncs: one request in flight, newest state sent after its answer if dirty. A successful sync answer is applied only when its `seq` equals the current sequence and no newer state is waiting. Failures of the request in flight are reported before that freshness check. One name per meaning: `seq` = the model's state, `request_id` = which request of mine this is, `id` = an op. `inspect_properties` echoes both `seq` and `request_id`; `length` echoes `request_id` (no `seq`). Every other reply (open, hello, flush, bye, quit, errors) echoes the request's `seq`, `null` when the request had none; events (`saved`, `focus`) carry none. Only the reply whose `seq` is the request in flight clears `in_flight`, so an answer from before a reconnect can't stop the next sync being sent. `send_open` advances `seq` and remembers it as the open's; `document.gd:is_current_open` accepts an open reply (success, refusal or error) only with that `seq` and, when it names one, the current model. `main.gd:_on_worker` routes by `cmd`: only `sync` replies reach `on_sync_reply`.
 
 On reconnect the TCP client retries every 0.5 s and drains queued lines; the document reopens if never opened, otherwise resends its full desired op list. This is state reconciliation, not exactly-once delivery. Sources: [viewport/document.gd](../viewport/document.gd):`sync`, `_send`, `on_sync_reply`, `on_link_up`; [viewport/worker_client.gd](../viewport/worker_client.gd):`_process`; [viewport/main.gd](../viewport/main.gd):`_on_link_up`, `_on_properties`, `_on_length`.
 
@@ -34,7 +34,7 @@ Examples are illustrative JSON lines; timing values, paths, IDs and hashes vary.
 
 | Message | Kind | Request fields | Reply / payload keys | Handler |
 |---|---|---|---|---|
-| `length` | command | `id?`, `default_unit?`, `texts` | `cmd`, `id`, `ok`, `values`, `error` | `worker/length_input.py:handle` |
+| `length` | command | `request_id?`, `default_unit?`, `texts` | `cmd`, `request_id`, `ok`, `values`, `error` | `worker/length_input.py:handle` |
 | `hello` | command | `seq?` | `ok`, `cmd`, `seq`, `app`, `protocol`, `worker`, `pid` | `worker/serve.py:serve.handle` |
 | `quit` | command | `seq?` | `ok`, `cmd`, `seq`, `**saves`, `**extra`, `error?`, `stopped` | `worker/serve.py:serve.handle` |
 | `bye` | command | `seq?` | `ok`, `cmd`, `seq`, `**saves`, `**extra`, `error?` | `worker/serve.py:serve.handle` |
@@ -55,11 +55,11 @@ Examples are illustrative JSON lines; timing values, paths, IDs and hashes vary.
 
 ### `hello`
 
-Request: `cmd: "hello"`, `seq?`. Success: `ok: true`, `cmd: "hello"`, `seq` (echo or null), `app: "shopsketch"`, `protocol: integer` (the protocol version, currently 15), `worker: string` (32 lowercase hex MD5), `pid: integer`. The window uses the worker only if `protocol` equals its own version and `worker` its own identity.
+Request: `cmd: "hello"`, `seq?`. Success: `ok: true`, `cmd: "hello"`, `seq` (echo or null), `app: "shopsketch"`, `protocol: integer` (the protocol version, currently 16), `worker: string` (32 lowercase hex MD5), `pid: integer`. The window uses the worker only if `protocol` equals its own version and `worker` its own identity.
 
 ```json
 {"cmd":"hello"}
-{"ok":true,"cmd":"hello","seq":null,"app":"shopsketch","protocol":15,"worker":"0123456789abcdef0123456789abcdef","pid":1234}
+{"ok":true,"cmd":"hello","seq":null,"app":"shopsketch","protocol":16,"worker":"0123456789abcdef0123456789abcdef","pid":1234}
 ```
 
 Producer/consumer: [worker/serve.py](../worker/serve.py):`serve.handle`, `worker_identity`; [viewport/worker_process.gd](../viewport/worker_process.gd):`probe_worker` (`hello`, `worker_of`). Probing uses a separate short-lived connection.
@@ -118,12 +118,12 @@ Producer/consumer: [worker/serve.py](../worker/serve.py):`run_sync`, `serve.hand
 
 ### `length`
 
-Request: `cmd: "length"`, `id?: correlation value`, `texts: string[]`, `default_unit?: "mm" | "cm" | "m" | "in" | "ft" = "mm"`. Texts are numeric length expressions, each stripped length 1–512 characters. Scalars inherit the default unit; explicit units override it. Success: `cmd: "length"`, `id` (echo, default `null`), `ok: true`, `values: number[]` in mm. Any evaluation failure returns `ok: false`, `error: string`, no partial `values`. It does not claim a model, export, save or echo `seq`.
+Request: `cmd: "length"`, `request_id?: correlation value`, `texts: string[]`, `default_unit?: "mm" | "cm" | "m" | "in" | "ft" = "mm"`. Texts are numeric length expressions, each stripped length 1–512 characters. Scalars inherit the default unit; explicit units override it. Success: `cmd: "length"`, `request_id` (echo, default `null`), `ok: true`, `values: number[]` in mm. Any evaluation failure returns `ok: false`, `error: string`, no partial `values`. It does not claim a model, export, save or echo `seq`.
 
 ```json
-{"cmd":"length","id":7,"texts":["2in","1 + 2"],"default_unit":"mm"}
-{"cmd":"length","id":7,"ok":true,"values":[50.8,3.0]}
-{"cmd":"length","id":8,"ok":false,"error":"Unknown default unit"}
+{"cmd":"length","request_id":7,"texts":["2in","1 + 2"],"default_unit":"mm"}
+{"cmd":"length","request_id":7,"ok":true,"values":[50.8,3.0]}
+{"cmd":"length","request_id":8,"ok":false,"error":"Unknown default unit"}
 ```
 
 Producer/consumer: [worker/length_input.py](../worker/length_input.py):`handle`, `evaluate`; [worker/serve.py](../worker/serve.py):`serve.handle`; [viewport/main.gd](../viewport/main.gd):`apply_vcb`, `_on_length` (rejects replies after tool/model/seq/gesture state changes).
@@ -399,13 +399,13 @@ Transport: UTF-8 JSON objects separated by newlines over localhost TCP. Main pro
 | `saved` event with `model`, `rev` | Successful persistence acknowledgement |
 | `save_failed` event with `model`, `rev`, `error` | A save failed; it stays pending and is retried on the next sync or flush (T79) |
 
-Every reply to a request echoes the request's `seq` (null if it had none), except `length`, which echoes its own `id`. Events (`saved`, `save_failed`, `focus`) have no seq.
+Every reply to a request echoes the request's `seq` (null if it had none), except `length`, which echoes its own `request_id`. Events (`saved`, `save_failed`, `focus`) have no seq.
 
 Typed lengths and the Properties panel add:
 
 | Request / operation | Result and routing |
 |---|---|
-| `length` with `id`, `texts`, optional `default_unit` | Reply `{cmd: "length", id, ok, values}` with millimetres, or `error`; independent of geometry `seq`/`in_flight` |
+| `length` with `request_id`, `texts`, optional `default_unit` | Reply `{cmd: "length", request_id, ok, values}` with millimetres, or `error`; independent of geometry `seq`/`in_flight` |
 | `inspect_properties` with `model`, `body`, `seq`, `request_id` | Ownership-checked read; reply echoes `seq`, `request_id`, `model` and includes `properties: {body, boards, summary, objects, references}`; errors retain request identity |
 | `property_edit` inside `sync`'s operation list | Native object/property mutation; ordinary per-op confirmation/rejection, export, undo and save path; there is no standalone property-write command |
 

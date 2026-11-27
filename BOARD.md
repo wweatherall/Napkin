@@ -65,8 +65,7 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H170 | Gemini | Waiting on the integrator (scope) (gemini): H170: may I also update worker/test_length_protocol.py (lines 19 and 21) where it sends/checks length 'id'? | One name per meaning for message numbers: `seq` for the model's state, `request_id` for the request | [H170](docs/handoff/H170-request-numbers.md) |  |
-| H171 | Gemini | Queued | Fits become their own ops (`fit`, `unfit`), and old files' fits are upgraded when opened | [H171](docs/handoff/H171-fit-op.md) | H170 |
+| H171 | Gemini | **Ready** | Fits become their own ops (`fit`, `unfit`), and old files' fits are upgraded when opened | [H171](docs/handoff/H171-fit-op.md) |  |
 
 <!-- end of job table -->
 
