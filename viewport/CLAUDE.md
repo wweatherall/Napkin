@@ -31,12 +31,16 @@ protocol (update it in the same commit when you change either). Tools have their
   and the presenter draw on its signals. main forwards its properties (`m.selection`, `m.context`, ...); its methods are
   called as `m.sel.*` (H114).
 - `presenter.gd` (T41, A33b): geometry on screen, `m.pres`. Owns `body_tris` / `body_verts` / `body_edges` /
-  `body_cuts`, drafts and rects, confirmed board nodes, remembered states, waves (`step_waves` each frame) and the
+  `body_cuts`, drafts and rects, confirmed board nodes, remembered states, and through `waves` / `selection_view` the waves (`step_waves` each frame) and the
   selection / context highlights. Also owns a unit's joined triangles (`m.pres.unit_tris`), Select's drag box (T88 step 2), the mesh / line / collision /
   marker helpers (`tri_mesh`, `line_mesh` (a mesh for a node already in the scene: previews, outlines, guides), `lines` (a new node), `add_collision`, `show_marker`), Push/Pull's face highlight, Move's guides (`draw_guides` / `clear_guides`) and
   `mirror_preview` (T88 step 6), and `present_draft` (a committed draft and its wave, Push/Pull's and Move's);
   `draft_tests` (was `push_tests`) is the test recorder of new boards' draft bounds and the rejection filter. main forwards the old
   names (`m.body_tris`, `m.drafts`, `m._begin_wave`, ...). main routes the document's signals to it.
+- `waves.gd` (H181): the confirmation and rejection waves (W01-W09), `pres.waves`: `op_waves`, `begin_wave`,
+  `attach_wave`, `end_wave`, `step_waves`; the presenter forwards `op_waves`, `trace_wave`, `trace_rows`, `begin_wave`, `step_waves`.
+- `selection_view.gd` (H181, A33b): selection, context ghosting/hiding, the mirror plane and linked-sibling overlays,
+  `pres.selection_view`; the presenter forwards `apply_context`, `show_selection`, `show_siblings`, `forget_siblings`, `plane_node`, `_sel_overlay`, `mat_ghost`, `mat_hidden_ghost`.
 - `inference.gd`: the one snapping engine (pick; endpoint > midpoint > on edge; axis inference). Every tool uses it.
 - `tools/`: one object per tool (see its guide); `tool_registry.gd` finds them (each declares a `TOOL`), and the
   toolbar, Tools menu and tool keys come from that. `property_panel.gd`: the Properties panel (T46, I36).
