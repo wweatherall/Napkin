@@ -57,12 +57,14 @@ One-line index per module (`tools/architecture_map.py`). Per-file details, warni
 - `viewport/regions.gd` — Planar arrangements in model mm (I51)
 - `viewport/save_prompts.gd` — Closing-save and outside-save prompts (I55, A36): asks when a closing save stalls or FreeCAD saves with actions pending, and runs reload or keep-mine
 - `viewport/selection.gd` — Selection and context (A33b, T41): what a click stands for and what's picked
+- `viewport/selection_view.gd` — Selection, context and sibling highlights (A33b), `pres.selection_view`: draws selection, ghosting, hidden boards, mirror plane and siblings from selection.gd
 - `viewport/tests.gd` — Test-mode entry point
 - `viewport/tool_context.gd` — What a tool may use (T88, docs/specs/T88-tool-interface.md): one ToolContext, built once by main.gd and handed to every tool by `setup_context(ctx)`
 - `viewport/tool_geometry.gd` — Pure geometry shared by tools, inference and main.gd (T88 step 0): units, rounding for ops, plane bases, prisms, feature edges, reflections
 - `viewport/tool_registry.gd` — The tool registry: every script in tools/ that declares a `TOOL` constant is a tool (see tools/CLAUDE.md)
 - `viewport/ui.gd` — The viewport interface (T24: Mac-like)
 - `viewport/units.gd` — Lengths are millimetres internally
+- `viewport/waves.gd` — Confirmation and rejection waves (W01–W09), `pres.waves`: runs the shader wave front on drafts/boards, breathes while FreeCAD works, and finishes or goes red
 - `viewport/worker_client.gd` — Newline-delimited JSON client for the FreeCAD worker (worker/replay.py)
 - `viewport/worker_process.gd` — FreeCAD worker process lifecycle (T6, W13): probes or starts the shared or private worker, watches and restarts it, and shuts it down on quit
 
