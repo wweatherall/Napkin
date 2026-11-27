@@ -48,7 +48,11 @@ worktree (T102).
      run `python3 tools/job.py test` once.
    - Append your response to the handoff entry (dated and signed: branch, commit, what you verified, IDs you added,
      open questions; then a line each: `Changed from the brief: <what it said>; <what you did>; <why>` per departure
-     (P44); `Architecture: <what>`; `Follow-up: <what>` per thing left; `For the integrator: <what>` per merge step
+     (P44); `Architecture:` lines (any number of each):
+       - `Architecture: <file> owns <what>`
+       - `Architecture: <a> uses <b>: <why>`
+       - `Architecture: <free text>`;
+     `Follow-up: <what>` per thing left; `For the integrator: <what>` per merge step
      (P26); last, `Result: <commit>; <tests>; <what changed>`, no `|` (T91)), set Status to `answered`, and in one
      chained command run `python3 tools/handoff.py tidy && git add docs/agent-handoff.md docs/handoff/<file> && git -c core.hooksPath=.githooks commit -m "<ID>: record response and mark answered" && python3 tools/SUBMIT_JOB.py`.
 7. Once `SUBMIT_JOB.py` succeeds (it checks the response, Status, quick-test pass and hung processes), tell William
@@ -65,9 +69,7 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H174 | Gemini | **Done**: for review (gemini) | A generated dependency map: who uses which file, and who calls a function | [H174](docs/handoff/H174-dependency-map.md) |  |
-| H175 | Gemini | **Done**: for review (gemini) | The merge tools: six things the integrator did by hand on 2026-11-27, made automatic | [H175](docs/handoff/H175-merge-tool-fixes.md) |  |
-| H177 | Gemini | **Ready** | main.gd step 1: history replies and live preferences move to their own files, behaviour unchanged | [H177](docs/handoff/H177-split-main-gd.md) |  |
+| H177 | Gemini | **Done**: for review (gemini) | main.gd step 1: history replies and live preferences move to their own files, behaviour unchanged | [H177](docs/handoff/H177-split-main-gd.md) |  |
 
 <!-- end of job table -->
 

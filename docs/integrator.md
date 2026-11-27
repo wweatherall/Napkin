@@ -58,7 +58,10 @@ Architecture: lines, the response) and CLAUDE.md (commit trailers); this page sa
 - Review every done job (Codex's `codex/*` branches too). Read each `Changed from the brief:` line first (P44):
   accept it, or return the job; one that changes what William would notice goes to him (`integrate.py` also stops
   with the merge staged when any response has one, prints them under "for you now:", and records them in the merge
-  commit on `--continue`; `--yes` doesn't skip this stop). For a brief with a "What can fail" section, check that each case
+  commit on `--continue`; `--yes` doesn't skip this stop). Check the response's `Architecture:` lines (`owns`,
+  `uses`, free text) against the code to confirm they're true (P32): `integrate.py` works out added/removed files,
+  changed headers, and added/removed dependencies from the maps after the gate passes, and stops if any added file
+  lacks an `owns` line or any added dependency lacks a `uses` line. For a brief with a "What can fail" section, check that each case
   listed there has its named check, and that the check fails without the change where it can (P42). Merge what's good with
   `python3 tools/MERGE_JOB.py <branch> --as <name> --push --yes` (P20, P49). It runs the gate, `tools/TEST_BEFORE_MERGING.sh` (P18; when only tools, hooks, docs or top-level guides changed, it runs parse and `tools-*` feature tests and skips viewport, worker and full tests; `--full` or `GATE_FULL=1` forces everything); flags
   files the branch changed outside its job's Touches list; renumbers a PROTOCOL_VERSION bump on top if main moved
@@ -73,7 +76,7 @@ Architecture: lines, the response) and CLAUDE.md (commit trailers); this page sa
 - Codex records William's decisions in the log itself (P09, AGENTS.md). When integrating its branch, carry over
   only the rows it added or superseded: its copy of the rest may be older than main's.
 - Results (T91, P17): integrate.py commits each response's `Result:` line to its Work list file (`03_Past_Decisions/work/<ID>.md`) and prints one short line per item plus the commit's oneline; a response without
-  one is yours to record. Work list statuses move themselves (`On the board (<IDs>)` while jobs exist, `Done` when the last linked job merges, `Open` if all are dropped; `Completes: T<n>` still works but is no longer needed; `--status` overrides). Follow-ups (P26): it copies `Follow-up:` lines into docs/follow-ups.md and prints
+  one is yours to record. Work list statuses move themselves (`On the board (<IDs>)` while jobs exist, `Open` when linked jobs finish with `"step merged (H0NN)"` in the result; it goes `Done` only when the brief says `Completes: T<n>` or `--status T<n>=Done` is given). If a merge stops for a gate failure, fix it and run `python3 tools/MERGE_JOB.py --continue --regate --as <name> [--push --yes]` to re-run the gate and finish; if a merge was finished outside `integrate.py`, run `python3 tools/job.py merged <ID>` to mark it merged in the queue. Follow-ups (P26): it copies `Follow-up:` lines into docs/follow-ups.md and prints
   `For the integrator:` lines under "for you now:"; clear a follow-up in the commit that does it.
 - Small fixes (P22): merge and push the standing `small-fixes` (and `codex/small-fixes`) branch when the gate
   passes, without asking; list the fixes for William at the end of the session.
@@ -86,11 +89,11 @@ Architecture: lines, the response) and CLAUDE.md (commit trailers); this page sa
   read as a branch) is an additional omission detector, not a replacement for review.
 
 ## Writing jobs
-- **Full briefs only on `BOARD.md`**: when taking a Work list item off `06_To-dos` to turn into jobs, run `python3 tools/PICK_UP_A_TO_DO.py T<n>` first. Every handoff entry on the board (whether `open` or `queued (after H0NN)`) must be a complete, ready-to-run brief (`Today`, `Reading path`, `Request`, `Touches`, `Checks`) so H146's auto-unblock works hands-free; write all of an item's jobs in one commit (the second as `queued (after H0NN)`), or if one merges before the next is written, reopen it with `python3 tools/log.py set T<n> --status Open` (`Completes: T<n>` still works but is no longer needed; add `Item: T<n>` if the heading doesn't name it); partial ideas and unexpanded follow-ons stay in the Work list (`03_Past_Decisions/decision-log.md`) until ready for a full brief.
+- **Full briefs only on `BOARD.md`**: when taking a Work list item off `06_To-dos` to turn into jobs, run `python3 tools/PICK_UP_A_TO_DO.py T<n>` first. Every handoff entry on the board (whether `open` or `queued (after H0NN)`) must be a complete, ready-to-run brief (`Today`, `Reading path`, `Request`, `Touches`, `Checks`) so H146's auto-unblock works hands-free; write all of an item's jobs in one commit (the second as `queued (after H0NN)`), or if one merges before the next is written, it returns to `Open` with `"step merged (H0NN)"` in its result (a job's last step says `Completes: T<n>` to mark it `Done`; add `Item: T<n>` if the heading doesn't name it); partial ideas and unexpanded follow-ons stay in the Work list (`03_Past_Decisions/decision-log.md`) until ready for a full brief.
 - A job adding a tool or an op also lists the places that pin them (H130 asked for them one by one):
   `viewport/keys.gd`, `main.gd` `redo`, `tool_context.gd` and `test_tool_context.gd`, `test_tools.gd`,
   `tools/push_tool.gd`, `tools/CLAUDE.md`, `worker/scenario/99_op_registry.py`.
-- **Grep callers before finalizing `Touches`**: when a brief changes a tool's hotkey, input mode, op schema, or function contract, grep the repo for every caller (e.g., `measure_box.gd`, `viewport/tests/harness.gd`, `presenter.gd`) so workers don't hit avoidable scope pauses.
+- **Find callers before finalizing `Touches`**: when a brief changes a tool's hotkey, input mode, op schema, or function contract, run `python3 tools/dependency_map.py touches <file>:<function> [...]` (H174): it prints a ready Touches line from qualified calls, tests on their own, and lists calls it can't resolve for you to check by hand; `callers <file>:<function>` shows each call site. docs/dependency-map.md says which files use which.
 - Write the next jobs as handoff entries (a Status of open is Ready; "queued (after H0NN)" waits), each with its
   Touches list, and keep the board's Order line. Before marking one Ready, compare its Touches with every Ready or
   claimed job's: two whose lists overlap don't run at once (tell William before starting one that does). A

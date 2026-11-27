@@ -100,7 +100,7 @@ rc, said = run(root, "--status", "T7=In progress", "--push")
 merge = sh(root, "git", "rev-parse", "--short", "HEAD~1").stdout.strip()
 r = row(root, "T7")
 check("the row gets the result, with the merge commit", rc == 0 and r.endswith(
-      f"From a review. Result (0123abc, merged {merge}): tools/test_x.py 4/4, quick test passed; tools/x.py sets x / y to 2. |"),
+      f"From a review. Result (0123abc, merged {merge}, step merged (H060)): tools/test_x.py 4/4, quick test passed; tools/x.py sets x / y to 2. |"),
       r + "\n" + said)
 check("other rows are untouched", row(root, "T6") == "| T6 | other | Open | - | |")
 check("in its own commit on top of the merge", sh(root, "git", "log", "-1", "--format=%s").stdout.startswith("T7 (H060): Work list result")

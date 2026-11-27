@@ -81,9 +81,24 @@ inner = script[len('tell application "Terminal" to do script "'):-1]
 check("the AppleScript string unescapes to the command",
       inner.replace('\\"', '"').replace("\\\\", "\\") == g
       and all(inner[i - 1] == "\\" for i, ch in enumerate(inner) if ch == '"'), script)
-check("a session name is <agent>-<word>-<MMDD-HHMM>",
-      launch.session_name("gemini", datetime.datetime(2026, 11, 26, 19, 5)).endswith("-1126-1905")
+check("a session name is <agent>-<word>-<MMDD-HHMMSS>",
+      launch.session_name("gemini", datetime.datetime(2026, 11, 26, 19, 5, 42)).endswith("-1126-190542")
       and launch.session_name("gemini").split("-")[1] in launch.WORDS)
+
+import tempfile, shutil
+_ltmp = tempfile.mkdtemp(prefix="launch-uniq-")
+try:
+    _t = datetime.datetime(2026, 11, 27, 7, 29, 15)
+    for w in launch.WORDS:
+        open(os.path.join(_ltmp, f"gemini-{w}-1127-072915.txt"), "w").write("taken")
+    n1 = launch.session_name("gemini", _t, folder=_ltmp)
+    open(os.path.join(_ltmp, f"{n1}.txt"), "w").write("taken")
+    n2 = launch.session_name("gemini", _t, folder=_ltmp)
+    check("session_name adds a unique suffix when the name is already taken in folder",
+          n1.endswith("-1127-072915-2") and n2 != n1 and not os.path.exists(os.path.join(_ltmp, f"{n2}.txt")),
+          (n1, n2))
+finally:
+    shutil.rmtree(_ltmp)
 
 out = subprocess.run([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)), "launch.py"), "gemini",
                       "--dry-run", "--name", "gemini-test-dryrun"], capture_output=True, text=True)

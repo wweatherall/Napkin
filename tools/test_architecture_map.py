@@ -117,5 +117,27 @@ with TemporaryDirectory(prefix="arch-map-test-") as folder:
     check("pre-commit refuses file without header and names it",
           c3.returncode != 0 and "viewport/missing.gd" in c3.stderr, c3.stdout + c3.stderr)
 
+# diff(old_text, new_text): added, removed, changed, and no-change
+old_map = (
+    f"# Arch\n\n{am.START}\n\n"
+    "- `viewport/a.gd` — Old A\n"
+    "- `viewport/b.gd` — Same B\n"
+    "- `worker/old.py` — Old worker\n"
+    f"- {am.WRAPPER_LINE}\n\n{am.END}\n"
+)
+new_map = (
+    f"# Arch\n\n{am.START}\n\n"
+    "- `viewport/a.gd` — New A\n"
+    "- `viewport/b.gd` — Same B\n"
+    "- `worker/new.py` — New worker\n"
+    f"- {am.WRAPPER_LINE}\n\n{am.END}\n"
+)
+d = am.diff(old_map, new_map)
+check("diff reports added, removed, and changed headers (ignoring wrapper and unchanged)",
+      d == {"added": ["worker/new.py"], "removed": ["worker/old.py"], "changed": [("viewport/a.gd", "Old A", "New A")]},
+      str(d))
+check("diff on identical maps is empty",
+      am.diff(old_map, old_map) == {"added": [], "removed": [], "changed": []})
+
 print(f"ARCHITECTURE MAP TESTS: {sum(RESULTS)} passed, {len(RESULTS) - sum(RESULTS)} failed")
 raise SystemExit(0 if all(RESULTS) else 1)

@@ -9823,3 +9823,361 @@ Branch: `gemini/h178-unread-op-fields` | Commit: `9ba17d6`
 Result: `tools/TEST_BEFORE_MERGING.sh` passed (`GATE PASS: full test passes; QUICK 401 passed, 0 failed in 47.4 s ; 0 known failure(s); 122 s total`); `worker/test_field_audit.py` 22/22; `tools/test_featuretest.py` 45/45.
 
 Resolution: merged into main by the integrator, 2026-11-27.
+
+### H174 — A generated dependency map: who uses which file, and who calls a function
+
+Author: Claude (integrator, napkin-77) | Date: 2026-11-27 | Status: resolved | For: gemini
+
+References: William, 2026-11-27 (architecture order, step 2: "a generated dependency map, which also writes Touches
+lines"), T136 (the current/proposed map: this is its "current" half), P36 (an architect plans from the map without
+reading code), P45 (Touches names files and functions), comitatus principles C05 and C06.
+
+Touches: tools/dependency_map.py (new), tools/test_dependency_map.py (new), docs/dependency-map.md (new, generated),
+.githooks/pre-commit (one block), tools/README.md (one line).
+
+Reading path:
+1. tools/architecture_map.py (H165): how a generated file is built and checked (`--check`), the folders it scans.
+2. How files use each other today: GDScript `preload("res://...")`, `load(...)`, `extends`, and `m.<name>` (main.gd's
+   forwarders: viewport/CLAUDE.md explains them); Python `import x` / `from x import` inside worker/ and tools/.
+3. docs/integrator.md's line "Grep callers before finalizing Touches".
+
+Today (checked 2026-11-27): nothing lists which files depend on which. The integrator finds a function's callers by
+grep when writing a brief's Touches line; a miss shows up later as a worker's scope question (H170, H171 and H173
+each asked one or more).
+
+Request:
+1. **`python3 tools/dependency_map.py`** writes docs/dependency-map.md (generated; a don't-edit line at the top): one
+   line per code file in viewport/, viewport/tools/, worker/ and tools/ (tests in a separate short section or left
+   out; say which): `file — uses: a, b, c — used by: d, e`. Python from `ast` imports; GDScript from `preload`/
+   `load`/`extends`/`class_name` references and the `res://` paths in each file. Short names where unambiguous.
+   Aim under 8 KB; if it can't fit, say so and why.
+2. **`python3 tools/dependency_map.py callers <file>:<function>`** prints every call site (`path:line`) of that
+   function across the repo's code and tests, word-boundary matched, its definition left out; and
+   **`... touches <file>:<function> [...]`** prints a ready Touches line: the files defining and calling those
+   functions, each with the function names in backticks (P45's format), tests on their own. The integrator pastes
+   it into a brief.
+3. **Kept current:** the pre-commit hook rebuilds docs/dependency-map.md when a .gd or .py file under those folders
+   is committed (as the module map is), and `--check` fails when it's stale. Fast: well under a second (quote it).
+4. tools/README.md lists the script (the integrator updates docs/integrator.md's grep line after the merge).
+
+Not in this job: the proposed/ghosted map (T136's other half), anything in ARCHITECTURE.md, call graphs inside a
+file.
+
+What can fail:
+- A dependency missed because it goes through main.gd's `m.` forwarders (a tool calls `m.selection`, which is
+  selection.gd): resolve each forwarder to its file where main.gd's forwarder says which; say in the response which
+  patterns you resolve and which you can't.
+- A false caller from a common word (`apply`, `sync`): `callers` takes `<file>:<function>` and, for a method name used
+  by several files, says how many definitions share it rather than guessing.
+- The hook slowing every commit: it runs only when code files are staged.
+
+Checks:
+- tools/test_dependency_map.py on throwaway files (Python import, GDScript preload, an `m.` forwarder, a common name).
+- On the real repo, quote `callers viewport/document.gd:next_id` and `touches worker/plane_fit.py:apply`, and compare
+  each with a grep: anything grep finds that the tool misses is a bug.
+- `tools/TEST_BEFORE_MERGING.sh` passes (scope tools).
+
+**Response (Gemini, gemini-teak-1127-0954, 2026-11-27):**
+
+Branch: `gemini/h174-dependency-map` | Commit: `a185f1c`
+
+- **Generated map (`docs/dependency-map.md`)**: 7,419 bytes (under 8 KB). Covers non-test `.gd` and `.py` files in `viewport/`, `viewport/tools/`, `worker/`, and `tools/` (tests are excluded from the map and included by `callers`/`touches`). Short names used where unique across those folders.
+- **`--check` speed**: `0.247s` total (`python3 tools/dependency_map.py --check`).
+- **`m.` forwarder resolution in `viewport/main.gd`**:
+  - Resolved: `const Alias := preload/load("res://...")`, `var x [: Alias] = Alias.new(...)` / `load("res://...").new(...)`, property forwarders (`var prop: ...` with `get: return subobj.<member>`), and one-line function forwarders (`[static] func fn(...): [return] subobj.<other>(...)` or `Alias.<other>(...)`).
+  - Not resolved: properties assigned onto `m` from outside `main.gd` (e.g., `m.properties_panel = load("res://property_panel.gd").new()` in `ui.gd`), dynamic `call()`/`get()`, and `main.gd`'s own methods/fields (`m.test_mode`, `m.set_tool`, `m.sync`, etc.).
+- **Checks**:
+  - `python3 tools/test_dependency_map.py`: `DEPENDENCY MAP TESTS: 17 passed, 0 failed`.
+  - `python3 tools/TEST_BEFORE_MERGING.sh`: `GATE PASS (scope tools): tools quick test passes; 115 s total`.
+  - `callers viewport/document.gd:next_id` vs `rg -n "\bnext_id\b" viewport/ worker/ tools/`: matched all 42 code/test occurrences (leaving out `viewport/document.gd:500`'s `func next_id` definition) and noted the 4 defining files (`tools/log.py`, `viewport/document.gd`, `viewport/test_selection.gd`, `viewport/tool_context.gd`).
+  - `touches worker/plane_fit.py:apply` vs `rg -n "\bapply\b" viewport/ worker/ tools/`: matched all defining/calling code and test files, noted the 8 files defining `apply`, and printed:
+    - `Touches: worker/plane_fit.py (\`apply\`), tools/integrate.py (\`apply\`), tools/launch.py (\`apply\`), tools/number_ids.py (\`apply\`), viewport/appearance.gd (\`apply\`), viewport/keys.gd (\`apply\`), viewport/main.gd (\`apply\`), viewport/measure_box.gd (\`apply\`), viewport/property_panel.gd (\`apply\`), viewport/tool_context.gd (\`apply\`), viewport/tools/paint_tool.gd (\`apply\`), viewport/tools/rect_tool.gd (\`apply\`), worker/model.py (\`apply\`), worker/object_properties.py (\`apply\`), worker/push.py (\`apply\`), worker/session.py (\`apply\`)`
+    - `Tests: tools/test_log_archive.py (\`apply\`), tools/test_number_ids.py (\`apply\`), viewport/test_tool_context.gd (\`apply\`), viewport/test_units.gd (\`apply\`), worker/test_floor_copy.py (\`apply\`), worker/test_native.py (\`apply\`)`
+
+Result: done. Ready for integrator review.
+
+**Response (Gemini, gemini-ash-1127-1004, 2026-11-27, follow-up on review):**
+
+Branch: `gemini/h174-dependency-map` | Commit: `dc814b0`
+
+- **Qualified call resolution**:
+  - **Python** (`ast`-based, scope-aware): resolves `import mod`, `import mod as alias`, `from mod import fn`, `from mod import fn as alias`, `__import__('mod')`, `ClassName(...)` / `self.<attr>` instance types, and bare calls inside the defining file. Comments, docstrings, strings, and shadowed local imports (e.g. `from object_properties import apply` in `worker/model.py`) are excluded. Untyped `<obj>.fn(` calls go to `Unresolved (check by hand):`.
+  - **GDScript** (comment/string-stripped): resolves `preload`/`load` aliases, `class_name`, typed `var`/`param` declarations, `.new()` assignments (with or without `var`), `extends` inheritance (e.g. `var ctx: ToolContext` from `tool.gd`), `main.gd` `m.` forwarders, `ToolContext.*Capability` forwarders (`ctx.document`, `_document`), and bare/`self.` calls inside the defining file or subclasses. Untyped receiver calls go to `Unresolved (check by hand):`.
+- **Quoted outputs**:
+  - `python3 tools/dependency_map.py touches worker/plane_fit.py:apply`:
+    - `note: 'apply' is defined in 8 files (tools/number_ids.py, viewport/appearance.gd, viewport/measure_box.gd, viewport/test_tool_context.gd, viewport/tool_context.gd, worker/model.py, worker/object_properties.py, worker/plane_fit.py); showing qualified calls to worker/plane_fit.py.`
+    - `Touches: worker/plane_fit.py (\`apply\`), worker/model.py (\`apply\`), worker/push.py (\`apply\`)`
+  - `python3 tools/dependency_map.py touches viewport/document.gd:next_id`:
+    - `note: 'next_id' is defined in 4 files (tools/log.py, viewport/document.gd, viewport/test_selection.gd, viewport/tool_context.gd); showing qualified calls to viewport/document.gd.`
+    - `Touches: viewport/document.gd (\`next_id\`), viewport/appearance.gd (\`next_id\`), viewport/main.gd (\`next_id\`), viewport/tool_context.gd (\`next_id\`), viewport/tools/arc_tool.gd (\`next_id\`), viewport/tools/circle_tool.gd (\`next_id\`), viewport/tools/line_tool.gd (\`next_id\`), viewport/tools/move_tool.gd (\`next_id\`), viewport/tools/polygon_tool.gd (\`next_id\`), viewport/tools/push_tool.gd (\`next_id\`), viewport/tools/rect_tool.gd (\`next_id\`)`
+    - `Unresolved (check by hand): viewport/selection.gd (\`next_id\`:225,278,279,296,305), viewport/test_document.gd (\`next_id\`:115,118,126,137,138), viewport/test_tool_context.gd (\`next_id\`:257,258,261,263)`
+    - (`tools/log.py`, `tools/test_log.py`, `viewport/test_selection.gd`, comments, and strings are excluded.)
+- **Checks**:
+  - `python3 tools/test_dependency_map.py`: `DEPENDENCY MAP TESTS: 18 passed, 0 failed`.
+  - `python3 tools/dependency_map.py --check`: exit 0.
+  - `python3 tools/TEST_BEFORE_MERGING.sh`: `GATE PASS (scope tools): tools quick test passes; 36 s total`.
+
+Result: done. Ready for integrator review.
+
+Resolution: merged into main by the integrator, 2026-11-27.
+
+### H175 — The merge tools: six things the integrator did by hand on 2026-11-27, made automatic
+
+Author: Claude (integrator, napkin-77) | Date: 2026-11-27 | Status: resolved | For: gemini
+
+References: William, 2026-11-27 ("What is being done by hand that should be automated?"), comitatus principles C05
+("can it just be a Python script?") and C08 (make your work environment better), docs/follow-ups.md (two of these
+are follow-ups there: clear them when done), P44.
+
+Touches: tools/integrate.py (`settle_handoff`, `settle_log`/the merge's log step, `--continue`, the Item-status step),
+tools/number_ids.py (`apply`, which files it rewrites), tools/launch.py (`session_name`, or wherever the name is
+made: line ~45), tools/job.py (a `merged` command), tools/test_integrate.py, tools/test_number_ids.py,
+tools/test_launch.py, tools/test_job.py, docs/integrator.md (the lines these change), docs/follow-ups.md (the two
+lines this job clears).
+
+Reading path:
+1. tools/integrate.py docstring (its steps), `settle_handoff` (~line 424), `settle_log` (~222), the stop for "Changed
+   from the brief" and `--continue`, and where `Item: T<n>` sets the item's status at merge.
+2. tools/number_ids.py `apply` and its list of files (`ID_FILES`, `ENTRY_FOLDERS`).
+3. tools/launch.py where the session name is made (`f"{agent}-{random.choice(WORDS)}-{now:%m%d-%H%M}"`).
+4. tools/job.py `merged(root, branch)` (~line 1041).
+
+Today (checked 2026-11-27): each of these happened today and was fixed by hand:
+1. **H168's merge put back an old broken link.** `settle_handoff` keeps main's docs/agent-handoff.md whole, so a
+   branch that rewrote its hand-written parts (the how-to) lost them.
+2. **H166's merge dropped the Process rulings' index lines** from decision-log.md until the log tidy was run by hand;
+   the gate caught it (follow-up in docs/follow-ups.md). The merged log isn't tidied against both rulings folders
+   before the gate.
+3. **After a gate failure fixed by hand, nothing could finish the merge**: `--continue` said "no paused merge", or
+   refused because files changed since the gate passed, even after `tools/gate.sh` passed again. The integrator
+   committed the merge by hand twice (H166, H168) and then had to delete `.git/shopsketch-integrate.json`.
+4. **Those hand-committed merges stayed "for review" in the queue** until `job.merged()` was called from Python.
+5. **Two workers launched in the same minute got the same name** (`gemini-ash-1127-0729`), so their prompt files
+   overwrote each other.
+6. **`number_ids.py` renumbers placeholders inside history files** (handoff-archive.md: examples of `I-new-1` in an
+   old brief became `I73`; follow-up in docs/follow-ups.md).
+7. **Merging one step of a multi-step item marked the whole item Done** (T138 after H165 and after H167, reopened by
+   hand both times).
+
+Request: fix each, with a test each:
+1. Handoff: settle docs/agent-handoff.md three-way: the generated parts (open list, Archived) are rebuilt by
+   `handoff.py tidy`; for the hand-written rest, take the branch's text when main's is unchanged since the merge
+   base, main's when the branch's is unchanged, and stop with a conflict when both changed.
+2. Log: the merge runs the log tidy (with both rulings folders) on the merged tree before the gate.
+3. `--continue` after a gate failure: if the merge is still in progress, `python3 tools/MERGE_JOB.py --continue
+   --regate ...` re-runs the gate on the current tree and, on a pass, finishes the merge exactly as an unpaused one
+   would (results, archive, queue, push). The state file is always removed when a merge finishes or is aborted.
+4. `python3 tools/job.py merged <ID>` marks a job merged in the queue (for any merge finished outside integrate.py).
+5. Session names are unique: add the seconds, or a suffix when the name is taken.
+6. `number_ids` leaves history files alone: docs/handoff-archive.md and decision-archive.md's archived entries are
+   never rewritten (only new entries being archived in this merge are).
+7. An item a job names with `Item: T<n>` goes back to Open at merge, with "step merged (H0NN)" in its result; it goes
+   Done only when the brief says `Completes: T<n>` (docs/integrator.md says this, replacing "no longer needed").
+
+Not in this job: anything else in integrate.py, the gate itself.
+
+What can fail:
+- A real conflict in the handoff's hand-written text silently resolved: both changed -> the merge stops. Check: test.
+- `--regate` finishing a merge whose gate failed: it finishes only on a pass. Check: test with a failing gate.
+- A placeholder in a new entry left unnumbered because its file is an archive: only entries already archived before
+  this merge are skipped. Check: test_number_ids.py.
+
+Checks:
+- The four test files above, one case per item.
+- `tools/TEST_BEFORE_MERGING.sh` passes (scope tools).
+
+Response — Gemini (gemini-cherry-1127-0955), 2026-11-27:
+Done all seven items:
+1. `tools/integrate.py` (`settle_handoff`, `_handoff_handwritten`): settles `docs/agent-handoff.md` three-way on the hand-written text (taking branch when main is unchanged from base, main + inline entries when branch is unchanged, stopping with a conflict when both changed) and rebuilds the open list and `## Archived` with `handoff.split` and `handoff.tidy`.
+2. `tools/integrate.py` (`rebuild_and_check`): runs `number_ids.tidy_log(root)` (which passes both rulings folders via `sort_decision_log.ruling_dirs(root)`) before `check_files` and `run_gate`.
+3. `tools/integrate.py` (`run_gate`, `load_continuation`, `check_start`): saves merge state (`gate_failed: True`) on gate failure; `--continue --regate` stages working-tree fixes and re-runs the gate, finishing only on pass; `--continue` without `--regate` refuses while `gate_failed` is set; stale state files are removed when a merge finishes, is aborted (`MERGE_HEAD` missing), or a new merge starts.
+4. `tools/job.py` (`merged_job`, `merged <ID>`): marks a job merged in the queue and cleans up its worktree/branch for merges finished outside `integrate.py`.
+5. `tools/launch.py` (`session_name`): adds seconds (`%m%d-%H%M%S`) and appends `-2`, `-3`, ... when `scratch/launch/<name>.txt` already exists.
+6. `tools/number_ids.py` (`_archived_lines`, `defined`, `plan`, `apply`): skips already-archived entries in `docs/handoff-archive.md` and `03_Past_Decisions/decision-archive.md` while still numbering new entries being archived in the merge; cleared both follow-up lines in `docs/follow-ups.md`.
+7. `tools/integrate.py` (`record_result`, `draft_results`) & `tools/sort_decision_log.py` (`board_statuses`): items without `Completes: T<n>` return to `Open` when their linked jobs finish, with `step merged (H0NN)` in their result; `Completes: T<n>` marks them `Done`. Updated `docs/integrator.md`.
+
+Changed from the brief: With integrator scope approval (`job.py wait --scope`), updated `tools/sort_decision_log.py` (`board_statuses`) and `tools/test_sort_decision_log.py` so `On the board` items return to `Open` when their last linked job merges without `Completes:`, and updated `tools/test_bookkeeping.py` for the `step merged (H060)` result format.
+
+Result: 743ad20; `tools/TEST_BEFORE_MERGING.sh` (scope tools) passed (148 s); `test_launch.py` 16/16, `test_number_ids.py` 55/55, `test_job.py` 201/201, `test_integrate.py` 93/93, `test_sort_decision_log.py` 36/36, `test_bookkeeping.py` 14/14; automated 7 merge-tool fixes.
+
+Resolution: merged into main by the integrator, 2026-11-27.
+
+### H179 — Two proposals for William: push_pull's jobs as separate ops (T159), and how a fit names its face (T161)
+
+Author: Claude (integrator, napkin-77) | Date: 2026-11-27 | Status: resolved | For: gemini
+
+Item: T159
+Completes: T161
+
+References: T159, T161 (William, 2026-11-27: "add clarify and separate jobs of push pull to todos", "add think
+through this for our to dos"), G08 (refer to geometry, never to FreeCAD's internal numbers), G02, G04, H171 (how
+fit/unfit became their own ops and old files were upgraded: the model for any split), A42 (breaking saved-format
+changes are acceptable now, with old files upgraded).
+
+Touches: docs/proposals/T159-push-pull.md (new), docs/proposals/T161-fit-faces.md (new).
+
+Reading path:
+1. docs/protocol.md `## Operation payloads`: the `push_pull` row and its notes, `fit`/`unfit`, `Plane-fit faces`.
+2. worker/push.py `PushActions.op_push_pull` and the functions it branches to (`edge_fit`, `resize_stock`, `to_face`,
+   `through`, `region`, `target.face` vs `target.rect`); worker/plane_fit.py `apply`, `snapshot`, `fitted_end`,
+   `planar_faces`, and how a face index is re-found by geometry after a change.
+3. viewport/tools/push_tool.gd: which gesture sends which push_pull fields.
+
+Today: one `push_pull` op extrudes a profile or face, cuts, cuts through, cuts to an earlier pocket's floor,
+resizes stock, fits to an edge, and fills drawn regions. A fit names its target face 0-5 (Left..Top) on plain stock,
+but by index into `planar_faces` on other boards; the worker re-finds it by geometry after each change.
+
+Request: write two short proposals (each under ~2 pages), for William to decide from. No code.
+1. **T159 push_pull.** List each job push_pull does today: the fields that select it, which gesture sends it, the
+   code path. Then propose a split (or say why not): which jobs become their own op types, with names and fields,
+   what stays, and how old files upgrade (as H171 did). For each, say what William would notice (nothing, ideally)
+   and what gets simpler (code, docs, tests). Give a recommendation and the order of jobs it would take.
+2. **T161 fit faces.** Explain in plain words how a fit names its face today and when that can go wrong (a cut adds
+   a face, faces reorder, a board is mirrored); check whether the re-find by geometry covers each case, citing
+   the tests that prove it or saying none does. Propose either keeping it (and why it meets G08) or naming the face
+   by normal and point (what changes, how old files upgrade). Give a recommendation.
+   Each proposal ends with the questions William needs to answer, numbered.
+
+Not in this job: any code change.
+
+Checks: none beyond the files existing; the integrator reads both before they go to William.
+
+Response (Gemini, gemini-cedar-1127-1021, 2026-11-27):
+- Wrote `docs/proposals/T159-push-pull.md`: lists all 6 jobs `push_pull` performs today (fields, `push_tool.gd` gestures, `worker/push.py` paths), proposes a 3-job split (`fit` for face-to-edge fits, `new_board` for creating a board, `resize_stock` for resizing stock, keeping pad/cut/detach in `push_pull`) with `session.upgrade_op` migration and 4 numbered questions for William.
+- Wrote `docs/proposals/T161-fit-faces.md`: explains `0..5` vs `planar_faces` + `_resolve_face` (`SSTargetNormal`/`SSTargetPoint`), checks all 3 failure cases (post-fit cut on target, `planar_faces` reorder, mirrored/flipped target via `Part::Mirroring` where `_def` returns `(None, None)`), cites existing T62 coverage and missing tests, compares Option A vs Option B (`{normal, point}`), recommends Option B, and ends with 3 numbered questions for William.
+
+Result: `docs/proposals/T159-push-pull.md` and `docs/proposals/T161-fit-faces.md` created; no code changed.
+
+Resolution: merged into main by the integrator, 2026-11-27.
+
+### H180 — The structural report: the merge works out what changed in the structure, the worker only explains it
+
+Author: Claude (integrator, napkin-77) | Date: 2026-11-27 | Status: resolved | For: gemini
+
+References: P31 (workers supply a structural report; "schema and submission timing remain to be designed": this is
+the design), P32 (the integrator verifies it against the code at review), P28 (`Architecture:` lines), P50 (header
+lines are map lines), H165 (module map), H174 (dependency map), comitatus principles C05 and C06 (generate what can
+be generated; one spot per idea).
+
+Touches: tools/integrate.py (a new structure step between the gate and the "Changed from the brief" stop, and the
+pre-commit Architecture check it calls), tools/dependency_map.py (a `diff(old_text, new_text)` helper only),
+tools/architecture_map.py (a `diff(old_text, new_text)` helper only), tools/test_integrate.py,
+tools/test_dependency_map.py, tools/test_architecture_map.py, BOARD.md (step 6's `Architecture:` wording only),
+docs/integrator.md (the review step that reads Architecture lines).
+
+Reading path:
+1. BOARD.md step 6: what a worker's response holds today (`Architecture: <what>` lines).
+2. tools/integrate.py: the "Changed from the brief" stop (P44) and `--continue`: the new stop works the same way.
+3. docs/dependency-map.md and ARCHITECTURE.md's module map: one line per file; tools/dependency_map.py and
+   tools/architecture_map.py build them.
+
+Today (checked 2026-11-27): a worker writes free-form `Architecture: <what>` lines; the integrator reads the diff to
+see whether they're true. Nothing compares them with what the code actually changed, though both maps are now
+generated from the code.
+
+Design (the integrator's, under P31; William: "follow the org principles and project principles"):
+- **What the merge works out itself** (nothing for the worker to write): from main's and the merged tree's maps,
+  - files added or removed;
+  - each file whose module-map line (its header sentence) changed, old and new;
+  - each dependency added or removed (`a uses b`), from docs/dependency-map.md.
+- **What only the worker can say:** why. Its `Architecture:` lines take three forms (any number of each):
+  - `Architecture: <file> owns <what>` for a new file, or a file that now owns state or a job it didn't;
+  - `Architecture: <a> uses <b>: <why>` for a new dependency;
+  - `Architecture: <free text>` for anything else (as today).
+
+Request:
+1. **The structure step at merge**: after the gate passes, integrate.py prints the worked-out changes as a short list
+   and checks them against the response: every added file needs an `owns` line naming it, every added dependency a
+   `uses` line naming both files. Anything unexplained stops the merge like a "Changed from the brief" line
+   (`for you now: structure: <a> now uses <b>, not explained`), and `--continue` accepts it after review. Removed
+   files and removed dependencies are only printed. A merge with no structural change prints nothing.
+2. `diff(old_text, new_text)` helpers in both map tools return those changes (tested on their own).
+3. BOARD.md step 6 shows the three forms in one line each; docs/integrator.md's review step says the merge checks
+   them and the integrator confirms they're true (P32).
+
+Not in this job: the proposed/ghosted map (T136), anything the worker's other response lines do.
+
+What can fail:
+- A stop on every merge: only added files and added dependencies need explaining. Check: a test merge with a
+  header-only change passes without a stop.
+- A dependency renamed by a file move (H177 moves code out of main.gd) shows as one removed and one added: the
+  added one needs explaining, which is right.
+- A worker naming a file differently (`main.gd` vs `viewport/main.gd`): match on the short names the map uses.
+
+Checks:
+- The three test files above: an added file with and without its `owns` line, an added dependency with and without
+  its `uses` line, no change at all.
+- `tools/TEST_BEFORE_MERGING.sh` passes (scope tools).
+
+Response — Gemini (gemini-alder-1127-102946), 2026-11-27:
+Branch: `gemini/h180-structural-report`, commit: `cc5868e`.
+
+Implemented the structural report design:
+- Added `diff(old_text, new_text)` in `tools/architecture_map.py` (added/removed files and changed header sentences) and `tools/dependency_map.py` (added/removed `(source, target)` edges, resolving short names to full paths so short-name collisions don't look like removed+added edges).
+- Added `check_structure` between `run_gate` and `pause_for_map` in `tools/integrate.py`. It compares `HEAD`'s maps with the live merged tree's maps, prints a short `structure:` list (nothing when there are no structural changes), and checks added files against `Architecture: <file> owns ...` and added dependencies against `Architecture: <a> uses <b>: ...` (matching both short map names and full paths). Unexplained additions stop the merge staged under `for you now:` (`structure: ...`), and `--continue` accepts them after review; removed files, removed dependencies, and header-only changes do not stop.
+- Updated `BOARD.md` step 6 with the three `Architecture:` forms and `docs/integrator.md` with the review/P32 check.
+- Added tests in `tools/test_architecture_map.py` (12/12), `tools/test_dependency_map.py` (20/20), and `tools/test_integrate.py` (100/100, updating `MERGE_ORDER` for `check_structure`), and ran `tools/TEST_BEFORE_MERGING.sh` (GATE PASS, scope tools, 132 s) and `python3 tools/job.py test` (all 22 tools suites passed, 58 s).
+
+Architecture: integrate.py uses architecture_map.py: diff main's and the merged tree's module maps in check_structure
+Architecture: integrate.py uses dependency_map.py: diff main's and the merged tree's dependency maps and resolve short names in check_structure
+Result: cc5868e; gate (scope tools) + quicktest (22 tools suites) + test_integrate (100/100) + test_dependency_map (20/20) + test_architecture_map (12/12) passed; added map diff() helpers, integrate.py check_structure step, and BOARD.md/integrator.md docs
+
+Resolution: merged into main by the integrator, 2026-11-27.
+
+### H181 — presenter.gd step 1: confirmation waves and selection drawing move to their own files, behaviour unchanged
+
+Author: Claude (integrator, napkin-77) | Date: 2026-11-27 | Status: resolved | For: gemini
+
+References: William, 2026-11-27 (architecture order: split main.gd and presenter.gd), H177 (main.gd step 1, the same
+pattern), W01-W09 (the confirmation wave), A33b (selection is drawn by the presenter from what selection.gd says),
+comitatus principle C03, P50.
+
+Touches: viewport/presenter.gd (its operation wave section, ~lines 769-886, and its selection-and-context drawing
+section, ~887-988), viewport/waves.gd (new), viewport/selection_view.gd (new). (The integrator adds the viewport guide's lines after the merge: H177 holds that file.)
+
+Reading path:
+1. viewport/presenter.gd's header (what it owns) and the two sections named above.
+2. How main.gd reaches the presenter (`m.pres`) and calls these functions: `python3 tools/dependency_map.py callers
+   viewport/presenter.gd:attach_wave` (and `step_waves`, `apply_context`, `show_selection`, `show_siblings`).
+3. viewport/main.gd's `measure` / `keys` pattern, as H177 uses it for main.gd.
+
+Today (checked 2026-11-27): presenter.gd is 988 lines and 42 KB. The operation wave (W01-W09: the confirmation and
+rejection waves) and the selection/context highlights are self-contained sections.
+
+Request:
+1. **viewport/waves.gd** takes the operation wave section; **viewport/selection_view.gd** takes the selection and
+   context drawing section. Each is made by the presenter and reached through it (`pres.waves`, `pres.selection_view`),
+   with a header whose first line is its map line (P50).
+2. **Nothing else changes**: same behaviour and timing (waves are timed: same frame order), same names reachable
+   through the presenter, so main.gd, tools and tests don't change: the presenter keeps a forwarder for each moved
+   name used outside it; one only the presenter used moves without one.
+3. Report presenter.gd's size before and after and each new file's.
+4. Your response's `Architecture:` lines: `Architecture: viewport/waves.gd owns <what>` and the same for
+   selection_view.gd (H180's forms).
+
+Not in this job: main.gd (H177), any rename, behaviour change, or rewrite while moving (word for word, apart from
+reaching back into the presenter).
+
+What can fail:
+- A wave's timing or colour changing: the quick tests that check waves and highlights pass unchanged. Check: the
+  quick and full viewport tests.
+- A test using a moved name directly: a forwarder keeps it working; no test file changes, or each listed with why.
+
+Checks:
+- `tools/TEST_BEFORE_MERGING.sh` passes (full scope); quick 401/401.
+- `python3 tools/architecture_map.py --check` and `python3 tools/dependency_map.py --check`.
+
+Response — Gemini, 2026-11-27:
+Split the operation wave section into `viewport/waves.gd` (`pres.waves`) and the selection/context/sibling drawing section into `viewport/selection_view.gd` (`pres.selection_view`), keeping forwarders on `viewport/presenter.gd` for every moved name used outside it (`op_waves`, `trace_wave`, `trace_rows`, `begin_wave`, `step_waves`, `plane_node`, `_sel_overlay`, `mat_ghost`, `mat_hidden_ghost`, `apply_context`, `show_selection`, `show_siblings`, `forget_siblings`). Internal-only helpers (`attach_wave`, `_push_params`, `end_wave`, `_overlay_node`, `show_mirror_plane`, `_sibling_overlay`, `_sibling_key`, wave constants/shaders) moved without forwarders. No main.gd, tool, or test files changed.
+
+Sizes:
+- `viewport/presenter.gd`: 988 lines / 43,440 bytes -> 812 lines / 34,561 bytes
+- `viewport/waves.gd`: 129 lines / 6,316 bytes
+- `viewport/selection_view.gd`: 115 lines / 5,074 bytes
+
+Architecture: viewport/waves.gd owns the confirmation and rejection wave state (`op_waves`, `trace_wave`, `trace_rows`) and shader/timing lifecycle (`begin_wave`, `attach_wave`, `end_wave`, `step_waves`).
+Architecture: viewport/selection_view.gd owns selection, context ghosting/hiding, mirror plane, and linked-sibling overlays (`apply_context`, `show_mirror_plane`, `show_selection`, `show_siblings`, `forget_siblings`).
+Changed from the brief: Committed regenerated `ARCHITECTURE.md` and `docs/dependency-map.md` (approved by integrator via `job.py wait --scope`: "Yes: commit the regenerated ARCHITECTURE.md and docs/dependency-map.md (generated files; the integrator regenerates them at merge if two branches both changed them). If protocol.md --check flags a moved function, update just that reference. Name them in Changed from the brief.").
+Result: `tools/TEST_BEFORE_MERGING.sh` passed (`GATE PASS: full test passes; QUICK 401 passed, 0 failed in 61.2 s ; 0 known failure(s); 172 s total`); `python3 tools/architecture_map.py --check`, `python3 tools/dependency_map.py --check`, `python3 tools/protocol_map.py --check`, and `tools/CHECK_THE_SCRIPTS_PARSE.sh` passed on commit `a26a7e2`.
+
+Resolution: merged into main by the integrator, 2026-11-27.

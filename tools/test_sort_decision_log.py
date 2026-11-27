@@ -260,7 +260,7 @@ s.board_statuses(bs_tmp)
 check("an item whose last job is archived goes back to Open",
       "Status: Open" in open(os.path.join(bs_wdir, "T1.md"), encoding="utf-8").read())
 
-# H157: Picked up -> On the board + Jobs:, merged keeps Jobs: and moves to Done, dropped -> Open, Parked never moved
+# H157/H175: Picked up -> On the board + Jobs:, merged keeps Jobs: and returns to Open (Done only via Completes:), dropped -> Open, Parked never moved
 s.write_entry(bs_wdir, "T5", s.format_work("T5", "Picked item.", "Picked up (integrator, 2026-11-26)"))
 s.write_entry(bs_wdir, "T6", s.format_work("T6", "Merged item.", "On the board (H020)"))
 s.write_entry(bs_wdir, "T7", s.format_work("T7", "Dropped item.", "On the board (H021)"))
@@ -283,8 +283,8 @@ check("a picked-up item with a queued job is On the board and lists the job",
       "Status: On the board (H019)" in t5_text and "Jobs: H019 queued" in t5_text)
 check("an item lists its merged job with its commit and keeps it listed",
       "Jobs: H020 merged 4bb59a0" in t6_text)
-check("an item is Done by itself when its last linked job merges",
-      "Status: Done" in t6_text)
+check("an item returns to Open when its last linked job merges without Completes:",
+      "Status: Open" in t6_text)
 check("an item whose only job was dropped goes back to Open",
       "Status: Open" in t7_text and "Jobs: H021 dropped" in t7_text)
 check("a Parked item is never moved",

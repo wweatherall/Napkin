@@ -49,7 +49,7 @@ One subject per decision; the Decisions column is generated.
 | Feedback | The confirmation wave and what colours mean. | I06, W01, W02, W03, W04, W05, W06, W07, W08, W09 |
 | Materials | Wood cards, grain and painting. | A05, I33, M01, M02, M03, M04 |
 | Output | Drawings, cut lists and renders. | A07, D01, D02, I68, P06 |
-| Process | How the agents work, test, merge and record decisions. | P01, P02, P03, P07, P09, P10, P14, P15, P16, P17, P18, P19, P20, P21, P22, P23, P24, P25, P26, P28, P29, P31, P32, P33, P34, P35, P36, P37, P38, P39, P40, P41, P42, P43, P44, P45, P46, P47, P49, P50, P52, P53, P54, P56, P57, P58, P60, P61, P62, P63, P64, P65, P66, P67, P68, P69, P70, P71 |
+| Process | How the agents work, test, merge and record decisions. | P01, P02, P03, P07, P09, P10, P14, P15, P16, P17, P18, P19, P20, P21, P22, P23, P24, P25, P26, P28, P29, P31, P32, P33, P34, P35, P36, P37, P38, P39, P40, P41, P42, P43, P44, P45, P46, P47, P49, P50, P52, P53, P54, P56, P57, P58, P60, P61, P62, P63, P64, P65, P66, P67, P68, P69, P70, P71, P72 |
 
 ## Principles
 
@@ -317,6 +317,7 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | P69 | The organization's tools live in comitatus/09_Tools (a code base's own stay in its tool... | Active |
 | P70 | comitatus's principles (comitatus/01_Principles/principles.md) and the org chart (comit... | Active |
 | P71 | Personal time: a coder whose job comes back clean (merged without being returned) may s... | Active |
+| P72 | The structural report (designs P31/P32): at merge, integrate.py works out the structura... | Active |
 
 ## Open questions
 
@@ -374,6 +375,7 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | T155 | Find a home for (or delete) the loose files at Napkin's top level: 'Codex's suggestions... | Open |
 | T159 | Clarify push_pull and separate its jobs: one op today extrudes a profile or face, cuts,... | Open |
 | T161 | Think through plane-fit face numbering: faces are 0-5 (Left..Top) on plain stock but 't... | Open |
+| T163 | Suspected bug (found by H179's T161 proposal): flipping a board (mirror with replace) t... | Open |
 
 ## Tunables
 

@@ -368,5 +368,27 @@ finally:
         os.environ["NAPKIN_COMITATUS"] = old_env
 shutil.rmtree(c_org)
 
+# H175: history files' already-archived entries are never rewritten, while new entries being archived still number
+hist_root = tree({
+    "03_Past_Decisions/rulings/I-new-1.md": "# I-new-1 — New rule.\n\nStatus: Active | Subject: Architecture | Principles: — | Date: 2026-11-27\n\nRule.\n",
+    "03_Past_Decisions/decision-archive.md": "# Archive\n\n## Decisions\n\n| ID | Decision |\n|---|---|\n| I40 | old rule mentioning I-new-1 |\n| I-new-2 | new archived citing I-new-1 |\n",
+    "docs/handoff-archive.md": (
+        "# Agent handoff archive\n\n"
+        "### H152 — Old brief\n\nAuthor: Claude | Date: 2026-11-26 | Status: resolved\n\nExample: I-new-1.\n\n"
+        "### H-new-1 — New entry being archived\n\nAuthor: Claude | Date: 2026-11-27 | Status: resolved\n\nFixes I-new-1.\n"
+    ),
+})
+got_h, _ = run(hist_root)
+ha_after = read(hist_root, "docs/handoff-archive.md")
+da_after = read(hist_root, "03_Past_Decisions/decision-archive.md")
+check("history files keep already-archived placeholders untouched while numbering new entries",
+      got_h.get("I-new-1") == "I49" and got_h.get("H-new-1") == "H153" and got_h.get("I-new-2") == "I50"
+      and "Example: I-new-1." in ha_after
+      and "### H153 — New entry being archived" in ha_after
+      and "Fixes I49." in ha_after
+      and "| I40 | old rule mentioning I-new-1 |" in da_after
+      and "| I50 | new archived citing I49 |" in da_after)
+shutil.rmtree(hist_root)
+
 print(f"ID TESTS: {sum(RESULTS)} passed, {len(RESULTS) - sum(RESULTS)} failed")
 raise SystemExit(0 if all(RESULTS) else 1)   # a failed check fails the run, not only its summary

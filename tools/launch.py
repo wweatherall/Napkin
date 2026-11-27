@@ -40,9 +40,16 @@ def worktrees_dir(root):
     return os.path.join(os.path.dirname(root), ".worktrees", os.path.basename(root))
 
 
-def session_name(agent, now=None):
+def session_name(agent, now=None, folder=None):
     now = now or datetime.datetime.now()
-    return f"{agent}-{random.choice(WORDS)}-{now:%m%d-%H%M}"
+    base = f"{agent}-{random.choice(WORDS)}-{now:%m%d-%H%M%S}"
+    if folder:
+        name, n = base, 2
+        while os.path.exists(os.path.join(folder, f"{name}.txt")):
+            name = f"{base}-{n}"
+            n += 1
+        return name
+    return base
 
 
 def space_of(agent, model=None):
@@ -131,15 +138,15 @@ def main(argv=None):
         return 0
     o = parse(argv)
     root = main_root()
-    name = o["name"] or session_name(o["agent"])
+    folder = os.path.join(root, "scratch", "launch")
+    os.makedirs(folder, exist_ok=True)
+    name = o["name"] or session_name(o["agent"], folder=folder)
     model = o["model"] or DEFAULT_MODEL[o["agent"]]
     r = subprocess.run([sys.executable, os.path.join(root, "tools", "startup.py"), "--role", "worker", "--space",
                         space_of(o["agent"], model)], cwd=root, capture_output=True, text=True)
     if r.returncode != 0:
         print(r.stdout + r.stderr)
         return 1
-    folder = os.path.join(root, "scratch", "launch")
-    os.makedirs(folder, exist_ok=True)
     path = os.path.join(folder, name + ".txt")
     with open(path, "w", encoding="utf-8") as f:
         f.write(prompt(o["agent"], name, r.stdout, model=model))

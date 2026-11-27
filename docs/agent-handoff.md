@@ -25,8 +25,6 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 <!-- open list: built from docs/handoff/ by tools/handoff.py; don't edit by hand -->
 
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
-- [H174 — A generated dependency map: who uses which file, and who calls a function](handoff/H174-dependency-map.md) — status: open; for: gemini
-- [H175 — The merge tools: six things the integrator did by hand on 2026-11-27, made automatic](handoff/H175-merge-tool-fixes.md) — status: open; for: gemini
 - [H177 — main.gd step 1: history replies and live preferences move to their own files, behaviour unchanged](handoff/H177-split-main-gd.md) — status: answered; for: gemini
 
 <!-- end of open list -->
@@ -35,18 +33,18 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 Full entries in [handoff-archive.md](handoff-archive.md).
 
+- H181 — presenter.gd step 1: confirmation waves and selection drawing move to their own files, behaviour unchanged. Resolved: merged into main by the integrator, 2026-11-27.
+- H180 — The structural report: the merge works out what changed in the structure, the worker only explains it. Resolved: merged into main by the integrator, 2026-11-27.
+- H179 — Two proposals for William: push_pull's jobs as separate ops (T159), and how a fit names its face (T161). Resolved: merged into main by the integrator, 2026-11-27.
+- H175 — The merge tools: six things the integrator did by hand on 2026-11-27, made automatic. Resolved: merged into main by the integrator, 2026-11-27.
+- H174 — A generated dependency map: who uses which file, and who calls a function. Resolved: merged into main by the integrator, 2026-11-27.
 - H178 — The full test fails on an op field that's sent but never read (a misspelt field can't run as its default). Resolved: merged into main by the integrator, 2026-11-27.
 - H176 — The two old protocol findings: drop the unused `replay` command, and one place for a session's name. Resolved: merged into main by the integrator, 2026-11-27.
 - H173 — One file per model: everything the journal holds moves inside the .FCStd, nothing beside it. Resolved: merged into main by the integrator, 2026-11-27.
 - H172 — status.json written only by one-off replays, not on every edit in the app. Resolved: merged into main by the integrator, 2026-11-27.
 - H171 — Fits become their own ops (`fit`, `unfit`), and old files' fits are upgraded when opened. Resolved: merged into main by the integrator, 2026-11-27.
-- H170 — One name per meaning for message numbers: `seq` for the model's state, `request_id` for the request. Resolved: merged into main by the integrator, 2026-11-27.
-- H169 — protocol.md's message list generated from the code, and a check that keeps the rest honest. Resolved: merged into main by the integrator, 2026-11-27.
-- H168 — A script that keeps docs/agent-handoff.md tidy: short, current, every link working. Resolved: merged into main by the integrator, 2026-11-27.
-- H167 — Architecture step 2: ARCHITECTURE.md down to a hand-written core under 8 KB, nothing lost. Resolved: merged into main by the integrator, 2026-11-27.
-- H166 — T146 step 3: Process rulings to comitatus, and comitatus's principles one file each with one add command. Resolved: merged into main by the integrator, 2026-11-27.
 
-Older: docs/handoff-archive.md (173 entries; find one with grep "^### H0NN" docs/handoff-archive.md)
+Older: docs/handoff-archive.md (178 entries; find one with grep "^### H0NN" docs/handoff-archive.md)
 
 ## Entry template
 
