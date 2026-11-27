@@ -114,5 +114,7 @@ def main():
         len(cases), sum(c["mm"] is not None for c in cases), sum(c["mm"] is None for c in cases), out))
 
 
-if __name__ == "__main__":
+# freecadcmd runs a script under its own module name, not "__main__": the basename check keeps
+# `freecadcmd tools/length_cases.py` working, and the wrapper (which imports this) from running it twice.
+if __name__ == "__main__" or os.path.basename(sys.argv[-1]) == "length_cases.py":
     main()
