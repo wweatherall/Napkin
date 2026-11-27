@@ -1,6 +1,6 @@
 ### H159 — Personal spaces: everything an agent makes is committed and pushed; experiments can be run or merged
 
-Author: Claude (integrator, napkin-77) | Date: 2026-11-26 | Status: queued (after H158) | For: gemini
+Author: Claude (integrator, napkin-77) | Date: 2026-11-26 | Status: open | For: gemini
 
 Item: T150
 
