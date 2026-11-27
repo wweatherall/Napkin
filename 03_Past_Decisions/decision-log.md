@@ -39,7 +39,7 @@ One subject per decision; the Decisions column is generated.
 | Product | What Shop Sketch is for and the feel it aims at. | I01, P04, P51 |
 | Architecture | The processes, the worker link, the app and the code's main boundaries. | A02, A03, A06, A08, A09, A27, A29, A30, A31, A33b, A34, A35, A40, W13 |
 | Files, saving and undo | The .FCStd model and its journal, saving, opening, undo and redo. | A21, A23, A24, A25, A28, A32, A36, A37, A38, A39, A41, I38, I42, I54, I55, U01, U02, U03 |
-| Drawing tools | Rectangle, Circle, Line: how a drawing gesture starts, follows and ends. | I02, I04b, I09, I11, I43, I44, I49, I50, I51, I58, I60, I61, I64, I65, I71, I72 |
+| Drawing tools | Rectangle, Circle, Line: how a drawing gesture starts, follows and ends. | I02, I04b, I09, I11, I43, I44, I49, I50, I51, I58, I60, I61, I64, I65, I71, I-new-1 |
 | Push/Pull | Extruding, cutting, and fitting a board's end to another board. | I05, I08, I23, I24, I34, I40, I41, I45, I56 |
 | Move, copies and arrays | Move, linked copies, arrays, mirrors, components and assemblies. | A10, A11b, A22c, A26, I10, I12c, I13b, I14, I15, I16, I17, I20, I21, I25, I28, I32, I46, I52, I53, I66, I69 |
 | Snapping | Points, edges, axes and the grid, shared by every tool. | I03b, I18, I19 |
@@ -143,7 +143,7 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | I64 | Rotated Rectangle and Polygon (T84): pressing R again while Rectangle is active toggles... | Active |
 | I65 | Numbers typed after creating a rectangle, before any other action, alter that rectangle... | Active |
 | I71 | A corner fillet radius too big for the corner's edges (typed 50r on a corner) leaves th... | Active |
-| I72 | A click that starts a Polygon gesture clears side-count digits typed before it and not ... | Active |
+| I-new-1 | Before a Polygon gesture the measurements box is the side count: a number typed there s... | Active |
 
 ### Push/Pull
 

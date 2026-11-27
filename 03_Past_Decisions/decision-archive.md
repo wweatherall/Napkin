@@ -32,6 +32,7 @@ Kept for history (P01: never deleted). Each names the decision that replaced it.
 | I29 | A rectangle started with a click ends with the next click; started with a press-and-dra... | Superseded |
 | I39 | An edge midpoint can link a push to an adjacent face. | Superseded |
 | I47 | Copying a whole assembly (from outside it) makes a new assembly holding linked copies o... | Superseded |
+| I72 | A click that starts a Polygon gesture clears side-count digits typed before it and not ... | Superseded |
 | P05 | Interaction principles: immediate and predictable. | Superseded |
 | P08 | Small fixes (nothing you'd notice, no protocol / format / boundary / saving change, ~30... | Superseded |
 | P11 | Agents work in parallel by files, not topics: each job lists the files it expects to to... | Superseded |

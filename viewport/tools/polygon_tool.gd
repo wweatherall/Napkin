@@ -1,6 +1,7 @@
 extends "res://tools/tool.gd"
 ## Polygon (T84, I64): centre, then circumradius; Circle's click/drag gesture (I43). A corner follows the cursor.
-## `8s` + Return sets the number of sides, before or during a gesture. No key yet (Q33).
+## Before a gesture the box is the side count: type 8 (Return optional; the centre click takes it) or 8s. During one,
+## `8s` + Return sets the sides and a plain number is the radius (I-new-1). No key yet (Q33).
 
 const TOOL := {"id": "polygon", "label": "Polygon", "tip": "Polygon", "key": KEY_NONE, "order": 36, "show_links": true}
 const DEFAULT_SIDES := 6
@@ -17,7 +18,7 @@ func reset() -> void:
 
 
 func hint() -> String:
-	return "Polygon (%d sides): click a face or the ground for the centre, then click or type a radius + Enter; 8s + Enter sets the sides" % sides
+	return "Polygon (%d sides): type the sides, then click a face or the ground for the centre, then click or type a radius + Enter" % sides
 
 
 func busy() -> bool:
@@ -46,8 +47,11 @@ func click(screen: Vector2) -> void:
 	if ctx.selection.edit_blocked(p["body"]): return
 	var on: String = p["body"]
 	if p["rect"] != "": on = ctx.model.profile(p["rect"]).get("on", "")
+	# A side count typed before the centre click and not entered yet still counts: the box said Sides (I-new-1).
+	var pending := ctx.ui.typed_text().strip_edges().to_lower().trim_suffix("s").strip_edges()
+	if pending.is_valid_int(): set_sides(pending)
 	state = {"active": true, "origin": p["point"], "n": p["normal"], "on": on, "radius": 0.0, "x": Vector3.ZERO}
-	ctx.ui.clear_typed()   # digits not entered before this click aren't the start of the radius (I72)
+	ctx.ui.clear_typed()   # the radius starts from an empty box (I72's purpose, kept by I-new-1)
 	press_started(screen)
 
 
@@ -63,6 +67,8 @@ func typed(txt: String) -> void:
 		set_sides(t.left(-1).strip_edges())
 	elif busy():
 		commit_polygon(absf(float(t)))
+	else:
+		set_sides(t)   # before a gesture the box is the side count (I-new-1)
 
 
 func set_sides(txt: String) -> void:
