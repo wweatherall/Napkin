@@ -209,6 +209,7 @@ Work list items that are finished (and Split ones whose parts are all done).
 | T150 | Personal spaces take the rest of the proposal: a journal about how the work felt (not w... | Done |
 | T151 | Tests run by what changed: a branch that touches only tools, guides, the log or persona... | Done |
 | T154 | Faster tests: cut the waits (the gate's ~100 s, the quick test's viewport lanes, FreeCA... | Done |
+| T156 | One personal space per model and job (sonnet-coder, opus-coder, gemini-hydrogen-coder, ... | Done |
 
 ## Details
 

@@ -42,19 +42,39 @@ expected_journal_desc = (
 )
 check("the first prompt has the new journal description and names the three folders (T150)",
       expected_journal_desc in p and all(f in p for f in ("Creative_Expression/", "Ideas/", "Code_Experiments/")), p)
+check("space_of maps model families and variants to <model>-coder and falls back to <agent>-coder",
+      launch.space_of("claude", "sonnet") == "sonnet-coder"
+      and launch.space_of("claude", "claude-opus-5-5") == "opus-coder"
+      and launch.space_of("claude", "haiku") == "haiku-coder"
+      and launch.space_of("claude", "fable") == "fable-coder"
+      and launch.space_of("gemini", "gemini-4-hydrogen-medium") == "gemini-hydrogen-coder"
+      and launch.space_of("gemini", "gemini-4-neon-medium") == "gemini-neon-coder"
+      and launch.space_of("codex", None) == "codex-coder"
+      and launch.space_of("claude", "claude-mystery-9") == "claude-coder"
+      and launch.space_of("gemini", "gemini-typo") == "gemini-coder"
+      and launch.space_of("claude", None) == "claude-coder")
+
+p_neon = launch.prompt("gemini", "gemini-cedar-1126-1900", "b", model="gemini-4-neon-medium")
+check("prompt names the model-specific personal space",
+      "Your personal space is gemini-neon-coder:" in p_neon
+      and "WRITE_IN_YOUR_LOG.py gemini-neon-coder" in p_neon
+      and "WRITE_IN_YOUR_JOURNAL.py gemini-neon-coder" in p_neon, p_neon)
+
 g = launch.agent_command("gemini", root, "/x/p file.txt", "gemini-a")
-check("Gemini runs agy with the hydrogen model by default and the prompt file",
-      g == "cd /x/comitatus/08_Code_Bases/Napkin && agy --model gemini-4-hydrogen-medium -i \"$(cat '/x/p file.txt')\"", g)
+check("Gemini runs agy with the hydrogen model by default, NAPKIN_SPACE, and the prompt file",
+      g == "cd /x/comitatus/08_Code_Bases/Napkin && NAPKIN_SPACE=gemini-hydrogen-coder agy --model gemini-4-hydrogen-medium -i \"$(cat '/x/p file.txt')\"", g)
 c = launch.agent_command("claude", root, "/x/p.txt", "claude-a")
-check("Claude runs sonnet at medium effort with the worktrees folder and remote control",
-      "claude --model sonnet --effort medium --add-dir /x/comitatus/08_Code_Bases/.worktrees/Napkin --remote-control claude-a" in c, c)
+check("Claude runs sonnet at medium effort with NAPKIN_SPACE, the worktrees folder and remote control",
+      "NAPKIN_SPACE=sonnet-coder claude --model sonnet --effort medium --add-dir /x/comitatus/08_Code_Bases/.worktrees/Napkin --remote-control claude-a" in c, c)
 x = launch.agent_command("codex", root, "/x/p.txt", "codex-a")
-check("Codex gets its root and the worktrees folder", "codex -C /x/comitatus/08_Code_Bases/Napkin --add-dir "
+check("Codex gets NAPKIN_SPACE, its root and the worktrees folder", "NAPKIN_SPACE=codex-coder codex -C /x/comitatus/08_Code_Bases/Napkin --add-dir "
       "/x/comitatus/08_Code_Bases/.worktrees/Napkin \"$(cat /x/p.txt)\"" in x, x)
 check("no command adds a bypass or full-access flag",
       not any(w in g + c + x for w in ("dangerously", "skip-permissions", "full-auto", "yolo", "bypass")))
-check("--model replaces the default", "--model gemini-4-neon-medium" in
-      launch.agent_command("gemini", root, "/p", "n", "gemini-4-neon-medium"))
+check("--model replaces the default and updates NAPKIN_SPACE",
+      "--model gemini-4-neon-medium" in launch.agent_command("gemini", root, "/p", "n", "gemini-4-neon-medium")
+      and "NAPKIN_SPACE=gemini-neon-coder" in launch.agent_command("gemini", root, "/p", "n", "gemini-4-neon-medium")
+      and "NAPKIN_SPACE=opus-coder" in launch.agent_command("claude", root, "/p", "n", "opus"))
 
 script = launch.applescript(g)
 inner = script[len('tell application "Terminal" to do script "'):-1]

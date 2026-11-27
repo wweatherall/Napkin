@@ -1427,7 +1427,7 @@ os.makedirs(os.path.join(ps_root, "docs", "handoff"))
 open(os.path.join(ps_root, "tools", "quicktest.sh"), "w").write("#!/bin/sh\nexit 0\n")
 os.chmod(os.path.join(ps_root, "tools", "quicktest.sh"), 0o755)
 open(os.path.join(ps_root, "tools", "test_bookkeeping.py"), "w").write("import sys; sys.exit(0)\n")
-open(os.path.join(ps_root, "BOARD.md"), "w").write("# Board\n\nOrder: H201.\n")
+open(os.path.join(ps_root, "BOARD.md"), "w").write("# Board\n\nOrder: H201, H202.\n")
 open(os.path.join(ps_root, "docs", "handoff", "H201-ps-test.md"), "w").write(
     entry("H201", "gemini", "open", "tools/a.py.", "T201: ps test")
 )
@@ -1457,6 +1457,36 @@ check("done() commits and pushes the worker's personal space without touching ot
       and "04_Personal_Space/gemini-coder/Creative_Expression/haiku.txt" in ps_remote_files
       and "04_Personal_Space/claude-coder/" in ps_org_status,
       (r_ps_done, out_ps_done, ps_remote_files, ps_org_status))
+
+# done() after a shell restart without NAPKIN_SPACE still uses the space recorded at take() (H164).
+os.makedirs(os.path.join(ps_org, "04_Personal_Space", "gemini-neon-coder", "Creative_Expression"))
+open(os.path.join(ps_root, "docs", "handoff", "H202-ps-space.md"), "w").write(
+    entry("H202", "gemini", "open", "tools/b.py.", "T202: ps recorded space")
+)
+sh(ps_root, "git", "add", "-A"); sh(ps_root, "git", "commit", "-qm", "H202")
+old_napkin_space = os.environ.get("NAPKIN_SPACE")
+try:
+    os.environ["NAPKIN_SPACE"] = "gemini-neon-coder"
+    _, _ = run(job.take, ps_root, "gemini", "s-ps2")
+finally:
+    if old_napkin_space is None:
+        os.environ.pop("NAPKIN_SPACE", None)
+    else:
+        os.environ["NAPKIN_SPACE"] = old_napkin_space
+ps_wt2 = job.worktree_for(ps_root, "H202")
+sh(ps_wt2, "git", "config", "user.email", "t@example.invalid")
+sh(ps_wt2, "git", "config", "user.name", "T")
+ps_hp2 = os.path.join(ps_wt2, "docs", "handoff", "H202-ps-space.md")
+ps_text2 = open(ps_hp2).read()
+open(ps_hp2, "w").write(ps_text2.replace("Status: open", "Status: answered") + "\nResponse: done.\n")
+sh(ps_wt2, "git", "add", "-A"); sh(ps_wt2, "git", "commit", "-qm", "answer H202")
+open(os.path.join(ps_org, "04_Personal_Space", "gemini-neon-coder", "Creative_Expression", "neon.txt"), "w").write("glow\n")
+r_ps_done2, out_ps_done2 = run(job.done, ps_wt2)
+ps_remote_files2 = sh(ps_remote, "git", "show", "--name-only", "--pretty=", "main").stdout.splitlines()
+check("done() without NAPKIN_SPACE in env uses the space recorded on the job at take()",
+      r_ps_done2 is True
+      and "04_Personal_Space/gemini-neon-coder/Creative_Expression/neon.txt" in ps_remote_files2,
+      (r_ps_done2, out_ps_done2, ps_remote_files2))
 
 for w in [l.split()[1] for l in sh(ps_root, "git", "worktree", "list", "--porcelain").stdout.split("\n")
           if l.startswith("worktree ")][1:]:

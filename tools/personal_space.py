@@ -63,6 +63,7 @@ FOLDERS = {
         "integrator turns it into a job when you and William want it.\n"
     ),
 }
+TEMPLATE_DIR = "NEW_SPACE_TEMPLATE"
 NAME = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 LINE = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2} ")
 
@@ -88,6 +89,40 @@ def path_of(name, kind, root=None):
     if base is None or not NAME.match(name or ""):
         return None
     return os.path.join(base, name, KINDS[kind])
+
+
+def template_dir(root=None):
+    """comitatus/04_Personal_Space/NEW_SPACE_TEMPLATE if it exists, else None."""
+    base = spaces_dir(root)
+    if base is None:
+        return None
+    tdir = os.path.join(base, TEMPLATE_DIR)
+    return tdir if os.path.isdir(tdir) else None
+
+
+def copy_template(space_dir, name, tdir):
+    """Copy missing files from NEW_SPACE_TEMPLATE into space_dir, replacing <name> and H158's exact READMEs."""
+    written = []
+    for cur, _, files in os.walk(tdir):
+        rel_dir = os.path.relpath(cur, tdir)
+        for fname in sorted(files):
+            rel = fname if rel_dir == "." else os.path.join(rel_dir, fname)
+            src = os.path.join(cur, fname)
+            dst = os.path.join(space_dir, rel)
+            os.makedirs(os.path.dirname(dst), exist_ok=True)
+            folder = rel_dir if rel_dir in OLD_FOLDERS and fname == "README.md" else None
+            if os.path.exists(dst):
+                if folder is None or open(dst, encoding="utf-8").read() != OLD_FOLDERS[folder]:
+                    continue
+            raw = open(src, "rb").read()
+            try:
+                data = raw.decode("utf-8").replace("<name>", name).encode("utf-8")
+            except UnicodeDecodeError:
+                data = raw
+            with open(dst, "wb") as f:
+                f.write(data)
+            written.append(dst)
+    return written
 
 
 def ensure_folders(space_dir):
@@ -127,6 +162,11 @@ def add(name, kind, text, root=None, now=None, out=print):
         return False
     space_dir = os.path.dirname(path)
     os.makedirs(space_dir, exist_ok=True)
+    tdir = template_dir(root)
+    if tdir:
+        copy_template(space_dir, name, tdir)
+    else:
+        ensure_folders(space_dir)
     new = not os.path.exists(path)
     entry = f"{(now or datetime.datetime.now()):%Y-%m-%d %H:%M} {line}"
     if new:
@@ -138,12 +178,14 @@ def add(name, kind, text, root=None, now=None, out=print):
             with open(path, "w", encoding="utf-8") as f:
                 f.write(HEADERS["journal"] + existing[len(OLD_JOURNAL_HEADER):] + entry + "\n")
         else:
+            prefix = "" if (not existing or existing.endswith("\n")) else "\n"
             with open(path, "a", encoding="utf-8") as f:
-                f.write(entry + "\n")
+                f.write(prefix + entry + "\n")
     else:
+        existing = open(path, encoding="utf-8").read()
+        prefix = "" if (not existing or existing.endswith("\n")) else "\n"
         with open(path, "a", encoding="utf-8") as f:
-            f.write(entry + "\n")
-    ensure_folders(space_dir)
+            f.write(prefix + entry + "\n")
     org = os.path.dirname(os.path.dirname(space_dir))
     title = "Log" if kind == "log" else "Journal"
     comitatus_commit.commit(org, [space_dir], f"04_Personal_Space: {name}'s {title} (generated)", push=True)

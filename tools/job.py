@@ -93,14 +93,18 @@ def record_journal(root, line):
         pass
 
 
-def save_personal_space(root, agent):
+def save_personal_space(root, agent, space=None):
     """Fail-open: commit and push the worker's personal space at the end of a job."""
-    if agent not in AGENTS:
+    if not space and agent not in AGENTS:
         return
     try:
         import launch
+        default_space = launch.space_of(agent)
+    except Exception:
+        default_space = f"{agent}-coder"
+    try:
         import personal_space
-        personal_space.save(launch.space_of(agent), root=root)
+        personal_space.save(space or default_space, root=root)
     except Exception:
         pass
 
@@ -564,9 +568,15 @@ def _take(cwd, agent, session, now=None, out=print):
                 return None, "refused"
         wt = os.path.realpath(wt)
         os.makedirs(os.path.join(wt, "scratch"), exist_ok=True)     # where the job's logs go (P25); git ignores it
+        try:
+            import launch
+            default_space = launch.space_of(agent)
+        except Exception:
+            default_space = f"{agent}-coder"
+        space = os.environ.get("NAPKIN_SPACE") or default_space
         st["jobs"][job["id"]] = {**{k: prev[k] for k in ("notes", "returned") if k in prev},
                                  "state": "in progress", "agent": agent, "session": session, "branch": branch,
-                                 "worktree": wt, "handoff": job["name"], "taken": now, "beat": now}
+                                 "worktree": wt, "handoff": job["name"], "space": space, "taken": now, "beat": now}
         answers = prev.get("answers", []) if prev.get("state") == "returned" else []
         st.get("waiting_workers", {}).pop(session, None)
         if raw_session != session:
@@ -915,7 +925,7 @@ def done(cwd, jid=None, now=None, out=print):
     out(f"{k} done: the integrator is told. Tell William \"ready for review: {k}\".")
     out(next_step(read_state(state_path(cwd)), j.get("session")))
     record_usage(main_root(cwd), "done", k, quiet=True)
-    save_personal_space(main_root(cwd), j.get("agent"))
+    save_personal_space(main_root(cwd), j.get("agent"), space=j.get("space"))
     return True
 
 

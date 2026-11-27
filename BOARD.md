@@ -65,7 +65,6 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H164 | Gemini | **Ready** | One personal space per model and job, every new one made the same from a template | [H164](docs/handoff/H164-space-per-model-from-template.md) |  |
 
 <!-- end of job table -->
 
