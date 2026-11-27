@@ -65,8 +65,9 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H161 | Gemini | **Ready** | Faster tests: find where the gate's time goes and cut it, every check kept | [H161](docs/handoff/H161-faster-tests.md) |  |
+| H161 | Gemini | In progress (gemini since 23:27) | Faster tests: find where the gate's time goes and cut it, every check kept | [H161](docs/handoff/H161-faster-tests.md) |  |
 | H163 | Gemini | Queued | Onboarding: the start-up brief carries who you are, the principles, habits, tools and personal time | [H163](docs/handoff/H163-onboarding-rows.md) | H161 |
+| H164 | Gemini | Queued | One personal space per model and job, every new one made the same from a template | [H164](docs/handoff/H164-space-per-model-from-template.md) | H163 |
 
 <!-- end of job table -->
 

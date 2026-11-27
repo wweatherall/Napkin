@@ -33,6 +33,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
 - [H161 — Faster tests: find where the gate's time goes and cut it, every check kept](handoff/H161-faster-tests.md) — status: open; for: gemini
 - [H163 — Onboarding: the start-up brief carries who you are, the principles, habits, tools and personal time](handoff/H163-onboarding-rows.md) — status: queued (after H161); for: gemini
+- [H164 — One personal space per model and job, every new one made the same from a template](handoff/H164-space-per-model-from-template.md) — status: queued (after H163); for: gemini
 
 <!-- end of open list -->
 
