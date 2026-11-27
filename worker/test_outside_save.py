@@ -22,7 +22,7 @@ import xml.etree.ElementTree as ET
 HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
-from test_link import (FC, Checks, Window, board_ops, freecad_save,
+from test_link import (FC, Checks, Window, board_ops,
                        fresh_model as _fresh_model, start_worker, sync)
 
 tmp = os.path.abspath(os.environ.get("TESTDIR") or tempfile.mkdtemp(prefix="shopsketch-outside-"))
@@ -30,13 +30,63 @@ os.makedirs(tmp, exist_ok=True)
 checks = Checks("OUTSIDE SAVE")
 check = checks.check
 
-READ_LABEL = os.path.join(tmp, "freecad_label.py")
-with open(READ_LABEL, "w") as f:
-    f.write('''import os, FreeCAD as App
-doc = App.openDocument(os.environ["READ_MODEL"])
-print("MODEL LABEL: " + doc.Label, flush=True)
-App.closeDocument(doc.Name)
+FC_HELPER = os.path.join(tmp, "freecad_helper.py")
+with open(FC_HELPER, "w") as f:
+    f.write('''import json, sys, FreeCAD as App
+print("HELPER_READY", flush=True)
+for line in sys.stdin:
+    line = line.strip()
+    if not line:
+        continue
+    req = json.loads(line)
+    cmd = req.get("cmd")
+    if cmd == "quit":
+        break
+    if cmd == "edit":
+        doc = App.openDocument(req["model"])
+        edits = req.get("meta") or {}
+        if edits:
+            meta = doc.Meta
+            for key, value in edits.items():
+                if value is None:
+                    meta.pop(key, None)
+                else:
+                    meta[key] = value
+            doc.Meta = meta
+        ex = [o for o in doc.Objects if o.TypeId == "Part::Extrusion"][0]
+        ex.LengthFwd = ex.LengthFwd.Value + float(req.get("add", 12))
+        doc.recompute()
+        doc.save()
+        App.closeDocument(doc.Name)
+        print("HELPER_RESP:" + json.dumps({"ok": True}), flush=True)
+    elif cmd == "read_label":
+        doc = App.openDocument(req["model"])
+        label = doc.Label
+        App.closeDocument(doc.Name)
+        print("HELPER_RESP:" + json.dumps({"ok": True, "label": label}), flush=True)
 ''')
+
+_fc_proc = subprocess.Popen([FC, FC_HELPER], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+                            stderr=subprocess.STDOUT, text=True)
+while True:
+    _line = _fc_proc.stdout.readline()
+    if not _line or _line.strip() == "HELPER_READY":
+        break
+
+
+def _fc_call(req):
+    _fc_proc.stdin.write(json.dumps(req) + "\n")
+    _fc_proc.stdin.flush()
+    while True:
+        line = _fc_proc.stdout.readline()
+        if not line:
+            raise RuntimeError("freecad helper exited unexpectedly")
+        if line.startswith("HELPER_RESP:"):
+            return json.loads(line[len("HELPER_RESP:"):])
+
+
+def freecad_save(model, add=12, **meta):
+    _fc_call({"cmd": "edit", "model": model, "add": add, "meta": meta})
 
 
 def sha(path):
@@ -108,15 +158,14 @@ try:
     check("a sync taking back an op below the floor is refused", bad and not bad["ok"] and "FreeCAD" in bad["error"], bad)
     sync(w, m1, ops + second(200))
     ask({"cmd": "flush", "model": m1}, "flush")
-    label_read = subprocess.run([FC, READ_LABEL], env=dict(os.environ, READ_MODEL=m1),
-                                capture_output=True, text=True, timeout=120)
+    label_read = _fc_call({"cmd": "read_label", "model": m1})
     expected_label = os.path.splitext(os.path.basename(m1))[0]
     # FreeCAD normalizes the label on open, so check what Shop Sketch saved as well.
     with zipfile.ZipFile(m1) as archive:
         document_xml = ET.fromstring(archive.read("Document.xml"))
         saved_label = document_xml.find("./Properties/Property[@name='Label']/String").get("value")
     check("FreeCAD reopens the saved reload with the model's file stem as its label",
-          label_read.returncode == 0 and f"MODEL LABEL: {expected_label}" in label_read.stdout.splitlines()
+          label_read.get("label") == expected_label
           and saved_label == expected_label, f"saved label: {saved_label!r}")
     j = journal(m1)
     check("a later save keeps the floor in the journal", j["floor"] == 2 and len(j["ops"]) == 4, (j.get("floor"), len(j["ops"])))
@@ -579,5 +628,13 @@ session.close()
 finally:
     if worker.proc.poll() is None:
         worker.kill()
+    try:
+        if _fc_proc.poll() is None:
+            _fc_proc.stdin.write(json.dumps({"cmd": "quit"}) + "\n")
+            _fc_proc.stdin.flush()
+            _fc_proc.wait(timeout=10)
+    except Exception:
+        if _fc_proc.poll() is None:
+            _fc_proc.kill()
 
 sys.exit(checks.done())

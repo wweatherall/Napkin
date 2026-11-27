@@ -20,8 +20,6 @@ for arg in "$@"; do
 done
 resolve_test_scope "$@"
 echo "quick: $TEST_SCOPE_DESC"
-run_stage "quick: parse" tools/parsecheck.sh || { echo "quick test not run: a viewport script doesn't parse"; exit 1; }
-echo "TIMING parse: $((SECONDS - START)) s"
 OUT=$(mktemp -d "${TEST_TMPDIR%/}/shopsketch-quick.XXXXXX") || exit 1
 if [ "$TEST_SCOPE" = "tools" ]; then
   run_stage "quick: feature tests" run_features "$OUT" --tools-only
@@ -33,6 +31,8 @@ if [ "$TEST_SCOPE" = "tools" ]; then
 fi
 run_stage "quick: feature tests" run_features "$OUT" &
 FEATURES=$!
+run_stage "quick: parse" tools/parsecheck.sh || { echo "quick test not run: a viewport script doesn't parse"; wait "$FEATURES"; exit 1; }
+echo "TIMING parse: $((SECONDS - START)) s"
 viewport_tests() {
   PIDS=()
   if [ $LANES -eq 0 ]; then RUNS=(""); else RUNS=(); for i in $(seq 1 $LANES); do RUNS+=("--quick-lane=$i"); done; fi

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Checks tools/integrate.py and tools/gate.sh on throwaway repositories (P18, P20). Summary line:
 INTEGRATE TESTS: N passed, M failed."""
+import atexit
 import contextlib
 import io
 import os
@@ -29,17 +30,31 @@ def sh(cwd, *args):
     return subprocess.run(args, cwd=cwd, capture_output=True, text=True)
 
 
+_TEMPLATE_REPO = None
+
+
+def _template_repo():
+    global _TEMPLATE_REPO
+    if _TEMPLATE_REPO is None:
+        root = tempfile.mkdtemp(prefix="integrate-tmpl-")
+        atexit.register(shutil.rmtree, root, True)
+        sh(root, "git", "init", "-q", "-b", "main")
+        sh(root, "git", "config", "user.email", "t@example.invalid"); sh(root, "git", "config", "user.name", "t")
+        os.makedirs(os.path.join(root, "docs", "handoff"))
+        os.makedirs(os.path.join(root, "03_Past_Decisions"))
+        open(os.path.join(root, "03_Past_Decisions", "decision-log.md"), "w").write("# Log\n\n## Work list\n\n| # | Item | Status |\n|---|---|---|\n| T1 | a | Open |\n")
+        open(os.path.join(root, "docs", "agent-handoff.md"), "w").write("# Handoff\n\n## Open exchanges\n\n<!-- open list: built from docs/handoff/ by tools/handoff.py; don't edit by hand -->\n\n(none open)\n\n<!-- end of open list -->\n\n## Archived\n")
+        open(os.path.join(root, "docs", "handoff-archive.md"), "w").write("# Archive\n")
+        open(os.path.join(root, "notes.md"), "w").write("one\n")
+        sh(root, "git", "add", "-A"); sh(root, "git", "commit", "-qm", "base")
+        _TEMPLATE_REPO = root
+    return _TEMPLATE_REPO
+
+
 def repo():
     root = tempfile.mkdtemp(prefix="integrate-test-")
-    sh(root, "git", "init", "-q", "-b", "main")
-    sh(root, "git", "config", "user.email", "t@example.invalid"); sh(root, "git", "config", "user.name", "t")
-    os.makedirs(os.path.join(root, "docs", "handoff"))
-    os.makedirs(os.path.join(root, "03_Past_Decisions"))
-    open(os.path.join(root, "03_Past_Decisions", "decision-log.md"), "w").write("# Log\n\n## Work list\n\n| # | Item | Status |\n|---|---|---|\n| T1 | a | Open |\n")
-    open(os.path.join(root, "docs", "agent-handoff.md"), "w").write("# Handoff\n\n## Open exchanges\n\n<!-- open list: built from docs/handoff/ by tools/handoff.py; don't edit by hand -->\n\n(none open)\n\n<!-- end of open list -->\n\n## Archived\n")
-    open(os.path.join(root, "docs", "handoff-archive.md"), "w").write("# Archive\n")
-    open(os.path.join(root, "notes.md"), "w").write("one\n")
-    sh(root, "git", "add", "-A"); sh(root, "git", "commit", "-qm", "base")
+    shutil.rmtree(root)
+    shutil.copytree(_template_repo(), root)
     return root
 
 

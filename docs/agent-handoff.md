@@ -31,7 +31,6 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 <!-- open list: built from docs/handoff/ by tools/handoff.py; don't edit by hand -->
 
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
-- [H161 — Faster tests: find where the gate's time goes and cut it, every check kept](handoff/H161-faster-tests.md) — status: open; for: gemini
 - [H163 — Onboarding: the start-up brief carries who you are, the principles, habits, tools and personal time](handoff/H163-onboarding-rows.md) — status: queued (after H161); for: gemini
 - [H164 — One personal space per model and job, every new one made the same from a template](handoff/H164-space-per-model-from-template.md) — status: queued (after H163); for: gemini
 - [H165 — Architecture step 1: a module map generated from each file's own header line](handoff/H165-generated-module-map.md) — status: open; for: gemini
@@ -42,6 +41,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 Full entries in [handoff-archive.md](handoff-archive.md).
 
+- H161 — Faster tests: find where the gate's time goes and cut it, every check kept. Resolved: merged into main by the integrator, 2026-11-27.
 - H159 — Personal spaces: everything an agent makes is committed and pushed; experiments can be run or merged. Resolved: merged into main by the integrator, 2026-11-26.
 - H162 — Move the token benchmarker (tools/usage.py) to comitatus/09_Tools as MEASURE_TOKEN_USE.py. Resolved: merged into main by the integrator, 2026-11-26.
 - H160 — Tests run by what changed: organization-only branches skip the app's tests. Resolved: merged into main by the integrator, 2026-11-26.

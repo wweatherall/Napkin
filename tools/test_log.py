@@ -2,6 +2,7 @@
 """Checks tools/log.py (T92): add, note and show, on copies of the real decision log in a temporary git
 repository (on main, and on a branch). Prints PASS/FAIL per check and one summary line:
 LOG TESTS: N passed, M failed."""
+import atexit
 import os
 import re
 import shutil
@@ -32,17 +33,31 @@ def git(root, *args):
     subprocess.run(["git", *args], cwd=root, capture_output=True, check=True)
 
 
+_TEMPLATE_REPO = None
+
+
+def _template_repo():
+    global _TEMPLATE_REPO
+    if _TEMPLATE_REPO is None:
+        root = tempfile.mkdtemp(prefix="logtest-tmpl-")
+        atexit.register(shutil.rmtree, root, True)
+        os.makedirs(os.path.join(root, "docs"))
+        os.makedirs(os.path.join(root, "03_Past_Decisions"))
+        for rel in (s.LIVE, s.ARCHIVE):
+            shutil.copy(os.path.join(REPO, rel), os.path.join(root, rel))
+        for folder in (s.RULINGS_DIR, s.WORK_DIR, s.QUESTIONS_DIR):
+            shutil.copytree(os.path.join(REPO, folder), os.path.join(root, folder))
+        git(root, "init", "-q", "-b", "main")
+        git(root, "add", ".")
+        git(root, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "log")
+        _TEMPLATE_REPO = root
+    return _TEMPLATE_REPO
+
+
 def repo(branch="main"):
     root = tempfile.mkdtemp(prefix="logtest-")
-    os.makedirs(os.path.join(root, "docs"))
-    os.makedirs(os.path.join(root, "03_Past_Decisions"))
-    for rel in (s.LIVE, s.ARCHIVE):
-        shutil.copy(os.path.join(REPO, rel), os.path.join(root, rel))
-    for folder in (s.RULINGS_DIR, s.WORK_DIR, s.QUESTIONS_DIR):
-        shutil.copytree(os.path.join(REPO, folder), os.path.join(root, folder))
-    git(root, "init", "-q", "-b", "main")
-    git(root, "add", ".")
-    git(root, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "log")
+    shutil.rmtree(root)
+    shutil.copytree(_template_repo(), root)
     if branch != "main":
         git(root, "checkout", "-qb", branch)
     return root

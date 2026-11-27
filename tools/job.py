@@ -222,8 +222,29 @@ def event(st, kind, jid, text, now):
 def handoff_texts(root, ref=None):
     """{file name: text} of docs/handoff/, from a git ref (main) or the working tree."""
     if ref:
-        names = git(root, "ls-tree", "--name-only", f"{ref}:{handoff.FOLDER}").stdout.split()
-        return {n: git(root, "show", f"{ref}:{handoff.FOLDER}/{n}").stdout for n in names if n.endswith(".md")}
+        names = [n for n in git(root, "ls-tree", "--name-only", f"{ref}:{handoff.FOLDER}").stdout.split() if n.endswith(".md")]
+        if not names:
+            return {}
+        specs = "".join(f"{ref}:{handoff.FOLDER}/{n}\n" for n in names).encode("utf-8")
+        r = subprocess.run(["git", "cat-file", "--batch"], cwd=root, input=specs, capture_output=True)
+        if r.returncode != 0:
+            return {n: git(root, "show", f"{ref}:{handoff.FOLDER}/{n}").stdout for n in names}
+        raw, pos, out = r.stdout, 0, {}
+        for n in names:
+            nl = raw.find(b"\n", pos)
+            if nl == -1:
+                out[n] = ""
+                continue
+            header = raw[pos:nl].decode("utf-8", errors="replace")
+            pos = nl + 1
+            parts = header.split()
+            if len(parts) >= 3 and parts[2].isdigit():
+                size = int(parts[2])
+                out[n] = raw[pos:pos + size].decode("utf-8", errors="replace")
+                pos += size + 1
+            else:
+                out[n] = ""
+        return out
     folder = os.path.join(root, handoff.FOLDER)
     if not os.path.isdir(folder):
         return {}
@@ -357,8 +378,16 @@ def etime(s):
     return (int(days) if days else 0) * 86400 + parts[0] * 3600 + parts[1] * 60 + parts[2]
 
 
-def ancestors():
+def ancestors(ppids=None):
     out, pid = {os.getpid()}, os.getpid()
+    if ppids is not None:
+        for _ in range(30):
+            ppid = ppids.get(pid, 0)
+            if ppid <= 1:
+                break
+            pid = ppid
+            out.add(pid)
+        return out
     for _ in range(30):
         r = subprocess.run(["ps", "-o", "ppid=", "-p", str(pid)], capture_output=True, text=True).stdout.strip()
         if not r or int(r) <= 1:
@@ -378,15 +407,19 @@ def processes(worktree):
             pid = int(line[1:])
         elif line.startswith("n") and pid and inside(os.path.realpath(line[1:])):
             pids.add(pid)
-    skip, out = ancestors(), []
-    for line in subprocess.run(["ps", "-axo", "pid=,etime=,command="], capture_output=True, text=True).stdout.split("\n"):
-        bits = line.split(None, 2)
-        if len(bits) < 3 or not bits[0].isdigit():
+    rows, ppids = [], {}
+    for line in subprocess.run(["ps", "-axo", "pid=,ppid=,etime=,command="], capture_output=True, text=True).stdout.split("\n"):
+        bits = line.split(None, 3)
+        if len(bits) < 4 or not bits[0].isdigit() or not bits[1].isdigit():
             continue
-        p, cmd = int(bits[0]), bits[2]
+        p, pp = int(bits[0]), int(bits[1])
+        ppids[p] = pp
+        rows.append((p, bits[2], bits[3]))
+    skip, out = ancestors(ppids), []
+    for p, age, cmd in rows:
         if p in skip or not INTERESTING.search(cmd) or not (p in pids or wt + os.sep in cmd or cmd.endswith(wt)):
             continue
-        out.append((p, etime(bits[1]), cmd))
+        out.append((p, etime(age), cmd))
     return out
 
 
