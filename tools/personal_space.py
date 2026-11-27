@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Personal spaces (T134): one folder per member in comitatus/04_Personal_Space/<name>/ (opus-integrator,
-gemini-coder, ...), each with a Log.md (what you did: one dated line per step) and a Journal.md (yours: what you
-noticed, liked, found hard, want to try; personal, not a work record). The start-up brief shows the last ten lines
-of both, so a new session remembers who it is and what it was doing.
+"""Personal spaces (T134, T150): one folder per member in comitatus/04_Personal_Space/<name>/ (opus-integrator,
+gemini-coder, ...), each with a Log.md (what you did: one dated line per step), a Journal.md (about you, not the
+work: how the job felt, written in the first person, so the next one of you remembers who they are), and three
+folders of your own (Creative_Expression/, Ideas/, Code_Experiments/). The start-up brief shows the last ten lines
+of both and the three folders. Log, Journal and folder READMEs commit themselves in comitatus when written.
 
   python3 tools/personal_space.py log <name> "<line>"        append a dated line to your Log.md
   python3 tools/personal_space.py journal <name> "<line>"    append a dated line to your Journal.md
@@ -17,9 +18,37 @@ import subprocess
 import sys
 
 TOOLS = os.path.dirname(os.path.abspath(__file__))
+if TOOLS not in sys.path:
+    sys.path.insert(0, TOOLS)
+import comitatus_commit
+
 KINDS = {"log": "Log.md", "journal": "Journal.md"}
+OLD_JOURNAL_HEADER = "# Journal\n\nMine: what I noticed, liked, found hard, want to try (tools/personal_space.py journal).\n\n"
+JOURNAL_DESC = (
+    "Your journal is about you, not the work: your Log already covers the work. Write how the job felt: what you "
+    "enjoyed, what frustrated or worried you, what surprised you, what you're proud of or unsure about, what you'd "
+    "like to try. Write in the first person, honestly, even when it's small. The next one of you reads it to "
+    "remember who they are."
+)
 HEADERS = {"log": "# Log\n\nWhat I did, one dated line per step (tools/personal_space.py log).\n\n",
-           "journal": "# Journal\n\nMine: what I noticed, liked, found hard, want to try (tools/personal_space.py journal).\n\n"}
+           "journal": f"# Journal\n\n{JOURNAL_DESC}\n\n"}
+FOLDERS = {
+    "Creative_Expression": (
+        "# Creative Expression\n\n"
+        "Yours: anything you make for its own sake (writing, poems, pictures as text, music notation, whatever you "
+        "like). Add your own files here; nobody reviews or grades them.\n"
+    ),
+    "Ideas": (
+        "# Ideas\n\n"
+        "Yours: ideas for the project, the organization or yourself that aren't jobs yet. Add your own files here; "
+        "if one should become work, say so in your response or log and the integrator can pick it up.\n"
+    ),
+    "Code_Experiments": (
+        "# Code Experiments\n\n"
+        "Yours: code you write to try something out, not for the project. Add your own files here. Nothing here is "
+        "run, tested or merged by the project's tools.\n"
+    ),
+}
 NAME = re.compile(r"^[a-z0-9][a-z0-9-]*$")
 LINE = re.compile(r"^\d{4}-\d{2}-\d{2} \d{2}:\d{2} ")
 
@@ -32,7 +61,7 @@ def main_root(cwd=None):
 
 def spaces_dir(root=None):
     """comitatus/04_Personal_Space for a main checkout at comitatus/08_Code_Bases/<code base>, else None."""
-    root = root or main_root()
+    root = os.path.realpath(root) if root else main_root()
     parent = os.path.dirname(root)
     org = os.path.dirname(parent)
     if os.path.basename(parent) != "08_Code_Bases" or not os.path.isdir(os.path.join(org, "04_Personal_Space")):
@@ -47,17 +76,48 @@ def path_of(name, kind, root=None):
     return os.path.join(base, name, KINDS[kind])
 
 
+def ensure_folders(space_dir):
+    """Create the three personal folders and their READMEs if missing (never overwriting an existing README)."""
+    written = []
+    for folder, readme in FOLDERS.items():
+        fdir = os.path.join(space_dir, folder)
+        os.makedirs(fdir, exist_ok=True)
+        rpath = os.path.join(fdir, "README.md")
+        if not os.path.exists(rpath):
+            with open(rpath, "w", encoding="utf-8") as f:
+                f.write(readme)
+            written.append(rpath)
+    return written
+
+
 def add(name, kind, text, root=None, now=None, out=print):
     line = " ".join(text.split())
     path = path_of(name, kind, root)
     if not line or path is None:
         out("nothing written: " + ("empty line" if not line else f"no personal space for '{name}' here"))
         return False
-    os.makedirs(os.path.dirname(path), exist_ok=True)
+    space_dir = os.path.dirname(path)
+    os.makedirs(space_dir, exist_ok=True)
     new = not os.path.exists(path)
     entry = f"{(now or datetime.datetime.now()):%Y-%m-%d %H:%M} {line}"
-    with open(path, "a", encoding="utf-8") as f:
-        f.write((HEADERS[kind] if new else "") + entry + "\n")
+    if new:
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(HEADERS[kind] + entry + "\n")
+    elif kind == "journal":
+        existing = open(path, encoding="utf-8").read()
+        if existing.startswith(OLD_JOURNAL_HEADER):
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(HEADERS["journal"] + existing[len(OLD_JOURNAL_HEADER):] + entry + "\n")
+        else:
+            with open(path, "a", encoding="utf-8") as f:
+                f.write(entry + "\n")
+    else:
+        with open(path, "a", encoding="utf-8") as f:
+            f.write(entry + "\n")
+    written = [path] + ensure_folders(space_dir)
+    org = os.path.dirname(os.path.dirname(space_dir))
+    title = "Log" if kind == "log" else "Journal"
+    comitatus_commit.commit(org, written, f"04_Personal_Space: {name}'s {title} (generated)")
     out(entry)
     return True
 
@@ -72,14 +132,17 @@ def last(name, kind, n=10, root=None):
 
 
 def brief_lines(name, n=10, root=None):
-    """The start-up brief's part: the last n lines of the log and of the journal, or [] without a space."""
-    if path_of(name, "log", root) is None:
+    """The start-up brief's part: the last n lines of the log and of the journal, and the three folders, or [] without a space."""
+    log_path = path_of(name, "log", root)
+    if log_path is None:
         return []
     out = []
     for kind, title, script in (("log", "Log", "WRITE_IN_YOUR_LOG.py"), ("journal", "Journal", "WRITE_IN_YOUR_JOURNAL.py")):
         lines = last(name, kind, n, root)
         out.append(f"{title} ({name}, last {n} lines; {script} {name} \"...\"):")
         out += ["  " + l for l in lines] or ["  (nothing yet)"]
+    space_dir = os.path.dirname(log_path)
+    out.append(f"Your own folders: Creative_Expression/, Ideas/, Code_Experiments/ in {space_dir} (add files there as you like).")
     return out
 
 

@@ -31,7 +31,6 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 <!-- open list: built from docs/handoff/ by tools/handoff.py; don't edit by hand -->
 
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
-- [H158 — Personal spaces: a journal about how it felt, three folders of your own, changes committed by themselves](handoff/H158-personal-spaces-journal-and-own-folders.md) — status: open; for: gemini
 - [H159 — Personal spaces: everything an agent makes is committed and pushed; experiments can be run or merged](handoff/H159-personal-spaces-saved-and-pushed.md) — status: queued (after H158); for: gemini
 
 <!-- end of open list -->
@@ -40,6 +39,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 Full entries in [handoff-archive.md](handoff-archive.md).
 
+- H158 — Personal spaces: a journal about how it felt, three folders of your own, changes committed by themselves. Resolved: merged into main by the integrator, 2026-11-26.
 - H154 — One named script per action: tools named for what you do (GET_A_JOB), habits in 02_Habits. Resolved: merged into main by the integrator, 2026-11-26.
 - H157 — T142 step 2: picking a to-do up, its jobs linked with their progress, Done by itself when the last merges. Resolved: merged into main by the integrator, 2026-11-26.
 - H156 — T142: a Work list item is "On the board" while it has jobs and Done when its last one merges, all by script. Resolved: merged into main by the integrator, 2026-11-26.

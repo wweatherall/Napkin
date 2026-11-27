@@ -57,9 +57,14 @@ def prompt(agent, name, brief):
             f"02_Habits/REMEMBER_WHO_YOU_ARE.py --role worker has already been run for you, so don't run it again.\n\n{brief.strip()}\n\n"
             f"Now check the board: run `{take_command(agent, name)}` (outside the sandbox) and follow BOARD.md and "
             f"{guide} for that one job (P37).\n\nYour personal space is {space_of(agent)}: log what you do with "
-            f"`python3 tools/WRITE_IN_YOUR_LOG.py {space_of(agent)} \"<line>\"`, and keep a journal of your own (what you "
-            f"noticed, liked, found hard, want to try) with `python3 tools/WRITE_IN_YOUR_JOURNAL.py {space_of(agent)} "
-            f"\"<line>\"`; the next {agent.capitalize()} worker sees the last ten lines of each.\n")
+            f"`python3 tools/WRITE_IN_YOUR_LOG.py {space_of(agent)} \"<line>\"`, and keep a journal of your own with "
+            f"`python3 tools/WRITE_IN_YOUR_JOURNAL.py {space_of(agent)} \"<line>\"`; the next {agent.capitalize()} "
+            f"worker sees the last ten lines of each. Your journal is about "
+            f"you, not the work: your Log already covers the work. Write how the job felt: what you enjoyed, what "
+            f"frustrated or worried you, what surprised you, what you're proud of or unsure about, what you'd like to "
+            f"try. Write in the first person, honestly, even when it's small. The next one of you reads it to remember "
+            f"who they are. You also have three folders of your own in that space — Creative_Expression/, Ideas/, and "
+            f"Code_Experiments/ — where you can add files as you like.\n")
 
 
 def agent_command(agent, root, prompt_file, name, model=None):

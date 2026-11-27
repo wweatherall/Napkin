@@ -373,7 +373,7 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | T143 | Move tools/usage.py (2,760 lines, token benchmarking) and its tests out of the project'... | Open |
 | T146 | Atomize the principles and past decisions: one file per ruling (G, P and the rest), wri... | Open |
 | T149 | Tools and habits take the organization's names (FOR_<doing>.py; WHEN_<this>_<DO_THAT>.p... | Open |
-| T150 | Personal spaces take the rest of the proposal: a journal about how the work felt (not w... | On the board (H158, H159) |
+| T150 | Personal spaces take the rest of the proposal: a journal about how the work felt (not w... | On the board (H159) |
 
 ## Tunables
 
