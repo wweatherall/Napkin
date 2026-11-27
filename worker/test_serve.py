@@ -13,7 +13,7 @@ import time
 HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
-from test_link import (Checks, Window, board_ops, fresh_model, missing,
+from test_link import (FC, Checks, Window, board_ops, fresh_model, missing,
                        read_only, start_worker, sync, unreadable)
 
 tmp = os.path.abspath(os.environ.get("TESTDIR") or tempfile.mkdtemp(prefix="shopsketch-serve-"))
@@ -69,6 +69,10 @@ try:
         vols.append(bodies[0]["volume_mm3"] if bodies else 0)
     check("both get their own board, in their own document", sa["ok"] and sb["ok"] and vols == [300 * 100 * 18, 500 * 100 * 18],
           (sa.get("error"), sb.get("error"), vols))
+    check("serve-mode sync without SERVE_STATUS_FILE writes no status.json (H172)",
+          not os.path.exists(os.path.join(m1 + "-out", "status.json"))
+          and not os.path.exists(os.path.join(m2 + "-out", "status.json")),
+          (os.listdir(m1 + "-out"), os.listdir(m2 + "-out")))
     saved = a.wait("saved", timeout=10, model=m1)
     check("the window that owns a model hears when it's saved", saved is not None and saved["model"] == m1, saved)
     ob2 = b.ask({"cmd": "open", "model": m1, "seq": 13}, "open")
@@ -226,6 +230,42 @@ try:
     wd.drop()
 
     worker.stop()
+
+    # H172: serve mode with SERVE_STATUS_FILE=1 and one-off replay both write status.json
+    st_dir = os.path.join(tmp, "status_serve")
+    w_st = start_worker(st_dir, SERVE_STATUS_FILE="1")
+    try:
+        ms = fresh_model(st_dir, "status_serve")
+        ws = Window(w_st.port)
+        ws.ask({"cmd": "open", "model": ms, "fresh": True}, "open")
+        ss = sync(ws, ms, board_ops(220))
+        st_path = os.path.join(ms + "-out", "status.json")
+        st_data = json.load(open(st_path)) if os.path.exists(st_path) else None
+        check("serve-mode sync with SERVE_STATUS_FILE=1 writes status.json matching sync result (H172)",
+              ss["ok"] and st_data == ss["result"]
+              and set(st_data.keys()) == {"oplog", "total_ms", "export_ms", "how", "ops", "rev", "model"},
+              (st_data, ss.get("result")))
+        ws.ask({"cmd": "bye"}, "bye")
+        ws.drop()
+    finally:
+        w_st.stop()
+
+    rp_dir = os.path.join(tmp, "replay_status")
+    rp_out = os.path.join(rp_dir, "out")
+    os.makedirs(rp_out, exist_ok=True)
+    rp_log = os.path.join(rp_dir, "ops.json")
+    json.dump({"units": "mm", "ops": board_ops(240)}, open(rp_log, "w"))
+    rp_env = {k: v for k, v in os.environ.items() if k not in ("SERVE_PORT", "SERVE_PORT_FILE", "SERVE_STATUS_FILE")}
+    rp_env.update({"OPLOG": rp_log, "OUTDIR": rp_out})
+    rp_proc = subprocess.run([FC, os.path.join(HERE, "replay.py")], env=rp_env, capture_output=True, text=True, timeout=60)
+    rp_st_path = os.path.join(rp_out, "status.json")
+    rp_st = json.load(open(rp_st_path)) if os.path.exists(rp_st_path) else None
+    check("one-off replay writes status.json with expected fields (H172)",
+          rp_proc.returncode == 0 and rp_st is not None
+          and set(rp_st.keys()) == {"oplog", "total_ms", "export_ms", "how", "ops", "rev", "model"}
+          and rp_st["oplog"] == "ops.json" and len(rp_st["ops"]) == 2
+          and all(o["status"] == "ok" for o in rp_st["ops"]),
+          (rp_proc.returncode, rp_proc.stdout, rp_proc.stderr, rp_st))
 finally:
     if worker.proc.poll() is None:
         worker.kill()

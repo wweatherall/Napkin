@@ -25,7 +25,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 <!-- open list: built from docs/handoff/ by tools/handoff.py; don't edit by hand -->
 
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
-- [H172 — status.json written only by one-off replays, not on every edit in the app](handoff/H172-status-json-replay-only.md) — status: open; for: gemini
+- [H172 — status.json written only by one-off replays, not on every edit in the app](handoff/H172-status-json-replay-only.md) — status: answered; for: gemini
 - [H173 — One file per model: everything the journal holds moves inside the .FCStd, nothing beside it](handoff/H173-one-file-per-model.md) — status: queued (after H172); for: gemini
 
 <!-- end of open list -->

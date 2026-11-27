@@ -112,7 +112,7 @@ A non-`mm` `oplog.units` is refused. The normal window supplies `oplog.format = 
 
 OpStatus: `id: string`, `type: string`, `status: "ok" | "failed"`, `ms: number`; success normally includes `changed: string[]` (may be `null` if a handler returns no list); failure includes `message: string`. `changed` is a handler report, not an exhaustive geometry diff. Failed operations abort their transaction; later operations are still attempted. Thus request `ok: true` does **not** mean every operation succeeded. Example status: `{"id":"pp1","type":"push_pull","status":"failed","message":"unknown rect 'missing'","ms":0.2}`.
 
-Sync keeps the common canonical op prefix, undoes the rest, then applies the new suffix. If required native undo is unavailable it rebuilds; crossing an external undo floor is a request error. Export and `status.json` finish before the reply. Changed/drawing sessions then enter the pending-save map; `saved` is a separate event after persistence.
+Sync keeps the common canonical op prefix, undoes the rest, then applies the new suffix. If required native undo is unavailable it rebuilds; crossing an external undo floor is a request error. Export finishes before the reply (and `status.json` in one-off replay or when `SERVE_STATUS_FILE=1`). Changed/drawing sessions then enter the pending-save map; `saved` is a separate event after persistence.
 
 Producer/consumer: [worker/serve.py](../worker/serve.py):`run_sync`, `serve.handle`; [worker/session.py](../worker/session.py):`canon`, `Session.sync`, `_apply`, `status`, `export`; [viewport/document.gd](../viewport/document.gd):`oplog`, `_send`, `on_sync_reply`; [viewport/main.gd](../viewport/main.gd):`_on_synced`, `_on_rejected`; [viewport/presenter.gd](../viewport/presenter.gd):`show_confirmed`, `apply_confirmed`.
 
@@ -287,7 +287,7 @@ Other representative payloads:
 
 ### Publication and locations
 
-`run_sync` writes `bodies.json`, changed mesh files, the material library (once per output folder per worker), and `status.json` into outdir before success. Save writes `model.glb` into the pending save's outdir, the actual model into its requested path, and its journal beside it; drawing saves also write `views.json`. If several syncs coalesce before saving, the latest pending outdir for that model wins. Paths are not a remote transfer mechanism.
+`run_sync` writes `bodies.json`, changed mesh files, and the material library (once per output folder per worker) into outdir before success; it writes `status.json` only in one-off replay (no `SERVE_PORT`) or when `SERVE_STATUS_FILE=1`. Save writes `model.glb` into the pending save's outdir, the actual model into its requested path, and its journal beside it; drawing saves also write `views.json`. If several syncs coalesce before saving, the latest pending outdir for that model wins. Paths are not a remote transfer mechanism.
 
 JSON outputs use `atomic_json` (`<path>.tmp`, then `os.replace`; `materials.json` the same way in `write_library`). Mesh and GLB also use temp + rename. These individual publications are atomic, not a transaction across all files. `.FCStd` uses `<model>.saving.FCStd` then rename; journal is written **after** that rename. Sources: [worker/serve.py](../worker/serve.py):`run_sync`, `serve.save_pending`; [worker/session.py](../worker/session.py):`atomic_json`, `Session.export`, `save`; [worker/export.py](../worker/export.py):`board_mesh_file`, `write_glb`; [worker/materials.py](../worker/materials.py):`write_library`.
 
@@ -376,7 +376,7 @@ On reopen, revision/hash equality establishes that model matches journal. Only s
 
 ### `status.json`, `views.json`, startup port file
 
-`status.json` contains exactly the StatusResult inside the latest sync reply, without the outer ok/cmd/seq/wall_ms/outdir fields. Example: `{"oplog":"live","total_ms":0.1,"export_ms":0.8,"how":"nothing","ops":[],"rev":4,"model":"/tmp/chair.FCStd"}`. Source: [worker/serve.py](../worker/serve.py):`run_sync`.
+`status.json` is written only by one-off replays (no `SERVE_PORT`) or in serve mode when `SERVE_STATUS_FILE=1` (`tools/fulltest.sh`), never on ordinary edits in the app; it contains exactly the StatusResult inside the latest sync reply, without the outer ok/cmd/seq/wall_ms/outdir fields. Example: `{"oplog":"live","total_ms":0.1,"export_ms":0.8,"how":"nothing","ops":[],"rev":4,"model":"/tmp/chair.FCStd"}`. Source: [worker/serve.py](../worker/serve.py):`run_sync`.
 
 `views.json` is an object `{Front: string, Top: string, Right: string, Iso: string}` containing TechDraw SVG markup, e.g. `{"Front":"<svg>...</svg>","Top":"<svg>...</svg>","Right":"<svg>...</svg>","Iso":"<svg>...</svg>"}`. It is refreshed only by drawing saves; an old file can remain otherwise. The saved copy also contains the native Drawing page, Template and views; the live document does not. Sources: [worker/export.py](../worker/export.py):`add_drawing_page`; [worker/session.py](../worker/session.py):`Session.save`.
 

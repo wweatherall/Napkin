@@ -39,7 +39,7 @@ trap 'kill "${WORKERS[@]}" 2>/dev/null' EXIT
 lane() {   # lane <n> <suites...>: its own worker, then each suite in turn
   local n=$1; shift
   local lane_start=$SECONDS
-  SERVE_PORT=0 SERVE_PORT_FILE="$OUT/worker$n.port" "$FC" worker/replay.py > "$OUT/worker$n.log" 2>&1 &   # T47
+  SERVE_PORT=0 SERVE_PORT_FILE="$OUT/worker$n.port" SERVE_STATUS_FILE=1 "$FC" worker/replay.py > "$OUT/worker$n.log" 2>&1 &   # T47
   local w=$!
   for i in $(seq 1 300); do [ -s "$OUT/worker$n.port" ] && break; sleep 0.1; done
   local port; port=$(cat "$OUT/worker$n.port" 2>/dev/null) || { echo "lane $n: the worker didn't start" > "$OUT/lane$n.fail"; kill $w; return; }
