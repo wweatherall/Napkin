@@ -168,6 +168,37 @@ def with_map(text: str, body: str) -> str:
     return text[:a] + "\n\n" + body + "\n\n" + text[b:]
 
 
+_MAP_LINE_RE = re.compile(r"^- `([^`]+)`\s+—\s+(.*)$")
+_WRAPPER_PATH = "tools/<NAME>.py|.sh"
+
+
+def _parse_map(text: str) -> dict[str, str]:
+    """Extract {rel_path: header_sentence} from ARCHITECTURE.md or a module-map body."""
+    if START in text and END in text:
+        text = text[text.index(START) + len(START):text.index(END)]
+    entries: dict[str, str] = {}
+    for line in text.splitlines():
+        m = _MAP_LINE_RE.match(line.strip())
+        if not m:
+            continue
+        rel, sentence = m.group(1), m.group(2).strip()
+        if rel == _WRAPPER_PATH:
+            continue
+        entries[rel] = sentence
+    return entries
+
+
+def diff(old_text: str, new_text: str) -> dict[str, list]:
+    """Return {'added': [...], 'removed': [...], 'changed': [(path, old, new), ...]} between two module maps."""
+    old = _parse_map(old_text)
+    new = _parse_map(new_text)
+    return {
+        "added": sorted(p for p in new if p not in old),
+        "removed": sorted(p for p in old if p not in new),
+        "changed": [(p, old[p], new[p]) for p in sorted(old) if p in new and old[p] != new[p]],
+    }
+
+
 def main(argv=None) -> int:
     args = sys.argv[1:] if argv is None else argv
     check_only = "--check" in args

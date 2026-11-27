@@ -58,7 +58,10 @@ Architecture: lines, the response) and CLAUDE.md (commit trailers); this page sa
 - Review every done job (Codex's `codex/*` branches too). Read each `Changed from the brief:` line first (P44):
   accept it, or return the job; one that changes what William would notice goes to him (`integrate.py` also stops
   with the merge staged when any response has one, prints them under "for you now:", and records them in the merge
-  commit on `--continue`; `--yes` doesn't skip this stop). For a brief with a "What can fail" section, check that each case
+  commit on `--continue`; `--yes` doesn't skip this stop). Check the response's `Architecture:` lines (`owns`,
+  `uses`, free text) against the code to confirm they're true (P32): `integrate.py` works out added/removed files,
+  changed headers, and added/removed dependencies from the maps after the gate passes, and stops if any added file
+  lacks an `owns` line or any added dependency lacks a `uses` line. For a brief with a "What can fail" section, check that each case
   listed there has its named check, and that the check fails without the change where it can (P42). Merge what's good with
   `python3 tools/MERGE_JOB.py <branch> --as <name> --push --yes` (P20, P49). It runs the gate, `tools/TEST_BEFORE_MERGING.sh` (P18; when only tools, hooks, docs or top-level guides changed, it runs parse and `tools-*` feature tests and skips viewport, worker and full tests; `--full` or `GATE_FULL=1` forces everything); flags
   files the branch changed outside its job's Touches list; renumbers a PROTOCOL_VERSION bump on top if main moved

@@ -285,6 +285,40 @@ def render_map(root: Path) -> str:
     return "\n".join(sections) + "\n"
 
 
+_DEP_LINE_RE = re.compile(r"^- `([^`]+)`\s+—\s+uses:\s+(.*?)(?:\s+—\s+used by:\s+.*)?$")
+
+
+def _parse_dep_map(text: str) -> set[tuple[str, str]]:
+    """Extract {(source_rel, target_rel), ...} from a rendered dependency-map.md."""
+    raw: dict[str, list[str]] = {}
+    for line in text.splitlines():
+        m = _DEP_LINE_RE.match(line.strip())
+        if not m:
+            continue
+        rel, uses_str = m.group(1), m.group(2).strip()
+        if uses_str == "none" or not uses_str:
+            raw[rel] = []
+        else:
+            raw[rel] = [u.strip() for u in uses_str.split(",") if u.strip()]
+    names = short_names(sorted(raw))
+    by_short = {short: rel for rel, short in names.items()}
+    edges: set[tuple[str, str]] = set()
+    for rel, targets in raw.items():
+        for t in targets:
+            edges.add((rel, by_short.get(t, t)))
+    return edges
+
+
+def diff(old_text: str, new_text: str) -> dict[str, list[tuple[str, str]]]:
+    """Return {'added': [(a, b), ...], 'removed': [(a, b), ...]} between two dependency maps."""
+    old_edges = _parse_dep_map(old_text)
+    new_edges = _parse_dep_map(new_text)
+    return {
+        "added": sorted(new_edges - old_edges),
+        "removed": sorted(old_edges - new_edges),
+    }
+
+
 def _parse_spec(spec: str) -> tuple[str, str]:
     if ":" not in spec:
         raise ValueError(f"expected <file>:<function>, got {spec!r}")

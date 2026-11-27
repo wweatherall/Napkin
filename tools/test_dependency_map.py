@@ -190,6 +190,31 @@ with TemporaryDirectory(prefix="dep-map-test-") as folder:
         c2.stdout + c2.stderr + "\n" + run(root, "git", "status", "--porcelain").stdout,
     )
 
+# 6. diff(old_text, new_text): added, removed, no change, and short-name collision stability
+old_dep = (
+    "## viewport/\n\n"
+    "- `viewport/a.gd` — uses: none — used by: b.gd\n"
+    "- `viewport/b.gd` — uses: a.gd, c.gd — used by: none\n"
+    "- `viewport/c.gd` — uses: none — used by: b.gd\n"
+)
+new_dep = (
+    "## viewport/\n\n"
+    "- `viewport/a.gd` — uses: none — used by: b.gd\n"
+    "- `viewport/b.gd` — uses: viewport/a.gd, d.gd — used by: none\n"
+    "- `viewport/d.gd` — uses: none — used by: b.gd\n"
+    "- `viewport/tools/a.gd` — uses: none — used by: none\n"
+)
+dd = dm.diff(old_dep, new_dep)
+check(
+    "diff reports added and removed dependencies and keeps renamed short-name edge stable",
+    dd == {
+        "added": [("viewport/b.gd", "viewport/d.gd")],
+        "removed": [("viewport/b.gd", "viewport/c.gd")],
+    },
+    str(dd),
+)
+check("diff on identical dependency maps is empty", dm.diff(old_dep, old_dep) == {"added": [], "removed": []})
+
 print(f"DEPENDENCY MAP TESTS: {sum(RESULTS)} passed, {len(RESULTS) - sum(RESULTS)} failed")
 if not all(RESULTS):
     raise SystemExit(1)

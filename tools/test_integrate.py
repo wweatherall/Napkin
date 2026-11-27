@@ -334,7 +334,7 @@ shutil.rmtree(root)
 # 7. Trace the actual steps through main(), including the map pause and --continue. The names below are
 #    the documented order, independent of the production tuples. Wrappers still run each step's real work.
 MERGE_ORDER = ["check_start", "prepare_log", "merge_branch", "settle_conflicts", "check_touches", "number_entries",
-               "archive_entries", "update_statuses", "rebuild_and_check", "run_gate", "pause_for_map"]
+               "archive_entries", "update_statuses", "rebuild_and_check", "run_gate", "check_structure", "pause_for_map"]
 FINISH_ORDER = ["commit_merge", "clean_up_job", "unblock_queued_jobs", "record_results", "push_main"]
 
 
@@ -414,7 +414,7 @@ head0 = sh(root, "git", "rev-parse", "HEAD").stdout
 with trace_steps() as (calls, _):
     rc, said = run_integrate("agent/ordered", "--as", "tester")
 check("a failed gate stops before the map pause and every finishing step",
-      rc == 1 and calls == MERGE_ORDER[:-1] and "GATE FAIL" in said
+      rc == 1 and calls == MERGE_ORDER[:MERGE_ORDER.index("run_gate") + 1] and "GATE FAIL" in said
       and sh(root, "git", "rev-parse", "HEAD").stdout == head0
       and os.path.exists(integrate.state_file(root)), said + str(calls))
 shutil.rmtree(root)
@@ -1208,6 +1208,108 @@ finally:
         os.environ["NAPKIN_COMITATUS"] = old_env_l
 check("merged log is tidied with both rulings folders before gate.sh runs", rc_lt == 0, (rc_lt, buf_lt.getvalue()))
 shutil.rmtree(l_org)
+
+# 15. Structure step (H180 / P31): added files need `owns`, added deps need `uses`; header-only & no-change pass.
+def structure_repo(setup_branch):
+    r = repo()
+    os.makedirs(os.path.join(r, "worker"), exist_ok=True)
+    write(r, "worker/common.py", '"""Common helpers."""\n\ndef helper():\n    return 1\n')
+    write(r, "worker/app.py", '"""Main app."""\n\ndef run():\n    return 0\n')
+    body, _ = integrate.architecture_map.build_map(integrate.Path(r))
+    write(r, "ARCHITECTURE.md", f"# Arch\n\n{integrate.architecture_map.START}\n\n{body}\n\n{integrate.architecture_map.END}\n")
+    write(r, "docs/dependency-map.md", integrate.dependency_map.render_map(integrate.Path(r)))
+    sh(r, "git", "add", "-A"); sh(r, "git", "commit", "-qm", "base with maps")
+    sh(r, "git", "checkout", "-qb", "agent/struct")
+    setup_branch(r)
+    sh(r, "git", "add", "-A"); sh(r, "git", "commit", "-qm", "branch change")
+    sh(r, "git", "checkout", "-q", "main")
+    integrator.take(integrator.lock_path(r), "tester", out=lambda *a: None)
+    return r
+
+
+def run_struct(r, *extra_args):
+    buf = io.StringIO()
+    cwd = os.getcwd(); os.chdir(r)
+    try:
+        with contextlib.redirect_stdout(buf):
+            rc_s = integrate.main([*extra_args, "--as", "tester", "--no-gate"])
+    finally:
+        os.chdir(cwd)
+    return rc_s, buf.getvalue()
+
+
+# 15a. Added file without `owns` stops staged; --continue accepts it.
+r_s = structure_repo(lambda r: (
+    write(r, "worker/extra.py", '"""Extra module."""\n'),
+    write(r, "docs/handoff/H090-extra.md", "### H090 — T1: add extra\n\nAuthor: Gemini | Status: answered\n\nResult: aaa1111; tests pass; added extra\n"),
+))
+rc_s, out_s = run_struct(r_s, "agent/struct")
+check("added file without owns stops staged with structure explanation",
+      rc_s == 0 and "added file: extra.py" in out_s and "structure: extra.py added, not explained" in out_s
+      and sh(r_s, "git", "rev-parse", "-q", "--verify", "MERGE_HEAD").returncode == 0, out_s)
+rc_c, out_c = run_struct(r_s, "--continue")
+check("--continue after unexplained structure accepts and commits",
+      rc_c == 0 and not os.path.exists(integrate.state_file(r_s)), out_c)
+shutil.rmtree(r_s)
+
+# 15b. Added file WITH `owns` (short name) and --impact merges without structure stop.
+r_s = structure_repo(lambda r: (
+    write(r, "worker/extra.py", '"""Extra module."""\n'),
+    write(r, "docs/handoff/H090-extra.md",
+          "### H090 — T1: add extra\n\nAuthor: Gemini | Status: answered\n\n"
+          "Architecture: extra.py owns extra state\n"
+          "Result: aaa1111; tests pass; added extra\n"),
+))
+rc_s, out_s = run_struct(r_s, "agent/struct", "--impact", "auto-generated map")
+check("added file with owns merges without structure stop",
+      rc_s == 0 and "added file: extra.py" in out_s and "not explained" not in out_s
+      and sh(r_s, "git", "rev-parse", "-q", "--verify", "MERGE_HEAD").returncode != 0, out_s)
+shutil.rmtree(r_s)
+
+# 15c. Added dependency without `uses` stops staged; with `uses` (short names) merges cleanly.
+r_s = structure_repo(lambda r: (
+    write(r, "worker/app.py", '"""Main app."""\nimport common\n\ndef run():\n    return common.helper()\n'),
+    write(r, "docs/handoff/H090-dep.md", "### H090 — T1: use common\n\nAuthor: Gemini | Status: answered\n\nResult: bbb2222; tests pass; use common\n"),
+))
+rc_s, out_s = run_struct(r_s, "agent/struct")
+check("added dependency without uses stops staged",
+      rc_s == 0 and "added dep: app.py uses common.py" in out_s
+      and "structure: app.py now uses common.py, not explained" in out_s
+      and sh(r_s, "git", "rev-parse", "-q", "--verify", "MERGE_HEAD").returncode == 0, out_s)
+shutil.rmtree(r_s)
+
+r_s = structure_repo(lambda r: (
+    write(r, "worker/app.py", '"""Main app."""\nimport common\n\ndef run():\n    return common.helper()\n'),
+    write(r, "docs/handoff/H090-dep.md",
+          "### H090 — T1: use common\n\nAuthor: Gemini | Status: answered\n\n"
+          "Architecture: app.py uses common.py: needs helper()\n"
+          "Result: bbb2222; tests pass; use common\n"),
+))
+rc_s, out_s = run_struct(r_s, "agent/struct", "--impact", "auto-generated map")
+check("added dependency with uses (short names) merges without stop",
+      rc_s == 0 and "added dep: app.py uses common.py" in out_s and "not explained" not in out_s
+      and sh(r_s, "git", "rev-parse", "-q", "--verify", "MERGE_HEAD").returncode != 0, out_s)
+shutil.rmtree(r_s)
+
+# 15d. Header-only change prints change and merges without stopping.
+r_s = structure_repo(lambda r: (
+    write(r, "worker/app.py", '"""Updated main app."""\n\ndef run():\n    return 0\n'),
+    write(r, "docs/handoff/H090-hdr.md", "### H090 — T1: header only\n\nAuthor: Gemini | Status: answered\n\nResult: ccc3333; tests pass; header only\n"),
+))
+rc_s, out_s = run_struct(r_s, "agent/struct")
+check("header-only change prints change and merges without stopping",
+      rc_s == 0 and "changed header: app.py: Main app -> Updated main app" in out_s and "not explained" not in out_s, out_s)
+shutil.rmtree(r_s)
+
+# 15e. No structural change prints nothing about structure and merges cleanly.
+r_s = structure_repo(lambda r: (
+    write(r, "worker/app.py", '"""Main app."""\n\ndef run():\n    return 42\n'),
+    write(r, "docs/handoff/H090-none.md", "### H090 — T1: body only\n\nAuthor: Gemini | Status: answered\n\nResult: ddd4444; tests pass; body only\n"),
+))
+rc_s, out_s = run_struct(r_s, "agent/struct")
+check("no structural change prints nothing about structure",
+      rc_s == 0 and "structure:" not in out_s, out_s)
+shutil.rmtree(r_s)
 
 print(f"INTEGRATE TESTS: {sum(RESULTS)} passed, {len(RESULTS) - sum(RESULTS)} failed")
 raise SystemExit(0 if all(RESULTS) else 1)   # a failed check fails the run, not only its summary
