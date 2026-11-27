@@ -31,7 +31,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 <!-- open list: built from docs/handoff/ by tools/handoff.py; don't edit by hand -->
 
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
-- [H154 — One named script per action: tools named for what you do (GET_A_JOB), habits in 02_Habits](handoff/H154-naming-tools-and-habits.md) — status: open; for: either
+- [H154 — One named script per action: tools named for what you do (GET_A_JOB), habits in 02_Habits](handoff/H154-naming-tools-and-habits.md) — status: answered; for: either
 
 <!-- end of open list -->
 
