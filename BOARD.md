@@ -3,7 +3,7 @@
 "Check the board" sends you here. Only the integrator edits this file; the job table is built from docs/handoff/
 and the job queue.
 
-Order: H150, H151, H152, H153
+Order: H153, H154
 
 ## If you're not the integrator
 
@@ -65,7 +65,8 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H153 | either | In progress (gemini since 19:14) | T146 step 2: Work list items and open questions as one file each | [H153](docs/handoff/H153-t146-work-list-and-questions-as-files.md) |  |
+| H153 | either | **Done**: for review (gemini) | T146 step 2: Work list items and open questions as one file each | [H153](docs/handoff/H153-t146-work-list-and-questions-as-files.md) |  |
+| H154 | either | Queued | Tools and habits take the organization's names: FOR_<doing>.py and WHEN_<this>_<DO_THAT>.py | [H154](docs/handoff/H154-naming-tools-and-habits.md) | H153 |
 
 <!-- end of job table -->
 
