@@ -1,5 +1,5 @@
 #!/bin/bash
-# Feature tests (~10 s): everything that checks Shop Sketch's answers with no window, all side by side. The script
+# Feature tests (~34 s): everything that checks Shop Sketch's answers with no window, all side by side. The script
 # finds them itself (T95): every worker/test_*.py, tools/test_*.py and viewport/test_*.gd, run the way its folder
 # says (worker: freecadcmd; tools: python3; viewport: Godot headless) unless one of the file's first five lines says
 # `runner: freecadcmd|python3|godot|none` (none: a helper, or a test run elsewhere). Each prints one summary line,

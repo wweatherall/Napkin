@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Checks tools/job.py (the job queue, P24) and integrate.py's cleanup after a merge, on throwaway repositories.
 Summary line: JOB TESTS: N passed, M failed."""
+import atexit
 import contextlib
 import io
 import json
@@ -22,6 +23,8 @@ import job
 # Isolate from host agent env vars so tests behave identically whether run by Claude, Codex, Gemini, or CI.
 for _env_key in ("ANTIGRAVITY_CONVERSATION_ID", "ANTIGRAVITY_AGENT", "SHOPSKETCH_SESSION"):
     os.environ.pop(_env_key, None)
+# Disable the external usage-tool subprocess by default; the usage-hook tests below override this with patch.dict.
+os.environ["SHOPSKETCH_USAGE_TOOL"] = ""
 
 RESULTS = []
 VERBOSE = "-v" in sys.argv[1:] or "--verbose" in sys.argv[1:]
@@ -60,32 +63,46 @@ Order: H001, H002, H003, H005, H004, H006
 """
 
 
+_TEMPLATE_REPO = None
+
+
+def _template_repo():
+    global _TEMPLATE_REPO
+    if _TEMPLATE_REPO is None:
+        base = tempfile.mkdtemp(prefix="job-tmpl-")
+        atexit.register(shutil.rmtree, base, True)
+        root = os.path.join(base, "repo")
+        os.makedirs(os.path.join(root, "docs", "handoff"))
+        os.makedirs(os.path.join(root, "03_Past_Decisions"))
+        sh(root, "git", "init", "-q", "-b", "main")
+        sh(root, "git", "config", "user.email", "t@example.invalid"); sh(root, "git", "config", "user.name", "t")
+        files = {
+            "H001-first-job.md": entry("H001", "Claude", "open", "tools/a.py (new), docs/x.md.", "T1: first"),
+            "H002-second-job.md": entry("H002", "Claude", "open", "tools/a.py.", "T2: second"),
+            "H003-third-job.md": entry("H003", "either", "open", "tools/b.py.", "T3: third"),
+            "H004-queued-job.md": entry("H004", "Codex", "queued (after H001)", "tools/d.py.", "T4: queued"),
+            "H005-codex-job.md": entry("H005", "Codex", "open", "tools/c.py.", "T5: codex's"),
+            "H006-claimed-job.md": entry("H006", "Claude", "open", "tools/e.py.", "T6: claimed by hand"),
+            "H007-a-note.md": entry("H007", "the integrator", "open", "nothing.", "where things stand"),
+        }
+        for n, t in files.items():
+            open(os.path.join(root, "docs", "handoff", n), "w").write(t)
+        open(os.path.join(root, "BOARD.md"), "w").write(BOARD)
+        open(os.path.join(root, "03_Past_Decisions", "decision-log.md"), "w").write(
+            "# Log\n\n## Work list\n\n| # | Item | Status |\n|---|---|---|\n| T1 | a | Open |\n")
+        open(os.path.join(root, "docs", "agent-handoff.md"), "w").write(
+            "# Handoff\n\n## Open exchanges\n\n<!-- open list: built from docs/handoff/ by tools/handoff.py; don't edit by "
+            "hand -->\n\n(none open)\n\n<!-- end of open list -->\n\n## Archived\n")
+        open(os.path.join(root, "docs", "handoff-archive.md"), "w").write("# Archive\n")
+        sh(root, "git", "add", "-A"); sh(root, "git", "commit", "-qm", "base")
+        _TEMPLATE_REPO = root
+    return _TEMPLATE_REPO
+
+
 def repo():
     base = tempfile.mkdtemp(prefix="job-test-")
     root = os.path.join(base, "repo")
-    os.makedirs(os.path.join(root, "docs", "handoff"))
-    os.makedirs(os.path.join(root, "03_Past_Decisions"))
-    sh(root, "git", "init", "-q", "-b", "main")
-    sh(root, "git", "config", "user.email", "t@example.invalid"); sh(root, "git", "config", "user.name", "t")
-    files = {
-        "H001-first-job.md": entry("H001", "Claude", "open", "tools/a.py (new), docs/x.md.", "T1: first"),
-        "H002-second-job.md": entry("H002", "Claude", "open", "tools/a.py.", "T2: second"),
-        "H003-third-job.md": entry("H003", "either", "open", "tools/b.py.", "T3: third"),
-        "H004-queued-job.md": entry("H004", "Codex", "queued (after H001)", "tools/d.py.", "T4: queued"),
-        "H005-codex-job.md": entry("H005", "Codex", "open", "tools/c.py.", "T5: codex's"),
-        "H006-claimed-job.md": entry("H006", "Claude", "open", "tools/e.py.", "T6: claimed by hand"),
-        "H007-a-note.md": entry("H007", "the integrator", "open", "nothing.", "where things stand"),
-    }
-    for n, t in files.items():
-        open(os.path.join(root, "docs", "handoff", n), "w").write(t)
-    open(os.path.join(root, "BOARD.md"), "w").write(BOARD)
-    open(os.path.join(root, "03_Past_Decisions", "decision-log.md"), "w").write(
-        "# Log\n\n## Work list\n\n| # | Item | Status |\n|---|---|---|\n| T1 | a | Open |\n")
-    open(os.path.join(root, "docs", "agent-handoff.md"), "w").write(
-        "# Handoff\n\n## Open exchanges\n\n<!-- open list: built from docs/handoff/ by tools/handoff.py; don't edit by "
-        "hand -->\n\n(none open)\n\n<!-- end of open list -->\n\n## Archived\n")
-    open(os.path.join(root, "docs", "handoff-archive.md"), "w").write("# Archive\n")
-    sh(root, "git", "add", "-A"); sh(root, "git", "commit", "-qm", "base")
+    shutil.copytree(_template_repo(), root)
     return base, root
 
 
