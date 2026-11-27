@@ -36,6 +36,13 @@ if grep -q "module map: built by tools/architecture_map.py" ARCHITECTURE.md 2>/d
   git add ARCHITECTURE.md
   python3 tools/architecture_map.py --check || exit 1
 fi
+# docs/dependency-map.md is built from imports, preloads, and main.gd forwarders (tools/dependency_map.py).
+if grep -q "dependency map: built by tools/dependency_map.py" docs/dependency-map.md 2>/dev/null &&
+   git diff --cached --name-only | grep -qE "^(viewport|worker|tools)/.*\.(gd|py)$|^docs/dependency-map\.md$"; then
+  python3 tools/dependency_map.py || exit 1
+  git add docs/dependency-map.md
+  python3 tools/dependency_map.py --check || exit 1
+fi
 # docs/protocol.md's message table is built from worker/serve.py and worker/length_input.py (tools/protocol_map.py).
 if grep -q "protocol map: built by tools/protocol_map.py" docs/protocol.md 2>/dev/null &&
    git diff --cached --name-only | grep -qE "^worker/(serve|length_input)\.py$|^docs/protocol\.md$"; then
