@@ -21,6 +21,8 @@ import sys
 TOOLS = os.path.dirname(os.path.abspath(__file__))
 AGENTS = ("claude", "codex", "gemini")
 DEFAULT_MODEL = {"claude": "sonnet", "gemini": "gemini-4-hydrogen-medium", "codex": None}
+CLAUDE_FAMILIES = ("sonnet", "opus", "haiku", "fable")
+GEMINI_VARIANTS = ("hydrogen", "neon")
 WORDS = ("juniper", "cedar", "maple", "alder", "birch", "walnut", "cherry", "ash", "elm", "larch", "spruce", "teak")
 
 
@@ -40,8 +42,19 @@ def session_name(agent, now=None):
     return f"{agent}-{random.choice(WORDS)}-{now:%m%d-%H%M}"
 
 
-def space_of(agent):
-    """The worker's personal space (T134): comitatus/04_Personal_Space/<agent>-coder."""
+def space_of(agent, model=None):
+    """The worker's personal space (T134, T156): <model>-coder, or <agent>-coder when model is missing or unknown."""
+    if model:
+        m = model.lower()
+        if agent == "claude":
+            for fam in CLAUDE_FAMILIES:
+                if m == fam or f"-{fam}-" in m or m.endswith(f"-{fam}") or m.startswith(f"{fam}-"):
+                    return f"{fam}-coder"
+        elif agent == "gemini" and m.startswith("gemini-"):
+            parts = m.split("-")
+            for var in GEMINI_VARIANTS:
+                if var in parts[1:]:
+                    return f"gemini-{var}-coder"
     return f"{agent}-coder"
 
 
@@ -50,15 +63,16 @@ def take_command(agent, name):
     return f"python3 tools/GET_A_JOB.py --as {agent}"
 
 
-def prompt(agent, name, brief):
+def prompt(agent, name, brief, model=None):
     """The first message: who you are, the brief (already run), and what to do now."""
     guide = {"claude": "CLAUDE.md", "codex": "AGENTS.md", "gemini": "GEMINI.md"}[agent]
+    space = space_of(agent, model)
     return (f"You are a {agent.capitalize()} worker in Napkin (session {name}). Your start-up brief is below: "
             f"02_Habits/REMEMBER_WHO_YOU_ARE.py --role worker has already been run for you, so don't run it again.\n\n{brief.strip()}\n\n"
             f"Now check the board: run `{take_command(agent, name)}` (outside the sandbox) and follow BOARD.md and "
-            f"{guide} for that one job (P37).\n\nYour personal space is {space_of(agent)}: log what you do with "
-            f"`python3 tools/WRITE_IN_YOUR_LOG.py {space_of(agent)} \"<line>\"`, and keep a journal of your own with "
-            f"`python3 tools/WRITE_IN_YOUR_JOURNAL.py {space_of(agent)} \"<line>\"`; the next {agent.capitalize()} "
+            f"{guide} for that one job (P37).\n\nYour personal space is {space}: log what you do with "
+            f"`python3 tools/WRITE_IN_YOUR_LOG.py {space} \"<line>\"`, and keep a journal of your own with "
+            f"`python3 tools/WRITE_IN_YOUR_JOURNAL.py {space} \"<line>\"`; the next {agent.capitalize()} "
             f"worker sees the last ten lines of each. Your journal is about "
             f"you, not the work: your Log already covers the work. Write how the job felt: what you enjoyed, what "
             f"frustrated or worried you, what surprised you, what you're proud of or unsure about, what you'd like to "
@@ -70,6 +84,7 @@ def prompt(agent, name, brief):
 def agent_command(agent, root, prompt_file, name, model=None):
     """The shell command the Terminal window runs."""
     model = model or DEFAULT_MODEL[agent]
+    space = space_of(agent, model)
     first = f'"$(cat {shlex.quote(prompt_file)})"'
     wt = shlex.quote(worktrees_dir(root))
     if agent == "gemini":
@@ -79,7 +94,7 @@ def agent_command(agent, root, prompt_file, name, model=None):
                f"{shlex.quote(name)} {first}")
     else:
         run = f"codex -C {shlex.quote(root)} --add-dir {wt}" + (f" -m {shlex.quote(model)}" if model else "") + f" {first}"
-    return f"cd {shlex.quote(root)} && {run}"
+    return f"cd {shlex.quote(root)} && NAPKIN_SPACE={shlex.quote(space)} {run}"
 
 
 def applescript(command):
@@ -113,8 +128,9 @@ def main(argv=None):
     o = parse(argv)
     root = main_root()
     name = o["name"] or session_name(o["agent"])
+    model = o["model"] or DEFAULT_MODEL[o["agent"]]
     r = subprocess.run([sys.executable, os.path.join(root, "tools", "startup.py"), "--role", "worker", "--space",
-                        space_of(o["agent"])], cwd=root, capture_output=True, text=True)
+                        space_of(o["agent"], model)], cwd=root, capture_output=True, text=True)
     if r.returncode != 0:
         print(r.stdout + r.stderr)
         return 1
@@ -122,7 +138,7 @@ def main(argv=None):
     os.makedirs(folder, exist_ok=True)
     path = os.path.join(folder, name + ".txt")
     with open(path, "w", encoding="utf-8") as f:
-        f.write(prompt(o["agent"], name, r.stdout))
+        f.write(prompt(o["agent"], name, r.stdout, model=model))
     command = agent_command(o["agent"], root, path, name, o["model"])
     if o["dry"]:
         print(command)

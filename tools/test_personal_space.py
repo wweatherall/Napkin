@@ -194,5 +194,46 @@ integrator.log_note("plain repo note", root=other, out=quiet)
 check("without a personal space, a note goes to the old journal file in that checkout",
       "plain repo note" in open(integrator.journal_path(other)).read())
 
+# Template tests: NEW_SPACE_TEMPLATE/ populates new spaces, fills <name>, and never overwrites an agent's own files.
+tpl_org = os.path.realpath(tempfile.mkdtemp(prefix="space-tpl-"))
+tpl_dir = os.path.join(tpl_org, "04_Personal_Space", "NEW_SPACE_TEMPLATE")
+os.makedirs(os.path.join(tpl_dir, "Creative_Expression"))
+os.makedirs(os.path.join(tpl_dir, "Ideas"))
+os.makedirs(os.path.join(tpl_dir, "Code_Experiments"))
+open(os.path.join(tpl_dir, "Log.md"), "w", encoding="utf-8").write(ps.HEADERS["log"])
+open(os.path.join(tpl_dir, "Journal.md"), "w", encoding="utf-8").write(ps.HEADERS["journal"])
+for fn, txt in ps.FOLDERS.items():
+    open(os.path.join(tpl_dir, fn, "README.md"), "w", encoding="utf-8").write(txt)
+open(os.path.join(tpl_dir, "Creative_Expression", "ASCII art.txt"), "w", encoding="utf-8").write("ASCII art (<name>)\n\n")
+tpl_root = os.path.join(tpl_org, "08_Code_Bases", "Proj")
+os.makedirs(tpl_root)
+subprocess.run(["git", "init", "-q", "-b", "main", tpl_root], check=True)
+
+ps.add("opus-coder", "log", "first step", root=tpl_root, now=t, out=quiet)
+opus_dir = os.path.join(tpl_org, "04_Personal_Space", "opus-coder")
+check("NEW_SPACE_TEMPLATE populates Log, Journal, folder READMEs, and ASCII art (<name>)",
+      open(os.path.join(opus_dir, "Log.md"), encoding="utf-8").read() == ps.HEADERS["log"] + "2026-11-26 19:00 first step\n"
+      and open(os.path.join(opus_dir, "Journal.md"), encoding="utf-8").read() == ps.HEADERS["journal"]
+      and open(os.path.join(opus_dir, "Creative_Expression", "ASCII art.txt"), encoding="utf-8").read() == "ASCII art (opus-coder)\n\n"
+      and all(os.path.isfile(os.path.join(opus_dir, f, "README.md")) for f in ("Creative_Expression", "Ideas", "Code_Experiments")))
+
+ascii_p = os.path.join(opus_dir, "Creative_Expression", "ASCII art.txt")
+open(ascii_p, "w", encoding="utf-8").write("my custom art\n")
+open(os.path.join(opus_dir, "Creative_Expression", "README.md"), "w", encoding="utf-8").write("my custom readme\n")
+ps.add("opus-coder", "journal", "felt good", root=tpl_root, now=t, out=quiet)
+check("an agent's own ASCII art.txt and README are never overwritten on later writes",
+      open(ascii_p, encoding="utf-8").read() == "my custom art\n"
+      and open(os.path.join(opus_dir, "Creative_Expression", "README.md"), encoding="utf-8").read() == "my custom readme\n"
+      and "2026-11-26 19:00 felt good\n" in open(os.path.join(opus_dir, "Journal.md"), encoding="utf-8").read())
+
+h158_tpl = os.path.join(tpl_org, "04_Personal_Space", "h158-tpl-coder")
+for fn, old_txt in ps.OLD_FOLDERS.items():
+    os.makedirs(os.path.join(h158_tpl, fn), exist_ok=True)
+    open(os.path.join(h158_tpl, fn, "README.md"), "w", encoding="utf-8").write(old_txt)
+ps.add("h158-tpl-coder", "log", "upgraded", root=tpl_root, now=t, out=quiet)
+check("OLD_FOLDERS exact-text replacement still works when NEW_SPACE_TEMPLATE is present",
+      open(os.path.join(h158_tpl, "Creative_Expression", "README.md"), encoding="utf-8").read() == expected_ce_readme
+      and open(os.path.join(h158_tpl, "Code_Experiments", "README.md"), encoding="utf-8").read() == expected_exp_readme)
+
 print(f"PERSONAL SPACE TESTS: {passed} passed, {failed} failed")
 sys.exit(1 if failed else 0)
