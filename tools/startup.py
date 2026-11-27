@@ -692,7 +692,8 @@ def who_lines(role, org):
         raw = _read_text(os.path.join(org, "07_Org_Chart_and_Roles", fname))
         if not raw:
             continue
-        body = role_doc_lines(raw)
+        # skip the provenance line ('William, 2026-11-25. Transcribed from ...'): it says where the text came from, not who
+        body = [l for l in role_doc_lines(raw) if "Transcribed from" not in l]
         if body:
             out.append(title)
             out.extend("  " + l for l in body)
