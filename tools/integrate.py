@@ -45,6 +45,7 @@ What it leaves to the integrator: reviewing the branch first, and a Result line 
 from dataclasses import dataclass, field
 import json
 import os
+from pathlib import Path
 import re
 import subprocess
 import sys
@@ -52,6 +53,8 @@ import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
+import architecture_map
+import dependency_map
 import handoff
 import integrator
 import job
@@ -996,20 +999,105 @@ def run_gate(s):
     return s
 
 
+_ARCH_OWNS_RE = re.compile(r"^\s*`?([^\s:`]+)`?\s+owns\b", re.IGNORECASE)
+_ARCH_USES_RE = re.compile(r"^\s*`?([^\s:`]+)`?\s+uses\s+`?([^\s:`]+)`?(?:\s*:|\s|$)", re.IGNORECASE)
+
+
+def _structure_changes(root):
+    arch_diff = {"added": [], "removed": [], "changed": []}
+    arch_rel = architecture_map.ARCHITECTURE
+    has_arch = (os.path.isfile(os.path.join(root, arch_rel))
+                or git("cat-file", "-e", f"HEAD:{arch_rel}", root=root).returncode == 0)
+    if has_arch:
+        old_arch_r = git("show", f"HEAD:{arch_rel}", root=root)
+        old_arch = old_arch_r.stdout if old_arch_r.returncode == 0 else ""
+        body, _ = architecture_map.build_map(Path(root))
+        arch_diff = architecture_map.diff(old_arch, body)
+
+    dep_diff = {"added": [], "removed": []}
+    dep_rel = dependency_map.OUTPUT
+    has_dep = (os.path.isfile(os.path.join(root, dep_rel))
+               or git("cat-file", "-e", f"HEAD:{dep_rel}", root=root).returncode == 0)
+    if has_dep:
+        old_dep_r = git("show", f"HEAD:{dep_rel}", root=root)
+        old_dep = old_dep_r.stdout if old_dep_r.returncode == 0 else ""
+        new_dep = dependency_map.render_map(Path(root))
+        dep_diff = dependency_map.diff(old_dep, new_dep)
+
+    return arch_diff, dep_diff
+
+
+def check_structure(s):
+    """Compare main's and the merged tree's module and dependency maps; flag unexplained additions (P31)."""
+    root, say = s.root, s.say
+    arch_diff, dep_diff = _structure_changes(root)
+    if not any(arch_diff.values()) and not any(dep_diff.values()):
+        s.payload["unexplained_structure"] = []
+        return s
+
+    all_files = sorted(
+        set(dependency_map.code_files(Path(root)))
+        | set(arch_diff["added"]) | set(arch_diff["removed"])
+        | {p for p, _, _ in arch_diff["changed"]}
+        | {a for pair in dep_diff["added"] + dep_diff["removed"] for a in pair}
+    )
+    names = dependency_map.short_names(all_files)
+    short = lambda rel: names.get(rel, os.path.basename(rel))
+
+    say("structure:")
+    for rel in arch_diff["added"]:
+        print(f"  added file: {short(rel)}")
+    for rel in arch_diff["removed"]:
+        print(f"  removed file: {short(rel)}")
+    for rel, old_s, new_s in arch_diff["changed"]:
+        print(f"  changed header: {short(rel)}: {old_s} -> {new_s}")
+    for a, b in dep_diff["added"]:
+        print(f"  added dep: {short(a)} uses {short(b)}")
+    for a, b in dep_diff["removed"]:
+        print(f"  removed dep: {short(a)} uses {short(b)}")
+
+    owns_tokens = []
+    uses_pairs = []
+    for _hid, line in s.payload.get("maps", []):
+        m = _ARCH_OWNS_RE.match(line)
+        if m:
+            owns_tokens.append(m.group(1).strip("`").lstrip("./"))
+        m = _ARCH_USES_RE.match(line)
+        if m:
+            uses_pairs.append((m.group(1).strip("`").lstrip("./"), m.group(2).strip("`").lstrip("./")))
+
+    matches = lambda tok, rel: tok == rel or tok == short(rel)
+    unexplained = []
+    for rel in arch_diff["added"]:
+        if not any(matches(tok, rel) for tok in owns_tokens):
+            unexplained.append(f"{short(rel)} added, not explained")
+    for a, b in dep_diff["added"]:
+        if not any(matches(sa, a) and matches(sb, b) for sa, sb in uses_pairs):
+            unexplained.append(f"{short(a)} now uses {short(b)}, not explained")
+
+    s.payload["unexplained_structure"] = unexplained
+    return s
+
+
 def pause_for_map(s):
     root, name, impact, argv, say = s.root, s.name, s.impact, s.argv, s.say
     state = s.payload
     now, maps, changed = state["now"], state["maps"], state.get("changed", [])
+    unexplained = state.get("unexplained_structure", [])
     need_map = bool(maps and not impact and not map_staged(root))
     need_brief = bool(changed)
-    if need_map or need_brief:
-        save_state(root, state)         # P28 / P44: staged merge waits for the map edit and/or brief-change review
+    need_structure = bool(unexplained)
+    if need_map or need_brief or need_structure:
+        save_state(root, state)         # P28 / P31 / P44: staged merge waits for map edit, structure review, and/or brief-change review
         say("for you now:")
         for hid, what in now:
             print(f"  {hid}: {what}")
         if need_map:
             for hid, what in maps:
                 print(f"  {hid}: map: {what}")
+        if need_structure:
+            for msg in unexplained:
+                print(f"  structure: {msg}")
         if need_brief:
             for hid, what in changed:
                 print(f"  {hid}: changed: {what}")
@@ -1018,6 +1106,9 @@ def pause_for_map(s):
         if need_map:
             say("the merge is staged, not committed (P28): write these into ARCHITECTURE.md / docs/protocol.md, checked "
                 "against the code, `git add` them, then: " + cont)
+        if need_structure:
+            say("the merge is staged, not committed (P31): check the unexplained structure changes above; accept with "
+                + cont)
         if need_brief:
             ids = list(dict.fromkeys(hid for hid, _ in changed))
             ret_id = s.jid or (ids[0] if len(ids) == 1 else "<id>")
@@ -1281,7 +1372,7 @@ def draft_results(root, results, name, say, completes=()):
 
 
 MERGE_STEPS = (check_start, prepare_log, merge_branch, settle_conflicts, check_touches, number_entries,
-               archive_entries, update_statuses, rebuild_and_check, run_gate, pause_for_map)
+               archive_entries, update_statuses, rebuild_and_check, run_gate, check_structure, pause_for_map)
 FINISH_STEPS = (commit_merge, clean_up_job, unblock_queued_jobs, record_results, push_main)
 
 

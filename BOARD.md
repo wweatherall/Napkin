@@ -48,7 +48,11 @@ worktree (T102).
      run `python3 tools/job.py test` once.
    - Append your response to the handoff entry (dated and signed: branch, commit, what you verified, IDs you added,
      open questions; then a line each: `Changed from the brief: <what it said>; <what you did>; <why>` per departure
-     (P44); `Architecture: <what>`; `Follow-up: <what>` per thing left; `For the integrator: <what>` per merge step
+     (P44); `Architecture:` lines (any number of each):
+       - `Architecture: <file> owns <what>`
+       - `Architecture: <a> uses <b>: <why>`
+       - `Architecture: <free text>`;
+     `Follow-up: <what>` per thing left; `For the integrator: <what>` per merge step
      (P26); last, `Result: <commit>; <tests>; <what changed>`, no `|` (T91)), set Status to `answered`, and in one
      chained command run `python3 tools/handoff.py tidy && git add docs/agent-handoff.md docs/handoff/<file> && git -c core.hooksPath=.githooks commit -m "<ID>: record response and mark answered" && python3 tools/SUBMIT_JOB.py`.
 7. Once `SUBMIT_JOB.py` succeeds (it checks the response, Status, quick-test pass and hung processes), tell William
@@ -65,9 +69,8 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H177 | Gemini | Waiting on the integrator (scope) (gemini): H177: docs/protocol.md has 4 symbol references (viewport/main.gd:_on_open, _on_synced, _on_boards_read) that moved to viewport/history.gd (flagged by protocol_map.py --check), and ARCHITECTURE.md was updated by architecture_map.py for the two new files. May I update those 4 links in docs/protocol.md and commit ARCHITECTURE.md? | main.gd step 1: history replies and live preferences move to their own files, behaviour unchanged | [H177](docs/handoff/H177-split-main-gd.md) |  |
-| H180 | Gemini | **Ready** | The structural report: the merge works out what changed in the structure, the worker only explains it | [H180](docs/handoff/H180-structural-report.md) |  |
-| H181 | Gemini | **Ready** | presenter.gd step 1: confirmation waves and selection drawing move to their own files, behaviour unchanged | [H181](docs/handoff/H181-split-presenter-gd.md) |  |
+| H177 | Gemini | **Done**: for review (gemini) | main.gd step 1: history replies and live preferences move to their own files, behaviour unchanged | [H177](docs/handoff/H177-split-main-gd.md) |  |
+| H181 | Gemini | **Done**: for review (gemini) | presenter.gd step 1: confirmation waves and selection drawing move to their own files, behaviour unchanged | [H181](docs/handoff/H181-split-presenter-gd.md) |  |
 
 <!-- end of job table -->
 

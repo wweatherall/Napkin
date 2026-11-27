@@ -26,7 +26,6 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
 - [H177 — main.gd step 1: history replies and live preferences move to their own files, behaviour unchanged](handoff/H177-split-main-gd.md) — status: open; for: gemini
-- [H180 — The structural report: the merge works out what changed in the structure, the worker only explains it](handoff/H180-structural-report.md) — status: open; for: gemini
 - [H181 — presenter.gd step 1: confirmation waves and selection drawing move to their own files, behaviour unchanged](handoff/H181-split-presenter-gd.md) — status: open; for: gemini
 
 <!-- end of open list -->
@@ -35,6 +34,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 Full entries in [handoff-archive.md](handoff-archive.md).
 
+- H180 — The structural report: the merge works out what changed in the structure, the worker only explains it. Resolved: merged into main by the integrator, 2026-11-27.
 - H179 — Two proposals for William: push_pull's jobs as separate ops (T159), and how a fit names its face (T161). Resolved: merged into main by the integrator, 2026-11-27.
 - H175 — The merge tools: six things the integrator did by hand on 2026-11-27, made automatic. Resolved: merged into main by the integrator, 2026-11-27.
 - H174 — A generated dependency map: who uses which file, and who calls a function. Resolved: merged into main by the integrator, 2026-11-27.
@@ -44,9 +44,8 @@ Full entries in [handoff-archive.md](handoff-archive.md).
 - H172 — status.json written only by one-off replays, not on every edit in the app. Resolved: merged into main by the integrator, 2026-11-27.
 - H171 — Fits become their own ops (`fit`, `unfit`), and old files' fits are upgraded when opened. Resolved: merged into main by the integrator, 2026-11-27.
 - H170 — One name per meaning for message numbers: `seq` for the model's state, `request_id` for the request. Resolved: merged into main by the integrator, 2026-11-27.
-- H169 — protocol.md's message list generated from the code, and a check that keeps the rest honest. Resolved: merged into main by the integrator, 2026-11-27.
 
-Older: docs/handoff-archive.md (176 entries; find one with grep "^### H0NN" docs/handoff-archive.md)
+Older: docs/handoff-archive.md (177 entries; find one with grep "^### H0NN" docs/handoff-archive.md)
 
 ## Entry template
 
