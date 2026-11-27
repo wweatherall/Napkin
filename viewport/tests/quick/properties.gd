@@ -272,3 +272,31 @@ func run() -> void:
 		await harness._wait_confirm()
 		harness._ok("T62 moving circular target updates tied board on screen", is_equal_approx(float(harness._bodies().b1.volume_mm3), 272000.0), harness._bodies().b1.volume_mm3)
 	m.properties_panel.hide()
+
+	# T147: Picking a non-rectangular target's fitted end in Properties names the same face FreeCAD reports.
+	var nonrect_fit_scene := harness._plank(1, Vector3.ZERO, Vector3(40, 40, 20))
+	nonrect_fit_scene.append({"id": "c2", "type": "circle", "plane": {"origin": [20, 20, 120], "normal": [0, 0, 1]}, "radius": 30.0})
+	nonrect_fit_scene.append({"id": "cp2", "type": "push_pull", "target": {"rect": "c2"}, "distance": 20.0, "body": "b2"})
+	nonrect_fit_scene.append_array(harness._plank(3, Vector3(120, 0, 200), Vector3(40, 40, 20)))
+	nonrect_fit_scene.append({"id": "fit_b2", "type": "property_edit", "mode": "plane_fit", "body": "b2",
+			"target_body": "b3", "axis": 2, "face": 4, "fit_mode": 0})
+	await harness._fresh("t147_nonrect_fitted_end", nonrect_fit_scene)
+	m.set_tool("select")
+	m.properties_panel.show()
+	m.sel.set_selection([harness.id("b1")])
+	await harness._wait_properties()
+	await harness._view(Vector3(20, 20, 100), -32, -25, 0.5)
+	var p147 = m.properties_panel
+	p147.summary.get_child(3).get_child(-1).pressed.emit()
+	await harness._click_at(Vector3(20, 20, 200))
+	var preview_text: String = p147.result.text
+	harness._ok("T147 preview names non-rectangular target's fitted end as Face 2",
+			not p147.pending.is_empty() and "Face 2 face" in preview_text, preview_text)
+	if not p147.pending.is_empty():
+		p147.apply_fit.pressed.emit()
+		await harness._wait_confirm()
+		await harness._wait_properties()
+		harness._ok("T147 applied fit result names the same face FreeCAD reports",
+				p147.data.boards.b1.fitted and "Face 2 face" in p147.data.boards.b1.result,
+				[preview_text, p147.data.boards.b1.result])
+	m.properties_panel.hide()
