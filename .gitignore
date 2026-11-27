@@ -11,3 +11,4 @@ dist/
 
 # A job's scratch files and logs (P25): kept in its worktree, removed with it at merge
 scratch/
+worker.log

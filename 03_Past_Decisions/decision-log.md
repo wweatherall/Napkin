@@ -48,7 +48,7 @@ One subject per decision; the Decisions column is generated.
 | Feedback | The confirmation wave and what colours mean. | I06, W01, W02, W03, W04, W05, W06, W07, W08, W09 |
 | Materials | Wood cards, grain and painting. | A05, I33, M01, M02, M03, M04 |
 | Output | Drawings, cut lists and renders. | A07, D01, D02, I68, P06 |
-| Process | How the agents work, test, merge and record decisions. | P01, P02, P03, P07, P09, P10, P14, P15, P16, P17, P18, P19, P20, P21, P22, P23, P24, P25, P26, P28, P29, P31, P32, P33, P34, P35, P36, P37, P38, P39, P40, P41, P42, P43, P44, P45, P46, P47, P49, P50, P52, P53, P54, P56, P57, P58, P60, P61, P62, P63, P64, P65, P66, P67, P68, P69 |
+| Process | How the agents work, test, merge and record decisions. | P01, P02, P03, P07, P09, P10, P14, P15, P16, P17, P18, P19, P20, P21, P22, P23, P24, P25, P26, P28, P29, P31, P32, P33, P34, P35, P36, P37, P38, P39, P40, P41, P42, P43, P44, P45, P46, P47, P49, P50, P52, P53, P54, P56, P57, P58, P60, P61, P62, P63, P64, P65, P66, P67, P68, P69, P70, P71 |
 
 ## Principles
 
@@ -316,6 +316,8 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | P67 | A Work list item goes Open -> On the board (H0NN, ...) when a job naming it is written,... | Active |
 | P68 | A Work list item is a to-do with a life story: Open -> Picked up (when the integrator t... | Active |
 | P69 | The organization's tools live in comitatus/09_Tools (a code base's own stay in its tool... | Active |
+| P70 | comitatus's principles (comitatus/01_Principles/principles.md) and the org chart (comit... | Active |
+| P71 | Personal time: a coder whose job comes back clean (merged without being returned) may s... | Active |
 
 ## Open questions
 
@@ -368,7 +370,6 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | T137 | Decimal commas for European typing of measurements. | Open |
 | T138 | Compress ARCHITECTURE.md heavily so the start-up brief can carry the map (about 80 KB t... | Open |
 | T139 | Rename the app to Napkin: what you see, the built app, folders, and the code and docs t... | Open |
-| T140 | Decide when and how William's new organization principles take effect, and how they sit... | Open |
 | T141 | William tries the Polygon tool by eye in a rebuilt app (tools/BUILD_THE_APP.sh). | Open |
 | T143 | Move tools/usage.py (2,760 lines, token benchmarking) and its tests out of the project'... | Open |
 | T146 | Atomize the principles and past decisions: one file per ruling (G, P and the rest), wri... | Open |
@@ -377,6 +378,7 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | T152 | Thin the tests without losing coverage: research how others do it (coverage-guided test... | Open |
 | T153 | Generated tests: inputs made fresh each run (a random seed, printed so a failure can be... | Open |
 | T154 | Faster tests: cut the waits (the gate's ~100 s, the quick test's viewport lanes, FreeCA... | On the board (H161) |
+| T155 | Find a home for (or delete) the loose files at Napkin's top level: 'Codex's suggestions... | Open |
 
 ## Tunables
 

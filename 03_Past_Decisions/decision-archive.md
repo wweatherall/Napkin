@@ -196,6 +196,7 @@ Work list items that are finished (and Split ones whose parts are all done).
 | T129 | Improve tools/usage.py holes diagnostics: strip AGY quoted targets, flag only overlappi... | Done |
 | T130 | Auto-unblock queued jobs immediately when their dependency job(s) merge and push. | Done |
 | T131 | Quiet-by-default `tools/test_*.py` suites: print only `FAIL` lines and summary by defau... | Done |
+| T140 | Decide when and how William's new organization principles take effect, and how they sit... | Done |
 | T142 | A Work list item is marked Done automatically when the job (or last of its jobs) that c... | Done |
 | T144 | Two tool follow-ups: a too-big corner fillet radius says why (H086's follow-up); Polygo... | Done |
 | T145 | Go through the ultra review findings (William's /code-review ultra of Gemini's stretch,... | Done |
