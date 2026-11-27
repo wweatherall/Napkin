@@ -1,6 +1,6 @@
 ### H154 — Tools and habits take the organization's names: FOR_<doing>.py and WHEN_<this>_<DO_THAT>.py
 
-Author: Claude (integrator, napkin-77) | Date: 2026-11-26 | Status: open | For: either
+Author: Claude (integrator, napkin-77) | Date: 2026-11-26 | Status: queued (after H156) | For: either
 
 References: T149 (this item), comitatus's proposal (docs/proposals/organization-2026-11-25.md, "Habits" and
 "Tools"), P60 (the folders come later: this job renames in place), T134, T143 (usage.py may move out later).

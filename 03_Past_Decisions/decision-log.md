@@ -38,7 +38,7 @@ One subject per decision; the Decisions column is generated.
 |---|---|---|
 | Product | What Shop Sketch is for and the feel it aims at. | I01, P04, P51 |
 | Architecture | The processes, the worker link, the app and the code's main boundaries. | A02, A03, A06, A08, A09, A27, A29, A30, A31, A33b, A34, A35, A40, W13 |
-| Files, saving and undo | The .FCStd model and its journal, saving, opening, undo and redo. | A21, A23, A24, A25, A28, A32, A36, A37, A38, A39, I38, I42, I54, I55, U01, U02, U03 |
+| Files, saving and undo | The .FCStd model and its journal, saving, opening, undo and redo. | A21, A23, A24, A25, A28, A32, A36, A37, A38, A39, A41, I38, I42, I54, I55, U01, U02, U03 |
 | Drawing tools | Rectangle, Circle, Line: how a drawing gesture starts, follows and ends. | I02, I04b, I09, I11, I43, I44, I49, I50, I51, I58, I60, I61, I64, I65, I71, I72 |
 | Push/Pull | Extruding, cutting, and fitting a board's end to another board. | I05, I08, I23, I24, I34, I40, I41, I45, I56 |
 | Move, copies and arrays | Move, linked copies, arrays, mirrors, components and assemblies. | A10, A11b, A22c, A26, I10, I12c, I13b, I14, I15, I16, I17, I20, I21, I25, I28, I32, I46, I52, I53, I66, I69 |
@@ -48,7 +48,7 @@ One subject per decision; the Decisions column is generated.
 | Feedback | The confirmation wave and what colours mean. | I06, W01, W02, W03, W04, W05, W06, W07, W08, W09 |
 | Materials | Wood cards, grain and painting. | A05, I33, M01, M02, M03, M04 |
 | Output | Drawings, cut lists and renders. | A07, D01, D02, I68, P06 |
-| Process | How the agents work, test, merge and record decisions. | P01, P02, P03, P07, P09, P10, P14, P15, P16, P17, P18, P19, P20, P21, P22, P23, P24, P25, P26, P28, P29, P31, P32, P33, P34, P35, P36, P37, P38, P39, P40, P41, P42, P43, P44, P45, P46, P47, P49, P50, P52, P53, P54, P56, P57, P58, P60, P61, P62, P63, P64, P65, P66 |
+| Process | How the agents work, test, merge and record decisions. | P01, P02, P03, P07, P09, P10, P14, P15, P16, P17, P18, P19, P20, P21, P22, P23, P24, P25, P26, P28, P29, P31, P32, P33, P34, P35, P36, P37, P38, P39, P40, P41, P42, P43, P44, P45, P46, P47, P49, P50, P52, P53, P54, P56, P57, P58, P60, P61, P62, P63, P64, P65, P66, P67 |
 
 ## Principles
 
@@ -115,6 +115,7 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | A37 | Opening a model whose file and journal don't match: the newest file on disk is the mode... | Active |
 | A38 | When Shop Sketch takes in a FreeCAD edit (opening a file changed outside it, or reloadi... | Active |
 | A39 | When the actions pending under A36's 'FreeCAD saved this model' question land while it ... | Active |
+| A41 | The worker turns off FreeCAD's backup files only for the moment of its own save and the... | Active |
 | I38 | Redo: Edit > Redo, ⇧⌘Z or the toolbar button; linear until U01 (a new action ends it). | Active |
 | I42 | A board's name in FreeCAD's tree is 'Board 3' for b3 (copies, mirrors and made-unique b... | Active |
 | I54 | When a save fails, the save indicator says "Couldn't save: <reason>" (in Saved's place,... | Active |
@@ -312,6 +313,7 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | P64 | The organization is named comitatus, and so is its folder: ~/Sites/comitatus (was ~/Sit... | Active |
 | P65 | Work list items (T) and open questions (Q) become one file each too, like rulings (T146... | Active |
 | P66 | Generated files in the comitatus repo (05_Jobs, 06_To-dos, the principles ranking) are ... | Active |
+| P67 | A Work list item goes Open -> On the board (H0NN, ...) when a job naming it is written,... | Active |
 
 ## Open questions
 
