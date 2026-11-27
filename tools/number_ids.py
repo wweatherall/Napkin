@@ -36,7 +36,7 @@ DEFINES_ENTRY = re.compile(r"^([A-Z]+)-new-(\d+)[a-z]*\.md$")
 TAKEN = re.compile(r"^([A-Z]+)(\d+)[a-z]*$")
 LOG = sort_decision_log.LIVE
 ARCHIVE = sort_decision_log.ARCHIVE
-ENTRY_FOLDERS = [sort_decision_log.RULINGS_DIR]
+ENTRY_FOLDERS = [sort_decision_log.RULINGS_DIR, sort_decision_log.WORK_DIR, sort_decision_log.QUESTIONS_DIR]
 ID_FILES = [LOG, ARCHIVE, "docs/agent-handoff.md", "docs/handoff-archive.md"]
 SKIP = {"tools/test_number_ids.py", "tools/test_log_archive.py"}   # their checks are written with real placeholders
 
@@ -193,15 +193,22 @@ def apply(root, files=None, dry_run=False, out=print):
 
 
 def tidy_log(root):
-    """Sort the decision log again (both files when the archive exists, which also moves archival rows and refreshes ruling indexes)."""
+    """Sort the decision log again (both files when the archive exists, which also moves archival rows and refreshes entry indexes)."""
     log, arch = os.path.join(root, LOG), os.path.join(root, ARCHIVE)
     rdir = os.path.join(root, sort_decision_log.RULINGS_DIR)
+    wdir = os.path.join(root, sort_decision_log.WORK_DIR)
+    qdir = os.path.join(root, sort_decision_log.QUESTIONS_DIR)
     if not os.path.isfile(log):
         return
     text = open(log, encoding="utf-8").read()
     if os.path.isfile(arch):
         old = open(arch, encoding="utf-8").read()
-        new, new_arch = sort_decision_log.tidy(text, old, rulings_dir=rdir if os.path.isdir(rdir) or sort_decision_log._ruling_rows_in(text) or sort_decision_log._ruling_rows_in(old) else None)
+        new, new_arch = sort_decision_log.tidy(
+            text, old,
+            rulings_dir=rdir if os.path.isdir(rdir) or sort_decision_log._ruling_rows_in(text) or sort_decision_log._ruling_rows_in(old) else None,
+            work_dir=wdir if os.path.isdir(wdir) else None,
+            questions_dir=qdir if os.path.isdir(qdir) else None,
+        )
         if new_arch != old:
             open(arch, "w", encoding="utf-8").write(new_arch)
     else:

@@ -189,13 +189,78 @@ def _ruling_line(raw, ident):
     return note, summary
 
 
-def report_ids(log, ids, archive="", read_ruling=None):
-    """Lines for each ID asked for, from rulings/<ID>.md or decision-log/decision-archive; returns (lines, unknown IDs)."""
+def _work_line(raw, ident):
+    """Format a Work list file into (archive_note, compact summary, cited_ids)."""
+    e = s.parse_entry(raw, ident=ident)
+    status = e["meta"].get("Status", "")
+    note = ARCHIVE_NOTE if status == "Done" else ""
+    det = "  (has ## Details)" if e["details"] else ""
+    covers = e["meta"].get("Covers", "")
+    parts = [f"Status: {status}"]
+    if covers and covers != s.NONE:
+        parts.append(f"Covers: {covers}")
+    if e["result"]:
+        parts.append(f"Result: {e['result']}")
+    summary = shorten(f"{e['title']} [{'; '.join(parts)}]", SHORT) + det
+    cids = ID_RE.findall(covers) if covers and covers != s.NONE else []
+    return note, summary, cids
+
+
+def _question_line(raw, ident):
+    """Format a question file into (archive_note, compact summary)."""
+    e = s.parse_entry(raw, ident=ident)
+    status = e["meta"].get("Status", "")
+    note = ARCHIVE_NOTE if status == "Decided" else ""
+    det = "  (has ## Details)" if e["details"] else ""
+    parts = [f"Status: {status}"]
+    if e["notes"]:
+        parts.append(f"Notes: {e['notes']}")
+    summary = shorten(f"{e['title']} [{'; '.join(parts)}]", SHORT) + det
+    return note, summary
+
+
+def _lookup_entry_line(cid, log, archive, read_ruling=None, read_work=None, read_question=None):
+    """Compact one-line summary for a cited ID from entry files or log/archive tables."""
+    if read_ruling and s.is_ruling_id(cid):
+        raw = read_ruling(cid)
+        if raw:
+            cnote, csum = _ruling_line(raw, cid)
+            return csum + cnote
+    if read_work and s.is_work_id(cid):
+        raw = read_work(cid)
+        if raw:
+            cnote, csum, _ = _work_line(raw, cid)
+            return csum + cnote
+    if read_question and s.is_question_id(cid):
+        raw = read_question(cid)
+        if raw:
+            cnote, csum = _question_line(raw, cid)
+            return csum + cnote
+    crow, cnote = find_either(log, archive, cid)
+    return (shorten(crow) + details_note(crow) + cnote) if crow else "not found"
+
+
+def report_ids(log, ids, archive="", read_ruling=None, read_work=None, read_question=None):
+    """Lines for each ID asked for, from entry files or decision-log/decision-archive; returns (lines, unknown IDs)."""
     lines, unknown, wl = [], [], work_list_ids(log) | work_list_ids(archive, "Done work")
     for ident in ids:
         raw = read_ruling(ident) if read_ruling and s.is_ruling_id(ident) else None
         if raw:
             note, summary = _ruling_line(raw, ident)
+            lines.append(f"== {ident}" + note)
+            lines.append(summary)
+            continue
+        wraw = read_work(ident) if read_work and s.is_work_id(ident) else None
+        if wraw:
+            note, summary, cids = _work_line(wraw, ident)
+            lines.append(f"== {ident}" + note)
+            lines.append(summary)
+            for cid in cids:
+                lines.append(f"  {cid}: " + _lookup_entry_line(cid, log, archive, read_ruling, read_work, read_question))
+            continue
+        qraw = read_question(ident) if read_question and s.is_question_id(ident) else None
+        if qraw:
+            note, summary = _question_line(qraw, ident)
             lines.append(f"== {ident}" + note)
             lines.append(summary)
             continue
@@ -208,13 +273,7 @@ def report_ids(log, ids, archive="", read_ruling=None):
         lines.append(row.strip() + details_note(row))
         if ident in wl:
             for cid in cited_ids(row):
-                craw = read_ruling(cid) if read_ruling and s.is_ruling_id(cid) else None
-                if craw:
-                    cnote, csum = _ruling_line(craw, cid)
-                    lines.append(f"  {cid}: " + csum + cnote)
-                else:
-                    crow, cnote = find_either(log, archive, cid)
-                    lines.append(f"  {cid}: " + (shorten(crow) + details_note(crow) + cnote if crow else "not found"))
+                lines.append(f"  {cid}: " + _lookup_entry_line(cid, log, archive, read_ruling, read_work, read_question))
     return lines, unknown
 
 
@@ -234,9 +293,20 @@ def sentence_at(text, i, n=90):
     return out if len(out) <= n else out[: n - 3] + "..."
 
 
-def waiting_rows(log):
-    """Open Work list rows whose last column leaves something as "your call" with no decision ID after it."""
+def waiting_rows(log, work_entries=None):
+    """Open Work list items whose Result / next step leaves something as "your call" with no decision ID after it."""
     out = []
+    if work_entries is not None:
+        for ident in sorted(work_entries, key=lambda x: s.key(f"| {x} |")):
+            val = work_entries[ident]
+            e = s.parse_entry(val, ident=ident) if isinstance(val, str) else val
+            if e["meta"].get("Status") != "Open":
+                continue
+            res = e["result"]
+            marks = list(YOUR_CALL.finditer(res))
+            if marks and not DECISION_ID.search(res, marks[-1].end()):
+                out.append((ident, sentence_at(res, marks[-1].start())))
+        return out
     for line in section(log, "Work list"):
         if not line.startswith("| ") or line.startswith("| #"):
             continue
@@ -277,9 +347,9 @@ def william_notes(board):
             if re.match(r"-?\s*(for )?William\b", l.strip().removeprefix("- "), re.I)]
 
 
-def waiting_on_william(log, entries, board, lock_held):
+def waiting_on_william(log, entries, board, lock_held, work_entries=None):
     """The report's lines: one per thing that waits on William, with its ID and a short reason."""
-    lines = [f"  {i} (Work list): {why}" for i, why in waiting_rows(log)]
+    lines = [f"  {i} (Work list): {why}" for i, why in waiting_rows(log, work_entries=work_entries)]
     lines += [f"  {i} (principle, Tentative): {text}" for i, text in tentative_principles(log)]
     lines += [f"  {i} (handoff): {why}" for i, why in waiting_handoffs(entries)]
     lines += [f"  Board note: {shorten(n, 150)}" for n in william_notes(board)]
@@ -623,8 +693,11 @@ def main(argv):
         for f, b in gone_branches(texts, [r[0] for r in refs]):
             print(f"  GONE: {f} names {b}, which no longer exists: update the note")
 
+        work_names = [l.split("/")[-1] for l in git("ls-tree", "--name-only", "main", s.WORK_DIR + "/", cwd=root).splitlines()
+                      if l.endswith(".md")]
+        work_entries = {n[:-3]: git("show", f"main:{s.WORK_DIR}/{n}", cwd=root) for n in work_names} if work_names else None
         print("Waiting on William (from main):")
-        print("\n".join(waiting_on_william(log, texts, board, bool(lock_info))))
+        print("\n".join(waiting_on_william(log, texts, board, bool(lock_info), work_entries=work_entries)))
         print("Follow-ups (docs/follow-ups.md, from main):")
         print("\n".join(follow_up_lines(git("show", "main:docs/follow-ups.md", cwd=root), limit=5)))
         inotes = integrator_notes(texts)
@@ -672,6 +745,8 @@ def main(argv):
         lines, unknown = report_ids(
             log, ids, archive,
             read_ruling=lambda ident: git("show", f"main:{s.RULINGS_DIR}/{ident}.md", cwd=root) or None,
+            read_work=lambda ident: git("show", f"main:{s.WORK_DIR}/{ident}.md", cwd=root) or None,
+            read_question=lambda ident: git("show", f"main:{s.QUESTIONS_DIR}/{ident}.md", cwd=root) or None,
         )
         print()
         print("Decision log (main:03_Past_Decisions/decision-log.md, then main:03_Past_Decisions/decision-archive.md):")

@@ -898,5 +898,26 @@ check("merging a branch that added a ruling file and one that edited an old row 
       and "Helpful." not in settled_pair[0])
 shutil.rmtree(r_tmp)
 
+w_tmp = tempfile.mkdtemp(prefix="int-work-")
+w_dir = os.path.join(w_tmp, "03_Past_Decisions", "work")
+w_log = "# Log\n\n## Work list\n\n| # | Item | Status |\n|---|---|---|\n| T7 | Mirror fix. | Open |\n"
+w_arch = "# Archive\n\n## Done work\n\n| # | Item | Status |\n|---|---|---|\n"
+os.makedirs(os.path.join(w_tmp, "03_Past_Decisions"), exist_ok=True)
+open(os.path.join(w_tmp, "03_Past_Decisions", "decision-log.md"), "w", encoding="utf-8").write(w_log)
+open(os.path.join(w_tmp, "03_Past_Decisions", "decision-archive.md"), "w", encoding="utf-8").write(w_arch)
+sort_decision_log.write_entry(w_dir, "T7", sort_decision_log.format_work("T7", "Mirror fix.", "Open", covers="A26"))
+rel_res, msg_res = integrate.record_result(w_tmp, "T7", "abc1234", "quicktest passed.", "def5678")
+check("a job's Result line is appended to its Work list file",
+      rel_res == "03_Past_Decisions/work/T7.md"
+      and "Result (abc1234, merged def5678): quicktest passed." in open(os.path.join(w_dir, "T7.md"), encoding="utf-8").read())
+msg_done = integrate.set_status(w_tmp, "T7", "Done")
+check("--status Done keeps the file and moves its index line",
+      "moved to 03_Past_Decisions/decision-archive.md" in msg_done
+      and os.path.isfile(os.path.join(w_dir, "T7.md"))
+      and "Status: Done" in open(os.path.join(w_dir, "T7.md"), encoding="utf-8").read()
+      and "| T7 |" not in open(os.path.join(w_tmp, "03_Past_Decisions", "decision-log.md"), encoding="utf-8").read()
+      and "| T7 | Mirror fix. | Done |" in open(os.path.join(w_tmp, "03_Past_Decisions", "decision-archive.md"), encoding="utf-8").read())
+shutil.rmtree(w_tmp)
+
 print(f"INTEGRATE TESTS: {sum(RESULTS)} passed, {len(RESULTS) - sum(RESULTS)} failed")
 raise SystemExit(0 if all(RESULTS) else 1)   # a failed check fails the run, not only its summary

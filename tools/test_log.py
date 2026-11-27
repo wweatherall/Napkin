@@ -38,7 +38,8 @@ def repo(branch="main"):
     os.makedirs(os.path.join(root, "03_Past_Decisions"))
     for rel in (s.LIVE, s.ARCHIVE):
         shutil.copy(os.path.join(REPO, rel), os.path.join(root, rel))
-    shutil.copytree(os.path.join(REPO, s.RULINGS_DIR), os.path.join(root, s.RULINGS_DIR))
+    for folder in (s.RULINGS_DIR, s.WORK_DIR, s.QUESTIONS_DIR):
+        shutil.copytree(os.path.join(REPO, folder), os.path.join(root, folder))
     git(root, "init", "-q", "-b", "main")
     git(root, "add", ".")
     git(root, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "log")
@@ -60,7 +61,12 @@ def fails(fn, *args, has=""):
 
 
 def tidy_ok(root):
-    return s.check_files(text(root), text(root, s.ARCHIVE), rulings_dir=os.path.join(root, s.RULINGS_DIR)) == []
+    return s.check_files(
+        text(root), text(root, s.ARCHIVE),
+        rulings_dir=os.path.join(root, s.RULINGS_DIR),
+        work_dir=os.path.join(root, s.WORK_DIR),
+        questions_dir=os.path.join(root, s.QUESTIONS_DIR),
+    ) == []
 
 
 def next_number(root, kind):
@@ -92,7 +98,10 @@ def show_checks():
     arch = log.show(root, arch_id)
     check("show ID in the archive", arch.startswith(f"# {arch_id} — ") and "Status: Superseded" in arch)
     work = log.show(root, "T9")
-    check("show a Work list ID", work.startswith(f"{s.LIVE}: Work list") and "\n| T9 |" in work)
+    check("show a Work list ID", work.startswith("# T9 — ") and "Status: Open" in work)
+    g01 = log.show(root, "G01")
+    check("show G01 lists the rulings that name it (Explains)",
+          "\nExplains: " in g01 and "A02" in g01.split("\nExplains: ")[-1])
     check("show an unknown ID fails", fails(log.show, root, "I999", has="no row I999"))
     check("show without anything fails", fails(log.show, root, None, False))
     shutil.rmtree(root)
@@ -132,11 +141,18 @@ def add_checks(on_main):
               and "Status: Superseded" in open(rfile).read()
               and f"Replaced by {want['A']}" in open(rfile).read())
     q = log.add(root, "Q", "Should arrays wrap?", {"why": "Asked in H0."}, today=TODAY)
+    qfile = os.path.join(root, s.QUESTIONS_DIR, f"{want['Q']}.md")
     check(f"add a question on {where}", s.where(text(root), want["Q"]) == ("## Open questions", None)
-          and q == f"| {want['Q']} | Should arrays wrap? | Open | Asked in H0. |")
+          and q == f"| {want['Q']} | Should arrays wrap? | Open |"
+          and os.path.isfile(qfile) and "Notes: Asked in H0." in open(qfile).read())
     t = log.add(root, "T", "Build the thing.", {"rel": "Q4", "result": "Start here."}, today=TODAY)
+    tfile = os.path.join(root, s.WORK_DIR, f"{want['T']}.md")
     check(f"add a Work list item on {where}", s.where(text(root), want["T"]) == ("## Work list", None)
-          and t == f"| {want['T']} | Build the thing. | Open | Q4 | Start here. |")
+          and t == f"| {want['T']} | Build the thing. | Open |"
+          and os.path.isfile(tfile) and "Result / next step: Start here." in open(tfile).read())
+    if not on_main:
+        check("add T writes a placeholder file on a branch",
+              os.path.isfile(tfile) and f"# {want['T']} — Build the thing." in open(tfile).read())
     check(f"after adding on {where} the log passes sort_decision_log.py --check", tidy_ok(root))
     if on_main:
         lines = text(root).split("\n")
@@ -166,16 +182,19 @@ def error_checks():
 
 def note_checks():
     root = repo()
-    row = log.note(root, "T9", "Note one.")
-    check("note: appended to a Work list row's last column", row.startswith("| T9 |") and row.endswith(" Note one. |")
-          and s.cells(row)[-1] == "Note one.")
-    row = log.note(root, "T9", "Note two.")
-    check("note: a second note follows the first", s.cells(row)[-1] == "Note one. Note two.")
-    check("note: written to the file", row in text(root).split("\n"))
-    full = next(s.row_id(l) for l in text(root).split("\n")
-                if s.row_id(l) and s.where(text(root), s.row_id(l))[0] == "## Work list" and s.cells(l)[-1])
-    old = s.cells(next(l for l in text(root).split("\n") if s.row_id(l) == full))[-1]
-    check("note: kept after the existing result", s.cells(log.note(root, full, "More."))[-1] == old + " More.")
+    res = log.note(root, "T9", "Note one.")
+    t9_path = os.path.join(root, s.WORK_DIR, "T9.md")
+    check("note appends to a Work list file's Result line",
+          res == "Result / next step: Note one."
+          and "Result / next step: Note one." in open(t9_path, encoding="utf-8").read())
+    res = log.note(root, "T9", "Note two.")
+    check("note: a second note follows the first",
+          res == "Result / next step: Note one. Note two."
+          and "Result / next step: Note one. Note two." in open(t9_path, encoding="utf-8").read())
+    full = next(ident for ident, e in s.read_entries(os.path.join(root, s.WORK_DIR)).items()
+                if e["meta"].get("Status") == "Open" and e["result"])
+    old = s.read_entry(os.path.join(root, s.WORK_DIR), full)["result"]
+    check("note: kept after the existing result", log.note(root, full, "More.") == f"Result / next step: {old} More.")
     check("note: a decision isn't a Work list row", fails(log.note, root, "I19", "x", has="under Decisions"))
     check("note: an unknown ID", fails(log.note, root, "T999", "x", has="isn't in the Work list"))
     check("after notes the log passes sort_decision_log.py --check", tidy_ok(root))
@@ -237,7 +256,7 @@ def cli_checks():
     r = run("show", "Nope")
     check("command line: an unknown subject exits 1 with a message", r.returncode == 1 and "no subject" in r.stderr)
     r = run("show", "T9", "--top")
-    check("command line: show ID --top", r.returncode == 0 and "## Subjects" in r.stdout and "\n| T9 |" in r.stdout)
+    check("command line: show ID --top", r.returncode == 0 and "## Subjects" in r.stdout and "# T9 — " in r.stdout)
     shutil.rmtree(root)
 
 
