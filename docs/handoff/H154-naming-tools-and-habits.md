@@ -1,87 +1,106 @@
-### H154 — Tools and habits take the organization's names: FOR_<doing>.py and WHEN_<this>_<DO_THAT>.py
+### H154 — One named script per action: tools named for what you do (GET_A_JOB), habits in 02_Habits
 
-Author: Claude (integrator, napkin-77) | Date: 2026-11-26 | Status: draft (names being settled with William; not a job yet) | For: either
+Author: Claude (integrator, napkin-77) | Date: 2026-11-26 | Status: open | For: either
 
 Item: T149
 
 References: T149 (this item), comitatus's proposal (docs/proposals/organization-2026-11-25.md, "Habits" and
 "Tools"), P60 (the folders come later: this job renames in place), T134, T143 (usage.py may move out later).
 
-Touches: tools/, .githooks/, CLAUDE.md, AGENTS.md, GEMINI.md, BOARD.md, ARCHITECTURE.md, README.txt, docs/integrator.md, docs/agent-handoff.md, docs/protocol.md, docs/specs/, viewport/CLAUDE.md, viewport/tools/CLAUDE.md, worker/CLAUDE.md, 03_Past_Decisions/decision-log.md, Check FreeCAD speed.command.
+Touches: tools/, .githooks/, CLAUDE.md, AGENTS.md, GEMINI.md, BOARD.md, ARCHITECTURE.md, README.txt, docs/integrator.md, docs/agent-handoff.md, docs/protocol.md, docs/specs/, viewport/CLAUDE.md, viewport/tools/CLAUDE.md, worker/CLAUDE.md, 03_Past_Decisions/work/, Check FreeCAD speed.command.
+
+New folder: 02_Habits/ (not in Touches: the check needs paths that exist).
 
 Reading path:
-1. The proposal's two sections: a habit is a script "in the form IF ___ HAPPENS DO ___.py or WHEN ___ HAPPENS DO
-   ___.py. They do what the name says"; a tool is "named FOR_<noun form of the verb, and the object>.py".
+1. This brief's Request. William settled the names with the integrator on 2026-11-26 (below): they replace the
+   proposal's FOR_<doing> form. In his words: "when you want to do a thing, you look for the thing with the name on
+   it that does the thing you want and you fire that." 
 2. `.githooks/pre-commit` and `.githooks/commit-msg`: what runs by itself today (the habits).
 3. `git grep -n "tools/"`: every place a name is written (about 1,300 in 138 files; most are in the history files,
    which keep the old names, see below).
 
 Today (checked 2026-11-26 on main bfb9650; recheck after H153, which changes some of these files): tools have plain
-lower-case names (`job.py`, `quicktest.sh`); `SORT_PRINCIPLES.py` is the first in the new style.
+lower-case names (`job.py`, `quicktest.sh`); `SORT_PRINCIPLES.py` (now in comitatus/09_Tools, not this repo) was the first in the new style.
 
-Request: rename with `git mv` (history follows the files) and rewrite every reference with one script you write and
-keep, `tools/FOR_RENAMING_TOOLS.py` (a table old -> new, applied to tracked text files), so the change is one
-mechanical pass and can be run again on a branch made before it. The names (keep them exactly; a name that turns out
-wrong in use is a later change, not this job's):
+Request: give every action a person or worker fires its own script, named as a command for that action, and put
+the habits (what runs by itself, or always holds) in a new top-level folder `02_Habits/`. **The code stays where it
+is**: `tools/job.py`, `tools/log.py` and the rest keep their names and are the library; each new script is a few
+lines that call one command of it (for `job.py take`: `sys.exit(job.main(["take", *sys.argv[1:]]))`, run from any
+directory). Tests, imports between modules and the hooks keep using the library names, so nothing breaks. What
+changes is what people and agents are told to type: guides, the start-up brief (`startup.py`'s checklists), tool
+usage lines and messages that say "run tools/job.py take ..." now name the new script.
 
-| Now | New | Kind |
-|---|---|---|
-| job.py | FOR_RUNNING_THE_JOB_QUEUE.py | tool | GET_A_JOB
-| integrate.py | FOR_MERGING_A_JOB.py | tool | MERGE_JOB
-| integrator.py | FOR_HOLDING_THE_INTEGRATOR_LOCK.py | tool | HOLD_THE_INTEGRATOR_LOCK
-| startup.py | WHEN_YOU_START_UP_REMEMBER_WHO_YOU_ARE.py | habit (the proposal's own example) | REMEMEMBER_WHO_YOU_ARE
-| launch.py | FOR_LAUNCHING_A_WORKER.py | tool | LAUNCH_A_WORKER
-| log.py | FOR_RECORDING_DECISIONS.py | tool | RECORD_A_DECISION
-| handoff.py | FOR_KEEPING_THE_HANDOFF.py | tool | not sure, let's talk
-| number_ids.py | FOR_NUMBERING_NEW_IDS.py | tool | NUMBER_A_NEW_ID
-| personal_space.py | FOR_KEEPING_A_LOG_AND_JOURNAL.py | tool | how does this tool work? it seems overloaded
-| SORT_PRINCIPLES.py | FOR_SORTING_PRINCIPLES.py | tool | SORT_PRINCIPLES
-| usage.py | FOR_MEASURING_TOKEN_USE.py | tool | MEASURE_TOKEN_USE
-| compare_suites.py | FOR_COMPARING_TEST_SUITES.py | tool | COMPARE_TEST_SUITES
-| cut_chain_check.py | FOR_TIMING_CUT_CHAINS.py | tool | not sure what this tool does
-| length_cases.py | FOR_CHECKING_LENGTH_CASES.py | tool | not sure what this tool does
-| atomize_log.py | FOR_ATOMIZING_THE_LOG.py | tool | ATOMIZE_YOUR_LOG
-| quicktest.sh | FOR_QUICK_TESTING.sh | tool | TEST_YOUR_CODE_FAST
-| fulltest.sh | FOR_FULL_TESTING.sh | tool | TEST_YOUR_CODE_THOROUGHLY
-| featuretest.sh | FOR_FEATURE_TESTING.sh | tool | not sure what this tool does
-| gate.sh | FOR_GATING_A_MERGE.sh | tool | not sure what this tool does
-| parsecheck.sh | FOR_PARSE_CHECKING.sh | tool | not sure what this tool does
-| start_worker.sh | FOR_STARTING_A_FREECAD_WORKER.sh | tool | START_A_WORKER
-| build_app.sh | FOR_BUILDING_THE_APP.sh | tool (watched code: see below) | BUILD_THE_APP
-| sort_decision_log.py | WHEN_THE_LOG_IS_COMMITTED_TIDY_IT.py | habit (the hook runs it) |good
-| check_architecture.py | WHEN_WATCHED_CODE_IS_COMMITTED_CHECK_THE_MAP.py | habit (the hooks run it) | good
-| org_todos.py | WHEN_MAIN_CHANGES_FILL_THE_TO_DOS.py | habit (the hook runs it) | good
+Tools (in `tools/`, `.py` for Python, `.sh` for shell; keep the names exactly):
+
+| Library command now | New script |
+|---|---|
+| job.py take | GET_A_JOB.py |
+| job.py done | SUBMIT_JOB.py |
+| job.py answer | ANSWER_A_WORKERS_QUESTION.py |
+| job.py return | RETURN_JOB.py |
+| job.py status | CHECK_THE_JOB_BOARD.py |
+| job.py watch --next | WAIT_FOR_THE_NEXT_JOB.py |
+| job.py board | REBUILD_THE_JOB_BOARD.py |
+| integrate.py | MERGE_JOB.py |
+| integrator.py take | HOLD_THE_INTEGRATOR_LOCK.py |
+| launch.py | LAUNCH_A_WORKER.py |
+| log.py add | RECORD_A_DECISION.py |
+| log.py pick | PICK_UP_A_TO_DO.py |
+| log.py note | ADD_A_NOTE_TO_A_DECISION.py |
+| number_ids.py | NUMBER_A_NEW_ID.py |
+| personal_space.py log / integrator.py note | WRITE_IN_YOUR_LOG.py |
+| personal_space.py journal | WRITE_IN_YOUR_JOURNAL.py |
+| handoff.py archive | ARCHIVE_A_FINISHED_JOB.py |
+| handoff.py overlaps | CHECK_JOBS_DONT_OVERLAP.py |
+| usage.py | MEASURE_TOKEN_USE.py (all its subcommands, passed through) |
+| compare_suites.py | COMPARE_TEST_SUITES.py |
+| length_cases.py | CHECK_TYPED_LENGTHS_AGAINST_FREECAD.py (run with freecadcmd, as now) |
+| quicktest.sh | TEST_YOUR_CODE_FAST.sh |
+| fulltest.sh | TEST_YOUR_CODE_THOROUGHLY.sh |
+| featuretest.sh | TEST_WITHOUT_THE_APP.sh |
+| gate.sh | TEST_BEFORE_MERGING.sh |
+| parsecheck.sh | CHECK_THE_SCRIPTS_PARSE.sh |
+| start_worker.sh | START_A_WORKER.sh |
+| build_app.sh | BUILD_THE_APP.sh |
+
+Commands not in the table (job.py beat/check/guard-checkout/run/test/wait/reassign, log.py set/show, handoff.py
+list/split/check, integrator.py status) are run by other tools and hooks: they get no script.
+
+Habits (in `02_Habits/`, same few-line form):
+
+| Library now | New script |
+|---|---|
+| startup.py | REMEMBER_WHO_YOU_ARE.py (William: an always-on command; no "WHEN_" in front) |
+| sort_decision_log.py | WHEN_THE_LOG_IS_COMMITTED_TIDY_IT.py |
+| check_architecture.py | WHEN_WATCHED_CODE_IS_COMMITTED_CHECK_THE_MAP.py |
+| org_todos.py | WHEN_MAIN_CHANGES_FILL_THE_TO_DOS.py |
+
+`02_Habits/README.md` says in a few lines what a habit is and lists them; `tools/README.md` (new) lists the tool
+scripts, one line each, what you fire it for. The hooks call the habit scripts.
 
 Rules that go with it:
-1. **Tests keep their names** (`tools/test_job.py` etc.): they are found by `test_*`, and that convention is the test
-   runner's, not a tool's. Rename their imports (`import job` -> `import FOR_RUNNING_THE_JOB_QUEUE as job`, so the
-   test bodies stay as they are).
-2. **Modules that import each other** do the same (`import FOR_RUNNING_THE_JOB_QUEUE as job`), so code reads as before.
-3. **The git hooks keep git's names** (`.githooks/pre-commit`, `commit-msg`); their bodies call the habit scripts.
-   Split `pre-commit`'s blocks only if that's needed to keep it working; a later job can make each block its own habit.
-4. **History keeps the old names**: don't rewrite `03_Past_Decisions/decision-archive.md`, `03_Past_Decisions/rulings/`
-   (each ruling's text is what was decided), `docs/handoff-archive.md`, `docs/proposals/`, `docs/handoff/` entries
-   other than ones still open, or `tests/reference/`. The live decision-log's Work list and Tunables `Where` cells are
-   rewritten (they are where things are now).
-5. **The app bundle**: `tools/FOR_BUILDING_THE_APP.sh` is watched code (`check_architecture.py`'s `watched` list
-   names it): update the list, and the commit says `Architecture-Impact: in the handoff - <this ID>` with an
-   `Architecture:` line.
-6. **Nothing else changes**: no behaviour, output or option of any tool. A tool's output that names itself (a usage
-   line, "run tools/job.py ...") says its new name.
-7. `tools/FOR_RENAMING_TOOLS.py --check` exits 1 if any tracked file outside the history list still names an old
-   tool path (`tools/job.py`, `tools/quicktest.sh` ...): the feature tests run it, so an old name can't come back.
+1. **Each new script is only a call**: no logic of its own, so the library's tests cover it. Write one check that
+   runs every new script with `--help` (or its library's equivalent harmless call) from a different directory and
+   sees it reach the library.
+2. **Names are exact.** A name that turns out wrong in use is a later change, not this job's.
+3. **History keeps the old names**: don't rewrite `03_Past_Decisions/decision-archive.md`, `03_Past_Decisions/rulings/`,
+   `docs/handoff-archive.md`, `docs/proposals/`, closed `docs/handoff/` entries, or `tests/reference/`. Live guides
+   (CLAUDE.md, AGENTS.md, GEMINI.md, docs/integrator.md, docs/agent-handoff.md, the part CLAUDE.md files, README.txt,
+   `Check FreeCAD speed.command`) and the live Work list are rewritten to the new names.
+4. **The app bundle**: `build_app.sh` is watched code (check_architecture.py's `watched` list). If the change to it or
+   to the list needs it, the commit says `Architecture-Impact: in the handoff - <this ID>` with an `Architecture:` line.
+5. **Nothing else changes**: no behaviour, output (other than names in instructions) or option of any tool.
+6. `tools/test_named_scripts.py` (new) also checks that no live guide tells you to type an old command
+   (`tools/job.py take`, `tools/quicktest.sh` ...) where a new script exists. The feature tests pick it up.
 
 What can fail:
-- A reference missed: `--check` finds it (item 7), and the gate runs every tool through its tests.
-- An import cycle or a name clash from `as` imports: the feature tests and quick test catch it.
-- Agents' habits: Claude, Codex and Gemini type `tools/job.py` from memory. Say in your response which guides you
-  changed; the integrator updates Claude's memory files outside the repo.
-- A branch made before the rename (none should be open: this job runs alone): `FOR_RENAMING_TOOLS.py` run on it
-  rewrites its references.
+- A guide still saying the old command: item 6 finds it.
+- A script that only works from the repo root: item 1 runs them from elsewhere.
+- Agents' habits: Claude, Codex and Gemini type `tools/job.py` from memory. The old commands keep working, so nothing
+  breaks; say in your response which guides you changed; the integrator updates Claude's memory files.
 
 Checks:
-- tools/test_renaming_tools.py (new): "every old name in the table maps to a file that exists under its new name";
-  "--check fails on a file that names tools/job.py and passes on main after the rename"; "history files are left
-  as they are".
-- `tools/FOR_FEATURE_TESTING.sh --list` finds the same tests as before (same count; quote both counts).
-- The gate (`tools/FOR_GATING_A_MERGE.sh`) passes.
+- tools/test_named_scripts.py (new): every script in both tables exists and reaches its library command; no live guide
+  names an old command; history files untouched.
+- `tools/featuretest.sh --list` finds the same tests as before plus the new one (quote both counts).
+- The gate (`tools/gate.sh`) passes.
