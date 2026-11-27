@@ -1,6 +1,6 @@
 ### H153 — T146 step 2: Work list items and open questions as one file each
 
-Author: Claude (integrator, napkin-77) | Date: 2026-11-26 | Status: queued (after H152) | For: either
+Author: Claude (integrator, napkin-77) | Date: 2026-11-26 | Status: open | For: either
 
 References: P65 (William, 2026-11-26: the Work list as single files too; Tunables stay a table), T146, H152 (rulings
 as files: this job reuses its machinery), P23, P17 (allowed statuses), T91 (Result lines), T93 (Waiting on William),

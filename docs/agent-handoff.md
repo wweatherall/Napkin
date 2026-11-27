@@ -32,7 +32,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
 - [H151 — T147 step 2: circles and polygons fit flush against a sloped face](handoff/H151-t147-flush-fits-curved-profiles.md) — status: open; for: either
-- [H153 — T146 step 2: Work list items and open questions as one file each](handoff/H153-t146-work-list-and-questions-as-files.md) — status: queued (after H152); for: either
+- [H153 — T146 step 2: Work list items and open questions as one file each](handoff/H153-t146-work-list-and-questions-as-files.md) — status: open; for: either
 
 <!-- end of open list -->
 
