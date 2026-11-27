@@ -201,6 +201,7 @@ Work list items that are finished (and Split ones whose parts are all done).
 | T145 | Go through the ultra review findings (William's /code-review ultra of Gemini's stretch,... | Done |
 | T147 | Plane fits keep their target and stay correct when boards are cut, flipped, chained or ... | Done |
 | T148 | The worker turns off FreeCAD's backup files (CreateBackupFiles) in the shared user pref... | Done |
+| T151 | Tests run by what changed: a branch that touches only tools, guides, the log or persona... | Done |
 
 ## Details
 

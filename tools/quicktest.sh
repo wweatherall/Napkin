@@ -15,10 +15,22 @@ START=$SECONDS
 set_test_tmpdir || exit 1
 GD=/Applications/Godot.app/Contents/MacOS/Godot
 LANES=3
-[ "$1" = "--one" ] && LANES=0
+for arg in "$@"; do
+  [ "$arg" = "--one" ] && LANES=0
+done
+resolve_test_scope "$@"
+echo "quick: $TEST_SCOPE_DESC"
 run_stage "quick: parse" tools/parsecheck.sh || { echo "quick test not run: a viewport script doesn't parse"; exit 1; }
 echo "TIMING parse: $((SECONDS - START)) s"
 OUT=$(mktemp -d "${TEST_TMPDIR%/}/shopsketch-quick.XXXXXX") || exit 1
+if [ "$TEST_SCOPE" = "tools" ]; then
+  run_stage "quick: feature tests" run_features "$OUT" --tools-only
+  FT=$?
+  grep -vE "^features:" "$OUT/feature.log"
+  echo "$(grep -E "^features:" "$OUT/feature.log" | sed 's/  (logs:.*//') | viewport: skipped (tools-only)  (logs: $OUT)"
+  [ $FT -eq 0 ]
+  exit $?
+fi
 run_stage "quick: feature tests" run_features "$OUT" &
 FEATURES=$!
 viewport_tests() {
