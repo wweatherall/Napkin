@@ -84,4 +84,4 @@ Where removed sections/rows went:
 | `## Planned boundaries`, `## Validation and maintenance`, `### Automated omission checks`, `## Native geometry feature mapping` | Dropped as redundant with `CLAUDE.md` / `03_Past_Decisions/` / `FREECAD_FEATURE_MAP.md` (links kept in `Documentation ownership` & `Where to implement a change`) |
 | T/H history notes throughout | Dropped as history (kept in git & rulings) |
 
-Result: <pending commit>; `python3 tools/architecture_map.py --check` (0), `python3 tools/test_architecture_map.py` (10/10), `tools/TEST_BEFORE_MERGING.sh` (all parse/viewport/suite-compare checks and 43/44 feature suites pass; `JOB TESTS` 199/200 due to pre-existing `ANTIGRAVITY_MODEL` personal-space mismatch in `test_job.py` line 1455); compressed ARCHITECTURE.md core to 8,029 B and moved file/wire facts to headers and docs/protocol.md.
+Result: 6af061d; `python3 tools/architecture_map.py --check` (0), `python3 tools/test_architecture_map.py` (10/10), `tools/TEST_BEFORE_MERGING.sh` (GATE PASS: full test passes, QUICK 401/401, 0 known failures); compressed ARCHITECTURE.md core to 8,029 B and moved file/wire facts to headers and docs/protocol.md.
