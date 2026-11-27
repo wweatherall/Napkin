@@ -65,6 +65,9 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
+| H174 | Gemini | **Ready** | A generated dependency map: who uses which file, and who calls a function | [H174](docs/handoff/H174-dependency-map.md) |  |
+| H175 | Gemini | **Ready** | The merge tools: six things the integrator did by hand on 2026-11-27, made automatic | [H175](docs/handoff/H175-merge-tool-fixes.md) |  |
+| H176 | Gemini | **Ready** | The two old protocol findings: drop the unused `replay` command, and one place for a session's name | [H176](docs/handoff/H176-protocol-findings.md) |  |
 
 <!-- end of job table -->
 
