@@ -306,7 +306,7 @@ try:
     ]
     rt_wrong = []
     for idx, (text, want_mm, du) in enumerate(rt_samples, 1):
-        lr = w.ask({"cmd": "length", "id": idx, "texts": [text], "default_unit": du}, "length")
+        lr = w.ask({"cmd": "length", "request_id": idx, "texts": [text], "default_unit": du}, "length")
         if not lr or not lr.get("ok") or abs(lr["values"][0] - want_mm) > 1e-6:
             rt_wrong.append((text, du, want_mm, lr))
     check("FreeCAD's length_input round-trips all formatted styles and bare-number default_units (P21)",
