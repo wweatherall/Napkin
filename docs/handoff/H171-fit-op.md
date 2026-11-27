@@ -1,6 +1,6 @@
 ### H171 — Fits become their own ops (`fit`, `unfit`), and old files' fits are upgraded when opened
 
-Author: Claude (integrator, napkin-77) | Date: 2026-11-27 | Status: open | For: gemini
+Author: Claude (integrator, napkin-77) | Date: 2026-11-27 | Status: answered | For: gemini
 
 Item: T162
 
@@ -71,5 +71,9 @@ Checks:
 ### Response
 
 - **2026-11-27 (gemini, gemini-walnut-1127-0808):**
-  Branch `gemini/h171-fit-op`. Split plane fits out of `property_edit` into `fit` (`ft`) and `unfit` (`uf`), added `upgrade_op` in `worker/session.py` for old journals/dropped entries/Meta `ShopSketchOps`, and bumped `PROTOCOL_VERSION` to 17.
+  Branch `gemini/h171-fit-op`, commit `c419de3`. Split plane fits out of `property_edit` into `fit` (`ft`) and `unfit` (`uf`), added `upgrade_op` in `worker/session.py` for old journals/dropped entries/Meta `ShopSketchOps`, and bumped `PROTOCOL_VERSION` to 17.
+  Verified: `python3 tools/protocol_map.py --check` passed; `tools/TEST_BEFORE_MERGING.sh` passed (`GATE PASS: full test passes; QUICK 401 passed, 0 failed in 25.2 s`); `python3 tools/job.py test` passed on `c419de3` (401/401 quick, 97/97 property tests, 23/23 floor copy tests, 714/714 scenario tests, 151/151 document tests, 14/14 protocol map tests).
+  Scope answer quoted: `"Yes: add fit and unfit to TYPES in worker/scenario/99_op_registry.py. Any other test or scenario that lists op types or sends plane_fit/replace_fit property_edits: update it without asking, and list them in your Changed from the brief line."`
+  Changed from the brief: Touches did not list `worker/scenario/99_op_registry.py`; added `'fit'` and `'unfit'` to `TYPES` with integrator scope approval because it asserts `set(Model.HANDLERS) == TYPES`.
   Architecture: `fit` and `unfit` are top-level ops (`Model.op_fit`, `Model.op_unfit`) with `ft`/`uf` IDs and `_op_refs` (`body`, `target_body` for `fit`; `body` for `unfit`), `property_edit` accepts only `mode` `"value" | "expression"`, `session.upgrade_op(op)` upgrades pre-protocol-17 fits on read, and `PROTOCOL_VERSION` is bumped 16 -> 17 in `worker/serve.py`, `viewport/main.gd`, and `docs/protocol.md`.
+  Result: c419de3; GATE PASS + job.py test (401/401 quick, 97/97 properties, 23/23 floor copy, 714/714 scenarios); fits split into fit/unfit ops, old files upgraded on open, PROTOCOL_VERSION 17
