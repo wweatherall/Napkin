@@ -31,6 +31,8 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 <!-- open list: built from docs/handoff/ by tools/handoff.py; don't edit by hand -->
 
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
+- [H167 — Architecture step 2: ARCHITECTURE.md down to a hand-written core under 8 KB, nothing lost](handoff/H167-architecture-core.md) — status: open; for: gemini
+- [H168 — A script that keeps docs/agent-handoff.md tidy: short, current, every link working](handoff/H168-tidy-the-handoff.md) — status: open; for: gemini
 
 <!-- end of open list -->
 

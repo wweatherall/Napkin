@@ -65,6 +65,8 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
+| H167 | Gemini | **Ready** | Architecture step 2: ARCHITECTURE.md down to a hand-written core under 8 KB, nothing lost | [H167](docs/handoff/H167-architecture-core.md) |  |
+| H168 | Gemini | **Ready** | A script that keeps docs/agent-handoff.md tidy: short, current, every link working | [H168](docs/handoff/H168-tidy-the-handoff.md) |  |
 
 <!-- end of job table -->
 
