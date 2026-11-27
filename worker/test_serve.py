@@ -54,8 +54,12 @@ try:
     with open(os.path.join(HERE, "..", "viewport", "main.gd")) as f:
         window_version = int(re.search(r"^const PROTOCOL_VERSION := (\d+)$", f.read(), re.M).group(1))
     check("hello carries the protocol version (serve.py PROTOCOL_VERSION), the same main.gd checks for",
-          ha.get("protocol") == version == window_version and isinstance(ha.get("protocol"), int),
+          ha.get("protocol") == version == window_version == 18 and isinstance(ha.get("protocol"), int),
           (ha.get("protocol"), version, window_version))
+    rp_unknown = a.ask({"cmd": "replay", "model": m1, "seq": 10}, "replay")
+    check("replay command is rejected as an unknown command (H176)",
+          rp_unknown and not rp_unknown["ok"] and rp_unknown.get("cmd") == "replay"
+          and "unknown cmd 'replay'" in rp_unknown.get("error", ""), rp_unknown)
     check("hello echoes its seq (T70)", ha and ha.get("seq") == 11 and "seq" in hb and hb["seq"] is None, (ha, hb))
     oa = a.ask({"cmd": "open", "model": m1, "fresh": True, "seq": 12}, "open")
     ob = b.ask({"cmd": "open", "model": m2, "fresh": True}, "open")
@@ -250,6 +254,10 @@ try:
               ss["ok"] and st_data == ss["result"]
               and set(st_data.keys()) == {"oplog", "total_ms", "export_ms", "how", "ops", "rev", "model"},
               (st_data, ss.get("result")))
+        ss_no_name = ws.ask({"cmd": "sync", "model": ms, "outdir": ms + "-out",
+                             "oplog": {"format": "oplog/0.1", "units": "mm", "ops": board_ops(230)}}, "sync")
+        check("sync without nested oplog.name works and defaults result.oplog to live (H176)",
+              ss_no_name and ss_no_name["ok"] and ss_no_name["result"]["oplog"] == "live", ss_no_name)
         ws.ask({"cmd": "bye"}, "bye")
         ws.drop()
     finally:

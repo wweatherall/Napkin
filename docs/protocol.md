@@ -1,6 +1,6 @@
 # Window ↔ worker protocol
 
-The wire protocol's version is **17**: the worker reports it in `hello` (`protocol`), defined once per side (`worker/serve.py` `PROTOCOL_VERSION`, `viewport/main.gd` `PROTOCOL_VERSION`). **Rule: bump it on both sides when a message or a shared-file field changes** (added, removed, renamed or its meaning changed), and update this document. There is no negotiation: a window shares a worker only when the version matches. Existing embedded format identifiers are `oplog/0.1` and `shopsketch-journal/0.1`; binary meshes use Godot's Variant array encoding. Version history, job tags and the old producer/consumer findings: [protocol-archive.md](protocol-archive.md).
+The wire protocol's version is **18**: the worker reports it in `hello` (`protocol`), defined once per side (`worker/serve.py` `PROTOCOL_VERSION`, `viewport/main.gd` `PROTOCOL_VERSION`). **Rule: bump it on both sides when a message or a shared-file field changes** (added, removed, renamed or its meaning changed), and update this document. There is no negotiation: a window shares a worker only when the version matches. Existing embedded format identifiers are `oplog/0.1` and `shopsketch-journal/0.1`; binary meshes use Godot's Variant array encoding. Version history, job tags and the old producer/consumer findings: [protocol-archive.md](protocol-archive.md).
 
 ## Transport, identity and lifetime
 
@@ -45,7 +45,6 @@ Examples are illustrative JSON lines; timing values, paths, IDs and hashes vary.
 | `set_units` | command | `model`, `units?`, `seq?` | `ok`, `cmd`, `model`, `units`, `rev`, `seq` | `worker/serve.py:serve.handle` |
 | `inspect_properties` | command | `model`, `request_id`, `body`, `seq?` | `ok`, `cmd`, `seq`, `model`, `request_id`, `properties` | `worker/serve.py:serve.handle` |
 | `sync` | command | `model?`, `outdir`, `ops`, `oplog`, `drawing?`, `name?`, `seq?` | `ok`, `cmd`, `result`, `outdir`, `seq`, `wall_ms` | `worker/serve.py:serve.handle` |
-| `replay` | command | `model?`, `outdir`, `ops`, `oplog`, `drawing?`, `name?`, `seq?` | `ok`, `cmd`, `result`, `outdir`, `seq`, `wall_ms` | `worker/serve.py:serve.handle` |
 | `focus` | event | — | `ok`, `cmd`, `model` | `worker/serve.py:serve.handle` |
 | `outside_save` | event | — | `ok`, `cmd`, `model`, `rev`, `unsaved` | `worker/serve.py:serve.hold` |
 | `save_failed` | event | — | `model`, `rev`, `error`, `ok`, `cmd` | `worker/serve.py:serve.save_pending` |
@@ -55,11 +54,11 @@ Examples are illustrative JSON lines; timing values, paths, IDs and hashes vary.
 
 ### `hello`
 
-Request: `cmd: "hello"`, `seq?`. Success: `ok: true`, `cmd: "hello"`, `seq` (echo or null), `app: "shopsketch"`, `protocol: integer` (the protocol version, currently 17), `worker: string` (32 lowercase hex MD5), `pid: integer`. The window uses the worker only if `protocol` equals its own version and `worker` its own identity.
+Request: `cmd: "hello"`, `seq?`. Success: `ok: true`, `cmd: "hello"`, `seq` (echo or null), `app: "shopsketch"`, `protocol: integer` (the protocol version, currently 18), `worker: string` (32 lowercase hex MD5), `pid: integer`. The window uses the worker only if `protocol` equals its own version and `worker` its own identity.
 
 ```json
 {"cmd":"hello"}
-{"ok":true,"cmd":"hello","seq":null,"app":"shopsketch","protocol":17,"worker":"0123456789abcdef0123456789abcdef","pid":1234}
+{"ok":true,"cmd":"hello","seq":null,"app":"shopsketch","protocol":18,"worker":"0123456789abcdef0123456789abcdef","pid":1234}
 ```
 
 Producer/consumer: [worker/serve.py](../worker/serve.py):`serve.handle`, `worker_identity`; [viewport/worker_process.gd](../viewport/worker_process.gd):`probe_worker` (`hello`, `worker_of`). Probing uses a separate short-lived connection.
@@ -78,32 +77,32 @@ A refusal has exactly `ok: false`, `cmd: "open"`, `error: "already_open"`, `mode
 
 Producer/consumer: [worker/serve.py](../worker/serve.py):`serve.handle`, `session_for`, `claim`; [worker/session.py](../worker/session.py):`Session._open_existing`; [viewport/document.gd](../viewport/document.gd):`send_open`, `on_opened`; [viewport/main.gd](../viewport/main.gd):`_on_open` (first drops a reply `is_current_open` rejects; then adopts history and requests sync, or closes a duplicate launch/reverts a refused switch).
 
-### `sync` and `replay`
+### `sync`
 
 | Request field | Type and meaning |
 |---|---|
-| `cmd` | `"sync"` or `"replay"`; replay starts a fresh session every time |
+| `cmd` | `"sync"` |
 | `model?` | string; defaults to `<outdir>/model.FCStd` if omitted/empty; supplying neither usable model nor outdir fails |
-| `oplog` | `{ops: Op[], units?: "mm", format?: string, name?: string, reserved_ids?: string[]}`; `format`/nested `name` are not validated/used by `run_sync`; `reserved_ids` (protocol 7) is the window's reservations, added to the session's registry before the ops are checked |
+| `oplog` | `{ops: Op[], units?: "mm", format?: string, reserved_ids?: string[]}`; `format` is not validated/used by `run_sync`; `reserved_ids` (protocol 7) is the window's reservations, added to the session's registry before the ops are checked |
 | `ops` | alternate top-level Op array when `oplog` is absent |
 | `outdir?` | string; export folder, defaults to parent of resolved model path |
 | `seq?` | echoed correlation value; window sends integer; omitted becomes `null` |
 | `drawing?` | boolean, default false; true enables drawings on subsequent saves of this session |
-| `name?` | string, default `"live"`; becomes `result.oplog` (independent of nested oplog name) |
-| `delay_ms?` | number; test hook, blocking sleep before dispatch for open/inspect/sync/replay/unknown commands |
+| `name?` | string, default `"live"`; the only place a session's name comes from, becoming `result.oplog` |
+| `delay_ms?` | number; test hook, blocking sleep before dispatch for open/inspect/sync/unknown commands |
 
-A non-`mm` `oplog.units` is refused. The normal window supplies `oplog.format = "oplog/0.1"`, `units = "mm"`, `name = "Shop Sketch session"`; there is no schema validator for its format string.
+A non-`mm` `oplog.units` is refused. The normal window supplies `oplog.format = "oplog/0.1"`, `units = "mm"`; there is no schema validator for its format string.
 
 ```json
-{"cmd":"sync","model":"/tmp/chair.FCStd","outdir":"/tmp/chair-out","seq":4,"drawing":false,"oplog":{"format":"oplog/0.1","units":"mm","name":"Shop Sketch session","ops":[]}}
+{"cmd":"sync","model":"/tmp/chair.FCStd","outdir":"/tmp/chair-out","seq":4,"drawing":false,"oplog":{"format":"oplog/0.1","units":"mm","ops":[]}}
 {"ok":true,"cmd":"sync","seq":4,"wall_ms":1.2,"outdir":"/tmp/chair-out","result":{"oplog":"live","total_ms":0.1,"export_ms":0.8,"how":"nothing","ops":[],"rev":3,"model":"/tmp/chair.FCStd"}}
 ```
 
-**Replay also replies with `cmd: "sync"`**, not `"replay"`. Success has `ok: true`, `cmd`, `seq`, `wall_ms: number`, `outdir: string`, `result: StatusResult`. `wall_ms` includes request handling/export but excludes deferred save. `outdir` is returned as supplied/defaulted, not forcibly made absolute.
+Success has `ok: true`, `cmd`, `seq`, `wall_ms: number`, `outdir: string`, `result: StatusResult`. `wall_ms` includes request handling/export but excludes deferred save. `outdir` is returned as supplied/defaulted, not forcibly made absolute.
 
 | StatusResult field | Type and meaning |
 |---|---|
-| `oplog` | string, request's top-level name or `"live"` |
+| `oplog` | string, from the request's top-level `name` (default `"live"`) |
 | `total_ms`, `export_ms` | number, sync/evaluation time and metadata/mesh export time |
 | `how` | `"nothing"`, `"rebuilt"`, or `"undid N, applied M"` |
 | `ops` | ordered OpStatus array, one per applied/requested operation |

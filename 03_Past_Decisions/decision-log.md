@@ -372,8 +372,6 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | T152 | Thin the tests without losing coverage: research how others do it (coverage-guided test... | Open |
 | T153 | Generated tests: inputs made fresh each run (a random seed, printed so a failure can be... | Open |
 | T155 | Find a home for (or delete) the loose files at Napkin's top level: 'Codex's suggestions... | Open |
-| T157 | Replay's reply says cmd sync (protocol finding 6): a consumer matching a reply's cmd to... | On the board (H176) |
-| T158 | The window sends the op list's name nested (oplog.name) but the worker's run_sync reads... | On the board (H176) |
 | T159 | Clarify push_pull and separate its jobs: one op today extrudes a profile or face, cuts,... | Open |
 | T160 | Check every field the window sends in an op is one the worker reads (today unknown fiel... | On the board (H178) |
 | T161 | Think through plane-fit face numbering: faces are 0-5 (Left..Top) on plain stock but 't... | Open |
