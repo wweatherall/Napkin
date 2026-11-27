@@ -309,9 +309,10 @@ def set_status(root, tid, status):
         if arch is not None:
             rdir = os.path.join(root, sort_decision_log.RULINGS_DIR)
             qdir = os.path.join(root, sort_decision_log.QUESTIONS_DIR)
+            has_r = os.path.isdir(rdir) or sort_decision_log.comitatus_rulings_dir(root)
             live2, arch2 = sort_decision_log.tidy(
                 live, arch,
-                rulings_dir=rdir if os.path.isdir(rdir) else None,
+                rulings_dir=sort_decision_log.ruling_dirs(root) if has_r else None,
                 work_dir=wdir,
                 questions_dir=qdir if os.path.isdir(qdir) else None,
             )
@@ -336,7 +337,8 @@ def set_status(root, tid, status):
         open(p, "w", encoding="utf-8").write(texts[0])
         return f"{tid}: {status}"
     rdir = os.path.join(root, sort_decision_log.RULINGS_DIR)
-    live2, arch2 = sort_decision_log.tidy(texts[0], texts[1], rulings_dir=rdir if os.path.isdir(rdir) else None)
+    has_r = os.path.isdir(rdir) or sort_decision_log.comitatus_rulings_dir(root)
+    live2, arch2 = sort_decision_log.tidy(texts[0], texts[1], rulings_dir=sort_decision_log.ruling_dirs(root) if has_r else None)
     open(p, "w", encoding="utf-8").write(live2)
     open(a, "w", encoding="utf-8").write(arch2)
     moved = found == 0 and sort_decision_log.find_row(arch2.split("\n"), tid) is not None
@@ -823,8 +825,10 @@ def settle_conflicts(s):
             if text != merged:
                 open(bpath, "w", encoding="utf-8").write(text)
                 say(f"kept main's Order line, job table and Notes in BOARD.md (the branch had changed {', '.join(changed)})")
+    moved_rulings = {sort_decision_log.RULINGS_DIR + "/" + ident + ".md"
+                     for ident in sort_decision_log.move_process_rulings(root, out=say)}
     # Before staging anything: staging clears git's "unmerged" mark even with conflict markers still in a file.
-    left = [f for f in conflicts if f not in (handoff.HANDOFF, LOG, ARCHIVE, job.BOARD)]
+    left = [f for f in conflicts if f not in (handoff.HANDOFF, LOG, ARCHIVE, job.BOARD) and f not in moved_rulings]
     if left:
         say(f"conflicts to settle by hand: {', '.join(left)} (the merge is left in progress)"); return s.stop(1)
     marked = [f for f in conflicts if has_markers(os.path.join(root, f))]
@@ -854,6 +858,7 @@ def number_entries(s):
     answered = answered_by(root, branch, base)
     # Number first (H060): an entry named H-new-N-slug.md is H0NN by the time its Result and follow-ups are recorded.
     numbers = number_ids.apply(root, out=lambda s: say(s) if s != "no placeholders" else None)
+    sort_decision_log.move_process_rulings(root, out=say)
     answered = [numbered(rel, numbers) for rel in answered]
     statuses = [[numbered(t, numbers), s] for t, s in statuses]
     s.answered, s.statuses = answered, statuses
@@ -907,10 +912,11 @@ def rebuild_and_check(s):
     rdir = os.path.join(root, sort_decision_log.RULINGS_DIR)
     wdir = os.path.join(root, sort_decision_log.WORK_DIR)
     qdir = os.path.join(root, sort_decision_log.QUESTIONS_DIR)
+    has_r = os.path.isdir(rdir) or sort_decision_log.comitatus_rulings_dir(root)
     problems = sort_decision_log.check_files(
         open(os.path.join(root, LOG), encoding="utf-8").read(),
         open(arch, encoding="utf-8").read() if os.path.isfile(arch) else None,
-        rulings_dir=rdir if os.path.isdir(rdir) else None,
+        rulings_dir=sort_decision_log.ruling_dirs(root) if has_r else None,
         work_dir=wdir if os.path.isdir(wdir) else None,
         questions_dir=qdir if os.path.isdir(qdir) else None,
     )

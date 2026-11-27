@@ -60,12 +60,12 @@ check("Done, In progress and 'On the board (H041)' are accepted", not any(p[:3] 
 check("the real decision log uses only allowed statuses",
       s.status_problems(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "03_Past_Decisions", "decision-log.md"), encoding="utf-8").read()) == [])
 
-arch = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "03_Past_Decisions", "decision-archive.md")
-rdir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "03_Past_Decisions", "rulings")
-wdir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "03_Past_Decisions", "work")
-qdir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "03_Past_Decisions", "questions")
+REPO = os.path.realpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
+arch = os.path.join(REPO, "03_Past_Decisions", "decision-archive.md")
+wdir = os.path.join(REPO, "03_Past_Decisions", "work")
+qdir = os.path.join(REPO, "03_Past_Decisions", "questions")
 check("03_Past_Decisions/decision-log.md, archive, rulings/, work/ and questions/ are tidy with no problems (P23, P65)",
-      s.check_files(text, open(arch, encoding="utf-8").read(), rulings_dir=rdir, work_dir=wdir, questions_dir=qdir) == [])
+      s.check_files(text, open(arch, encoding="utf-8").read(), rulings_dir=s.ruling_dirs(REPO), work_dir=wdir, questions_dir=qdir) == [])
 check("a live file with no archive beside it (before P23) is only sorted",
       not any("not sorted" in p for p in s.check_files(s.sort_text(DOC))) and any("not sorted" in p for p in s.check_files(DOC)))
 
@@ -290,6 +290,28 @@ check("an item whose only job was dropped goes back to Open",
 check("a Parked item is never moved",
       "Status: Parked" in t4_text)
 shutil.rmtree(bs_tmp)
+
+# Dual rulings dirs: ruling_dirs(root) finds comitatus beside it, NAPKIN_COMITATUS overrides, and --check refuses duplicate IDs
+dual_org = tempfile.mkdtemp(prefix="sdl-dual-")
+dual_proj = os.path.join(dual_org, "08_Code_Bases", "Proj")
+dual_r1 = os.path.join(dual_proj, "03_Past_Decisions", "rulings")
+dual_r2 = os.path.join(dual_org, "03_Past_Decisions", "rulings")
+os.makedirs(dual_r1); os.makedirs(dual_r2)
+s.write_entry(dual_r1, "G01", s.format_ruling("G01", "Keep it simple.", "Tentative", "2026-11-22"))
+s.write_entry(dual_r2, "P01", s.format_ruling("P01", "Never delete.", "Active", "2026-11-22", subject="Snapping", principles="G01"))
+old_env = os.environ.get("NAPKIN_COMITATUS")
+os.environ.pop("NAPKIN_COMITATUS", None)
+try:
+    check("ruling_dirs finds both Napkin and comitatus rulings folders when comitatus is beside it",
+          [os.path.realpath(d) for d in s.ruling_dirs(dual_proj)] == [os.path.realpath(dual_r1), os.path.realpath(dual_r2)])
+    s.write_entry(dual_r1, "P01", s.format_ruling("P01", "Duplicate.", "Active", "2026-11-22", subject="Snapping", principles="G01"))
+    dup_probs = s.layout_problems(l2, a2, rulings_dir=s.ruling_dirs(dual_proj))
+    check("--check / layout_problems refuses an ID present in both folders",
+          any("P01 is in both" in p for p in dup_probs))
+finally:
+    if old_env is not None:
+        os.environ["NAPKIN_COMITATUS"] = old_env
+shutil.rmtree(dual_org)
 
 print(f"LOG SORT TESTS: {sum(RESULTS)} passed, {len(RESULTS) - sum(RESULTS)} failed")
 raise SystemExit(0 if all(RESULTS) else 1)   # a failed check fails the run, not only its summary

@@ -65,7 +65,6 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H166 | Gemini | **Ready** | T146 step 3: Process rulings to comitatus, and comitatus's principles one file each with one add command | [H166](docs/handoff/H166-org-case-law.md) |  |
 
 <!-- end of job table -->
 

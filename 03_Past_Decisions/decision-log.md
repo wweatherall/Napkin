@@ -1,8 +1,9 @@
 # Shop Sketch decision log
 
 The live half of the decision log (P09, P23): what holds now. Each ruling (principle `G` or decision `A`, `D`, `I`,
-`M`, `P`, `U`, `W`, ...) lives in its own file at `03_Past_Decisions/rulings/<ID>.md`, and stays there even when
-Superseded (P01). This file keeps generated indexes (`Subjects`, `Principles`, `Decisions`), plus `Open questions`,
+`M`, `P`, `U`, `W`, ...) lives in its own file at `03_Past_Decisions/rulings/<ID>.md`, except `Subject: Process`
+rulings, which live in `comitatus/03_Past_Decisions/rulings/<ID>.md` (T146); every ruling stays in its folder even
+when Superseded (P01). This file keeps generated indexes (`Subjects`, `Principles`, `Decisions`), plus `Open questions`,
 `Work list`, `Tunables`, and `Details` (for `Q`/`T`). [decision-archive.md](decision-archive.md) keeps the index of
 Superseded rulings, decided questions, and done Work list items. Read a ruling with
 `python3 tools/log.py show I34` (or open `03_Past_Decisions/rulings/I34.md`). Before 2026-11-21 it was a claude.ai
@@ -21,8 +22,8 @@ and the integrator runs tools/number_ids.py on main at merge, which gives each t
 files and everywhere it's cited.
 
 tools/log.py (T92) does this bookkeeping: `add <kind> "<text>" --subject S --principles G01` writes a ruling file
-(or Q/T row) with the right number or placeholder, dated and indexed; `set <ID> --status S [--where ...] [--rel ...]`
-updates a ruling's status line without hand-editing; `note T66 "<text>"` appends to a Work list row's last column;
+(or Q/T row) with the right number or placeholder, dated and indexed (for principles at either level, use
+`comitatus/09_Tools/ADD_A_PRINCIPLE.py`); `set <ID> --status S [--where ...] [--rel ...]` updates a ruling's status line without hand-editing; `note T66 "<text>"` appends to a Work list row's last column;
 `show <subject|ID>` prints that subject's index + rulings, or an ID's ruling file + named principles (`--top`: this top).
 
 Rule P01: a new decision that contradicts an old one gets a new ruling naming the old ID; the old ruling is marked
@@ -370,7 +371,6 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | T138 | Compress ARCHITECTURE.md heavily so the start-up brief can carry the map (about 80 KB t... | Open |
 | T139 | Rename the app to Napkin: what you see, the built app, folders, and the code and docs t... | Open |
 | T141 | William tries the Polygon tool by eye in a rebuilt app (tools/BUILD_THE_APP.sh). | Open |
-| T146 | Atomize the principles and past decisions: one file per ruling (G, P and the rest), wri... | On the board (H166) |
 | T152 | Thin the tests without losing coverage: research how others do it (coverage-guided test... | Open |
 | T153 | Generated tests: inputs made fresh each run (a random seed, printed so a failure can be... | Open |
 | T155 | Find a home for (or delete) the loose files at Napkin's top level: 'Codex's suggestions... | Open |

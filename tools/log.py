@@ -84,8 +84,7 @@ def principles(live, root=None):
     lines = live.split("\n")
     out = {s.cells(lines[r])[0]: lines[r] for h, hc, rs, sec, g in s.tables(lines) if sec == "## Principles" for r in rs}
     if root is not None:
-        rdir = os.path.join(root, s.RULINGS_DIR)
-        for ident, e in s.read_entries(rdir).items():
+        for ident, e in s.read_entries(s.ruling_dirs(root)).items():
             if s.kind_of(ident) == "G" and e["meta"].get("Status") in ("Active", "Tentative"):
                 out[ident] = e
     return out
@@ -219,10 +218,16 @@ def add(root, kind, text, opts, on_main=None, today=None):
         raise LogError(f"status '{o['status']}' isn't one of {', '.join(sorted(allowed))} ({section[3:]})")
     ident = next_id(root, kind, on_main)
     rdir = os.path.join(root, s.RULINGS_DIR)
+    cdir = s.comitatus_rulings_dir(root)
     wdir = os.path.join(root, s.WORK_DIR)
     qdir = os.path.join(root, s.QUESTIONS_DIR)
+    wrote_comitatus = False
     if s.is_ruling_id(kind):
-        target_dir = rdir
+        if group == "Process" and on_main and cdir:
+            target_dir = cdir
+            wrote_comitatus = True
+        else:
+            target_dir = rdir
         content = s.format_ruling(
             ident, text, o["status"], o["date"],
             subject=group or "",
@@ -245,10 +250,15 @@ def add(root, kind, text, opts, on_main=None, today=None):
             notes=o.get("notes", ""),
         )
     s.write_entry(target_dir, ident, content)
+    if wrote_comitatus:
+        import comitatus_commit
+        org, _ = s.comitatus_root(root)
+        comitatus_commit.commit(org, [os.path.join(cdir, f"{ident}.md")],
+                                f"{ident}: {s.first_sentence(text)}", push=True)
     if archive is None:
         new_live, new_arch = s.sort_text(live), None
     else:
-        new_live, new_arch = s.tidy(live, archive, rulings_dir=rdir, work_dir=wdir, questions_dir=qdir)
+        new_live, new_arch = s.tidy(live, archive, rulings_dir=s.ruling_dirs(root), work_dir=wdir, questions_dir=qdir)
         if new_arch != archive:
             write(root, ARCHIVE, new_arch)
     write(root, LIVE, new_live)
@@ -300,7 +310,13 @@ def set_ruling(root, ident, opts):
         )
         s.write_entry(qdir, ident, content)
     else:
-        entry = s.read_entry(rdir, ident)
+        rdirs = s.ruling_dirs(root)
+        cdir = s.comitatus_rulings_dir(root)
+        in_comitatus = (cdir is not None and not os.path.isfile(os.path.join(rdir, f"{ident}.md"))
+                        and os.path.isfile(os.path.join(cdir, f"{ident}.md")))
+        if in_comitatus and branch(root) != "main":
+            raise LogError(f"{ident} lives in comitatus; the integrator changes it on main")
+        entry = s.read_entry(rdirs, ident)
         if entry is None:
             raise LogError(f"no ruling {ident} in {s.RULINGS_DIR}")
         meta = entry["meta"]
@@ -319,10 +335,14 @@ def set_ruling(root, ident, opts):
             why=entry["why"],
             details=entry["details"],
         )
-        s.write_entry(rdir, ident, content)
+        s.write_entry(cdir if in_comitatus else rdir, ident, content)
+        if in_comitatus:
+            import comitatus_commit
+            org, _ = s.comitatus_root(root)
+            comitatus_commit.commit(org, [os.path.join(cdir, f"{ident}.md")], f"{ident}: update", push=True)
     live, archive = read(root, LIVE), read(root, ARCHIVE)
     if live is not None and archive is not None:
-        new_live, new_arch = s.tidy(live, archive, rulings_dir=rdir, work_dir=wdir, questions_dir=qdir)
+        new_live, new_arch = s.tidy(live, archive, rulings_dir=s.ruling_dirs(root), work_dir=wdir, questions_dir=qdir)
         if new_live != live:
             write(root, LIVE, new_live)
         if new_arch != archive:
@@ -351,11 +371,10 @@ def pick(root, ident, who="integrator", today=None):
         result=entry["result"], details=entry["details"],
     )
     s.write_entry(wdir, ident, content)
-    rdir = os.path.join(root, s.RULINGS_DIR)
     qdir = os.path.join(root, s.QUESTIONS_DIR)
     live, archive = read(root, LIVE), read(root, ARCHIVE)
     if live is not None and archive is not None:
-        new_live, new_arch = s.tidy(live, archive, rulings_dir=rdir, work_dir=wdir, questions_dir=qdir)
+        new_live, new_arch = s.tidy(live, archive, rulings_dir=s.ruling_dirs(root), work_dir=wdir, questions_dir=qdir)
         if new_live != live:
             write(root, LIVE, new_live)
         if new_arch != archive:
@@ -426,11 +445,11 @@ def subject_group(live, name, root=None):
         body.pop()
     out = ["\n".join(body)]
     if root is not None:
-        rdir = os.path.join(root, s.RULINGS_DIR)
+        rdirs = s.ruling_dirs(root)
         for line in body:
             ident = s.row_id(line)
             if ident and s.is_ruling_id(ident):
-                e = s.read_entry(rdir, ident)
+                e = s.read_entry(rdirs, ident)
                 if e:
                     status_line = next((l for l in e["raw"].splitlines() if l.startswith("Status:")), "")
                     out.append(f"{ident}: {status_line}\n{e['body']}")
@@ -440,15 +459,15 @@ def subject_group(live, name, root=None):
 def show_id(root, ident):
     """For a ruling: its file, its principles' title + status lines, and (for G) Explains. For Q/T: its file."""
     live = read(root, LIVE) or ""
-    rdir = os.path.join(root, s.RULINGS_DIR)
+    rdirs = s.ruling_dirs(root)
     if s.is_ruling_id(ident):
-        entry = s.read_entry(rdir, ident)
+        entry = s.read_entry(rdirs, ident)
         if entry is not None:
             out = [entry["raw"].rstrip()]
             pcell = entry["meta"].get("Principles", "")
             named_blocks = []
             for p in re.findall(s.CITE, pcell):
-                pe = s.read_entry(rdir, p)
+                pe = s.read_entry(rdirs, p)
                 if pe is not None:
                     plines = pe["raw"].splitlines()
                     title_line = plines[0] if plines else f"# {p}"
@@ -458,7 +477,7 @@ def show_id(root, ident):
                 out += ["", "Principles it names:", ""] + named_blocks
             if s.kind_of(ident) == "G":
                 explains = [
-                    rid for rid, re_entry in s.read_entries(rdir).items()
+                    rid for rid, re_entry in s.read_entries(rdirs).items()
                     if s.kind_of(rid) != "G"
                     and re_entry["meta"].get("Status") in ("Active", "Tentative")
                     and ident in re.findall(s.CITE, re_entry["meta"].get("Principles", ""))

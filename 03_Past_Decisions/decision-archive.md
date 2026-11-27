@@ -203,6 +203,7 @@ Work list items that are finished (and Split ones whose parts are all done).
 | T143 | Move tools/usage.py (2,760 lines, token benchmarking) and its tests out of the project'... | Done |
 | T144 | Two tool follow-ups: a too-big corner fillet radius says why (H086's follow-up); Polygo... | Done |
 | T145 | Go through the ultra review findings (William's /code-review ultra of Gemini's stretch,... | Done |
+| T146 | Atomize the principles and past decisions: one file per ruling (G, P and the rest), wri... | Done |
 | T147 | Plane fits keep their target and stay correct when boards are cut, flipped, chained or ... | Done |
 | T148 | The worker turns off FreeCAD's backup files (CreateBackupFiles) in the shared user pref... | Done |
 | T149 | Tools and habits take the organization's names (FOR_<doing>.py; WHEN_<this>_<DO_THAT>.p... | Done |
