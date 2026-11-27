@@ -1,6 +1,6 @@
 """Session: one live document bound to one .FCStd file; sync, undo, journal, saving (A23, A24)."""
 import FreeCAD as App
-App.ParamGet("User parameter:BaseApp/Preferences/Document").SetBool("CreateBackupFiles", False)
+from contextlib import contextmanager
 from copy import copy, deepcopy
 import hashlib
 import json
@@ -334,6 +334,22 @@ def canon(op):
     return json.dumps(_norm(op), sort_keys=True, separators=(",", ":"))
 
 
+@contextmanager
+def no_backups():
+    """Disable FreeCAD's .FCBak backups only for our own saves, restoring the user's setting (A41)."""
+    prefs = App.ParamGet("User parameter:BaseApp/Preferences/Document")
+    had = "CreateBackupFiles" in prefs.GetBools()
+    prev = prefs.GetBool("CreateBackupFiles", True)
+    prefs.SetBool("CreateBackupFiles", False)
+    try:
+        yield
+    finally:
+        if had:
+            prefs.SetBool("CreateBackupFiles", prev)
+        else:
+            prefs.RemBool("CreateBackupFiles")
+
+
 class Session:
     """One live document bound to one .FCStd file.
 
@@ -408,7 +424,8 @@ class Session:
         base, ext = os.path.splitext(floor_path)
         tmp = base + ".tmp" + ext
         try:
-            self.doc.saveCopy(tmp)
+            with no_backups():
+                self.doc.saveCopy(tmp)
             digest = sha256(tmp)
             os.replace(tmp, floor_path)
         except Exception:
@@ -853,9 +870,9 @@ class Session:
         os.makedirs(folder, exist_ok=True)
         if not os.access(folder, os.W_OK):          # FreeCAD would only say "Failed to open file" (T79)
             raise PermissionError(f"the folder {os.path.basename(folder) or folder} is read-only")
-        App.ParamGet("User parameter:BaseApp/Preferences/Document").SetBool("CreateBackupFiles", False)
         self.doc.Label = self._doc_label()
-        self.doc.saveCopy(tmp)
+        with no_backups():
+            self.doc.saveCopy(tmp)
         if self.drawing and outdir:
             d2 = App.openDocument(tmp)
             try:
