@@ -118,7 +118,7 @@ def renumber_protocol(root, base, branch):
 
 
 IGNORED = ("docs/handoff/", "docs/agent-handoff.md", "docs/handoff-archive.md", LOG, ARCHIVE,
-           sort_decision_log.RULINGS_DIR + "/")
+           sort_decision_log.RULINGS_DIR + "/", sort_decision_log.WORK_DIR + "/", sort_decision_log.QUESTIONS_DIR + "/")
 
 
 def outside_touches(root, branch, base):
@@ -198,12 +198,12 @@ def old_layout(text):
 
 
 def all_rows(live, archive):
-    """{ID: (file 0 live / 1 archive, section, group, row)} across both files (skips 3-column ruling index rows)."""
+    """{ID: (file 0 live / 1 archive, section, group, row)} across both files (skips 3-column index rows)."""
     out = {}
     for n, text in enumerate((live, archive)):
         lines = text.split("\n")
         for h, hc, rs, sec, g in sort_decision_log.tables(lines):
-            if sec in sort_decision_log.RULING_SECTIONS and len(hc) < 4:
+            if sec in (sort_decision_log.RULING_SECTIONS | sort_decision_log.QT_SECTIONS) and len(hc) < 4:
                 continue
             for r in rs:
                 k = sort_decision_log.row_id(lines[r])
@@ -219,7 +219,7 @@ def tunable_rows(text):
             if sec == "## Tunables" for r in rs}
 
 
-def settle_log(ours, base, theirs, subjects=None, rulings_dir=None):
+def settle_log(ours, base, theirs, subjects=None, rulings_dir=None, work_dir=None, questions_dir=None):
     """Main's two log files plus the rows, Tunables and Details the branch added or changed since base.
     ours, base, theirs: (live, archive) texts (archive "" when that side has none). Returns
     ((live, archive), asks): asks lists (ID, Area, decision) for new old-layout decisions with no clear subject,
@@ -279,7 +279,7 @@ def settle_log(ours, base, theirs, subjects=None, rulings_dir=None):
         for k in (0, 1):
             texts[k], _ = S.take_details(texts[k], key)
         texts[0] = S.add_details(texts[0], body)
-    return S.tidy(*texts, rulings_dir=rulings_dir), []
+    return S.tidy(*texts, rulings_dir=rulings_dir, work_dir=work_dir, questions_dir=questions_dir), []
 
 
 def subject_names(live):
@@ -290,8 +290,34 @@ def subject_names(live):
 
 
 def set_status(root, tid, status):
-    """The integrator's verdict for a Work list item; a Done item then moves to the archive (P23)."""
+    """The integrator's verdict for a Work list item; a Done item then moves to the archive's index (P23)."""
     p, a = os.path.join(root, LOG), os.path.join(root, ARCHIVE)
+    wdir = os.path.join(root, sort_decision_log.WORK_DIR)
+    entry = sort_decision_log.read_entry(wdir, tid) if sort_decision_log.is_work_id(tid) else None
+    if entry is not None:
+        was_live = entry["meta"].get("Status") != "Done"
+        content = sort_decision_log.format_work(
+            tid, entry["body"], status,
+            covers=entry["meta"].get("Covers", ""),
+            result=entry["result"],
+            details=entry["details"],
+        )
+        sort_decision_log.write_entry(wdir, tid, content)
+        live = open(p, encoding="utf-8").read()
+        arch = open(a, encoding="utf-8").read() if os.path.isfile(a) else None
+        if arch is not None:
+            rdir = os.path.join(root, sort_decision_log.RULINGS_DIR)
+            qdir = os.path.join(root, sort_decision_log.QUESTIONS_DIR)
+            live2, arch2 = sort_decision_log.tidy(
+                live, arch,
+                rulings_dir=rdir if os.path.isdir(rdir) else None,
+                work_dir=wdir,
+                questions_dir=qdir if os.path.isdir(qdir) else None,
+            )
+            open(p, "w", encoding="utf-8").write(live2)
+            open(a, "w", encoding="utf-8").write(arch2)
+        moved = was_live and status == "Done" and arch is not None
+        return f"{tid}: {status}" + (f" (moved to {ARCHIVE})" if moved else "")
     live = open(p, encoding="utf-8").read()
     arch = open(a, encoding="utf-8").read() if os.path.isfile(a) else None
     texts, found = [live, arch], None
@@ -592,9 +618,24 @@ def format_result_summary(tid, hid, commit, rest, merge, limit=RESULT_SUMMARY_LI
 
 
 def record_result(root, tid, commit, rest, merge):
-    """Append "Result (<commit>, merged <merge>): <rest>" to tid's row, in the live log or the archive.
+    """Append "Result (<commit>, merged <merge>): <rest>" to tid's Work list file (or table row).
     Returns (the file changed or None, what happened)."""
     rest = clean_result_text(rest)
+    wdir = os.path.join(root, sort_decision_log.WORK_DIR)
+    entry = sort_decision_log.read_entry(wdir, tid) if sort_decision_log.is_work_id(tid) else None
+    if entry is not None:
+        if f"Result ({commit}" in entry["result"]:
+            return None, f"{tid}: result {commit} is already in its row"
+        add = f"Result ({commit}, merged {merge}): {rest}"
+        new_result = f"{entry['result']} {add}" if entry["result"] else add
+        content = sort_decision_log.format_work(
+            tid, entry["body"], entry["meta"].get("Status", "Open"),
+            covers=entry["meta"].get("Covers", ""),
+            result=new_result,
+            details=entry["details"],
+        )
+        sort_decision_log.write_entry(wdir, tid, content)
+        return f"{sort_decision_log.WORK_DIR}/{tid}.md", f"{tid}: added {add[:100]}{'...' if len(add) > 100 else ''}"
     for rel in (LOG, ARCHIVE):
         p = os.path.join(root, rel)
         if not os.path.isfile(p):
@@ -837,9 +878,15 @@ def rebuild_and_check(s):
     git("add", "-A", root=root)
     arch = os.path.join(root, ARCHIVE)
     rdir = os.path.join(root, sort_decision_log.RULINGS_DIR)
-    problems = sort_decision_log.check_files(open(os.path.join(root, LOG), encoding="utf-8").read(),
-                                             open(arch, encoding="utf-8").read() if os.path.isfile(arch) else None,
-                                             rulings_dir=rdir if os.path.isdir(rdir) else None)
+    wdir = os.path.join(root, sort_decision_log.WORK_DIR)
+    qdir = os.path.join(root, sort_decision_log.QUESTIONS_DIR)
+    problems = sort_decision_log.check_files(
+        open(os.path.join(root, LOG), encoding="utf-8").read(),
+        open(arch, encoding="utf-8").read() if os.path.isfile(arch) else None,
+        rulings_dir=rdir if os.path.isdir(rdir) else None,
+        work_dir=wdir if os.path.isdir(wdir) else None,
+        questions_dir=qdir if os.path.isdir(qdir) else None,
+    )
     text = open(os.path.join(root, handoff.HANDOFF), encoding="utf-8").read()
     if handoff.with_list(text, root) != text:
         problems.append("the handoff's open list doesn't match docs/handoff/")

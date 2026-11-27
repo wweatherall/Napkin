@@ -70,7 +70,7 @@ Architecture: lines, the response) and CLAUDE.md (commit trailers); this page sa
   (`--dry-run` to look first) before committing.
 - Codex records William's decisions in the log itself (P09, AGENTS.md). When integrating its branch, carry over
   only the rows it added or superseded: its copy of the rest may be older than main's.
-- Results (T91, P17): integrate.py commits each response's `Result:` line to its Work list row and prints one short line per item plus the commit's oneline; a response without
+- Results (T91, P17): integrate.py commits each response's `Result:` line to its Work list file (`03_Past_Decisions/work/<ID>.md`) and prints one short line per item plus the commit's oneline; a response without
   one is yours to record. Follow-ups (P26): it copies `Follow-up:` lines into docs/follow-ups.md and prints
   `For the integrator:` lines under "for you now:"; clear a follow-up in the commit that does it.
 - Small fixes (P22): merge and push the standing `small-fixes` (and `codex/small-fixes`) branch when the gate
@@ -96,7 +96,7 @@ Architecture: lines, the response) and CLAUDE.md (commit trailers); this page sa
   names meet (P45; the tools check it once T112 is built, until then compare by eye).
 - A job meant to share files with another (a trial that merges that job's branch first, like H098 on H093) says
   `| Builds on: H0NN` in its Author line: the queue then doesn't hold it back for that overlap.
-- The shared hot spots (the decision log's Work list, the handoff, viewport/main.gd, the map) stay small edits
+- The shared hot spots (the decision log's indexes, the handoff, viewport/main.gd, the map) stay small edits
   made once the work is done.
 - A job touching saving, reloading or the worker link gets a "What can fail" section in its brief (P42; the
   entry template has it): you write it, from reading the code, since you aren't the builder.

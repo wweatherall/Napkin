@@ -31,7 +31,6 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 <!-- open list: built from docs/handoff/ by tools/handoff.py; don't edit by hand -->
 
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
-- [H153 — T146 step 2: Work list items and open questions as one file each](handoff/H153-t146-work-list-and-questions-as-files.md) — status: open; for: either
 - [H154 — Tools and habits take the organization's names: FOR_<doing>.py and WHEN_<this>_<DO_THAT>.py](handoff/H154-naming-tools-and-habits.md) — status: queued (after H153); for: either
 
 <!-- end of open list -->
@@ -40,6 +39,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 Full entries in [handoff-archive.md](handoff-archive.md).
 
+- H153 — T146 step 2: Work list items and open questions as one file each. Resolved: merged into main by the integrator, 2026-11-26.
 - H151 — T147 step 2: circles and polygons fit flush against a sloped face. Resolved: merged into main by the integrator, 2026-11-26.
 - H152 — T146 step 1: one file per ruling in Napkin/03_Past_Decisions/rulings/, written and read by log.py. Resolved: merged into main by the integrator, 2026-11-26.
 - H150 — T147 step 1: a plane fit keeps its target face when boards are cut, flipped or chained. Resolved: merged into main by the integrator, 2026-11-26.

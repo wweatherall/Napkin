@@ -62,8 +62,10 @@ check("the real decision log uses only allowed statuses",
 
 arch = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "03_Past_Decisions", "decision-archive.md")
 rdir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "03_Past_Decisions", "rulings")
-check("03_Past_Decisions/decision-log.md, archive and rulings/ are tidy with no problems (P23)",
-      s.check_files(text, open(arch, encoding="utf-8").read(), rulings_dir=rdir) == [])
+wdir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "03_Past_Decisions", "work")
+qdir = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "03_Past_Decisions", "questions")
+check("03_Past_Decisions/decision-log.md, archive, rulings/, work/ and questions/ are tidy with no problems (P23, P65)",
+      s.check_files(text, open(arch, encoding="utf-8").read(), rulings_dir=rdir, work_dir=wdir, questions_dir=qdir) == [])
 check("a live file with no archive beside it (before P23) is only sorted",
       not any("not sorted" in p for p in s.check_files(s.sort_text(DOC))) and any("not sorted" in p for p in s.check_files(DOC)))
 
@@ -160,6 +162,68 @@ both_bad = l3.replace(
 )
 check("--check refuses an ID both in a table and a file",
       any("I10 is in both" in p for p in s.check_files(both_bad, a3, rulings_dir=trdir)))
+
+twdir = os.path.join(tmp, "work")
+tqdir = os.path.join(tmp, "questions")
+QT_LIVE = (
+    "# Log\n\n## Open questions\n\n| # | Question | Status | Notes |\n|---|---|---|---|\n"
+    "| Q1 | Third stage? (Details below.) | Open | Maybe. |\n\n"
+    "## Work list\n\n| # | Item | Status | Covers | Result / next step |\n|---|---|---|---|---|\n"
+    "| T2 | Faster cuts. | Open | Q1 | Next step here. |\n\n"
+    "## Details\n\n### Q1\n\nExtra question context.\n"
+)
+QT_ARCH = (
+    "# Archive\n\n## Decided questions\n\n| # | Question | Status | Notes |\n|---|---|---|---|\n"
+    "| Q2 | Next tool? | Decided | Move (I14). |\n\n"
+    "## Done work\n\n| # | Item | Status | Covers | Result / next step |\n|---|---|---|---|---|\n"
+    "| T1 | Mirror fix. | Done | A26 | Committed. |\n\n"
+    "## Details\n"
+)
+ql2, qa2 = s.tidy(QT_LIVE, QT_ARCH, work_dir=twdir, questions_dir=tqdir)
+exp_q1 = (
+    "# Q1 — Third stage?\n\n"
+    "Status: Open\n\n"
+    "Third stage?\n\n"
+    "Notes: Maybe.\n\n"
+    "## Details\n\n"
+    "Extra question context.\n"
+)
+exp_t2 = (
+    "# T2 — Faster cuts.\n\n"
+    "Status: Open | Covers: Q1\n\n"
+    "Faster cuts.\n\n"
+    "Result / next step: Next step here.\n"
+)
+exp_t1 = (
+    "# T1 — Mirror fix.\n\n"
+    "Status: Done | Covers: A26\n\n"
+    "Mirror fix.\n\n"
+    "Result / next step: Committed.\n"
+)
+check("every Work list and question row becomes its file, word for word",
+      open(os.path.join(tqdir, "Q1.md"), encoding="utf-8").read() == exp_q1
+      and open(os.path.join(twdir, "T2.md"), encoding="utf-8").read() == exp_t2
+      and open(os.path.join(twdir, "T1.md"), encoding="utf-8").read() == exp_t1)
+
+# Mark T2 Done in its file and re-tidy: file stays in work/, index line moves to archive
+s.write_entry(twdir, "T2", exp_t2.replace("Status: Open", "Status: Done"))
+ql3, qa3 = s.tidy(ql2, qa2, work_dir=twdir, questions_dir=tqdir)
+check("a Done item's index line is in the archive's index, its file unmoved",
+      os.path.isfile(os.path.join(twdir, "T2.md"))
+      and "| T2 | Faster cuts. | Done |" not in ql3
+      and "| T2 | Faster cuts. | Done |" in qa3)
+
+old_t_live = ql3.replace(
+    "## Work list\n\n| # | Item | Status |\n|---|---|---|\n",
+    "## Work list\n\n| # | Item | Status |\n|---|---|---|\n\n"
+    "| # | Item | Status | Covers | Result / next step |\n|---|---|---|---|---|\n"
+    "| T3 | Old branch item. | Open | T2 | From branch. |\n",
+)
+ql4, qa4 = s.tidy(old_t_live, qa3, work_dir=twdir, questions_dir=tqdir)
+check("an old branch's T row is moved into its file by the tidy",
+      os.path.isfile(os.path.join(twdir, "T3.md"))
+      and "| T3 | Old branch item. | Open |" in ql4
+      and "From branch." not in ql4)
 
 shutil.rmtree(tmp)
 

@@ -114,12 +114,13 @@ def next_id(root, kind, on_main):
 
 
 def defined_placeholders(root, kind):
-    """The N of each kind-new-N that a ruling file, table row or ### heading defines."""
+    """The N of each kind-new-N that an entry file, table row or ### heading defines."""
     out = set()
-    for ident in s.folder_ids(os.path.join(root, s.RULINGS_DIR)):
-        m = number_ids.PLACEHOLDER.fullmatch(ident)
-        if m and m.group(1) == kind:
-            out.add(int(m.group(2)))
+    for folder in (s.RULINGS_DIR, s.WORK_DIR, s.QUESTIONS_DIR):
+        for ident in s.folder_ids(os.path.join(root, folder)):
+            m = number_ids.PLACEHOLDER.fullmatch(ident)
+            if m and m.group(1) == kind:
+                out.add(int(m.group(2)))
     for rel in (LIVE, ARCHIVE):
         for line in (read(root, rel) or "").split("\n"):
             first = line.split("|")[1].strip() if line.startswith("| ") else line[4:].split()[0] if line.startswith("### ") and line[4:].split() else ""
@@ -214,11 +215,14 @@ def add(root, kind, text, opts, on_main=None, today=None):
         o.setdefault("status", "Active")
         o["date"] = today
     allowed = s.STATUSES[section]
-    if o["status"] not in allowed:
+    if o["status"] not in allowed and not (kind == "T" and s.QUEUED.match(o["status"])):
         raise LogError(f"status '{o['status']}' isn't one of {', '.join(sorted(allowed))} ({section[3:]})")
     ident = next_id(root, kind, on_main)
     rdir = os.path.join(root, s.RULINGS_DIR)
+    wdir = os.path.join(root, s.WORK_DIR)
+    qdir = os.path.join(root, s.QUESTIONS_DIR)
     if s.is_ruling_id(kind):
+        target_dir = rdir
         content = s.format_ruling(
             ident, text, o["status"], o["date"],
             subject=group or "",
@@ -227,27 +231,24 @@ def add(root, kind, text, opts, on_main=None, today=None):
             where=o.get("where", ""),
             why=o.get("why", ""),
         )
-        s.write_entry(rdir, ident, content)
-        if archive is None:
-            new_live, new_arch = s.sort_text(live), None
-        else:
-            new_live, new_arch = s.tidy(live, archive, rulings_dir=rdir)
-            if new_arch != archive:
-                write(root, ARCHIVE, new_arch)
-        write(root, LIVE, new_live)
-        for text_ in (new_live, new_arch or ""):
-            lines = text_.split("\n")
-            i = s.find_row(lines, ident)
-            if i is not None:
-                return lines[i]
-        return s.index_row(s.parse_entry(content, ident=ident))
-
-    row = s.make_row([ident, text] + [o.get(c, "") for c in cols])
-    live = s.insert_row(live, row, section, group)
+    elif s.is_work_id(kind):
+        target_dir = wdir
+        content = s.format_work(
+            ident, text, o["status"],
+            covers=o.get("covers", ""),
+            result=o.get("result", ""),
+        )
+    else:
+        target_dir = qdir
+        content = s.format_question(
+            ident, text, o["status"],
+            notes=o.get("notes", ""),
+        )
+    s.write_entry(target_dir, ident, content)
     if archive is None:
         new_live, new_arch = s.sort_text(live), None
     else:
-        new_live, new_arch = s.tidy(live, archive, rulings_dir=rdir if os.path.isdir(rdir) else None)
+        new_live, new_arch = s.tidy(live, archive, rulings_dir=rdir, work_dir=wdir, questions_dir=qdir)
         if new_arch != archive:
             write(root, ARCHIVE, new_arch)
     write(root, LIVE, new_live)
@@ -256,41 +257,71 @@ def add(root, kind, text, opts, on_main=None, today=None):
         i = s.find_row(lines, ident)
         if i is not None:
             return lines[i]
-    return row
+    return s.index_row(s.parse_entry(content, ident=ident))
 
 
 def set_ruling(root, ident, opts):
-    """Update a ruling file's status, where, or rel without hand-editing; refreshes the indexes."""
+    """Update a ruling, work, or question file without hand-editing; refreshes the indexes."""
     rdir = os.path.join(root, s.RULINGS_DIR)
-    entry = s.read_entry(rdir, ident)
-    if entry is None:
-        raise LogError(f"no ruling {ident} in {s.RULINGS_DIR}")
+    wdir = os.path.join(root, s.WORK_DIR)
+    qdir = os.path.join(root, s.QUESTIONS_DIR)
     o = {k: clean(v, "--" + k) for k, v in opts.items() if v is not None}
     stray = sorted(set(o) - {"status", "where", "rel"})
     if stray:
         raise LogError(f"set takes --status, --where, --rel (not --{', --'.join(stray)})")
     if not o:
         raise LogError("set needs at least one of --status, --where, --rel")
-    meta = entry["meta"]
-    status = o.get("status", meta.get("Status", "Active"))
-    if status not in ("Active", "Tentative", "Superseded"):
-        raise LogError(f"status '{status}' isn't Active, Tentative, or Superseded")
-    content = s.format_ruling(
-        ident,
-        entry["body"],
-        status,
-        meta.get("Date", ""),
-        subject=meta.get("Subject", ""),
-        principles=meta.get("Principles", ""),
-        rel=o.get("rel", meta.get("Replaces / replaced by", "")),
-        where=o.get("where", meta.get("Where in the code", "")),
-        why=entry["why"],
-        details=entry["details"],
-    )
-    s.write_entry(rdir, ident, content)
+    if s.is_work_id(ident):
+        entry = s.read_entry(wdir, ident)
+        if entry is None:
+            raise LogError(f"no Work list item {ident} in {s.WORK_DIR}")
+        meta = entry["meta"]
+        status = o.get("status", meta.get("Status", "Open"))
+        if status not in s.STATUSES["## Work list"] and not s.QUEUED.match(status):
+            raise LogError(f"status '{status}' isn't one of {sorted(s.STATUSES['## Work list'])} (Work list)")
+        content = s.format_work(
+            ident, entry["body"], status,
+            covers=o.get("rel", meta.get("Covers", "")),
+            result=entry["result"], details=entry["details"],
+        )
+        s.write_entry(wdir, ident, content)
+    elif s.is_question_id(ident):
+        entry = s.read_entry(qdir, ident)
+        if entry is None:
+            raise LogError(f"no question {ident} in {s.QUESTIONS_DIR}")
+        meta = entry["meta"]
+        status = o.get("status", meta.get("Status", "Open"))
+        if status not in s.STATUSES["## Open questions"]:
+            raise LogError(f"status '{status}' isn't one of {sorted(s.STATUSES['## Open questions'])} (Open questions)")
+        content = s.format_question(
+            ident, entry["body"], status,
+            notes=entry["notes"], details=entry["details"],
+        )
+        s.write_entry(qdir, ident, content)
+    else:
+        entry = s.read_entry(rdir, ident)
+        if entry is None:
+            raise LogError(f"no ruling {ident} in {s.RULINGS_DIR}")
+        meta = entry["meta"]
+        status = o.get("status", meta.get("Status", "Active"))
+        if status not in ("Active", "Tentative", "Superseded"):
+            raise LogError(f"status '{status}' isn't Active, Tentative, or Superseded")
+        content = s.format_ruling(
+            ident,
+            entry["body"],
+            status,
+            meta.get("Date", ""),
+            subject=meta.get("Subject", ""),
+            principles=meta.get("Principles", ""),
+            rel=o.get("rel", meta.get("Replaces / replaced by", "")),
+            where=o.get("where", meta.get("Where in the code", "")),
+            why=entry["why"],
+            details=entry["details"],
+        )
+        s.write_entry(rdir, ident, content)
     live, archive = read(root, LIVE), read(root, ARCHIVE)
     if live is not None and archive is not None:
-        new_live, new_arch = s.tidy(live, archive, rulings_dir=rdir)
+        new_live, new_arch = s.tidy(live, archive, rulings_dir=rdir, work_dir=wdir, questions_dir=qdir)
         if new_live != live:
             write(root, LIVE, new_live)
         if new_arch != archive:
@@ -299,13 +330,36 @@ def set_ruling(root, ident, opts):
 
 
 def note(root, ident, text):
-    """Append text to the last column of a Work list row in the live file; returns the row."""
-    live = read(root, LIVE)
-    if live is None:
-        raise LogError(f"no {LIVE} under {root}")
+    """Append text to a Work list file's Result / next step (or a question file's Notes); falls back to table rows."""
     text = clean(text, "the note")
     if not text:
         raise LogError("the note is empty")
+    if s.is_work_id(ident):
+        wdir = os.path.join(root, s.WORK_DIR)
+        entry = s.read_entry(wdir, ident)
+        if entry is not None:
+            new_result = f"{entry['result']} {text}" if entry["result"] else text
+            content = s.format_work(
+                ident, entry["body"], entry["meta"].get("Status", "Open"),
+                covers=entry["meta"].get("Covers", ""), result=new_result, details=entry["details"],
+            )
+            s.write_entry(wdir, ident, content)
+            return f"Result / next step: {new_result}"
+    elif s.is_question_id(ident):
+        qdir = os.path.join(root, s.QUESTIONS_DIR)
+        entry = s.read_entry(qdir, ident)
+        if entry is not None:
+            new_notes = f"{entry['notes']} {text}" if entry["notes"] else text
+            content = s.format_question(
+                ident, entry["body"], entry["meta"].get("Status", "Open"),
+                notes=new_notes, details=entry["details"],
+            )
+            s.write_entry(qdir, ident, content)
+            return f"Notes: {new_notes}"
+
+    live = read(root, LIVE)
+    if live is None:
+        raise LogError(f"no {LIVE} under {root}")
     lines = live.split("\n")
     i = s.find_row(lines, ident)
     if i is None or s.where(live, ident)[0] != "## Work list":
@@ -349,7 +403,7 @@ def subject_group(live, name, root=None):
 
 
 def show_id(root, ident):
-    """For a ruling: its file and its principles' title + status lines. For Q/T: its row, Details, and principles."""
+    """For a ruling: its file, its principles' title + status lines, and (for G) Explains. For Q/T: its file."""
     live = read(root, LIVE) or ""
     rdir = os.path.join(root, s.RULINGS_DIR)
     if s.is_ruling_id(ident):
@@ -367,7 +421,24 @@ def show_id(root, ident):
                     named_blocks.append(f"{title_line}\n{status_line}".strip())
             if named_blocks:
                 out += ["", "Principles it names:", ""] + named_blocks
+            if s.kind_of(ident) == "G":
+                explains = [
+                    rid for rid, re_entry in s.read_entries(rdir).items()
+                    if s.kind_of(rid) != "G"
+                    and re_entry["meta"].get("Status") in ("Active", "Tentative")
+                    and ident in re.findall(s.CITE, re_entry["meta"].get("Principles", ""))
+                ]
+                explains.sort(key=lambda x: s.key(f"| {x} |"))
+                out += ["", f"Explains: {', '.join(explains) if explains else s.NONE}"]
             return "\n".join(out)
+    elif s.is_work_id(ident):
+        entry = s.read_entry(os.path.join(root, s.WORK_DIR), ident)
+        if entry is not None:
+            return entry["raw"].rstrip()
+    elif s.is_question_id(ident):
+        entry = s.read_entry(os.path.join(root, s.QUESTIONS_DIR), ident)
+        if entry is not None:
+            return entry["raw"].rstrip()
 
     for rel in (LIVE, ARCHIVE):
         text = read(root, rel)

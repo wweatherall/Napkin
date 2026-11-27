@@ -5,16 +5,16 @@ while the model stays a real, editable FreeCAD file with FreeCAD's drawings. Ble
 Owner: William (teacher; shop and construction background). He thinks in systems and likes values he can tune.
 
 ## Before changing behaviour, read the decision log
-Each ruling (principle `G` or decision `A`, `D`, `I`, `M`, `P`, `U`, `W`, ...) lives in its own file at
-`03_Past_Decisions/rulings/<ID>.md`. `03_Past_Decisions/decision-log.md` (P09, P23) holds the generated indexes
-(`Subjects`, `Principles`, `Decisions`), `Open questions`, `Work list`, `Tunables`, and Q/T `Details`;
-`03_Past_Decisions/decision-archive.md` indexes superseded rulings and holds decided questions and done Work list
-items. Don't read them whole: use `python3 tools/log.py show --top` for the subjects and principles,
-`python3 tools/log.py show <subject>` for a subject's rulings, and `python3 tools/log.py show <ID>` (or read
-`03_Past_Decisions/rulings/<ID>.md`) for one ruling and its principles. Add rulings with `log.py add` and update
-status with `log.py set`, never by hand. Rule P01: a change that contradicts a logged decision gets a new ruling
-naming the old ID, and the old ruling is marked `Superseded` (never deleted). Ask William before countermanding an
-Active decision.
+Each ruling (`G` principle or `A`, `D`, `I`, `M`, `P`, `U`, `W`... decision), Work list item (`T`), and question (`Q`)
+lives in its own file under `03_Past_Decisions/` (`rulings/<ID>.md`, `work/<ID>.md`, `questions/<ID>.md`).
+`03_Past_Decisions/decision-log.md` (P09, P23, P65) holds the generated indexes (`Subjects`, `Principles`, `Decisions`,
+`Open questions`, `Work list`) and the `Tunables` table; `03_Past_Decisions/decision-archive.md` indexes superseded
+rulings, decided questions, and done Work list items. Don't read them whole: use `python3 tools/log.py show --top` for
+the subjects and principles, `python3 tools/log.py show <subject>` for a subject's rulings, and
+`python3 tools/log.py show <ID>` (or read the entry file) for one entry and its principles. Add entries with `log.py add`,
+append notes with `log.py note`, and update status with `log.py set`, never by hand. Rule P01: a change that
+contradicts a logged decision gets a new ruling naming the old ID, and the old ruling is marked `Superseded` (never
+deleted). Ask William before countermanding an Active decision.
 
 ## Working with William
 - He wants a partner through the Work list one item at a time: say which item you're on, and finish it before the

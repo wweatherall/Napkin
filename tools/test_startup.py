@@ -249,5 +249,23 @@ rlines, runknown = s.report_ids("", ["I34"], "", read_ruling=lambda i: ruling_te
 check("a named ID's lines come from its ruling file",
       not runknown and rlines[0] == "== I34" and "Pushing a piece toward another has three snaps." in rlines[1])
 
+work_text = (
+    "# T147 — Plane fits keep their target.\n\n"
+    "Status: Open | Covers: I34\n\n"
+    "Plane fits keep their target.\n\n"
+    "Result / next step: Your call: pick the snap rule.\n"
+)
+wlines, wunknown = s.report_ids(
+    "", ["T147"], "",
+    read_ruling=lambda i: ruling_text if i == "I34" else None,
+    read_work=lambda i: work_text if i == "T147" else None,
+)
+check("a named T item's lines and its Covers rows come from files",
+      not wunknown and wlines[0] == "== T147" and "Plane fits keep their target." in wlines[1]
+      and any(l.startswith("  I34: Pushing a piece toward another") for l in wlines))
+w_rows = s.waiting_rows("", work_entries={"T147": work_text})
+check("a 'your call' item in a file is waiting on William",
+      w_rows == [("T147", "Your call: pick the snap rule.")])
+
 print(f"STARTUP TESTS: {sum(RESULTS)} passed, {len(RESULTS) - sum(RESULTS)} failed")
 sys.exit(0 if all(RESULTS) else 1)

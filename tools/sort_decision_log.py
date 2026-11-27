@@ -26,11 +26,16 @@ import sys
 LIVE = "03_Past_Decisions/decision-log.md"
 ARCHIVE = "03_Past_Decisions/decision-archive.md"
 RULINGS_DIR = "03_Past_Decisions/rulings"
+WORK_DIR = "03_Past_Decisions/work"
+QUESTIONS_DIR = "03_Past_Decisions/questions"
 # live section -> (archive section, the statuses that move there)
 MOVES = {"## Decisions": ("## Superseded decisions", {"Superseded"}),
          "## Open questions": ("## Decided questions", {"Decided"}),
          "## Work list": ("## Done work", {"Done"})}
 RULING_SECTIONS = {"## Principles", "## Decisions", "## Superseded decisions"}
+WORK_SECTIONS = {"## Work list", "## Done work"}
+QUESTION_SECTIONS = {"## Open questions", "## Decided questions"}
+QT_SECTIONS = WORK_SECTIONS | QUESTION_SECTIONS
 CITE = r"\b[A-Z]+(?:\d+|-new-\d+)[a-z]*\b"   # an ID cited in a cell
 NONE = "—"   # a decision no principle explains yet
 
@@ -46,6 +51,14 @@ def kind_of(ident):
 def is_ruling_id(ident):
     k = kind_of(ident)
     return bool(k and k not in ("Q", "T", "H"))
+
+
+def is_work_id(ident):
+    return kind_of(ident) == "T"
+
+
+def is_question_id(ident):
+    return kind_of(ident) == "Q"
 
 
 def strip_details_note(text):
@@ -108,19 +121,35 @@ def parse_entry(text, ident=None):
     else:
         main_part = rest
     why = ""
+    result = ""
+    notes = ""
     main_lines = main_part.rstrip("\n").splitlines()
-    why_idx = next((idx for idx, l in enumerate(main_lines) if l == "Why:" or l.startswith("Why: ")), None)
-    if why_idx is not None:
-        why = main_lines[why_idx][4:].strip()
-        if why_idx + 1 < len(main_lines):
-            extra = "\n".join(main_lines[why_idx + 1:]).strip()
+    trailing_fields = (("Why:", "why"), ("Result / next step:", "result"), ("Notes:", "notes"))
+    field_idx, field_key, field_prefix = None, None, ""
+    for idx, l in enumerate(main_lines):
+        for prefix, key_name in trailing_fields:
+            if l == prefix or l.startswith(prefix + " "):
+                field_idx, field_key, field_prefix = idx, key_name, prefix
+                break
+        if field_idx is not None:
+            break
+    if field_idx is not None:
+        val = main_lines[field_idx][len(field_prefix):].strip()
+        if field_idx + 1 < len(main_lines):
+            extra = "\n".join(main_lines[field_idx + 1:]).strip()
             if extra:
-                why = (why + "\n" + extra).strip()
-        body = "\n".join(main_lines[:why_idx]).strip()
+                val = (val + "\n" + extra).strip()
+        if field_key == "why":
+            why = val
+        elif field_key == "result":
+            result = val
+        elif field_key == "notes":
+            notes = val
+        body = "\n".join(main_lines[:field_idx]).strip()
     else:
         body = main_part.strip()
     return {"id": ident or "", "title": title.strip(), "meta": meta, "body": body,
-            "why": why, "details": details, "raw": text}
+            "why": why, "result": result, "notes": notes, "details": details, "raw": text}
 
 
 def read_entry(folder, ident):
@@ -166,16 +195,64 @@ def format_ruling(ident, text, status, date, subject="", principles="", rel="", 
     return "\n".join(lines) + "\n"
 
 
+def _details_text(details_lines):
+    if not details_lines:
+        return ""
+    body = details_lines[1:] if details_lines[0].startswith("### ") else details_lines
+    while body and body[0].strip() == "":
+        body = body[1:]
+    return "\n".join(body).strip("\n")
+
+
+def format_work(ident, text, status, covers="", result="", details=""):
+    """Format a Work list file (03_Past_Decisions/work/<ID>.md) from its fields."""
+    clean_text = strip_details_note(text)
+    title = first_sentence(clean_text)
+    cov = covers.strip() if covers and covers.strip() else NONE
+    lines = [f"# {ident} — {title}", "", f"Status: {status} | Covers: {cov}", "", clean_text, ""]
+    lines.append(f"Result / next step: {result.strip()}" if result and result.strip() else "Result / next step:")
+    if details and details.strip():
+        lines += ["", "## Details", "", details.strip("\n")]
+    return "\n".join(lines) + "\n"
+
+
+def format_question(ident, text, status, notes="", details=""):
+    """Format a question file (03_Past_Decisions/questions/<ID>.md) from its fields."""
+    clean_text = strip_details_note(text)
+    title = first_sentence(clean_text)
+    lines = [f"# {ident} — {title}", "", f"Status: {status}", "", clean_text, ""]
+    lines.append(f"Notes: {notes.strip()}" if notes and notes.strip() else "Notes:")
+    if details and details.strip():
+        lines += ["", "## Details", "", details.strip("\n")]
+    return "\n".join(lines) + "\n"
+
+
+def row_to_work(row, section=None, group=None, details_lines=None):
+    """Convert a legacy Work list table row + optional ### <ID> details lines into (ident, file_text)."""
+    c = cells(row)
+    ident = c[0]
+    text = c[1] if len(c) > 1 else ""
+    status = c[2] if len(c) > 2 else "Open"
+    covers = c[3] if len(c) > 3 else ""
+    result = " | ".join(c[4:]) if len(c) > 4 else ""
+    return ident, format_work(ident, text, status, covers=covers, result=result, details=_details_text(details_lines))
+
+
+def row_to_question(row, section=None, group=None, details_lines=None):
+    """Convert a legacy question table row + optional ### <ID> details lines into (ident, file_text)."""
+    c = cells(row)
+    ident = c[0]
+    text = c[1] if len(c) > 1 else ""
+    status = c[2] if len(c) > 2 else "Open"
+    notes = " | ".join(c[3:]) if len(c) > 3 else ""
+    return ident, format_question(ident, text, status, notes=notes, details=_details_text(details_lines))
+
+
 def row_to_ruling(row, section, group=None, details_lines=None):
     """Convert a legacy table row + optional ### <ID> details lines into (ident, file_text)."""
     c = cells(row)
     ident = c[0]
-    details = ""
-    if details_lines:
-        body = details_lines[1:] if details_lines[0].startswith("### ") else details_lines
-        while body and body[0].strip() == "":
-            body = body[1:]
-        details = "\n".join(body).strip("\n")
+    details = _details_text(details_lines)
     if section == "## Principles":
         # | ID | Principle | Status | Explains | Date |
         text = c[1] if len(c) > 1 else ""
@@ -510,63 +587,86 @@ def _replace_table(lines, section, group, new_header, new_rows):
     return lines
 
 
-def generate_indexes(live, archive, entries):
-    """Rebuild generated indexes in live (Subjects, Principles, Decisions) and archive (Superseded decisions)."""
-    active_p = sorted(
-        [e for e in entries.values() if kind_of(e["id"]) == "G" and e["meta"].get("Status") in ("Active", "Tentative")],
-        key=lambda e: key(f"| {e['id']} |"),
-    )
-    active_d = sorted(
-        [e for e in entries.values() if kind_of(e["id"]) != "G" and e["meta"].get("Status") in ("Active", "Tentative")],
-        key=lambda e: key(f"| {e['id']} |"),
-    )
-    superseded = sorted(
-        [e for e in entries.values() if e["meta"].get("Status") == "Superseded"],
-        key=lambda e: key(f"| {e['id']} |"),
-    )
-
+def generate_indexes(live, archive, entries, work_entries=None, question_entries=None):
+    """Rebuild generated indexes in live and archive for rulings, work items, and questions."""
     lines = live.split("\n")
-    lines = _replace_table(lines, "## Principles", None, ["ID", "Principle", "Status"], [index_row(e) for e in active_p])
+    alines = archive.split("\n") if archive is not None else None
 
-    if "## Subjects" in lines and "## Decisions" in lines:
-        order = [cells(lines[r])[0] for h, hc, rs, sec, g in tables(lines) if sec == "## Subjects" for r in rs]
-        by_subj = {}
-        for e in active_d:
-            by_subj.setdefault(e["meta"].get("Subject", ""), []).append(e)
+    if entries is not None:
+        active_p = sorted(
+            [e for e in entries.values() if kind_of(e["id"]) == "G" and e["meta"].get("Status") in ("Active", "Tentative")],
+            key=lambda e: key(f"| {e['id']} |"),
+        )
+        active_d = sorted(
+            [e for e in entries.values() if kind_of(e["id"]) != "G" and e["meta"].get("Status") in ("Active", "Tentative")],
+            key=lambda e: key(f"| {e['id']} |"),
+        )
+        superseded = sorted(
+            [e for e in entries.values() if e["meta"].get("Status") == "Superseded"],
+            key=lambda e: key(f"| {e['id']} |"),
+        )
+        lines = _replace_table(lines, "## Principles", None, ["ID", "Principle", "Status"], [index_row(e) for e in active_p])
 
-        a, b = section_range(lines, "## Decisions")
-        first = next((k for k in range(a, b) if lines[k].startswith("### ")), b)
-        body = []
-        for subj in order:
-            rows_out = [index_row(e) for e in by_subj.get(subj, [])]
-            body += [f"### {subj}", "", "| ID | Decision | Status |", "|---|---|---|"] + rows_out + [""]
-        lines = lines[:first] + body + lines[b:]
+        if "## Subjects" in lines and "## Decisions" in lines:
+            order = [cells(lines[r])[0] for h, hc, rs, sec, g in tables(lines) if sec == "## Subjects" for r in rs]
+            by_subj = {}
+            for e in active_d:
+                by_subj.setdefault(e["meta"].get("Subject", ""), []).append(e)
 
-        for h, hc, rs, sec, g in tables(lines):
-            if sec == "## Subjects" and "Decisions" in hc:
-                col = hc.index("Decisions")
-                for r in rs:
-                    c = cells(lines[r])
-                    c[col] = ", ".join(e["id"] for e in by_subj.get(c[0], [])) or NONE
-                    lines[r] = make_row(c)
-    live_out = "\n".join(lines)
+            a, b = section_range(lines, "## Decisions")
+            first = next((k for k in range(a, b) if lines[k].startswith("### ")), b)
+            body = []
+            for subj in order:
+                rows_out = [index_row(e) for e in by_subj.get(subj, [])]
+                body += [f"### {subj}", "", "| ID | Decision | Status |", "|---|---|---|"] + rows_out + [""]
+            lines = lines[:first] + body + lines[b:]
 
-    if archive is not None:
-        alines = archive.split("\n")
-        alines = _replace_table(alines, "## Superseded decisions", None, ["ID", "Decision", "Status"],
-                                [index_row(e) for e in superseded])
-        arch_out = "\n".join(alines)
-    else:
-        arch_out = None
-    return live_out, arch_out
+            for h, hc, rs, sec, g in tables(lines):
+                if sec == "## Subjects" and "Decisions" in hc:
+                    col = hc.index("Decisions")
+                    for r in rs:
+                        c = cells(lines[r])
+                        c[col] = ", ".join(e["id"] for e in by_subj.get(c[0], [])) or NONE
+                        lines[r] = make_row(c)
+        if alines is not None:
+            alines = _replace_table(alines, "## Superseded decisions", None, ["ID", "Decision", "Status"],
+                                    [index_row(e) for e in superseded])
+
+    if work_entries is not None:
+        open_w = sorted(
+            [e for e in work_entries.values() if e["meta"].get("Status") != "Done"],
+            key=lambda e: key(f"| {e['id']} |"),
+        )
+        done_w = sorted(
+            [e for e in work_entries.values() if e["meta"].get("Status") == "Done"],
+            key=lambda e: key(f"| {e['id']} |"),
+        )
+        lines = _replace_table(lines, "## Work list", None, ["#", "Item", "Status"], [index_row(e) for e in open_w])
+        if alines is not None:
+            alines = _replace_table(alines, "## Done work", None, ["#", "Item", "Status"], [index_row(e) for e in done_w])
+
+    if question_entries is not None:
+        open_q = sorted(
+            [e for e in question_entries.values() if e["meta"].get("Status") != "Decided"],
+            key=lambda e: key(f"| {e['id']} |"),
+        )
+        decided_q = sorted(
+            [e for e in question_entries.values() if e["meta"].get("Status") == "Decided"],
+            key=lambda e: key(f"| {e['id']} |"),
+        )
+        lines = _replace_table(lines, "## Open questions", None, ["#", "Question", "Status"], [index_row(e) for e in open_q])
+        if alines is not None:
+            alines = _replace_table(alines, "## Decided questions", None, ["#", "Question", "Status"], [index_row(e) for e in decided_q])
+
+    return "\n".join(lines), ("\n".join(alines) if alines is not None else None)
 
 
-def _ruling_rows_in(text):
-    """[(line_idx, section, group, row_str, ident)] for full ruling rows (>= 4 columns) in ruling sections."""
+def _legacy_rows_in(text, sections):
+    """[(line_idx, section, group, row_str, ident)] for full legacy rows (>= 4 columns) in sections."""
     lines = text.split("\n")
     out = []
     for h, hc, rs, sec, g in tables(lines):
-        if sec in RULING_SECTIONS:
+        if sec in sections:
             for r in rs:
                 if len(hc) >= 4 or len(cells(lines[r])) >= 4:
                     ident = row_id(lines[r])
@@ -575,34 +675,55 @@ def _ruling_rows_in(text):
     return out
 
 
-def tidy(live, archive, rulings_dir=None, dry_run=False):
-    """(live, archive) with ruling rows atomized (when rulings_dir is set), archival Q/T rows moved,
+def _ruling_rows_in(text):
+    """[(line_idx, section, group, row_str, ident)] for full ruling rows (>= 4 columns) in ruling sections."""
+    return _legacy_rows_in(text, RULING_SECTIONS)
+
+
+def _qt_rows_in(text, sections=QT_SECTIONS):
+    """[(line_idx, section, group, row_str, ident)] for full Q/T rows (>= 4 columns) in Q/T sections."""
+    return _legacy_rows_in(text, sections)
+
+
+def _atomize_section_rows(texts, sections, target_dir, row_converter, dry_run):
+    """Move legacy table rows in `sections` + their ### Details into `target_dir/<ID>.md`."""
+    extra = {}
+    for idx in (0, 1):
+        if texts[idx] is None:
+            continue
+        rrows = _legacy_rows_in(texts[idx], sections)
+        if not rrows:
+            continue
+        lines = texts[idx].split("\n")
+        for r, sec, g, row_str, ident in sorted(rrows, reverse=True):
+            del lines[r]
+        texts[idx] = "\n".join(lines)
+        for r, sec, g, row_str, ident in rrows:
+            det_lines = None
+            for k in (0, 1):
+                if texts[k] is not None:
+                    texts[k], taken = take_details(texts[k], ident)
+                    if taken is not None and det_lines is None:
+                        det_lines = taken
+            _, content = row_converter(row_str, sec, g, det_lines)
+            if not dry_run:
+                write_entry(target_dir, ident, content)
+            extra[ident] = parse_entry(content, ident=ident)
+    return extra
+
+
+def tidy(live, archive, rulings_dir=None, work_dir=None, questions_dir=None, dry_run=False):
+    """(live, archive) with entry rows atomized (when their dirs are set), archival rows moved,
     Details beside their rows, everything sorted and generated."""
-    extra_entries = {}
+    extra_r, extra_w, extra_q = {}, {}, {}
+    texts = [live, archive]
     if rulings_dir is not None:
-        texts = [live, archive]
-        for idx in (0, 1):
-            if texts[idx] is None:
-                continue
-            rrows = _ruling_rows_in(texts[idx])
-            if not rrows:
-                continue
-            lines = texts[idx].split("\n")
-            for r, sec, g, row_str, ident in sorted(rrows, reverse=True):
-                del lines[r]
-            texts[idx] = "\n".join(lines)
-            for r, sec, g, row_str, ident in rrows:
-                det_lines = None
-                for k in (0, 1):
-                    if texts[k] is not None:
-                        texts[k], taken = take_details(texts[k], ident)
-                        if taken is not None and det_lines is None:
-                            det_lines = taken
-                _, content = row_to_ruling(row_str, sec, g, det_lines)
-                if not dry_run:
-                    write_entry(rulings_dir, ident, content)
-                extra_entries[ident] = parse_entry(content, ident=ident)
-        live, archive = texts
+        extra_r = _atomize_section_rows(texts, RULING_SECTIONS, rulings_dir, row_to_ruling, dry_run)
+    if work_dir is not None:
+        extra_w = _atomize_section_rows(texts, WORK_SECTIONS, work_dir, row_to_work, dry_run)
+    if questions_dir is not None:
+        extra_q = _atomize_section_rows(texts, QUESTION_SECTIONS, questions_dir, row_to_question, dry_run)
+    live, archive = texts
 
     lines = live.split("\n")
     moving = []
@@ -628,10 +749,20 @@ def tidy(live, archive, rulings_dir=None, dry_run=False):
                 texts[dst] = add_details(texts[dst], body)
         live, archive = texts
     live, archive = sort_text(live), sort_text(archive)
-    if rulings_dir is not None:
-        entries = read_entries(rulings_dir)
-        entries.update(extra_entries)
-        live, archive = generate_indexes(live, archive, entries)
+    if any(d is not None for d in (rulings_dir, work_dir, questions_dir)):
+        r_entries = None
+        if rulings_dir is not None:
+            r_entries = read_entries(rulings_dir)
+            r_entries.update(extra_r)
+        w_entries = None
+        if work_dir is not None:
+            w_entries = read_entries(work_dir)
+            w_entries.update(extra_w)
+        q_entries = None
+        if questions_dir is not None:
+            q_entries = read_entries(questions_dir)
+            q_entries.update(extra_q)
+        live, archive = generate_indexes(live, archive, r_entries, work_entries=w_entries, question_entries=q_entries)
     return live, archive
 
 
@@ -639,9 +770,29 @@ def ids_of(text):
     return [row_id(l) for l in text.split("\n") if row_id(l)]
 
 
-def layout_problems(live, archive, rulings_dir=None):
+def _check_qt_folder(folder, live_idx, arch_idx, allowed_statuses, closed_status, allow_queued=False):
+    """Validate status and index membership for work/ or questions/ files."""
+    out = []
+    entries = read_entries(folder)
+    for ident, e in sorted(entries.items(), key=lambda kv: key(f"| {kv[0]} |")):
+        st = e["meta"].get("Status", "")
+        if st not in allowed_statuses and not (allow_queued and QUEUED.match(st)):
+            out.append(f"{ident}: status '{st}' in {folder}/{ident}.md isn't one of {sorted(allowed_statuses)}")
+        elif st == closed_status:
+            if ident not in arch_idx:
+                out.append(f"{ident}: {closed_status} file exists without an index line in {ARCHIVE}")
+        else:
+            if ident not in live_idx:
+                out.append(f"{ident}: file exists without an index line in {LIVE}")
+    for ident in sorted(set(live_idx) | set(arch_idx), key=lambda x: key(f"| {x} |")):
+        if ident not in entries:
+            out.append(f"{ident} is in the index without a file in {folder}")
+    return out
+
+
+def layout_problems(live, archive, rulings_dir=None, work_dir=None, questions_dir=None):
     """Problems that tidying can't fix: an ID in both files, the index and the subject headings out of step,
-    a decision naming a principle that doesn't exist, or ruling files out of sync with the indexes."""
+    a decision naming a principle that doesn't exist, or entry files out of sync with the indexes."""
     out = []
     both = sorted(set(ids_of(live)) & set(ids_of(archive)), key=lambda x: key(f"| {x} |"))
     out += [f"{i} is in both {LIVE} and {ARCHIVE}" for i in both]
@@ -660,11 +811,25 @@ def layout_problems(live, archive, rulings_dir=None):
     if rng and any(row_id(lines[k]) for k in range(rng[0], next((k for k in range(*rng) if lines[k].startswith("### ")), rng[1]))):
         out.append("## Decisions has rows before its first ### subject heading")
 
+    alines = archive.split("\n")
+    if work_dir is not None:
+        live_w_idx = {row_id(lines[r]) for h, hc, rs, sec, g in tables(lines)
+                      if sec == "## Work list" for r in rs if row_id(lines[r])}
+        arch_w_idx = {row_id(alines[r]) for h, hc, rs, sec, g in tables(alines)
+                      if sec == "## Done work" for r in rs if row_id(alines[r])}
+        out += _check_qt_folder(work_dir, live_w_idx, arch_w_idx, STATUSES["## Work list"], "Done", allow_queued=True)
+
+    if questions_dir is not None:
+        live_q_idx = {row_id(lines[r]) for h, hc, rs, sec, g in tables(lines)
+                      if sec == "## Open questions" for r in rs if row_id(lines[r])}
+        arch_q_idx = {row_id(alines[r]) for h, hc, rs, sec, g in tables(alines)
+                      if sec == "## Decided questions" for r in rs if row_id(alines[r])}
+        out += _check_qt_folder(questions_dir, live_q_idx, arch_q_idx, STATUSES["## Open questions"], "Decided")
+
     if rulings_dir is not None:
         entries = read_entries(rulings_dir)
         live_idx = {row_id(lines[r]): (sec, g) for h, hc, rs, sec, g in tables(lines)
                     if sec in ("## Principles", "## Decisions") for r in rs if row_id(lines[r])}
-        alines = archive.split("\n")
         arch_idx = {row_id(alines[r]): sec for h, hc, rs, sec, g in tables(alines)
                     if sec == "## Superseded decisions" for r in rs if row_id(alines[r])}
         principles_set = {ident for ident, e in entries.items()
@@ -709,39 +874,49 @@ def layout_problems(live, archive, rulings_dir=None):
     return out
 
 
-def check_files(live, archive=None, rulings_dir=None):
+def check_files(live, archive=None, rulings_dir=None, work_dir=None, questions_dir=None):
     """Every problem with the log (both files when there's an archive)."""
     if archive is None:
         out = [] if sort_text(live) == live else [f"{LIVE} is not sorted by ID: run python3 tools/sort_decision_log.py"]
         return out + details_problems(live) + status_problems(live)
     out = []
-    if rulings_dir is not None:
-        existing = set(folder_ids(rulings_dir))
+    for folder, sections in ((rulings_dir, RULING_SECTIONS), (work_dir, WORK_SECTIONS), (questions_dir, QUESTION_SECTIONS)):
+        if folder is None:
+            continue
+        existing = set(folder_ids(folder))
         for name, text in ((LIVE, live), (ARCHIVE, archive)):
-            for _, _, _, _, ident in _ruling_rows_in(text):
+            for _, _, _, _, ident in _legacy_rows_in(text, sections):
                 if ident in existing:
-                    out.append(f"{ident} is in both {name} and {rulings_dir}/{ident}.md")
+                    out.append(f"{ident} is in both {name} and {folder}/{ident}.md")
                 else:
                     out.append(f"{ident} is still a table row in {name}: run python3 tools/sort_decision_log.py")
-    l2, a2 = tidy(live, archive, rulings_dir=rulings_dir, dry_run=True)
+    l2, a2 = tidy(live, archive, rulings_dir=rulings_dir, work_dir=work_dir, questions_dir=questions_dir, dry_run=True)
     if l2 != live:
         out.append(f"{LIVE} is not tidy: run python3 tools/sort_decision_log.py")
     if a2 != archive:
         out.append(f"{ARCHIVE} is not tidy: run python3 tools/sort_decision_log.py")
     for name, text in ((LIVE, live), (ARCHIVE, archive)):
         out += [f"{name}: {p}" for p in details_problems(text) + status_problems(text)]
-    return out + layout_problems(live, archive, rulings_dir=rulings_dir)
+    return out + layout_problems(live, archive, rulings_dir=rulings_dir, work_dir=work_dir, questions_dir=questions_dir)
 
 
 def main():
     args = [a for a in sys.argv[1:] if a != "--check"]
     live_path = args[0] if args else LIVE
     arch_path = args[1] if len(args) > 1 else os.path.join(os.path.dirname(live_path), os.path.basename(ARCHIVE))
-    rulings_dir = os.path.join(os.path.dirname(os.path.abspath(live_path)), "rulings")
+    base_dir = os.path.dirname(os.path.abspath(live_path))
+    rulings_dir = os.path.join(base_dir, "rulings")
+    work_dir = os.path.join(base_dir, "work")
+    questions_dir = os.path.join(base_dir, "questions")
     live = open(live_path, encoding="utf-8").read()
     archive = open(arch_path, encoding="utf-8").read() if os.path.isfile(arch_path) else None
     if "--check" in sys.argv:
-        problems = check_files(live, archive, rulings_dir=rulings_dir if archive is not None else None)
+        problems = check_files(
+            live, archive,
+            rulings_dir=rulings_dir if archive is not None else None,
+            work_dir=work_dir if archive is not None else None,
+            questions_dir=questions_dir if archive is not None else None,
+        )
         if problems:
             print("\n".join(problems))
             sys.exit(1)
@@ -752,7 +927,7 @@ def main():
             open(live_path, "w", encoding="utf-8").write(new)
             print(f"sorted {live_path} by ID")
         return
-    l2, a2 = tidy(live, archive, rulings_dir=rulings_dir)
+    l2, a2 = tidy(live, archive, rulings_dir=rulings_dir, work_dir=work_dir, questions_dir=questions_dir)
     for path, old, new in ((live_path, live, l2), (arch_path, archive, a2)):
         if new != old:
             open(path, "w", encoding="utf-8").write(new)
