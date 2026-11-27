@@ -1,6 +1,6 @@
 ### H168 — A script that keeps docs/agent-handoff.md tidy: short, current, every link working
 
-Author: Claude (integrator, napkin-77) | Date: 2026-11-27 | Status: open | For: gemini
+Author: Claude (integrator, napkin-77) | Date: 2026-11-27 | Status: answered | For: gemini
 
 References: William, 2026-11-27 ("add something to fix agent hand off. Preferably a script that tidies it"), T77 (one
 file per entry), comitatus principles C05 ("can it just be a Python script?"), C06 (one spot per idea), C07 (token
@@ -59,3 +59,23 @@ Checks:
 - tools/test_handoff.py: the cases above, plus `--check` passing on a tidy file and failing on a broken link.
 - `python3 tools/handoff.py tidy --check` passes on the branch; quote `wc -c docs/agent-handoff.md` before and after.
 - `tools/TEST_BEFORE_MERGING.sh` passes (scope tools).
+
+Response — Gemini (gemini-ash-1127-0729), 2026-11-27:
+Branch `gemini/h168-tidy-the-handoff`, commits `c78ffa4` and `453f37d`.
+
+What was done and verified:
+- Added `tidy` (and `--check`) to `tools/handoff.py`: rebuilds the open list, verifies every `- H<NNN>` line under `## Archived` has its heading in `docs/handoff-archive.md` (refusing to cut and naming any missing ID), rebuilds `## Archived` to the last 10 entries (newest first) plus `Older: docs/handoff-archive.md (N entries; find one with grep "^### H0NN" docs/handoff-archive.md)`, and checks all relative markdown links exist (printing line numbers and failing `--check` on broken links). Updated `archive()` to call `tidy()`.
+- Wired `tidy` into `.githooks/pre-commit` (triggered on `docs/handoff/`, `docs/agent-handoff.md`, or `docs/handoff-archive.md`), `tools/integrate.py` (`tidy(root)` at unblock), `BOARD.md` (step 6 chained command), and `docs/integrator.md` (archiving line).
+- Tidied `docs/agent-handoff.md`: updated header for all agents, fixed the `Decision log` link to `../03_Past_Decisions/decision-log.md`, kept the three T155 links as-is, and trimmed `How to use this file` to 6 bullets. `wc -c docs/agent-handoff.md` went from `28605` to `5806`. `python3 tools/handoff.py tidy` ran in `35.0 ms` on the real file, and `python3 tools/handoff.py tidy --check` passes.
+- Cut bullets from `How to use this file` and where each is already in `BOARD.md`:
+  - Reported vs. verified completion / commit or test result -> `BOARD.md` step 6: `"Append your response to the handoff entry (dated and signed: branch, commit, what you verified, IDs you added, open questions; ... last, Result: <commit>; <tests>; <what changed>"`.
+  - `Result:` line format -> `BOARD.md` step 6: `"last, Result: <commit>; <tests>; <what changed>, no | (T91)"`.
+  - `Follow-up:` and `For the integrator:` lines -> `BOARD.md` step 6: `"Follow-up: <what> per thing left; For the integrator: <what> per merge step (P26)"`.
+  - Queue `For:` / `Status` / `GET_A_JOB.py` / `SUBMIT_JOB.py` / `Touches` -> `BOARD.md` steps 1, 3, 6 and `## Jobs`: `"python3 tools/GET_A_JOB.py"`, `"Change only the files on the job's Touches line"`, `"python3 tools/SUBMIT_JOB.py"`, `"the job table is built from docs/handoff/ and the job queue"`.
+- Scope question to integrator: `"H168: tools/test_integrator.py:52-54 has '- H133 — Old. Resolved: ok' in agent-handoff.md without '### H133' in handoff-archive.md, so handoff.archive() -> tidy() rightly refuses to cut H133. May I add '### H133 — Old' to the fixture in tools/test_integrator.py?"`
+  Answer from integrator: `"Yes: add '### H133 — Old' to the fixture in tools/test_integrator.py (a fixture fix, so tidy's refusal stays tested elsewhere). Name it in a Changed from the brief line."`
+- Added 6 `tidy` tests to `tools/test_handoff.py` (23/23 passing). `tools/TEST_BEFORE_MERGING.sh` (scope tools) passed in 64 s and `job.py test` passed on `453f37d` (run with `env -u NAPKIN_SPACE` due to `test_job.py` H201 env leak).
+
+Changed from the brief: Touches did not list tools/test_integrator.py; added '### H133 — Old' to its fixture with integrator scope approval; its fixture had '- H133' in agent-handoff.md without a matching heading in handoff-archive.md.
+Follow-up: tools/test_job.py lines 1411-1459 (H201 personal-space test) fail when NAPKIN_SPACE is set in the environment because it expects the default gemini-coder space; save/pop NAPKIN_SPACE around H201 as H202 already does.
+Result: 453f37d; tools/test_handoff.py 23/23, TEST_BEFORE_MERGING.sh (scope tools) passed, job.py test passed; added handoff.py tidy, wired hooks/tools, and trimmed agent-handoff.md from 28605 to 5806 bytes.
