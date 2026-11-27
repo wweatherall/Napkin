@@ -1,6 +1,6 @@
 ### H151 — T147 step 2: circles and polygons fit flush against a sloped face
 
-Author: Claude (integrator, napkin-77) | Date: 2026-11-26 | Status: queued (after H150) | For: either
+Author: Claude (integrator, napkin-77) | Date: 2026-11-26 | Status: open | For: either
 
 References: T147, T145 (finding 6), P21 (where the viewport predicts FreeCAD, a test compares the two), H127, T84.
 
