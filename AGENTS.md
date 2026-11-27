@@ -3,11 +3,11 @@
 [CLAUDE.md](CLAUDE.md) describes the project; its folder guides apply to you too. Other questions:
 [ARCHITECTURE.md#documentation-ownership](ARCHITECTURE.md#documentation-ownership).
 
-- Start every session with `python3 tools/startup.py --role worker` (or `--role integrator` if William named you
-  integrator; add a Work list ID, e.g. `T54`, for its row). As integrator, start with `startup.py --role integrator`
-  and [docs/integrator.md](docs/integrator.md) only — skip `CLAUDE.md` and `BOARD.md` upfront (`startup.py` already
-  inlines the board and pre-/clear note). Commands that write `.git/` or push (`integrator.py take`,
-  `handoff.py archive --push`, `integrate.py`, and worker `job.py take` / `test` / `done` / `wait` or linked-worktree
+- Start every session with `python3 02_Habits/REMEMBER_WHO_YOU_ARE.py --role worker` (or `--role integrator` if William named you
+  integrator; add a Work list ID, e.g. `T54`, for its row). As integrator, start with `02_Habits/REMEMBER_WHO_YOU_ARE.py --role integrator`
+  and [docs/integrator.md](docs/integrator.md) only — skip `CLAUDE.md` and `BOARD.md` upfront (`REMEMBER_WHO_YOU_ARE.py` already
+  inlines the board and pre-/clear note). Commands that write `.git/` or push (`HOLD_THE_INTEGRATOR_LOCK.py`,
+  `ARCHIVE_A_FINISHED_JOB.py --push`, `MERGE_JOB.py`, and worker `GET_A_JOB.py` / `job.py test` / `SUBMIT_JOB.py` / `job.py wait` or linked-worktree
   `git commit`) require running outside the sandbox (`BypassSandbox: true`).
 - "Check the board": follow [BOARD.md](BOARD.md) with `--as codex` (your branch: `codex/<id>-<slug>`). Nothing
   Ready and you can't wait in the background: say so and stop.
@@ -17,7 +17,7 @@
 - A brief's rule that, followed to the letter, would defeat its purpose: do what serves it and add a
   `Changed from the brief:` line to your response (BOARD.md step 3, P44); not for behaviour, which is William's (next line).
 - Behaviour choices are William's: ask, one question at a time, with a recommendation. Log each answer (names,
-  keys, defaults and wording too) as its own row, `python3 tools/log.py add` (P01, P09). Active decisions govern.
+  keys, defaults and wording too) as its own row, `python3 tools/RECORD_A_DECISION.py` (P01, P09). Active decisions govern.
 - For permission to touch a file or function outside Touches, ask the integrator with
   `python3 tools/job.py wait --scope "<question>"`. For behaviour, wording or what is saved, ask William in chat and run
   `python3 tools/job.py wait "<question>"`. Run either command in the background. After a timeout, run the

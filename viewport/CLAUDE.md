@@ -102,7 +102,7 @@ protocol (update it in the same commit when you change either). Tools have their
 - Test hooks (`delay_ms`, forced rejection, `--*test`) are for testing only (P02).
 
 ## Tests
-- The quick test is `tests/quick_runner.gd` (`--quicktest`, run by `tools/quicktest.sh`): every feature once,
+- The quick test is `tests/quick_runner.gd` (`--quicktest`, run by `tools/TEST_YOUR_CODE_FAST.sh`): every feature once,
   each step checking its own answer. Each section is `tests/quick/<name>.gd` with a `run()` method;
   `QUICK_LANES` in quick_runner.gd deals them into the three windows the script runs side by side
   (`--quick-lane=N`, T49; keep the lanes about equal in time). A new feature: a step in a
@@ -114,14 +114,14 @@ protocol (update it in the same commit when you change either). Tools have their
 - Recorded suites (`--facetest --movetest --mirrortest --infertest --holetest --zfighttest`) are compared with
   `tests/reference/` by the full test; targeted: `--undotest --snaptest --recttest --shelltest --jointest
   --rejecttest`. Visual only: `--linetest`, `--zfighttest`; timing `--perftest`; `--heavytest --model=<file>`.
-- Headless tests: `tools/featuretest.sh` finds every `viewport/test_*.gd` and runs it with
+- Headless tests: `tools/TEST_WITHOUT_THE_APP.sh` finds every `viewport/test_*.gd` and runs it with
   `Godot --headless --path viewport --script res://<file>`; each prints `<NAME> TESTS: N passed, M failed` and its
   first lines say what it covers (the document controller, selection, the tool registry, the tool interface, the
   units parser against `tests/length_cases.json`). A new file needs no other edit. `test_document.gd` provides
   `FakeClient.last_of` / `drain` and request-matched reply/event builders (`reply`, `reload_reply`,
   `keep_mine_reply`, `open_reply`, `error_reply`, `outside_save`) for P42 document-controller failure-path checks.
   `test_tools.gd` also runs inside
-  the built pack (`tools/build_app.sh`); quick-test `registry` checks the real toolbar, and `selection` the
+  the built pack (`tools/BUILD_THE_APP.sh`); quick-test `registry` checks the real toolbar, and `selection` the
   selection behaviour in the window.
 - Tests use a private worker on a port it picks itself and reports in a file (T47); `--port=N` uses an outside
   one; `--shared-port=N` tries sharing next to a running app.

@@ -1,4 +1,4 @@
 #!/bin/sh
 # Tracked hook; activate with git config core.hooksPath .githooks after integration.
 cd "$(git rev-parse --show-toplevel)" || exit 1
-exec python3 tools/check_architecture.py --staged --message-file "$1"
+exec python3 02_Habits/WHEN_WATCHED_CODE_IS_COMMITTED_CHECK_THE_MAP.py --staged --message-file "$1"

@@ -4,7 +4,7 @@ A tool-first woodworking modeller with an editable FreeCAD model underneath.
 
 Setup and launch
 - Developed and tested with FreeCAD 1.1.4 and Godot 4.6, installed in /Applications.
-- Run tools/build_app.sh to make dist/Shop Sketch.app; rebuild after updating the source.
+- Run tools/BUILD_THE_APP.sh to make dist/Shop Sketch.app; rebuild after updating the source.
   The app opens your last model, or Documents/Shop Sketch/Untitled.FCStd on first use.
 - For development, double-click "Start Shop Sketch.command". It opens models/model.FCStd;
   its worker log is worker.log. If macOS blocks the downloaded launcher, right-click > Open.

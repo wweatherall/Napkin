@@ -369,7 +369,7 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | T138 | Compress ARCHITECTURE.md heavily so the start-up brief can carry the map (about 80 KB t... | Open |
 | T139 | Rename the app to Napkin: what you see, the built app, folders, and the code and docs t... | Open |
 | T140 | Decide when and how William's new organization principles take effect, and how they sit... | Open |
-| T141 | William tries the Polygon tool by eye in a rebuilt app (tools/build_app.sh). | Open |
+| T141 | William tries the Polygon tool by eye in a rebuilt app (tools/BUILD_THE_APP.sh). | Open |
 | T143 | Move tools/usage.py (2,760 lines, token benchmarking) and its tests out of the project'... | Open |
 | T146 | Atomize the principles and past decisions: one file per ruling (G, P and the rest), wri... | Open |
 | T149 | Tools and habits take the organization's names (FOR_<doing>.py; WHEN_<this>_<DO_THAT>.p... | Open |

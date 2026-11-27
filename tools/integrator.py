@@ -170,6 +170,9 @@ def take_and_archive(path, name, william=False, archives=(), commit=False, push=
 
 
 def main(argv):
+    if "-h" in argv or "--help" in argv:
+        print(__doc__)
+        return 0
     path = lock_path()
     if not argv or argv[0] == "status":
         print(status_line(path))

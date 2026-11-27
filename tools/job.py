@@ -526,7 +526,7 @@ def _take(cwd, agent, session, now=None, out=print):
     if prev.get("notes"):
         out(f"the integrator's notes: {prev['notes']}")
     out(f"work in {wt}; run tests and other long commands through `python3 tools/job.py run -- <command>` (in the background: it stops a hung one after 10 min and wakes you; deal with it yourself); when it's done, "
-        f"`python3 tools/job.py done`\n")
+        f"`python3 tools/SUBMIT_JOB.py`\n")
     if counted(session):
         out(f"job {n} of {MAX_JOBS} for this session (P27)")
     out(open(os.path.join(wt, handoff.FOLDER, job["name"]), encoding="utf-8").read())
@@ -867,7 +867,7 @@ def next_step(st, session):
     n = len(jobs_taken(st, session))
     if n >= MAX_JOBS:
         return f"next: this session has done {n} jobs: tell William you're ready for a /clear"
-    return ("next: run `python3 tools/job.py take --wait` in the background (run_in_background): it takes the next "
+    return ("next: run `python3 tools/GET_A_JOB.py --wait` in the background (run_in_background): it takes the next "
             f"job, or stops after {WORKER_WAIT // 60} min with nothing (then tell William)"
             + (f"; job {n} of {MAX_JOBS} for this session" if counted(session) else ""))
 
@@ -1021,7 +1021,7 @@ def conditions(root, st, jobs, order, now, procs=None):
     for k, j in st["jobs"].items():
         s = j.get("state")
         if s == "done":
-            out[("done", k, j.get("done"))] = f"done: {k} on {j.get('branch')}: review it (tools/integrate.py)"
+            out[("done", k, j.get("done"))] = f"done: {k} on {j.get('branch')}: review it (tools/MERGE_JOB.py)"
         elif s == "returned":
             out[("returned", k, j.get("returned"), j.get("agent"))] = f"returned: {k} waits for a {j.get('agent')} worker"
         elif s in WORKING:

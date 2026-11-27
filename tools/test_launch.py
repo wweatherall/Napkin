@@ -28,12 +28,12 @@ p = launch.prompt("gemini", "gemini-cedar-1126-1900", "This checkout: ...\nReady
 check("the first prompt carries the brief and says not to run start-up again",
       "Ready on the board:\n  H150" in p and "don't run it again" in p, p)
 check("a Gemini prompt takes with no --session (job.py reads Gemini's conversation id, GEMINI.md)",
-      "`python3 tools/job.py take --as gemini`" in p and "--session" not in p and "GEMINI.md" in p, p)
+      "`python3 tools/GET_A_JOB.py --as gemini`" in p and "--session" not in p and "GEMINI.md" in p, p)
 check("a Claude prompt takes without a session flag",
-      "take --as claude`" in launch.prompt("claude", "claude-elm-1", "b") and "CLAUDE.md" in launch.prompt("claude", "n", "b"))
+      "`python3 tools/GET_A_JOB.py --as claude`" in launch.prompt("claude", "claude-elm-1", "b") and "CLAUDE.md" in launch.prompt("claude", "n", "b"))
 
 check("the first prompt names the worker's personal space and how to log and journal (T134)",
-      "personal_space.py log gemini-coder" in p and "personal_space.py journal gemini-coder" in p, p)
+      "WRITE_IN_YOUR_LOG.py gemini-coder" in p and "WRITE_IN_YOUR_JOURNAL.py gemini-coder" in p, p)
 g = launch.agent_command("gemini", root, "/x/p file.txt", "gemini-a")
 check("Gemini runs agy with the hydrogen model by default and the prompt file",
       g == "cd /x/comitatus/08_Code_Bases/Napkin && agy --model gemini-4-hydrogen-medium -i \"$(cat '/x/p file.txt')\"", g)

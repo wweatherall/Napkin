@@ -4,28 +4,39 @@ every op's status. Exit 1 if any differ."""
 import json, os, re, sys
 
 REF = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "tests", "reference")
-runs = sys.argv[1]
-suites = sys.argv[2:] or sorted(os.listdir(REF))
+
+
 def identity(value):
     return re.sub(r"^([a-z]+[0-9]+)_[0-9a-f]{32}$", r"\1", value)
 
 
-bad_any = False
-for suite in suites:
-    pa, pb = os.path.join(REF, suite), os.path.join(runs, suite, "out")
-    try:
-        a = {identity(x["id"]): x for x in json.load(open(os.path.join(pa, "bodies.json")))}
-        b = {identity(x["id"]): x for x in json.load(open(os.path.join(pb, "bodies.json")))}
-        sa = [(identity(o["id"]), o["status"]) for o in json.load(open(os.path.join(pa, "status.json")))["ops"]]
-        sb = [(identity(o["id"]), o["status"]) for o in json.load(open(os.path.join(pb, "status.json")))["ops"]]
-    except OSError as e:
-        print(f"{suite:11s} MISSING {e}"); bad_any = True; continue
-    cuts = lambda x: sorted((identity(c["op"]), tuple(round(v, 3) for v in c["lo"])) for c in x.get("cuts", []))
-    bad = [k for k in sorted(set(a) | set(b)) if k not in a or k not in b
-           or abs(a[k]["volume_mm3"] - b[k]["volume_mm3"]) > 0.1
-           or any(abs(x - y) > 1e-3 for x, y in zip(a[k]["world_bbox"], b[k]["world_bbox"])) or cuts(a[k]) != cuts(b[k])]
-    same = not bad and sa == sb
-    bad_any |= not same
-    print(f"{suite:11s} {'same' if same else 'DIFFERENT'} | {len(b)} boards, {len(sb)} ops"
-          + ("" if same else f" | boards differing: {bad} | op statuses same: {sa == sb}"))
-sys.exit(1 if bad_any else 0)
+def main(argv=None):
+    argv = sys.argv[1:] if argv is None else argv
+    if not argv or "-h" in argv or "--help" in argv:
+        print(__doc__)
+        return 0
+    runs = argv[0]
+    suites = argv[1:] or sorted(os.listdir(REF))
+    bad_any = False
+    for suite in suites:
+        pa, pb = os.path.join(REF, suite), os.path.join(runs, suite, "out")
+        try:
+            a = {identity(x["id"]): x for x in json.load(open(os.path.join(pa, "bodies.json")))}
+            b = {identity(x["id"]): x for x in json.load(open(os.path.join(pb, "bodies.json")))}
+            sa = [(identity(o["id"]), o["status"]) for o in json.load(open(os.path.join(pa, "status.json")))["ops"]]
+            sb = [(identity(o["id"]), o["status"]) for o in json.load(open(os.path.join(pb, "status.json")))["ops"]]
+        except OSError as e:
+            print(f"{suite:11s} MISSING {e}"); bad_any = True; continue
+        cuts = lambda x: sorted((identity(c["op"]), tuple(round(v, 3) for v in c["lo"])) for c in x.get("cuts", []))
+        bad = [k for k in sorted(set(a) | set(b)) if k not in a or k not in b
+               or abs(a[k]["volume_mm3"] - b[k]["volume_mm3"]) > 0.1
+               or any(abs(x - y) > 1e-3 for x, y in zip(a[k]["world_bbox"], b[k]["world_bbox"])) or cuts(a[k]) != cuts(b[k])]
+        same = not bad and sa == sb
+        bad_any |= not same
+        print(f"{suite:11s} {'same' if same else 'DIFFERENT'} | {len(b)} boards, {len(sb)} ops"
+              + ("" if same else f" | boards differing: {bad} | op statuses same: {sa == sb}"))
+    return 1 if bad_any else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

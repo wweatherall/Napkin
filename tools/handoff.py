@@ -417,6 +417,9 @@ def overlaps(root):
 def main():
     root = os.path.normpath(os.path.join(os.path.dirname(os.path.abspath(__file__)), ".."))
     args = sys.argv[1:]
+    if "-h" in args or "--help" in args:
+        print(__doc__)
+        return
     if args[:1] == ["list"]:
         if "--check" in args:
             text = open(os.path.join(root, HANDOFF), encoding="utf-8").read()

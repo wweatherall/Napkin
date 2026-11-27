@@ -11,8 +11,8 @@ lives in its own file under `03_Past_Decisions/` (`rulings/<ID>.md`, `work/<ID>.
 `Open questions`, `Work list`) and the `Tunables` table; `03_Past_Decisions/decision-archive.md` indexes superseded
 rulings, decided questions, and done Work list items. Don't read them whole: use `python3 tools/log.py show --top` for
 the subjects and principles, `python3 tools/log.py show <subject>` for a subject's rulings, and
-`python3 tools/log.py show <ID>` (or read the entry file) for one entry and its principles. Add entries with `log.py add`,
-append notes with `log.py note`, and update status with `log.py set`, never by hand. Rule P01: a change that
+`python3 tools/log.py show <ID>` (or read the entry file) for one entry and its principles. Add entries with `RECORD_A_DECISION.py`,
+append notes with `ADD_A_NOTE_TO_A_DECISION.py`, and update status with `log.py set`, never by hand. Rule P01: a change that
 contradicts a logged decision gets a new ruling naming the old ID, and the old ruling is marked `Superseded` (never
 deleted). Ask William before countermanding an Active decision.
 
@@ -30,7 +30,7 @@ deleted). Ask William before countermanding an Active decision.
   working prototype.
 
 ## Working with Codex (ChatGPT) and other sessions
-- Start every session with `python3 tools/startup.py` (pass `--role integrator` if William named you integrator, or
+- Start every session with `python3 02_Habits/REMEMBER_WHO_YOU_ARE.py` (pass `--role integrator` if William named you integrator, or
   `--role worker` for a lean worker brief). Nothing notifies either agent of the other's changes: when
   you leave Codex something, tell William.
 - The integrator is the one Claude session William named, holding the lock (P16, P19); only it merges and pushes,
@@ -61,7 +61,7 @@ confirmed meshes, the worker link, typed values, drawing rules, viewport tests) 
   `{body, normal, point}`, never by face numbers (A03).
 
 ## Run (macOS)
-- `tools/build_app.sh` builds `dist/Shop Sketch.app` (A30): a copy of the Godot program runs
+- `tools/BUILD_THE_APP.sh` builds `dist/Shop Sketch.app` (A30): a copy of the Godot program runs
   `Resources/Shop Sketch.pck` (`--export-pack`, preset in `viewport/export_presets.cfg`; no export templates needed),
   with `Resources/worker/*.py`, an icon from `tools/icon.svg`, ad-hoc signed. Files next to the viewport are found
   with `_beside_project()` (repo when run from source, bundle Resources in the app).
@@ -75,22 +75,22 @@ confirmed meshes, the worker link, typed values, drawing rules, viewport tests) 
 
 ## Tests
 - Two kinds of test (P07): feature tests check Shop Sketch's answers against FreeCAD with no window
-  (`tools/featuretest.sh`, ~10 s, all side by side; it finds every `worker/test_*.py`, `tools/test_*.py` and
+  (`tools/TEST_WITHOUT_THE_APP.sh`, ~10 s, all side by side; it finds every `worker/test_*.py`, `tools/test_*.py` and
   `viewport/test_*.gd` itself, T95, `--list` shows them; the folder guides say how); UI tests drive the viewport.
   A new feature gets a numbered file in `worker/scenario/` first (run the feature tests while building it), then a
   quick-test step once its tool exists.
-- After every change: `tools/quicktest.sh` (~8 s): the feature tests beside every viewport feature once, in three
+- After every change: `tools/TEST_YOUR_CODE_FAST.sh` (~8 s): the feature tests beside every viewport feature once, in three
   Godot windows side by side (`--quicktest --quick-lane=N`, T49; `--one` for a single window), each step checking its
   own answer. Each window starts its own worker on a port it owns, so test runs never touch a running Shop Sketch
   or each other.
-- Before a merge: `tools/gate.sh` (the quick test, then the full test, one verdict; failures listed in
+- Before a merge: `tools/TEST_BEFORE_MERGING.sh` (the quick test, then the full test, one verdict; failures listed in
   `tests/known_failures.txt` with their Work list item pass, nothing else, P18).
-- When the quick test fails: `tools/fulltest.sh` (~15 s): the six recorded suites compared
-  with `tests/reference/` (`tools/compare_suites.py`), the targeted suites, and the feature tests; the suites run in
+- When the quick test fails: `tools/TEST_YOUR_CODE_THOROUGHLY.sh` (~15 s): the six recorded suites compared
+  with `tests/reference/` (`tools/COMPARE_TEST_SUITES.py`), the targeted suites, and the feature tests; the suites run in
   four lanes side by side, each with its own worker (T49). Suites run at the
   quick test's pace (`--fast`, same results); `--full-pace` as recorded. After an intended change in behaviour:
-  `tools/fulltest.sh --update-reference`.
-- Both scripts first run `tools/parsecheck.sh` (every viewport script, side by side, ~1 s); the quick test's Godot run stops
+  `tools/TEST_YOUR_CODE_THOROUGHLY.sh --update-reference`.
+- Both scripts first run `tools/CHECK_THE_SCRIPTS_PARSE.sh` (every viewport script, side by side, ~1 s); the quick test's Godot run stops
   after 120 s. Which tests exist and what they cover: the folder guides.
 - Recordings use `--true-latency` (P03) with Godot's `--write-movie`.
 

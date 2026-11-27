@@ -6,33 +6,33 @@ Architecture: lines, the response) and CLAUDE.md (commit trailers); this page sa
 
 ## The role and the lock
 - One Claude session is the integrator (P16), and it holds the lock (`python3 tools/integrator.py status`, P19).
-  Start with `python3 tools/startup.py --role integrator` and this page only — skip `CLAUDE.md` and `BOARD.md` upfront
-  (`startup.py` already summarizes the board and prints pre-/clear state notes inline).
+  Start with `python3 02_Habits/REMEMBER_WHO_YOU_ARE.py --role integrator` and this page only — skip `CLAUDE.md` and `BOARD.md` upfront
+  (`REMEMBER_WHO_YOU_ARE.py` already summarizes the board and prints pre-/clear state notes inline).
   You're the integrator only if William said so in this session: take the lock (and archive, commit and push any
   pre-/clear state note in one step) with
-  `python3 tools/integrator.py take <your session name> --william [--archive <ID> --push]` (drop `--william` if the
+  `python3 tools/HOLD_THE_INTEGRATOR_LOCK.py <your session name> --william [--archive <ID> --push]` (drop `--william` if the
   lock is free; refused if another holds it without `--william`, P19; standalone archiving is
-  `python3 tools/handoff.py archive <ID> --push`). Commands that write `.git/`, push, launch Terminal windows, or
-  read transcripts outside the workspace (`integrator.py take`, `handoff.py archive --push`, `integrate.py`,
-  `osascript` worker launches, and `tools/usage.py`) require running outside the sandbox (`BypassSandbox: true`).
+  `python3 tools/ARCHIVE_A_FINISHED_JOB.py <ID> --push`). Commands that write `.git/`, push, launch Terminal windows, or
+  read transcripts outside the workspace (`HOLD_THE_INTEGRATOR_LOCK.py`, `ARCHIVE_A_FINISHED_JOB.py --push`, `MERGE_JOB.py`,
+  `osascript` worker launches, and `tools/MEASURE_TOKEN_USE.py`) require running outside the sandbox (`BypassSandbox: true`).
 - It keeps BOARD.md (nobody else edits it), assigns jobs, reviews, merges into main and pushes without asking once
   review and tests pass (P16, P49), and pushes verified integrator commits on main directly. Other sessions never
   merge or push.
 
 ## The queue watch
-- No timed check-ins (P39): run `python3 tools/job.py watch --next` in the background (it flushes stdout on every
+- No timed check-ins (P39): run `python3 tools/WAIT_FOR_THE_NEXT_JOB.py` in the background (it flushes stdout on every
   event and works read-only if `.git/` is sandboxed; no Monitor needed); it wakes you
   once on the first new worker/queue event (a job done, a job stale: its deadline passed, check its branch and worktree; a
-  worker waiting on William; the queue empty while a worker waits on `take --wait`: check in with William — self-triggered
+  worker waiting on William; the queue empty while a worker waits on `GET_A_JOB.py --wait`: check in with William — self-triggered
   `returned` events are ignored by `--next` and reported only by `--once`). Start
   it again after each. After a context clear, re-arm it.
 - A worker's question (T114) shows as `waiting: H0NN asks the integrator (scope): <q>` or `waiting: H0NN asks
-  William: <q>`. Answer a scope question with `python3 tools/job.py answer H0NN "<text>"`; relay William's answer
+  William: <q>`. Answer a scope question with `python3 tools/ANSWER_A_WORKERS_QUESTION.py H0NN "<text>"`; relay William's answer
   with `--from william` (he can run it himself). The worker's background `wait` prints it; answers sent before
   it reads them arrive together, in recorded order (P47).
-- `python3 tools/job.py status` shows the queue; `python3 tools/job.py board` rebuilds the board's job table (the
+- `python3 tools/CHECK_THE_JOB_BOARD.py` shows the queue; `python3 tools/REBUILD_THE_JOB_BOARD.py` rebuilds the board's job table (the
   commit hook does it on main).
-- Spinning up a worker window: `python3 tools/launch.py <gemini|claude|codex> [--model M]` (T134; outside the sandbox;
+- Spinning up a worker window: `python3 tools/LAUNCH_A_WORKER.py <gemini|claude|codex> [--model M]` (T134; outside the sandbox;
   tell William) opens it with its start-up brief already in the first message; `--dry-run` shows the command. The
   commands it runs, for reference:
 - Spinning up a Gemini worker window (tell William; run outside sandbox / `BypassSandbox: true`): run
@@ -40,15 +40,15 @@ Architecture: lines, the response) and CLAUDE.md (commit trailers); this page sa
   (models: `gemini-4-hydrogen-medium` for standard jobs, `gemini-4-neon-medium` when asked for Neon; `agy models` lists all).
 - Spinning up a Claude worker window (only when William asks; tell him; outside sandbox): run
   `osascript -e 'tell application "Terminal" to do script "cd /Users/Will/Sites/comitatus/08_Code_Bases/Napkin && claude --model sonnet --effort medium --add-dir /Users/Will/Sites/comitatus/08_Code_Bases/.worktrees/Napkin --remote-control H0NN-worker \"You are a worker. Check the board.\""'`
-- Your Log and Journal (T134): `python3 tools/integrator.py note "<line>"` (or `personal_space.py log opus-integrator`)
+- Your Log and Journal (T134): `python3 tools/WRITE_IN_YOUR_LOG.py "<line>"` (or `WRITE_IN_YOUR_LOG.py opus-integrator "<line>"`)
   adds a dated line to your Log, `comitatus/04_Personal_Space/opus-integrator/Log.md` (what you did; `job.py` and
-  `integrate.py` add their own lines); `python3 tools/personal_space.py journal opus-integrator "<line>"` adds to
-  your Journal (yours: what you noticed, liked, found hard). `startup.py --role integrator` prints the last ten lines
+  `integrate.py` add their own lines); `python3 tools/WRITE_IN_YOUR_JOURNAL.py opus-integrator "<line>"` adds to
+  your Journal (yours: what you noticed, liked, found hard). `02_Habits/REMEMBER_WHO_YOU_ARE.py --role integrator` prints the last ten lines
   of each, so no pre-/clear shutdown commit is needed.
 - Passive job usage (T117, T126): `job.py` (`take`, `done`, `return`) and `integrate.py` (`merge`) call
   `tools/usage.py` fail-open, appending snapshots to untracked `.git/shopsketch-usage.jsonl`. Inspect (outside
   sandbox / `BypassSandbox: true` so `~/.gemini/antigravity-cli/brain` and `~/.claude/projects` are readable) with
-  `python3 tools/usage.py orient` (startup benchmark), `bench` (worker + integrator summary with 5h % estimates),
+  `python3 tools/MEASURE_TOKEN_USE.py orient` (startup benchmark), `bench` (worker + integrator summary with 5h % estimates),
   `viz` (`--solo --sort burn`, `--job <H0NN>`), `report --only-measured`, `overhead`, `compare`, or
   `holes <H0NN>` (Claude & AGY/Gemini transcripts).
 
@@ -58,15 +58,15 @@ Architecture: lines, the response) and CLAUDE.md (commit trailers); this page sa
   with the merge staged when any response has one, prints them under "for you now:", and records them in the merge
   commit on `--continue`; `--yes` doesn't skip this stop). For a brief with a "What can fail" section, check that each case
   listed there has its named check, and that the check fails without the change where it can (P42). Merge what's good with
-  `python3 tools/integrate.py <branch> --as <name> --push --yes` (P20, P49). It runs the gate, `tools/gate.sh` (P18); flags
+  `python3 tools/MERGE_JOB.py <branch> --as <name> --push --yes` (P20, P49). It runs the gate, `tools/TEST_BEFORE_MERGING.sh` (P18); flags
   files the branch changed outside its job's Touches list; renumbers a PROTOCOL_VERSION bump on top if main moved
   on meanwhile (A35); removes the job's worktree and branch, marks it merged, records Results and pushes `main` without
   stopping (drop `--yes` if you ever want to stop before pushing; `--yes` never skips P28/P44 pauses).
-- Put one that fails review or the gate back with `python3 tools/job.py return <id> "<notes>"`; hand a job to another agent (moving its worktree into `../.worktrees/<checkout>/` if needed, P63) with `python3 tools/job.py reassign <id> --to claude|codex|gemini ["<notes>"]`.
+- Put one that fails review or the gate back with `python3 tools/RETURN_JOB.py <id> "<notes>"`; hand a job to another agent (moving its worktree into `../.worktrees/<checkout>/` if needed, P63) with `python3 tools/job.py reassign <id> --to claude|codex|gemini ["<notes>"]`.
 - Placeholder IDs (T74): integrate.py runs `tools/number_ids.py` at merge, giving each I-new-N, T-new-N, H-new-N
   the next free number. It numbers only placeholders that are IDs (a log row, a handoff entry's file or heading, and
   references to them); any other is left and reported as "not numbered: <file>:<line>" (H073). Jobs you write on
-  main get numbers the same way: run `python3 tools/number_ids.py`
+  main get numbers the same way: run `python3 tools/NUMBER_A_NEW_ID.py`
   (`--dry-run` to look first) before committing.
 - Codex records William's decisions in the log itself (P09, AGENTS.md). When integrating its branch, carry over
   only the rows it added or superseded: its copy of the rest may be older than main's.
@@ -79,12 +79,12 @@ Architecture: lines, the response) and CLAUDE.md (commit trailers); this page sa
 ## The map (P28)
 - `ARCHITECTURE.md` and `docs/protocol.md` are yours. A job with `Architecture:` lines stops at merge with the
   merge staged and prints them: write them in (the reviewer checks prose against code), then
-  `integrate.py --continue --as <name> --push --yes`.
+  `MERGE_JOB.py --continue --as <name> --push --yes`.
 - On main the map changes in the same commit as the code. The PR check (`tools/check_architecture.py --range`,
   read as a branch) is an additional omission detector, not a replacement for review.
 
 ## Writing jobs
-- **Full briefs only on `BOARD.md`**: when taking a Work list item off `06_To-dos` to turn into jobs, run `python3 tools/log.py pick T<n>` first. Every handoff entry on the board (whether `open` or `queued (after H0NN)`) must be a complete, ready-to-run brief (`Today`, `Reading path`, `Request`, `Touches`, `Checks`) so H146's auto-unblock works hands-free; write all of an item's jobs in one commit (the second as `queued (after H0NN)`), or if one merges before the next is written, reopen it with `python3 tools/log.py set T<n> --status Open` (`Completes: T<n>` still works but is no longer needed; add `Item: T<n>` if the heading doesn't name it); partial ideas and unexpanded follow-ons stay in the Work list (`03_Past_Decisions/decision-log.md`) until ready for a full brief.
+- **Full briefs only on `BOARD.md`**: when taking a Work list item off `06_To-dos` to turn into jobs, run `python3 tools/PICK_UP_A_TO_DO.py T<n>` first. Every handoff entry on the board (whether `open` or `queued (after H0NN)`) must be a complete, ready-to-run brief (`Today`, `Reading path`, `Request`, `Touches`, `Checks`) so H146's auto-unblock works hands-free; write all of an item's jobs in one commit (the second as `queued (after H0NN)`), or if one merges before the next is written, reopen it with `python3 tools/log.py set T<n> --status Open` (`Completes: T<n>` still works but is no longer needed; add `Item: T<n>` if the heading doesn't name it); partial ideas and unexpanded follow-ons stay in the Work list (`03_Past_Decisions/decision-log.md`) until ready for a full brief.
 - A job adding a tool or an op also lists the places that pin them (H130 asked for them one by one):
   `viewport/keys.gd`, `main.gd` `redo`, `tool_context.gd` and `test_tool_context.gd`, `test_tools.gd`,
   `tools/push_tool.gd`, `tools/CLAUDE.md`, `worker/scenario/99_op_registry.py`.

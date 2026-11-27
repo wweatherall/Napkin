@@ -76,9 +76,9 @@ def brief_lines(name, n=10, root=None):
     if path_of(name, "log", root) is None:
         return []
     out = []
-    for kind, title in (("log", "Log"), ("journal", "Journal")):
+    for kind, title, script in (("log", "Log", "WRITE_IN_YOUR_LOG.py"), ("journal", "Journal", "WRITE_IN_YOUR_JOURNAL.py")):
         lines = last(name, kind, n, root)
-        out.append(f"{title} ({name}, last {n} lines; personal_space.py {kind} {name} \"...\"):")
+        out.append(f"{title} ({name}, last {n} lines; {script} {name} \"...\"):")
         out += ["  " + l for l in lines] or ["  (nothing yet)"]
     return out
 
