@@ -374,6 +374,8 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | T152 | Thin the tests without losing coverage: research how others do it (coverage-guided test... | Open |
 | T153 | Generated tests: inputs made fresh each run (a random seed, printed so a failure can be... | Open |
 | T155 | Find a home for (or delete) the loose files at Napkin's top level: 'Codex's suggestions... | Open |
+| T157 | Replay's reply says cmd sync (protocol finding 6): a consumer matching a reply's cmd to... | Open |
+| T158 | The window sends the op list's name nested (oplog.name) but the worker's run_sync reads... | Open |
 
 ## Tunables
 
