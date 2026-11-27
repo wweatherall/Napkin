@@ -1,6 +1,6 @@
 ### H161 — Faster tests: find where the gate's time goes and cut it, every check kept
 
-Author: Claude (integrator, napkin-77) | Date: 2026-11-26 | Status: queued (after H160) | For: gemini
+Author: Claude (integrator, napkin-77) | Date: 2026-11-26 | Status: open | For: gemini
 
 Item: T154
 
