@@ -65,10 +65,9 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H174 | Gemini | **Done**: for review (gemini) | A generated dependency map: who uses which file, and who calls a function | [H174](docs/handoff/H174-dependency-map.md) |  |
 | H175 | Gemini | **Done**: for review (gemini) | The merge tools: six things the integrator did by hand on 2026-11-27, made automatic | [H175](docs/handoff/H175-merge-tool-fixes.md) |  |
 | H177 | Gemini | In progress (gemini since 10:21) | main.gd step 1: history replies and live preferences move to their own files, behaviour unchanged | [H177](docs/handoff/H177-split-main-gd.md) |  |
-| H179 | Gemini | **Ready** | Two proposals for William: push_pull's jobs as separate ops (T159), and how a fit names its face (T161) | [H179](docs/handoff/H179-op-design-proposals.md) |  |
+| H179 | Gemini | **Done**: for review (gemini) | Two proposals for William: push_pull's jobs as separate ops (T159), and how a fit names its face (T161) | [H179](docs/handoff/H179-op-design-proposals.md) |  |
 
 <!-- end of job table -->
 

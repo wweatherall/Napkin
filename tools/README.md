@@ -20,6 +20,7 @@ Named scripts for every action a person or worker runs directly. Each script is 
 - `WRITE_IN_YOUR_JOURNAL.py` — append a dated line to your `Journal.md` (`personal_space.py journal`).
 - `ARCHIVE_A_FINISHED_JOB.py` — archive a resolved handoff entry (`handoff.py archive`).
 - `CHECK_JOBS_DONT_OVERLAP.py` — check open jobs for overlapping `Touches` (`handoff.py overlaps`).
+- `dependency_map.py` — rebuild/check `docs/dependency-map.md` and find `callers` / `touches` (`python3 tools/dependency_map.py [--check | callers <f:fn> | touches <f:fn>...]`).
 - `protocol_map.py` — rebuild and check the message table and references in `docs/protocol.md` (`python3 tools/protocol_map.py [--check]`).
 - `../../09_Tools/MEASURE_TOKEN_USE.py` — inspect session usage and token benchmarks (moved to `comitatus/09_Tools`, P69; run `python3 ../../09_Tools/MEASURE_TOKEN_USE.py`).
 - `COMPARE_TEST_SUITES.py` — compare viewport suite runs with `tests/reference/` (`compare_suites.py`).
