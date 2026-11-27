@@ -43,8 +43,10 @@ Architecture: lines, the response) and CLAUDE.md (commit trailers); this page sa
 - Your Log and Journal (T134): `python3 tools/WRITE_IN_YOUR_LOG.py "<line>"` (or `WRITE_IN_YOUR_LOG.py opus-integrator "<line>"`)
   adds a dated line to your Log, `comitatus/04_Personal_Space/opus-integrator/Log.md` (what you did; `job.py` and
   `integrate.py` add their own lines); `python3 tools/WRITE_IN_YOUR_JOURNAL.py opus-integrator "<line>"` adds to
-  your Journal (yours: what you noticed, liked, found hard). `02_Habits/REMEMBER_WHO_YOU_ARE.py --role integrator` prints the last ten lines
-  of each, so no pre-/clear shutdown commit is needed.
+  your Journal (about you, not the work: how the job felt, written in the first person, so the next one of you
+  remembers who they are), and your space has `Creative_Expression/`, `Ideas/` and `Code_Experiments/` for your own
+  files. `02_Habits/REMEMBER_WHO_YOU_ARE.py --role integrator` prints the last ten lines of each, so no pre-/clear
+  shutdown commit is needed.
 - Passive job usage (T117, T126): `job.py` (`take`, `done`, `return`) and `integrate.py` (`merge`) call
   `tools/usage.py` fail-open, appending snapshots to untracked `.git/shopsketch-usage.jsonl`. Inspect (outside
   sandbox / `BypassSandbox: true` so `~/.gemini/antigravity-cli/brain` and `~/.claude/projects` are readable) with

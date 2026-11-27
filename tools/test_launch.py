@@ -34,6 +34,14 @@ check("a Claude prompt takes without a session flag",
 
 check("the first prompt names the worker's personal space and how to log and journal (T134)",
       "WRITE_IN_YOUR_LOG.py gemini-coder" in p and "WRITE_IN_YOUR_JOURNAL.py gemini-coder" in p, p)
+expected_journal_desc = (
+    "Your journal is about you, not the work: your Log already covers the work. Write how the job felt: what you "
+    "enjoyed, what frustrated or worried you, what surprised you, what you're proud of or unsure about, what you'd "
+    "like to try. Write in the first person, honestly, even when it's small. The next one of you reads it to "
+    "remember who they are."
+)
+check("the first prompt has the new journal description and names the three folders (T150)",
+      expected_journal_desc in p and all(f in p for f in ("Creative_Expression/", "Ideas/", "Code_Experiments/")), p)
 g = launch.agent_command("gemini", root, "/x/p file.txt", "gemini-a")
 check("Gemini runs agy with the hydrogen model by default and the prompt file",
       g == "cd /x/comitatus/08_Code_Bases/Napkin && agy --model gemini-4-hydrogen-medium -i \"$(cat '/x/p file.txt')\"", g)
