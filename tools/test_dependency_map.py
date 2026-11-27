@@ -30,8 +30,17 @@ with TemporaryDirectory(prefix="dep-map-test-") as folder:
         (root / d).mkdir(parents=True)
 
     # Python files with AST imports (including relative and from-imports; stdlib ignored)
-    (root / "worker/common.py").write_text("import json\n\ndef apply(x):\n    return x\n")
-    (root / "worker/sub.py").write_text("from common import apply\n\ndef run():\n    return apply(1)\n")
+    (root / "worker/other.py").write_text("def apply(x):\n    return x + 1\n")
+    (root / "worker/common.py").write_text(
+        "import json\n\ndef apply(x):\n    return x\n\ndef self_call():\n    return apply(0)\n"
+    )
+    (root / "worker/sub.py").write_text(
+        "from common import apply\nimport common as cm\n\n"
+        "def run():\n    # common.apply(9)\n    s = 'common.apply(9)'\n"
+        "    return apply(1) + cm.apply(2)\n\n"
+        "def other_call():\n    from other import apply\n    return apply(3)\n"
+    )
+    (root / "worker/untyped_py.py").write_text("def f(obj):\n    return obj.apply(1)\n")
     (root / "tools/helper.py").write_text("import os\n\ndef sync():\n    pass\n")
     (root / "tools/cli.py").write_text("from helper import sync\n\nsync()\n")
     (root / "tools/test_cli.py").write_text("import cli\n\ndef test_one():\n    assert cli is not None\n")
@@ -61,6 +70,8 @@ with TemporaryDirectory(prefix="dep-map-test-") as folder:
         'extends RefCounted\n'
         'func refresh(m):\n'
         '    m.sel.clear_sel()\n'
+        '    # m.sel.clear_sel()\n'
+        '    var s := "m.sel.clear_sel()"\n'
         '    m._show_state()\n'
         '    var x = m.selection\n'
         '    return UnitLib.fmt()\n'
@@ -72,7 +83,13 @@ with TemporaryDirectory(prefix="dep-map-test-") as folder:
         '    pass\n'
     )
     (root / "viewport/test_ui.gd").write_text(
-        "extends SceneTree\nfunc test():\n    var u\n    u.clear_sel()\n"
+        'extends SceneTree\n'
+        'const Sel := preload("res://selection.gd")\n'
+        'func test():\n'
+        '    var s: Sel = Sel.new()\n'
+        '    s.clear_sel()\n'
+        '    var u\n'
+        '    u.clear_sel()\n'
     )
 
     shutil.copy(ROOT / "tools/dependency_map.py", root / "tools/dependency_map.py")
@@ -101,13 +118,17 @@ with TemporaryDirectory(prefix="dep-map-test-") as folder:
     stale = run(root, sys.executable, "tools/dependency_map.py", "--check")
     check("--check fails when stale", stale.returncode == 1 and "out of date" in stale.stderr, stale.stderr)
 
-    # 3. callers: unique function & shared common name
+    # 3. callers: unique function & shared common name (qualified + unresolved + comment/string filtering)
     callers_unique = run(root, sys.executable, "tools/dependency_map.py", "callers", "viewport/selection.gd:clear_sel")
     check(
-        "callers finds code and test call sites and omits definition",
+        "callers finds resolved code/test call sites, omits comments/strings/def, and flags untyped var",
         callers_unique.returncode == 0
         and "viewport/ui.gd:3:" in callers_unique.stdout
-        and "viewport/test_ui.gd:4:" in callers_unique.stdout
+        and "viewport/ui.gd:4:" not in callers_unique.stdout
+        and "viewport/ui.gd:5:" not in callers_unique.stdout
+        and "viewport/test_ui.gd:5:" in callers_unique.stdout
+        and "Unresolved (check by hand):" in callers_unique.stdout
+        and "viewport/test_ui.gd:7:" in callers_unique.stdout
         and "viewport/selection.gd:2:" not in callers_unique.stdout
         and "note:" not in callers_unique.stdout,
         callers_unique.stdout + callers_unique.stderr,
@@ -115,21 +136,38 @@ with TemporaryDirectory(prefix="dep-map-test-") as folder:
 
     callers_common = run(root, sys.executable, "tools/dependency_map.py", "callers", "worker/common.py:apply")
     check(
-        "callers warns when method name is shared by multiple definitions",
+        "callers qualifies Python imports, omits shadowed/comment/string calls, and flags untyped",
         callers_common.returncode == 0
-        and "defined in 2 files" in callers_common.stdout
-        and "worker/sub.py:4:" in callers_common.stdout,
+        and "defined in 3 files" in callers_common.stdout
+        and "worker/common.py:7:" in callers_common.stdout
+        and "worker/sub.py:7:" in callers_common.stdout
+        and "worker/sub.py:5:" not in callers_common.stdout
+        and "worker/sub.py:6:" not in callers_common.stdout
+        and "worker/sub.py:11:" not in callers_common.stdout
+        and "Unresolved (check by hand):" in callers_common.stdout
+        and "worker/untyped_py.py:2:" in callers_common.stdout,
         callers_common.stdout + callers_common.stderr,
     )
 
-    # 4. touches: P45 backtick format, tests on their own
+    # 4. touches: P45 backtick format, tests on their own, unresolved separate
     touches = run(root, sys.executable, "tools/dependency_map.py", "touches", "viewport/selection.gd:clear_sel")
     check(
-        "touches prints Touches line with backticked functions and Tests on its own",
+        "touches prints Touches, Tests, and Unresolved (check by hand) separately",
         touches.returncode == 0
         and "Touches: viewport/selection.gd (`clear_sel`), viewport/ui.gd (`clear_sel`)" in touches.stdout
-        and "Tests: viewport/test_ui.gd (`clear_sel`)" in touches.stdout,
+        and "Tests: viewport/test_ui.gd (`clear_sel`)" in touches.stdout
+        and "Unresolved (check by hand): viewport/test_ui.gd (`clear_sel`:7)" in touches.stdout,
         touches.stdout + touches.stderr,
+    )
+
+    touches_py = run(root, sys.executable, "tools/dependency_map.py", "touches", "worker/common.py:apply")
+    touches_py_line = next((ln for ln in touches_py.stdout.splitlines() if ln.startswith("Touches:")), "")
+    check(
+        "touches for Python common.py:apply excludes worker/other.py and viewport/selection.gd",
+        touches_py.returncode == 0
+        and touches_py_line == "Touches: worker/common.py (`apply`), worker/sub.py (`apply`)"
+        and "Unresolved (check by hand): worker/untyped_py.py (`apply`:2)" in touches_py.stdout,
+        touches_py.stdout + touches_py.stderr,
     )
 
     # 5. Pre-commit hook rebuilds and stages docs/dependency-map.md
