@@ -17,7 +17,7 @@ import FreeCAD as App
 import struct
 from common import OpError, V
 from export import write_glb
-from session import Session, journal_path
+from session import Session
 from test_native_common import (
     HOPS,
     OPS,
@@ -38,9 +38,8 @@ from test_native_common import (
 tmp = os.environ.get("TESTDIR", "/tmp/native_test")
 os.makedirs(tmp, exist_ok=True)
 model_path = os.path.join(tmp, "model.FCStd")
-for p in (model_path, journal_path(model_path)):
-    if os.path.exists(p):
-        os.remove(p)
+if os.path.exists(model_path):
+    os.remove(model_path)
 
 # ---------- A. the whole log, fresh ----------
 s = Session(model_path, fresh=True)
@@ -244,9 +243,8 @@ JOPS = [ground_rect("r1", [0, 0, 0], [300, 200]), push("p1", "r1", 18, "b1"),
         face_rect("rj1", "b1", [50, 50, 18], [20, 20]), dict(push("pj1", "rj1", -18), through=True),
         face_rect("rj2", "b1", [150, 50, 18], [20, 20]), push("pj2", "rj2", -10)]
 jpath = os.path.join(tmp, "through.FCStd")
-for q in (jpath, journal_path(jpath)):
-    if os.path.exists(q):
-        os.remove(q)
+if os.path.exists(jpath):
+    os.remove(jpath)
 s = Session(jpath, fresh=True)
 s.sync(JOPS)
 check("through-hole and a 10 mm blind hole", vol(s) == 300 * 200 * 18 - 7200 - 4000, vol(s))
@@ -307,9 +305,8 @@ s.close()
 import zipfile
 import xml.etree.ElementTree as ET
 lpath = os.path.join(tmp, "shown.FCStd")
-for q in (lpath, journal_path(lpath)):
-    if os.path.exists(q):
-        os.remove(q)
+if os.path.exists(lpath):
+    os.remove(lpath)
 s = Session(lpath, fresh=True)
 s.sync(HOPS[:6])                      # a board with two holes: a Cut over the board's extrusion
 s.save(tmp)

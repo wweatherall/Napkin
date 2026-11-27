@@ -1,24 +1,30 @@
-"""Floor copy (A38): rebuilding past FreeCAD's 20 undo steps or below session_base keeps FreeCAD's edits
-by starting from <model>.floor.FCStd beside the model, recorded in the journal's floor_copy field.
+"""Floor copy (A38, A42): rebuilding past FreeCAD's 20 undo steps or below session_base keeps FreeCAD's edits
+by starting from ShopSketchFloor.FCStd inside the .FCStd zip, recorded in ShopSketchJournal's floor_copy field.
 Covers: external edit on reopen, reload_outside, rebuild across restart, missing or tampered floor copy,
-legacy journal without floor_copy, and models never edited outside.
+legacy journal without floor_copy, FreeCAD save on top of an embedded floor copy, and models never edited outside.
 
   freecadcmd worker/test_floor_copy.py        (TESTDIR=<folder> for its files)"""
 import json
 import os
 import shutil
 import sys
+import zipfile
 
 sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import FreeCAD as App
 from common import OpError
-from session import Session, atomic_json, generation, read_journal, sha256
+from session import Session, read_journal, sha256_bytes, write_meta_journal
 
 tmp = os.environ.get("TESTDIR", "/tmp/floor_copy_test")
 os.makedirs(tmp, exist_ok=True)
 R = [0, 0]
 MISSING_MSG = "can't undo past the FreeCAD edit: its copy is missing"
+
+
+def floor_entry(path):
+    with zipfile.ZipFile(path, "r") as z:
+        return z.read("ShopSketchFloor.FCStd") if "ShopSketchFloor.FCStd" in z.namelist() else None
 
 
 def check(name, cond, detail=""):
@@ -74,23 +80,25 @@ def three_boards(path):
 
 # ---------- 1. External edit -> reopen -> floor copy & journal -> 25 ops -> rebuild ----------
 p = model("external-reopen")
-g = generation(p)
 s, base_ops = three_boards(p)
 s.close()
 
 add_freecad_cube(p, "WorkshopCube")
 s = Session(p)
-check("reopen after FreeCAD edit: external, undo_floor=6, floor copy exists",
-      s.external and s.undo_floor == 6 and os.path.exists(g["floor_file"]),
-      (s.external, s.undo_floor, os.path.exists(g["floor_file"])))
-floor_sha = sha256(g["floor_file"])
-check("... floor_copy matches the floor file's sha and undo_floor",
+check("reopen after FreeCAD edit: external, undo_floor=6, floor copy captured in memory",
+      s.external and s.undo_floor == 6 and s._floor_bytes is not None
+      and os.listdir(os.path.dirname(p)) == ["m.FCStd"],
+      (s.external, s.undo_floor, s._floor_bytes is not None, os.listdir(os.path.dirname(p))))
+floor_sha = sha256_bytes(s._floor_bytes)
+check("... floor_copy matches the floor bytes' sha and undo_floor",
       s.floor_copy == {"sha256": floor_sha, "ops": 6}, s.floor_copy)
 s.save()
-j = read_journal(g["journal"])
-check("... saved journal records floor_copy matching the floor file",
-      j is not None and j.get("floor_copy") == {"sha256": floor_sha, "ops": 6} and j.get("floor") == 6,
-      j and (j.get("floor_copy"), j.get("floor")))
+j = read_journal(p)
+check("... saved ShopSketchJournal records floor_copy matching embedded ShopSketchFloor.FCStd",
+      j is not None and j.get("floor_copy") == {"sha256": floor_sha, "ops": 6} and j.get("floor") == 6
+      and floor_entry(p) is not None and sha256_bytes(floor_entry(p)) == floor_sha
+      and os.listdir(os.path.dirname(p)) == ["m.FCStd"],
+      j and (j.get("floor_copy"), j.get("floor"), os.listdir(os.path.dirname(p))))
 
 more = extra_25_ops(4)
 how, _ = s.sync(base_ops + more)
@@ -108,14 +116,14 @@ check("... FreeCAD's cube survives the rebuild and boards are b1..b4",
       (has_label(s.doc, "WorkshopCube"), sorted(s.model.bodies()), len(s.applied)))
 
 s.save()
-check("saving after a floor-copy rebuild writes the model path and leaves the floor copy untouched",
-      sha256(g["floor_file"]) == floor_sha and read_journal(g["journal"])["file_sha256"] == sha256(p)
-      and read_journal(g["journal"]).get("floor_copy") == {"sha256": floor_sha, "ops": 6})
+check("saving after a floor-copy rebuild preserves embedded floor copy",
+      floor_entry(p) is not None and sha256_bytes(floor_entry(p)) == floor_sha
+      and read_journal(p).get("floor_copy") == {"sha256": floor_sha, "ops": 6})
 s.close()
 
-# Reopen after save: floor_copy comes from the journal on disk and still supports rebuild across restarts.
+# Reopen after save: floor_copy comes from ShopSketchJournal and still supports rebuild across restarts.
 s = Session(p)
-check("reopen after save: not external, keeps cube, b1..b4, undo_floor=6, floor_copy from journal",
+check("reopen after save: not external, keeps cube, b1..b4, undo_floor=6, floor_copy from .FCStd",
       not s.external and has_label(s.doc, "WorkshopCube")
       and sorted(s.model.bodies()) == ["b1", "b2", "b3", "b4"]
       and s.undo_floor == 6 and s.floor_copy == {"sha256": floor_sha, "ops": 6},
@@ -127,18 +135,31 @@ check("rebuild across a restart (below session_base) keeps FreeCAD's cube and b1
       (how, has_label(s.doc, "WorkshopCube"), sorted(s.model.bodies())))
 s.close()
 
+# FreeCAD save on top of a file carrying ShopSketchFloor.FCStd: FreeCAD may drop it; newer edit becomes the floor.
+add_freecad_cube(p, "NewerFreeCADCube")
+s = Session(p)
+check("FreeCAD save on top of floor-carrying .FCStd opens external with newer floor",
+      s.external and s.undo_floor == 8 and has_label(s.doc, "NewerFreeCADCube")
+      and s.floor_copy is not None and s.floor_copy["sha256"] != floor_sha,
+      (s.external, s.undo_floor, s.floor_copy))
+s.sync(base_ops + more)
+how, _ = s.sync(base_ops + more[:2])
+check("... rebuild past 20 steps keeps NewerFreeCADCube",
+      how == "rebuilt" and has_label(s.doc, "NewerFreeCADCube") and sorted(s.model.bodies()) == ["b1", "b2", "b3", "b4"])
+s.close()
+
 # ---------- 2. Outside save while open (reload_outside) -> 25 ops -> rebuild ----------
 p = model("reload-outside")
-g = generation(p)
 s, base_ops = three_boards(p)
 
 add_freecad_cube(p, "ReloadCube")
 s.reload_outside()
-check("reload_outside writes the floor copy and records it in the journal",
-      os.path.exists(g["floor_file"]) and s.undo_floor == 6
-      and read_journal(g["journal"]).get("floor_copy") == {"sha256": sha256(g["floor_file"]), "ops": 6},
-      (os.path.exists(g["floor_file"]), s.undo_floor, read_journal(g["journal"]).get("floor_copy")))
-floor_sha = sha256(g["floor_file"])
+check("reload_outside captures the floor copy in memory without writing sidecars",
+      s._floor_bytes is not None and s.undo_floor == 6
+      and s.floor_copy == {"sha256": sha256_bytes(s._floor_bytes), "ops": 6}
+      and os.listdir(os.path.dirname(p)) == ["m.FCStd"],
+      (s._floor_bytes is not None, s.undo_floor, s.floor_copy, os.listdir(os.path.dirname(p))))
+floor_sha = sha256_bytes(s._floor_bytes)
 
 more = extra_25_ops(4)
 s.sync(base_ops + more)
@@ -149,14 +170,13 @@ check("after reload_outside, rebuild past 20 undo steps keeps FreeCAD's cube and
       and s.undo_floor == 6 and s.session_base == 6,
       (how, has_label(s.doc, "ReloadCube"), sorted(s.model.bodies())))
 s.save()
-check("saving after reload_outside rebuild writes model path and preserves floor copy",
-      sha256(g["floor_file"]) == floor_sha and read_journal(g["journal"])["file_sha256"] == sha256(p))
+check("saving after reload_outside rebuild writes model path and embeds floor copy",
+      floor_entry(p) is not None and sha256_bytes(floor_entry(p)) == floor_sha)
 s.close()
 
 # ---------- 3. Deleted or tampered floor copy -> OpError and document unchanged ----------
 for mode in ("deleted", "tampered"):
     p = model("missing-" + mode)
-    g = generation(p)
     s, base_ops = three_boards(p)
     s.close()
     add_freecad_cube(p, "GuardedCube")
@@ -167,10 +187,9 @@ for mode in ("deleted", "tampered"):
     before_bodies = sorted(s.model.bodies())
     before_applied = [e["id"] for e in s.applied]
     if mode == "deleted":
-        os.remove(g["floor_file"])
+        s._floor_bytes = None
     else:
-        with open(g["floor_file"], "ab") as f:
-            f.write(b"x")
+        s._floor_bytes = s._floor_bytes + b"x"
     err = None
     try:
         s.sync(base_ops + more[:2])
@@ -188,7 +207,6 @@ for mode in ("deleted", "tampered"):
 
 # Legacy journal without floor_copy field reads as no copy and refuses rebuild safely.
 p = model("legacy-no-floor-copy")
-g = generation(p)
 s, base_ops = three_boards(p)
 s.close()
 add_freecad_cube(p, "LegacyCube")
@@ -196,9 +214,9 @@ s = Session(p)
 s.sync(base_ops + board(4))
 s.save()
 s.close()
-j = read_journal(g["journal"])
+j = read_journal(p)
 j.pop("floor_copy", None)
-atomic_json(g["journal"], j)
+write_meta_journal(p, j)
 s = Session(p)
 check("a journal without floor_copy reads as no copy",
       not s.external and s.undo_floor == 6 and s.floor_copy is None,
@@ -216,30 +234,28 @@ s.close()
 
 # ---------- 4. Model never edited outside: no floor copy, rebuild works as today ----------
 p = model("never-edited")
-g = generation(p)
 s, base_ops = three_boards(p)
 s.close()
 s = Session(p)
-check("model never edited outside: no floor copy file, no floor_copy in journal",
+check("model never edited outside: no floor copy entry, no floor_copy in journal",
       not s.external and s.undo_floor == 0 and s.floor_copy is None
-      and not os.path.exists(g["floor_file"])
-      and "floor_copy" not in read_journal(g["journal"]),
-      (s.external, s.undo_floor, s.floor_copy, os.path.exists(g["floor_file"])))
+      and floor_entry(p) is None
+      and "floor_copy" not in read_journal(p),
+      (s.external, s.undo_floor, s.floor_copy, floor_entry(p) is not None))
 more = extra_25_ops(4)
 s.sync(base_ops + more)
 how, _ = s.sync(base_ops + more[:2])
 check("... rebuild past 20 undo steps works as today and writes no floor copy",
       how == "rebuilt" and sorted(s.model.bodies()) == ["b1", "b2", "b3", "b4"]
-      and s.undo_floor == 0 and not os.path.exists(g["floor_file"]),
-      (how, sorted(s.model.bodies()), os.path.exists(g["floor_file"])))
+      and s.undo_floor == 0 and floor_entry(p) is None,
+      (how, sorted(s.model.bodies()), floor_entry(p) is not None))
 s.save()
 check("... saving still leaves no floor copy and no floor_copy field",
-      not os.path.exists(g["floor_file"]) and "floor_copy" not in read_journal(g["journal"]))
+      floor_entry(p) is None and "floor_copy" not in read_journal(p))
 s.close()
 
 # ---------- 5. Legacy fit op in floor entries + floor_copy rebuild ----------
 p = model("legacy-fit-floor")
-g = generation(p)
 s = Session(p)
 fit_base = board(1) + board(2)
 fit_base[2]["plane"]["origin"] = [0, 0, 100]  # b2 above b1
@@ -249,12 +265,11 @@ s.save()
 s.close()
 
 add_freecad_cube(p, "FitFloorCube")
-# Rewrite journal before reopen so the floor entry is a legacy property_edit plane_fit.
-with open(g["journal"]) as f:
-    j_raw = json.load(f)
+# Rewrite ShopSketchJournal before reopen so the floor entry is a legacy property_edit plane_fit.
+j_raw = read_journal(p)
 j_raw["ops"][-1] = {"id": "fit1", "type": "property_edit", "mode": "plane_fit",
                     "body": "b1", "target_body": "b2", "axis": 2, "face": 4, "fit_mode": 0}
-atomic_json(g["journal"], j_raw)
+write_meta_journal(p, j_raw, update_sha=False)
 
 s = Session(p)
 check("legacy fit in floor entries is upgraded on open",

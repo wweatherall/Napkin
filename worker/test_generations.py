@@ -1,6 +1,6 @@
-"""The model and its journal saved as one generation (A32, T40): the new pair under the .saving names, the current
-one kept as .prev, then renamed into place. Opening finishes identifiable interrupted saves (A37), falling back
-to .prev only for missing/unreadable models. Newer FreeCAD work stays external (A25), with no recovery.
+"""Atomic single-file saves (A42) and legacy file-and-journal upgrades (G09): saves write <model>.saving.FCStd
+and rename it over <model>.FCStd; nothing else is written beside the model. Opening removes any leftover
+.saving.FCStd, and upgrades legacy <model>.shopsketch.json + <model>.floor.FCStd on first save.
 
   freecadcmd worker/test_generations.py        (TESTDIR=<folder> for its files)"""
 import json
@@ -12,8 +12,13 @@ sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import FreeCAD as App
 import session as S
+from common import OpError
 from serve import open_reply
-from session import Session, generation, read_journal, sha256
+from session import Session, content_sha256, read_journal, saving_path, sha256
+
+HERE = os.path.dirname(os.path.abspath(__file__))
+REPO_ROOT = os.path.dirname(HERE)
+LEGACY_FIXTURE = os.path.join(REPO_ROOT, "tests", "legacy_one_file")
 
 tmp = os.environ.get("TESTDIR", "/tmp/generations_test")
 os.makedirs(tmp, exist_ok=True)
@@ -37,26 +42,31 @@ def model(name):
     return os.path.join(folder, "m.FCStd")
 
 
-def whole(g, f, j):
-    jj = read_journal(g[j])
-    return os.path.exists(g[f]) and jj is not None and jj["file_sha256"] == sha256(g[f])
+def whole(p):
+    jj = read_journal(p)
+    if not (os.path.exists(p) and jj is not None):
+        return False
+    import zipfile, xml.etree.ElementTree as ET
+    with zipfile.ZipFile(p) as z:
+        root = ET.fromstring(z.read("Document.xml"))
+    meta = {i.get("key"): i.get("value") for i in root.findall("./Properties/Property[@name='Meta']/Map/Item")}
+    return meta.get("ShopSketchContentSha256") == content_sha256(p)
 
 
-def rev_of(g, j):
-    return int(read_journal(g[j])["rev"])
+def rev_of(p):
+    return int(read_journal(p)["rev"])
 
 
 class Crash(BaseException):
     """A crash part way through a save: not an Exception, so save()'s clean-up doesn't run (a real crash wouldn't)."""
 
 
-def saved_until(s, dst_key):
-    """Save, stopping (as a crash would) just before the os.replace that writes g[dst_key]."""
-    g = generation(s.path)
+def saved_until_replace(s):
+    """Save, stopping (as a crash would) just before the os.replace that writes s.path."""
     real = os.replace
 
     def replace(src, dst):
-        if os.path.abspath(dst) == os.path.abspath(g[dst_key]):
+        if os.path.abspath(dst) == os.path.abspath(s.path):
             raise Crash()
         real(src, dst)
     S.os.replace = replace
@@ -69,7 +79,7 @@ def saved_until(s, dst_key):
 
 
 def saved_three(path):
-    """A model saved at revs 1, 2, 3 (one more board each), then closed."""
+    """A model saved at revs 1, 2, 3 (one more board each)."""
     s = Session(path)
     ops = []
     for n in range(1, 4):
@@ -79,209 +89,56 @@ def saved_three(path):
     return s, ops
 
 
-# ---------- a normal save leaves both pairs, each whole ----------
+# ---------- a normal save leaves only the .FCStd in its folder, whole ----------
 p = model("normal")
 s, ops = saved_three(p)
-g = generation(p)
-check("a normal save: the current pair matches (journal names the file's sha256)", whole(g, "file", "journal")
-      and rev_of(g, "journal") == 3 == s.rev, (s.rev,))
-check("... and the pair before it is kept as .prev, whole", whole(g, "prev_file", "prev_journal")
-      and rev_of(g, "prev_journal") == 2)
-check("... and nothing is left under the .saving names",
-      not os.path.exists(g["saving_file"]) and not os.path.exists(g["saving_journal"]))
+check("a normal save: only m.FCStd in its folder, whole, rev=3",
+      os.listdir(os.path.dirname(p)) == ["m.FCStd"] and whole(p) and rev_of(p) == 3 == s.rev,
+      (os.listdir(os.path.dirname(p)), s.rev))
 s.close()
 s = Session(p)
-check("reopening a whole pair: not external, nothing recovered", not s.external and s.recovered is None
-      and s.rev == 3 and len(s.applied) == 6, (s.external, s.recovered, s.rev))
+check("reopening a whole single-file save: not external, rev=3, 6 ops",
+      not s.external and s.recovered is None and s.rev == 3 and len(s.applied) == 6,
+      (s.external, s.recovered, s.rev, len(s.applied)))
 check("... and the open reply has no recovered field", "recovered" not in open_reply(s, 1))
 s.close()
 
-# ---------- a crash after the .FCStd rename, before the journal's: the whole new pair is finished ----------
-p = model("after-file")
+# ---------- copying only the .FCStd somewhere else opens with everything ----------
+copy_dir = os.path.join(tmp, "copy-only")
+shutil.rmtree(copy_dir, ignore_errors=True)
+os.makedirs(copy_dir)
+cp_path = os.path.join(copy_dir, "copied.FCStd")
+shutil.copy2(p, cp_path)
+s = Session(cp_path)
+check("copying only the .FCStd opens cleanly with all ops and bodies",
+      not s.external and s.rev == 3 and len(s.applied) == 6 and sorted(s.model.bodies()) == ["b1", "b2", "b3"],
+      (s.external, s.rev, len(s.applied), sorted(s.model.bodies())))
+s.close()
+
+# ---------- crash between writing .saving.FCStd and os.replace: previous save whole, .saving removed ----------
+p = model("crash-before-replace")
 s, ops = saved_three(p)
 ops += board(4)
 s.sync(ops)
-saved_until(s, "journal")
+saved_until_replace(s)
 s.close()
-g = generation(p)
-check("crash after the file's rename: the file is rev 4, the journal still rev 3",
-      S.file_rev(g["file"]) == 4 and rev_of(g, "journal") == 3 and whole(g, "file", "saving_journal"))
+check("crash before replace: .saving.FCStd exists on disk, m.FCStd still rev 3",
+      os.path.exists(saving_path(p)) and whole(p) and rev_of(p) == 3)
 s = Session(p)
-check("... opening finishes the save: the new pair (rev 4), reported", s.recovered is not None
-      and s.recovered["from"] == "new" and s.recovered["rev"] == 4 and s.rev == 4 and len(s.applied) == 8, s.recovered)
-check("... and it isn't external: undo reaches back as before", not s.external and s.undo_floor == 0)
-check("... the file and journal now match", whole(g, "file", "journal"))
-check("... the .prev pair was left alone (rev 3)", whole(g, "prev_file", "prev_journal") and rev_of(g, "prev_journal") == 3)
-r = open_reply(s, 7)
-check("the open reply carries recovered {from, rev, why}", r.get("recovered", {}).get("rev") == 4
-      and r["recovered"]["from"] == "new" and "didn't match" in r["recovered"]["why"], r.get("recovered"))
-check("... once: the next open of the same session doesn't", "recovered" not in open_reply(s, 8))
+check("reopening after crash removes .saving.FCStd and opens rev 3 whole",
+      not os.path.exists(saving_path(p)) and not s.external and s.rev == 3 and len(s.applied) == 6
+      and sorted(s.model.bodies()) == ["b1", "b2", "b3"],
+      (os.path.exists(saving_path(p)), s.external, s.rev, len(s.applied)))
 s.close()
 
-# ---------- the same crash with the new journal lost: preserve the newest model ----------
-p = model("prev")
-s, ops = saved_three(p)
-ops += board(4)
-s.sync(ops)
-saved_until(s, "journal")
-s.close()
-g = generation(p)
-os.remove(g["saving_journal"])
-s = Session(p)
-check("crash after the file's rename, new journal lost: rev 4 opens external with the undo floor",
-      s.recovered is None and s.external and s.rev == 4 and s.undo_floor == 6
-      and len(s.model.bodies()) == 4, (s.recovered, s.rev, s.undo_floor))
-check("... the newest model is left in place, nothing set aside", not os.path.exists(g["unmatched_file"])
-      and S.file_rev(p) == 4)
-check("... and the .prev pair is still there", whole(g, "prev_file", "prev_journal"))
-s.close()
-
-# ---------- a crash after the .prev pair is kept, before any rename ----------
-p = model("before-rename")
-s, ops = saved_three(p)
-ops += board(4)
-s.sync(ops)
-saved_until(s, "file")
-s.close()
-g = generation(p)
-s = Session(p)
-check("crash before the renames: the file and journal still match (rev 3); nothing to recover",
-      s.recovered is None and s.rev == 3 and not s.external, (s.recovered, s.rev))
-s.close()
-
-# ---------- the file missing (a crash with only the new and .prev pairs) ----------
-p = model("missing-file")
-s, ops = saved_three(p)
-ops += board(4)
-s.sync(ops)
-saved_until(s, "file")
-s.close()
-g = generation(p)
-os.remove(g["file"])
-s = Session(p)
-check("the file missing: the newest whole pair (the new one, rev 4) is put in place", s.recovered is not None
-      and s.recovered["rev"] == 4 and s.rev == 4 and whole(g, "file", "journal")
-      and "missing" in s.recovered["why"], s.recovered)
-s.close()
-
-# ---------- a missing journal ----------
-p = model("missing-journal")
-s, ops = saved_three(p)
-s.close()
-g = generation(p)
-os.remove(g["journal"])
-s = Session(p)
-check("a missing journal never replaces a readable model with .prev", s.recovered is None and s.external
-      and s.rev == 3 and len(s.model.bodies()) == 3, (s.recovered, s.rev))
-check("... the rev 3 file stays in place", not os.path.exists(g["unmatched_file"]) and S.file_rev(p) == 3)
-s.close()
-p = model("no-journal-at-all")
-s = Session(p)
-s.sync(board(1))
-s.save()
-s.close()
-g = generation(p)
-os.remove(g["journal"])
-s = Session(p)
-check("a missing journal and no .prev pair: opens external, as before", s.recovered is None and s.external)
-s.close()
-
-# ---------- a file FreeCAD changed stays external, with no recovery ----------
-p = model("freecad-edit")
-s, ops = saved_three(p)
-s.close()
-g = generation(p)
-d = App.openDocument(p)
-d.addObject("Part::Box", "FromFreeCAD")
-d.recompute()
-d.save()
-App.closeDocument(d.Name)
-before = sha256(p)
-s = Session(p)
-check("a file changed in FreeCAD (same ShopSketchRev): external, nothing recovered", s.external and s.recovered is None
-      and s.rev == 3 and s.undo_floor == 6, (s.external, s.recovered, s.rev, s.undo_floor))
-check("... and the file is left as FreeCAD saved it, nothing set aside", sha256(p) == before
-      and not os.path.exists(g["unmatched_file"]))
-check("... and FreeCAD's save didn't change the .prev pair (it's a hard link to the old file: FreeCAD must not "
-      "write in place)", whole(g, "prev_file", "prev_journal"))
-s.close()
-
-# ---------- FreeCAD saved the revision it opened while Shop Sketch was closed ----------
-p = model("freecad-older-rev")
-s, ops = saved_three(p)
-s.close()
-g = generation(p)
-# The previous file represents the revision FreeCAD had opened before our last save.
-d = App.openDocument(g["prev_file"])
-d.addObject("Part::Box", "FromFreeCAD")
-d.recompute()
-d.saveAs(p)
-App.closeDocument(d.Name)
-before = sha256(p)
-s = Session(p)
-check("FreeCAD's newer save with an older revision opens as outside work", s.external and s.recovered is None
-      and s.rev == 2 and s.undo_floor == 6 and s.doc.getObject("FromFreeCAD") is not None)
-check("... no newer work is moved aside or replaced", sha256(p) == before
-      and not os.path.exists(g["unmatched_file"]))
-s.close()
-
-# ---------- missing or corrupt main file, with only the .prev pair available ----------
-for broken in ("missing", "unreadable"):
-    p = model("fallback-" + broken)
-    s, ops = saved_three(p)
-    s.close()
-    g = generation(p)
-    os.remove(p)
-    if broken == "unreadable":
-        with open(p, "wb") as f:
-            f.write(b"interrupted zip")
-    s = Session(p)
-    check(broken + " main file restores .prev", s.recovered is not None
-          and s.recovered["from"] == "prev" and s.rev == 2 and not s.external
-          and whole(g, "file", "journal") and broken in s.recovered["why"], s.recovered)
-    check(broken + " main file preserves displaced bytes", broken == "missing"
-          or open(g["unmatched_file"], "rb").read() == b"interrupted zip")
-    s.close()
-
-# ---------- a whole staged pair can finish a one-revision interrupted save ----------
-for newer_main in (False, True):
-    p = model("staged-" + str(newer_main))
-    s, ops = saved_three(p)
-    s.sync(ops + board(4))
-    saved_until(s, "journal")
-    s.close()
-    g = generation(p)
-    shutil.copy2(p, g["saving_file"])
-    main_time = os.stat(p).st_mtime_ns
-    staged_time = main_time - 1000000000 if newer_main else main_time + 1000000000
-    os.utime(g["saving_file"], ns=(staged_time, staged_time))
-    # Same revision, different bytes: only a whole staged pair plus rev+1 identifies this save.
-    d = App.openDocument(p)
-    d.addObject("Part::Box", "OtherBytes")
-    d.recompute()
-    d.save()
-    App.closeDocument(d.Name)
-    os.utime(p, ns=(main_time, main_time))
-    before = sha256(p)
-    s = Session(p)
-    if newer_main:
-        check("an older staged pair never replaces a newer main file", s.recovered is None and s.external
-              and sha256(p) == before and s.doc.getObject("OtherBytes") is not None)
-    else:
-        check("rev+1 with a newer whole staged pair finishes our save", s.recovered is not None
-              and s.recovered["from"] == "new" and s.rev == 4 and not s.external
-              and whole(g, "file", "journal"), s.recovered)
-    s.close()
-
-# ---------- a failed save keeps today's behaviour (T79) ----------
+# ---------- a failed save holds rev back, cleans up .saving.FCStd, retry succeeds (T79) ----------
 p = model("failed")
 s, ops = saved_three(p)
-g = generation(p)
 real = os.replace
 
 
 def failing(src, dst):
-    if os.path.abspath(dst) == os.path.abspath(g["file"]):
+    if os.path.abspath(dst) == os.path.abspath(p):
         raise OSError("disk full")
     real(src, dst)
 
@@ -296,11 +153,105 @@ except OSError:
     raised = True
 finally:
     S.os.replace = real
-check("a failed save raises, holds the revision back and cleans up the .saving files", raised and s.rev == 3
-      and not os.path.exists(g["saving_file"]) and not os.path.exists(g["saving_journal"]), s.rev)
-check("... the current pair is untouched", whole(g, "file", "journal") and rev_of(g, "journal") == 3)
+check("a failed save raises, holds the revision back and cleans up .saving.FCStd",
+      raised and s.rev == 3 and not os.path.exists(saving_path(p)), s.rev)
+check("... the current file is untouched", whole(p) and rev_of(p) == 3)
 s.save()
-check("... and the retry saves it", s.rev == 4 and whole(g, "file", "journal") and rev_of(g, "prev_journal") == 3)
+check("... and the retry saves it", s.rev == 4 and whole(p) and rev_of(p) == 4)
+s.close()
+
+# ---------- legacy upgrade (G09): fixture written by main's code upgrades on first save ----------
+upg_dir = os.path.join(tmp, "legacy-upgrade")
+shutil.rmtree(upg_dir, ignore_errors=True)
+shutil.copytree(LEGACY_FIXTURE, upg_dir)
+upg_p = os.path.join(upg_dir, "model.FCStd")
+upg_unmatched = os.path.join(upg_dir, "model.unmatched.FCStd")
+with open(upg_unmatched, "wb") as f:
+    f.write(b"user-unmatched-bytes")
+
+s = Session(upg_p)
+res99 = "b99_" + f"{99:032x}"
+check("legacy fixture opens with full history, undo_floor=4, dropped, reserved_ids, units, WorkshopCube",
+      not s.external and s.undo_floor == 4 and len(s.applied) == 26 and len(s.dropped) == 2
+      and res99 in s.ids.reserved and s.units == "in-frac:1/16"
+      and s.doc.getObject("WorkshopCube") is not None and len(s.model.bodies()) == 13,
+      (s.external, s.undo_floor, len(s.applied), len(s.dropped), res99 in s.ids.reserved, s.units))
+
+# Undo > 20 steps back to undo_floor + 2 ops (rebuilds from legacy model.floor.FCStd)
+kept_to_floor = [e["op"] for e in s.applied[:6]]
+how_u, _ = s.sync(kept_to_floor)
+check("legacy fixture undoes > 20 steps via floor copy and keeps WorkshopCube",
+      how_u == "rebuilt" and s.doc.getObject("WorkshopCube") is not None and len(s.model.bodies()) == 3,
+      (how_u, len(s.model.bodies())))
+
+# Undoing before undo_floor is refused
+refused_below = False
+try:
+    s.sync([e["op"] for e in s.applied[:2]])
+except OpError:
+    refused_below = True
+check("legacy fixture refuses undo before undo_floor", refused_below)
+
+# A failing save (read-only folder) leaves the old journal and floor copy in place
+os.chmod(upg_dir, 0o555)
+ro_failed = False
+try:
+    s.save()
+except PermissionError:
+    ro_failed = True
+finally:
+    os.chmod(upg_dir, 0o755)
+check("failed save on legacy model leaves old journal and floor copy in place",
+      ro_failed and os.path.exists(os.path.join(upg_dir, "model.shopsketch.json"))
+      and os.path.exists(os.path.join(upg_dir, "model.floor.FCStd")),
+      (ro_failed, os.listdir(upg_dir)))
+
+# First successful save embeds everything and removes old journal/floor, leaving .unmatched alone
+s.save()
+after_ls = sorted(os.listdir(upg_dir))
+check("first save removes legacy journal/floor and preserves .unmatched",
+      after_ls == ["model.FCStd", "model.unmatched.FCStd"], after_ls)
+s.close()
+
+# Copy ONLY model.FCStd to a fresh folder and reopen: everything survives + floor rebuild still works
+alone_dir = os.path.join(tmp, "legacy-alone")
+shutil.rmtree(alone_dir, ignore_errors=True)
+os.makedirs(alone_dir)
+alone_p = os.path.join(alone_dir, "model.FCStd")
+shutil.copy2(upg_p, alone_p)
+s = Session(alone_p)
+check("reopening upgraded .FCStd alone keeps bodies, WorkshopCube, floor, dropped, reserved_ids, units",
+      not s.external and s.undo_floor == 4 and len(s.applied) == 6 and len(s.dropped) == 2
+      and res99 in s.ids.reserved and s.units == "in-frac:1/16"
+      and s.doc.getObject("WorkshopCube") is not None and len(s.model.bodies()) == 3,
+      (s.external, s.undo_floor, len(s.applied), len(s.dropped), res99 in s.ids.reserved, s.units))
+more_u = []
+for n in range(20, 32):
+    more_u += board(n)
+s.sync(kept_to_floor + more_u)
+how_u2, _ = s.sync(kept_to_floor)
+check("upgraded .FCStd alone still rebuilds > 20 steps from embedded floor copy",
+      how_u2 == "rebuilt" and s.doc.getObject("WorkshopCube") is not None and len(s.model.bodies()) == 3,
+      (how_u2, len(s.model.bodies())))
+s.close()
+
+# Legacy journal with mismatched sha opens external on first open, then removes old journal on save
+mm_dir = os.path.join(tmp, "legacy-mismatch")
+shutil.rmtree(mm_dir, ignore_errors=True)
+shutil.copytree(LEGACY_FIXTURE, mm_dir)
+mm_p = os.path.join(mm_dir, "model.FCStd")
+mm_jp = os.path.join(mm_dir, "model.shopsketch.json")
+with open(mm_jp) as f:
+    mm_j = json.load(f)
+mm_j["file_sha256"] = "0" * 64
+with open(mm_jp, "w") as f:
+    json.dump(mm_j, f)
+s = Session(mm_p)
+check("legacy journal with mismatched sha opens external on first open",
+      s.external and s.undo_floor == 26, (s.external, s.undo_floor))
+s.save()
+check("... and first save removes the old journal and floor file",
+      os.listdir(mm_dir) == ["model.FCStd"], os.listdir(mm_dir))
 s.close()
 
 # ---------- T125: one-shot drawing export, clean Label / no .FCBak, GLB write skipping ----------
@@ -344,7 +295,7 @@ check("explicit drawing export writes views.json, embeds no TechDraw in model.FC
       os.path.exists(views_path) and "Front" in json.load(open(views_path))
       and "TechDraw" not in xml_after_draw and not s.drawing
       and doc_label(p) == "m" and fcbak_files(folder) == []
-      and not os.path.exists(generation(p)["saving_file"]),
+      and not os.path.exists(saving_path(p)),
       (os.path.exists(views_path), "TechDraw" in xml_after_draw, s.drawing, doc_label(p), fcbak_files(folder)))
 os.remove(views_path)
 ops += board(2)
@@ -387,13 +338,12 @@ os.makedirs(out, exist_ok=True)
 s = Session(p, fresh=True)
 s.sync(board(1))
 s.save(out)
-g = generation(p)
 s.drawing = True
 real = os.replace
 
 
 def fail_replace(src, dst):
-    if os.path.abspath(dst) == os.path.abspath(g["file"]):
+    if os.path.abspath(dst) == os.path.abspath(p):
         raise OSError("disk full")
     real(src, dst)
 

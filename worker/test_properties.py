@@ -584,7 +584,7 @@ App.closeDocument(t62_session.doc.Name)
 # T162: property_edit refuses plane_fit/replace_fit; opening pre-protocol-17 files upgrades fits in journal,
 # dropped entries, and Meta ShopSketchOps, and first save writes the upgraded ops.
 import json, shutil, zipfile
-from session import generation, sha256
+from session import finalize_fcstd, read_journal, write_meta_journal
 
 upg_dir = os.path.join(folder, 't162_upgrade')
 shutil.rmtree(upg_dir, ignore_errors=True)
@@ -611,18 +611,16 @@ fitted_vol = upg_s.model.world_shape(upg_s.model.body('b1')).Volume
 upg_s.save()
 upg_s.close()
 
-# Rewrite journal + Meta ShopSketchOps to pre-17 format (with a dropped legacy fit too).
-g_upg = generation(upg_path)
+# Rewrite ShopSketchJournal + Meta ShopSketchOps to pre-17 format (with a dropped legacy fit too).
 legacy_fit = {'id': 'ufit1', 'type': 'property_edit', 'mode': 'plane_fit', 'body': 'b1',
               'target_body': 'b2', 'axis': 2, 'face': 4, 'fit_mode': 0}
 legacy_dropped = {'op': {'id': 'ufit_drop', 'type': 'property_edit', 'mode': 'replace_fit',
                          'body': 'b1', 'axis': 2, 'value': '40 mm'},
                   'after_rev': 1, 'at': '2026-11-27T00:00:00'}
-with open(g_upg['journal']) as f:
-    j_old = json.load(f)
+j_old = read_journal(upg_path)
 j_old['ops'] = upg_base + [legacy_fit]
 j_old['dropped'] = [legacy_dropped]
-# Also patch Document.xml Meta ShopSketchOps to legacy format and update file_sha256.
+# Also patch Document.xml Meta ShopSketchOps to legacy format and update ShopSketchContentSha256.
 tmp_zip = upg_path + '.legacy.tmp'
 with zipfile.ZipFile(upg_path, 'r') as zin, zipfile.ZipFile(tmp_zip, 'w') as zout:
     for item in zin.infolist():
@@ -635,9 +633,7 @@ with zipfile.ZipFile(upg_path, 'r') as zin, zipfile.ZipFile(tmp_zip, 'w') as zou
             data = xml_str.encode('utf-8')
         zout.writestr(item, data)
 os.replace(tmp_zip, upg_path)
-j_old['file_sha256'] = sha256(upg_path)
-with open(g_upg['journal'], 'w') as f:
-    json.dump(j_old, f)
+write_meta_journal(upg_path, j_old, update_sha=True)
 
 # Reopen old file: ops and dropped are upgraded, sync matches without rebuild, undo/redo works, save persists.
 reopened = Session(upg_path)
@@ -662,12 +658,15 @@ check('T162 redo upgraded fit restores fitted board',
 reopened.save()
 reopened.close()
 
-with open(g_upg['journal']) as f:
-    saved_j = json.load(f)
+saved_j = read_journal(upg_path)
+import xml.etree.ElementTree as ET
 with zipfile.ZipFile(upg_path, 'r') as z:
-    saved_xml = z.read('Document.xml').decode('utf-8')
+    saved_root = ET.fromstring(z.read('Document.xml'))
+saved_meta = {i.get('key'): i.get('value')
+              for i in saved_root.findall("./Properties/Property[@name='Meta']/Map/Item")}
+saved_meta_ops = saved_meta.get('ShopSketchOps', '')
 check('T162 first save after open writes upgraded ops to journal and Meta ShopSketchOps',
       saved_j['ops'][-1] == upg_fit and saved_j['dropped'][0]['op']['type'] == 'unfit'
-      and 'plane_fit' not in saved_xml and 'replace_fit' not in saved_xml)
+      and 'plane_fit' not in saved_meta_ops and 'replace_fit' not in saved_meta_ops)
 
 print('PROPERTY TESTS: %d passed, 0 failed' % passed)

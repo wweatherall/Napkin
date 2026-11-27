@@ -89,7 +89,6 @@ def serve(port):
         """FreeCAD saved this model: nothing saves over it until its window says what to do (A36)."""
         held[path] = {"rev": file_rev(path), "since": time.monotonic()}
         settling.pop(path, None)
-        sess.mark_outside()
         print(f"WORKER outside save of {os.path.basename(path)} (rev {held[path]['rev']}): held, "
               f"{'with' if path in to_save else 'no'} unsaved actions", flush=True)
         if owners.get(path) in clients:

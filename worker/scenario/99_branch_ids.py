@@ -2,7 +2,7 @@
 import json
 import os
 import uuid
-from session import Session, journal_path
+from session import Session, read_journal, write_meta_journal
 from scenario.context import snap
 
 requires = ()
@@ -18,11 +18,10 @@ def run(ctx):
     finally:
         old.close()
     # Model the actual old schema, with no registry extension.
-    jp = journal_path(path)
-    with open(jp) as f: journal = json.load(f)
+    journal = read_journal(path)
     journal.pop('reserved_ids', None)
     journal.pop('id_owners', None)
-    with open(jp, 'w') as f: json.dump(journal, f)
+    write_meta_journal(path, journal)
     opened = Session(path)
     try:
         ctx.check('T67 old journal retains every op ID verbatim', [e['op'] for e in opened.applied] == ctx.FIX)
