@@ -84,6 +84,7 @@ One-line index per module (`tools/architecture_map.py`). Per-file details, warni
 - `worker/deletion.py` — T34, I46: Delete
 - `worker/drawing.py` — Compose a shop drawing (A3, third-angle) from the worker's outputs
 - `worker/export.py` — Outputs for the viewport and renders: bodies.json entries, mesh files, model.glb, the TechDraw page
+- `worker/field_audit.py` — Runtime audit of op fields sent to Model.apply vs actually read by handlers
 - `worker/length_input.py` — Length-only evaluation using FreeCAD; no model-property references
 - `worker/line.py` — Saved, editable straight drawings and polygon profiles (T82)
 - `worker/materials.py` — Shop Sketch's wood library (T15, M03): one table, written out as FreeCAD material cards (.FCMat) where FreeCAD looks for user materials, and as materials.json…
