@@ -23,6 +23,8 @@ if [ "$(git branch --show-current)" = main ] && grep -q "job table: built by too
    git diff --cached --name-only | grep -q "^docs/handoff/\|^BOARD.md$"; then
   python3 tools/job.py board >/dev/null || exit 1
   git add BOARD.md
+  # job.py board also moves Work list statuses (H156: On the board / Open) and their indexes: stage those too.
+  git add 03_Past_Decisions
 fi
 # comitatus/06_To-dos fills itself from main (T134): one file per thing waiting on William or the integrator.
 # Fail-open: a to-do file is never a reason to refuse a commit.
