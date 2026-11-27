@@ -84,7 +84,9 @@ confirmed meshes, the worker link, typed values, drawing rules, viewport tests) 
   own answer. Each window starts its own worker on a port it owns, so test runs never touch a running Shop Sketch
   or each other.
 - Before a merge: `tools/TEST_BEFORE_MERGING.sh` (the quick test, then the full test, one verdict; failures listed in
-  `tests/known_failures.txt` with their Work list item pass, nothing else, P18).
+  `tests/known_failures.txt` with their Work list item pass, nothing else, P18). When only tools, hooks, docs or
+  top-level guides changed, quick and gate runs skip viewport, worker and full tests and run parse plus `tools-*`
+  feature tests (`--full` or `GATE_FULL=1` forces everything).
 - When the quick test fails: `tools/TEST_YOUR_CODE_THOROUGHLY.sh` (~15 s): the six recorded suites compared
   with `tests/reference/` (`tools/COMPARE_TEST_SUITES.py`), the targeted suites, and the feature tests; the suites run in
   four lanes side by side, each with its own worker (T49). Suites run at the

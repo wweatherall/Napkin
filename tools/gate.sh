@@ -32,7 +32,49 @@ run_stage() {
 }
 
 run_features() {
-  tools/featuretest.sh "$1/feature" > "$1/feature.log" 2>&1
+  local out=$1; shift
+  tools/featuretest.sh "$@" "$out/feature" > "$out/feature.log" 2>&1
+}
+
+resolve_test_scope() {
+  local force_full=0 arg
+  for arg in "$@"; do
+    [ "$arg" = "--full" ] && force_full=1
+  done
+  [ "${GATE_FULL:-0}" = "1" ] && force_full=1
+  if [ "$force_full" -eq 1 ]; then
+    export GATE_FULL=1
+    TEST_SCOPE=full
+    TEST_SCOPE_DESC="scope full (forced)"
+    return 0
+  fi
+  local out lines=()
+  out=$(python3 tools/test_scope.py 2>/dev/null)
+  if [ $? -ne 0 ] || [ -z "$out" ]; then
+    TEST_SCOPE=full
+    TEST_SCOPE_DESC="scope full (no diff)"
+    return 0
+  fi
+  while IFS= read -r arg; do
+    [ -n "$arg" ] && lines+=("$arg")
+  done <<< "$out"
+  TEST_SCOPE=${lines[0]:-full}
+  local files=("${lines[@]:1}") count=${#files[@]} sample=""
+  if [ "$count" -gt 0 ]; then
+    local show=("${files[@]:0:5}")
+    sample="${show[*]}"
+    [ "$count" -gt 5 ] && sample="$sample ..."
+  fi
+  if [ "$TEST_SCOPE" = "tools" ]; then
+    TEST_SCOPE_DESC="scope tools ($count file(s); app tests skipped: $sample)"
+  else
+    TEST_SCOPE=full
+    if [ "$count" -gt 0 ]; then
+      TEST_SCOPE_DESC="scope full ($count file(s): $sample)"
+    else
+      TEST_SCOPE_DESC="scope full (no diff)"
+    fi
+  fi
 }
 
 if [[ ${BASH_SOURCE[0]} != "$0" ]]; then return 0; fi
@@ -56,15 +98,21 @@ run_logged() {
   [ "${statuses[1]}" -eq 0 ] || return 1
   return "${statuses[0]}"
 }
+resolve_test_scope "$@"
+echo "$TEST_SCOPE_DESC"
 run_stage "gate: quick test" run_logged "$OUT/quick.log" tools/quicktest.sh
 QRC=$?
-# A successful quick run already parsed every script and checked every feature. Reuse those checks.
-# After any quick failure, retain fulltest's independent parse and feature checks.
-FULL_ARGS=()
-if [ $QRC -eq 0 ] && grep -qE "^features:.*\| viewport: QUICK" "$OUT/quick.log" &&
-   ! grep -q "SCRIPT ERROR" "$OUT/quick.log"; then FULL_ARGS=(--gate-ui-only); fi
-run_stage "gate: full test" run_logged "$OUT/full.log" tools/fulltest.sh "${FULL_ARGS[@]}"
-FRC=$?
+if [ "$TEST_SCOPE" = "tools" ]; then
+  FRC=0
+else
+  # A successful quick run already parsed every script and checked every feature. Reuse those checks.
+  # After any quick failure, retain fulltest's independent parse and feature checks.
+  FULL_ARGS=()
+  if [ $QRC -eq 0 ] && grep -qE "^features:.*\| viewport: QUICK" "$OUT/quick.log" &&
+     ! grep -q "SCRIPT ERROR" "$OUT/quick.log"; then FULL_ARGS=(--gate-ui-only); fi
+  run_stage "gate: full test" run_logged "$OUT/full.log" tools/fulltest.sh "${FULL_ARGS[@]}"
+  FRC=$?
+fi
 NEW=0; KNOWN_SEEN=0
 while IFS= read -r line; do
   name=$(echo "$line" | sed -E 's/^QUICK FAIL (\[[^]]*\] [^<[{]*[^ <[{]).*/\1/; s/ +$//')
@@ -82,6 +130,12 @@ grep -qE "SCRIPT ERROR|did not finish" "$OUT/quick.log" && { NEW=$((NEW + 1)); e
 [ $QRC -ne 0 ] && [ $NEW -eq 0 ] && [ $KNOWN_SEEN -eq 0 ] && { NEW=1; echo "NEW FAILURE: the quick test failed without a QUICK FAIL line (see $OUT/quick.log)"; }
 [ $FRC -ne 0 ] && grep -vE "^(SHOT|JOINTEST|REJECTTEST|SHELLTEST)" "$OUT/full.log" | tail -5
 Q=$(grep -E "\| viewport: QUICK" "$OUT/quick.log" | sed -E 's/.*viewport: (QUICK [^(]*).*/\1/')
+if [ "$TEST_SCOPE" = "tools" ]; then
+  if [ $NEW -eq 0 ]; then
+    echo "GATE PASS (scope tools): tools quick test passes; $((SECONDS - START)) s total (logs: $OUT)"; exit 0
+  fi
+  echo "GATE FAIL (scope tools): $NEW new quick-test failure(s); $((SECONDS - START)) s total (logs: $OUT)"; exit 1
+fi
 if [ $NEW -eq 0 ] && [ $FRC -eq 0 ]; then
   echo "GATE PASS: full test passes; ${Q:-quick test}; $KNOWN_SEEN known failure(s); $((SECONDS - START)) s total (logs: $OUT)"; exit 0
 fi

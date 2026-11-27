@@ -5,17 +5,29 @@
 # `runner: freecadcmd|python3|godot|none` (none: a helper, or a test run elsewhere). Each prints one summary line,
 # "<NAME> TESTS: N passed, M failed"; a file that prints none fails, by name. Run them while building a feature,
 # before its tool exists; tools/quicktest.sh runs them too, beside the viewport session.
-#   tools/featuretest.sh [outdir]      exit status 0 = all passed; prints one summary line
-#   tools/featuretest.sh --list        what it found and how it runs each, without running them
+#   tools/featuretest.sh [--tools-only] [outdir]  exit status 0 = all passed; prints one summary line
+#   tools/featuretest.sh [--tools-only] --list    what it found and how it runs each, without running them
 cd "$(dirname "$0")/.."
 FC=/Applications/FreeCAD.app/Contents/Resources/bin/freecadcmd
 GD=/Applications/Godot.app/Contents/MacOS/Godot
 TAG='^[A-Z][A-Z -]* TESTS: [0-9]+ passed, [0-9]+ failed'
 
+TOOLS_ONLY=0
+LIST=0
+OUT=""
+for arg in "$@"; do
+  case "$arg" in
+    --tools-only) TOOLS_ONLY=1 ;;
+    --list) LIST=1 ;;
+    *) [ -z "$OUT" ] && OUT=$arg ;;
+  esac
+done
+
 # name | command, one per test file found
 TESTS=()
 for f in worker/test_*.py tools/test_*.py viewport/test_*.gd; do
   [ -f "$f" ] || continue
+  [ "$TOOLS_ONLY" -eq 1 ] && [[ "$f" != tools/* ]] && continue
   runner=$(head -5 "$f" | grep -oE 'runner: *[a-z0-9]+' | head -1 | sed 's/runner: *//')
   if [ -z "$runner" ]; then
     case "$f" in worker/*) runner=freecadcmd;; tools/*) runner=python3;; viewport/*) runner=godot;; esac
@@ -31,14 +43,13 @@ for f in worker/test_*.py tools/test_*.py viewport/test_*.gd; do
   TESTS+=("$name|$cmd")
 done
 
-if [ "$1" = "--list" ]; then
+if [ "$LIST" -eq 1 ]; then
   for t in "${TESTS[@]}"; do IFS='|' read -r name cmd <<< "$t"; printf '%-26s %s\n' "$name" "$cmd"; done
   exit 0
 fi
 
 . tools/gate.sh || exit 1
 set_test_tmpdir || exit 1
-OUT=$1
 if [ -z "$OUT" ]; then OUT=$(mktemp -d "${TEST_TMPDIR%/}/shopsketch-feature.XXXXXX") || exit 1; fi
 mkdir -p "$OUT" || exit 1
 PIDS=()

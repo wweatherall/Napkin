@@ -60,7 +60,7 @@ Architecture: lines, the response) and CLAUDE.md (commit trailers); this page sa
   with the merge staged when any response has one, prints them under "for you now:", and records them in the merge
   commit on `--continue`; `--yes` doesn't skip this stop). For a brief with a "What can fail" section, check that each case
   listed there has its named check, and that the check fails without the change where it can (P42). Merge what's good with
-  `python3 tools/MERGE_JOB.py <branch> --as <name> --push --yes` (P20, P49). It runs the gate, `tools/TEST_BEFORE_MERGING.sh` (P18); flags
+  `python3 tools/MERGE_JOB.py <branch> --as <name> --push --yes` (P20, P49). It runs the gate, `tools/TEST_BEFORE_MERGING.sh` (P18; when only tools, hooks, docs or top-level guides changed, it runs parse and `tools-*` feature tests and skips viewport, worker and full tests; `--full` or `GATE_FULL=1` forces everything); flags
   files the branch changed outside its job's Touches list; renumbers a PROTOCOL_VERSION bump on top if main moved
   on meanwhile (A35); removes the job's worktree and branch, marks it merged, records Results and pushes `main` without
   stopping (drop `--yes` if you ever want to stop before pushing; `--yes` never skips P28/P44 pauses).
