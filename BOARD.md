@@ -3,7 +3,7 @@
 "Check the board" sends you here. Only the integrator edits this file; the job table is built from docs/handoff/
 and the job queue.
 
-Order: H150, H151
+Order: H150, H151, H152
 
 ## If you're not the integrator
 
@@ -67,6 +67,7 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 |---|---|---|---|---|---|
 | H150 | either | **Ready** | T147 step 1: a plane fit keeps its target face when boards are cut, flipped or chained | [H150](docs/handoff/H150-t147-plane-fit-face-identity.md) |  |
 | H151 | either | Queued | T147 step 2: circles and polygons fit flush against a sloped face | [H151](docs/handoff/H151-t147-flush-fits-curved-profiles.md) | H150 |
+| H152 | either | **Ready** | T146 step 1: one file per ruling in Napkin/03_Past_Decisions/rulings/, written and read by log.py | [H152](docs/handoff/H152-t146-one-file-per-ruling.md) |  |
 
 <!-- end of job table -->
 

@@ -33,6 +33,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
 - [H150 — T147 step 1: a plane fit keeps its target face when boards are cut, flipped or chained](handoff/H150-t147-plane-fit-face-identity.md) — status: open; for: either
 - [H151 — T147 step 2: circles and polygons fit flush against a sloped face](handoff/H151-t147-flush-fits-curved-profiles.md) — status: queued (after H150); for: either
+- [H152 — T146 step 1: one file per ruling in Napkin/03_Past_Decisions/rulings/, written and read by log.py](handoff/H152-t146-one-file-per-ruling.md) — status: open; for: either
 
 <!-- end of open list -->
 
