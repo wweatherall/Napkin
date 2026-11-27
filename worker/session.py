@@ -1,4 +1,11 @@
-"""Session: one live document bound to one .FCStd file; sync, undo, journal, saving (A23, A24)."""
+"""Session: one live document bound to one .FCStd file; sync, undo, journal, saving (A23, A24).
+
+Owns `IdRegistry` (`accept`, `seed_native` from BodyId/RectId/SSOp/AssemblyId/SSLineId), display units (`set_units`,
+`ShopSketchUnits` Meta), save generations (`save()`: `glb_dirty`, disables `CreateBackupFiles`, `Session.drawing`
+one-shot flag never latched on open/reload, `<model>.saving.FCStd` -> `.prev.FCStd` -> atomic rename), recovery
+(`recover_generation()`), and outside-save reload (`reload_outside()` with `validate_project` snapshot and
+`<model>.floor.FCStd` via `_write_floor_copy`; `copy_outside_aside`, `aside_name`).
+Entry points: sync, _apply, _open_existing, export, save, recover_generation, reload_outside, copy_outside_aside."""
 import FreeCAD as App
 from contextlib import contextmanager
 from copy import copy, deepcopy

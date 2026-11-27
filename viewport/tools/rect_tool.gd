@@ -3,6 +3,10 @@ extends "res://tools/tool.gd"
 ## Pressing R again toggles Rotated Rectangle (3-point: start, first edge, width; I64).
 ## Started with a click, it ends with a click; started with a press-and-drag (or a press held down), it ends
 ## when you let go (tool.gd, I43).
+##
+## Context-only: `expects_pair`/`accepts_pair` read by `measure_box.gd:apply()`; optional `"x"` unit first-edge vector
+## for rotated rects; `_amend_last_rect` checks `document.is_last` for after-the-fact dimension amending.
+## Entry points: commit_rect, _amend_last_rect, expects_pair, accepts_pair.
 
 const TOOL := {"id": "rect", "label": "Rectangle", "tip": "Rectangle (R)", "key": KEY_R, "order": 30, "show_links": true}   # the toolbar, the Tools menu and the key (tool_registry.gd)
 const LINE_COLOR := Color(0.1, 0.2, 0.6)

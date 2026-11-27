@@ -1,5 +1,10 @@
 extends RefCounted
 ## Wood library, board materials, and Paint and grain commands (T15, M03).
+##
+## Never references Main (takes Document and `_beside_project` for texture paths). Caches textures and supplies wood
+## shader materials to presenter.gd; appends `set_material` and `turn_grain` ops through ToolContext.DocumentCapability;
+## emits `status` and `wood_selected`.
+## Entry points: load_library, set_boards, wood_material, select_wood, set_paint_material, turn_grain, current_name, apply.
 const ToolContext := preload("res://tool_context.gd")
 const Document := preload("res://document.gd")
 const Geo := preload("res://tool_geometry.gd")

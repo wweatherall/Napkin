@@ -1,4 +1,9 @@
-"""Outputs for the viewport and renders: bodies.json entries, mesh files, model.glb, the TechDraw page."""
+"""Outputs for the viewport and renders: bodies.json entries, mesh files, model.glb, the TechDraw page.
+
+`board_mesh_file` writes `meshes/<board>-<key>.bin` (packed pos, normal, edges, corners; change with
+`presenter.gd:_build_board`). `write_glb` skips hidden boards and writes PBR base-colour materials plus custom
+material/node extras (`grain_zup`, `across_zup`) for a Blender consumer.
+Entry points: mesh_of, board_mesh_file, write_glb, cuts_of, add_drawing_page."""
 import FreeCAD as App
 import Part
 import hashlib

@@ -1,4 +1,9 @@
-"""Length-only evaluation using FreeCAD; no model-property references."""
+"""Length-only evaluation using FreeCAD; no model-property references.
+
+Normalizes mixed fractions and compound imperial (`1-1/2"` is 1/2", `1 1/2"` is 1.5"; must match `units.gd`),
+calls FreeCAD `evalExpression` in a temporary unsaved document and restores the previous active document, returning
+finite millimetres. Checked against `units.gd` by `tests/length_cases.json`.
+Entry points: evaluate, handle."""
 import math
 import re
 import FreeCAD as App

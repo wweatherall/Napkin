@@ -3,6 +3,13 @@ extends Node
 ## text goes. `m.measure`; main.gd forwards the old names (`m.vcb`, `m.typing`, `m.apply_vcb()`, `m._update_vcb()`,
 ## `m.length_pending`, `m.ui_vcb_box`, ...), so tools and tests don't change.
 ##
+## Routes count syntax and anything a tool's `typed_raw()` claims (Centre Arc degrees) to tools; strips/restores
+## Arc's `r` radius suffix around length evaluation; evaluates lengths locally (`units.gd`), sends what it declines
+## as `length` (with `default_unit`), and drops stale replies. Owns display units (`default_units`: preferences ->
+## `user://settings.cfg` `[units] last` outside test mode -> `fallback_spec`; preference changes never alter the open
+## model's units) and resends `set_units` after open/reconnect if unanswered.
+## Entry points: build, update, apply, on_length, type_char, backspace, stop_typing.
+##
 ## Move counts and Centre Arc angles reach the tool as typed. Lengths are worked out by units.gd and handed
 ## to the tool in mm; only what it declines waits for a `length` reply from FreeCAD (T32).
 ## `typing` (I48): once the box is clicked or typed in, Delete / Backspace edit it until a click in the view or a

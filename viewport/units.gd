@@ -2,6 +2,10 @@ extends RefCounted
 ## Lengths are millimetres internally. Commas separate pairs, never decimals.
 ## Array syntax (3x, /3) belongs to tools and is deliberately rejected here.
 ## A minus between numbers always means subtraction (William, 2026-11-21: 1-1/2" is 1/2", 1'-6" is 6"); this
+##
+## `evaluate_length` / `evaluate_pair` port `worker/length_input.py:evaluate` (checked against FreeCAD by
+## `tests/length_cases.json`). Declines uncertain syntax (unit powers, units after brackets, `pi mm`) so the worker
+## answers. Older `parse_length` / `parse_pair` remain but are not the input path.
 ## parser does no arithmetic, so it rejects those forms. Mixed numbers take a space: 1 1/2", 1' 6 1/2".
 
 static func _error(text: String) -> Dictionary:

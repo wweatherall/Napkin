@@ -2,6 +2,9 @@ extends "res://tools/tool.gd"
 ## Move (M), SketchUp style: grab a point on a board (or a hole's wall: the hole), move, click or type a distance.
 ## Ctrl/Option toggles copy, Shift toggles mirror (the board flips across the plane halfway to the cursor).
 ## Arrows cycle axis lock -> plane lock -> free. After a copy: 5x / *5 for an array, /5 to spread copies;
+##
+## Context-only: uses only `ctx` and `Geo` (never Main or inference). Consumes selection when grab point belongs to it.
+## Entry points: commit_move, commit_mirror_move.
 ## a plain number right after a move changes its distance.
 
 const TOOL := {"id": "move", "label": "Move", "tip": "Move (M)", "key": KEY_M, "order": 50, "show_links": true}   # the toolbar, the Tools menu and the key (tool_registry.gd)

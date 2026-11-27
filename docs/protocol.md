@@ -343,3 +343,50 @@ These are observed code limitations/mismatches, not changes made by the original
 7. **Nested oplog name is ignored for status naming.** The window sends `oplog.name`; `run_sync` uses top-level `name`, so its normal status says `oplog: "live"`. Sources: `document.gd:oplog`, `_send`; `serve.run_sync`.
 
 H035 was read-only on code. Findings not marked fixed remain for integrator review and any separately authorized fixes.
+
+## Moved from ARCHITECTURE.md (H167)
+
+Transport: UTF-8 JSON objects separated by newlines over localhost TCP. Main probes port 7878 with hello and compares the protocol version (`protocol`, defined once per side: `serve.py PROTOCOL_VERSION`, `main.gd PROTOCOL_VERSION`; bumped when a message or file field changes, docs/protocol.md) and the worker identity: the MD5 of every worker `.py` except `test_*`, in name order (`serve.py worker_identity`; worker_process.gd `worker_identity` computes the same, and a quick-test step checks they agree). A worker matching both is shared; another protocol version (`worker_of` logs it), a different identity or an occupied port gets a private worker. Test mode starts its own worker with `SERVE_PORT=0`: the worker binds a port the system picks and writes it to `SERVE_PORT_FILE` (written whole, via rename), which the window reads before connecting, so concurrent test runs can't take the same port (T47; `tools/fulltest.sh` and the socket tests start theirs the same way). `--port=N` selects an external worker.
+
+| Command/event | Purpose |
+|---|---|
+| `hello` | Return app identity, worker script hash and process ID for compatibility probing |
+| `open` with `model`, `seq`, optional `fresh` | Open/adopt a session; returns operations, revision, external-edit flag and undo floor, echoing `seq` and the absolute `model` (refusals too) |
+| `sync` with `model`, `oplog`, `outdir`, `seq`, optional `drawing` | Materialize desired operation sequence and export metadata/meshes |
+| `replay` | Fresh-session replay path |
+| `flush`, optional `model` | Save pending work now (only that model's, when given); the reply lists what it saved and couldn't (`saved`, `failed`), ok only when nothing failed (T79) |
+| `bye` | Save and release this connection's model, then disconnect this window (same save lists) |
+| `quit` | Save and stop only if no other client remains; otherwise release the requesting client (`stopped: false`) |
+| `focus` / `already_open` | Notify the owner to come forward; refuse the second opener. A newly launched duplicate window closes, while File > Open reports the refusal |
+| `saved` event with `model`, `rev` | Successful persistence acknowledgement |
+| `save_failed` event with `model`, `rev`, `error` | A save failed; it stays pending and is retried on the next sync or flush (T79) |
+
+Every reply to a request echoes the request's `seq` (null if it had none), except `length`, which echoes its own `id`. Events (`saved`, `save_failed`, `focus`) have no seq.
+
+Typed lengths and the Properties panel add:
+
+| Request / operation | Result and routing |
+|---|---|
+| `length` with `id`, `texts`, optional `default_unit` | Reply `{cmd: "length", id, ok, values}` with millimetres, or `error`; independent of geometry `seq`/`in_flight` |
+| `inspect_properties` with `model`, `body`, `seq`, `request_id` | Ownership-checked read; reply echoes `seq`, `request_id`, `model` and includes `properties: {body, boards, summary, objects, references}`; errors retain request identity |
+| `property_edit` inside `sync`'s operation list | Native object/property mutation; ordinary per-op confirmation/rejection, export, undo and save path; there is no standalone property-write command |
+
+Each described object includes native `name`, user-facing `label`, type and field records. Fields include property `path`, display `value`, editor `kind`, `editable`, current `expression`, and enumeration choices where applicable. Link references are displayed but cannot be reassigned through this editor.
+
+The loop multiplexes sockets with `select` but executes geometry serially; it is not parallel FreeCAD evaluation. Autosave waits for all windows to be quiet for 0.25 s. `SERVE_IDLE_EXIT` controls exit after the last connection leaves (app startup supplies 10 s; direct worker default 0 disables it). File > New Window (⌘⇧N) opens a distinct Untitled model. Ownership is local to this worker and absolute path; it is not an OS-wide lock against external FreeCAD or another worker version.
+
+`oplog/0.1` uses millimetres; `run_sync` rejects other units. Errors can occur at request level or per operation. The journal format is currently `shopsketch-journal/0.1`. Check `Model.HANDLERS` (the `op_*` methods) and each `op_*` implementation for the authoritative operation schema; there is not a separate comprehensive typed protocol definition.
+
+### Selection operations (T34)
+
+`move` with `selection: true`, `targets: [BodyId, ...]`, `vector`, optional `copy`, `count`, `divide`, `new_ids` and `detach` is one native transaction. A move resolves shared array/mirror sources once through the assembly motion algebra; inside an array, selected copies detach before motion. Copy uses source-major new IDs, one per source per offset. `mirror` uses several BodyIds and the existing plane/replace/new_ids schema. Drafts and confirmation waves contain each affected board. Retyping a multi-copy count/span retains its full target set. A copy that includes every member of an assembly carries `groups: {old AssemblyId: new AssemblyId}` for a single copy, or `groups: {old AssemblyId: [new AssemblyId, ...]}` for a row (T58, I52); group ids are ordered by offset while board ids remain source-major. Each copied assembly has its own group of linked boards. The worker still reads the single-string form in existing journals.
+
+`delete` with `id` and `targets: [BodyId, ...]` removes the selected instances and promotes surviving originals (I46), in one transaction.
+
+### Plane fits, pocket-floor ties, and hide wire fields
+
+- `push_pull.edge_fit` carries `{target_body, face, fit_mode}` (`0` Butt / `1` Slice / `2` Fully reach; absent = Butt). `push_pull.resize_stock` resizes an entire ordinary stock face. `push_pull.to_face` carries `{point, normal}` on a pointer cut whose snap is "face behind" (never on a typed distance, nor with `through`, `body`, `edge_fit`, or `resize_stock`).
+- `property_edit` with mode `plane_fit` records source and target `BodyId`s, local axis, semantic face and end condition; `replace_fit` restores the native extrusion with the entered dimension.
+- `plane_fit.snapshot()` exports `fitted_end: {face, normal, point}` on fitted boards, and `rectangular: False` with `planar_faces` (point and normal per face; `fitted_end.face` is its index in that list) on non-rectangular/cut boards; `bodies.json` carries `stock_frame` and `hidden`.
+- `hide` carries `targets` and `hidden` (one op per Hide/Unhide command).
+

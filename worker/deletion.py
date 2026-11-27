@@ -1,5 +1,9 @@
 """T34, I46: Delete. A board leaves the FreeCAD file with everything only it used, unless a surviving link, mirror or
-array still builds from it: then it stays, hidden (SSRole 'deleted'), until that goes too."""
+array still builds from it: then it stays, hidden (SSRole 'deleted'), until that goes too.
+
+Auto-discovered `DeleteActions`: `remove_unneeded` removes dependencies before dependents so FreeCAD undo keeps
+expression links. `Model.bodies()` excludes `SSRole=deleted` from picking metadata, GLB, drawings and cut lists.
+For a deleted row source, a surviving member is detached as the new original and holders update `SSSource`."""
 
 
 class DeleteActions:

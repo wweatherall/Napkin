@@ -1,6 +1,11 @@
 extends RefCounted
 ## User preferences (I63, T111): reads, validates, watches and seeds a JSON file with default units and
 ## input-feel tunables. Holds no reference to Main or scene nodes; callers always pass the file path.
+##
+## `DEFAULTS` (`units.default` and feel tunables) and `RANGES` (`RELEASE_DEG` never below `INFER_DEG`); `load_from`
+## keeps last good values for unusable files/keys; `changed_on_disk` is a stat-only poll (0.5 s Timer in main.gd);
+## `write_defaults` never overwrites. Live values sit as static vars in inference.gd/tools/tool.gd and vars in camera_rig.gd.
+## Entry points: load_from, changed_on_disk, write_defaults, DEFAULTS, RANGES.
 
 const Units := preload("res://units.gd")
 

@@ -6,6 +6,16 @@ extends Node
 ## selection, ghosting outside an entered assembly, hidden boards, the mirror plane, linked copies), drawn from
 ## what selection.gd says. main.gd routes the document's signals here and keeps the rejection bookkeeping; this
 ## builds the meshes, line strips and pick collisions, using the window's materials.
+##
+## Also owns loose_lines (rebuilt on open/undo/redo), non-colliding closed-loop fills (drafts["line:loops"] via
+## _refresh_loop_drafts), drawn_region, DEFAULT_BASE/SNAP_COLORS/AXIS_COLORS, unit_tris, selection_box /
+## clear_selection_box, tri_mesh/line_mesh/lines/add_collision/show_marker, face_highlight, draw_guides/clear_guides,
+## mirror_preview, present_draft, draft_tests (DraftTestRecorder, test mode only), and stock_frames. Reuses board
+## nodes by mesh filename + material/grain key and caches up to 40 confirmed states (eviction must never become
+## history deletion). `_build_board` reads meshes/<board>-<key>.bin (change together with worker/export.py:board_mesh_file).
+## Entry points: apply_confirmed, show_confirmed, show_state, forget_op, register_rect, register_line, lines_on,
+## drawn_region, circle_geometry, present_draft, tri_mesh, line_mesh, lines, add_collision, face_highlight, begin_wave,
+## attach_wave, step_waves, apply_context, show_selection, show_siblings, reset.
 
 signal boards_read(data: Array, dir: String)   # bodies.json read, before building: main updates selection and wood
 signal wave_rejected_done(oid: String)        # a red wave has played out: main removes the op (and its dependents)

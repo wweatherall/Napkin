@@ -2,6 +2,11 @@ extends RefCounted
 ## What a tool may use (T88, docs/specs/T88-tool-interface.md): one ToolContext, built once by main.gd and handed
 ## to every tool by `setup_context(ctx)`. It has seven named capabilities, each a small adapter that keeps its
 ## owner private and answers with snapshots (copies a tool may change freely):
+##
+## Seven capabilities: `pick`, `model`, `selection`, `document`, `view`, `ui`, `paint`. Never leaks Main, controllers,
+## nodes, materials or cache maps (allowlist in `test_tool_context.gd`). Tools format `vcb_value` only through
+## `ui.format_length(mm)`; `document.is_last(id)` guards in-place amendments; `view.register_line` deep-copies.
+## Entry points: pick.*, model.*, selection.*, document.*, view.*, ui.*, paint.*.
 ##   pick       inference.gd: what's under the cursor, snaps, axis and plane moves, camera rays and projection
 ##   model      presenter.gd: boards' triangles, profiles (rectangles, circles, polygons), stock frames, cuts
 ##   selection  selection.gd: the selection, context, assemblies, what a board stands for

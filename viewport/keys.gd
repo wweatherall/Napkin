@@ -3,6 +3,10 @@ extends Node
 ## `m.keys`. main.gd's `_input` and `_unhandled_input` stay the entry points (tests call `m._unhandled_input`); they
 ## hand key presses here, after what comes first for every event (a press drops a length FreeCAD is still working
 ## out; Esc while Properties picks a face cancels the pick). The mouse stays in main.gd.
+##
+## Holds no state. Typed characters before a gesture go to the measurements box only for a tool with
+## `accepts_idle(ch, typed_so_far)` (Polygon alone). T passes the hovered board to appearance.gd.
+## Entry points: before_gui, press.
 
 var m                               # main.gd: tools, tool, measure, sel, set_tool, _menu, ...
 

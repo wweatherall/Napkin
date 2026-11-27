@@ -3,6 +3,10 @@ extends RefCounted
 ## main.gd builds the tools, the toolbar and the Tools menu from it; keys.gd maps the tool keys. Adding a tool is
 ## one new file in tools/: nothing shared lists the tools.
 ##
+## Uses `ResourceLoader.list_directory` so the exported pack (`.gd.remap`/`.gdc`) lists the same tools; checks for
+## repeated ids and keys.
+## Entry points: found, menu_label, problems.
+##
 ## A tool's TOOL: {"id": "rect", "label": "Rectangle", "tip": "Rectangle (R)", "key": KEY_R, "order": 30}
 ##   id      what set_tool() and the menus call it          label  the toolbar segment's text
 ##   tip     the segment's tooltip                          key    the key that picks it (KEY_NONE: none)

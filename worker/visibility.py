@@ -1,4 +1,8 @@
-"""Hide and unhide (T28, I37): SketchUp-style hiding, kept as a board property so it is undoable and saved."""
+"""Hide and unhide (T28, I37): SketchUp-style hiding, kept as a board property so it is undoable and saved.
+
+Auto-discovered `VisibilityActions`: FreeCAD's undo restores `SSHidden` but not `Visibility`, so ops never set a
+board's `Visibility` directly; `Session.sync` calls `show_as_hidden()` after every change. Older files get `SSHidden`
+on open via `add_hidden_props` (outside any transaction)."""
 from common import OpError, add_props
 
 

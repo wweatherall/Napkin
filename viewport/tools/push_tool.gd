@@ -1,5 +1,10 @@
 extends "res://tools/tool.gd"
 ## Push/Pull (P): click a face, rectangle or circle, move, then click or type a distance + Return (minus = cut).
+##
+## Context-only: hands predicted pieces and wave to `view.present_draft`. `_edge_inference` ranks reachable planes
+## (Tab cycles, Option cycles end condition). `_finish_push` sends `to_face` only on a pointer cut whose snap is
+## "face behind" (never on a typed distance, nor with `through`, `body`, `edge_fit`, or `resize_stock`).
+## Entry points: commit_push.
 
 const TOOL := {"id": "push", "label": "Push/Pull", "tip": "Push/Pull (P)", "key": KEY_P, "order": 40, "show_links": true}   # the toolbar, the Tools menu and the key (tool_registry.gd)
 

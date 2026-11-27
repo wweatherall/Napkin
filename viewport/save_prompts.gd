@@ -1,5 +1,9 @@
 extends Node
 ## Closing-save and outside-save prompts (I55, A36): asks when a closing save stalls or FreeCAD saves with actions pending, and runs reload or keep-mine.
+##
+## Owns close-question (CLOSE_WAIT_S) and outside-save-question (OUTSIDE_SAVE_WAIT) state, retry deadlines, and status
+## messages for failed keep_mine/reload; `on_reloaded` waves changed boards; `on_kept_mine` reports where FreeCAD's copy went.
+## Entry points: request_close, close_now, ask_outside, outside_choice, on_reloaded, on_kept_mine, reset_outside_question.
 
 var m: Node
 

@@ -1,5 +1,10 @@
 extends PanelContainer
 ## Native FreeCAD properties. Values and expressions are deliberately separate editing modes.
+##
+## Handles one selected piece (not bulk edits). Value mode clears existing formulas; Expression mode uses `setExpression`.
+## `pick_reference` / `_preview` projects four corner rays onto the target face's plane for plane fits. Non-rectangular
+## and cut boards (`rectangular: False`) keep read-only BoundBox summary dimensions. Coordinates are local to owner.
+## Entry points: display, message, format_length, refresh_requested, edit_requested.
 signal refresh_requested
 signal edit_requested(change: Dictionary)
 var data := {}

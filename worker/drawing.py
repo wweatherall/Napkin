@@ -3,7 +3,8 @@
 usage: python3 drawing.py OUTDIR [oplog.json]
 reads  OUTDIR/views.json, bodies.json, status.json
 writes OUTDIR/drawing.svg, drawing.pdf, drawing.png, cutlist.csv
-"""
+
+Uses a fixed A3 layout and scales (not arbitrary-page layout)."""
 import csv
 import json
 import os

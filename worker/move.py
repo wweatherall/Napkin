@@ -1,4 +1,8 @@
-"""Move and copy: moving boards and holes, linked copies and arrays (A22c, T12), detach and make unique."""
+"""Move and copy: moving boards and holes, linked copies and arrays (A22c, T12), detach and make unique.
+
+Auto-discovered `MoveActions`: `op_make_unique` detaches inherited `PlaneFit` ties while preserving geometry and
+hands `SSSourceBodyId` driving duty to a surviving sibling. Copying a plain board converts it to an `App::Link`
+component; array holders are `App::Placement` objects with expression-driven member placements."""
 import FreeCAD as App
 from common import OpError, TOL, V, add_props, board_label, unit, vec
 

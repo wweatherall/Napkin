@@ -1,6 +1,14 @@
 extends Node3D
 ## Shop Sketch: tool-first viewport. Records an op log; FreeCAD (worker) catches up.
 ## Model space = Z-up millimetres (what the op log uses). Godot space = Y-up metres.
+##
+## Composition root: scene nodes, labels (ui_hint, ui_sync, ui_tip, ui_saved), m.cam, input dispatch to keys.gd /
+## camera_rig.gd, tool picking, model switching, rejection wave/status glue, and legacy m.* forwarders (_lines,
+## _begin_wave, draft_bboxes, force_reject_next, selection property forwarders). Runtime-loads tools and tests
+## while those preload Main, avoiding preload cycles; tool_context, tool_geometry, inference and appearance never
+## reference Main. PROTOCOL_VERSION lives here (bumped with serve.py).
+## Entry points: _ready, _make_tools, _make_tool_context, sync, _on_worker, _on_synced, _on_op_removed,
+## _apply_confirmed, switch_model, _request_properties, _on_properties, _edit_property.
 
 const WorkerClient := preload("res://worker_client.gd")
 const Geo := preload("res://tool_geometry.gd")

@@ -1,5 +1,9 @@
 extends "res://tools/tool.gd"
 ## I60: both gestures save the start, halfway point and end of one circular arc.
+##
+## A toggles 2-Point and Centre modes; `typed_raw` handles sweep degrees; corner tangency (`<n>r` fillet) leaves
+## points unrounded in the `arc` op because rounding to 0.001 mm would bend it off tangent.
+## Entry points: TOOL, commit.
 
 const Presenter := preload("res://presenter.gd")
 const TOOL := {"id": "arc", "label": "Arc", "tip": "Arc (A)", "key": KEY_A, "order": 38, "show_links": true}

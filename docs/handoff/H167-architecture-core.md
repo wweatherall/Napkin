@@ -1,6 +1,6 @@
 ### H167 — Architecture step 2: ARCHITECTURE.md down to a hand-written core under 8 KB, nothing lost
 
-Author: Claude (integrator, napkin-77) | Date: 2026-11-27 | Status: open | For: gemini
+Author: Claude (integrator, napkin-77) | Date: 2026-11-27 | Status: answered | For: gemini
 
 Item: T138
 
@@ -66,3 +66,22 @@ What can fail:
 Checks:
 - `python3 tools/architecture_map.py --check` (with the new size check) and tools/test_architecture_map.py.
 - `tools/TEST_BEFORE_MERGING.sh` passes (header comments touch app files, so expect the full scope).
+
+Response:
+Compressed `ARCHITECTURE.md` from 90,711 B (core 80,976 B) to **17,764 B** total (`wc -c ARCHITECTURE.md`), with **9,735 B** in the generated module map and **8,029 B** in the hand-written core (under 8 KB = 8,192 B). `MAX_SENTENCE_LEN` stayed at 160; added `MAX_CORE_BYTES = 8 * 1024` and `core_bytes()` check in `tools/architecture_map.py` (with `--check` test in `tools/test_architecture_map.py`). Preserved `#documentation-ownership` (`AGENTS.md`) and `#protocol-at-a-glance` (`viewport/README.md`) anchors.
+
+Where removed sections/rows went:
+| Removed section / row | Destination |
+|---|---|
+| `## Where responsibilities live` (`viewport/*.gd`, `viewport/tools/*.gd`, `worker/*.py`) | Each file's header comment (`##` / `"""..."""` below the first sentence); `tests.gd` & `quick_runner.gd` notes -> `viewport/tests.gd` header; `test_scenario.py` -> already in `worker/CLAUDE.md` |
+| `## Where responsibilities live` (`tools/*.sh`, `build_app.sh`, `MEASURE_TOKEN_USE.py`) | Core (`Where to implement a change`) + `Follow-up:` lines below |
+| `### Typed lengths and the Properties panel` | `worker/length_input.py`, `viewport/measure_box.gd`, `worker/object_properties.py`, `viewport/property_panel.gd`, `viewport/main.gd` headers + core (`Lifecycle of an edit`) |
+| `## Lifecycle of an edit` (verbose prose, `### Typed length evaluation`, `### Native property inspection and editing`) | Core (`Lifecycle of an edit`), `viewport/units.gd`, `worker/length_input.py`, `worker/plane_fit.py`, `worker/object_properties.py`, `viewport/property_panel.gd` headers, `docs/protocol.md` (`Moved from ARCHITECTURE.md (H167)`) |
+| `## Protocol at a glance` & `### Selection operations (T34)` | `docs/protocol.md` (`## Moved from ARCHITECTURE.md (H167)`) + short handshake summary in core (`## Protocol at a glance`) |
+| `## Native model and identity` | `worker/push.py`, `worker/move.py`, `worker/mirror.py`, `worker/assembly.py`, `worker/visibility.py`, `worker/deletion.py`, `worker/line.py`, `worker/circle.py`, `worker/polygon.py`, `worker/model.py`, `viewport/tools/push_tool.gd` headers + `docs/protocol.md` |
+| `## Files, persistence and recovery` | Core (`Files, persistence and recovery`) + `worker/session.py`, `worker/serve.py`, `viewport/document.gd`, `viewport/save_prompts.gd`, `viewport/worker_process.gd` headers |
+| `## Geometry and drawing exports` | `worker/export.py`, `worker/materials.py`, `worker/drawing.py`, `viewport/presenter.gd` headers |
+| `## Planned boundaries`, `## Validation and maintenance`, `### Automated omission checks`, `## Native geometry feature mapping` | Dropped as redundant with `CLAUDE.md` / `03_Past_Decisions/` / `FREECAD_FEATURE_MAP.md` (links kept in `Documentation ownership` & `Where to implement a change`) |
+| T/H history notes throughout | Dropped as history (kept in git & rulings) |
+
+Result: <pending commit>; `python3 tools/architecture_map.py --check` (0), `python3 tools/test_architecture_map.py` (10/10), `tools/TEST_BEFORE_MERGING.sh` (all parse/viewport/suite-compare checks and 43/44 feature suites pass; `JOB TESTS` 199/200 due to pre-existing `ANTIGRAVITY_MODEL` personal-space mismatch in `test_job.py` line 1455); compressed ARCHITECTURE.md core to 8,029 B and moved file/wire facts to headers and docs/protocol.md.
