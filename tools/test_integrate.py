@@ -991,5 +991,85 @@ check("a merged job without it leaves the item On the board while another job re
       (t2_final, t3_final))
 shutil.rmtree(c_root)
 
+# Merging a branch made before Process rulings moved to comitatus: keeps its edit to P16 and moves P-new-1 -> comitatus
+m_org = os.path.realpath(tempfile.mkdtemp(prefix="int-comitatus-"))
+m_proj = os.path.join(m_org, "08_Code_Bases", "Proj")
+m_org_rdir = os.path.join(m_org, "03_Past_Decisions", "rulings")
+m_proj_rdir = os.path.join(m_proj, "03_Past_Decisions", "rulings")
+os.makedirs(m_org_rdir)
+os.makedirs(m_proj_rdir)
+os.makedirs(os.path.join(m_proj, "03_Past_Decisions", "work"))
+os.makedirs(os.path.join(m_proj, "03_Past_Decisions", "questions"))
+os.makedirs(os.path.join(m_proj, "docs", "handoff"))
+for r in (m_org, m_proj):
+    for c in (["init", "-q", "-b", "main"], ["config", "user.email", "t@example.invalid"], ["config", "user.name", "t"],
+              ["commit", "-q", "--allow-empty", "-m", "base"]):
+        sh(r, "git", *c)
+write(m_proj, "03_Past_Decisions/decision-log.md",
+      "# Log\n\n## Subjects\n\n| Subject | Covers | Decisions |\n|---|---|---|\n"
+      "| Process | Agents. | P16 |\n\n"
+      "## Principles\n\n| ID | Principle | Status | Explains | Date |\n|---|---|---|---|---|\n"
+      "| G01 | Simple. | Active | — | 2026-11-22 |\n\n"
+      "## Decisions\n\n### Process\n\n| ID | Decision | Status |\n|---|---|---|\n| P16 | Integrator merges. | Active |\n\n"
+      "## Open questions\n\n| ID | Question | Status | Notes |\n|---|---|---|---|\n\n"
+      "## Work list\n\n| ID | Item | Status | Covers | Result / next step |\n|---|---|---|---|---|\n"
+      "| T1 | Move rulings. | Open |  |  |\n\n"
+      "## Tunables\n\n| Setting | Value | What it does | File | Decision |\n|---|---|---|---|---|\n")
+write(m_proj, "03_Past_Decisions/decision-archive.md",
+      "# Archive\n\n## Superseded decisions\n\n| ID | Decision | Status | Principles | Where | Date |\n|---|---|---|---|---|---|\n\n"
+      "## Decided questions\n\n| ID | Question | Status | Notes |\n|---|---|---|---|\n\n"
+      "## Done work\n\n| ID | Item | Status | Covers | Result / next step |\n|---|---|---|---|---|\n")
+write(m_proj, "03_Past_Decisions/work/T1.md", "# T1 — Move rulings.\n\nStatus: Open\n\nMove rulings.\n")
+write(m_proj, "03_Past_Decisions/rulings/G01.md", "# G01 — Simple.\n\nStatus: Active | Date: 2026-11-22\n\nSimple.\n")
+write(m_proj, "03_Past_Decisions/rulings/P16.md",
+      "# P16 — Integrator merges.\n\nStatus: Active | Subject: Process | Principles: G01 | Date: 2026-11-22\n\nIntegrator merges.\n")
+write(m_proj, "docs/agent-handoff.md",
+      "# Agent handoff\n\n## Open\n\n<!-- open list: built from docs/handoff/ by tools/handoff.py; don't edit by hand -->\n"
+      "<!-- end of open list -->\n\n## Archived\n\n")
+write(m_proj, "docs/handoff-archive.md", "# Handoff archive\n\n## Archived\n\n")
+sh(m_proj, "git", "add", "-A"); sh(m_proj, "git", "commit", "-qm", "before move")
+
+# Old branch created before P16 moved: edits P16 and adds P-new-1
+sh(m_proj, "git", "checkout", "-qb", "agent/old-branch")
+write(m_proj, "03_Past_Decisions/rulings/P16.md",
+      "# P16 — Integrator merges.\n\nStatus: Active | Subject: Process | Principles: G01 | Date: 2026-11-22\n\n"
+      "Integrator merges (updated on old branch).\n")
+write(m_proj, "03_Past_Decisions/rulings/P-new-1.md",
+      "# P-new-1 — New process rule.\n\nStatus: Active | Subject: Process | Principles: G01 | Date: 2026-11-27\n\n"
+      "New process rule.\n")
+write(m_proj, "docs/handoff/H099-t1.md",
+      "### H099 — T1: work\n\nAuthor: Gemini | Date: 2026-11-27 | Status: answered | For: either\n\n"
+      "Result: abc1234; tests 1/1; updated P16 and added P-new-1\n")
+sh(m_proj, "git", "add", "-A"); sh(m_proj, "git", "commit", "-qm", "old branch changes")
+
+# Main moves P16 to comitatus
+sh(m_proj, "git", "checkout", "-q", "main")
+shutil.move(os.path.join(m_proj_rdir, "P16.md"), os.path.join(m_org_rdir, "P16.md"))
+sh(m_org, "git", "add", "-A"); sh(m_org, "git", "commit", "-qm", "move P16")
+sh(m_proj, "git", "add", "-A"); sh(m_proj, "git", "commit", "-qm", "remove P16 from napkin")
+integrate.integrator.take(integrate.integrator.lock_path(m_proj), "tester")
+
+old_env = os.environ.get("NAPKIN_COMITATUS")
+os.environ.pop("NAPKIN_COMITATUS", None)
+cwd = os.getcwd(); os.chdir(m_proj)
+try:
+    with contextlib.redirect_stdout(io.StringIO()):
+        rc_m = integrate.main(["agent/old-branch", "--as", "tester", "--no-gate", "--status", "T1=Done"])
+finally:
+    os.chdir(cwd)
+    if old_env is not None:
+        os.environ["NAPKIN_COMITATUS"] = old_env
+
+p16_after = open(os.path.join(m_org_rdir, "P16.md"), encoding="utf-8").read() if os.path.isfile(os.path.join(m_org_rdir, "P16.md")) else ""
+p17_after = open(os.path.join(m_org_rdir, "P17.md"), encoding="utf-8").read() if os.path.isfile(os.path.join(m_org_rdir, "P17.md")) else ""
+check("merging pre-move branch moves P-new-1 and P16 edit to comitatus only, keeping the edit",
+      rc_m == 0
+      and not os.path.exists(os.path.join(m_proj_rdir, "P16.md"))
+      and not os.path.exists(os.path.join(m_proj_rdir, "P17.md"))
+      and "updated on old branch" in p16_after
+      and "New process rule." in p17_after,
+      (rc_m, os.listdir(m_proj_rdir), os.listdir(m_org_rdir)))
+shutil.rmtree(m_org)
+
 print(f"INTEGRATE TESTS: {sum(RESULTS)} passed, {len(RESULTS) - sum(RESULTS)} failed")
 raise SystemExit(0 if all(RESULTS) else 1)   # a failed check fails the run, not only its summary

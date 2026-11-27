@@ -47,6 +47,11 @@ def _template_repo():
             shutil.copy(os.path.join(REPO, rel), os.path.join(root, rel))
         for folder in (s.RULINGS_DIR, s.WORK_DIR, s.QUESTIONS_DIR):
             shutil.copytree(os.path.join(REPO, folder), os.path.join(root, folder))
+        cdir = s.comitatus_rulings_dir(REPO)
+        if cdir:
+            for fn in os.listdir(cdir):
+                if fn.endswith(".md"):
+                    shutil.copy(os.path.join(cdir, fn), os.path.join(root, s.RULINGS_DIR, fn))
         git(root, "init", "-q", "-b", "main")
         git(root, "add", ".")
         git(root, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "log")
@@ -295,6 +300,78 @@ def pick_checks():
     shutil.rmtree(root)
 
 
+def comitatus_checks():
+    base = os.path.realpath(tempfile.mkdtemp(prefix="log-comitatus-"))
+    org = os.path.join(base, "org")
+    proj = os.path.join(org, "08_Code_Bases", "Proj")
+    os.makedirs(os.path.join(org, "03_Past_Decisions", "rulings"))
+    os.makedirs(os.path.join(proj, "03_Past_Decisions", "rulings"))
+    os.makedirs(os.path.join(proj, "03_Past_Decisions", "work"))
+    os.makedirs(os.path.join(proj, "03_Past_Decisions", "questions"))
+    for repo in (org, proj):
+        for c in (["init", "-q", "-b", "main"], ["config", "user.email", "t@example.invalid"], ["config", "user.name", "t"],
+                  ["commit", "-q", "--allow-empty", "-m", "base"]):
+            subprocess.run(["git", "-C", repo, *c], capture_output=True)
+    remote = org + ".remote.git"
+    subprocess.run(["git", "init", "-q", "--bare", remote], capture_output=True)
+    subprocess.run(["git", "-C", org, "remote", "add", "origin", remote], capture_output=True)
+    subprocess.run(["git", "-C", org, "push", "-q", "-u", "origin", "main"], capture_output=True)
+
+    open(os.path.join(org, "03_Past_Decisions", "rulings", "P16.md"), "w").write(
+        "# P16 — Only the integrator merges.\n\nStatus: Active | Subject: Process | Principles: — | Date: 2026-11-22\n\n"
+        "Only the integrator merges.\n")
+    open(os.path.join(proj, "03_Past_Decisions", "rulings", "G01.md"), "w").write(
+        "# G01 — Feel first.\n\nStatus: Active | Date: 2026-11-22\n\nFeel first.\n")
+    live_txt = (
+        "# Log\n\n## Subjects\n\n| Subject | Covers | Decisions |\n|---|---|---|\n"
+        "| Process | How agents work. | P16 |\n\n"
+        "## Principles\n\n| ID | Principle | Status | Explains | Date |\n|---|---|---|---|---|\n"
+        "| G01 | Feel first. | Active | — | 2026-11-22 |\n\n"
+        "## Decisions\n\n### Process\n\n| ID | Decision | Status |\n|---|---|---|\n"
+        "| P16 | Only the integrator merges. | Active |\n\n"
+        "## Open questions\n\n| ID | Question | Status | Notes |\n|---|---|---|---|\n\n"
+        "## Work list\n\n| ID | Item | Status | Covers | Result / next step |\n|---|---|---|---|---|\n\n"
+        "## Tunables\n\n| Setting | Value | What it does | File | Decision |\n|---|---|---|---|---|\n"
+    )
+    arch_txt = (
+        "# Archive\n\n## Superseded decisions\n\n| ID | Decision | Status | Principles | Where | Date |\n|---|---|---|---|---|---|\n\n"
+        "## Decided questions\n\n| ID | Question | Status | Notes |\n|---|---|---|---|\n\n"
+        "## Done work\n\n| ID | Item | Status | Covers | Result / next step |\n|---|---|---|---|---|\n"
+    )
+    open(os.path.join(proj, s.LIVE), "w").write(live_txt)
+    open(os.path.join(proj, s.ARCHIVE), "w").write(arch_txt)
+    subprocess.run(["git", "-C", org, "add", "-A"], capture_output=True)
+    subprocess.run(["git", "-C", org, "commit", "-qm", "seed org"], capture_output=True)
+    subprocess.run(["git", "-C", org, "push", "-q"], capture_output=True)
+    subprocess.run(["git", "-C", proj, "add", "-A"], capture_output=True)
+    subprocess.run(["git", "-C", proj, "commit", "-qm", "seed proj"], capture_output=True)
+
+    old_env = os.environ.get("NAPKIN_COMITATUS")
+    os.environ.pop("NAPKIN_COMITATUS", None)
+    try:
+        check("show reads P16 from comitatus", "Only the integrator merges." in log.show(proj, "P16"))
+        log.add(proj, "P", "New org rule.", {"subject": "Process", "principles": "G01"}, on_main=True, today="2026-11-27")
+        check("add --subject Process on main writes to comitatus and commits+pushes it",
+              os.path.isfile(os.path.join(org, "03_Past_Decisions", "rulings", "P17.md"))
+              and not os.path.exists(os.path.join(proj, "03_Past_Decisions", "rulings", "P17.md"))
+              and "P17:" in subprocess.run(["git", "-C", remote, "log", "--oneline", "-1", "main"],
+                                          capture_output=True, text=True).stdout)
+        subprocess.run(["git", "-C", proj, "checkout", "-qb", "gemini/test-branch"], capture_output=True)
+        log.add(proj, "P", "Branch org rule.", {"subject": "Process", "principles": "G01"}, on_main=False, today="2026-11-27")
+        check("add --subject Process on a branch writes placeholder in Napkin",
+              os.path.isfile(os.path.join(proj, "03_Past_Decisions", "rulings", "P-new-1.md")))
+        try:
+            log.set_ruling(proj, "P16", {"status": "Superseded"})
+            check("set on comitatus ruling is refused on a branch", False)
+        except log.LogError as e:
+            check("set on comitatus ruling is refused on a branch with exact message",
+                  str(e) == "P16 lives in comitatus; the integrator changes it on main")
+    finally:
+        if old_env is not None:
+            os.environ["NAPKIN_COMITATUS"] = old_env
+    shutil.rmtree(base)
+
+
 def main():
     show_checks()
     add_checks(True)
@@ -305,6 +382,7 @@ def main():
     tunable_checks()
     placeholder_checks()
     cli_checks()
+    comitatus_checks()
     passed = sum(RESULTS)
     print(f"LOG TESTS: {passed} passed, {len(RESULTS) - passed} failed")
     sys.exit(0 if passed == len(RESULTS) else 1)

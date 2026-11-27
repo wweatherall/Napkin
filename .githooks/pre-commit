@@ -4,6 +4,9 @@
 # (tools/sort_decision_log.py), so nobody has to remember to.
 cd "$(git rev-parse --show-toplevel)" || exit 1
 if git diff --cached --name-only | grep -q "^03_Past_Decisions/rulings/\|^03_Past_Decisions/decision-log\.md$\|^03_Past_Decisions/decision-archive\.md$"; then
+  if [ "$(git branch --show-current)" = main ]; then
+    python3 tools/sort_decision_log.py --move-process || exit 1
+  fi
   python3 02_Habits/WHEN_THE_LOG_IS_COMMITTED_TIDY_IT.py || exit 1
   git add 03_Past_Decisions/decision-log.md
   [ -f 03_Past_Decisions/decision-archive.md ] && git add 03_Past_Decisions/decision-archive.md

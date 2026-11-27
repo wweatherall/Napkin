@@ -22,6 +22,7 @@ The pre-commit hook (.githooks/pre-commit) runs this whenever either file is com
 import json
 import os
 import re
+import shutil
 import subprocess
 import sys
 
@@ -77,11 +78,51 @@ def first_sentence(text, limit=90):
     return sent if len(sent) <= limit else sent[:limit - 3] + "..."
 
 
+def comitatus_root(root):
+    """Return (comitatus_dir or None, main_repo_dir) for a checkout or worktree.
+    NAPKIN_COMITATUS=<dir> overrides the comitatus directory when set."""
+    r = subprocess.run(["git", "rev-parse", "--git-common-dir"], cwd=root, capture_output=True, text=True)
+    common = r.stdout.strip() if r.returncode == 0 else ""
+    main_repo = (os.path.dirname(os.path.realpath(os.path.join(root, common)))
+                 if common else os.path.realpath(root))
+    env_org = os.environ.get("NAPKIN_COMITATUS", "").strip()
+    if env_org and os.path.isdir(env_org):
+        return os.path.realpath(env_org), main_repo
+    parent = os.path.dirname(main_repo)
+    org = os.path.dirname(parent)
+    if os.path.basename(parent) == "08_Code_Bases" and os.path.isdir(org):
+        return org, main_repo
+    return None, main_repo
+
+
+def comitatus_rulings_dir(root):
+    """Return comitatus/03_Past_Decisions/rulings if comitatus is beside root and the folder exists, else None."""
+    org, _ = comitatus_root(root)
+    if not org:
+        return None
+    d = os.path.join(org, RULINGS_DIR)
+    return d if os.path.isdir(d) else None
+
+
+def ruling_dirs(root):
+    """[Napkin's rulings/] or [Napkin's rulings/, comitatus's rulings/] when comitatus is beside it."""
+    dirs = [os.path.join(root, RULINGS_DIR)]
+    cdir = comitatus_rulings_dir(root)
+    if cdir and os.path.realpath(cdir) != os.path.realpath(dirs[0]):
+        dirs.append(cdir)
+    return dirs
+
+
+def _folders(folder):
+    return list(folder) if isinstance(folder, (list, tuple)) else [folder]
+
+
 def folder_ids(folder):
-    """Sorted IDs of <ID>.md files in folder (reusable for rulings/, work/, questions/)."""
-    if not os.path.isdir(folder):
-        return []
-    out = [n[:-3] for n in os.listdir(folder) if n.endswith(".md") and ROW.match(n[:-3])]
+    """Sorted IDs of <ID>.md files in folder (or list of folders)."""
+    out = set()
+    for d in _folders(folder):
+        if os.path.isdir(d):
+            out.update(n[:-3] for n in os.listdir(d) if n.endswith(".md") and ROW.match(n[:-3]))
     return sorted(out, key=lambda x: key(f"| {x} |"))
 
 
@@ -155,14 +196,21 @@ def parse_entry(text, ident=None):
 
 
 def read_entry(folder, ident):
-    path = os.path.join(folder, f"{ident}.md")
-    if not os.path.isfile(path):
-        return None
-    return parse_entry(open(path, encoding="utf-8").read(), ident=ident)
+    for d in _folders(folder):
+        path = os.path.join(d, f"{ident}.md")
+        if os.path.isfile(path):
+            return parse_entry(open(path, encoding="utf-8").read(), ident=ident)
+    return None
 
 
 def read_entries(folder):
-    return {ident: read_entry(folder, ident) for ident in folder_ids(folder)}
+    entries = {}
+    for d in reversed(_folders(folder)):
+        for ident in folder_ids(d):
+            e = read_entry(d, ident)
+            if e is not None:
+                entries[ident] = e
+    return entries
 
 
 def write_entry(folder, ident, content):
@@ -720,7 +768,8 @@ def _atomize_section_rows(texts, sections, target_dir, row_converter, dry_run):
                         det_lines = taken
             _, content = row_converter(row_str, sec, g, det_lines)
             if not dry_run:
-                write_entry(target_dir, ident, content)
+                write_dir = target_dir[0] if isinstance(target_dir, (list, tuple)) else target_dir
+                write_entry(write_dir, ident, content)
             extra[ident] = parse_entry(content, ident=ident)
     return extra
 
@@ -840,6 +889,13 @@ def layout_problems(live, archive, rulings_dir=None, work_dir=None, questions_di
         out += _check_qt_folder(questions_dir, live_q_idx, arch_q_idx, STATUSES["## Open questions"], "Decided")
 
     if rulings_dir is not None:
+        rdirs = _folders(rulings_dir)
+        if len(rdirs) > 1:
+            by_dir = [(d, set(folder_ids(d))) for d in rdirs]
+            for i in range(len(by_dir)):
+                for j in range(i + 1, len(by_dir)):
+                    for ident in sorted(by_dir[i][1] & by_dir[j][1], key=lambda x: key(f"| {x} |")):
+                        out.append(f"{ident} is in both {by_dir[i][0]} and {by_dir[j][0]}")
         entries = read_entries(rulings_dir)
         live_idx = {row_id(lines[r]): (sec, g) for h, hc, rs, sec, g in tables(lines)
                     if sec in ("## Principles", "## Decisions") for r in rs if row_id(lines[r])}
@@ -1061,7 +1117,7 @@ def board_statuses(root, queue_state=None):
             l2, a2 = tidy(
                 open(live_p, encoding="utf-8").read(),
                 open(arch_p, encoding="utf-8").read(),
-                rulings_dir=rdir if os.path.isdir(rdir) else None,
+                rulings_dir=ruling_dirs(root) if (os.path.isdir(rdir) or comitatus_rulings_dir(root)) else None,
                 work_dir=wdir,
                 questions_dir=qdir if os.path.isdir(qdir) else None,
             )
@@ -1096,15 +1152,50 @@ def check_files(live, archive=None, rulings_dir=None, work_dir=None, questions_d
     return out + layout_problems(live, archive, rulings_dir=rulings_dir, work_dir=work_dir, questions_dir=questions_dir)
 
 
+def move_process_rulings(root, out=print):
+    """Move numbered Subject: Process rulings from Napkin's rulings/ to comitatus's rulings/ and commit+push there."""
+    org, _ = comitatus_root(root)
+    if not org:
+        return []
+    rdir = os.path.join(root, RULINGS_DIR)
+    cdir = os.path.join(org, RULINGS_DIR)
+    if not os.path.isdir(rdir) or os.path.realpath(rdir) == os.path.realpath(cdir):
+        return []
+    moved = []
+    for ident in folder_ids(rdir):
+        if "-new-" in ident:
+            continue
+        entry = read_entry(rdir, ident)
+        if entry and entry["meta"].get("Subject") == "Process":
+            os.makedirs(cdir, exist_ok=True)
+            shutil.move(os.path.join(rdir, f"{ident}.md"), os.path.join(cdir, f"{ident}.md"))
+            moved.append(ident)
+    if moved:
+        import comitatus_commit
+        rels = [os.path.join(RULINGS_DIR, f"{ident}.md") for ident in moved]
+        comitatus_commit.commit(org, rels, f"Move Process rulings: {', '.join(moved)}", out=out, push=True)
+        out(f"moved Process rulings to comitatus: {', '.join(moved)}")
+    return moved
+
+
 def main():
     if "-h" in sys.argv[1:] or "--help" in sys.argv[1:]:
         print(__doc__)
         return
-    args = [a for a in sys.argv[1:] if a != "--check"]
+    args = [a for a in sys.argv[1:] if a not in ("--check", "--move-process")]
     live_path = args[0] if args else LIVE
     arch_path = args[1] if len(args) > 1 else os.path.join(os.path.dirname(live_path), os.path.basename(ARCHIVE))
     base_dir = os.path.dirname(os.path.abspath(live_path))
+    root = os.path.dirname(base_dir)
+    if "--move-process" in sys.argv:
+        move_process_rulings(root)
+        return
     rulings_dir = os.path.join(base_dir, "rulings")
+    if os.path.realpath(base_dir) == os.path.realpath(os.path.join(root, "03_Past_Decisions")):
+        cdir = comitatus_rulings_dir(root)
+        rulings_arg = [rulings_dir, cdir] if (cdir and os.path.realpath(cdir) != os.path.realpath(rulings_dir)) else rulings_dir
+    else:
+        rulings_arg = rulings_dir
     work_dir = os.path.join(base_dir, "work")
     questions_dir = os.path.join(base_dir, "questions")
     live = open(live_path, encoding="utf-8").read()
@@ -1112,7 +1203,7 @@ def main():
     if "--check" in sys.argv:
         problems = check_files(
             live, archive,
-            rulings_dir=rulings_dir if archive is not None else None,
+            rulings_dir=rulings_arg if archive is not None else None,
             work_dir=work_dir if archive is not None else None,
             questions_dir=questions_dir if archive is not None else None,
         )
@@ -1126,7 +1217,7 @@ def main():
             open(live_path, "w", encoding="utf-8").write(new)
             print(f"sorted {live_path} by ID")
         return
-    l2, a2 = tidy(live, archive, rulings_dir=rulings_dir, work_dir=work_dir, questions_dir=questions_dir)
+    l2, a2 = tidy(live, archive, rulings_dir=rulings_arg, work_dir=work_dir, questions_dir=questions_dir)
     for path, old, new in ((live_path, live, l2), (arch_path, archive, a2)):
         if new != old:
             open(path, "w", encoding="utf-8").write(new)

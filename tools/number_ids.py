@@ -56,6 +56,10 @@ def taken(root):
     for efolder in ENTRY_FOLDERS:
         for ident in sort_decision_log.folder_ids(os.path.join(root, efolder)):
             see(ident)
+    cdir = sort_decision_log.comitatus_rulings_dir(root)
+    if cdir:
+        for ident in sort_decision_log.folder_ids(cdir):
+            see(ident)
     folder = os.path.join(root, handoff.FOLDER)
     if os.path.isdir(folder):
         for name in os.listdir(folder):
@@ -203,9 +207,11 @@ def tidy_log(root):
     text = open(log, encoding="utf-8").read()
     if os.path.isfile(arch):
         old = open(arch, encoding="utf-8").read()
+        has_rulings = (os.path.isdir(rdir) or sort_decision_log.comitatus_rulings_dir(root)
+                       or sort_decision_log._ruling_rows_in(text) or sort_decision_log._ruling_rows_in(old))
         new, new_arch = sort_decision_log.tidy(
             text, old,
-            rulings_dir=rdir if os.path.isdir(rdir) or sort_decision_log._ruling_rows_in(text) or sort_decision_log._ruling_rows_in(old) else None,
+            rulings_dir=sort_decision_log.ruling_dirs(root) if has_rulings else None,
             work_dir=wdir if os.path.isdir(wdir) else None,
             questions_dir=qdir if os.path.isdir(qdir) else None,
         )

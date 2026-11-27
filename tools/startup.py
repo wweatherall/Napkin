@@ -655,16 +655,7 @@ PERSONAL_TIME = {
 }
 
 
-def comitatus_root(root):
-    """Return (comitatus_dir or None, main_repo_dir) for a checkout or worktree."""
-    common = git("rev-parse", "--git-common-dir", cwd=root).strip()
-    main_repo = (os.path.dirname(os.path.realpath(os.path.join(root, common)))
-                 if common else os.path.realpath(root))
-    parent = os.path.dirname(main_repo)
-    org = os.path.dirname(parent)
-    if os.path.basename(parent) == "08_Code_Bases" and os.path.isdir(org):
-        return org, main_repo
-    return None, main_repo
+comitatus_root = s.comitatus_root
 
 
 def _read_text(path):
@@ -984,9 +975,21 @@ def main(argv):
 
     if ids:
         archive = git("show", "main:03_Past_Decisions/decision-archive.md", cwd=root)
+        cdir = s.comitatus_rulings_dir(root)
+
+        def read_ruling(ident):
+            txt = git("show", f"main:{s.RULINGS_DIR}/{ident}.md", cwd=root)
+            if txt:
+                return txt
+            if cdir:
+                p = os.path.join(cdir, f"{ident}.md")
+                if os.path.isfile(p):
+                    return open(p, encoding="utf-8").read()
+            return None
+
         lines, unknown = report_ids(
             log, ids, archive,
-            read_ruling=lambda ident: git("show", f"main:{s.RULINGS_DIR}/{ident}.md", cwd=root) or None,
+            read_ruling=read_ruling,
             read_work=lambda ident: git("show", f"main:{s.WORK_DIR}/{ident}.md", cwd=root) or None,
             read_question=lambda ident: git("show", f"main:{s.QUESTIONS_DIR}/{ident}.md", cwd=root) or None,
         )

@@ -345,13 +345,18 @@ with tempfile.TemporaryDirectory(prefix="startup-h163-") as tmp:
     outside = os.path.join(tmp, "standalone")
     os.makedirs(outside)
     subprocess.run(["git", "init", "-q"], cwd=outside, check=True)
-    check("missing sources and checkouts outside comitatus are skipped silently",
-          s.comitatus_root(outside) == (None, os.path.realpath(outside))
-          and s.who_lines("worker", None) == []
-          and s.principles_lines(None, outside) == []
-          and s.habits_lines(None, outside) == []
-          and s.tools_lines(None, outside) == []
-          and s.org_todos_lines(None) == [])
+    _saved_nc = os.environ.pop("NAPKIN_COMITATUS", None)
+    try:
+        check("missing sources and checkouts outside comitatus are skipped silently",
+              s.comitatus_root(outside) == (None, os.path.realpath(outside))
+              and s.who_lines("worker", None) == []
+              and s.principles_lines(None, outside) == []
+              and s.habits_lines(None, outside) == []
+              and s.tools_lines(None, outside) == []
+              and s.org_todos_lines(None) == [])
+    finally:
+        if _saved_nc is not None:
+            os.environ["NAPKIN_COMITATUS"] = _saved_nc
 
 r_int = subprocess.run([sys.executable, os.path.join(HERE, "startup.py"), "--role", "integrator"],
                        capture_output=True, text=True, timeout=120)
@@ -366,6 +371,13 @@ check("smoke: --role worker has Principles, Habits, Tools, 1% Personal time, and
       and "Organization to-dos" not in r_wrk.stdout
       and r_wrk.stdout.find("Principles:") < r_wrk.stdout.find("This checkout:")
       and r_wrk.stdout.find("Worker checklist") < r_wrk.stdout.find("Habits:") < r_wrk.stdout.find("Tools:") < r_wrk.stdout.find("Personal time:"))
+
+_cdir = s.s.comitatus_rulings_dir(os.path.dirname(HERE))
+if _cdir and os.path.isfile(os.path.join(_cdir, "P16.md")):
+    r_p16 = subprocess.run([sys.executable, os.path.join(HERE, "startup.py"), "P16"],
+                           capture_output=True, text=True, timeout=120)
+    check("smoke: startup.py P16 prints P16 from comitatus when not on Napkin main",
+          r_p16.returncode == 0 and "== P16" in r_p16.stdout and "One Claude session is the integrator" in r_p16.stdout)
 
 print(f"STARTUP TESTS: {sum(RESULTS)} passed, {len(RESULTS) - sum(RESULTS)} failed")
 sys.exit(0 if all(RESULTS) else 1)

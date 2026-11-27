@@ -347,5 +347,26 @@ check("a branch's rulings/I-new-1.md is renamed to its number and its citations 
       and "follows I49" in read(root, "notes.md"))
 shutil.rmtree(root)
 
+# Comitatus Process rulings count toward taken() so a new P-new-1 never reuses a P number in comitatus
+c_org = os.path.realpath(tempfile.mkdtemp(prefix="numids-org-"))
+c_proj = os.path.join(c_org, "08_Code_Bases", "Proj")
+os.makedirs(os.path.join(c_org, "03_Past_Decisions", "rulings"))
+os.makedirs(os.path.join(c_proj, "03_Past_Decisions", "rulings"))
+open(os.path.join(c_org, "03_Past_Decisions", "rulings", "P71.md"), "w").write(
+    "# P71 — Org rule.\n\nStatus: Active | Subject: Process | Principles: — | Date: 2026-11-26\n\nOrg rule.\n")
+open(os.path.join(c_proj, "03_Past_Decisions", "rulings", "P04.md"), "w").write(
+    "# P04 — Proj rule.\n\nStatus: Active | Subject: Product | Principles: — | Date: 2026-11-22\n\nProj rule.\n")
+open(os.path.join(c_proj, "03_Past_Decisions", "rulings", "P-new-1.md"), "w").write(
+    "# P-new-1 — New rule.\n\nStatus: Active | Subject: Process | Principles: — | Date: 2026-11-27\n\nNew rule.\n")
+old_env = os.environ.get("NAPKIN_COMITATUS")
+os.environ.pop("NAPKIN_COMITATUS", None)
+try:
+    got_p, _ = run(c_proj)
+    check("taken() counts comitatus's P71 so P-new-1 becomes P72", got_p.get("P-new-1") == "P72")
+finally:
+    if old_env is not None:
+        os.environ["NAPKIN_COMITATUS"] = old_env
+shutil.rmtree(c_org)
+
 print(f"ID TESTS: {sum(RESULTS)} passed, {len(RESULTS) - sum(RESULTS)} failed")
 raise SystemExit(0 if all(RESULTS) else 1)   # a failed check fails the run, not only its summary

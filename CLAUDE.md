@@ -6,13 +6,15 @@ Owner: William (teacher; shop and construction background). He thinks in systems
 
 ## Before changing behaviour, read the decision log
 Each ruling (`G` principle or `A`, `D`, `I`, `M`, `P`, `U`, `W`... decision), Work list item (`T`), and question (`Q`)
-lives in its own file under `03_Past_Decisions/` (`rulings/<ID>.md`, `work/<ID>.md`, `questions/<ID>.md`).
+lives in its own file under `03_Past_Decisions/` (`rulings/<ID>.md`, `work/<ID>.md`, `questions/<ID>.md`), except
+`Subject: Process` rulings, which live in `comitatus/03_Past_Decisions/rulings/<ID>.md` (T146).
 `03_Past_Decisions/decision-log.md` (P09, P23, P65) holds the generated indexes (`Subjects`, `Principles`, `Decisions`,
 `Open questions`, `Work list`) and the `Tunables` table; `03_Past_Decisions/decision-archive.md` indexes superseded
 rulings, decided questions, and done Work list items. Don't read them whole: use `python3 tools/log.py show --top` for
 the subjects and principles, `python3 tools/log.py show <subject>` for a subject's rulings, and
 `python3 tools/log.py show <ID>` (or read the entry file) for one entry and its principles. Add entries with `RECORD_A_DECISION.py`,
-append notes with `ADD_A_NOTE_TO_A_DECISION.py`, and update status with `log.py set`, never by hand. Rule P01: a change that
+append notes with `ADD_A_NOTE_TO_A_DECISION.py`, update status with `log.py set`, and add principles (at either level)
+with `../../09_Tools/ADD_A_PRINCIPLE.py`, never by hand. Rule P01: a change that
 contradicts a logged decision gets a new ruling naming the old ID, and the old ruling is marked `Superseded` (never
 deleted). Ask William before countermanding an Active decision.
 
