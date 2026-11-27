@@ -417,6 +417,22 @@ check("board: a job claimed by a hand-made branch shows the branch", "Claimed: b
 check("board: the text outside the table is kept", text.startswith("# Work board\n\nOrder:") and "- none" in text)
 r, out = run(job.board, root)
 check("job.py board rewrites BOARD.md", r and "| H005 |" in open(os.path.join(root, "BOARD.md")).read(), out)
+check("job.py board writes no jobs bucket outside an Organization (P57)", "05_Jobs" not in out and job.org_jobs_path(root) is None, out)
+org = tempfile.mkdtemp(prefix="job-org-test-")
+os.makedirs(os.path.join(org, "05_Jobs")); os.makedirs(os.path.join(org, "08_Code_Bases", "Proj"))
+proj = os.path.join(org, "08_Code_Bases", "Proj")
+check("the jobs bucket is Organization/05_Jobs/<code base>.md for a checkout in 08_Code_Bases",
+      job.org_jobs_path(proj) == os.path.join(org, "05_Jobs", "Proj.md"), job.org_jobs_path(proj))
+check("a job worktree (not directly in 08_Code_Bases) fills no bucket",
+      job.org_jobs_path(os.path.join(org, "08_Code_Bases", ".worktrees", "Proj", "h001")) is None)
+board_now = open(os.path.join(root, "BOARD.md")).read()
+said = []
+wrote = job.write_org_jobs(proj, board_now, out=said.append)
+bucket = open(os.path.join(org, "05_Jobs", "Proj.md")).read()
+check("the bucket gets the board's job table, its links pointing into the code base (P57)",
+      wrote and bucket.startswith("# Proj jobs") and "| H005 |" in bucket
+      and "](../08_Code_Bases/Proj/docs/handoff/H005-codex-job.md)" in bucket and "Order:" not in bucket, bucket)
+check("an unchanged board leaves the bucket's file alone", job.write_org_jobs(proj, board_now, out=said.append) is False, said)
 
 # --- integrate.py cleans up after a merge ---
 open(os.path.join(wt1, "docs", "handoff", "H001-first-job.md"), "a").write("\nResponse — again.\n")

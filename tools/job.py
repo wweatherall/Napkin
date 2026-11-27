@@ -35,7 +35,8 @@ Worker (run in your job's worktree unless it says otherwise):
 Integrator:
   python3 tools/job.py status   the queue as text: jobs in progress, waiting, done, returned; what's Ready
   python3 tools/job.py board    rewrite BOARD.md's job table from docs/handoff/ (in the board's Order line) plus the
-                                live state (the commit hook does this on main)
+                                live state (the commit hook does this on main); a checkout at
+                                Organization/08_Code_Bases/<name> also copies the table to Organization/05_Jobs/<name>.md (P57)
   python3 tools/job.py watch [--once | --next]
                                 one line per event (done, stale, waiting, returned, queue empty while a worker waits),
                                 and keeps running: run it under your watcher (Monitor). --next: stays quiet about
@@ -1110,6 +1111,38 @@ def board_text(text, root, st, now):
     return text[:a] + "\n\n" + table(root, st, jobs, board_order(text), now) + "\n\n" + text[b:]
 
 
+def org_jobs_path(top):
+    """Organization/05_Jobs/<code base>.md for a checkout at Organization/08_Code_Bases/<code base>, else None (a job
+    worktree, a test repo, a checkout that isn't under an Organization): only the main checkout fills the bucket (P57)."""
+    parent = os.path.dirname(top)
+    org = os.path.dirname(parent)
+    if os.path.basename(parent) != "08_Code_Bases" or not os.path.isdir(os.path.join(org, "05_Jobs")):
+        return None
+    return os.path.join(org, "05_Jobs", os.path.basename(top) + ".md")
+
+
+def org_jobs_text(name, table_text):
+    """The bucket's file for one code base: its board's job table, links pointing into the code base (P57)."""
+    table_text = table_text.replace(f"]({handoff.FOLDER}/", f"](../08_Code_Bases/{name}/{handoff.FOLDER}/")
+    return (f"# {name} jobs\n\nGenerated from {name}'s BOARD.md job table by its tools/job.py board, whenever that "
+            f"rebuilds the board (P57). Don't edit by hand: the next rebuild overwrites it.\n\n{table_text}\n")
+
+
+def write_org_jobs(top, text, out=print):
+    """Copy the board's job table into the Organization's 05_Jobs bucket, when there is one; True if it changed."""
+    path = org_jobs_path(top)
+    if path is None or START not in text or END not in text:
+        return False
+    table_text = text[text.index(START) + len(START):text.index(END)].strip()
+    new = org_jobs_text(os.path.basename(top), table_text)
+    old = open(path, encoding="utf-8").read() if os.path.exists(path) else None
+    if new == old:
+        return False
+    open(path, "w", encoding="utf-8").write(new)
+    out(f"wrote {os.path.relpath(path, os.path.dirname(os.path.dirname(top)))}")
+    return True
+
+
 def board(cwd, now=None, out=print):
     now = now or time.time()
     top = toplevel(cwd)
@@ -1120,6 +1153,7 @@ def board(cwd, now=None, out=print):
     if new != text:
         open(path, "w", encoding="utf-8").write(new)
         out(f"rebuilt the job table in {BOARD}")
+    write_org_jobs(top, new, out=out)
     return new != text
 
 
