@@ -1,6 +1,6 @@
 ### H169 — protocol.md's message list generated from the code, and a check that keeps the rest honest
 
-Author: Claude (integrator, napkin-77) | Date: 2026-11-27 | Status: open | For: gemini
+Author: Claude (integrator, napkin-77) | Date: 2026-11-27 | Status: answered | For: gemini
 
 References: William, 2026-11-27 (going through protocol.md: "Is it possible to generate these from the actual code
 using a script automatically?"), comitatus principles C05 ("can it just be a Python script?") and C06 (one spot per
@@ -59,3 +59,28 @@ Checks:
 - tools/test_protocol_map.py: each check passing and failing on throwaway files; the real doc passes `--check`.
 - `python3 tools/protocol_map.py --check` passes on the branch; quote its run time.
 - `tools/TEST_BEFORE_MERGING.sh` passes.
+
+### Response (2026-11-27, gemini-juniper-1127-0749)
+
+Branch: `gemini/h169-protocol-from-code` | Commit: `4ca5bfc`
+
+Added `tools/protocol_map.py` and `tools/test_protocol_map.py`, updated `docs/protocol.md` (with the generated message table between `<!-- protocol map: ... -->` markers and all drift fixed), replaced `worker/serve.py`'s `serve` docstring with a two-line pointer to `docs/protocol.md`, wired `.githooks/pre-commit`, and listed `protocol_map.py` in `tools/README.md`. Left `## Moved from ARCHITECTURE.md (H167)` untouched.
+
+Details from `worker/serve.py`'s `serve` docstring that `docs/protocol.md` did not previously state, and where they were placed:
+- `"(the viewport's quiet 'Saved' indicator, Q22)"` -> added to `saved` in `docs/protocol.md` (`### saved, save_failed, outside_save and focus events`).
+- `"every WATCH_S the worker stats each open model's file; a change that holds still for one look and isn't our own bytes is FreeCAD's save ... each save also looks just before writing"` -> added to `outside_save` in `docs/protocol.md` (`### saved, save_failed, outside_save and focus events`).
+- `"they leave the list and stay in the journal as dropped, T65"` -> added to `reload` in `docs/protocol.md` (`### reload and keep_mine`).
+- `"A held model that has to be saved anyway (flush, bye, quit, a window gone) keeps both the same way"` -> updated `### reload and keep_mine` to include `or a window disconnecting`.
+- `"save and exit that long after the last window leaves (the shared worker windows start)"` -> added to `SERVE_IDLE_EXIT` in `docs/protocol.md` (`## Transport, identity and lifetime`).
+
+Also updated stale `file:function` references caught by `--check` in `docs/protocol.md`: `materials.json` moved from `viewport/main.gd:_load_wood_library`, `_wood_material` to `viewport/appearance.gd:load_library`, `wood_material`.
+
+Verified:
+- `python3 tools/protocol_map.py --check`: passed in 0.09 s (`real 0.09`, `user 0.08`, `sys 0.00`).
+- `python3 tools/test_protocol_map.py -v`: 14 passed, 0 failed.
+- `tools/TEST_BEFORE_MERGING.sh`: `GATE PASS: full test passes; QUICK 401 passed, 0 failed in 25.3 s ; 0 known failure(s); 70 s total`.
+- `python3 tools/job.py test`: passed on `4ca5bfc` (all feature tests including `PROTOCOL MAP TESTS: 14 passed, 0 failed`, and `QUICK 401 passed, 0 failed in 24.9 s`).
+
+Follow-up: Operation payload generation (`## Operation payloads`): `Model.HANDLERS` (`op_<type>` methods in `worker/*.py`) are regular Python methods reading `op["x"]` / `op.get("x")`, though several delegate to shared helpers (`plane_from`, `resolve_face`, `move_cut`) so an AST generator will need helper-following similar to `protocol_map.py`.
+
+Result: 4ca5bfc; PROTOCOL MAP TESTS 14/14, protocol_map --check 0.09s, TEST_BEFORE_MERGING.sh GATE PASS (QUICK 401/401); generated protocol.md message table from AST, added --check + pre-commit + tests, fixed doc drift and trimmed serve.py docstring
