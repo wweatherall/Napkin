@@ -2,10 +2,10 @@ extends Node
 ## Geometry presentation (A33b, T41), `m.pres`: what the model looks like on screen.
 ## It owns each board's triangles, corners, edges and cuts (what picking and snapping read), the drafts and the
 ## rectangles drawn on faces, the confirmed board nodes built from FreeCAD's mesh files, the remembered confirmed
-## states (undo shows at once), the confirmation waves, and the highlights that show selection and context (the
-## selection, ghosting outside an entered assembly, hidden boards, the mirror plane, linked copies), drawn from
-## what selection.gd says. main.gd routes the document's signals here and keeps the rejection bookkeeping; this
-## builds the meshes, line strips and pick collisions, using the window's materials.
+## states (undo shows at once), and holds `waves` (waves.gd, confirmation waves) and `selection_view`
+## (selection_view.gd, selection/context/sibling highlights drawn from what selection.gd says). main.gd routes the
+## document's signals here and keeps the rejection bookkeeping; this builds the meshes, line strips and pick
+## collisions, using the window's materials.
 ##
 ## Also owns loose_lines (rebuilt on open/undo/redo), non-colliding closed-loop fills (drafts["line:loops"] via
 ## _refresh_loop_drafts), drawn_region, DEFAULT_BASE/SNAP_COLORS/AXIS_COLORS, unit_tris, selection_box /
@@ -15,17 +15,17 @@ extends Node
 ## history deletion). `_build_board` reads meshes/<board>-<key>.bin (change together with worker/export.py:board_mesh_file).
 ## Entry points: apply_confirmed, show_confirmed, show_state, forget_op, register_rect, register_line, lines_on,
 ## drawn_region, circle_geometry, present_draft, tri_mesh, line_mesh, lines, add_collision, face_highlight, begin_wave,
-## attach_wave, step_waves, apply_context, show_selection, show_siblings, reset.
+## step_waves, apply_context, show_selection, show_siblings, reset.
 
 signal boards_read(data: Array, dir: String)   # bodies.json read, before building: main updates selection and wood
 signal wave_rejected_done(oid: String)        # a red wave has played out: main removes the op (and its dependents)
 
 const Regions := preload("res://regions.gd")
 const Geo := preload("res://tool_geometry.gd")
+const Waves := preload("res://waves.gd")
+const SelectionView := preload("res://selection_view.gd")
 const LINE_SHADER := preload("res://line.gdshader")
 const LINE_PX := 1.5
-const WAVE := preload("res://confirm_wave.gdshader")
-const WAVE_LINES := preload("res://confirm_wave_lines.gdshader")
 const WOOD := preload("res://wood.gdshader")
 # Rendering constants (T88: moved from main.gd, which keeps the old names)
 const DEFAULT_BASE := Color(0.82, 0.80, 0.76)   # a board's colour before FreeCAD says (tools start waves with it)
@@ -157,14 +157,14 @@ func present_draft(op: Dictionary, pieces: Array, wave: Dictionary) -> void:
 
 	if op.type == "push_pull" and not op.target.has("region"): drop_draft(op.target.get("rect", ""))
 	var bodies: Array = wave.bodies
-	begin_wave(op.id, wave.origin, wave.tris, wave.is_new, bodies[0] if op.type == "push_pull" or op.has("cut") else bodies)
+	waves.begin_wave(op.id, wave.origin, wave.tris, wave.is_new, bodies[0] if op.type == "push_pull" or op.has("cut") else bodies)
 	if wave.attach == "drafts":
 		for surface in root.get_children():
-			attach_wave(op.id, surface, surface.get_child(0), DEFAULT_BASE)
+			waves.attach_wave(op.id, surface, surface.get_child(0), DEFAULT_BASE)
 	else:
 		for id in wave.bodies:
 			for surface in m.bodies_root.find_children(id, "MeshInstance3D", true, false):
-				attach_wave(op.id, surface, surface.get_meta("edges"), base_of(surface))
+				waves.attach_wave(op.id, surface, surface.get_meta("edges"), base_of(surface))
 
 
 var _line_mats := {}          # [color, width, bias] -> ShaderMaterial, shared
@@ -290,7 +290,7 @@ func clear_selection_box() -> void:
 func reset() -> void:
 	"""Another model: nothing of the old one stays on screen or in the caches."""
 	clear_face_highlight()
-	for oid in op_waves.keys(): end_wave(oid)
+	for oid in waves.op_waves.keys(): waves.end_wave(oid)
 	for k in drafts: drafts[k].queue_free()
 	drafts.clear(); rects.clear(); loose_lines.clear()
 	for c in m.bodies_root.get_children(): m.bodies_root.remove_child(c)
@@ -541,7 +541,7 @@ func rebuild_rect_drafts(ops: Array, used: Dictionary) -> void:
 func forget_op(op: Dictionary, ops: Array, used: Dictionary) -> void:
 	"""The document dropped an op (undo, rejection): take away what it drew. `used`: rectangles still pushed out."""
 	var oid: String = op["id"]
-	end_wave(oid)
+	waves.end_wave(oid)
 	drop_draft(oid)
 	if op.type in ["line", "arc"]:
 		loose_lines.erase(oid); rects.erase(oid); drop_draft("line:" + oid)
@@ -565,7 +565,7 @@ func forget_op(op: Dictionary, ops: Array, used: Dictionary) -> void:
 func drop_confirmed_drafts(used: Dictionary) -> void:
 	"""FreeCAD answered: drafts give way to its boards (a rejected one stays until its red wave is done)."""
 	for k in drafts.keys():
-		var w = op_waves.get(k)
+		var w = waves.op_waves.get(k)
 		if w != null and w["state"] == "rejected": continue
 		if k.begins_with("line:"): continue
 		if not rects.has(k) or used.has(k):
@@ -657,14 +657,14 @@ func _show_boards(files: Dictionary) -> void:
 		node.material_override = null                # a wave that ran on it earlier is over
 		var edges: MeshInstance3D = node.get_meta("edges")
 		edges.material_override = null
-		for oid in op_waves:                         # a wave running for this board carries onto it
-			if bid in op_waves[oid]["bodies"]:
-				attach_wave(oid, node, edges, base_of(node))
-	show_selection()                                 # the selected board may have a new shape
+		for oid in waves.op_waves:                    # a wave running for this board carries onto it
+			if bid in waves.op_waves[oid]["bodies"]:
+				waves.attach_wave(oid, node, edges, base_of(node))
+	selection_view.show_selection()                  # the selected board may have a new shape
 	var t = m.tools.get(m.tool)
 	if t != null and not t.busy():                   # an idle tool's hover highlight is of the old shape
 		m.overlay.mesh = null; m.overlay_lines.mesh = null
-	apply_context()
+	selection_view.apply_context()
 
 
 # ---------------- confirmed states (T10) ----------------
@@ -766,223 +766,47 @@ func base_of(mi: MeshInstance3D) -> Color:
 	return mat.albedo_color if mat is StandardMaterial3D else DEFAULT_BASE
 
 
-# ---------------- operation wave (W01–W09) ----------------
-const HOLD := 0.6          # fraction of the forward wave that runs before FreeCAD must have answered
-const REJECT_DUR := 0.6
-
-var op_waves := {}         # op id -> wave state
-var trace_wave := ""       # test hook: record this op's front over time
-var trace_rows: Array[String] = []
+# ---------------- operation wave (waves.gd) & selection/context (selection_view.gd) ----------------
+var waves: Waves = Waves.new(self)
+var op_waves: Dictionary:
+	get: return waves.op_waves
+var trace_wave: String:
+	get: return waves.trace_wave
+	set(v): waves.trace_wave = v
+var trace_rows: Array[String]:
+	get: return waves.trace_rows
 
 
 func begin_wave(oid: String, origin_m: Vector3, tris: PackedVector3Array, is_new: bool, body) -> void:
-	var og := Geo.m2g(origin_m)
-	var reach := 0.0
-	for p in tris:
-		reach = maxf(reach, Geo.m2g(p).distance_to(og))
-	var dur := clampf(reach / 0.7, 0.5, 1.0)
-	op_waves[oid] = {"og": og, "reach": reach, "dur": dur, "tn": 0.0,
-					 "p": 0.0, "v": 1.0 / dur, "v1": 1.0 / dur,   # progress (0..1), velocity, and the first smoothing stage
-					 "hraw": 0.0, "held": 0.0, "t0": 0.0, "bphase": 0.0,
-					 "rt": -1.0, "state": "pending", "new": is_new, "body": body if body is String else "",
-					 "bodies": [body] if body is String else body, "links": []}
-
-
-func attach_wave(oid: String, mi: MeshInstance3D, edges: MeshInstance3D, base: Color) -> void:
-	var w: Dictionary = op_waves[oid]
-	var draft: StandardMaterial3D = m.mat_draft
-	var sm := ShaderMaterial.new(); sm.shader = WAVE
-	sm.set_shader_parameter("base_color", Color(base.r, base.g, base.b))
-	sm.set_shader_parameter("draft_color", Color(draft.albedo_color.r, draft.albedo_color.g, draft.albedo_color.b))
-	sm.set_shader_parameter("draft_alpha", draft.albedo_color.a)
-	var lm := ShaderMaterial.new(); lm.shader = WAVE_LINES
-	lm.set_shader_parameter("width_px", LINE_PX * m.line_scale)
-	lm.set_shader_parameter("bias", m.overlay_bias)
-	for mat in [sm, lm]:
-		mat.set_shader_parameter("origin", w["og"])
-		mat.set_shader_parameter("reach", w["reach"])
-		mat.set_shader_parameter("duration", w["dur"])
-		mat.set_shader_parameter("reject_dur", REJECT_DUR)
-		mat.set_shader_parameter("from_draft", 1.0 if w["new"] else 0.0)
-	mi.material_override = sm
-	if edges != null: edges.material_override = lm
-	w["links"].append([mi, edges, sm, lm])
-	_push_params(w)
-
-
-func _push_params(w: Dictionary) -> void:
-	var keep := []
-	for l in w["links"]:
-		if not is_instance_valid(l[0]): continue
-		keep.append(l)
-		for mat in [l[2], l[3]]:
-			mat.set_shader_parameter("t", w["p"] * w["dur"])
-			mat.set_shader_parameter("tn", w["tn"])
-			mat.set_shader_parameter("reject_t", -1.0 if w["rt"] < 0.0 else smoothstep(0.0, 1.0, w["rt"] / REJECT_DUR) * REJECT_DUR)
-			mat.set_shader_parameter("held", w["held"])
-			mat.set_shader_parameter("bphase", w["bphase"])
-	w["links"] = keep
-
-
-func end_wave(oid: String) -> void:
-	if not op_waves.has(oid): return
-	for l in op_waves[oid]["links"]:
-		if is_instance_valid(l[0]): l[0].material_override = null
-		if is_instance_valid(l[1]): l[1].material_override = null
-	op_waves.erase(oid)
-
-
-const SLOW := 0.35         # progress distance over which the front slows into the hold (longer = gentler)
-const TAU := 0.12          # seconds, per smoothing stage
-const TAU_UP := 0.20       # seconds, per stage, when speeding back up after FreeCAD accepts
-const LEAD := 0.10         # seconds of look-ahead in the controller (cancels overshoot from smoothing)
-const AMP_COMP := 1.11     # smoothing shrinks the swing about 10%; aim wider so the front really spans BREATH_LO..HOLD
-const BREATH_W := 2.4      # rad/s of the breathing (one glide back and forth = 2.6 s)
-const BREATH_LO := 0.3     # breathing glides between BREATH_LO and HOLD of the full travel
+	waves.begin_wave(oid, origin_m, tris, is_new, body)
 
 
 func step_waves(delta: float) -> void:
-	"""One frame of every wave: run, ease into the hold, breathe while FreeCAD works, finish or go red."""
-	for oid in op_waves.keys():
-		if not op_waves.has(oid): continue          # removed this frame along with a rejection it built on
-		var w: Dictionary = op_waves[oid]
-		var v0: float = 1.0 / w["dur"]
-		w["tn"] += delta
-		var parking: bool = w["state"] == "pending" or (w["state"] == "rejected" and w["rt"] < 0.0)
-		var breathing: bool = w["bphase"] > 0.0
-		# where the front wants to be: run free, ease to HOLD, then glide between BREATH_LO and HOLD
-		var vdes := v0
-		if parking:
-			var goal: float = HOLD
-			if w["state"] == "pending" and breathing:
-				var mid := (HOLD + BREATH_LO) * 0.5
-				goal = mid + (HOLD - mid) * AMP_COMP * cos(w["bphase"])   # zero slope at the start
-
-			elif w["state"] == "rejected" and breathing:
-				goal = w["p"]                                       # rejected mid-breath: settle where it is
-			# aim from slightly ahead (LEAD) so the smoothing delay doesn't make it overshoot
-			vdes = v0 * clampf((goal - (w["p"] + LEAD * w["v"])) / SLOW, -1.0, 1.0)
-		var tau := TAU_UP if w["state"] == "ok" else TAU
-		# two smoothing stages: v1 follows the command, v follows v1.
-		# speed AND acceleration stay continuous, so there's no corner (no thud) anywhere.
-		var k := 1.0 - exp(-delta / tau)
-		w["v1"] += (vdes - w["v1"]) * k
-		w["v"] += (w["v1"] - w["v"]) * k
-		w["p"] += w["v"] * delta
-		var stopped: bool = parking and absf(w["v"]) < 0.15 * v0
-		if w["state"] == "pending" and (breathing or stopped):
-			w["bphase"] += BREATH_W * delta                         # phase clock starts once the front has settled
-		if w["state"] == "rejected":
-			if w["rt"] >= 0.0 or stopped:
-				w["rt"] = maxf(w["rt"], 0.0) + delta     # red wave eases in/out (smoothstep in _push_params)
-		_push_params(w)
-		if trace_wave != "" and oid == trace_wave:
-			trace_rows.append("%.4f,%.6f,%.6f,%.4f,%s" % [w["tn"], w["p"], w["v"], w["reach"], w["state"]])
-		if w["state"] == "ok" and w["p"] > 1.25:
-			end_wave(oid)
-		elif w["state"] == "rejected" and w["rt"] > REJECT_DUR + 0.1:
-			wave_rejected_done.emit(oid)            # main removes it, with what built on it
+	waves.step_waves(delta)
 
 
-# ---------------- selection and context, drawn (what selection.gd says) ----------------
-var plane_node: MeshInstance3D      # the mirror plane, shown inside an entered mirror group (A11b)
-var _sel_overlay: MeshInstance3D
-var _sibling_overlay: MeshInstance3D
-var _sibling_key := ""              # the siblings now tinted ("-": out of date, draw again)
-var mat_ghost: StandardMaterial3D
-var mat_hidden_ghost: StandardMaterial3D
-
-
-func _overlay_node() -> MeshInstance3D:
-	var mi := MeshInstance3D.new(); m.add_child(mi)
-	return mi
+var selection_view: SelectionView = SelectionView.new(self)
+var plane_node: MeshInstance3D:
+	get: return selection_view.plane_node
+var _sel_overlay: MeshInstance3D:
+	get: return selection_view._sel_overlay
+var mat_ghost: StandardMaterial3D:
+	get: return selection_view.mat_ghost
+var mat_hidden_ghost: StandardMaterial3D:
+	get: return selection_view.mat_hidden_ghost
 
 
 func apply_context() -> void:
-	"""Grey out, and make unpickable, every board outside the one you're in. Hidden boards (T28) are left out
-	altogether, or shown ghosted (and pickable, to unhide them) with View > Hidden geometry."""
-	if mat_ghost == null:
-		mat_ghost = StandardMaterial3D.new()
-		mat_ghost.albedo_color = Color(0.75, 0.75, 0.78, 0.35)
-		mat_ghost.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	if mat_hidden_ghost == null:
-		mat_hidden_ghost = StandardMaterial3D.new()
-		mat_hidden_ghost.albedo_color = Color(0.55, 0.6, 0.7, 0.25)
-		mat_hidden_ghost.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	sel.refresh_hidden()
-	for node in m.bodies_root.get_children():
-		if not node.has_meta("body_mesh"): continue
-		var bid := String(node.name)
-		var hidden: bool = sel.body_hidden.has(bid)
-		if sel.body_deleted.has(bid) or (hidden and not sel.show_hidden):
-			node.visible = false; node.set_meta("ss_hidden", true)
-		elif node.get_meta("ss_hidden", false):
-			node.visible = true; node.set_meta("ss_hidden", false)
-		var inside: bool = not sel.body_deleted.has(bid) and sel.in_context(bid) and (not hidden or sel.show_hidden)
-		var comp_sib: bool = not sel.body_deleted.has(bid) and sel.is_context_sibling(bid) and (not hidden or sel.show_hidden)
-		if inside:
-			node.material_override = mat_hidden_ghost if hidden else null
-		elif comp_sib:
-			node.material_override = m.mat_sibling
-		else:
-			node.material_override = mat_ghost
-		var edges: MeshInstance3D = node.get_meta("edges")
-		edges.visible = inside or comp_sib
-		for c in node.get_children():
-			if c is StaticBody3D: c.collision_layer = 1 if inside else 0
-	for collider in m.drafts_root.find_children("*", "StaticBody3D", true, false):
-		var bid := String(collider.get_meta("body_id", ""))
-		if sel.body_deleted.has(bid):
-			collider.set_meta("ss_deleted", true)
-			collider.collision_layer = 0
-			collider.get_parent().visible = false
-		elif collider.get_meta("ss_deleted", false):
-			collider.remove_meta("ss_deleted")
-			collider.collision_layer = 1
-			collider.get_parent().visible = true
-	show_mirror_plane()
-
-
-func show_mirror_plane() -> void:
-	"""Inside a mirror group: its plane, as a soft sheet a little bigger than the pair."""
-	if plane_node == null: plane_node = _overlay_node()
-	plane_node.mesh = null
-	var plane: Array = sel.mirror_plane_of_context()
-	if plane.is_empty(): return
-	var lo := Vector3(INF, INF, INF); var hi := -lo
-	for b in sel.members_of(sel.context_assembly()):
-		for q in body_tris.get(b, PackedVector3Array()):
-			lo = lo.min(q); hi = hi.max(q)
-	var p0: Vector3 = plane[0]; var n: Vector3 = plane[1]
-	var basis: Array = Geo.plane_basis(n)
-	var c := (lo + hi) * 0.5
-	c -= n * (c - p0).dot(n)                       # the middle of the pair, on the plane
-	var r := maxf((hi - lo).length() * 0.6, 50.0)
-	var u: Vector3 = basis[0] * r; var v: Vector3 = basis[1] * r
-	var quad := PackedVector3Array()
-	for q in [c - u - v, c + u - v, c + u + v, c - u - v, c + u + v, c - u + v]: quad.append(q)
-	plane_node.mesh = tri_mesh(quad, m.mat_plane)
+	selection_view.apply_context()
 
 
 func show_selection() -> void:
-	if _sel_overlay == null: _sel_overlay = _overlay_node()
-	var t := PackedVector3Array()
-	for b in sel.selection: t.append_array(body_tris.get(b, PackedVector3Array()))
-	_sel_overlay.mesh = tri_mesh(t, m.mat_selected) if not t.is_empty() else null
+	selection_view.show_selection()
 
 
 func show_siblings(sib: Array) -> void:
-	"""Linked copies of the board you're pointing at, tinted (T12)."""
-	var key := ",".join(sib)
-	if key == _sibling_key: return
-	_sibling_key = key
-	if _sibling_overlay == null: _sibling_overlay = _overlay_node()
-	_sibling_overlay.mesh = null
-	var tris := PackedVector3Array()
-	for b in sib: tris.append_array(body_tris.get(b, PackedVector3Array()))
-	if not tris.is_empty():
-		_sibling_overlay.mesh = tri_mesh(tris, m.mat_sibling)
+	selection_view.show_siblings(sib)
 
 
 func forget_siblings() -> void:
-	_sibling_key = "-"
+	selection_view.forget_siblings()
