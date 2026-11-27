@@ -14,7 +14,7 @@ Architecture: lines, the response) and CLAUDE.md (commit trailers); this page sa
   lock is free; refused if another holds it without `--william`, P19; standalone archiving is
   `python3 tools/ARCHIVE_A_FINISHED_JOB.py <ID> --push`). Commands that write `.git/`, push, launch Terminal windows, or
   read transcripts outside the workspace (`HOLD_THE_INTEGRATOR_LOCK.py`, `ARCHIVE_A_FINISHED_JOB.py --push`, `MERGE_JOB.py`,
-  `osascript` worker launches, and `tools/MEASURE_TOKEN_USE.py`) require running outside the sandbox (`BypassSandbox: true`).
+  `osascript` worker launches, and `../../09_Tools/MEASURE_TOKEN_USE.py`) require running outside the sandbox (`BypassSandbox: true`).
 - It keeps BOARD.md (nobody else edits it), assigns jobs, reviews, merges into main and pushes without asking once
   review and tests pass (P16, P49), and pushes verified integrator commits on main directly. Other sessions never
   merge or push.
@@ -48,9 +48,9 @@ Architecture: lines, the response) and CLAUDE.md (commit trailers); this page sa
   files. `02_Habits/REMEMBER_WHO_YOU_ARE.py --role integrator` prints the last ten lines of each, so no pre-/clear
   shutdown commit is needed.
 - Passive job usage (T117, T126): `job.py` (`take`, `done`, `return`) and `integrate.py` (`merge`) call
-  `tools/usage.py` fail-open, appending snapshots to untracked `.git/shopsketch-usage.jsonl`. Inspect (outside
+  `../../09_Tools/MEASURE_TOKEN_USE.py` fail-open, appending snapshots to untracked `.git/shopsketch-usage.jsonl`. Inspect (outside
   sandbox / `BypassSandbox: true` so `~/.gemini/antigravity-cli/brain` and `~/.claude/projects` are readable) with
-  `python3 tools/MEASURE_TOKEN_USE.py orient` (startup benchmark), `bench` (worker + integrator summary with 5h % estimates),
+  `python3 ../../09_Tools/MEASURE_TOKEN_USE.py orient` (startup benchmark), `bench` (worker + integrator summary with 5h % estimates),
   `viz` (`--solo --sort burn`, `--job <H0NN>`), `report --only-measured`, `overhead`, `compare`, or
   `holes <H0NN>` (Claude & AGY/Gemini transcripts).
 
