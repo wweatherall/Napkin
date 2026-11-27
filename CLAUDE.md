@@ -5,13 +5,16 @@ while the model stays a real, editable FreeCAD file with FreeCAD's drawings. Ble
 Owner: William (teacher; shop and construction background). He thinks in systems and likes values he can tune.
 
 ## Before changing behaviour, read the decision log
-`03_Past_Decisions/decision-log.md` (P09, P23) is what's live: a Subjects index, Principles, Decisions grouped by subject, Open
-questions, Work list, Tunables, Details; `03_Past_Decisions/decision-archive.md` is its history (superseded, decided, done), same
-IDs. Don't read it whole: start with the top, down to `## Decisions` (~7 KB: the subjects and the principles), then
-`python3 tools/log.py show <subject>` for your subject's group and `log.py show <ID>` for one row (its Details and
-principles come with it); add rows with `log.py add`, never by hand. Grep both files by ID (a row ending "(Details below.)" has its full text at `### <ID>` in the same file); edit the
-live file in the same commit as the change. Keep rows short (the file's header says how). Rule P01: a change that contradicts a logged decision gets a new row naming the old ID, and the old row is
-marked Superseded (never deleted). Ask William before countermanding an Active decision.
+Each ruling (principle `G` or decision `A`, `D`, `I`, `M`, `P`, `U`, `W`, ...) lives in its own file at
+`03_Past_Decisions/rulings/<ID>.md`. `03_Past_Decisions/decision-log.md` (P09, P23) holds the generated indexes
+(`Subjects`, `Principles`, `Decisions`), `Open questions`, `Work list`, `Tunables`, and Q/T `Details`;
+`03_Past_Decisions/decision-archive.md` indexes superseded rulings and holds decided questions and done Work list
+items. Don't read them whole: use `python3 tools/log.py show --top` for the subjects and principles,
+`python3 tools/log.py show <subject>` for a subject's rulings, and `python3 tools/log.py show <ID>` (or read
+`03_Past_Decisions/rulings/<ID>.md`) for one ruling and its principles. Add rulings with `log.py add` and update
+status with `log.py set`, never by hand. Rule P01: a change that contradicts a logged decision gets a new ruling
+naming the old ID, and the old ruling is marked `Superseded` (never deleted). Ask William before countermanding an
+Active decision.
 
 ## Working with William
 - He wants a partner through the Work list one item at a time: say which item you're on, and finish it before the
@@ -39,9 +42,9 @@ marked Superseded (never deleted). Ask William before countermanding an Active d
   in the handoff - H0NN` (that entry's `Architecture:` lines committed) or `Architecture-Impact: none - <specific
   reason>`, which the reviewer checks.
 - Scratch files and logs go in `scratch/` inside your worktree, never /private/tmp (P25).
-- Handoff entries: `docs/agent-handoff.md`. Don't read big shared documents whole: grep the decision log by ID
-  (`grep "^| I34 " 03_Past_Decisions/decision-*.md`); read `Codex's suggestions.md`, `FREECAD_FEATURE_MAP.md` and
-  `ARCHITECTURE.md` by section.
+- Handoff entries: `docs/agent-handoff.md`. Don't read big shared documents whole: read a ruling with
+  `python3 tools/log.py show I34` (or `03_Past_Decisions/rulings/I34.md`); read `Codex's suggestions.md`,
+  `FREECAD_FEATURE_MAP.md` and `ARCHITECTURE.md` by section.
 
 ## How it works
 Each part has its own guide, loaded when you work in that folder: `worker/CLAUDE.md` (the FreeCAD side: modules,

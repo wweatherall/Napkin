@@ -1,53 +1,53 @@
 # Shop Sketch decision archive
 
-The history half of the decision log (P23): superseded decisions, decided questions, done Work list items, and
-the Details of those rows. Same IDs as [decision-log.md](decision-log.md); an ID is in one file only. Rows move
-here whole (tools/sort_decision_log.py moves a row when its status becomes Superseded, Decided or Done) and are
-never deleted (P01). A decision archived after P23 keeps its subject in its last-but-two cell ("Snapping; G03");
-older rows keep the Area they had. Search by ID (`grep "^| I34 " docs/decision-archive.md`).
+The history half of the decision log (P23): an index of superseded rulings (whose files stay in
+`03_Past_Decisions/rulings/<ID>.md`, P01: never deleted), decided questions, done Work list items, and the Details
+of those Q/T rows. Same IDs as [decision-log.md](decision-log.md); `tools/sort_decision_log.py` keeps the index
+in sync and moves Decided/Done Q/T rows here. Read a ruling with `python3 tools/log.py show I34` (or open
+`03_Past_Decisions/rulings/I34.md`).
 
 ## Superseded decisions
 
 Kept for history (P01: never deleted). Each names the decision that replaced it.
 
-| ID | Decision | Status | Replaces / replaced by | Why | Area | Where in the code | Date |
-|---|---|---|---|---|---|---|---|
-| A01 | The op log (oplog/0.1 JSON) is the source of truth. The viewport mesh is only a prediction; FreeCAD is the evaluator. | Superseded | Replaced by A21 | Lets a fast polygon preview run ahead while exact geometry catches up. | Architecture | worker/replay.py; viewport/main.gd oplog() | 2026-11-20 |
-| A04 | Each board is its own Part solid (not a PartDesign Body). Few boolean chains. Repeated parts are components (App::Link). | Superseded | Replaced by A22 | Fast recompute, simple history, matches how real boards work. | Architecture | replay.py | 2026-11-20 |
-| A06a | Prototype the front end as a Blender add-on. | Superseded | Replaced by A06 | Was the cheapest test. | Architecture |  | 2026-11-20 |
-| A11 | Editing a mirrored copy edits its original (mirrored back), so both stay identical, like SketchUp components. Moving a mirrored copy on its own is refused. | Superseded | Replaced by A11b (mirror groups, 2026-11-21). | My choice, for SketchUp-like behaviour. Tested: pulling the copy's top up 20 raised the original too. Exception: a board flipped in place (I15) can be moved; its hidden original moves with it. | Architecture | replay.py edit_target() | 2026-11-20 |
-| A22 | A board is an App::Part container holding its feature chain: Part::Plane (the rectangle) → Part::Extrusion (the push) → Part::Fuse / Part::Cut (merges and cuts), with a Tip link to the current solid. Components are App::Link, mirrors Part::Mirroring, moves are placements, copies of plain boards are simple Part::Feature copies. All Shop Sketch state lives on the objects (BodyId, SSRole, RectId, SSMaterial). | Superseded | Replaces A04. Replaced by A22b | Native and editable in FreeCAD; nothing kept on the side, so FreeCAD's undo, saves and outside edits stay consistent. Matches the old worker exactly on every test board. | Architecture | replay.py op_* handlers | 2026-11-20 |
-| A22b | A board is an App::Part container: Part::Plane (the rectangle) → Part::Extrusion (the push), then booleans, with a Tip link to the current solid. Back-to-back cuts on a board share one Part::Cut whose tool is a Part::Compound of all the cutters; back-to-back merges share one Part::MultiFuse. A cut after merges (or a merge after cuts) starts a new one. Each action is still one FreeCAD undo step. Components are App::Link, mirrors Part::Mirroring, moves are placements, copies of plain boards are simple Part::Feature copies. All Shop Sketch state lives on the objects (BodyId, SSRole, RectId, SSMaterial, SSOp). | Superseded | Replaces A22. Resolves Q20. Replaced by A22c (board copies become linked). | Your go-ahead (Q20). FreeCAD's booleans slow down along a chain (Q18). On a 1200 × 600 panel, hole 48 takes 290 ms (was 4.3 s); moving the first of 48 holes 244 ms (a chain recomputed every later cut). Merges use MultiFuse because a Fuse with a compound tool counts overlapping pieces twice. Files made before keep one boolean per op and still work. Tested: test_native section H, all six viewport suites match. | Architecture | replay.py boolean(), tools_of(), cutter_of(), cuts_of() | 2026-11-20 |
-| A33 | Split geometry presentation (drafts, confirmed boards, highlights, waves, caches) and selection/context (what a click picks, entered assemblies and arrays) out of main.gd, as features need them, without changing behaviour. | Superseded | Replaced by A33b | Codex's proposal (A-S03), recorded at your request 2026-11-21. Do it alongside the features that need it, not as a big rewrite. | Architecture | Not built: Work list T41 | 2026-11-21 |
-| I03 | Snapping: corners within 14 px, otherwise a 10 mm grid (G toggles). | Superseded | Replaced by I03b | Exact starts without a full inference engine yet. | Interaction | main.gd snap() | 2026-11-20 |
-| I04 | A rectangle on the ground makes a new board. A rectangle on a face makes a new board when 'New board' is on (default, B toggles), else merges. A negative push always cuts. | Superseded | Replaced by I04b (2026-11-21: join by default). | Woodwork is mostly separate boards. | Interaction | main.gd commit_push() | 2026-11-20 |
-| I07 | Cut previews are violet. Red is reserved for rejection. | Superseded | Replaces I07a; Replaced by G07 (folded into the principle, William, 2026-11-22) | One colour, one meaning. | Feedback; G07 | main.gd mat_cut | 2026-11-20 |
-| I07a | Cut previews shown in red. | Superseded | Replaced by I07 |  | Interaction |  | 2026-11-20 |
-| I12 | Mirror tool (M), after FreeCAD's Part Mirror: click a board; the plane starts parallel to the face you clicked; arrow keys switch it (Right = red/X, Left = green/Y, Up = blue/Z); slide it with the cursor (corner and grid snap) and click, or type a distance. | Superseded | Resolves Q11. Replaced by I12b | Your design, from FreeCAD's mirror bench, with SketchUp's axis keys. | Interaction | main.gd _mirror_click(), _mirror_set_plane(), commit_mirror() | 2026-11-20 |
-| I12b | Mirror is Shift+M (M is Move). Otherwise as I12: click a board, plane starts parallel to the clicked face, arrows switch axis, slide and click or type. | Superseded | Replaces I12. Replaced by I12c | Your call: M had been overloaded, and SketchUp uses M for Move. SketchUp has no Mirror key, so Shift+M. | Interaction | main.gd _unhandled_input() | 2026-11-20 |
-| I13 | A typed mirror distance means: how far the plane sits past the board's outer face on the cursor's side (so the gap between original and copy is twice that). | Superseded | Replaced by I13b | My choice; FreeCAD asks for a base point instead. Easy to change to 'gap between boards'. | Interaction | main.gd apply_vcb() | 2026-11-20 |
-| I26 | Extrude-to-face relationships persist: a push made up to a target face follows that face when it changes, until you explicitly change the extruded part's dimensions. | Superseded | Replaced by I26b (rules decided 2026-11-21, Q25). | Your confirmed preference (Codex discussion). Kept Tentative because the detach rule isn't settled and it changes I03b / I23. | Interaction | Not built | 2026-11-21 |
-| I26b | A push or cut made up to a face stays tied to that face until you push that same face again (or type its length). Moving the target carries it; if the face disappears the length is kept as a measurement. Snaps to points make no tie. (Details below.) | Superseded | Replaced by I39 (its rules carry on in I40). Replaces I26 and I27. Resolves Q25, Q26, Q27. Replaces I23's 'a cut to a pocket floor keeps its measured depth' (the rest of I23 stands); extends I24 | Your rules, 2026-11-21, plus my suggestions you approved. Not built yet: T14. | Interaction | Not built | 2026-11-21 |
-| I27 | Through-cuts follow relevant face changes: a feature extruded up to, or cut through, a face adapts when that face moves. | Superseded | Replaced by I26b. | Your preliminary intent (Codex discussion). Open details: Q26 (thickness changes vs typed depths), Q27 (face disappears or splits). | Interaction | replay.py Model.through_all() | 2026-11-21 |
-| I29 | A rectangle started with a click ends with the next click; started with a press-and-drag (cursor moves more than 6 px with the button down) or a press held over 0.3 s, it ends when you let go. Typing dimensions + Return works in both. | Superseded | Refines I02. Replaced by I43 (the same rule for Push/Pull and Move). | Your call (SketchUp works this way). Tested (--recttest): drag 200 × 100 ends on release; click, move, click gives 100 × 150 and nothing is made in between; a click that wobbles 3 px is still a click. | Interaction | tools/rect_tool.gd click(), release(), DRAG_PX, HOLD_MS | 2026-11-21 |
-| I39 | An edge midpoint can link a push to an adjacent face. Clicking a dimension field and then a face, edge or edge midpoint immediately links the dimension to the chosen face. (Details below.) | Superseded | Replaced by I40. Replaces I26b and extends I36 | William requested midpoint ties and direct picking while editing dimensions (Codex, H018). | Interaction | worker/plane_fit.py; viewport/property_panel.gd | 2026-11-21 |
-| I47 | Copying a whole assembly (from outside it) makes a new assembly holding linked copies of its boards; the original keeps its own. Several copies at once (3x, /3) of an assembly are refused for now (T58). | Superseded | Replaced by I52; refined I32, A22c | William's call, 2026-11-21 (T34 review: Codex's branch made loose copies). | Interaction | worker/assembly.py copy_into_assembly(); tools/move_tool.gd _whole_assemblies() | 2026-11-21 |
-| P05 | Interaction principles: immediate and predictable. Keep useful design relationships without making you manage CAD machinery. Always make the scope of an edit clear, and give a straightforward way to break a link. | Superseded | Replaced by G01, G04, G13 (folded into the principles, William, 2026-11-22) | Your preference (Codex discussion). Applies across I25–I28. | Product; G01, G04 |  | 2026-11-21 |
-| P08 | Small fixes (nothing you'd notice, no protocol / format / boundary / saving change, ~30 lines) take a light path: the small-fixes branch, the quick test, one commit; no Work list row or handoff. Bigger becomes a Work list item. (Details below.) | Superseded | Replaced by P22 | Your call, 2026-11-21: the full workflow costs as much on a typo as on a feature. | Process | CLAUDE.md, AGENTS.md (Working with William) | 2026-11-21 |
-| P11 | Agents work in parallel by files, not topics: each job lists the files it expects to touch in its handoff entry, and jobs whose lists overlap don't run at once. Keep jobs to one session. | Superseded | Replaced by P45 (overlap by function, 2026-11-22) | Every clash in the 2026-11-21 merges came from a few shared files; T74–T77 remove the rest. | Process; G12 | CLAUDE.md, AGENTS.md, docs/agent-handoff.md | 2026-11-21 |
-| P12 | One Claude session is the integrator: it keeps the Work list, hands out jobs to other Claude and Codex sessions in the handoff (each with its Touches list, P11), reviews their branches and merges when you say. Workers deliver to it, not to main. | Superseded | Replaced by P13 | Your request, 2026-11-21: several agents at once need one place that assigns and integrates. | Process | docs/agent-handoff.md (Jobs) | 2026-11-21 |
-| P13 | One Claude session is the integrator: it keeps the Work list, hands out jobs to other Claude and Codex sessions in the handoff (each with its Touches list, P11), reviews their branches and merges into main itself when it judges them good enough (tests pass, review done). Pushing still waits for you. Workers never merge. | Superseded | Replaces P12; replaced by P16 | Your call, 2026-11-21: "start auto merging things that you think are good enough". | Process | CLAUDE.md (Working with William); docs/agent-handoff.md (Jobs) | 2026-11-21 |
-| P27 | A worker session does at most 3 jobs in a row: after job.py done it takes the next Ready job; when none is Ready it waits for one in the background (job.py take --wait, up to WORKER_WAIT, 20 min) and is woken when it gets one; after its 3rd job, or a wait that times out, it stops and tells you it's ready for a /clear. job.py counts jobs per session name and refuses a 4th. | Superseded | Refines P24. Replaced by P37. | Your call, 2026-11-22: keeps a worker's context small without you clearing sessions after every job; 3 in total to start, see how it works; 20 min wait is one check-in interval. | Process; G12 | tools/job.py: take counts per session (state "sessions"; a session with no real ID isn't counted), refuses past MAX_JOBS; take --wait (take_wait); done's next step (next_step). Checks: tools/test_job.py. A /clear gives a Claude session a new CLAUDE_CODE_SESSION_ID, so the count starts again. T98 | 2026-11-22 |
-| P30 | The target architect reasons about abstractions and owns the architecture map without reading code; workers provide structural reports and code-reading roles supply verified implementation facts. Current P28 ownership remains until transition. | Superseded | Replaced by P36. | William’s agent-role discussion, 2026-11-22; target direction, with transition details still open. | Process; G11, G12 | docs/handoff/H067-agent-role-system.md | 2026-11-22 |
-| P48 | Trial, from 2026-11-23 for a couple of days: Gemini (neon) is the full integrator in place of a Claude session (P16 otherwise stands). Main is tagged before-gemini-integrator; when Claude is back it reviews before-gemini-integrator..main with William and they decide what stays. A Claude integrator then takes the lock back (P19). | Superseded | Suspends P16 for the trial; replaced by P52 | Your call, 2026-11-23: Claude out of tokens for a couple of days; the queue is routine (tooling, tests, refactors). | Process; G12 | docs/integrator.md; tools/integrator.py | 2026-11-23 |
-| P55 | Paths use underscores, and the code base is named after the app: ~/Sites/Organization/08_Code_Bases/Napkin; org folders 01_Principles, 02_Habits, 03_Past_Decisions, 04_Personal_Space, 05_Jobs, 06_To-dos, 07_Org_Chart_and_Roles; the code base's 01_Principles, 02_Past_Decisions, 03_Project_Habits, 04_Project_Tools, 05_Code. | Superseded | Builds on P54; numbering replaced by P60 | William, 2026-11-26: spaces would need quoting in every script and launch command. | Process; — | Not built: T135 | 2026-11-26 |
-| P59 | The first move takes decision-log.md and decision-archive.md into Napkin/02_Past_Decisions unchanged (the tools keep one table each); later steps move the Process rows to Organization/03_Past_Decisions, then convert rows to one file per ruling written by log.py. | Superseded | Builds on P54, P55; replaced by P61 | William, 2026-11-26: move as is, split later. | Process; — | Not built: T135 | 2026-11-26 |
-| W03a | Hard cell-shaped pigment and per-cell flip timing. | Superseded | Replaced by W03 | Looked like little polygons. | Wave |  | 2026-11-20 |
-| W04a | Wave starts only after FreeCAD confirms. | Superseded | Replaced by W04 |  | Wave |  | 2026-11-20 |
-| W05a | Edits: pigment ripple only; while waiting, an extra amber ring pulses. | Superseded | Replaced by W05 | Waiting looked different from moving. | Wave |  | 2026-11-20 |
-| W07a | Wait at 80% of travel, then 60%, with a small pulse. | Superseded | Replaced by W07 | Too little visible movement. | Wave |  | 2026-11-20 |
-| W08a | Breathing also pulsed pigment strength and band width. | Superseded | Replaced by W08 | Colour changed too much. | Wave |  | 2026-11-20 |
-| W09a | Front clamped at the hold (speed jumps), then one smoothing stage (speed continuous, acceleration jumps). | Superseded | Replaced by W09 | Felt as a thud. | Wave |  | 2026-11-20 |
+| ID | Decision | Status |
+|---|---|---|
+| A01 | The op log (oplog/0.1 JSON) is the source of truth. | Superseded |
+| A04 | Each board is its own Part solid (not a PartDesign Body). | Superseded |
+| A06a | Prototype the front end as a Blender add-on. | Superseded |
+| A11 | Editing a mirrored copy edits its original (mirrored back), so both stay identical, lik... | Superseded |
+| A22 | A board is an App::Part container holding its feature chain: Part::Plane (the rectangle... | Superseded |
+| A22b | A board is an App::Part container: Part::Plane (the rectangle) → Part::Extrusion (the p... | Superseded |
+| A33 | Split geometry presentation (drafts, confirmed boards, highlights, waves, caches) and s... | Superseded |
+| I03 | Snapping: corners within 14 px, otherwise a 10 mm grid (G toggles). | Superseded |
+| I04 | A rectangle on the ground makes a new board. | Superseded |
+| I07 | Cut previews are violet. | Superseded |
+| I07a | Cut previews shown in red. | Superseded |
+| I12 | Mirror tool (M), after FreeCAD's Part Mirror: click a board; the plane starts parallel ... | Superseded |
+| I12b | Mirror is Shift+M (M is Move). | Superseded |
+| I13 | A typed mirror distance means: how far the plane sits past the board's outer face on th... | Superseded |
+| I26 | Extrude-to-face relationships persist: a push made up to a target face follows that fac... | Superseded |
+| I26b | A push or cut made up to a face stays tied to that face until you push that same face a... | Superseded |
+| I27 | Through-cuts follow relevant face changes: a feature extruded up to, or cut through, a ... | Superseded |
+| I29 | A rectangle started with a click ends with the next click; started with a press-and-dra... | Superseded |
+| I39 | An edge midpoint can link a push to an adjacent face. | Superseded |
+| I47 | Copying a whole assembly (from outside it) makes a new assembly holding linked copies o... | Superseded |
+| P05 | Interaction principles: immediate and predictable. | Superseded |
+| P08 | Small fixes (nothing you'd notice, no protocol / format / boundary / saving change, ~30... | Superseded |
+| P11 | Agents work in parallel by files, not topics: each job lists the files it expects to to... | Superseded |
+| P12 | One Claude session is the integrator: it keeps the Work list, hands out jobs to other C... | Superseded |
+| P13 | One Claude session is the integrator: it keeps the Work list, hands out jobs to other C... | Superseded |
+| P27 | A worker session does at most 3 jobs in a row: after job.py done it takes the next Read... | Superseded |
+| P30 | The target architect reasons about abstractions and owns the architecture map without r... | Superseded |
+| P48 | Trial, from 2026-11-23 for a couple of days: Gemini (neon) is the full integrator in pl... | Superseded |
+| P55 | Paths use underscores, and the code base is named after the app: ~/Sites/Organization/0... | Superseded |
+| P59 | The first move takes decision-log.md and decision-archive.md into Napkin/02_Past_Decisi... | Superseded |
+| W03a | Hard cell-shaped pigment and per-cell flip timing. | Superseded |
+| W04a | Wave starts only after FreeCAD confirms. | Superseded |
+| W05a | Edits: pigment ripple only; while waiting, an extra amber ring pulses. | Superseded |
+| W07a | Wait at 80% of travel, then 60%, with a small pulse. | Superseded |
+| W08a | Breathing also pulsed pigment strength and band width. | Superseded |
+| W09a | Front clamped at the hold (speed jumps), then one smoothing stage (speed continuous, ac... | Superseded |
 
 ## Decided questions
 
@@ -201,21 +201,3 @@ Work list items that are finished (and Split ones whose parts are all done).
 ## Details
 
 The full text of long archived decisions; the table row is the summary. Sorted by ID.
-
-### I26b
-
-Decision: A push or cut made up to a face (snapped 'on face', 'back face' or 'face behind') stays tied to that face. It detaches only when you push that same face again (or type a new length for it). Editing the part's other faces keeps the tie; moving the part it's butted to carries the tied face along; moving the tied part itself keeps it tied (it stretches or shrinks to stay touching). If the face would move past the start (zero or negative length), the change is rejected and the last valid length kept. If the face disappears, the part keeps its current length as a measurement, with a note, and never re-attaches elsewhere. If they no longer overlap it keeps following, shown only by a subtle colour, no warning. Linked copies follow together (the tie belongs to the shared definition); changes ripple through chains. Snaps to a point (a corner, a midpoint) make no tie. Through-holes and pocket floors follow the same rules.
-
-Why: Your rules, 2026-11-21 (detaching, other faces, moving the target, a colour cue instead of a warning); the other cases were my suggestions, which you approved. Not built yet: Work list T14 (through-holes already follow their board, I24).
-
-### I39
-
-Decision: Retain the face-tie, detach, failure and propagation rules in I26b, with edge midpoints now eligible for the same adjacent-face inference as other points along an edge. Endpoint snaps in Push/Pull still give a numeric distance. In Properties, click a dimension field and then a target face or edge to commit a link using the selected end condition. Typing a length and pressing Enter remains available. The explicit face picker supports preview before Apply.
-
-Why: William requested both interactions after trying plane fits on rectangular boards. The delivery branch covers plain rectangular stock. The broader T14 implementation remains open.
-
-### P08
-
-Decision: Small fixes take a light path. A small fix changes nothing you would notice (or makes the code do what a logged decision already says), touches no protocol, file format, module boundary or saving, and stays small (roughly 30 lines). It goes on the standing branch small-fixes with the quick test and one commit (a code change carries Architecture-Impact: none - <reason>); no Work list row, no handoff. The agent lists the fixes for you at the end of the session; you say when the branch merges. A fix that grows past this becomes a Work list item.
-
-Why: Your call, 2026-11-21: the full workflow costs as much on a typo as on a feature, and steps get skipped when a session runs long.

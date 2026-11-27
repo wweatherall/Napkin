@@ -32,9 +32,11 @@ PLACEHOLDER = re.compile(r"\b([A-Z]+)-new-(\d+)([a-z]*)\b")
 DEFINES_ROW = re.compile(r"^\| ([A-Z]+)-new-(\d+)[a-z]* \|")
 DEFINES_HEADING = re.compile(r"^### ([A-Z]+)-new-(\d+)[a-z]*\b")
 DEFINES_FILE = re.compile(r"^([A-Z]+)-new-(\d+)[a-z]*-")
+DEFINES_ENTRY = re.compile(r"^([A-Z]+)-new-(\d+)[a-z]*\.md$")
 TAKEN = re.compile(r"^([A-Z]+)(\d+)[a-z]*$")
 LOG = sort_decision_log.LIVE
 ARCHIVE = sort_decision_log.ARCHIVE
+ENTRY_FOLDERS = [sort_decision_log.RULINGS_DIR]
 ID_FILES = [LOG, ARCHIVE, "docs/agent-handoff.md", "docs/handoff-archive.md"]
 SKIP = {"tools/test_number_ids.py", "tools/test_log_archive.py"}   # their checks are written with real placeholders
 
@@ -51,6 +53,9 @@ def taken(root):
             found[k] = (max(hi, int(digits)), min(w, len(digits)))
 
     paths = [os.path.join(root, p) for p in ID_FILES]
+    for efolder in ENTRY_FOLDERS:
+        for ident in sort_decision_log.folder_ids(os.path.join(root, efolder)):
+            see(ident)
     folder = os.path.join(root, handoff.FOLDER)
     if os.path.isdir(folder):
         for name in os.listdir(folder):
@@ -92,11 +97,18 @@ def read_text(path):
 
 
 def defined(root, files):
-    """{(kind, n)} of the placeholders that are IDs (H073): a decision-log row a branch adds (`| X-new-N |`) or its
-    `### X-new-N` Details section, in either log file; in docs/handoff/, an entry's file name (H-new-N-slug.md) or
-    its `### H-new-N` heading. Only these are numbered; the rest are examples in prose."""
+    """{(kind, n)} of the placeholders that are IDs (H073): a ruling file (`rulings/I-new-N.md`), a decision-log
+    row a branch adds (`| X-new-N |`) or its `### X-new-N` Details section, in either log file; in docs/handoff/,
+    an entry's file name (H-new-N-slug.md) or its `### H-new-N` heading. Only these are numbered; the rest are
+    examples in prose."""
     found = set()
+    entry_prefixes = tuple(f.rstrip("/") + "/" for f in ENTRY_FOLDERS)
     for rel in files:
+        if rel.startswith(entry_prefixes):
+            m = DEFINES_ENTRY.match(os.path.basename(rel))
+            if m:
+                found.add((m.group(1), int(m.group(2))))
+            continue
         in_log, in_handoff = rel in (LOG, ARCHIVE), rel.startswith(handoff.FOLDER.rstrip("/") + "/")
         if not (in_log or in_handoff):
             continue
@@ -181,14 +193,15 @@ def apply(root, files=None, dry_run=False, out=print):
 
 
 def tidy_log(root):
-    """Sort the decision log again (both files when the archive exists, which also moves archival rows)."""
+    """Sort the decision log again (both files when the archive exists, which also moves archival rows and refreshes ruling indexes)."""
     log, arch = os.path.join(root, LOG), os.path.join(root, ARCHIVE)
+    rdir = os.path.join(root, sort_decision_log.RULINGS_DIR)
     if not os.path.isfile(log):
         return
     text = open(log, encoding="utf-8").read()
     if os.path.isfile(arch):
         old = open(arch, encoding="utf-8").read()
-        new, new_arch = sort_decision_log.tidy(text, old)
+        new, new_arch = sort_decision_log.tidy(text, old, rulings_dir=rdir if os.path.isdir(rdir) or sort_decision_log._ruling_rows_in(text) or sort_decision_log._ruling_rows_in(old) else None)
         if new_arch != old:
             open(arch, "w", encoding="utf-8").write(new_arch)
     else:

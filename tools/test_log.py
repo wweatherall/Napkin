@@ -38,6 +38,7 @@ def repo(branch="main"):
     os.makedirs(os.path.join(root, "03_Past_Decisions"))
     for rel in (s.LIVE, s.ARCHIVE):
         shutil.copy(os.path.join(REPO, rel), os.path.join(root, rel))
+    shutil.copytree(os.path.join(REPO, s.RULINGS_DIR), os.path.join(root, s.RULINGS_DIR))
     git(root, "init", "-q", "-b", "main")
     git(root, "add", ".")
     git(root, "-c", "user.name=t", "-c", "user.email=t@t", "commit", "-qm", "log")
@@ -59,7 +60,7 @@ def fails(fn, *args, has=""):
 
 
 def tidy_ok(root):
-    return s.check_files(text(root), text(root, s.ARCHIVE)) == []
+    return s.check_files(text(root), text(root, s.ARCHIVE), rulings_dir=os.path.join(root, s.RULINGS_DIR)) == []
 
 
 def next_number(root, kind):
@@ -81,15 +82,15 @@ def show_checks():
     both = log.show(root, "Snapping", True)
     check("show subject --top: the top, then the group", both.startswith(t) and both.endswith(out))
     live = log.show(root, "I19")
-    check("show ID in the live file: its row under its header and where it is",
-          live.startswith(f"{s.LIVE}: Decisions / Snapping") and "| ID | Decision |" in live and "\n| I19 |" in live)
-    check("show ID: the principles it names", "Principles it names:" in live and "\n| G06 |" in live)
+    check("show <ID> prints the file and its principles' status lines",
+          live.startswith("# I19 — ") and "Status: " in live and "Principles it names:" in live
+          and "# G06 — " in live and "\nStatus: Active | Date: " in live)
     det = log.show(root, "I35")
-    check("show ID with details: its ### section follows", "\n### I35\n" in det)
+    check("show ID with details: its ## Details section follows", "\n## Details\n" in det)
     arch_id = next(s.row_id(l) for l in text(root, s.ARCHIVE).split("\n")
                    if s.row_id(l) and s.where(text(root, s.ARCHIVE), s.row_id(l))[0] == "## Superseded decisions")
     arch = log.show(root, arch_id)
-    check("show ID in the archive", arch.startswith(f"{s.ARCHIVE}: Superseded decisions") and f"\n| {arch_id} |" in arch)
+    check("show ID in the archive", arch.startswith(f"# {arch_id} — ") and "Status: Superseded" in arch)
     work = log.show(root, "T9")
     check("show a Work list ID", work.startswith(f"{s.LIVE}: Work list") and "\n| T9 |" in work)
     check("show an unknown ID fails", fails(log.show, root, "I999", has="no row I999"))
@@ -103,8 +104,12 @@ def add_checks(on_main):
     want = {k: (next_number(root, k) if on_main else f"{k}{NEW}1") for k in "IGQTA"}
     row = log.add(root, "I", "Boards snap to the grid.", {"subject": "snap", "principles": "G03, G05",
                                                           "why": "Because.", "where": "inference.gd"}, today=TODAY)
-    check(f"add a decision on {where}: {want['I']}", row == f"| {want['I']} | Boards snap to the grid. | Active |  "
-          f"| Because. | G03, G05 | inference.gd | {TODAY} |")
+    rfile = os.path.join(root, s.RULINGS_DIR, f"{want['I']}.md")
+    check(f"add a decision on {where}: {want['I']}", row == f"| {want['I']} | Boards snap to the grid. | Active |"
+          and os.path.isfile(rfile))
+    if not on_main:
+        check("add writes a ruling file with a placeholder on a branch",
+              os.path.isfile(rfile) and f"# {want['I']} — Boards snap to the grid." in open(rfile).read())
     check(f"add a decision on {where}: under its subject's group",
           s.where(text(root), want["I"]) == ("## Decisions", "Snapping"))
     check(f"add a decision on {where}: the Subjects index lists it",
@@ -119,6 +124,13 @@ def add_checks(on_main):
     g = log.add(root, "G", "Tools say what they will do.", {}, today=TODAY)
     check(f"add a principle on {where}", s.where(text(root), want["G"]) == ("## Principles", None)
           and g.startswith(f"| {want['G']} | Tools say what they will do. | Active |"))
+    if on_main:
+        log.set_ruling(root, want["I"], {"status": "Superseded", "rel": f"Replaced by {want['A']}"})
+        check("set --status supersedes without editing by hand",
+              s.where(text(root, s.ARCHIVE), want["I"]) == ("## Superseded decisions", None)
+              and s.where(text(root), want["I"]) is None
+              and "Status: Superseded" in open(rfile).read()
+              and f"Replaced by {want['A']}" in open(rfile).read())
     q = log.add(root, "Q", "Should arrays wrap?", {"why": "Asked in H0."}, today=TODAY)
     check(f"add a question on {where}", s.where(text(root), want["Q"]) == ("## Open questions", None)
           and q == f"| {want['Q']} | Should arrays wrap? | Open | Asked in H0. |")

@@ -1,35 +1,34 @@
 # Shop Sketch decision log
 
-The live half of the decision log (P09, P23): what holds now. Its history (superseded decisions, decided questions,
-done Work list items and their details) is in [decision-archive.md](decision-archive.md), with the same IDs; an
-ID is in one file only. Sections: Subjects (an index), Principles, Decisions (one ### group per subject), Open
-questions, Work list, Tunables, Details. Edit it here, in the same commit as the change it records. Search both
-files by ID (`grep "^| I34 " 03_Past_Decisions/decision-log.md 03_Past_Decisions/decision-archive.md`; a row ending "(Details below.)" has
-its full text at `### I34` in the same file) rather than reading them whole. Keep a table row short: one or two
-sentences of decision, the reason in a line; longer text (measurements, tests, edge cases) goes in a `### <ID>`
-section under Details. Before 2026-11-21 it was a claude.ai Sheet (revision 83 was the last); git history has
-every earlier export.
+The live half of the decision log (P09, P23): what holds now. Each ruling (principle `G` or decision `A`, `D`, `I`,
+`M`, `P`, `U`, `W`, ...) lives in its own file at `03_Past_Decisions/rulings/<ID>.md`, and stays there even when
+Superseded (P01). This file keeps generated indexes (`Subjects`, `Principles`, `Decisions`), plus `Open questions`,
+`Work list`, `Tunables`, and `Details` (for `Q`/`T`). [decision-archive.md](decision-archive.md) keeps the index of
+Superseded rulings, decided questions, and done Work list items. Read a ruling with
+`python3 tools/log.py show I34` (or open `03_Past_Decisions/rulings/I34.md`). Before 2026-11-21 it was a claude.ai
+Sheet (revision 83 was the last); git history has every earlier export.
 
-tools/sort_decision_log.py keeps it tidy (the pre-commit hook runs it whenever either file is committed): tables
-and Details sorted by ID; a row marked Superseded, Decided or Done moves to the archive with its Details; the
-Subjects index's Decisions column and each principle's Explains column are generated, so edit the decisions'
-Principles cells and subject groups, not those. A new decision goes in the group of its subject and names the
-principle(s) it follows (G01 ...; a new principle is G-new-N), or — if none fits yet; a new subject is a new row in the Subjects index plus its
-### group. Its --check reports what it can't fix.
+tools/sort_decision_log.py keeps it tidy (the pre-commit hook runs it whenever `decision-log.md`,
+`decision-archive.md`, or `03_Past_Decisions/rulings/` is committed): ruling rows in tables are moved into
+`rulings/<ID>.md`, Q/T tables and Details sort by ID, archival Q/T rows move to the archive with their Details, and
+the generated indexes (`Subjects`, `Principles`, `Decisions`, `Superseded decisions`) are rebuilt from the ruling
+files. A new decision names a subject from `Subjects` and the principle(s) it follows (`G01 ...`), or `—` if none
+fits yet; a new subject is a new row in the `Subjects` index. Its `--check` reports what it can't fix.
 
 New IDs (T74): a branch never takes a number. It writes a placeholder, the kind's letter, "-new-" and its own count
 (I-new-N, T-new-N, Q-new-N, H-new-N, G-new-N; examples in prose keep the letter N, a digit makes a placeholder),
-and the integrator runs tools/number_ids.py on main at merge, which gives each the next free number across both
+and the integrator runs tools/number_ids.py on main at merge, which gives each the next free number across all
 files and everywhere it's cited.
 
-tools/log.py (T92) does this bookkeeping: `add <kind> "<text>" --subject S --principles G01` writes a row with the
-right number or placeholder, dated and sorted; `note T66 "<text>"` appends to a Work list row's last column;
-`show <subject|ID>` prints only that subject's group, or an ID's row, Details and principles (`--top`: this top).
+tools/log.py (T92) does this bookkeeping: `add <kind> "<text>" --subject S --principles G01` writes a ruling file
+(or Q/T row) with the right number or placeholder, dated and indexed; `set <ID> --status S [--where ...] [--rel ...]`
+updates a ruling's status line without hand-editing; `note T66 "<text>"` appends to a Work list row's last column;
+`show <subject|ID>` prints that subject's index + rulings, or an ID's ruling file + named principles (`--top`: this top).
 
-Rule P01: a new decision that contradicts an old one gets a new row naming the old ID; the old row is marked
-Superseded and moves to the archive, never deleted. Ask William before countermanding an Active decision.
-Principles follow the same rule, and a group of decisions is folded into its principle only with William's OK,
-one group at a time (P23).
+Rule P01: a new decision that contradicts an old one gets a new ruling naming the old ID; the old ruling is marked
+`Superseded` (`log.py set <ID> --status Superseded`), never deleted. Ask William before countermanding an Active
+decision. Principles follow the same rule, and a group of decisions is folded into its principle only with
+William's OK, one group at a time (P23).
 
 ## Subjects
 
@@ -55,21 +54,21 @@ One subject per decision; the Decisions column is generated.
 
 Each states one idea; Explains (generated) lists the decisions that name it. William reviewed and approved them 2026-11-22 (G04 split into G04 and G13).
 
-| ID | Principle | Status | Explains | Date |
-|---|---|---|---|---|
-| G01 | Feel first: a draft appears the moment you act and input never waits on FreeCAD; FreeCAD catches up and the wave confirms it. | Active | A02, A06, A08, A23, A24, A27, A28, A29, I01, I11, I16, I17, I23, I43, I44, I45, I68, W01, W02, W03, W04, W07, W09 | 2026-11-22 |
-| G02 | The .FCStd file is the model: every action becomes ordinary, editable FreeCAD features, and Shop Sketch is a view of them. | Active | A05, A07, A09, A21, A23, A25, A26, D01, D02, I36, I37, I42, I68, M01, M02, M03, P04, P06 | 2026-11-22 |
-| G03 | Work as SketchUp does, and as a Mac app does, unless there's a reason not to; a decision that departs from SketchUp says why. | Active | A06, A30, I01, I02, I04b, I05, I09, I10, I14, I18, I22, I28, I30, I31, I37, I38, I49, I50, I51, I58, I59, I60, I61, I62, I64, I65, I66, I67, I69, I70, I71, I72, P04, W14 | 2026-11-22 |
-| G04 | Relationships stay live: copies, arrays, mirrors and fits follow later edits, and you can detach one on purpose. | Active | A10, A11b, A22c, A26, I21, I24, I25, I28, I32, I34, I40, I41, I46, I52, I53, I69 | 2026-11-22 |
-| G05 | One key per idea, meaning the same thing in every tool. | Active | I03b, I12c, I15, I20, I33, I48, I50, I56 | 2026-11-22 |
-| G06 | Typed values follow what you're doing: the direction you drag, and the model's units for a bare number; any unit you type, written however you write it, is understood. | Active | I02, I13b, I14, I19, I35, I57, I59, I62, I63, I65, I66, I67, I70 | 2026-11-22 |
-| G07 | One meaning per colour: violet cuts, red rejects, amber is new; nothing else uses them except the red/green/blue axis guides. | Active | I21, W05, W06, W08, W10 | 2026-11-22 |
-| G08 | Refer to geometry, never to FreeCAD's internal numbers. | Active | A03, I24, I40, I42 | 2026-11-22 |
-| G09 | Never lose work: always saved, atomically, and undo crosses sessions without hiding changes made in FreeCAD. | Active | A24, A25, A27, A28, A32, A36, A37, A39, I54, I55, U01, U02, U03, W13 | 2026-11-22 |
-| G10 | A rejected action says why and leaves nothing behind. | Active | A23, I06, I08, W06 | 2026-11-22 |
-| G11 | Nothing rests on memory: every decision is logged, every behaviour has a named test, and every prediction of FreeCAD's answer is checked against FreeCAD. | Active | A38, I51, P01, P02, P03, P07, P09, P18, P21, P23, P26, P28, P29, P31, P32, P33, P34, P35, P36, P50 | 2026-11-22 |
-| G12 | Work splits by files, and one integrator merges, numbers and keeps the records. | Active | A31, A33b, A34, A35, P10, P14, P15, P16, P17, P18, P19, P20, P22, P24, P25, P26, P28, P29, P31, P32, P33, P34, P35, P36, P37, P38, P39, P40, P41, P42, P43, P44, P45, P46, P47, P49, P50, P52, P53 | 2026-11-22 |
-| G13 | Show what an edit will change before it does. | Active | I28, I66, I69 | 2026-11-22 |
+| ID | Principle | Status |
+|---|---|---|
+| G01 | Feel first: a draft appears the moment you act and input never waits on FreeCAD; FreeCA... | Active |
+| G02 | The .FCStd file is the model: every action becomes ordinary, editable FreeCAD features,... | Active |
+| G03 | Work as SketchUp does, and as a Mac app does, unless there's a reason not to; a decisio... | Active |
+| G04 | Relationships stay live: copies, arrays, mirrors and fits follow later edits, and you c... | Active |
+| G05 | One key per idea, meaning the same thing in every tool. | Active |
+| G06 | Typed values follow what you're doing: the direction you drag, and the model's units fo... | Active |
+| G07 | One meaning per colour: violet cuts, red rejects, amber is new; nothing else uses them ... | Active |
+| G08 | Refer to geometry, never to FreeCAD's internal numbers. | Active |
+| G09 | Never lose work: always saved, atomically, and undo crosses sessions without hiding cha... | Active |
+| G10 | A rejected action says why and leaves nothing behind. | Active |
+| G11 | Nothing rests on memory: every decision is logged, every behaviour has a named test, an... | Active |
+| G12 | Work splits by files, and one integrator merges, numbers and keeps the records. | Active |
+| G13 | Show what an edit will change before it does. | Active |
 
 ## Decisions
 
@@ -77,241 +76,241 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 
 ### Product
 
-| ID | Decision | Status | Replaces / replaced by | Why | Principles | Where in the code | Date |
-|---|---|---|---|---|---|---|---|
-| I01 | Tool-first, no modes. Tools live on one bar, not in workbenches. | Active |  | The SketchUp first-ten-minutes feel. | G01, G03 | main.gd set_tool() | 2026-11-20 |
-| P04 | Product direction: fast, direct, SketchUp-like modelling with a real, editable FreeCAD model underneath. You want to work directly in FreeCAD as little as possible. | Active |  | Your preference, from a design discussion with Codex. Fits A21: the FreeCAD file stays the model, but FreeCAD itself is a fallback, not a place you plan to work (lowers the urgency of Q19 merging). | G02, G03 |  | 2026-11-21 |
-| P51 | The app is named Napkin (replacing the working names Shop Sketch and FretchUp). | Active | Closes Q37 | William, 2026-11-26. | — |  | 2026-11-26 |
+| ID | Decision | Status |
+|---|---|---|
+| I01 | Tool-first, no modes. | Active |
+| P04 | Product direction: fast, direct, SketchUp-like modelling with a real, editable FreeCAD ... | Active |
+| P51 | The app is named Napkin (replacing the working names Shop Sketch and FretchUp). | Active |
 
 ### Architecture
 
-| ID | Decision | Status | Replaces / replaced by | Why | Principles | Where in the code | Date |
-|---|---|---|---|---|---|---|---|
-| A02 | FreeCAD runs as a long-running headless worker on localhost (newline JSON over TCP). | Active |  | Skips FreeCAD start-up; a full replay takes ~15–60 ms once warm. | G01 | serve.sh; replay.py serve() | 2026-11-20 |
-| A03 | Faces are referenced by geometry {body, normal, point}, never by FreeCAD face numbers. | Active |  | Avoids FreeCAD losing track of faces after edits; boards have distinct flat faces. | G08 | replay.py resolve_face() | 2026-11-20 |
-| A06 | The front end (viewport + tools) is built in Godot 4.6. | Active | Replaces A06a | Blender loads slowly and feels off next to SketchUp (select-then-act, modes). Unreal is overkill. | G01, G03 | viewport/ | 2026-11-20 |
-| A08 | Don't port FreeCAD's renderer to Metal/bgfx; design within its limits (few objects, light previews). | Active |  | Years of work, and the slowness is its architecture, not the graphics API. | G01 |  | 2026-11-20 |
-| A09 | Model space is Z-up millimetres; Godot is Y-up metres; convert only at the boundary. | Active |  | One unit system in the op log and drawings. | G02 | main.gd m2g()/g2m() | 2026-11-20 |
-| A27 | Shop Sketch starts its own FreeCAD worker, checks it every second and restarts it if it stops (up to 5 times a minute); the lost request is resent. On quit the worker saves and stops. (Details below.) | Active | Refines A02 | Your go-ahead (T6): a stopped worker used to leave the viewport waiting forever. | G01, G09 | main.gd _start_worker(), _watch_worker(), _on_link_up(), _shutdown_worker(); worker_client.gd link_up/link_down | 2026-11-21 |
-| A29 | The worker writes a mesh file per changed board (triangles, normals, FreeCAD's exact edges and corners); the viewport builds only files it hasn't seen and snaps to FreeCAD's real edges. The glb is written at autosave. (Details below.) | Active | Refines A01/A21 (the draft-then-catch-up loop) | Your go-ahead (T3): reloading every board per confirmation cost ~300 ms a frame on big models (now ~15 ms). | G01 | replay.py board_mesh_file(), Session.export(); main.gd _apply_confirmed(), _build_board(), _show_boards() | 2026-11-21 |
-| A30 | Shop Sketch is a Mac app (tools/build_app.sh → dist/Shop Sketch.app) with native menus and dialogs; File > New / Open switch models; the last model reopens. Renderer: Compatibility (Metal on a Mac). (Details below.) | Active | Resolves Q5 | Your go-ahead (T8). Forward+ hatches edges on thin faces (Q5). | G03 | tools/build_app.sh; main.gd switch_model(), _make_menus(), _file_dialog() | 2026-11-21 |
-| A31 | A document controller owns the model path, the action list, request numbering, worker sync, the confirmed state and the saved revision. Tools submit actions; the controller reports pending, confirmed, rejected and saved. Undo and (later) branch history go through it. | Active |  | Your approval via Codex, 2026-11-21 (Codex's suggestions A-S01), as a to-do; built in steps, keeping today's behaviour. Branching history (U01) builds on it. | G12 | Built: viewport/document.gd (T39); tools still append to ops | 2026-11-21 |
-| A33b | Split geometry presentation (drafts, confirmed boards, highlights, waves, caches) and selection/context (what a click picks, entered assemblies and arrays, hidden boards) out of main.gd now, together with the document controller (A31, T39), in steps that keep behaviour. | Active | Replaces A33 | Your call, 2026-11-21: main.gd (~2,500 lines) is the hardest file for an agent to work in; split it now instead of feature by feature. | G12 | Built: document.gd (T39), selection.gd and presenter.gd (T41) | 2026-11-21 |
-| A34 | Tools and worker actions register themselves: each viewport/tools/*_tool.gd declares a TOOL constant (id, label, tip, key, order) and main.gd builds the tools, toolbar, Tools menu and keys from them (viewport/tool_registry.gd); the worker's op types come from op_<type> methods and its action classes (*Actions) are found by file. A new tool or kind of action is one new file. | Active |  | Your approval of the process review, 2026-11-22: every new tool edited main.gd, keys.gd and model.py, so shape tools couldn't run in parallel. Checked in the exported app (build_app.sh runs the tool check). | G12 | viewport/tool_registry.gd; worker/model.py action_mixins | 2026-11-22 |
-| A35 | A protocol version: hello carries protocol (an integer, 1 now), defined once on each side; a window doesn't share a worker that speaks another version or none (it starts its own, as for a different hash). Bump it by one on both sides when a message or a shared-file field changes; tools/integrate.py renumbers a branch's bump on top of main's if main moved on (2026-11-22). | Active |  | docs/protocol.md finding 1 (Codex, H035); your approval, 2026-11-22. | G12 | worker/serve.py PROTOCOL_VERSION; viewport/main.gd _worker_of; docs/protocol.md | 2026-11-22 |
-| A40 | All tools receive only ToolContext at setup. Remove the six migrated tools' uses_main() overrides together with the base marker in H083. | Active |  | Move completes the T88 migration. | — | viewport/tools/ | 2026-11-22 |
-| W13 | One FreeCAD worker serves every window, each on its own document. A model is open in one window at a time (opening it elsewhere brings that window forward). File > New Window (⌘⇧N). A different app version gets its own worker. (Details below.) | Active | Refines A27 (each window started its own worker) | Your call, 2026-11-21: one window per model; two FreeCADs on one file overwrote each other's saves. | G09 | replay.py serve(); main.gd _pick_worker(), new_window() | 2026-11-21 |
+| ID | Decision | Status |
+|---|---|---|
+| A02 | FreeCAD runs as a long-running headless worker on localhost (newline JSON over TCP). | Active |
+| A03 | Faces are referenced by geometry {body, normal, point}, never by FreeCAD face numbers. | Active |
+| A06 | The front end (viewport + tools) is built in Godot 4.6. | Active |
+| A08 | Don't port FreeCAD's renderer to Metal/bgfx; design within its limits (few objects, lig... | Active |
+| A09 | Model space is Z-up millimetres; Godot is Y-up metres; convert only at the boundary. | Active |
+| A27 | Shop Sketch starts its own FreeCAD worker, checks it every second and restarts it if it... | Active |
+| A29 | The worker writes a mesh file per changed board (triangles, normals, FreeCAD's exact ed... | Active |
+| A30 | Shop Sketch is a Mac app (tools/build_app.sh → dist/Shop Sketch.app) with native menus ... | Active |
+| A31 | A document controller owns the model path, the action list, request numbering, worker s... | Active |
+| A33b | Split geometry presentation (drafts, confirmed boards, highlights, waves, caches) and s... | Active |
+| A34 | Tools and worker actions register themselves: each viewport/tools/*_tool.gd declares a ... | Active |
+| A35 | A protocol version: hello carries protocol (an integer, 1 now), defined once on each si... | Active |
+| A40 | All tools receive only ToolContext at setup. | Active |
+| W13 | One FreeCAD worker serves every window, each on its own document. | Active |
 
 ### Files, saving and undo
 
-| ID | Decision | Status | Replaces / replaced by | Why | Principles | Where in the code | Date |
-|---|---|---|---|---|---|---|---|
-| A21 | The FreeCAD file (.FCStd) is the model. Every Shop Sketch action becomes ordinary FreeCAD features in it, saved as you go. Shop Sketch and FreeCAD are two views of the same actions, like a GUI over a command line. The live draft-then-catch-up loop (A01's purpose) is unchanged. | Active | Replaces A01 | Your call: history should carry over between Shop Sketch and FreeCAD. Tested: a length edited in FreeCAD shows on reopen, through components and mirrors. | G02 | worker/replay.py Session, Model | 2026-11-20 |
-| A23 | Each action is one FreeCAD undo transaction. Undo in Shop Sketch is FreeCAD's undo: the worker keeps the common history, undoes the rest, applies the new actions. Failed actions are aborted and leave nothing. | Active |  | About 35× faster than replaying everything: ~10 ms per action and 9 ms per undo at 120 actions (was 400 ms). Tested with a random undo/retype walk against fresh builds. | G01, G02, G10 | replay.py Session.sync() | 2026-11-20 |
-| A24 | Autosave is atomic (write a copy, then swap it in) and waits for a ¼-second pause in your actions. Beside the file sits a journal (model.shopsketch.json: actions, results, revision, file hash); the revision is also stored in the file. | Active |  | Your requirement: always saving. The pause means a quick next action never waits behind a save. | G01, G09 | replay.py Session.save(), serve() | 2026-11-20 |
-| A25 | Opening a Shop Sketch file adopts its journal, so undo works across sessions. If the file was changed in FreeCAD since Shop Sketch saved it, undo stops at that point instead of losing the change (merging is stage 2). The worker reloads a file that was replaced on disk. | Active |  | No silent loss of FreeCAD-side work. Files Shop Sketch didn't make open as-is; adopting their solids as boards is stage 3 (Q17). | G02, G09 | replay.py _open_existing(); main.gd _on_open(), undo_floor | 2026-11-20 |
-| A28 | FreeCAD keeps only 20 undo steps; the 21st undo in a row rebuilds the model from the journal. The viewport remembers the last 40 confirmed states, so every undo shows at once. (Details below.) | Active | Refines A23 | Your call (T10): accept the rebuild, keep the viewport moving. | G01, G09 | replay.py Session.sync(); main.gd _remember_state(), _show_state() | 2026-11-21 |
-| A32 | Saving the model and its journal as one generation: the previous complete pair is kept until the new one is whole; on opening, the newest complete pair is used and any recovery is reported; a failed save is shown (not a false 'Saved') and retried. | Active |  | Codex's proposal (A-S02), recorded at your request 2026-11-21. Matters more once branch history lives in the journal. Your call, 2026-11-22: the new .FCStd and journal are written under temporary names, then renamed into place; the previous pair stays as .prev until the new pair is whole; a failed save shows in red in the save indicator and is retried (built: T79, I54). | G09 | worker/session.py: generation() names the files, Session._write (new pair as .saving, current hard-linked to .prev, then renamed in), recover_generation() on open (newest pair whose journal names its file's sha256; only when the file's ShopSketchRev is the journal's + 1, the journal is newer, or one is missing: a FreeCAD edit stays external, A25; a displaced file goes to .unmatched, never deleted); serve.py open_reply's `recovered` (once); viewport/document.gd recovered_note in the save indicator until the next save. Checks: worker/test_generations.py, viewport/test_document.gd. T40 | 2026-11-21 |
-| A36 | When FreeCAD saves a model while Shop Sketch still has actions pending: Shop Sketch stops autosaving that model at once (never writing over FreeCAD's save) and waits up to OUTSIDE_SAVE_WAIT (10 s) for them to land, then reloads with the wave. If they don't land in time, it asks: 'FreeCAD saved this model while Shop Sketch was busy': Use FreeCAD's version (the unfinished actions stay in the journal as dropped; T65's re-apply offer follows) or Keep Shop Sketch's (FreeCAD's file is first copied aside as <model>.freecad-<time>.FCStd). Both versions always survive on disk. A stuck or crashed worker is logged in worker.log and named in the dialog. | Active | Fills in Q19 and A25 for T64 | Your call, 2026-11-22: waiting is right, but if the wait fails something is probably wrong, so recover without losing either side. | G09 | Built (T64): worker/serve.py watch() / outside() / hold() (a stat per open model every WATCH_S; a change must hold still one look and not be our own bytes; save_pending looks again before each save and skips a held model), the reload and keep_mine commands, keep_both (also a flush, bye or quit of a held model); worker/session.py reload_outside() (keeps the ops of the revision FreeCAD opened, rev_ops or the .prev journal; the rest go to the journal's dropped list; the journal's floor stops undo there in later sessions too), copy_outside_aside() / aside_name(), mark_outside() (outside_sha256, so recover_generation leaves FreeCAD's file alone); viewport/document.gd on_outside_save / send_reload / send_keep_mine; viewport/main.gd OUTSIDE_SAVE_WAIT, _ask_outside (the dialog; a stopped or stuck worker named and logged in worker.log), _on_reloaded (the wave on changed boards). Checks: worker/test_outside_save.py, viewport/test_document.gd, quick test outside_save. | 2026-11-22 |
-| A37 | Opening a model whose file and journal don't match: the newest file on disk is the model, and an older version is never put back over a newer file. If that file is the new file of a save of ours that stopped part way (it matches the .saving journal, or its ShopSketchRev is the journal's + 1 with a whole new pair), the save is finished. Otherwise, a file that doesn't match our journal was written by someone else (FreeCAD, even when it carries an older revision number): it opens as an outside edit with its undo floor (A25). The .prev pair is used only when the main file is missing or unreadable. File dates only decide 'never go back to something older'; the contents decide the rest. | Active | Refines A32 (replaces its 'journal newer than the file' trigger) | Your call, 2026-11-22: FreeCAD saves the revision it opened, so a FreeCAD save made while Shop Sketch was closed carries an older number but is the newest work; the old rule put our .prev back over it (found in H063). | G09 | Not built: T101 | 2026-11-22 |
-| A38 | When Shop Sketch takes in a FreeCAD edit (opening a file changed outside it, or reloading an outside save), the worker writes <model>.floor.FCStd beside the model: the file as it was then, with the undo floor. A rebuild (undo past FreeCAD's 20 steps, or below what the file held on opening) starts from that copy and applies the actions after the floor, so the FreeCAD edit is kept. A model never edited in FreeCAD has no floor copy. | Active | Fixes the H063 follow-up (Session.sync rebuild lost FreeCAD changes below the floor) | Your call, 2026-11-22: beside the model, so it survives a restart. | G11 | Built (H087): worker/session.py generation() floor_file, _write_floor_copy(), _rebuild(); worker/test_floor_copy.py | 2026-11-22 |
-| A39 | When the actions pending under A36's 'FreeCAD saved this model' question land while it is still open, the window takes FreeCAD's version as A36 does with no question, closes the question and says so; a button can't be clicked after it stops meaning anything (ultra review finding 4, H092). | Active | Extends A36 | William's call, 2026-11-22 (H092 finding 4): of 'your click decides' and 'close the dialog', he chose closing it. | G09 | Not built: viewport/main.gd _outside_choice, document.gd on_sync_reply (job H093) | 2026-11-22 |
-| I38 | Redo: Edit > Redo, ⇧⌘Z or the toolbar button; linear until U01 (a new action ends it). Esc cancels the gesture or typed value first, then the selection, then leaves an entered assembly. (Details below.) | Active | U01 will keep the undone path instead of ending redo | T31 (Codex S03, approved 2026-11-21). | G03 | main.gd undo(), redo(), redo_stack; tool.gd in_gesture() | 2026-11-21 |
-| I42 | A board's name in FreeCAD's tree is 'Board 3' for b3 (copies, mirrors and made-unique boards too); Shop Sketch still refers to it by its id. | Active |  | William's call (asked of Codex, H015): human-readable names shared by FreeCAD and the Properties panel. | G02, G08 | worker/common.py board_label() | 2026-11-21 |
-| I54 | When a save fails, the save indicator says "Couldn't save: <reason>" (in Saved's place, as a warning) and stays until a save lands; the worker keeps the save pending and retries it on the next change or flush. | Active | Refines Q22 | Your call, 2026-11-22 (H048, T79). | G09 | worker/serve.py save_pending; viewport/document.gd on_save_failed; main.gd _update_saved | 2026-11-22 |
-| I55 | Closing a window whose latest revision isn't saved waits for it; if the save fails, a dialog gives the reason with Retry / Close without saving / Cancel. Nothing is dropped without your say (the journal still has the actions). | Active | Refines A27 (on quit the worker saves) | Your call, 2026-11-22 (H048, T79). | G09 | viewport/main.gd _request_close, _shutdown_worker | 2026-11-22 |
-| U01 | Undo keeps the paths you leave: a new edit after undoing starts a branch and the old path stays. A history panel on the right (~20 steps) restores any step; branches survive restarts; the chosen path is rebuilt through sync. (Details below.) | Active |  | Your request in the Codex discussion, 2026-11-21 (H01–H03, H05). Layout and storage still to design. | G09 | Not built: Work list T35, T36 | 2026-11-21 |
-| U02 | Branch-safe identities: no new board, rectangle or hole reuses an ID a kept branch uses; one user action is one undo step; retyping a value revises its action; a late worker reply never replaces a newer state. (Details below.) | Active |  | Your approval via Codex, 2026-11-21 (H03a). Comes before U01. | G09 | Not built: Work list T35 | 2026-11-21 |
-| U03 | Merging branches, conservatively: an explicit command with a preview that keeps both originals; independent edits first, anything touching shared definitions, arrays, mirrors, ties or the same feature is flagged, never guessed. (Details below.) | Active |  | Your approval via Codex, 2026-11-21 (H04); only once U01 restores branches reliably. | G09 | Not built: Work list T37 | 2026-11-21 |
+| ID | Decision | Status |
+|---|---|---|
+| A21 | The FreeCAD file (.FCStd) is the model. | Active |
+| A23 | Each action is one FreeCAD undo transaction. | Active |
+| A24 | Autosave is atomic (write a copy, then swap it in) and waits for a ¼-second pause in yo... | Active |
+| A25 | Opening a Shop Sketch file adopts its journal, so undo works across sessions. | Active |
+| A28 | FreeCAD keeps only 20 undo steps; the 21st undo in a row rebuilds the model from the jo... | Active |
+| A32 | Saving the model and its journal as one generation: the previous complete pair is kept ... | Active |
+| A36 | When FreeCAD saves a model while Shop Sketch still has actions pending: Shop Sketch sto... | Active |
+| A37 | Opening a model whose file and journal don't match: the newest file on disk is the mode... | Active |
+| A38 | When Shop Sketch takes in a FreeCAD edit (opening a file changed outside it, or reloadi... | Active |
+| A39 | When the actions pending under A36's 'FreeCAD saved this model' question land while it ... | Active |
+| I38 | Redo: Edit > Redo, ⇧⌘Z or the toolbar button; linear until U01 (a new action ends it). | Active |
+| I42 | A board's name in FreeCAD's tree is 'Board 3' for b3 (copies, mirrors and made-unique b... | Active |
+| I54 | When a save fails, the save indicator says "Couldn't save: <reason>" (in Saved's place,... | Active |
+| I55 | Closing a window whose latest revision isn't saved waits for it; if the save fails, a d... | Active |
+| U01 | Undo keeps the paths you leave: a new edit after undoing starts a branch and the old pa... | Active |
+| U02 | Branch-safe identities: no new board, rectangle or hole reuses an ID a kept branch uses... | Active |
+| U03 | Merging branches, conservatively: an explicit command with a preview that keeps both or... | Active |
 
 ### Drawing tools
 
-| ID | Decision | Status | Replaces / replaced by | Why | Principles | Where in the code | Date |
-|---|---|---|---|---|---|---|---|
-| I02 | Core loop is Rectangle → Push/Pull. Typed dimensions follow the direction you're dragging. | Active |  | SketchUp's measurement box behaviour. | G03, G06 | main.gd apply_vcb() | 2026-11-20 |
-| I04b | A profile drawn on an existing part's surface joins that part by default when extruded. | Active | Replaces I04. Confirmed 2026-11-21: join by default; B toggles 'New board' for a separate board. Not built yet: Work list T13. | Your confirmed preference (Codex discussion), confirmed 2026-11-21: joins by default, B for a separate board. Built (T13). Paint's key is still open (Q14). | G03 | tools/push_tool.gd commit_push() | 2026-11-21 |
-| I09 | A rectangle drawn on a face may overhang the face's edges; the whole rectangle is extruded. | Active |  | Your call: the whole rectangle is extruded, overhang included. (SketchUp only extrudes the part on the face.) | G03 | replay.py op_rect() | 2026-11-20 |
-| I11 | Tools act on what you can see when you start. Once started, an operation is locked to its face/axis, so rotating the view mid-operation doesn't change its target. | Active |  | You can only start on a visible face. Tested: orbiting away mid-rectangle and mid-push still finishes on the original face. | G01 | main.gd _rect_drag(), _push_drag() | 2026-11-20 |
-| I43 | Rectangle, Push/Pull and Move start on the press and follow the cursor at once. Started with a press-and-drag (cursor moves more than 6 px with the button down) or a press held over 0.3 s, the action ends when you let go; otherwise it was a click and ends with the next click. Move mirrors on release only if the cursor moved. | Active | Replaces I29 (Rectangle only). | Your call, 2026-11-21: Push/Pull and Move ignored the release, so a drag left the action running. One rule in tools/tool.gd for all three. Tested: quick test 'press'. | G01 | tools/tool.gd press_started(), press_released(), DRAG_PX, HOLD_MS | 2026-11-21 |
-| I44 | Drawing a rectangle's second corner ignores a point snap that would leave a side at zero (its own start corner, the edge it started on); it follows the cursor on the grid instead. Snaps to other geometry stay. | Active | Refines I03b. | Your call, 2026-11-21: a rectangle started on a corner stayed 0 x 0 for 9 px, then jumped. Now it grows from 4 px (the 10 mm grid). Tested: quick test 'press'. | G01 | tools/rect_tool.gd _rect_drag(); inference.gd on_grid() | 2026-11-21 |
-| I49 | Shapes beyond rectangles (Codex S08): Circle first, then Line and closed outlines, then Arcs, then polygons and rotated rectangles. Circles and arcs stay exact in the FreeCAD model (sketch geometry); only the viewport draws them as facets. Each closed outline can be pushed/pulled into a board or a cut, like a rectangle. | Active |  | Your call, 2026-11-22: approved S08 as Work list items, Circle first (round holes, dowels, round tops). | G03 | Circle: viewport/tools/circle_tool.gd, worker/circle.py (T81); Line: viewport/tools/line_tool.gd, worker/line.py (T82); Arc, Polygon: T83, T84 | 2026-11-22 |
-| I50 | The Circle tool's key is C (as in SketchUp); its toolbar segment is "Circle", tooltip "Circle (C)". | Active |  | Your call, 2026-11-22. C was free. | G03, G05 | viewport/tools/circle_tool.gd TOOL (A34) | 2026-11-22 |
-| I51 | Lines split faces (as in SketchUp): a line drawn across a face divides it into regions; Push/Pull acts on the region under the cursor, found like a paint bucket from the face's outline and every line on it. The app finds the region at once; FreeCAD gets one op, that region's closed outline extruded (joined or cut), and the other region is untouched. Lines are kept as drawings (saved, undoable) and don't change the solid until a region is pushed. Arcs split faces the same way. | Active |  | Your call, 2026-11-22: "however you accomplish it in our app to make it fast, you should do that". Region corners come from FreeCAD's real edges and the lines' endpoints, so the join is clean (A03). | G03, G11 | viewport/regions.gd (pure region finding), presenter.gd drawn_region, push_tool.gd target.region; worker/line.py region_face, native_region; push.py; checks: test_regions.gd, worker/scenario/99_regions.py (T82). Arcs: T83 | 2026-11-22 |
-| I58 | Line tool: key L. Click-click chain: each click ends one line and starts the next from that point; Esc ends the chain, and clicking the start point closes the loop into a face. A typed length sets the current line's length along the direction you're pointing. Press-drag-release (I43's 6 px / HOLD_MS rule) draws a single line. | Active | Builds on I43, I51 | Your call, 2026-11-22 (H046): "Chain, also drag". | G03 | viewport/tools/line_tool.gd (T82); quick test viewport/tests/quick/line.gd | 2026-11-22 |
-| I60 | Arc tool: key A, two kinds; pressing A again while it is active switches between them, and the hint and tip name the current kind. 2-Point Arc (the default): click the start, click the end, move to set the bulge; typed: a bare number is the bulge, a number with r is the radius (50r). Centre Arc: click the centre, click the start (sets the radius; a typed value is the radius), sweep to the end (a typed value is the angle in degrees). Arcs don't chain: each ends after its last click (William, 2026-11-22). Arcs split faces and profiles like lines (I51) and stay exact arcs in FreeCAD (I49). | Active | Builds on I49, I51 | Your call, 2026-11-22: both kinds, A again cycles. | G03 | viewport/tools/arc_tool.gd, worker/arc.py (H085) | 2026-11-22 |
-| I61 | An arc started on a corner, where two edges of a face or profile meet, defaults to tangent to both edges (a rounded corner); FreeCAD's own fillet on a board's edges is a separate item (after edge selection). | Active | Builds on the Arc tool (T83) | Your call, 2026-11-22: 'If you make an arc on the corner, it should default to tangency', and FreeCAD's fillet later. | G03 | Not built: T83 step 2 (H086) | 2026-11-22 |
-| I64 | Rotated Rectangle and Polygon (T84): pressing R again while Rectangle is active toggles Rectangle and Rotated Rectangle (click start, click end of first edge, drag perpendicular width; hint and tip name the active mode, like Arc's I60 toggle). Polygon is its own toolbar button with no keyboard shortcut for now (Q33), default 6 sides (typed Ns like 8s), drawn from centre and radius as an exact regular polygon in a FreeCAD sketch like Circle (T81). | Active | Builds on I49, I60; opens Q33 | William, 2026-11-23: R again for Rotated Rectangle; Polygon as a button with no hotkey yet and exact FreeCAD sketch geometry like Circle. | G03 | T84 | 2026-11-23 |
-| I65 | Numbers typed after creating a rectangle, before any other action, alter that rectangle's dimensions (keeping its origin, plane and direction signs), just as after-the-fact typing amends a Move (I14). | Active | Matches I14 | William, 2026-11-24: after playing with Shop Sketch, typing dimensions right after placing a rectangle should resize it. | G03, G06 | viewport/tools/rect_tool.gd | 2026-11-24 |
-| I71 | A corner fillet radius too big for the corner's edges (typed 50r on a corner) leaves the arc unplaced and says why in the status line: 'Radius must be at most <largest that fits> for this corner', like the chord's 'Radius must be at least half the chord'. | Active | Builds on I61 | William, 2026-11-26: add a status line for it (follow-up H086). | G03 | viewport/tools/arc_tool.gd (typed) | 2026-11-26 |
-| I72 | A click that starts a Polygon gesture clears side-count digits typed before it and not entered, so a radius typed next starts from an empty box (an entered 8s still sets the sides). | Active | Builds on I64 | William, 2026-11-26: clear the box; starting a polygon has no other side effect (follow-up H130). | G03 | viewport/tools/polygon_tool.gd (click) | 2026-11-26 |
+| ID | Decision | Status |
+|---|---|---|
+| I02 | Core loop is Rectangle → Push/Pull. | Active |
+| I04b | A profile drawn on an existing part's surface joins that part by default when extruded. | Active |
+| I09 | A rectangle drawn on a face may overhang the face's edges; the whole rectangle is extru... | Active |
+| I11 | Tools act on what you can see when you start. | Active |
+| I43 | Rectangle, Push/Pull and Move start on the press and follow the cursor at once. | Active |
+| I44 | Drawing a rectangle's second corner ignores a point snap that would leave a side at zer... | Active |
+| I49 | Shapes beyond rectangles (Codex S08): Circle first, then Line and closed outlines, then... | Active |
+| I50 | The Circle tool's key is C (as in SketchUp); its toolbar segment is "Circle", tooltip "... | Active |
+| I51 | Lines split faces (as in SketchUp): a line drawn across a face divides it into regions;... | Active |
+| I58 | Line tool: key L. | Active |
+| I60 | Arc tool: key A, two kinds; pressing A again while it is active switches between them, ... | Active |
+| I61 | An arc started on a corner, where two edges of a face or profile meet, defaults to tang... | Active |
+| I64 | Rotated Rectangle and Polygon (T84): pressing R again while Rectangle is active toggles... | Active |
+| I65 | Numbers typed after creating a rectangle, before any other action, alter that rectangle... | Active |
+| I71 | A corner fillet radius too big for the corner's edges (typed 50r on a corner) leaves th... | Active |
+| I72 | A click that starts a Polygon gesture clears side-count digits typed before it and not ... | Active |
 
 ### Push/Pull
 
-| ID | Decision | Status | Replaces / replaced by | Why | Principles | Where in the code | Date |
-|---|---|---|---|---|---|---|---|
-| I05 | Pushing an existing face always edits that board, never makes a new one. | Active |  | Matches SketchUp; the first version wrongly made a new board. | G03 | main.gd commit_push() | 2026-11-20 |
-| I08 | FreeCAD rejects a push/pull that does nothing: a cut that doesn't reach the board, a merge entirely inside it, or a merge whose new piece doesn't touch it. | Active |  | Found in testing: a cut into empty air reported success, and a detached merge would make one 'board' of two pieces. Now these get the red wave. | G10 | replay.py apply_tool() | 2026-11-20 |
-| I23 | Pushing in snaps to the faces behind (back face, pocket floor), measured through the board when the push starts; the tooltip says which. Visible points snap first. (Details below.) | Tentative | Refines I03b. Its 'face behind keeps a measured depth' part is replaced by I26b (pocket floors follow their face); the snapping stands. Its snap radius is narrowed by I45. | Your question: snapping to the back side when pushing a hole in, without I03b's stray hidden-edge snaps. | G01 | tools/push_tool.gd _depths_behind(), _snap_to_face_behind() | 2026-11-21 |
-| I24 | A cut that ends at the opposite face is a through-cut in FreeCAD: its length is an expression that always runs through the board, so it stays through when the board's thickness changes. A cut to a pocket floor keeps its depth. (Details below.) | Tentative | Refines I23, A22b. Extended by I26b: pocket-floor cuts follow their face too. | Your call: like FreeCAD's 'through' option, tied to the geometry, not a measurement. | G04, G08 | replay.py Model.through_all(); tools/push_tool.gd commit_push() | 2026-11-21 |
-| I34 | Pushing a piece toward another has three snaps: first contact, the near surface (scribed fit: P minus S), the far surface (S gets an opening: S minus P). A flag shows the modes and the key that cycles them. One undo step. (Details below.) | Active | Extends I24 (through to the back face) and I26b (face ties) | Agreed in the Codex discussion, 2026-11-21 (S17, H003). Key: ⌥ Option (I56). | G04 | Not built: Work list T38 | 2026-11-21 |
-| I40 | A push or a Properties dimension made up to another board's face stays tied to that face's plane (I26b's rules). Push/Pull and dimension-field picks infer the face from a corner, edge, midpoint or the face itself; Tab cycles the reachable faces; a dimension-field pick commits at once. (Details below.) | Active | Replaces I39 (and through it I26b) | William requested that corners work like edges and faces (Codex, H019). Built for plain rectangular boards (T53). | G04, G08 | worker/plane_fit.py; tools/push_tool.gd _edge_inference(); property_panel.gd pick_reference() | 2026-11-21 |
-| I41 | Pulling into another board's face (Push/Pull or a Properties fit) has three end conditions: Butt to plane (square, stops at the first contact), Slice at plane (the end lies on the plane), Fully reach plane (square, at the last contact). ⌥ Option cycles them while pushing, starting on Butt; the choice holds for that push. (Details below.) | Active | Refines I40; the Push/Pull side of I36's fit | William's call (H015 for Properties; 2026-11-21 for Push/Pull, key chosen 2026-11-21). | G04 | worker/plane_fit.py geometry() (fit_mode 0/1/2); tools/push_tool.gd key(), _push_shape() | 2026-11-21 |
-| I45 | Pushing in snaps to a face behind only when the cursor is nearer to it on screen than to the start or the next face along (and within the snap radius). | Active | Refines I23 (its snap radius). | Your call, 2026-11-21: on an 18 mm board the back-face snap covered the whole thickness, so a push in jumped to -18 at once. Now it follows to about -8, then snaps. Tested: quick test 'press'; snaptest unchanged. | G01 | tools/push_tool.gd _snap_to_face_behind() | 2026-11-21 |
-| I56 | In Push/Pull, ⌥ Option is the one key for how the pushed end meets what it hits: on a flat face it cycles Butt → Slice → Fully reach → Through; on a curved or irregular piece First contact → Scribed → Through. The flag lists the choices for that target. | Active | Fills in I34 (key not chosen); extends I41 | Your call, 2026-11-22: one key for one idea (Tab still switches the face). | G05 | Not built: T38 | 2026-11-22 |
+| ID | Decision | Status |
+|---|---|---|
+| I05 | Pushing an existing face always edits that board, never makes a new one. | Active |
+| I08 | FreeCAD rejects a push/pull that does nothing: a cut that doesn't reach the board, a me... | Active |
+| I23 | Pushing in snaps to the faces behind (back face, pocket floor), measured through the bo... | Tentative |
+| I24 | A cut that ends at the opposite face is a through-cut in FreeCAD: its length is an expr... | Tentative |
+| I34 | Pushing a piece toward another has three snaps: first contact, the near surface (scribe... | Active |
+| I40 | A push or a Properties dimension made up to another board's face stays tied to that fac... | Active |
+| I41 | Pulling into another board's face (Push/Pull or a Properties fit) has three end conditi... | Active |
+| I45 | Pushing in snaps to a face behind only when the cursor is nearer to it on screen than t... | Active |
+| I56 | In Push/Pull, ⌥ Option is the one key for how the pushed end meets what it hits: on a f... | Active |
 
 ### Move, copies and arrays
 
-| ID | Decision | Status | Replaces / replaced by | Why | Principles | Where in the code | Date |
-|---|---|---|---|---|---|---|---|
-| A10 | Mirrored copies are live FreeCAD Part Mirror features: they follow every later edit of the original, mirrored. | Active |  | Tested: editing the original updated the copy. Copies stay in sync for free. | G04 | replay.py op_mirror() | 2026-11-20 |
-| A11b | A mirrored copy and its original form a mirror group you enter by double-clicking (like an assembly); outside it moves as one, inside the plane shows and each board follows the other, mirrored. (Details below.) | Active | Replaces A11 | Your call, 2026-11-21. Built: T26. Moving the plane itself is still open. | G04 | Not built | 2026-11-21 |
-| A22c | As A22b, but copies of boards are linked: a Move-copy or array is a linked instance, so editing one edits all, until Make unique (I28) frees one. The boards an edit will change are highlighted first (Q28). (Details below.) | Active | Replaces A22b. Resolves Q15; makes I25 hold for boards | Your call, 2026-11-21: linked by default (P05, I25, I28). Built: T12. | G04 | replay.py copy_body() (to change) | 2026-11-21 |
-| A26 | A component instance is mirrored through a Part::Compound wrapper between the instance and its Part Mirror; the mirror stays live (A10). (Details below.) | Active | Refines A10, A22 | FreeCAD 1.1.3/1.1.4 mirror a component instance as if it had no position; the wrapper carries it. | G02, G04 | replay.py mirror_input(), mirror_source(); test_native.py section F | 2026-11-20 |
-| I10 | Copies are moved, not mirrored (SketchUp's default). Mirroring comes later as its own tool. | Active |  | Your call. Editing one copy's face edits the same face on every copy. | G03 | replay.py op_move() | 2026-11-20 |
-| I12c | No separate Mirror tool: in Move, tap Shift to toggle mirror (as Option toggles copy). The board flips across the plane halfway between grab point and cursor; arrow keys lock another axis. (Details below.) | Active | Replaces I12b | Your call: Shift should work like Option (we lock with arrows, so Shift was free). | G05 | main.gd _preview_mirror_move(), commit_mirror_move() | 2026-11-20 |
-| I13b | A typed mirror distance runs from the face you clicked to the plane. A tooltip by the cursor shows that and the total from the face to its mirrored face. If you switch the plane to another axis, it's measured from the board's outer face instead. | Active | Replaces I13 | Your call. | G06 | main.gd _mirror_gap(), _update_tip() | 2026-11-20 |
-| I14 | Move (M), SketchUp style: pick a point, arrows lock axes, click or type a distance. Option toggles copy; then 5x makes an array at that spacing, /5 spreads 5 copies; a number right after a move retypes its distance. (Details below.) | Active |  | Your call: adopt SketchUp's Move modifiers. | G03, G06 | main.gd _move_click(), commit_move(), _amend_last_move() | 2026-11-20 |
-| I15 | Shift without copy flips the board itself (keeps its ID); Option + Shift makes a linked mirrored copy. | Active |  | Follows from I12c. Tested: flip in place, then moving the flipped board, both exact. | G05 | replay.py op_mirror(replace) | 2026-11-20 |
-| I16 | Axis-locked moves follow the closest point on the locked axis to the cursor; when you're looking almost straight down that axis, they use the point under the cursor instead. | Active |  | Found in testing: each method alone failed in one case (looking down an axis vs. moving up over open ground). | G01 | main.gd _move_move() | 2026-11-20 |
-| I17 | A free move slides on the horizontal plane through the grab point. The floor is no longer a landing target (boards no longer sink); other boards' faces still are. | Active |  | Your go-ahead. Found: grabbing a top corner over open floor used to sink the board. | G01 | main.gd _move_move(), _plane_dest() | 2026-11-20 |
-| I20 | Tapping an arrow key cycles: lock to that axis → lock to the plane perpendicular to it → free. Another arrow switches straight to its axis. | Active |  | Your design (SketchUp toggles; Blender locks planes with Shift+axis). Tested: axis → plane → free; plane lock kept red at 0. | G05 | main.gd _unhandled_input() | 2026-11-20 |
-| I21 | Move on a hole's wall grabs the hole (violet): move it on its board, or Option-copy it into a row (spacing, then 8x or /8). In FreeCAD the row is one Draft OrthoArray of the cutter, cut once. (Details below.) | Active |  | Your call: arrays of cut-outs instead of many one-off holes. | G04, G07 | replay.py op_move_cut(), cuts_of(); main.gd _cut_at(), _commit_cut_move() | 2026-11-20 |
-| I25 | Arrays and mirrors stay relationships. Both fixed-spacing (8x) and distributed (/8) arrays keep working, and both behaviours are preserved. | Active | Conflict resolved 2026-11-21: board copies become linked (A22c). Decided 2026-11-21: a distributed (/N) array remembers its span and re-spreads when the span changes (in Shop Sketch or FreeCAD, e.g. an expression on the spacing); fixed-spacing (Nx) arrays keep their spacing. Build: part of Work list T12. | Your confirmed preference (Codex discussion). Built: hole arrays (I21), mirrors (A10, A11b), and board arrays as FreeCAD relationships, /N re-spreading when its span changes (T12, 2026-11-21). | G04 | replay.py copy_body(), op_move_cut() | 2026-11-21 |
-| I28 | Editing a linked component changes its siblings. Shop Sketch makes clear which instances an edit will change, and offers SketchUp-style Make unique to break the link. | Active | Agrees with I10's note and A11 (Tentative: a mirrored copy counts as linked). | Your confirmed preference (Codex discussion). Built 2026-11-21 (T12): linked copies get a soft tint and the tooltip counts them while you edit one (Q28); U / Edit > Make unique. | G03, G04, G13 | Make unique: not built | 2026-11-21 |
-| I32 | An array works like a component you enter: from outside a click picks the whole row; inside, moving one copy detaches it from the row (still linked in shape). Moving the original takes its copies along. (Details below.) | Active | Refines I25, Q29 | Your call, 2026-11-21. | G04 | replay.py op_move (arrays_of); inside: T20 | 2026-11-21 |
-| I46 | Inside an entered component or array, deleting a member preserves the others; if it was the original, promote a survivor to original. (Details below.) | Active | Extends I32 | William's answer while completing T34, 2026-11-21. | G04 | worker/deletion.py; viewport/selection.gd | 2026-11-21 |
-| I52 | Copying a whole assembly makes a new assembly of linked boards; 3x and /3 make rows of such assemblies with editable spacing. Editing a board's shape updates its counterparts across the row. | Active | Replaces I47; extends A22c | William confirmed linked assembly-row copies, 2026-11-22 (H044). | G04 | T58: worker/move.py, worker/assembly.py | 2026-11-22 |
-| I53 | Inside an entered assembly row, moving a copied assembly detaches that whole assembly's position from the row while keeping its shape links. | Active | Extends I32 | William chose "Detach its position; keep shape links", 2026-11-22 (H044). | G04 | T58: viewport/tools/move_tool.gd, worker/move.py | 2026-11-22 |
-| I66 | Typing an array count (Nx, xN, *N, /N) during a Move previews the array live before clicking (enabling copy mode if not yet on) and commits with that count on click or typed distance; after clicking, before any other action, typing a count or distance still amends the array. | Active | Extends I14, I25 | William, 2026-11-24: typing x8 should preview the array before clicking and also work after clicking before any other action. | G03, G06, G13 | viewport/tools/move_tool.gd | 2026-11-24 |
-| I69 | Double-clicking a linked component (board family) enters and isolates it like an assembly (greying out the rest of the model, keeping siblings tinted so you see what changes, Esc leaves). The Properties panel prioritizes clean critical dimensions and linked measurements at the top in the model's display units (readable header + assembly/component subtitle, Parametric badge, Thickness/Height/Length with linked target face name and evaluated length, per 'Gpts properties panel idea; good but needs refinement.png'), with native FreeCAD properties collapsed underneath. | Active | Builds on I28, I36, I40, I57 | William, 2026-11-24: approved component entry and ChatGPT-style Properties layout prioritizing critical dimensions and linked measurements. | G03, G04, G13 | viewport/selection.gd, viewport/property_panel.gd, worker/object_properties.py | 2026-11-24 |
+| ID | Decision | Status |
+|---|---|---|
+| A10 | Mirrored copies are live FreeCAD Part Mirror features: they follow every later edit of ... | Active |
+| A11b | A mirrored copy and its original form a mirror group you enter by double-clicking (like... | Active |
+| A22c | As A22b, but copies of boards are linked: a Move-copy or array is a linked instance, so... | Active |
+| A26 | A component instance is mirrored through a Part::Compound wrapper between the instance ... | Active |
+| I10 | Copies are moved, not mirrored (SketchUp's default). | Active |
+| I12c | No separate Mirror tool: in Move, tap Shift to toggle mirror (as Option toggles copy). | Active |
+| I13b | A typed mirror distance runs from the face you clicked to the plane. | Active |
+| I14 | Move (M), SketchUp style: pick a point, arrows lock axes, click or type a distance. | Active |
+| I15 | Shift without copy flips the board itself (keeps its ID); Option + Shift makes a linked... | Active |
+| I16 | Axis-locked moves follow the closest point on the locked axis to the cursor; when you'r... | Active |
+| I17 | A free move slides on the horizontal plane through the grab point. | Active |
+| I20 | Tapping an arrow key cycles: lock to that axis → lock to the plane perpendicular to it ... | Active |
+| I21 | Move on a hole's wall grabs the hole (violet): move it on its board, or Option-copy it ... | Active |
+| I25 | Arrays and mirrors stay relationships. | Active |
+| I28 | Editing a linked component changes its siblings. | Active |
+| I32 | An array works like a component you enter: from outside a click picks the whole row; in... | Active |
+| I46 | Inside an entered component or array, deleting a member preserves the others; if it was... | Active |
+| I52 | Copying a whole assembly makes a new assembly of linked boards; 3x and /3 make rows of ... | Active |
+| I53 | Inside an entered assembly row, moving a copied assembly detaches that whole assembly's... | Active |
+| I66 | Typing an array count (Nx, xN, *N, /N) during a Move previews the array live before cli... | Active |
+| I69 | Double-clicking a linked component (board family) enters and isolates it like an assemb... | Active |
 
 ### Snapping
 
-| ID | Decision | Status | Replaces / replaced by | Why | Principles | Where in the code | Date |
-|---|---|---|---|---|---|---|---|
-| I03b | Rectangle and Push/Pull snap with Move's engine (inference.gd): endpoints, then midpoints, then edges, else the 10 mm grid. Push/Pull goes to a point's level. Every tool snaps only to points you can see. (Details below.) | Tentative | Replaces I03. Resolves Q16. Conflict flagged 2026-11-21: I26 (snapped push heights are stored as numbers). | Your go-ahead (T4: one engine for all tools). | G05 | inference.gd snap(), point(); tools/push_tool.gd _push_drag() | 2026-11-21 |
-| I18 | Soft axis inference: drag within 8° of an axis's on-screen direction and the move sticks to it (dotted red/green/blue line); it lets go past 12°. Snap priority: endpoint > midpoint > on edge > axis inference > on face > free plane. The tooltip names the snap. | Active |  | Your call (important). Tested: red and blue inference, a corner landing exactly on another board's edge midpoint. | G03 | main.gd _infer_point(), _infer_axis() | 2026-11-20 |
-| I19 | Grid snapping snaps the distance travelled, not the position; point snaps (endpoint/midpoint/edge) are exact. | Active |  | Your call. Tested: a board 3 mm off the grid keeps its 3 mm after a free move. | G06 | main.gd _plane_dest() | 2026-11-20 |
+| ID | Decision | Status |
+|---|---|---|
+| I03b | Rectangle and Push/Pull snap with Move's engine (inference.gd): endpoints, then midpoin... | Tentative |
+| I18 | Soft axis inference: drag within 8° of an axis's on-screen direction and the move stick... | Active |
+| I19 | Grid snapping snaps the distance travelled, not the position; point snaps (endpoint/mid... | Active |
 
 ### Measurements
 
-| ID | Decision | Status | Replaces / replaced by | Why | Principles | Where in the code | Date |
-|---|---|---|---|---|---|---|---|
-| I35 | In a typed measurement a minus always subtracts (1-1/2" is 1/2 inch); mixed numbers and feet-and-inches use spaces (1 1/2", 1' 6 1/2"). (Details below.) | Active |  | Your words, 2026-11-21 (H011). Matches FreeCAD's own expressions. | G06 | Codex's FreeCAD input adapter (worker/length_input.py on codex/t32-units, not merged yet); viewport/units.gd rejects the hyphen forms (bf6c6f1) | 2026-11-21 |
-| I48 | Delete / Backspace belong to the measurements box once you click it or type, even after it's emptied, until you pick in the view or select boards again; then, with nothing typed, they delete, in any tool: mid-move what's being moved (a hole being moved is left alone), otherwise the selection. A focused text field (Properties) keeps its keys. Edit > Delete has no menu key (it would fire while typing). | Active | Refines I46 | William, 2026-11-21 (T34 review): 'What matters is no text selected then deleted object; when text box selected, it is restricted to that.' 'Once you have selected the text box or started typing then delete should delete the text unless you select the item again.' | G05 | viewport/main.gd typing, _unhandled_input | 2026-11-21 |
-| I57 | Lengths are shown in the model's units, picked in a Units menu: Feet and inches (8' 3 1/4"), Inches as fractions (99 1/4"), Inches as decimals (99.25"), or Metric (m, cm or mm), each with a rounding choice (1/8–1/64"; 0.1–0.001"; 1–0.01 mm). Default: fractional inches at 1/16". A length the rounding changed shows with ~ in front. The choice is saved in the model's .FCStd; a new model starts with the last units used. Display only: FreeCAD keeps exact millimetres, and typing still takes any unit (I35). | Active | Builds on I35, T32 | Your call, 2026-11-22 (T66). A framing-style 8-3-1/4 was dropped: it would read as a subtraction when edited (I35). | G06 | Not built: T66 | 2026-11-22 |
-| I59 | A bare number typed in the measurements box (no unit) is in the model's display units (I57): inches in Feet and inches or Inches, the chosen m / cm / mm in Metric. A typed unit always wins. | Active | Refines T32 (bare = mm) | Your call, 2026-11-22 (T66), as SketchUp. | G03, G06 | Not built: T66 (measure_box.gd default_unit) | 2026-11-22 |
-| I62 | A model with no units saved in it (made before T66, or its saved value unreadable) opens in the default units the user has set (once Preferences exist, T111), else the last units used, as a new model does. It is then saved with them. | Active | Refines I57 | William, 2026-11-22 (H052's brief): old models shouldn't jump to a fixed default. | G03, G06 | Not built: H052 (worker/session.py, viewport units) | 2026-11-22 |
-| I67 | A document with no units explicitly set yet (new model or pre-T66 model without saved ShopSketchUnits) starts in the previous/preference units (I62), and adopts the unit of the first typed length that includes an explicit unit (saving it to the .FCStd and remembering it as last used); bare numbers keep the previous settings. | Active | Refines I57, I59, I62 | William, 2026-11-24: document units should reflect the first typed length if unset, else previous settings. | G03, G06 | viewport/measure_box.gd, viewport/units.gd | 2026-11-24 |
-| I70 | On a first-ever typed length with no unit suffix (no preferences.json units.default, no settings.cfg units.last, and no saved ShopSketchUnits on the model), do not commit the bare number yet; keep the active gesture live and show in the status bar: "Include a unit on your first length (e.g. 4\" or 100mm); future lengths use that system (change in Preferences)." Once a unit has been chosen, typed, or saved, future bare lengths commit immediately in that system and lock the document units. | Active | Builds on I67, I62, I59 | William, 2026-11-24: avoid silently guessing units on a brand-new user's first bare length; guide them once in the status bar without breaking the drag. | G03, G06 | viewport/measure_box.gd | 2026-11-24 |
+| ID | Decision | Status |
+|---|---|---|
+| I35 | In a typed measurement a minus always subtracts (1-1/2" is 1/2 inch); mixed numbers and... | Active |
+| I48 | Delete / Backspace belong to the measurements box once you click it or type, even after... | Active |
+| I57 | Lengths are shown in the model's units, picked in a Units menu: Feet and inches (8' 3 1... | Active |
+| I59 | A bare number typed in the measurements box (no unit) is in the model's display units (... | Active |
+| I62 | A model with no units saved in it (made before T66, or its saved value unreadable) open... | Active |
+| I67 | A document with no units explicitly set yet (new model or pre-T66 model without saved S... | Active |
+| I70 | On a first-ever typed length with no unit suffix (no preferences.json units.default, no... | Active |
 
 ### View and look
 
-| ID | Decision | Status | Replaces / replaced by | Why | Principles | Where in the code | Date |
-|---|---|---|---|---|---|---|---|
-| I22 | Trackpad: two fingers orbit (same speed as a mouse drag), Shift + two fingers pan, pinch zooms toward the cursor. A wheel mouse is unchanged. | Tentative |  | Your go-ahead (T7). Blender-style mapping, my choice; easy to swap (e.g. two fingers pan, Shift orbits). Tested with synthetic gestures only: needs your hands on a real trackpad (Q4). | G03 | main.gd _unhandled_input(), TRACKPAD_PX | 2026-11-21 |
-| I30 | The mouse wheel zooms by how much you scrolled (Godot's scroll amount), not a fixed step per scroll event: a notch of a plain wheel zooms 12% (ZOOM_STEP), a smooth-scrolling mouse's many small steps add up to the same, and one event never zooms more than 3 notches. | Active |  | Your report: zoom far too aggressive with an MX Master (it sends many small scroll events per notch). Tested: ten 0.1 steps = one notch. Not yet felt on your mouse: tune ZOOM_STEP if needed. | G03 | main.gd _unhandled_input(), ZOOM_STEP, ZOOM_MAX_STEPS | 2026-11-21 |
-| I31 | Mac-like interface: system font, a segmented-control toolbar, a quiet status bar, a rounded measurements field, macOS tooltips; follows light/dark; Retina-scaled. (Details below.) | Tentative |  | Your report: buttons and the number box didn't feel Mac-like. Tentative until you've tried it. | G03 | main.gd _make_theme(), _make_ui() | 2026-11-21 |
-| I36 | A Properties panel shows FreeCAD's own values for the selected piece and its features; values can be edited as a number or a FreeCAD expression. Each edit is an undoable action; shared features change their linked copies. (Details below.) | Active |  | Your choice, 2026-11-21, asked of Codex (H012). | G02 | viewport/property_panel.gd, main.gd _request_properties/_edit_property; worker/object_properties.py; op property_edit | 2026-11-21 |
-| I37 | Hide and unhide, SketchUp style: H hides, Shift+H unhides all, View > Hidden geometry ghosts them. Hiding is an undoable action saved in the file. Hidden boards aren't picked or snapped to, and are left out of the Blender export. (Details below.) | Active |  | Your choice, 2026-11-21 (T28). | G02, G03 | worker/visibility.py; main.gd hide_selected(), unhide(), hidden_boards(), _apply_context() | 2026-11-21 |
-| I63 | Preferences are a JSON file for now (a Mac window later, T111): user://preferences.json holds the default units (I62) and a 'tuning' section with the input-feel tunables (SNAP_PX, EDGE_PX, INFER_DEG, RELEASE_DEG, DRAG_PX, HOLD_MS, TRACKPAD_PX, ZOOM_STEP, GRID); a missing key keeps the built-in value. Shop Sketch > Preferences… (⌘,) opens it in the text editor, writing it with the current values if it isn't there; saving it applies the change at once. A file or value that can't be used keeps the last good values and the status bar says why. Tests never read it. | Active | Builds on I62, T111 | William, 2026-11-22: units plus the feel tunables, live, so the feel test on real hardware (Q4) can tune while drawing. | G06 | viewport/preferences.gd, viewport/main.gd (`_apply_preferences`); the Mac window: T111 later | 2026-11-22 |
-| W10 | Lighting toned down (filmic tone mapping, lower sun and ambient). | Active |  | Top faces were clipping to white and hiding the wave. | G07 | main.gd _make_world() | 2026-11-20 |
-| W11 | Highlights and drafts that lie on a face are drawn with a small depth bias in their shader (pulled toward the camera along the line of sight), so they never flicker against the face beneath. | Active |  | Found by you: white triangles in highlighted faces while orbiting and zooming. Tested: 36 views, gaps gone. A first fix that moved the nodes broke clicking on rectangles, so the bias is in rendering only. | — | viewport/overlay.gdshader | 2026-11-20 |
-| W12 | Lines are anti-aliased strips a fixed width on screen (edges 1.5 pt, grid 1 pt, axes 1.75 pt), pulled slightly toward the camera; the grid draws first and fades with distance. (Details below.) | Active |  | Your request: grid and axis lines vanished (1-pixel GL lines get no anti-aliasing). | — | viewport/line.gdshader, line.gdshaderinc; main.gd _lines() | 2026-11-21 |
-| W14 | H059 may replace raw IDs with readable board names in main.gd and selection.gd status messages, so random IDs do not appear in paint, grain or linked-board feedback (William). | Active |  | Preserve readable feedback when internal IDs become random. | G03 |  | 2026-11-22 |
+| ID | Decision | Status |
+|---|---|---|
+| I22 | Trackpad: two fingers orbit (same speed as a mouse drag), Shift + two fingers pan, pinc... | Tentative |
+| I30 | The mouse wheel zooms by how much you scrolled (Godot's scroll amount), not a fixed ste... | Active |
+| I31 | Mac-like interface: system font, a segmented-control toolbar, a quiet status bar, a rou... | Tentative |
+| I36 | A Properties panel shows FreeCAD's own values for the selected piece and its features; ... | Active |
+| I37 | Hide and unhide, SketchUp style: H hides, Shift+H unhides all, View > Hidden geometry g... | Active |
+| I63 | Preferences are a JSON file for now (a Mac window later, T111): user://preferences.json... | Active |
+| W10 | Lighting toned down (filmic tone mapping, lower sun and ambient). | Active |
+| W11 | Highlights and drafts that lie on a face are drawn with a small depth bias in their sha... | Active |
+| W12 | Lines are anti-aliased strips a fixed width on screen (edges 1.5 pt, grid 1 pt, axes 1.... | Active |
+| W14 | H059 may replace raw IDs with readable board names in main.gd and selection.gd status m... | Active |
 
 ### Feedback
 
-| ID | Decision | Status | Replaces / replaced by | Why | Principles | Where in the code | Date |
-|---|---|---|---|---|---|---|---|
-| I06 | A rejected operation is removed from the op log after its red wave; the reason stays in the status bar. | Active |  | Never leaves you stuck with an impossible op. | G10 | main.gd remove_op() | 2026-11-20 |
-| W01 | Every push/pull plays a colour wave that starts where the cursor finished the operation. | Active |  | Confirmation you can feel, tied to your hand. | G01 | main.gd commit_push() | 2026-11-20 |
-| W02 | Cuttlefish look: a noise-wobbled front with pigment cells blooming just ahead of it. | Active |  | The organic feel you asked for. | G01 | confirm_wave.gdshader | 2026-11-20 |
-| W03 | Softer: one smooth, noise-blurred front (~5 cm) and round blurry pigment cells at 40% strength. | Active | Replaces W03a | Subtler, fuzzier edges. | G01 | confirm_wave.gdshader softness, pigment_strength | 2026-11-20 |
-| W04 | Wave starts immediately (optimistic). FreeCAD has until the hold point to answer. | Active | Replaces W04a | Hides FreeCAD's time entirely. | G01 | main.gd _begin_wave() | 2026-11-20 |
-| W05 | New boards start translucent amber. Edits never flash amber; they carry a soft amber band on their front, moving or waiting. | Active | Replaces W05a | Same look whether moving or waiting. | G07 | confirm_wave.gdshader from_draft | 2026-11-20 |
-| W06 | Accepted: the wave completes into the real material. Rejected: a red wave runs back from the far edge to the cursor; new boards fade away, edits get a red ring. | Active |  | Failure is as readable as success. | G07, G10 | main.gd _process(); shader reject_t | 2026-11-20 |
-| W07 | While waiting, the front breathes: it glides between 30% and 60% of its travel, ~2.6 s per cycle. | Active | Replaces W07a | Clearly alive while FreeCAD is slow. | G01 | main.gd HOLD, BREATH_LO, BREATH_W | 2026-11-20 |
-| W08 | Breathing never changes colour or pigment; only the front moves. | Active | Replaces W08a | Keep the same look throughout. | G07 | confirm_wave.gdshader | 2026-11-20 |
-| W09 | Front motion is smooth to the 2nd derivative: position, speed and acceleration are all continuous (two smoothing stages, look-ahead, amplitude compensation). | Active | Replaces W09a | Removes the thud on entering/leaving breathing. | G01 | main.gd _process(); SLOW, TAU, TAU_UP, LEAD, AMP_COMP | 2026-11-20 |
+| ID | Decision | Status |
+|---|---|---|
+| I06 | A rejected operation is removed from the op log after its red wave; the reason stays in... | Active |
+| W01 | Every push/pull plays a colour wave that starts where the cursor finished the operation. | Active |
+| W02 | Cuttlefish look: a noise-wobbled front with pigment cells blooming just ahead of it. | Active |
+| W03 | Softer: one smooth, noise-blurred front (~5 cm) and round blurry pigment cells at 40% s... | Active |
+| W04 | Wave starts immediately (optimistic). | Active |
+| W05 | New boards start translucent amber. | Active |
+| W06 | Accepted: the wave completes into the real material. | Active |
+| W07 | While waiting, the front breathes: it glides between 30% and 60% of its travel, ~2.6 s ... | Active |
+| W08 | Breathing never changes colour or pigment; only the front moves. | Active |
+| W09 | Front motion is smooth to the 2nd derivative: position, speed and acceleration are all ... | Active |
 
 ### Materials
 
-| ID | Decision | Status | Replaces / replaced by | Why | Principles | Where in the code | Date |
-|---|---|---|---|---|---|---|---|
-| A05 | Material lives in a metadata field, never in part names. | Active |  | Your standing rule for the FreeCAD→Blender pipeline. | G02 | replay.py (SSMaterial property; App::Part already has its own Material) | 2026-11-20 |
-| I33 | Turn grain 90° is T, on the board under the cursor (G was already Grid snap). Paint has no key yet: picking a wood in the Wood menu switches to Paint. | Tentative | Q30, Q14 | My pick, 2026-11-21: change it if you prefer another key. | G05 | main.gd _turn_grain | 2026-11-21 |
-| M01 | Materials are assigned in Godot and carried through the FreeCAD model into the eventual Blender render. | Active | Builds on A05, A07 | Your preference (Codex discussion). Built 2026-11-21 (T15, M03): Paint tool and Wood menu in Godot; FreeCAD card on each board's solid; textures and grain carried to Blender in model.glb. | G02 | replay.py SSMaterial; UI not built | 2026-11-21 |
-| M02 | Material handling understands grain direction: material identity and orientation are properties of the model, used both for modelling previews and for convincing final renders. | Active |  | Your preference (Codex discussion). Built 2026-11-21 (T15, Q30): grain along the longest edge by default, T turns it 90° (I33); end grain shown on faces the grain runs into. | G02 | Not built | 2026-11-21 |
-| M03 | Materials are FreeCAD material cards. Shop Sketch ships a library of wood cards (public data, CC0 face and end-grain textures). Each board stores the card's ID plus the name (A05); grain direction is a Shop Sketch property in the file. (Details below.) | Active | Refines M01, M02, A05. Resolves Q31 | Your position, 2026-11-21, with my additions you approved. FreeCAD has no species cards and no grain concept. | G02 | Not built | 2026-11-21 |
-| M04 | Wood data from the Wood Handbook GTR-190 ch. 5 at 12% MC; face textures ambientCG CC0; end grain from cropped ambientCG tree ends, tinted per species. No sheet goods yet. (Details below.) | Active | Refines M03 | Built with T15, 2026-11-21. | — | worker/materials.py; materials/textures | 2026-11-21 |
+| ID | Decision | Status |
+|---|---|---|
+| A05 | Material lives in a metadata field, never in part names. | Active |
+| I33 | Turn grain 90° is T, on the board under the cursor (G was already Grid snap). | Tentative |
+| M01 | Materials are assigned in Godot and carried through the FreeCAD model into the eventual... | Active |
+| M02 | Material handling understands grain direction: material identity and orientation are pr... | Active |
+| M03 | Materials are FreeCAD material cards. | Active |
+| M04 | Wood data from the Wood Handbook GTR-190 ch. | Active |
 
 ### Output
 
-| ID | Decision | Status | Replaces / replaced by | Why | Principles | Where in the code | Date |
-|---|---|---|---|---|---|---|---|
-| A07 | Blender is used only for final renders. | Active |  | Its strengths are rendering, not the modelling feel. | G02 |  | 2026-11-20 |
-| D01 | Shop drawing: A3, 1:10, third-angle projection, overall dimensions, cut list grouped by component + size + material. | Active | Revisit later (P06, Q21). | North American shop convention. | G02 | worker/drawing.py | 2026-11-20 |
-| D02 | Cut-list sizes are each board's bounding box in its own frame. | Tentative |  | Right for square stock only; revisit for angled cuts. | G02 | replay.py bodies.json | 2026-11-20 |
-| I68 | Automatically created TechDraw drawing pages are deleted after the PDF/SVG drawing is generated for now (never kept in the saved .FCStd across autosaves); revisit keeping native TechDraw pages in .FCStd in a later discussion (Q34). | Active | Refines D01, A24 | William, 2026-11-24: eliminates 1.7 s-54 s autosave stalls and .FCBak clutter seen in models/model.FCStd; revisit retention later. | G01, G02 | worker/session.py, worker/serve.py | 2026-11-24 |
-| P06 | Main output: a buildable design: plans, a render, and possibly a cut list. Keep FreeCAD's fabrication paths open for later (CNC and 3D printing are not needed now). Drawing generation will be revisited; the existing drawing script (D01) is a promising foundation. | Active |  | Your preference (Codex discussion). See Q21. | G02 | worker/drawing.py | 2026-11-21 |
+| ID | Decision | Status |
+|---|---|---|
+| A07 | Blender is used only for final renders. | Active |
+| D01 | Shop drawing: A3, 1:10, third-angle projection, overall dimensions, cut list grouped by... | Active |
+| D02 | Cut-list sizes are each board's bounding box in its own frame. | Tentative |
+| I68 | Automatically created TechDraw drawing pages are deleted after the PDF/SVG drawing is g... | Active |
+| P06 | Main output: a buildable design: plans, a render, and possibly a cut list. | Active |
 
 ### Process
 
-| ID | Decision | Status | Replaces / replaced by | Why | Principles | Where in the code | Date |
-|---|---|---|---|---|---|---|---|
-| P01 | This log is the reference. A new decision that contradicts an old one gets a new row naming the old ID, and the old row is marked Superseded (never deleted). | Active |  | So tuning changes are made knowingly, not by accident. | G11 |  | 2026-11-20 |
-| P02 | Test hooks (forced rejection, worker delay_ms, --fxtest/--breathtest) are for testing only. | Active |  | So demo behaviour never leaks into real use. | G11 | main.gd, replay.py | 2026-11-20 |
-| P03 | Recordings use --true-latency: each FreeCAD reply is held until the video clock has run FreeCAD's real measured time, so videos show true waits with smooth frames. | Active |  | This server renders in software (~4 fps live), which would make Shop Sketch look choppy; the movie writer alone compressed waits about 3×. | G11 | main.gd true_latency; --heavytest | 2026-11-20 |
-| P07 | Two kinds of test: feature tests check answers against FreeCAD with no window (featuretest.sh); UI tests drive the viewport. A feature gets scenario steps first, then a quick-test step. Quick test after every change; full test when it fails or before a merge. (Details below.) | Active |  | Your idea, 2026-11-21. Quick test ~8 s, full test ~15 s (T48, T49). | G11 | tools/featuretest.sh, quicktest.sh, fulltest.sh; worker/test_scenario.py; viewport/tests.gd (--fast, QUICK_LANES) | 2026-11-21 |
-| P09 | The decision log is docs/decision-log.md in the repo, edited directly by whichever agent records your decision, in the same commit as the change. The claude.ai Sheet is retired (its last revision, 83, matches this file). | Active | Replaces the Sheet-plus-copy arrangement | Your call, 2026-11-21: one file means no syncing between the Sheet and the copy, and Codex can read and record decisions too. | G11 | docs/decision-log.md; tools/sort_decision_log.py; .githooks/pre-commit | 2026-11-21 |
-| P10 | Give documentation distinct owners and link rather than repeat: architecture owns boundaries, state and data flow; shared/folder guides own workflow and local rules; README owns usage; this log owns decisions/work status; handoff owns coordination. | Active |  | William approved the documentation cleanup in Codex chat; retain a useful architecture map while reducing duplicated and stale guidance. | G12 | ARCHITECTURE.md (Documentation ownership), AGENTS.md, README.txt, viewport/README.md | 2026-11-21 |
-| P14 | The work board: BOARD.md at the top of the repo lists each agent's next job and notes for it; "check the board" means read it from main and take the first Ready job for you. A branch named after a job (`claude/h036-...`) claims it. Only the integrator edits the board. | Active |  | Your request, 2026-11-22: one phrase to send any agent to its next job; claims by branch can't collide. | G12 | BOARD.md; CLAUDE.md; AGENTS.md | 2026-11-22 |
-| P15 | The agent startup report is `python3 tools/startup.py [IDs]`: checkout and worktrees, recent main, unmerged agent branches, Ready board jobs, and the Work list rows asked for with the decisions they cite. | Active |  | William's choice, 2026-11-22 (T56). | G12 | tools/startup.py; CLAUDE.md; AGENTS.md | 2026-11-22 |
-| P16 | One Claude session is the integrator: it keeps the Work list and the board, hands out jobs (each with its Touches list, P11), reviews agent branches, merges into main when it judges them good enough (review done, full test passes) and pushes main after merging. Workers never merge or push. | Active | Replaces P13 | Your call, 2026-11-22: "update the rule to include pushing as well". | G12 | CLAUDE.md (Working with William); BOARD.md | 2026-11-22 |
-| P17 | Workers don't edit the Work list: a worker's result goes in its handoff response, and the integrator writes the Work list row at merge. Each table takes a fixed set of statuses (Work list: Open, Open (queued: H<n>), In progress, Done, Parked, Split); the log check refuses others. | Active |  | Your approval of the process review, 2026-11-22: nearly every merge conflict was a worker's Work list row against the integrator's, and workers invented statuses the integrator missed. | G12 | tools/sort_decision_log.py (status_problems); AGENTS.md; BOARD.md | 2026-11-22 |
-| P18 | The merge gate is tools/gate.sh: the quick test, then the full test, one verdict. A quick-test failure passes only when tests/known_failures.txt lists it with the Work list item that fixes it. | Active |  | Your approval, 2026-11-22: merges were gated on the full test alone while a quick-test check failed on main unnoticed (T85). | G11, G12 | tools/gate.sh; tests/known_failures.txt | 2026-11-22 |
-| P19 | One integrator at a time, by lock: tools/integrator.py keeps the lock in git's common folder (every worktree sees it). A session takes it only when you've told it, in that session, that it's the integrator; another session is refused and asks you; take --william hands it over (a context clear, a crash). startup.py shows the holder. | Active |  | Your call, 2026-11-22 (option A, a lock; not B, a separate integrator worktree): the 2026-11-22 double merge came from two sessions both believing they integrated. | G12 | tools/integrator.py; tools/startup.py | 2026-11-22 |
-| P20 | The integrator merges with tools/integrate.py <branch> --as <name>: merge, settle handoff and decision-log conflicts, resolve and archive answered entries, number placeholders, run the gate, commit, push. Review and the board stay the integrator's. | Active |  | Your approval, 2026-11-22: the hand steps went wrong several times on 2026-11-22. | G12 | tools/integrate.py | 2026-11-22 |
-| P21 | Every place the viewport predicts what FreeCAD will compute (lengths today; circles, split-face regions next) gets a test comparing the two answers, like tests/length_cases.json. | Active |  | Your approval, 2026-11-22: a prediction without one drifts from FreeCAD quietly. | G11 | CLAUDE.md (Conventions); worker/scenario | 2026-11-22 |
-| P22 | Small fixes take P08's light path (nothing you'd notice, no protocol / format / boundary / saving change, ~30 lines; the small-fixes branch, the quick test, one commit, no Work list row or handoff), and the integrator merges and pushes them when the gate passes, without asking. The fixes are still listed for you at the end of the session. | Active | Replaces P08 (you said when small-fixes merged) | Your call, 2026-11-22: "you should feel free to merge and push small fixes". | G12 | CLAUDE.md, AGENTS.md (Working with William) | 2026-11-22 |
-| P23 | The decision log is two files with the same IDs: docs/decision-log.md is what's live (an index of subjects at the top, then principles, decisions grouped under ~12 subject headings, open questions, the open Work list, tunables, their details) and docs/decision-archive.md is history (superseded decisions, answered questions, done Work list items, their details; a done item moves there at merge). Principles each state one idea and list the decisions they explain; each decision names its principle. A group of decisions is folded into its principle only with your OK, one group at a time (P01). | Active | Refines P09 | Your call, 2026-11-22: easier for both of us to work in; the live file roughly halves, and subjects replace the 'Interaction' catch-all. The reshape comes before T91-T93. | G11 | tools/sort_decision_log.py tidy(), check_files(); integrate.py settle_log(), set_status(); number_ids.py; startup.py report_ids() | 2026-11-22 |
-| P24 | Jobs run through a queue with two buttons: a worker takes a job (its own worktree, branch and instructions) and says done (its report goes to the integrator, who is told at once); a dead man's switch flags a worker gone quiet; the integrator reviews every done job before merging, then deletes the branch and worktree; an empty queue means the integrator checks in with you. (Details below.) | Active | Refines P14, P16; replaces the board's hand-kept job state (T91's board part) | Your design, 2026-11-22 (notebook sketch, then your answers). | G12 | Not built: T96 | 2026-11-22 |
-| P25 | A job's scratch files, logs and measurements go in scratch/ inside its worktree (ignored by git), never in /private/tmp or other folders, so removing the worktree at merge takes them too. | Active |  | Your call, 2026-11-22: about 25 leftover folders and logs had piled up in /private/tmp from agents' experiments; nothing knew they belonged to a job. | G12 | .gitignore; CLAUDE.md, AGENTS.md | 2026-11-22 |
-| P26 | Leftovers reach the integrator's list by themselves: a worker writes each one as its own 'Follow-up: <what>' line in its response (and merge instructions as 'For the integrator: <what>'); at merge integrate.py copies the follow-ups into docs/follow-ups.md and prints the merge instructions; startup.py lists the open follow-ups; the integrator clears one in the commit that does it. | Active |  | Your call, 2026-11-22: a worker's open points lived only in prose in its handoff, and you caught one before the integrator acted on it. | G11, G12 | tools/integrate.py (follow_ups, add_follow_ups), tools/startup.py (follow_up_lines), docs/follow-ups.md; checked by tools/test_follow_ups.py | 2026-11-22 |
-| P28 | ARCHITECTURE.md and docs/protocol.md are the integrator's: a worker doesn't edit them; it writes what its change does to the map and the protocol as 'Architecture: <what>' lines in its response; at merge integrate.py prints them, and the integrator checks them against the code and writes the change in the merge commit. The commit check asks a branch that touches architecture for those lines instead of a same-commit map edit; the merge commit carries the map. | Active | Replaces William's rule of 2026-11-21 (CLAUDE.md, Working with Codex: the agent changing a module updates the map in the same commit) | Your call, 2026-11-22: nearly every job touched the two files, so jobs that could run side by side waited on each other (H062 beside H046); one writer at merge never clashes and sees the whole diff. | G11, G12 | tools/check_architecture.py (IN_HANDOFF, handoff_reader; on a branch only), tools/integrate.py (architecture(), stops before the merge commit with the merge staged; --continue: resume(), commit_and_finish()); checks: tools/test_check_architecture.py, tools/test_follow_ups.py. T100 | 2026-11-22 |
-| P29 | Target agent system separates worker, integrator, architect, dispatcher/time manager, ideator and decision partner to reduce integrator overload. This records a design direction; existing role authorities remain until an explicit transition. | Tentative |  | William’s agent-role discussion, 2026-11-22; target direction, with transition details still open. | G11, G12 | docs/handoff/H067-agent-role-system.md | 2026-11-22 |
-| P31 | Workers must supply an abstract structural report explaining how their new code integrates with the existing system for the architect to analyze. Report schema and submission timing remain to be designed. | Tentative |  | William’s agent-role discussion, 2026-11-22; target direction, with transition details still open. | G11, G12 | docs/handoff/H067-agent-role-system.md | 2026-11-22 |
-| P32 | The integrator verifies worker structural reports against implementation as part of its existing code review. A separate permanent reviewer is not required by this design direction. | Tentative |  | William’s agent-role discussion, 2026-11-22; target direction, with transition details still open. | G11, G12 | docs/handoff/H067-agent-role-system.md | 2026-11-22 |
-| P33 | The target dispatcher/time manager manages agent starting, pausing and waking, and determines work order and priorities across the gap between intended changes and existing architecture; implementation and authority boundaries remain open. | Tentative |  | William’s agent-role discussion, 2026-11-22; target direction, with transition details still open. | G11, G12 | docs/handoff/H067-agent-role-system.md | 2026-11-22 |
-| P34 | The ideator is William’s partner for exploring ideas; the decision partner reasons through choices with William and keeps decision-relevant context distinct from the integrator’s. William retains decision authority. | Tentative |  | William’s agent-role discussion, 2026-11-22; target direction, with transition details still open. | G11, G12 | docs/handoff/H067-agent-role-system.md | 2026-11-22 |
-| P35 | The ideator and decision partner primarily consult the architect for technical structure and consequences while continuing to work directly with William. | Tentative |  | William’s agent-role discussion, 2026-11-22; target direction, with transition details still open. | G11, G12 | docs/handoff/H067-agent-role-system.md | 2026-11-22 |
-| P36 | The architect plans from the map without reading code: it reads ARCHITECTURE.md and the decision log, writes plans for upcoming Work list items (what each needs from the structure that exists), and is consulted by the ideator and decision partner. The integrator keeps writing the map at merge (P28 stays) and fills each job's Touches list. | Tentative | Replaces P30 (the architect owns the map) | Your call, 2026-11-22: checking a worker's report against the code is the same understanding as writing the map entry, so moving the map adds a hand-off per merge without saving the integrator work; the architect's value is planning ahead. | G11, G12 | docs/handoff/H067-agent-role-system.md | 2026-11-22 |
-| P37 | A worker session does one job: take, work, done, then it stops and tells you it's ready for a /clear; job.py counts jobs per session name and refuses a 2nd (MAX_JOBS, 1). With nothing Ready when it starts, it waits in the background (job.py take --wait, up to WORKER_WAIT, 20 min). | Active | Replaces P27 (at most 3 a session) | Your call, 2026-11-22: three jobs in one session used up your usage in one 5-hour window (each job's context carried into the next). | G12 | tools/job.py MAX_JOBS, next_step(); checks: tools/test_job.py | 2026-11-22 |
-| P38 | Workers are started in a visible Terminal window with Remote Control, so you can follow or answer one from the Claude app: tools/start_worker.sh [name] runs claude --remote-control <name> "Check the board" in the repository (the same as typing cd, claude, /remote-control, Check the board). | Active | Answers F005 (how sessions are started; prototype branch) | Your call, 2026-11-22: if a worker stops you can see why; no-window sessions were the other option. | G12 | tools/start_worker.sh; checks: tools/test_start_worker.py | 2026-11-22 |
-| P39 | The integrator has no timed check-ins: it is woken only by the queue, with job.py watch --next run in the background (one wake on the first new event: done, stale, waiting, returned, queue empty), started again after each. | Active |  | Your call, 2026-11-22: the 20-minute check-in re-read the integrator's whole context each time and used up your usage. | G12 | tools/job.py watch(until_new); tools/startup.py's reminder; docs/handoff/H050-integrator-state.md; checks: tools/test_job.py, tools/test_startup.py | 2026-11-22 |
-| P40 | A worker deals with its own hung processes; the integrator hears only of a worker that has gone quiet. Workers run tests and long commands through job.py run, which stops one past HUNG_AFTER (10 min) with every process it started and says HUNG, so the worker is always woken; job.py done refuses while a worktree process looks hung. Workers set no check-in timer (the 20-minute CronCreate is gone); the 30-minute dead man's switch stays. | Active | Refines P24 (the dead man's switch) | Your call, 2026-11-22: a hung test in the background shouldn't need you or the integrator; timers cost usage. | G12 | tools/job.py run(), done(); BOARD.md step 3, AGENTS.md; checks: tools/test_job.py | 2026-11-22 |
-| P41 | H059 includes the direct ID allocation sites in viewport/tools/, selection.gd and main.gd and affected tests; changes in those production files are limited to replacing ID allocation with the document allocator (William, relaying the integrator's scope clarification). | Active |  |  | G12 |  | 2026-11-22 |
-| P42 | A brief for a job that touches saving, reloading or the worker link has a 'What can fail' section, written by the integrator: each step that can fail (a file missing or unreadable, the worker gone, a reply late or out of order, a dialog open while replies arrive), what should happen, and the named check that proves it. The worker may add cases, not drop any; the review checks each case has its check. | Active |  | William, 2026-11-22 (through fretchup-f9, confirmed here): seven of the first ultra review's ten findings (H092) were failure paths of the outside-save code, which had passed review and the gate; the builder's tests covered only the cases the builder thought of. | G12 | docs/integrator.md (Writing jobs, Review and merge); docs/agent-handoff.md entry template | 2026-11-22 |
-| P43 | The integrator doesn't run a light /code-review on every merge; review stays as docs/integrator.md says (the integrator's own review, the gate, P42's What-can-fail checks), and William runs the ultra review himself as features land (H092). | Active |  | William, 2026-11-22: answered the integrator's proposal (H074) no. | G12 | docs/integrator.md (Review and merge) | 2026-11-22 |
-| P44 | A brief's rule says what it's for as well as what to do. A worker may depart from a rule when following it to the letter would defeat its purpose or break something the code relies on: it does what serves the purpose and adds a 'Changed from the brief:' line to its response (what the brief said, what it did, why); the integrator reviews every one. Not for anything William would notice (behaviour, visible wording, what is saved: ask him), and never to drop a 'What can fail' case or a check, only to change how one is met. | Active |  | William, 2026-11-22: H102's brief had a rule that left RELEASE_DEG below INFER_DEG (an axis would let go before it sticks); the worker built it as written and tested it. Exact briefs carry the integrator's mistakes exactly; a stated purpose lets the worker catch them. | G12 | BOARD.md (worker step 3, step 6), AGENTS.md, docs/agent-handoff.md (entry template), docs/integrator.md (Writing jobs, Review and merge) | 2026-11-22 |
-| P45 | Agents work in parallel by files, not topics, as P11 said (each job lists its Touches and stays within one session), and may share a file by function: a Touches entry can name, in backticks after the file, the functions or constants it changes (viewport/main.gd (`redo`, `_ask_outside`)); two jobs naming the same file overlap only if their names meet. A file named without names is the whole file. The integrator resolves any textual clash at merge; the gate catches the rest. | Active | Replaces P11 (whole-file overlap) | William, 2026-11-22: six queued jobs touched different parts of main.gd and waited on each other; teams rely on git merging separate hunks and tests, not file locks. | G12 | tools/handoff.py touches(), tools/job.py overlap() (not built: the T row for it) | 2026-11-22 |
-| P46 | A worker may update, without asking first, a tools/test_*.py check outside its Touches list when that check only asserts on output its own job changes (a message, a printed line); it names the file in a Changed from the brief: line. Any other file outside Touches is still asked for first. integrate.py's outside-Touches flag shows it at review. | Active | Builds on P45 (the Touches list); narrows its ask-first rule | William, 2026-11-23, from Gemini's H104 feedback: test_bookkeeping.py asserted integrate.py's old output and the worker had to stop and ask; the review sees the file either way. | G12 | BOARD.md worker step 3 (AGENTS.md and GEMINI.md follow it) | 2026-11-23 |
-| P47 | A worker's question accepts follow-up answers until the worker reads the pending answers. The queue delivers them in recorded order, then closes the question to further answers. | Active | Refines P24 (worker questions, T114) | William confirmed on 2026-11-23 that answers should be delivered in the order the queue records them. | G12 | tools/job.py answer(), wait(); tools/test_job.py | 2026-11-23 |
-| P49 | Once integrator review and tests pass, merge and push without stopping to ask: the integrator runs tools/integrate.py <branch> --as <name> --push --yes (and --continue ... --push --yes after P28/P44 pauses), and pushes verified integrator commits on main directly. Workers still never merge or push (P16). | Active | Refines P16, P20 | William, 2026-11-23: integrator review and tests stay required, and reviewed/passing work is always merged and pushed, so remove the extra confirmation stop. | G12 | docs/integrator.md; AGENTS.md; tools/startup.py; tools/integrate.py | 2026-11-23 |
-| P50 | Once T138 is built: each code file carries a one or two sentence description written by the coder and checked by the integrator at review; the map's module lines are generated from them. P28 stands until then. | Tentative | Will amend P28 | William, 2026-11-26: one spot per idea; the start brief needs a small map. | G11, G12 |  | 2026-11-26 |
-| P52 | The Gemini-integrator trial (P48) is closed: its work on main is kept, and the integrator is a Claude session again (P16, P19). | Active | Replaces P48 | William, 2026-11-26: reviewed before-gemini-integrator..main with Claude (gate passes, 391 quick checks); kept, trial closed. | G12 | docs/integrator.md; tools/integrator.py | 2026-11-26 |
-| P53 | William's gate on work is choosing which Work list items become jobs; once a job's review and tests pass it merges without a stop (P49), and its Changed from the brief lines reach him in the merge record afterwards. The gate may move earlier later (when an idea becomes a Work list item, or when it is added). | Active | Refines P44, P49 | William, 2026-11-26: the best way to gate a thing is for me to say whether it becomes a job. | G12 | docs/integrator.md | 2026-11-26 |
-| P54 | The organization is the parent folder (01_Principles ... 07_Org chart and Roles, 08_Code Bases), and this repo moves under it into 08_Code Bases as one of its code bases (T135); worktrees, the jobs folder, memory and launch commands are re-pointed once. | Active | Builds on T135; decides its layout | William, 2026-11-26: chose the repo moving under the org over a separate org repo beside it or an org folder inside this repo. | — | Not built: T135 | 2026-11-26 |
-| P56 | The code (viewport/, worker/, tools/, tests/, the .command files) moves into Napkin/05_Code in its own later step, after the repo and documents have moved and been used for a day; the full test proves it. | Active | Builds on P54, P55 | William, 2026-11-26: one move at a time, so a failure is easy to trace. | — | Not built: T135 | 2026-11-26 |
-| P57 | Each code base keeps its own job system (board, briefs, job tools, worktrees) since a job is code in that repo; Organization/05_Jobs is a bucket that fills itself with every project's jobs (generated, never edited by hand). | Active | Builds on P54 | William, 2026-11-26: 'Org should just have an automatically filling bucket of all the jobs from each project'. | — | tools/job.py (`board`, `write_org_jobs`) | 2026-11-26 |
-| P58 | Organization is its own git repo with a private GitHub remote the integrator pushes to; it ignores 08_Code_Bases/*, each code base keeping its own repo. | Active | Builds on P54 | William, 2026-11-26: chose a GitHub remote over local-only or no git. | — | Not built: T135 | 2026-11-26 |
-| P60 | Code base folders use the Organization's numbers, so a number means the same thing at both levels: Napkin/01_Principles, 02_Project_Habits, 03_Past_Decisions, 04_Project_Tools, 05_Code (org: 01_Principles, 02_Habits, 03_Past_Decisions, 04_Personal_Space, 05_Jobs, 06_To-dos, 07_Org_Chart_and_Roles, 08_Code_Bases). | Active | Replaces P55's code-base numbering (underscores and names stand) | William, 2026-11-26: chose matching the org's numbers over P55's 02_Past_Decisions, 03_Project_Habits. | — | Not built: T135 | 2026-11-26 |
-| P61 | The first move takes decision-log.md and decision-archive.md into Napkin/03_Past_Decisions unchanged (the tools keep one table each); later steps move the Process rows to Organization/03_Past_Decisions, then convert rows to one file per ruling written by log.py. | Active | Replaces P59 (folder renumbered by P60) | William, 2026-11-26: move as is, split later; the folder follows P60. | — | Not built: T135 | 2026-11-26 |
-| P62 | The Organization repo is named comitatus (private GitHub repo wweatherall/comitatus); the code base and its GitHub repo are renamed fretchup -> Napkin (GitHub redirects the old URL). | Active | Builds on P54, P58 | William, 2026-11-26: 'comitatus' for the org; rename to Napkin now, a name clash later is a good problem to have. | — | Not built: T135 | 2026-11-26 |
-| P63 | Job worktrees live in Organization/08_Code_Bases/.worktrees/<code base>/<id> (hidden, one place for every code base), not <checkout>-jobs/; job.py works the path out from the checkout. | Active | Builds on P54, P57 | Integrator, 2026-11-26, William delegated the choice: a <checkout>-jobs folder would be a second entry in 08_Code_Bases that isn't a code base. | — | Not built: T135 (tools/job.py) | 2026-11-26 |
-| P64 | The organization is named comitatus, and so is its folder: ~/Sites/comitatus (was ~/Sites/Organization), so the code base is ~/Sites/comitatus/08_Code_Bases/Napkin and job worktrees ~/Sites/comitatus/08_Code_Bases/.worktrees/<code base>/<id>. | Active | Refines P62 (the repo was already comitatus), P55 and P63 (their paths) | William, 2026-11-26: 'name should be comitatus, file folder should be comitatus'. | — | Built 2026-11-26: the folder renamed, worktrees repaired, gate passes there | 2026-11-26 |
-| P65 | Work list items (T) and open questions (Q) become one file each too, like rulings (T146): 03_Past_Decisions/work/<ID>.md and questions/<ID>.md, written and read by log.py; only Tunables stay a table. | Active | Extends T146 (rulings only) | William, 2026-11-26: 'we need to add the work list as single files as well; Tunables can stay a table' (questions included by the integrator as not Tunables; William to say if not). | — | Not built: H153 (job) | 2026-11-26 |
+| ID | Decision | Status |
+|---|---|---|
+| P01 | This log is the reference. | Active |
+| P02 | Test hooks (forced rejection, worker delay_ms, --fxtest/--breathtest) are for testing o... | Active |
+| P03 | Recordings use --true-latency: each FreeCAD reply is held until the video clock has run... | Active |
+| P07 | Two kinds of test: feature tests check answers against FreeCAD with no window (featuret... | Active |
+| P09 | The decision log is docs/decision-log.md in the repo, edited directly by whichever agen... | Active |
+| P10 | Give documentation distinct owners and link rather than repeat: architecture owns bound... | Active |
+| P14 | The work board: BOARD.md at the top of the repo lists each agent's next job and notes f... | Active |
+| P15 | The agent startup report is `python3 tools/startup.py [IDs]`: checkout and worktrees, r... | Active |
+| P16 | One Claude session is the integrator: it keeps the Work list and the board, hands out j... | Active |
+| P17 | Workers don't edit the Work list: a worker's result goes in its handoff response, and t... | Active |
+| P18 | The merge gate is tools/gate.sh: the quick test, then the full test, one verdict. | Active |
+| P19 | One integrator at a time, by lock: tools/integrator.py keeps the lock in git's common f... | Active |
+| P20 | The integrator merges with tools/integrate.py <branch> --as <name>: merge, settle hando... | Active |
+| P21 | Every place the viewport predicts what FreeCAD will compute (lengths today; circles, sp... | Active |
+| P22 | Small fixes take P08's light path (nothing you'd notice, no protocol / format / boundar... | Active |
+| P23 | The decision log is two files with the same IDs: docs/decision-log.md is what's live (a... | Active |
+| P24 | Jobs run through a queue with two buttons: a worker takes a job (its own worktree, bran... | Active |
+| P25 | A job's scratch files, logs and measurements go in scratch/ inside its worktree (ignore... | Active |
+| P26 | Leftovers reach the integrator's list by themselves: a worker writes each one as its ow... | Active |
+| P28 | ARCHITECTURE.md and docs/protocol.md are the integrator's: a worker doesn't edit them; ... | Active |
+| P29 | Target agent system separates worker, integrator, architect, dispatcher/time manager, i... | Tentative |
+| P31 | Workers must supply an abstract structural report explaining how their new code integra... | Tentative |
+| P32 | The integrator verifies worker structural reports against implementation as part of its... | Tentative |
+| P33 | The target dispatcher/time manager manages agent starting, pausing and waking, and dete... | Tentative |
+| P34 | The ideator is William’s partner for exploring ideas; the decision partner reasons thro... | Tentative |
+| P35 | The ideator and decision partner primarily consult the architect for technical structur... | Tentative |
+| P36 | The architect plans from the map without reading code: it reads ARCHITECTURE.md and the... | Tentative |
+| P37 | A worker session does one job: take, work, done, then it stops and tells you it's ready... | Active |
+| P38 | Workers are started in a visible Terminal window with Remote Control, so you can follow... | Active |
+| P39 | The integrator has no timed check-ins: it is woken only by the queue, with job.py watch... | Active |
+| P40 | A worker deals with its own hung processes; the integrator hears only of a worker that ... | Active |
+| P41 | H059 includes the direct ID allocation sites in viewport/tools/, selection.gd and main.... | Active |
+| P42 | A brief for a job that touches saving, reloading or the worker link has a 'What can fai... | Active |
+| P43 | The integrator doesn't run a light /code-review on every merge; review stays as docs/in... | Active |
+| P44 | A brief's rule says what it's for as well as what to do. | Active |
+| P45 | Agents work in parallel by files, not topics, as P11 said (each job lists its Touches a... | Active |
+| P46 | A worker may update, without asking first, a tools/test_*.py check outside its Touches ... | Active |
+| P47 | A worker's question accepts follow-up answers until the worker reads the pending answers. | Active |
+| P49 | Once integrator review and tests pass, merge and push without stopping to ask: the inte... | Active |
+| P50 | Once T138 is built: each code file carries a one or two sentence description written by... | Tentative |
+| P52 | The Gemini-integrator trial (P48) is closed: its work on main is kept, and the integrat... | Active |
+| P53 | William's gate on work is choosing which Work list items become jobs; once a job's revi... | Active |
+| P54 | The organization is the parent folder (01_Principles ... | Active |
+| P56 | The code (viewport/, worker/, tools/, tests/, the .command files) moves into Napkin/05_... | Active |
+| P57 | Each code base keeps its own job system (board, briefs, job tools, worktrees) since a j... | Active |
+| P58 | Organization is its own git repo with a private GitHub remote the integrator pushes to;... | Active |
+| P60 | Code base folders use the Organization's numbers, so a number means the same thing at b... | Active |
+| P61 | The first move takes decision-log.md and decision-archive.md into Napkin/03_Past_Decisi... | Active |
+| P62 | The Organization repo is named comitatus (private GitHub repo wweatherall/comitatus); t... | Active |
+| P63 | Job worktrees live in Organization/08_Code_Bases/.worktrees/<code base>/<id> (hidden, o... | Active |
+| P64 | The organization is named comitatus, and so is its folder: ~/Sites/comitatus (was ~/Sit... | Active |
+| P65 | Work list items (T) and open questions (Q) become one file each too, like rulings (T146... | Active |
 
 ## Open questions
 
@@ -421,215 +420,3 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | WORKER_WAIT | 1200 s | How long job.py take --wait looks for a Ready job before it stops (exit 1). | tools/job.py | P27 |
 
 ## Details
-
-### A11b
-
-Decision: A mirrored copy and its original form a mirror group, which you enter by double-clicking, like an assembly (Q23). Outside, the group moves as one. Inside, the mirror plane is visible again; moving either board moves its mirror image across the plane to match, and editing one edits the other, mirrored (A10). Still to settle when building: whether the plane itself can be moved from inside.
-
-Why: Your call, 2026-11-21. Built: Work list T26 (b85a706). Moving the plane itself is still open.
-
-### A22c
-
-Decision: As A22b, except that copies of boards are linked: a Move-copy (single or an Nx / /N array) is a linked instance of the same board, so editing one edits all, until Make unique (I28) breaks a copy free. The boards an edit will change are highlighted first (Q28). A board is an App::Part: Part::Plane → Part::Extrusion, then one boolean per run of cuts or merges, with a Tip link. Components are App::Link, mirrors Part::Mirroring, moves are placements. All Shop Sketch state lives on the objects.
-
-Why: Your call, 2026-11-21: linked by default (fits P05, I25, I28). Built: Work list T12 (632c59c).
-
-### A26
-
-Decision: A component instance is mirrored through a Part::Compound wrapper placed between the instance and its Part Mirror. Plain boards and mirrors of mirrors are read directly. The mirror stays a live FreeCAD feature (A10).
-
-Why: Found in testing on your Mac: released FreeCAD 1.1.3 and 1.1.4 mirror a component instance as if it had no position, so a flipped or mirrored component landed in the wrong place and didn't follow moves. The build the tests were written on doesn't do this. The wrapper carries the position on both. Tested: flip then move, a mirrored copy follows its instance, a bump drawn on the copy, a mirror of a mirror, undo.
-
-### A27
-
-Decision: Shop Sketch starts its own FreeCAD worker on a free port, checks every second that it's running, and starts it again if it stops (up to 5 times a minute, then it says so). The request lost with it is sent again. On quit the worker saves and stops. --port=N uses a worker started by hand instead (tests).
-
-Why: Your go-ahead (T6). The launcher used to kill whatever was on port 7878, and a stopped worker left the viewport waiting forever. Tested: killed the worker mid-session; a new one was running and both boards confirmed 0.6 s later; after quitting, no worker was left running.
-
-### A28
-
-Decision: FreeCAD's command-line program keeps only 20 undo steps (no way to raise it). The 21st Ctrl+Z in a row rebuilds the model from the journal. The viewport remembers the last 40 confirmed states, so every undo shows at once and you can keep undoing while FreeCAD catches up; when FreeCAD's answer matches what's on screen, nothing reloads.
-
-Why: Your call (T10): accept the rebuild, keep the viewport moving. Tested: 22 undos one at a time, each right on screen before FreeCAD answered, FreeCAD rebuilt at the 21st; 22 undos in a row shown in 0.37 s.
-
-### A29
-
-Decision: After each action the worker writes a file per board whose shape changed (triangles, normals, and FreeCAD's exact edges and corners, in Godot's own array format); the viewport builds only the boards whose file it hasn't seen. Snapping uses FreeCAD's real edges and corners. The whole-model glb is written at autosave, for renders.
-
-Why: Your go-ahead (T3). The viewport used to reload every board and re-derive edges in GDScript on each confirmation. Tested (--perftest, 40 panels × 24 holes, one more hole): worst frame 309–321 ms before, 13–15 ms after. All suites unchanged.
-
-### A30
-
-Decision: Shop Sketch is a Mac app: tools/build_app.sh builds dist/Shop Sketch.app (the Godot program running the packed viewport, with the worker scripts and an icon; ad-hoc signed for this Mac). Native File / Edit / Tools / View menus and open/save dialogs; File > New / Open switch models without restarting; the last model reopens (first time: Documents/Shop Sketch/Untitled.FCStd). Renderer: Compatibility, which draws through Metal on a Mac.
-
-Why: Your go-ahead (T8). No Godot export templates needed. Forward+ was tried: Metal 3.2 renders right once its background is matched, but edge lines hatch where a face is only a few pixels thick, and FXAA or 8x MSAA didn't fix it; kept as an option (--rendering-method forward_plus). Tested: --shelltest (switch to a new model and back), lifecycle and gesture tests from the built app, all suites.
-
-### I03b
-
-Decision: Rectangle and Push/Pull snap with the same engine as Move (inference.gd). A rectangle's corners snap to endpoints, then midpoints, then edges of any board or rectangle on the plane you're drawing on, else the 10 mm grid (G toggles); with the grid on, a point on a straight edge lands on the grid along it. Push/Pull goes to a point: over a corner, midpoint or edge of any board, the face moves to that point's level (points on the face being pushed don't count). Every tool, Move included, snaps only to points you can see: one hidden behind a board doesn't count. Snap colours: endpoint green, midpoint cyan, on edge red, grid grey.
-
-Why: Your go-ahead (T4: one engine for all tools). Before, Rectangle snapped only to the hovered face's corners and the grid, Push/Pull didn't snap, and Move could snap to a corner hidden behind a board. Found while testing: a push hovering its own face's far edge snapped to the hidden bottom edge (a cut of 18 mm). Tested (--snaptest): midpoint, on edge on the grid, corner, grid inside a face, own face ignored; a push released over another board's corner got its height (32 mm) and FreeCAD confirmed it.
-
-### I12c
-
-Decision: No separate Mirror tool. Mirror is a Move modifier: M, grab a board, then tap Shift to toggle mirror (like Option/Ctrl toggles copy). The board flips across the plane halfway between where you grabbed it and the cursor, so the grabbed face lands under the cursor. The plane stays parallel to the grabbed face unless an arrow key locks another axis.
-
-Why: Your call: Shift should work like Option. (SketchUp uses Shift in Move for inference lock; we lock with arrows, so Shift was free.)
-
-### I14
-
-Decision: Move tool (M), SketchUp style: click a point on a board to pick it up; arrows lock red/green/blue (press again to unlock); click or type a distance. Ctrl (Option on Mac) toggles copy. After a copy: 5x / x5 / *5 makes an array at that spacing, /5 spreads 5 copies evenly; a plain number right after any move changes its distance.
-
-Why: Your call: adopt SketchUp's Move modifiers. Tested: move, 4x, /3 and retyping a distance all landed exactly.
-
-### I21
-
-Decision: Move on a hole: hovering a hole's wall highlights the hole (violet). Grabbing it moves the hole on its board; with Option it copies it, and the after-typing works as for boards (spacing, then 8x or /8). In FreeCAD the copies are one Draft OrthoArray of the cutter, cut once, so the count and spacing can be edited there. Only cut-outs made from a drawn rectangle (holes, pockets, dados) can be grabbed; a whole face pushed in or out, or an added piece, still moves the board.
-
-Why: Your call: arrays of cut-outs instead of many one-off holes. Tested: 1 hole → 6 at 60 mm, row moved 100 mm, undo; a count changed in FreeCAD shows on reopen.
-
-### I23
-
-Decision: Pushing in snaps to the faces behind, even though you can't see them: when a push starts, Shop Sketch measures straight through that board how deep each face behind lies (the back face, a pocket's floor). Within a few pixels of one, the cut goes exactly there; the tooltip says "to back face" or "to face behind". Snaps to visible points come first.
-
-Why: Your question: snapping to the back side when pushing a hole in. I03b's visible-points rule had made that impossible; letting all hidden points snap again would bring back the stray snap to a hidden edge. Tested (--snaptest): near the bottom of a 50 mm board the cut snaps to -50; at -28 it stays free.
-
-### I24
-
-Decision: A cut that ends at the opposite face (snapped there, or typed to exactly that depth) is a through-cut in FreeCAD, tied to the board's geometry instead of a number: its extrusion length is an expression that runs to the far side of the board (as it was before this run of cuts) plus 1 mm, and back past the face it was drawn on by as much as the board has grown on that side since. Make the board thicker or thinner in FreeCAD and the hole stays through. A cut to a pocket floor ('face behind') keeps its measured depth.
-
-Why: Your call: like FreeCAD's 'through' option, constrained to the other geometry, not a measurement. Part workbench extrusions have no up-to-face mode, so the length is an expression on the board's bounding box. Nothing above the drawn face is cut at creation (a lip or overhang is safe). Tested: through and blind holes, board made 30 and 12 mm thick in FreeCAD (still through), hole outline stays inside the board; end to end from the viewport (snap to back face, FreeCAD through-hole).
-
-### I31
-
-Decision: Mac-like interface: the system font; a toolbar with the tools as a macOS segmented control (current tool raised), push buttons for Undo and Drawing, Grid snap / New board as toggles; a quiet status bar; the measurements box as a rounded field with its label, ringed in your accent colour while you type; a macOS-style tooltip. Follows your light/dark setting; scales properly on Retina.
-
-Why: Your report: buttons and the number entry box didn't feel Mac-like. Tentative until you've tried it.
-
-### I32
-
-Decision: An array works like a component you enter. From outside, clicking any copy picks up the whole row: moving it moves the row with its original (and the original's other rows). Inside the array (double-click to enter, T20), moving one copy detaches it from the row and moves it alone (it stays linked in shape). Moving the original always takes its copies along.
-
-Why: Your call, 2026-11-21. Outside behaviour built (T12); the inside part comes with entering (T20).
-
-### I34
-
-Decision: Pushing a piece (P) toward another piece (S) has three snaps: first contact (a flat end, no flag); the near surface of S (P's end takes the shape of S, a scribed fit: P minus S); the far surface of S (P runs through and S gets an opening: S minus P). A flag says 'Projecting to surface' and shows the three modes (cut the pushed piece / cut the target / no cuts) with the current one highlighted and the key that cycles them; a mode you pick holds for the rest of that push. One undo step for the whole joint.
-
-Why: Agreed with you in the Codex discussion, 2026-11-21 (Codex's suggestions S17, handoff H003). Key not chosen yet. Needs a FreeCAD feasibility check first: ending on a curved far surface, and referencing S before it's cut (no dependency loop).
-
-### I35
-
-Decision: In a typed measurement a minus always subtracts: 1-1/2" is 1/2 inch and 1'-6" is 6 inches. Mixed numbers and feet-and-inches are written with spaces: 1 1/2" is 1 1/2 inches, 1' 6 1/2" is 18 1/2 inches.
-
-Why: Your words, 2026-11-21 (recorded by Codex in handoff H011): "the minus are always going to be subtraction. Spaces can be used with imperial. If the minus is used then it should subtract." It matches FreeCAD's own expressions, which you asked to evaluate typed lengths.
-
-### I36
-
-Decision: A Properties panel shows FreeCAD's own values for the selected piece: open it from the toolbar with one piece selected; it lists the piece and its native features (linked definitions included); names, dimensions, local positions and other supported values can be edited, as a value or as a FreeCAD expression (formula and result shown apart). Each edit is an ordinary undoable action; editing a shared feature changes its linked copies.
-
-Why: Your choice, 2026-11-21, asked of Codex (handoff H012): see and edit FreeCAD measurements, linked values, names and locations from Godot, as a selected-object panel with a worker interface.
-
-### I37
-
-Decision: Hide and unhide, SketchUp style. Select boards (or an assembly), Edit > Hide (H). Hiding is an ordinary undoable action, saved in the file, so FreeCAD shows them hidden too. Hidden boards can't be picked or snapped to. Edit > Unhide last and Unhide all (Shift+H). View > Hidden geometry shows hidden boards ghosted; click one (Select) to pick it, then Edit > Unhide selected. Hidden boards are left out of the Blender export (model.glb); they stay in the drawings and cut list.
-
-Why: Your choice, 2026-11-21 (T28): SketchUp style, the recommended option. Leaving hidden boards out of renders: your call the same day (unhide them to render them, so nothing surprises you).
-
-### I38
-
-Decision: Redo is Edit > Redo, ⇧⌘Z, or the toolbar's Redo button. Until branch history (U01) it is linear: a new action (or retyping a value, or a rejection) after undoing ends redo, as in SketchUp. Esc cancels the current gesture or typed value first, then clears the selection, then leaves an entered assembly.
-
-Why: Work list T31 (Codex S03, approved 2026-11-21). ⇧⌘Z is the Mac's standard Redo key.
-
-### I40
-
-Decision: The rules of I26b stand: the tie lasts until you push that same face again or type a new length; moving the target carries the end; if the end would move past the start the change is rejected; if the target disappears the board keeps its last shape, with a note. What changes from I26b: a point snap no longer makes a plain measurement when it lies on another board's face, edge, midpoint or corner. The adjacent faces there are ranked by how squarely they face the push (ties: the face last hovered, then a fixed order), highlighted and named in the tooltip; Tab cycles the reachable ones; the click links the one shown. A typed distance stays a measurement. In Properties, click a dimension field, then a face, edge, midpoint or corner: the most aligned reachable face is linked at once. Pick face… previews before Apply. The tie is to the face's whole (infinite) plane.
-
-Limits (T53): plain rectangular boards (one extrusion of a rectangle) only, one fitted dimension per board, the target not itself fitted; no chains, linked copies or arbitrary solids. FreeCAD opens the saved shape, but only Shop Sketch's worker updates it.
-
-Why: William requested that corners work like edges and faces (Codex, H019), after midpoints and dimension-field picks (H018).
-
-### I41
-
-Decision: When a push or a Properties dimension is made up to another board's face, the end can meet that face's plane three ways. Butt to plane: the end stays square and stops where the piece first touches the plane (its shortest corner). Slice at plane: each corner runs to the plane, so the end lies on it (a sloped end when the plane is tilted). Fully reach plane: the end stays square at the last contact (its longest corner), so the whole end is at or past the plane. In Push/Pull, while a face is linked (highlighted, named in the tooltip), ⌥ Option cycles Butt → Slice → Fully reach; every push starts on Butt and the choice holds until the click; the draft shows the result. Properties has the same three in its fit menu. The tie (I40) is the same in all three: moving the target moves the end. Pushing a sloped end again detaches it and keeps its shape; a square end goes back to plain stock with editable dimensions.
-
-Why: William's call. The three came with the Properties fit (H015); 2026-11-21 he asked for them on the pull into a surface too and chose ⌥ Option for the key (Tab already switches the face). I34's three snaps (first contact, scribed, through) are about curved and arbitrary pieces and which piece is cut (T38); I41 is about a flat plane.
-
-### I46
-
-Decision: Inside an entered component or array, Delete removes the selected members and preserves the others. If the original is removed, a surviving member becomes the original. Outside the entered context, selection still resolves to the whole assembly or array (I32).
-
-Why: William: "If you delete them once you have punched into the component it should preserve the others and dedicate a new one as the original."
-
-Implementation: a surviving array member becomes its holder's SSSource without changing survivor positions or spacing; a linked definition's BodyId follows a surviving instance. A deleted board leaves the FreeCAD file with everything only it used; one that a surviving link, mirror or array still builds from stays as an invisible dependency (SSRole=deleted), excluded from boards and exports, and goes when its last dependent goes (William, 2026-11-21, T34 review: keep the file a clean FreeCAD model, A21). One delete op is one transaction, including promotion; undo/redo restores it all.
-
-### M03
-
-Decision: Materials are FreeCAD material cards. Shop Sketch ships a basic library of wood cards (oak, walnut, maple, cherry, pine, birch ply, MDF, …) in FreeCAD's format, inheriting from FreeCAD's Wood / Hard Wood cards, with numbers from public data (the US Forest Products Laboratory Wood Handbook: density, along/across-grain stiffness, hardness), CC0 textures (ambientCG, Poly Haven) for face grain and end grain or plywood edges, and a physical texture scale. The app installs the library where FreeCAD looks; you can add any card FreeCAD can read. Each board stores the card's ID (FreeCAD's ShapeMaterial, kept on every new solid) plus the material name as a fallback (A05). A whole part takes one material; Shop Sketch picks face or end-grain texture per face from the grain direction. Grain direction is a Shop Sketch property saved in the FreeCAD file; Shop Sketch and the Blender render both read it.
-
-Why: Your position, 2026-11-21, with my additions you approved: FreeCAD 1.1.4 ships one generic wood card and machining cards (no species), stores only the card's ID in the file (so the library must be installed for others), has no grain concept, and supports textures (Texture Rendering) and direction-dependent stiffness (OrthotropicLinearElastic). Check the Wood Handbook's rights notice before copying its numbers. Not built: Work list T15.
-
-### M04
-
-Decision: Wood data and textures. Numbers: Wood Handbook GTR-190 (2010) ch. 5, Tables 5-1, 5-2, 5-3a at 12% MC (FPL's 2021 files returned server errors; recheck against GTR-282). Density = SG x 1120 kg/m3; E_L = MOE x 1.1 (table footnote); orthotropic X = along grain. Face textures: ambientCG CC0, chosen by eye per species. End grain: a band of rings cropped from ambientCG tree ends (ring-porous, diffuse, softwood), tinted per species, mirrored at each repeat across the width. No sheet goods yet (no handbook source).
-
-Why: Built with T15, 2026-11-21.
-
-### P07
-
-Decision: Two kinds of test. Feature tests check Shop Sketch's answers against FreeCAD with no window (tools/featuretest.sh: the worker tests, the scenario test on one busy fixture model, the units parser); UI tests drive the viewport (the quick test's windows, the recorded and targeted suites). A new feature gets scenario steps first and is run against the feature tests while it's built; it gets a quick-test step once its tool exists. The quick test (~8 s, three windows side by side) runs after every change; the full test (~15 s, suites at the quick test's pace in four lanes) is the fallback: when the quick test fails, or before a merge.
-
-Why: Your idea, 2026-11-21: test a feature against FreeCAD before it becomes a UI thing, and keep the full test as a fallback. Measured (T48): the quick test went 31 → 20 s and the full test 2 min → 50 s with the same results; then (T49, tests side by side) quick 20 → 8 s, full 50 → 15 s. Times updated at your request, 2026-11-21.
-
-### P24
-
-Decision (William's design, 2026-11-22): a worker runs `tools/job.py take` (the button): it gets the first Ready job for its
-agent whose files don't overlap a job in progress, its own worktree and branch, and the job's instructions; the queue marks
-it in progress. It works until the tests pass and the goal is met, then runs `tools/job.py done`, which submits its report
-(the handoff response) and refuses unless the quick test passed on its latest commit. The integrator is told at once (it
-watches the queue) and reviews, merges and pushes, then deletes the branch and worktree; a job that fails review or the
-gate goes back on the queue as returned, with the integrator's notes, and the next worker continues its branch. Dead
-man's switch: anything the worker does through the job (a beat, a commit, a test run) pushes the deadline back; a
-timer checks in with the worker every 15-30 minutes, and at each check-in it looks at the commands it started for
-hung processes and beats. `tools/job.py wait "<question>"` pauses the switch while it waits for you. If the deadline
-passes (30 minutes with no beat), the integrator is told and checks the branch. When the queue holds nothing Ready for
-Claude or for Codex, the integrator checks in with you. The integrator always reviews before merging (no automatic merge
-on done). The queue's live state (claims, beats, done) is kept beside the integrator lock in git's common folder,
-shared by every worktree and never committed; the jobs themselves stay in docs/handoff/.
-
-Why: your design. It makes claiming one step, keeps a job's state in one place, catches a stuck worker, tells the
-integrator when work is done without you relaying it, and leaves nothing to clean up. Review stays because it
-catches what tests don't (2026-11-22: a branch built on an old main).
-
-The full text of long decisions; the table row is the summary. Sorted by ID.
-
-### U01
-
-Decision: Undo keeps the paths you leave. Undoing several actions and then making a new edit starts a new branch; the old path stays and can be returned to. A history panel on the right shows about the last 20 steps (scroll for older ones, without zooming the model); clicking a step restores it; abandoned futures are kept and survive restarts. The selected path is rebuilt through the worker's existing sync (cached meshes show at once; FreeCAD confirms).
-
-Why: Your request in the Codex discussion, 2026-11-21 (Codex's suggestions H01–H03, H05). Panel layout, storage format and checkpoints for old states are still to design. Redo follows the chosen branch.
-
-### U02
-
-Decision: Branch-safe identities and meaningful action boundaries: a new board, rectangle or hole never reuses an ID that a kept branch uses; one user action (a 6-copy array, a joint) is one undo step however many FreeCAD features it makes; correcting a typed value revises that action without changing a version another branch keeps; a late worker reply can never replace a newer state.
-
-Why: Your approval via Codex, 2026-11-21 (Codex's suggestions H03a). Today a new board after an undo can take an old board's ID (b3 again): harmless with linear undo, wrong once old paths are kept. Comes before U01.
-
-### U03
-
-Decision: Merging branches, conservatively: an explicit command applies one branch's changes onto another, previews the result, and keeps both originals. It starts with clearly independent edits; anything touching shared definitions, arrays, mirrors, ties or the same feature is flagged, never guessed (no last-writer-wins).
-
-Why: Your approval via Codex, 2026-11-21 (Codex's suggestions H04), as a later item: only once U01 restores branches reliably.
-
-### W12
-
-Decision: Lines (board edges, outlines, previews, guides, grid, axes) are drawn as anti-aliased strips a fixed width on screen (edges 1.5 pt, grid 1 pt, axes 1.75 pt), pulled slightly toward the camera like W11's overlays. The grid draws first and fades out with distance; the grid has no line where an axis runs.
-
-Why: Your request: grid and axes lines vanished. Cause: 1-pixel GL lines get no anti-aliasing (MSAA was already on) and sat at exactly the depth of the grid or face under them. Tested: 8 views (shallow, far, top, edge-on): the red and green axes and board edges that vanished before all show.
-
-### W13
-
-Decision: One FreeCAD worker serves every Shop Sketch window, each window on its own FreeCAD document. A model is open in one window at a time: opening it from another brings the window that has it to the front (a window launched on it closes itself; File > Open goes back and says why). File > New Window (⌘⇧N) opens another window on a new Untitled model. The worker stops by itself shortly after its last window closes; a different version of the app gets its own worker.
-
-Why: Your call, 2026-11-21: one window per model. Two FreeCADs on one file overwrote each other's saves; one shared FreeCAD also starts new windows faster.

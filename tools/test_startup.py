@@ -239,5 +239,15 @@ check("an archived Work list item's Covers IDs are looked up in the live file", 
 lines, unknown = s.report_ids(LOG, ["T51"], ARCHIVED)
 check("an ID in neither file is unknown", unknown == ["T51"])
 
+ruling_text = (
+    "# I34 — Pushing a piece toward another has three snaps.\n\n"
+    "Status: Active | Subject: Push/Pull | Principles: G04 | Date: 2026-11-21\n"
+    "Replaces / replaced by: —\nWhere in the code: —\n\n"
+    "Pushing a piece toward another has three snaps.\n\nWhy: Agreed.\n"
+)
+rlines, runknown = s.report_ids("", ["I34"], "", read_ruling=lambda i: ruling_text if i == "I34" else None)
+check("a named ID's lines come from its ruling file",
+      not runknown and rlines[0] == "== I34" and "Pushing a piece toward another has three snaps." in rlines[1])
+
 print(f"STARTUP TESTS: {sum(RESULTS)} passed, {len(RESULTS) - sum(RESULTS)} failed")
 sys.exit(0 if all(RESULTS) else 1)

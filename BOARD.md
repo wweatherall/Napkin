@@ -65,9 +65,8 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H151 | either | **Ready** | T147 step 2: circles and polygons fit flush against a sloped face | [H151](docs/handoff/H151-t147-flush-fits-curved-profiles.md) |  |
-| H152 | either | **Done**: for review (gemini) | T146 step 1: one file per ruling in Napkin/03_Past_Decisions/rulings/, written and read by log.py | [H152](docs/handoff/H152-t146-one-file-per-ruling.md) |  |
-| H153 | either | Queued | T146 step 2: Work list items and open questions as one file each | [H153](docs/handoff/H153-t146-work-list-and-questions-as-files.md) | H152 |
+| H151 | either | In progress (gemini since 19:09) | T147 step 2: circles and polygons fit flush against a sloped face | [H151](docs/handoff/H151-t147-flush-fits-curved-profiles.md) |  |
+| H153 | either | **Ready** | T146 step 2: Work list items and open questions as one file each | [H153](docs/handoff/H153-t146-work-list-and-questions-as-files.md) |  |
 
 <!-- end of job table -->
 
