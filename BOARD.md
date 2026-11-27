@@ -67,6 +67,7 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 |---|---|---|---|---|---|
 | H159 | Gemini | In progress (gemini since 22:45) | Personal spaces: everything an agent makes is committed and pushed; experiments can be run or merged | [H159](docs/handoff/H159-personal-spaces-saved-and-pushed.md) |  |
 | H161 | Gemini | **Ready** | Faster tests: find where the gate's time goes and cut it, every check kept | [H161](docs/handoff/H161-faster-tests.md) |  |
+| H162 | Gemini | **Ready** | Move the token benchmarker (tools/usage.py) to comitatus/09_Tools as MEASURE_TOKEN_USE.py | [H162](docs/handoff/H162-move-usage-to-comitatus-tools.md) |  |
 
 <!-- end of job table -->
 

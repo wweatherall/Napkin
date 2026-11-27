@@ -371,7 +371,7 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | T138 | Compress ARCHITECTURE.md heavily so the start-up brief can carry the map (about 80 KB t... | Open |
 | T139 | Rename the app to Napkin: what you see, the built app, folders, and the code and docs t... | Open |
 | T141 | William tries the Polygon tool by eye in a rebuilt app (tools/BUILD_THE_APP.sh). | Open |
-| T143 | Move tools/usage.py (2,760 lines, token benchmarking) and its tests out of the project'... | Open |
+| T143 | Move tools/usage.py (2,760 lines, token benchmarking) and its tests out of the project'... | On the board (H162) |
 | T146 | Atomize the principles and past decisions: one file per ruling (G, P and the rest), wri... | Open |
 | T150 | Personal spaces take the rest of the proposal: a journal about how the work felt (not w... | On the board (H159) |
 | T152 | Thin the tests without losing coverage: research how others do it (coverage-guided test... | Open |
