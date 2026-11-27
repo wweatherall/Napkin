@@ -65,7 +65,8 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H158 | Gemini | **Ready** | Personal spaces: a journal about how it felt, three folders of your own, changes committed by themselves | [H158](docs/handoff/H158-personal-spaces-journal-and-own-folders.md) |  |
+| H158 | Gemini | In progress (gemini since 22:35) | Personal spaces: a journal about how it felt, three folders of your own, changes committed by themselves | [H158](docs/handoff/H158-personal-spaces-journal-and-own-folders.md) |  |
+| H159 | Gemini | Queued | Personal spaces: everything an agent makes is committed and pushed; experiments can be run or merged | [H159](docs/handoff/H159-personal-spaces-saved-and-pushed.md) | H158 |
 
 <!-- end of job table -->
 
