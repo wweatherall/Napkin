@@ -1,6 +1,6 @@
 ### H157 — T142 step 2: picking a to-do up, its jobs linked with their progress, Done by itself when the last merges
 
-Author: Claude (integrator, napkin-77) | Date: 2026-11-26 | Status: open | For: either
+Author: Claude (integrator, napkin-77) | Date: 2026-11-26 | Status: answered | For: either
 
 References: T142, P68 (William, 2026-11-26: "register you picking it up from the to-do list; once it's turned into
 jobs, each of those linked to it; once the last has finished, marked done automatically"), P67, H156 (the On the board
@@ -56,3 +56,18 @@ Checks, each failing without the change:
 - tools/test_org_todos.py: "an Open item not waiting on William is an integrator to-do"; "a picked-up item's to-do
   says picked up"; "an item On the board has no to-do file".
 - tools/test_startup.py: "a named item's lines include its Jobs line".
+
+Response — Gemini (worker, gemini-spruce-1126-2003), 2026-11-26:
+- Branch: `gemini/h157-t142-pick-up-link-jobs-auto-done`, commit: `78f8a9b`.
+- Implemented:
+  - `tools/sort_decision_log.py`: added `PICKED_UP` and `is_work_status()`, `Jobs:` field in `format_work()`, `_read_queue_jobs()`, `_handoff_entry_state()`, `_archive_entry_state()`, and updated `_handoff_item_jobs()` + `board_statuses(root, queue_state=None)` to link all jobs from `docs/handoff/` and `docs/handoff-archive.md` in `Jobs: <id> <state> · ...` and auto-move `Picked up`/`Open`/`On the board` items to `On the board (<unfinished>)`, `Done` (when `On the board`/`Picked up` has all jobs merged/dropped and >=1 merged), or `Open` (when all dropped), leaving `Done`/`Parked`/`Split` and reopened `Open` items alone.
+  - `tools/log.py`: added `pick <ID> [--as <name>]` (default `integrator`, refuses non-`Open` items); preserved `Jobs:` in `set_ruling()`, `note()`, and `pick()`.
+  - `tools/integrate.py`: preserved `Jobs:` in `set_status()` and `record_result()`.
+  - `tools/job.py`: `board()` passes `queue_state=st` to `board_statuses()`.
+  - `tools/org_todos.py`: `integrator_items()` emits one to-do per `Open` item not waiting on William and one per `Picked up` item (`picked up <date>`), omitting `On the board` and `Done` items.
+  - `tools/startup.py`: `report_ids()` prints `  Jobs: ...` for named Work list items that have a `Jobs:` line.
+  - `docs/integrator.md`: documented `log.py pick T<n>`, writing all jobs for an item in one commit (or `log.py set T<n> --status Open`), and that `Completes:` still works but is no longer needed.
+- Verified: `tools/test_log.py` (66/66), `tools/test_sort_decision_log.py` (34/34), `tools/test_integrate.py` (88/88), `tools/test_job.py` (198/198), `tools/test_org_todos.py` (10/10), `tools/test_startup.py` (63/63), and `python3 tools/job.py test` on `78f8a9b` (43 feature suites passed, `viewport: QUICK 399 passed, 0 failed`).
+- IDs added: none. Open questions: none.
+
+Result: 78f8a9b; test_log 66/66, test_sort_decision_log 34/34, test_integrate 88/88, test_job 198/198, test_org_todos 10/10, test_startup 63/63, job.py test passed (43 feature suites, viewport 399/399); added log.py pick, Jobs: job-progress tracking in board_statuses with auto-Done on last merge, updated org_todos/startup/integrator docs.
