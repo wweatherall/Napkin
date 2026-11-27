@@ -1,6 +1,6 @@
 ### H164 — One personal space per model and job, every new one made the same from a template
 
-Author: Claude (integrator, napkin-77) | Date: 2026-11-26 | Status: queued (after H163) | For: gemini
+Author: Claude (integrator, napkin-77) | Date: 2026-11-26 | Status: open | For: gemini
 
 Item: T156
 
