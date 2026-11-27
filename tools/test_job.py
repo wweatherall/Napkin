@@ -19,6 +19,7 @@ sys.path.insert(0, HERE)
 import integrate
 import integrator
 import job
+os.environ.pop("NAPKIN_SPACE", None)  # a worker session sets it (launch.py); the tests pick their own spaces
 
 # Isolate from host agent env vars so tests behave identically whether run by Claude, Codex, Gemini, or CI.
 for _env_key in ("ANTIGRAVITY_CONVERSATION_ID", "ANTIGRAVITY_AGENT", "SHOPSKETCH_SESSION"):
