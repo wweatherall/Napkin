@@ -22,7 +22,7 @@ def _cut(cid, body, origin, size, depth=200):
 
 
 def _fit(fid, body, target, axis=2, face=4, fit_mode=0):
-    return dict(id=fid, type='property_edit', mode='plane_fit', body=body,
+    return dict(id=fid, type='fit', body=body,
                 target_body=target, axis=axis, face=face, fit_mode=fit_mode)
 
 

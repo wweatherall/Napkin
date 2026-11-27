@@ -181,13 +181,37 @@ def generation(model_path):
             "floor_file": base + ".floor" + ext}
 
 
+def upgrade_op(op):
+    """Upgrade legacy fit ops saved before protocol 17 to top-level `fit` / `unfit` ops (T162)."""
+    if not isinstance(op, dict) or op.get("type") != "property_edit":
+        return op
+    mode = op.get("mode")
+    if mode not in ("plane_fit", "replace_fit"):
+        return op
+    upgraded = {k: v for k, v in op.items() if k != "mode"}
+    upgraded["type"] = "fit" if mode == "plane_fit" else "unfit"
+    return upgraded
+
+
+def _upgrade_dropped(entry):
+    if isinstance(entry, dict) and isinstance(entry.get("op"), dict):
+        return {**entry, "op": upgrade_op(entry["op"])}
+    return upgrade_op(entry)
+
+
 def read_journal(path):
     try:
         with open(path) as f:
             j = json.load(f)
     except (OSError, ValueError):
         return None
-    return j if isinstance(j, dict) and j.get("format") == JOURNAL_FORMAT and j.get("file_sha256") else None
+    if not (isinstance(j, dict) and j.get("format") == JOURNAL_FORMAT and j.get("file_sha256")):
+        return None
+    if isinstance(j.get("ops"), list):
+        j["ops"] = [upgrade_op(op) for op in j["ops"]]
+    if isinstance(j.get("dropped"), list):
+        j["dropped"] = [_upgrade_dropped(d) for d in j["dropped"]]
+    return j
 
 
 def file_rev(path):
@@ -458,7 +482,8 @@ class Session:
             with open(jp) as f:
                 j = json.load(f)
         if j and j.get("format") == JOURNAL_FORMAT:
-            for op, st in zip(j["ops"], j["status"]):
+            upgraded_ops = [upgrade_op(op) for op in j["ops"]]
+            for op, st in zip(upgraded_ops, j["status"]):
                 if st.get("status") == "ok":           # failed ops left nothing in the file
                     self.applied.append({"op": op, "key": canon(op), "id": op.get("id"), "type": op.get("type"), **st})
             journal_rev = int(j.get("rev", -1))
@@ -467,9 +492,9 @@ class Session:
                 self.rev = journal_rev
                 self.rev_ops[journal_rev] = self.applied
                 self.applied = self._file_ops(self.path, file_meta_rev)
-            self.dropped = list(j.get("dropped", []))
+            self.dropped = [_upgrade_dropped(d) for d in j.get("dropped", [])]
             self.ids.owners.update(j.get("id_owners", {}))
-            self.ids.accept(j["ops"] + self.dropped, j.get("reserved_ids", []), legacy=True)
+            self.ids.accept(upgraded_ops + self.dropped, j.get("reserved_ids", []), legacy=True)
         else:
             self.external = True     # not written by Shop Sketch (stage 3 will adopt foreign solids)
         self.ids.seed_native(self.doc)
@@ -556,6 +581,7 @@ class Session:
                     if isinstance(ops, list) and all(
                             isinstance(op, dict) and isinstance(op.get("type"), str) and op["type"]
                             and (op.get("id") is None or isinstance(op["id"], str)) for op in ops):
+                        ops = [upgrade_op(op) for op in ops]
                         return [{"op": op, "key": canon(op), "id": op.get("id"), "type": op["type"], "status": "ok"}
                                 for op in ops]
             except (OSError, zipfile.BadZipFile, ET.ParseError, KeyError, TypeError, ValueError,

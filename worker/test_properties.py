@@ -107,7 +107,7 @@ pose.Base = App.Vector()
 pl.Placement = pose
 fit_session.doc.recompute()
 for mode, expected in enumerate([500000,750000,1000000]):
-    fit = dict(type='property_edit',id='fit'+str(mode),mode='plane_fit',body='b1',
+    fit = dict(type='fit',id='fit'+str(mode),body='b1',
                target_body='b2',axis=2,face=4,fit_mode=mode)
     fit_ops = base_ops + [fit]
     fit_session.sync(fit_ops)
@@ -121,7 +121,7 @@ App.closeDocument(fit_session.doc.Name)
 fit_session=Session(fit_path)
 check('reopened fit retains target and result',fit_session.model.body('b1').Tip.SSTargetId=='b2' and
       'Bottom face' in fit_session.model.body('b1').Tip.SSFitResult)
-detach = dict(type='property_edit',id='replace',mode='replace_fit',body='b1',axis=2,value='2 cm')
+detach = dict(type='unfit',id='replace',body='b1',axis=2,value='2 cm')
 fit_session.sync([item["op"] for item in fit_session.applied] + [detach])
 check('explicit length detaches fit',fit_session.model.body('b1').Tip.TypeId=='Part::Extrusion' and
       abs(fit_session.model.world_shape(fit_session.model.body('b1')).Volume-100000)<0.01)
@@ -173,7 +173,7 @@ re_ops = [
  {'id':'pp1','type':'push_pull','target':{'rect':'r1'},'distance':100,'body':'b1'},
  {'id':'r2','type':'rect','plane':{'normal':[0,0,1],'origin':[-50,-50,300]},'size':[200,200]},
  {'id':'pp2','type':'push_pull','target':{'rect':'r2'},'distance':20,'body':'b2'},
- dict(type='property_edit',id='fit',mode='plane_fit',body='b1',target_body='b2',axis=2,face=4,fit_mode=0),
+ dict(type='fit',id='fit',body='b1',target_body='b2',axis=2,face=4,fit_mode=0),
  {'id':'again','type':'push_pull','target':{'face':{'body':'b1','normal':[0,0,1],'point':[20,10,300]}},'distance':50},
 ]
 re_session.sync(re_ops)
@@ -214,8 +214,8 @@ chain_base = [
     {'id':'cb_r','type':'rect','plane':{'normal':[0,0,1],'origin':[0,0,100]},'size':[100,40]},
     {'id':'cb_p','type':'push_pull','target':{'rect':'cb_r'},'distance':20,'body':'b2'},
 ]
-fit_ba = dict(type='property_edit', id='fit_ba', mode='plane_fit', body='b2', target_body='b1', axis=2, face=4, fit_mode=0)
-fit_cb = dict(type='property_edit', id='fit_cb', mode='plane_fit', body='b3', target_body='b2', axis=2, face=5, fit_mode=0)
+fit_ba = dict(type='fit', id='fit_ba', body='b2', target_body='b1', axis=2, face=4, fit_mode=0)
+fit_cb = dict(type='fit', id='fit_cb', body='b3', target_body='b2', axis=2, face=5, fit_mode=0)
 chain_ops = chain_base + [fit_ba, fit_cb]
 chain_session.sync(chain_ops)
 cvol = lambda bid: chain_session.model.world_shape(chain_session.model.body(bid)).Volume
@@ -251,7 +251,7 @@ check('chain reopened follows further moves of A',
       abs(cvol('b2') - 100 * 40 * 225) < 0.01 and abs(cvol('b3') - 40 * 20 * 325) < 0.01)
 chain_session.sync(chain_ops)
 # Direct (A -> B -> A) and 3-board (A -> C -> B -> A) cycles are rejected cleanly.
-cyc2 = dict(type='property_edit', id='cyc2', mode='plane_fit', body='b1', target_body='b2', axis=2, face=5, fit_mode=0)
+cyc2 = dict(type='fit', id='cyc2', body='b1', target_body='b2', axis=2, face=5, fit_mode=0)
 chain_session.sync(chain_ops + [cyc2])
 check('direct 2-board cycle rejected and leaves prior fits intact',
       chain_session.status()[-1]['status'] == 'failed'
@@ -259,7 +259,7 @@ check('direct 2-board cycle rejected and leaves prior fits intact',
       and chain_session.model.body('b2').Tip.SSTargetId == 'b1'
       and chain_session.model.body('b3').Tip.SSTargetId == 'b2'
       and abs(cvol('b2') - 100 * 40 * 200) < 0.01 and abs(cvol('b3') - 40 * 20 * 300) < 0.01)
-cyc3 = dict(type='property_edit', id='cyc3', mode='plane_fit', body='b1', target_body='b3', axis=2, face=5, fit_mode=0)
+cyc3 = dict(type='fit', id='cyc3', body='b1', target_body='b3', axis=2, face=5, fit_mode=0)
 chain_session.sync(chain_ops + [cyc3])
 check('3-board cycle rejected and leaves prior fits intact',
       chain_session.status()[-1]['status'] == 'failed'
@@ -300,8 +300,8 @@ sloped_session.sync(sloped_base)
 sa = sloped_session.model.body('b1')
 sa.Placement = App.Placement(App.Vector(0, 0, 200), App.Rotation(App.Vector(0, 1, 0), 45))
 sloped_session.doc.recompute()
-s_fit_ba = dict(type='property_edit', id='sfit_ba', mode='plane_fit', body='b2', target_body='b1', axis=2, face=4, fit_mode=1)
-s_fit_cb = dict(type='property_edit', id='sfit_cb', mode='plane_fit', body='b3', target_body='b2', axis=2, face=5, fit_mode=1)
+s_fit_ba = dict(type='fit', id='sfit_ba', body='b2', target_body='b1', axis=2, face=4, fit_mode=1)
+s_fit_cb = dict(type='fit', id='sfit_cb', body='b3', target_body='b2', axis=2, face=5, fit_mode=1)
 sloped_ops = sloped_base + [s_fit_ba, s_fit_cb]
 sloped_session.sync(sloped_ops)
 svol = lambda bid: sloped_session.model.world_shape(sloped_session.model.body(bid)).Volume
@@ -330,7 +330,7 @@ lc_base = [
     {'id':'lc_r','type':'rect','plane':{'normal':[0,0,1],'origin':[100,40,0]},'size':[30,20]},
     {'id':'lc_p','type':'push_pull','target':{'rect':'lc_r'},'distance':30,'body':'c1'},
 ]
-lc_fit_b1 = dict(type='property_edit', id='lc_fit_b1', mode='plane_fit', body='b1', target_body='t1', axis=2, face=4, fit_mode=0)
+lc_fit_b1 = dict(type='fit', id='lc_fit_b1', body='b1', target_body='t1', axis=2, face=4, fit_mode=0)
 lc_ops = lc_base + [lc_fit_b1]
 lc_session.sync(lc_ops)
 lvol = lambda bid: lc_session.model.world_shape(lc_session.model.body(bid)).Volume
@@ -368,7 +368,7 @@ st1.Placement = App.Placement(App.Vector(0, 0, 200), App.Rotation(App.Vector(0, 
 st1_pl = lc_slice_session.model.rect_obj('lt_r')
 sp = st1_pl.Placement; sp.Base = App.Vector(); st1_pl.Placement = sp
 lc_slice_session.doc.recompute()
-lc_slice_fit = dict(type='property_edit', id='lc_sfit', mode='plane_fit', body='b1', target_body='t1', axis=2, face=4, fit_mode=1)
+lc_slice_fit = dict(type='fit', id='lc_sfit', body='b1', target_body='t1', axis=2, face=4, fit_mode=1)
 lc_slice_session.sync(lc_slice_base + [lc_slice_fit])
 lsvol = lambda bid: lc_slice_session.model.world_shape(lc_slice_session.model.body(bid)).Volume
 check('T61 Slice mode updates both linked copies',
@@ -380,7 +380,7 @@ check('T61 Slice mode follows moved tilted target on both copies',
 App.closeDocument(lc_slice_session.doc.Name)
 
 # T61 Check 2: chain t1 <- (b1, b2) <- c1 (c1 fitted to linked sibling b2's fitted end).
-lc_fit_c1 = dict(type='property_edit', id='lc_fit_c1', mode='plane_fit', body='c1', target_body='b2', axis=2, face=5, fit_mode=0)
+lc_fit_c1 = dict(type='fit', id='lc_fit_c1', body='c1', target_body='b2', axis=2, face=5, fit_mode=0)
 lc_chain_ops = lc_ops + [lc_fit_c1]
 lc_session.sync(lc_chain_ops)
 check('T61 board c1 fits to linked sibling b2 fitted end',
@@ -393,14 +393,14 @@ check('T61 moving t1 ripples through linked family (b1, b2) to c1',
 lc_session.sync(lc_chain_ops)
 
 # T61 Check 3: self-sibling fit (b1 -> b2) and cross-sibling cycle (b1 -> c1 -> b2) rejected cleanly.
-lc_self_sib = dict(type='property_edit', id='lc_self_sib', mode='plane_fit', body='b1', target_body='b2', axis=0, face=0, fit_mode=0)
+lc_self_sib = dict(type='fit', id='lc_self_sib', body='b1', target_body='b2', axis=0, face=0, fit_mode=0)
 lc_session.sync(lc_chain_ops + [lc_self_sib])
 check('T61 self-sibling fit rejected without mutating',
       lc_session.status()[-1]['status'] == 'failed'
       and 'different board' in lc_session.status()[-1].get('message', '')
       and lc_session.model.body('b1').LinkedObject.Tip.SSTargetId == 't1'
       and abs(lvol('b1') - 40 * 20 * 200) < 0.01)
-lc_cross_cyc = dict(type='property_edit', id='lc_cross_cyc', mode='plane_fit', body='b1', target_body='c1', axis=2, face=5, fit_mode=0)
+lc_cross_cyc = dict(type='fit', id='lc_cross_cyc', body='b1', target_body='c1', axis=2, face=5, fit_mode=0)
 lc_session.sync(lc_chain_ops + [lc_cross_cyc])
 check('T61 cross-sibling cycle b1 -> c1 -> b2 rejected without mutating',
       lc_session.status()[-1]['status'] == 'failed'
@@ -445,7 +445,7 @@ check('T61 pushing linked copy tied end detaches and updates all siblings',
 lc_session.sync(lc_ops + [lc_push_end, dict(type='move', id='lc_mv_detached', targets=['t1'], vector=[0, 0, 50])])
 check('T61 detached linked siblings stay put when former target moves',
       abs(lvol('b1') - 40 * 20 * 230) < 0.01 and abs(lvol('b2') - 40 * 20 * 230) < 0.01)
-lc_replace = dict(type='property_edit', id='lc_replace', mode='replace_fit', body='b2', axis=2, value='120 mm')
+lc_replace = dict(type='unfit', id='lc_replace', body='b2', axis=2, value='120 mm')
 lc_session.sync(lc_ops + [lc_replace])
 check('T61 replace_fit on linked copy detaches and updates all siblings',
       lc_session.status()[-1]['status'] == 'ok'
@@ -473,7 +473,7 @@ check('plain board summary has label, Board context, non-parametric, 3 editable 
 sum_session.sync(sum_ops + [
     {'id': 'scp', 'type': 'move', 'targets': ['b1'], 'vector': [200, 0, 0], 'copy': True, 'new_ids': ['b3']},
     {'id': 'sas', 'type': 'make_assembly', 'targets': ['b1'], 'new_id': 'a1', 'name': 'Leg Frame'},
-    {'id': 'sfit', 'type': 'property_edit', 'mode': 'plane_fit', 'body': 'b1', 'target_body': 'b2', 'axis': 2, 'face': 4, 'fit_mode': 0},
+    {'id': 'sfit', 'type': 'fit', 'body': 'b1', 'target_body': 'b2', 'axis': 2, 'face': 4, 'fit_mode': 0},
 ])
 s_linked_asm = inspect(sum_session.model, 'b1')['summary']
 check('linked + assembly + fitted summary has context, parametric=True, and target info',
@@ -524,7 +524,7 @@ check('T62 snapshots expose planar faces for circular and cut boards',
 # 1. Tie rectangular board to circular board's bottom face (z=120), then move circular board.
 cyl_faces = plane_fit.planar_faces(t62_session.model.body('b_cyl'))
 cyl_bot = next(i for i, (pt, n) in enumerate(cyl_faces) if n.z < -0.9)
-fit_to_cyl = {'id': 'f_cyl', 'type': 'property_edit', 'mode': 'plane_fit', 'body': 'b_rect',
+fit_to_cyl = {'id': 'f_cyl', 'type': 'fit', 'body': 'b_rect',
               'target_body': 'b_cyl', 'axis': 2, 'face': cyl_bot, 'fit_mode': 0}
 t62_session.sync(t62_ops + [fit_to_cyl])
 check('T62 rectangular board ties to circular board planar face',
@@ -537,7 +537,7 @@ check('T62 moving circular target updates tied rectangular board live',
 # 2. Tie rectangular board to cut board's top face (z=30 -> 130 after moving cut board), then move cut board.
 cut_faces = plane_fit.planar_faces(t62_session.model.body('b_cut'))
 cut_top = next(i for i, (pt, n) in enumerate(cut_faces) if n.z > 0.9 and abs(pt.z - 30) < 0.01)
-fit_to_cut = {'id': 'f_cut', 'type': 'property_edit', 'mode': 'plane_fit', 'body': 'b_rect',
+fit_to_cut = {'id': 'f_cut', 'type': 'fit', 'body': 'b_rect',
               'target_body': 'b_cut', 'axis': 2, 'face': cut_top, 'fit_mode': 0}
 mv_cut_up = {'id': 'mv_cut0', 'type': 'move', 'targets': ['b_cut'], 'vector': [0, 0, 80]}
 t62_session.sync(t62_ops + [mv_cut_up, fit_to_cut])
@@ -549,7 +549,7 @@ check('T62 moving cut target updates tied rectangular board live',
       abs(t62_session.model.body('b_rect').Shape.Volume - 40 * 40 * 135) < 0.01)
 
 # 3. Circular board as source tied to b_top (z=220), moves live, and detaches cleanly on push.
-fit_cyl_src = {'id': 'f_csrc', 'type': 'property_edit', 'mode': 'plane_fit', 'body': 'b_cyl',
+fit_cyl_src = {'id': 'f_csrc', 'type': 'fit', 'body': 'b_cyl',
                'target_body': 'b_top', 'axis': 2, 'face': 4, 'fit_mode': 0}
 t62_session.sync(t62_ops + [fit_cyl_src])
 import math
@@ -570,7 +570,7 @@ check('T62 pushing tied circular end detaches cleanly and resizes',
       and abs(t62_session.model.body('b_cyl').Shape.Volume - cyl_area * 115) < 1.0)
 
 # 4. Cut board as source tied along its extrusion axis to b_top (z=220), moves live.
-fit_cut_src = {'id': 'f_cutsrc', 'type': 'property_edit', 'mode': 'plane_fit', 'body': 'b_cut',
+fit_cut_src = {'id': 'f_cutsrc', 'type': 'fit', 'body': 'b_cut',
                'target_body': 'b_top', 'axis': 2, 'face': 4, 'fit_mode': 0}
 t62_session.sync(t62_ops + [fit_cut_src])
 check('T62 cut board ties its extrusion end to target face while keeping its pocket',
@@ -580,4 +580,94 @@ t62_session.sync(t62_ops + [fit_cut_src, {'id': 'mv_top2', 'type': 'move', 'targ
 check('T62 moving target updates cut board extrusion length live',
       abs(t62_session.model.body('b_cut').Shape.Volume - (80 * 60 * 250 - 20 * 20 * 10)) < 1.0)
 App.closeDocument(t62_session.doc.Name)
+
+# T162: property_edit refuses plane_fit/replace_fit; opening pre-protocol-17 files upgrades fits in journal,
+# dropped entries, and Meta ShopSketchOps, and first save writes the upgraded ops.
+import json, shutil, zipfile
+from session import generation, sha256
+
+upg_dir = os.path.join(folder, 't162_upgrade')
+shutil.rmtree(upg_dir, ignore_errors=True)
+os.makedirs(upg_dir)
+upg_path = os.path.join(upg_dir, 'model.FCStd')
+upg_s = Session(upg_path, fresh=True)
+upg_base = [
+    {'id': 'ur1', 'type': 'rect', 'plane': {'normal': [0, 0, 1], 'origin': [0, 0, 0]}, 'size': [100, 100]},
+    {'id': 'upp1', 'type': 'push_pull', 'target': {'rect': 'ur1'}, 'distance': 20, 'body': 'b1'},
+    {'id': 'ur2', 'type': 'rect', 'plane': {'normal': [0, 0, 1], 'origin': [0, 0, 100]}, 'size': [100, 100]},
+    {'id': 'upp2', 'type': 'push_pull', 'target': {'rect': 'ur2'}, 'distance': 20, 'body': 'b2'},
+]
+upg_fit = {'id': 'ufit1', 'type': 'fit', 'body': 'b1', 'target_body': 'b2', 'axis': 2, 'face': 4, 'fit_mode': 0}
+upg_s.sync(upg_base + [{'id': 'bad_pf', 'type': 'property_edit', 'mode': 'plane_fit', 'body': 'b1',
+                        'target_body': 'b2', 'axis': 2, 'face': 4, 'fit_mode': 0}])
+check('T162 property_edit refuses mode=plane_fit',
+      upg_s.status()[-1]['status'] == 'failed' and 'unknown property_edit mode' in upg_s.status()[-1]['message'])
+upg_s.sync(upg_base + [{'id': 'bad_rf', 'type': 'property_edit', 'mode': 'replace_fit', 'body': 'b1',
+                        'axis': 2, 'value': '50 mm'}])
+check('T162 property_edit refuses mode=replace_fit',
+      upg_s.status()[-1]['status'] == 'failed' and 'unknown property_edit mode' in upg_s.status()[-1]['message'])
+upg_s.sync(upg_base + [upg_fit])
+fitted_vol = upg_s.model.world_shape(upg_s.model.body('b1')).Volume
+upg_s.save()
+upg_s.close()
+
+# Rewrite journal + Meta ShopSketchOps to pre-17 format (with a dropped legacy fit too).
+g_upg = generation(upg_path)
+legacy_fit = {'id': 'ufit1', 'type': 'property_edit', 'mode': 'plane_fit', 'body': 'b1',
+              'target_body': 'b2', 'axis': 2, 'face': 4, 'fit_mode': 0}
+legacy_dropped = {'op': {'id': 'ufit_drop', 'type': 'property_edit', 'mode': 'replace_fit',
+                         'body': 'b1', 'axis': 2, 'value': '40 mm'},
+                  'after_rev': 1, 'at': '2026-11-27T00:00:00'}
+with open(g_upg['journal']) as f:
+    j_old = json.load(f)
+j_old['ops'] = upg_base + [legacy_fit]
+j_old['dropped'] = [legacy_dropped]
+# Also patch Document.xml Meta ShopSketchOps to legacy format and update file_sha256.
+tmp_zip = upg_path + '.legacy.tmp'
+with zipfile.ZipFile(upg_path, 'r') as zin, zipfile.ZipFile(tmp_zip, 'w') as zout:
+    for item in zin.infolist():
+        data = zin.read(item.filename)
+        if item.filename == 'Document.xml':
+            xml_str = data.decode('utf-8')
+            old_meta_ops = json.dumps(upg_base + [upg_fit], separators=(',', ':'))
+            new_meta_ops = json.dumps(upg_base + [legacy_fit], separators=(',', ':'))
+            xml_str = xml_str.replace(old_meta_ops, new_meta_ops)
+            data = xml_str.encode('utf-8')
+        zout.writestr(item, data)
+os.replace(tmp_zip, upg_path)
+j_old['file_sha256'] = sha256(upg_path)
+with open(g_upg['journal'], 'w') as f:
+    json.dump(j_old, f)
+
+# Reopen old file: ops and dropped are upgraded, sync matches without rebuild, undo/redo works, save persists.
+reopened = Session(upg_path)
+check('T162 reopen upgrades journal ops and dropped entries without changing IDs',
+      reopened.applied[-1]['op'] == upg_fit and 'mode' not in reopened.applied[-1]['op']
+      and reopened.dropped[0]['op'] == {'id': 'ufit_drop', 'type': 'unfit', 'body': 'b1', 'axis': 2, 'value': '40 mm'}
+      and abs(reopened.model.world_shape(reopened.model.body('b1')).Volume - fitted_vol) < 0.01)
+how_same, _ = reopened.sync([e['op'] for e in reopened.applied])
+check('T162 sync with upgraded ops after open does nothing (no undo or rebuild)',
+      how_same == 'nothing')
+# Check _file_ops upgrades Meta ShopSketchOps directly.
+meta_ops = reopened._file_ops(upg_path, reopened.rev)
+check('T162 _file_ops upgrades Meta ShopSketchOps',
+      meta_ops[-1]['op'] == upg_fit)
+# Undo across the fit and redo.
+reopened.sync(upg_base)
+check('T162 undo across upgraded fit restores plain stock',
+      abs(reopened.model.world_shape(reopened.model.body('b1')).Volume - 100 * 100 * 20) < 0.01)
+reopened.sync(upg_base + [upg_fit])
+check('T162 redo upgraded fit restores fitted board',
+      abs(reopened.model.world_shape(reopened.model.body('b1')).Volume - fitted_vol) < 0.01)
+reopened.save()
+reopened.close()
+
+with open(g_upg['journal']) as f:
+    saved_j = json.load(f)
+with zipfile.ZipFile(upg_path, 'r') as z:
+    saved_xml = z.read('Document.xml').decode('utf-8')
+check('T162 first save after open writes upgraded ops to journal and Meta ShopSketchOps',
+      saved_j['ops'][-1] == upg_fit and saved_j['dropped'][0]['op']['type'] == 'unfit'
+      and 'plane_fit' not in saved_xml and 'replace_fit' not in saved_xml)
+
 print('PROPERTY TESTS: %d passed, 0 failed' % passed)

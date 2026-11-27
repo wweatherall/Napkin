@@ -67,3 +67,9 @@ Checks:
   properties quick tests: fits made, refit, taken off and reopened, as `fit`/`unfit`.
 - `python3 tools/protocol_map.py --check`.
 - `tools/TEST_BEFORE_MERGING.sh` passes (full scope).
+
+### Response
+
+- **2026-11-27 (gemini, gemini-walnut-1127-0808):**
+  Branch `gemini/h171-fit-op`. Split plane fits out of `property_edit` into `fit` (`ft`) and `unfit` (`uf`), added `upgrade_op` in `worker/session.py` for old journals/dropped entries/Meta `ShopSketchOps`, and bumped `PROTOCOL_VERSION` to 17.
+  Architecture: `fit` and `unfit` are top-level ops (`Model.op_fit`, `Model.op_unfit`) with `ft`/`uf` IDs and `_op_refs` (`body`, `target_body` for `fit`; `body` for `unfit`), `property_edit` accepts only `mode` `"value" | "expression"`, `session.upgrade_op(op)` upgrades pre-protocol-17 fits on read, and `PROTOCOL_VERSION` is bumped 16 -> 17 in `worker/serve.py`, `viewport/main.gd`, and `docs/protocol.md`.

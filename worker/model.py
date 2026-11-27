@@ -321,14 +321,20 @@ class Model(*action_mixins()):
         self.set_tip(container, b)
         return b
 
+    def op_fit(self, op):
+        """Fit a board's stock axis to a face on another board (T162): see plane_fit.apply."""
+        import plane_fit
+        return plane_fit.apply(self, op)
+
+    def op_unfit(self, op):
+        """Remove a plane fit and restore plain stock at the entered length (T162): see plane_fit.replace."""
+        import plane_fit
+        return plane_fit.replace(self, op)
+
     def op_property_edit(self, op):
         """A native property changed in the Properties panel (T46): see object_properties.apply."""
-        if op.get("mode") == "replace_fit":
-            import plane_fit
-            return plane_fit.replace(self, op)
-        if op.get("mode") == "plane_fit":
-            import plane_fit
-            return plane_fit.apply(self, op)
+        if op.get("mode") not in ("value", "expression"):
+            raise OpError(f"unknown property_edit mode {op.get('mode')!r}")
         from object_properties import apply
         return apply(self, op)
 

@@ -237,5 +237,36 @@ check("... saving still leaves no floor copy and no floor_copy field",
       not os.path.exists(g["floor_file"]) and "floor_copy" not in read_journal(g["journal"]))
 s.close()
 
+# ---------- 5. Legacy fit op in floor entries + floor_copy rebuild ----------
+p = model("legacy-fit-floor")
+g = generation(p)
+s = Session(p)
+fit_base = board(1) + board(2)
+fit_base[2]["plane"]["origin"] = [0, 0, 100]  # b2 above b1
+fit_op = {"id": "fit1", "type": "fit", "body": "b1", "target_body": "b2", "axis": 2, "face": 4, "fit_mode": 0}
+s.sync(fit_base + [fit_op])
+s.save()
+s.close()
+
+add_freecad_cube(p, "FitFloorCube")
+# Rewrite journal before reopen so the floor entry is a legacy property_edit plane_fit.
+with open(g["journal"]) as f:
+    j_raw = json.load(f)
+j_raw["ops"][-1] = {"id": "fit1", "type": "property_edit", "mode": "plane_fit",
+                    "body": "b1", "target_body": "b2", "axis": 2, "face": 4, "fit_mode": 0}
+atomic_json(g["journal"], j_raw)
+
+s = Session(p)
+check("legacy fit in floor entries is upgraded on open",
+      s.external and s.undo_floor == 5 and s.applied[-1]["op"] == fit_op,
+      (s.external, s.undo_floor, s.applied[-1]["op"]))
+more = extra_25_ops(4)
+s.sync(fit_base + [fit_op] + more)
+how, _ = s.sync(fit_base + [fit_op] + more[:2])
+check("rebuild from floor copy keeps upgraded fit floor entry and FreeCAD cube",
+      how == "rebuilt" and has_label(s.doc, "FitFloorCube") and s.applied[4]["op"] == fit_op,
+      (how, has_label(s.doc, "FitFloorCube"), s.applied[4]["op"]))
+s.close()
+
 print(f"\nFLOOR COPY TESTS: {R[0]} passed, {R[1]} failed", flush=True)
 sys.exit(1 if R[1] else 0)
