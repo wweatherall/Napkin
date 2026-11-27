@@ -197,6 +197,8 @@ Work list items that are finished (and Split ones whose parts are all done).
 | T130 | Auto-unblock queued jobs immediately when their dependency job(s) merge and push. | Done |
 | T131 | Quiet-by-default `tools/test_*.py` suites: print only `FAIL` lines and summary by defau... | Done |
 | T144 | Two tool follow-ups: a too-big corner fillet radius says why (H086's follow-up); Polygo... | Done |
+| T145 | Go through the ultra review findings (William's /code-review ultra of Gemini's stretch,... | Done |
+| T147 | Plane fits keep their target and stay correct when boards are cut, flipped, chained or ... | Done |
 
 ## Details
 

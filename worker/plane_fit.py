@@ -1,4 +1,5 @@
 """Board-local face references for Shop Sketch stock and extruded/cut boards."""
+import math
 import FreeCAD as App
 import Part
 
@@ -169,19 +170,19 @@ def stock(board, feature=None):
     return ext, pose.Base, axes, [base.Length.Value, base.Width.Value, ext.LengthFwd.Value]
 
 
-def source_frame(board, feature=None):
-    """Return (ext, origin, axes, sizes) for plain rectangular stock OR any board with a reachable Part::Extrusion."""
+def _source_frame_and_profile(board, feature=None):
+    """Return ((ext, origin, axes, sizes), profile) for plain rectangular stock OR any board with a reachable Part::Extrusion."""
     rect = stock(board, feature)
     if rect is not None:
-        return rect
+        return rect, None
     dfn, placement = _def(board)
     if dfn is None:
-        return None
+        return None, None
     tip = feature or getattr(dfn, 'Tip', None)
     base_tip = getattr(tip, 'SSStock', tip)
     ext = _underlying_extrusion(base_tip)
     if not _is_straight_extrusion(ext):
-        return None
+        return None, None
     ext_pose = placement.multiply(ext.Placement)
     direction = ext_pose.Rotation.multVec(ext.Dir)
     direction.normalize()
@@ -190,35 +191,44 @@ def source_frame(board, feature=None):
         pose = ext_pose.multiply(base.Placement)
         axes = [pose.Rotation.multVec(v) for v in (V(1, 0, 0), V(0, 1, 0))] + [direction]
         if abs(direction.dot(axes[0].cross(axes[1]))) < 0.999999:
-            return None
-        return ext, pose.Base, axes, [base.Length.Value, base.Width.Value, ext.LengthFwd.Value]
+            return None, None
+        return (ext, pose.Base, axes, [base.Length.Value, base.Width.Value, ext.LengthFwd.Value]), None
     if base.TypeId == 'Sketcher::SketchObject':
         pose = ext_pose.multiply(base.Placement)
         u_ax = pose.Rotation.multVec(V(1, 0, 0))
         v_ax = pose.Rotation.multVec(V(0, 1, 0))
+        u_sketch, v_sketch = u_ax, v_ax
         if abs(direction.dot(u_ax.cross(v_ax))) < 0.999:
             u_ax, v_ax = _ortho_axes(direction)
         if len(getattr(base, 'Geometry', [])) == 1 and base.Geometry[0].TypeId == 'Part::GeomCircle':
-            r = base.Geometry[0].Radius
-            origin = pose.Base - u_ax * r - v_ax * r
-            return ext, origin, [u_ax, v_ax, direction], [2 * r, 2 * r, ext.LengthFwd.Value]
+            g = base.Geometry[0]
+            r = g.Radius
+            center = pose.multVec(g.Center)
+            origin = center - u_ax * r - v_ax * r
+            frame = (ext, origin, [u_ax, v_ax, direction], [2 * r, 2 * r, ext.LengthFwd.Value])
+            return frame, ('circle', center, u_sketch, v_sketch, r)
     else:
         u_ax, v_ax = _ortho_axes(direction)
     shape = getattr(base, 'Shape', None)
     if shape is None or shape.isNull() or not shape.Edges:
-        return None
+        return None, None
     pts = []
     for edge in shape.Edges:
         for p in edge.discretize(Deflection=0.25):
             pts.append(ext_pose.multVec(p))
     if not pts:
-        return None
+        return None, None
     us = [p.dot(u_ax) for p in pts]
     vs = [p.dot(v_ax) for p in pts]
     ws = [p.dot(direction) for p in pts]
     origin = u_ax * min(us) + v_ax * min(vs) + direction * min(ws)
     sizes = [max(max(us) - min(us), 1e-3), max(max(vs) - min(vs), 1e-3), ext.LengthFwd.Value]
-    return ext, origin, [u_ax, v_ax, direction], sizes
+    return (ext, origin, [u_ax, v_ax, direction], sizes), ('points', pts)
+
+
+def source_frame(board, feature=None):
+    """Return (ext, origin, axes, sizes) for plain rectangular stock OR any board with a reachable Part::Extrusion."""
+    return _source_frame_and_profile(board, feature)[0]
 
 
 def fitted_face(board):
@@ -357,7 +367,7 @@ def snapshot(board):
     return out
 
 
-def geometry(source, target, axis, face, mode, reverse=False, target_plane=None):
+def geometry(source, target, axis, face, mode, reverse=False, target_plane=None, profile=None):
     _, origin, axes, sizes = source
     if target_plane is not None:
         point, normal = target_plane
@@ -368,8 +378,9 @@ def geometry(source, target, axis, face, mode, reverse=False, target_plane=None)
         if positive:
             point = point + normal * target_sizes[index]
     along = axes[axis]
+    shift = along * sizes[axis] if reverse else V()
     if reverse:
-        origin = origin + along * sizes[axis]
+        origin = origin + shift
         along = -along
     denom = along.dot(normal)
     if abs(denom) < 1e-8:
@@ -377,7 +388,16 @@ def geometry(source, target, axis, face, mode, reverse=False, target_plane=None)
     u, v = (axis + 1) % 3, (axis + 2) % 3
     dx, dy = axes[u]*sizes[u], axes[v]*sizes[v]
     corners = [origin, origin+dx, origin+dx+dy, origin+dy]
-    depths = [(point-c).dot(normal)/denom for c in corners]
+    if mode != 1 and profile is not None:
+        if profile[0] == 'circle':
+            _, center, u_ax, v_ax, r = profile
+            d_center = (point - (center + shift)).dot(normal) / denom
+            slope = math.hypot(u_ax.dot(normal), v_ax.dot(normal)) / abs(denom)
+            depths = [d_center - r * slope, d_center + r * slope]
+        else:
+            depths = [(point - (p + shift)).dot(normal) / denom for p in profile[1]]
+    else:
+        depths = [(point-c).dot(normal)/denom for c in corners]
     if min(depths) <= 1e-6:
         raise ValueError('The entire target plane must be ahead of the starting end')
     if mode != 1:
@@ -510,7 +530,7 @@ def update(model, board, tip):
     if not tip.SSTargetId:          # detached (or its target is gone): the shape stays as it is
         return
     target = model.bodies().get(tip.SSTargetId)
-    src = source_frame(board, tip)
+    src, profile = _source_frame_and_profile(board, tip)
     face_idx, plane = _resolve_face(target, tip)
     if not src or plane is None:
         tip.SSTargetId = ''
@@ -528,7 +548,7 @@ def update(model, board, tip):
     tip.SSFace = face_idx
     dst = stock(target)
     corners, ends, depths = geometry(src, dst, tip.SSAxis, tip.SSFace, tip.SSMode,
-                                     getattr(tip, "SSReverse", False), target_plane=plane)
+                                     getattr(tip, "SSReverse", False), target_plane=plane, profile=profile)
     inv = board.Placement.inverse()
     local = [inv.multVec(p) for p in corners + ends]
     previous = tip.SSFitCorners
@@ -579,7 +599,7 @@ def apply(model, op):
     axis, face, mode = (op[k] for k in ('axis','face','fit_mode'))
     board_dfn, _ = _def(board)
     target_dfn, _ = _def(target)
-    src = source_frame(board)
+    src, profile = _source_frame_and_profile(board)
     t_plane = face_plane(target, face)
     if board == target or board_dfn is None or target_dfn is None or board_dfn == target_dfn or not src or t_plane is None:
         raise ValueError('Pick a planar face on a different board')
@@ -600,7 +620,7 @@ def apply(model, op):
         cur_tip = _underlying_plane_fit(getattr(cur_dfn, 'Tip', None))
         next_id = getattr(cur_tip, 'SSTargetId', '') if cur_tip is not None else ''
         cur = bodies.get(next_id) if next_id else None
-    geometry(src, stock(target), axis, face, mode, op.get("reverse", False), target_plane=t_plane)
+    geometry(src, stock(target), axis, face, mode, op.get("reverse", False), target_plane=t_plane, profile=profile)
     tip = board_dfn.Tip
     if not hasattr(tip,'SSStock'):
         tip = model.doc.addObject('Part::Feature','PlaneFit')

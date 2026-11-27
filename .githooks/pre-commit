@@ -24,3 +24,8 @@ if [ "$(git branch --show-current)" = main ] && grep -q "job table: built by too
   python3 tools/job.py board >/dev/null || exit 1
   git add BOARD.md
 fi
+# comitatus/06_To-dos fills itself from main (T134): one file per thing waiting on William or the integrator.
+# Fail-open: a to-do file is never a reason to refuse a commit.
+if [ "$(git branch --show-current)" = main ]; then
+  python3 tools/org_todos.py --quiet || true
+fi

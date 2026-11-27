@@ -11,7 +11,7 @@
                                                    the lock is taken (--commit stages+commits; --push also pushes main)
   python3 tools/integrator.py touch <name>         mark it still in use (tools/integrate.py does this)
   python3 tools/integrator.py release <name>       give it up
-  python3 tools/integrator.py note "<line>"        append one line to the rolling 20-line integrator journal
+  python3 tools/integrator.py note "<line>"        append one line to the integrator's Log (personal space, T134)
 
 A session takes the lock only when William has told it, in that session, that it is the integrator. Holding the
 lock is what lets tools/integrate.py merge; a session that isn't the holder is a worker."""
@@ -47,6 +47,20 @@ def note(path, text, limit=20, out=print):
     os.replace(tmp, path)
     out(entry)
     return True
+
+
+def log_note(text, root=None, out=print):
+    """A note goes to the integrator's Log in its personal space (T134), found from the checkout at `root` (a test
+    repo has none); without one, to the old journal file in that checkout's .git."""
+    try:
+        import personal_space
+        import startup
+        main = personal_space.main_root(root or os.getcwd())
+        if personal_space.path_of(startup.INTEGRATOR_SPACE, "log", main) is not None:
+            return personal_space.add(startup.INTEGRATOR_SPACE, "log", text, root=main, out=out)
+    except ImportError:
+        pass
+    return note(journal_path(root), text, out=out)
 
 
 def read(path):
@@ -166,7 +180,7 @@ def main(argv):
     cmd, name = argv[0], argv[1]
     try:
         if cmd == "note":
-            ok = note(journal_path(), " ".join(argv[1:]))
+            ok = log_note(" ".join(argv[1:]))
         elif cmd == "take":
             william, archives, commit, push, err = parse_take_args(argv[2:])
             if err:

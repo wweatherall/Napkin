@@ -367,10 +367,9 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | T141 | William tries the Polygon tool by eye in a rebuilt app (tools/build_app.sh). | Open |
 | T142 | A Work list item is marked Done automatically when the job (or last of its jobs) that c... | Open |
 | T143 | Move tools/usage.py (2,760 lines, token benchmarking) and its tests out of the project'... | Open |
-| T145 | Go through the ultra review findings (William's /code-review ultra of Gemini's stretch,... | Open |
 | T146 | Atomize the principles and past decisions: one file per ruling (G, P and the rest), wri... | Open |
-| T147 | Plane fits keep their target and stay correct when boards are cut, flipped, chained or ... | Open |
 | T148 | The worker turns off FreeCAD's backup files (CreateBackupFiles) in the shared user pref... | Open |
+| T149 | Tools and habits take the organization's names (FOR_<doing>.py; WHEN_<this>_<DO_THAT>.p... | Open |
 
 ## Tunables
 

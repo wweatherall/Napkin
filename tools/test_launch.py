@@ -32,6 +32,8 @@ check("a Gemini prompt takes with no --session (job.py reads Gemini's conversati
 check("a Claude prompt takes without a session flag",
       "take --as claude`" in launch.prompt("claude", "claude-elm-1", "b") and "CLAUDE.md" in launch.prompt("claude", "n", "b"))
 
+check("the first prompt names the worker's personal space and how to log and journal (T134)",
+      "personal_space.py log gemini-coder" in p and "personal_space.py journal gemini-coder" in p, p)
 g = launch.agent_command("gemini", root, "/x/p file.txt", "gemini-a")
 check("Gemini runs agy with the hydrogen model by default and the prompt file",
       g == "cd /x/comitatus/08_Code_Bases/Napkin && agy --model gemini-4-hydrogen-medium -i \"$(cat '/x/p file.txt')\"", g)
