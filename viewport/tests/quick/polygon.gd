@@ -80,13 +80,23 @@ func run() -> void:
 	await harness._key(KEY_ESCAPE)
 	harness._ok("Escape cancels the polygon gesture", not tool.busy(), tool.state)
 
-	var sides_were: int = tool.sides
 	count = m.ops.size()
 	await harness._type("5")
 	await harness._click_at(Vector3(200, 150, 0))
 	await harness._type("20\n")
-	harness._ok("a click that starts a polygon drops digits not entered", m.ops.size() == count + 1
-		and is_equal_approx(m.ops.back().get("radius", 0.0), 20.0) and m.ops.back().get("sides") == sides_were and tool.sides == sides_were,
+	harness._ok("digits typed before the centre click, not entered, set the sides; the radius starts empty (William's steps)",
+		m.ops.size() == count + 1 and is_equal_approx(m.ops.back().get("radius", 0.0), 20.0) and m.ops.back().get("sides") == 5
+		and tool.sides == 5, [m.ops.back(), tool.sides, m.measure.vcb])
+	await harness._type("7\n")
+	harness._ok("a plain number + Return before a gesture sets the sides", tool.sides == 7 and not tool.busy() and m.ui_vcb.text == "7",
+		[tool.sides, m.ui_vcb.text])
+	var sides_were: int = tool.sides
+	count = m.ops.size()
+	await harness._type("2")
+	await harness._click_at(Vector3(200, 150, 0))
+	await harness._type("20\n")
+	harness._ok("a side count outside 3-64 typed before the click is dropped, and the radius still starts empty",
+		m.ops.size() == count + 1 and is_equal_approx(m.ops.back().get("radius", 0.0), 20.0) and m.ops.back().get("sides") == sides_were,
 		[m.ops.back(), tool.sides, m.measure.vcb])
 
 	# keys.gd: only a tool with accepts_idle gets characters before a gesture; hotkeys behave as before

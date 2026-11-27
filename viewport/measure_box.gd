@@ -269,12 +269,14 @@ func apply() -> void:
 		var counts := RegEx.new()
 		counts.compile("^(?:[0-9]+x|[x*][0-9]+|/[0-9]+)$")
 		var raw: bool = active.has_method("typed_raw") and active.typed_raw()
-		var side_count: bool = tool == "polygon" and txt.to_lower().ends_with("s") and txt.left(-1).strip_edges().is_valid_int()
+		# Polygon's side count: 8s at any time, or a plain whole number before a gesture, where the box says Sides (I73)
+		var side_count: bool = tool == "polygon" and ((txt.to_lower().ends_with("s") and txt.left(-1).strip_edges().is_valid_int())
+			or (not active.busy() and txt.is_valid_int()))
 		if raw or side_count or (tool == "move" and counts.search(txt.to_lower()) != null):
 			length_pending = {}
 			active.typed(txt)
 		elif tool == "polygon" and not active.busy():
-			pass      # before a gesture only a side count means anything: a length here mustn't set the units
+			pass      # before a gesture only a whole side count means anything: a length here mustn't set the units
 		elif tool in ["rect", "circle", "polygon", "line", "arc", "push", "move"]:
 			var suffix := ""
 			if tool == "arc" and active.radius_input() and txt.to_lower().ends_with("r"):

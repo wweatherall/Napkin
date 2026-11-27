@@ -7746,7 +7746,7 @@ and third folder (`work/`, `questions/`) without copying it.
    index and the principles' index lines. `note` and everything about Q, T and Tunables are unchanged. A new
    `log.py set <ID> --status S` (and `--where`, `--rel`) edits a ruling's status line without hand-editing, so
    superseding needs no hand edit (P01: the old ruling gets Superseded, the new one names it).
-5. **IDs (`number_ids.py`)**: rulings files count as taken IDs; a branch's `rulings/I-new-1.md` defines the
+5. **IDs (`number_ids.py`)**: rulings files count as taken IDs; a branch's `rulings/I73.md` defines the
    placeholder and is renamed to its number at merge, like a handoff file; references inside every file are
    renumbered as today.
 6. **`startup.py`** reads a ruling from `main:03_Past_Decisions/rulings/<ID>.md` (falling back to the tables during
@@ -7781,7 +7781,7 @@ Checks, each failing without the change:
   tools/atomize_log.py's output and quote the counts in your response).
 - tools/test_log.py: "add writes a ruling file with a placeholder on a branch", "show <ID> prints the file and its
   principles' status lines", "set --status supersedes without editing by hand".
-- tools/test_number_ids.py: "a branch's rulings/I-new-1.md is renamed to its number and its citations renumbered".
+- tools/test_number_ids.py: "a branch's rulings/I73.md is renamed to its number and its citations renumbered".
 - tools/test_startup.py: "a named ID's lines come from its ruling file".
 - tools/test_integrate.py: "merging a branch that added a ruling file and one that edited an old row ends tidy".
 - `tools/featuretest.sh` and the quick test pass (the tools' tests run in the feature tests).
