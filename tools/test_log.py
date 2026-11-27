@@ -260,12 +260,33 @@ def cli_checks():
     shutil.rmtree(root)
 
 
+def pick_checks():
+    root = repo()
+    res = log.pick(root, "T9", who="claude", today=TODAY)
+    t9_text = open(os.path.join(root, s.WORK_DIR, "T9.md"), encoding="utf-8").read()
+    check("pick moves an Open item to Picked up with who and when",
+          f"Status: Picked up (claude, {TODAY})" in res
+          and f"Status: Picked up (claude, {TODAY})" in t9_text)
+    check("pick refuses an item that isn't Open",
+          fails(log.pick, root, "T9", has="not Open"))
+    # Reopen preserves Jobs: and show prints it
+    t9_with_jobs = t9_text.replace(f"Status: Picked up (claude, {TODAY}) | Covers:", "Status: Done | Covers:")
+    t9_with_jobs = t9_with_jobs.replace("\n\n", "\nJobs: H10 merged abc1234\n\n", 1)
+    open(os.path.join(root, s.WORK_DIR, "T9.md"), "w", encoding="utf-8").write(t9_with_jobs)
+    log.set_ruling(root, "T9", {"status": "Open"})
+    shown = log.show(root, "T9")
+    check("set --status Open keeps Jobs: and show prints it",
+          "Status: Open" in shown and "Jobs: H10 merged abc1234" in shown)
+    shutil.rmtree(root)
+
+
 def main():
     show_checks()
     add_checks(True)
     add_checks(False)
     error_checks()
     note_checks()
+    pick_checks()
     tunable_checks()
     placeholder_checks()
     cli_checks()

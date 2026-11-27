@@ -63,7 +63,7 @@ def william_items(root):
 
 
 def integrator_items(root):
-    """[(ID, kind, text)]: answered jobs waiting for review, Open Work list items with a merged Result, and open follow-ups."""
+    """[(ID, kind, text)]: answered jobs waiting for review, Open/Picked-up Work list items not waiting on William, and open follow-ups."""
     out = []
     folder = os.path.join(root, "docs", "handoff")
     for n in sorted(os.listdir(folder)) if os.path.isdir(folder) else []:
@@ -73,10 +73,19 @@ def integrator_items(root):
             if title:
                 out.append((title.group(1), "review the job", title.group(2)))
     work = os.path.join(root, startup.s.WORK_DIR)
+    work_entries = startup.s.read_entries(work)
+    waiting_w = {ident for ident, _ in startup.waiting_rows("", work_entries=work_entries)}
     for ident in startup.s.folder_ids(work):
-        entry = startup.s.read_entry(work, ident)
-        if entry["meta"].get("Status") == "Open" and re.search(r"Result \([^,)]+,\s*merged\s+[^)]+\):", entry["result"]):
-            out.append((ident, "Work list", f"{ident}: its last job merged; next step or Done"))
+        entry = work_entries[ident]
+        st = entry["meta"].get("Status", "")
+        if st == "Open" and ident not in waiting_w:
+            out.append((ident, "Work list", entry["title"] or ident))
+        elif startup.s.PICKED_UP.match(st):
+            m = re.search(r"(\d{4}-\d{2}-\d{2})", st)
+            date = m.group(1) if m else ""
+            kind = f"Work list, picked up {date}" if date else "Work list, picked up"
+            text = f"picked up {date}: {entry['title']}" if date else f"picked up: {entry['title']}"
+            out.append((ident, kind, text))
     for line in read(root, "docs/follow-ups.md").split("\n"):
         m = re.match(r"^- (\S+) \(([^)]*)\): (.*)$", line)
         if m:

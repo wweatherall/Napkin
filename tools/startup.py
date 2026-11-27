@@ -257,6 +257,9 @@ def report_ids(log, ids, archive="", read_ruling=None, read_work=None, read_ques
             note, summary, cids = _work_line(wraw, ident)
             lines.append(f"== {ident}" + note)
             lines.append(summary)
+            jobs = s.parse_entry(wraw, ident=ident)["meta"].get("Jobs", "")
+            if jobs:
+                lines.append(f"  Jobs: {jobs}")
             for cid in cids:
                 lines.append(f"  {cid}: " + _lookup_entry_line(cid, log, archive, read_ruling, read_work, read_question))
             continue
