@@ -39,7 +39,7 @@ One subject per decision; the Decisions column is generated.
 |---|---|---|
 | Product | What Shop Sketch is for and the feel it aims at. | I01, P04, P51 |
 | Architecture | The processes, the worker link, the app and the code's main boundaries. | A02, A03, A06, A08, A09, A27, A29, A30, A31, A33b, A34, A35, A40, W13 |
-| Files, saving and undo | The .FCStd model and its journal, saving, opening, undo and redo. | A21, A23, A24, A25, A28, A32, A36, A37, A38, A39, A41, A42, I38, I42, I54, I55, U01, U02, U03 |
+| Files, saving and undo | The .FCStd model and its journal, saving, opening, undo and redo. | A21, A23, A24, A25, A28, A36, A39, A41, A42, I38, I42, I54, I55, U01, U02, U03 |
 | Drawing tools | Rectangle, Circle, Line: how a drawing gesture starts, follows and ends. | I02, I04b, I09, I11, I43, I44, I49, I50, I51, I58, I60, I61, I64, I65, I71, I73 |
 | Push/Pull | Extruding, cutting, and fitting a board's end to another board. | I05, I08, I23, I24, I34, I40, I41, I45, I56 |
 | Move, copies and arrays | Move, linked copies, arrays, mirrors, components and assemblies. | A10, A11b, A22c, A26, I10, I12c, I13b, I14, I15, I16, I17, I20, I21, I25, I28, I32, I46, I52, I53, I66, I69 |
@@ -111,10 +111,7 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | A24 | Autosave is atomic (write a copy, then swap it in) and waits for a ¼-second pause in yo... | Active |
 | A25 | Opening a Shop Sketch file adopts its journal, so undo works across sessions. | Active |
 | A28 | FreeCAD keeps only 20 undo steps; the 21st undo in a row rebuilds the model from the jo... | Active |
-| A32 | Saving the model and its journal as one generation: the previous complete pair is kept ... | Active |
 | A36 | When FreeCAD saves a model while Shop Sketch still has actions pending: Shop Sketch sto... | Active |
-| A37 | Opening a model whose file and journal don't match: the newest file on disk is the mode... | Active |
-| A38 | When Shop Sketch takes in a FreeCAD edit (opening a file changed outside it, or reloadi... | Active |
 | A39 | When the actions pending under A36's 'FreeCAD saved this model' question land while it ... | Active |
 | A41 | The worker turns off FreeCAD's backup files only for the moment of its own save and the... | Active |
 | A42 | One file per model: everything Napkin keeps about a model (its edit history and results... | Active |

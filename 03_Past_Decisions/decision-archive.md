@@ -18,7 +18,10 @@ Kept for history (P01: never deleted). Each names the decision that replaced it.
 | A11 | Editing a mirrored copy edits its original (mirrored back), so both stay identical, lik... | Superseded |
 | A22 | A board is an App::Part container holding its feature chain: Part::Plane (the rectangle... | Superseded |
 | A22b | A board is an App::Part container: Part::Plane (the rectangle) → Part::Extrusion (the p... | Superseded |
+| A32 | Saving the model and its journal as one generation: the previous complete pair is kept ... | Superseded |
 | A33 | Split geometry presentation (drafts, confirmed boards, highlights, waves, caches) and s... | Superseded |
+| A37 | Opening a model whose file and journal don't match: the newest file on disk is the mode... | Superseded |
+| A38 | When Shop Sketch takes in a FreeCAD edit (opening a file changed outside it, or reloadi... | Superseded |
 | I03 | Snapping: corners within 14 px, otherwise a 10 mm grid (G toggles). | Superseded |
 | I04 | A rectangle on the ground makes a new board. | Superseded |
 | I07 | Cut previews are violet. | Superseded |
