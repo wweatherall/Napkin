@@ -1,6 +1,6 @@
 ### H157 — T142 step 2: picking a to-do up, its jobs linked with their progress, Done by itself when the last merges
 
-Author: Claude (integrator, napkin-77) | Date: 2026-11-26 | Status: queued (after H156) | For: either
+Author: Claude (integrator, napkin-77) | Date: 2026-11-26 | Status: open | For: either
 
 References: T142, P68 (William, 2026-11-26: "register you picking it up from the to-do list; once it's turned into
 jobs, each of those linked to it; once the last has finished, marked done automatically"), P67, H156 (the On the board
