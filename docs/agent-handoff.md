@@ -34,6 +34,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H159 — Personal spaces: everything an agent makes is committed and pushed; experiments can be run or merged](handoff/H159-personal-spaces-saved-and-pushed.md) — status: open; for: gemini
 - [H161 — Faster tests: find where the gate's time goes and cut it, every check kept](handoff/H161-faster-tests.md) — status: open; for: gemini
 - [H162 — Move the token benchmarker (tools/usage.py) to comitatus/09_Tools as MEASURE_TOKEN_USE.py](handoff/H162-move-usage-to-comitatus-tools.md) — status: open; for: gemini
+- [H163 — Onboarding: the start-up brief carries who you are, the principles, habits, tools and personal time](handoff/H163-onboarding-rows.md) — status: queued (after H161); for: gemini
 
 <!-- end of open list -->
 
