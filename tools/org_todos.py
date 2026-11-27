@@ -121,8 +121,12 @@ def main(argv=None):
     mark = MARK.format(base=base)
     dry = "--dry-run" in argv
     quiet = (lambda *a: None) if "--quiet" in argv else print
-    sync(os.path.join(todos, "waiting_on_William"), files_for(base, william_items(root), mark), mark, dry, quiet)
-    sync(os.path.join(todos, "waiting_on_integrator"), files_for(base, integrator_items(root), mark), mark, dry, quiet)
+    changed = sync(os.path.join(todos, "waiting_on_William"), files_for(base, william_items(root), mark), mark, dry, quiet)
+    changed += sync(os.path.join(todos, "waiting_on_integrator"), files_for(base, integrator_items(root), mark), mark,
+                    dry, quiet)
+    if changed and not dry:
+        import comitatus_commit
+        comitatus_commit.commit(os.path.dirname(todos), [todos], f"06_To-dos: {base}'s items (generated)", out=quiet)
     return 0
 
 

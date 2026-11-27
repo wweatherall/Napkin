@@ -1140,6 +1140,12 @@ def write_org_jobs(top, text, out=print):
         return False
     open(path, "w", encoding="utf-8").write(new)
     out(f"wrote {os.path.relpath(path, os.path.dirname(os.path.dirname(top)))}")
+    try:
+        import comitatus_commit
+        org = os.path.dirname(os.path.dirname(path))
+        comitatus_commit.commit(org, [path], f"05_Jobs: {os.path.basename(top)}'s job table (generated)")
+    except ImportError:
+        pass
     return True
 
 

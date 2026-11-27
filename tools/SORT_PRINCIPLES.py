@@ -190,6 +190,11 @@ def main(argv=None, ask=input, out=print):
         record(state, a, b, score)
         save(state_path, state)
         open(rank_path, "w", encoding="utf-8").write(ranking_text(principles, state))
+    try:
+        import comitatus_commit
+        comitatus_commit.commit(org, [state_path, rank_path], "01_Principles: ranking from William's answers (generated)")
+    except ImportError:
+        pass
     out(f"\n{len(state['answers'])} answers so far; ranking in {os.path.relpath(rank_path, org)}")
     out("\n".join(ranking_text(principles, state).split("\n")[6:6 + 2 + min(10, len(principles))]))
     return 0
