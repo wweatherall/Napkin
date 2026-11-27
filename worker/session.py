@@ -1,11 +1,11 @@
-"""Session: one live document bound to one .FCStd file; sync, undo, journal, saving (A23, A24).
+"""Session: one live document bound to one .FCStd file; sync, undo, journal, saving (A23, A42).
 
 Owns `IdRegistry` (`accept`, `seed_native` from BodyId/RectId/SSOp/AssemblyId/SSLineId), display units (`set_units`,
-`ShopSketchUnits` Meta), save generations (`save()`: `glb_dirty`, disables `CreateBackupFiles`, `Session.drawing`
-one-shot flag never latched on open/reload, `<model>.saving.FCStd` -> `.prev.FCStd` -> atomic rename), recovery
-(`recover_generation()`), and outside-save reload (`reload_outside()` with `validate_project` snapshot and
-`<model>.floor.FCStd` via `_write_floor_copy`; `copy_outside_aside`, `aside_name`).
-Entry points: sync, _apply, _open_existing, export, save, recover_generation, reload_outside, copy_outside_aside."""
+`ShopSketchUnits` Meta), atomic single-file saves (`save()`: `glb_dirty`, disables `CreateBackupFiles`, `Session.drawing`
+one-shot flag never latched on open/reload, `<model>.saving.FCStd` -> atomic rename, `ShopSketchJournal` and
+`ShopSketchContentSha256` in Meta, `ShopSketchFloor.FCStd` inside the zip), and outside-save reload (`reload_outside()`
+with `validate_project` snapshot; `copy_outside_aside`, `aside_name`).
+Entry points: sync, _apply, _open_existing, export, save, reload_outside, copy_outside_aside."""
 import FreeCAD as App
 from contextlib import contextmanager
 from copy import copy, deepcopy
@@ -101,15 +101,9 @@ class IdRegistry:
 _HIDDEN_IN_FREECAD = {"App::Origin", "App::Line", "App::Plane", "App::Point", "TechDraw::DrawPage"}
 
 
-def write_gui_document(fcstd, previous=None):
-    """Add the part of the file FreeCAD's window reads (GuiDocument.xml). freecadcmd never writes it, and without
-    it FreeCAD opens the model with every object hidden. Each object shows as the model says (a board's current
-    solid shown, its steps hidden); board axes and planes and the drawing page stay hidden. View settings FreeCAD
-    saved in the previous file (colours, line widths, the camera) are kept."""
-    with zipfile.ZipFile(fcstd) as z:
-        if "GuiDocument.xml" in z.namelist():
-            return
-        doc = ET.fromstring(z.read("Document.xml"))
+def _build_gui_document(doc_xml_bytes, previous=None):
+    """Build GuiDocument.xml bytes so FreeCAD's window shows each object as the model says (T29)."""
+    doc = ET.fromstring(doc_xml_bytes)
     kinds = {o.get("name"): o.get("type") for o in doc.find("Objects").findall("Object")}
     shown = {}
     for o in doc.find("ObjectData").findall("Object"):
@@ -146,8 +140,22 @@ def write_gui_document(fcstd, previous=None):
         data.append(vp)
     if camera is not None:
         out.append(camera)
+    return b"<?xml version='1.0' encoding='utf-8'?>\n" + ET.tostring(out)
+
+
+def write_gui_document(fcstd, previous=None):
+    """Add GuiDocument.xml to an .FCStd archive if absent."""
+    with zipfile.ZipFile(fcstd) as z:
+        if "GuiDocument.xml" in z.namelist():
+            return
+        doc_bytes = z.read("Document.xml")
+    gui_bytes = _build_gui_document(doc_bytes, previous)
     with zipfile.ZipFile(fcstd, "a", zipfile.ZIP_DEFLATED) as z:
-        z.writestr("GuiDocument.xml", b"<?xml version='1.0' encoding='utf-8'?>\n" + ET.tostring(out))
+        z.writestr("GuiDocument.xml", gui_bytes)
+
+
+def sha256_bytes(data):
+    return hashlib.sha256(data).hexdigest()
 
 
 def sha256(path):
@@ -158,6 +166,67 @@ def sha256(path):
     return h.hexdigest()
 
 
+def _strip_content_sha_from_xml(doc_xml_bytes):
+    root = ET.fromstring(doc_xml_bytes)
+    meta_map = root.find("./Properties/Property[@name='Meta']/Map")
+    if meta_map is not None:
+        for item in list(meta_map.findall("Item")):
+            if item.get("key") == "ShopSketchContentSha256":
+                meta_map.remove(item)
+        meta_map.set("count", str(len(meta_map.findall("Item"))))
+    return ET.canonicalize(ET.tostring(root, encoding="unicode")).encode("utf-8")
+
+
+def content_sha256(fcstd_path):
+    """Hash of the .FCStd zip's contents excluding GuiDocument.xml, ShopSketchFloor.FCStd, and ShopSketchContentSha256."""
+    h = hashlib.sha256()
+    with zipfile.ZipFile(fcstd_path, "r") as z:
+        for name in sorted(z.namelist()):
+            if name in ("GuiDocument.xml", "ShopSketchFloor.FCStd"):
+                continue
+            data = z.read(name)
+            if name == "Document.xml":
+                data = _strip_content_sha_from_xml(data)
+            h.update(name.encode("utf-8") + b"\0" + str(len(data)).encode("ascii") + b"\0" + data)
+    return h.hexdigest()
+
+
+def finalize_fcstd(fcstd_path, previous=None, floor_bytes=None):
+    """Inject ShopSketchContentSha256, GuiDocument.xml, and optional ShopSketchFloor.FCStd into a saved .FCStd."""
+    csha = content_sha256(fcstd_path)
+    tmp_zip = fcstd_path + ".zip"
+    try:
+        with zipfile.ZipFile(fcstd_path, "r") as zin, zipfile.ZipFile(tmp_zip, "w", zipfile.ZIP_DEFLATED) as zout:
+            names = zin.namelist()
+            doc_bytes = zin.read("Document.xml")
+            root = ET.fromstring(doc_bytes)
+            meta_map = root.find("./Properties/Property[@name='Meta']/Map")
+            if meta_map is not None:
+                for item in list(meta_map.findall("Item")):
+                    if item.get("key") == "ShopSketchContentSha256":
+                        meta_map.remove(item)
+                ET.SubElement(meta_map, "Item", key="ShopSketchContentSha256", value=csha)
+                meta_map.set("count", str(len(meta_map.findall("Item"))))
+            new_doc_bytes = ET.tostring(root, encoding="utf-8", xml_declaration=True)
+            zout.writestr("Document.xml", new_doc_bytes)
+            for item in zin.infolist():
+                if item.filename in ("Document.xml", "ShopSketchFloor.FCStd"):
+                    continue
+                zout.writestr(item, zin.read(item.filename))
+            if "GuiDocument.xml" not in names:
+                zout.writestr("GuiDocument.xml", _build_gui_document(new_doc_bytes, previous))
+            if floor_bytes is not None:
+                zout.writestr("ShopSketchFloor.FCStd", floor_bytes)
+        os.replace(tmp_zip, fcstd_path)
+    except Exception:
+        if os.path.exists(tmp_zip):
+            try:
+                os.remove(tmp_zip)
+            except OSError:
+                pass
+        raise
+
+
 def atomic_json(path, data):
     tmp = path + ".tmp"
     with open(tmp, "w") as f:
@@ -165,20 +234,29 @@ def atomic_json(path, data):
     os.replace(tmp, path)
 
 
-def journal_path(model_path):
-    base, _ = os.path.splitext(model_path)
-    return base + ".shopsketch.json"
-
-
-def generation(model_path):
-    """The files of one model's save generations (A32): the current pair, the one being written, the one before,
-    and the floor copy kept when FreeCAD edits the model (A38)."""
+def saving_path(model_path):
     base, ext = os.path.splitext(model_path)
-    return {"file": model_path, "journal": base + ".shopsketch.json",
-            "saving_file": base + ".saving" + ext, "saving_journal": base + ".shopsketch.saving.json",
-            "prev_file": base + ".prev" + ext, "prev_journal": base + ".shopsketch.prev.json",
-            "unmatched_file": base + ".unmatched" + ext, "unmatched_journal": base + ".shopsketch.unmatched.json",
-            "floor_file": base + ".floor" + ext}
+    return base + ".saving" + ext
+
+
+def legacy_sidecars(model_path):
+    """Sidecar files from the pre-A42 file-and-journal layout (removed after the first save, except .unmatched)."""
+    base, ext = os.path.splitext(model_path)
+    return {
+        "journal": base + ".shopsketch.json",
+        "saving_journal": base + ".shopsketch.saving.json",
+        "prev_file": base + ".prev" + ext,
+        "prev_journal": base + ".shopsketch.prev.json",
+        "floor_file": base + ".floor" + ext,
+    }
+
+
+def _remove_legacy_sidecars(model_path):
+    for p in legacy_sidecars(model_path).values():
+        try:
+            os.remove(p)
+        except OSError:
+            pass
 
 
 def upgrade_op(op):
@@ -199,19 +277,63 @@ def _upgrade_dropped(entry):
     return upgrade_op(entry)
 
 
-def read_journal(path):
-    try:
-        with open(path) as f:
-            j = json.load(f)
-    except (OSError, ValueError):
+def _upgrade_journal_dict(j, require_sha=False):
+    if not isinstance(j, dict) or j.get("format") != JOURNAL_FORMAT:
         return None
-    if not (isinstance(j, dict) and j.get("format") == JOURNAL_FORMAT and j.get("file_sha256")):
+    if require_sha and not j.get("file_sha256"):
         return None
     if isinstance(j.get("ops"), list):
         j["ops"] = [upgrade_op(op) for op in j["ops"]]
     if isinstance(j.get("dropped"), list):
         j["dropped"] = [_upgrade_dropped(d) for d in j["dropped"]]
     return j
+
+
+def read_journal(path):
+    """Read the journal from a .FCStd's ShopSketchJournal Meta, or from a legacy .shopsketch.json file."""
+    if path.lower().endswith(".fcstd"):
+        try:
+            with zipfile.ZipFile(path) as z:
+                root = ET.fromstring(z.read("Document.xml"))
+            meta = {item.get("key"): item.get("value")
+                    for item in root.findall("./Properties/Property[@name='Meta']/Map/Item")}
+            raw = meta.get("ShopSketchJournal")
+            if not raw:
+                return None
+            return _upgrade_journal_dict(json.loads(raw), require_sha=False)
+        except (OSError, KeyError, ValueError, zipfile.BadZipFile, ET.ParseError):
+            return None
+    try:
+        with open(path) as f:
+            j = json.load(f)
+    except (OSError, ValueError):
+        return None
+    return _upgrade_journal_dict(j, require_sha=True)
+
+
+def write_meta_journal(fcstd_path, j, update_sha=True):
+    """Update ShopSketchJournal (and optionally ShopSketchContentSha256) in a .FCStd's Document.xml Meta."""
+    floor_bytes = None
+    tmp_zip = fcstd_path + ".meta.tmp"
+    with zipfile.ZipFile(fcstd_path, "r") as zin, zipfile.ZipFile(tmp_zip, "w", zipfile.ZIP_DEFLATED) as zout:
+        if "ShopSketchFloor.FCStd" in zin.namelist():
+            floor_bytes = zin.read("ShopSketchFloor.FCStd")
+        root = ET.fromstring(zin.read("Document.xml"))
+        meta_map = root.find("./Properties/Property[@name='Meta']/Map")
+        for item in list(meta_map.findall("Item")):
+            if item.get("key") == "ShopSketchJournal":
+                meta_map.remove(item)
+        ET.SubElement(meta_map, "Item", key="ShopSketchJournal", value=json.dumps(j, separators=(",", ":")))
+        meta_map.set("count", str(len(meta_map.findall("Item"))))
+        new_doc_bytes = ET.tostring(root, encoding="utf-8", xml_declaration=True)
+        zout.writestr("Document.xml", new_doc_bytes)
+        for item in zin.infolist():
+            if item.filename == "Document.xml":
+                continue
+            zout.writestr(item, zin.read(item.filename))
+    os.replace(tmp_zip, fcstd_path)
+    if update_sha:
+        finalize_fcstd(fcstd_path, floor_bytes=floor_bytes)
 
 
 def file_rev(path):
@@ -242,35 +364,6 @@ def parse_units(value):
     return value if isinstance(value, str) and value in UNIT_SPECS else None
 
 
-def keep_aside(path, aside, kept):
-    """Move path out of the way to aside, unless a file with the same bytes is among kept (then it's no loss)."""
-    if not os.path.exists(path):
-        return
-    h = sha256(path)
-    if any(os.path.exists(k) and sha256(k) == h for k in kept):
-        os.remove(path)
-    else:
-        os.replace(path, aside)
-
-
-def copy_into_place(src, dst):
-    tmp = dst + ".tmp"
-    shutil.copy2(src, tmp)
-    os.replace(tmp, dst)
-
-
-def link_or_copy(src, dst):
-    """dst becomes the same bytes as src, atomically: a hard link (instant) where the disk allows, else a copy."""
-    tmp = dst + ".tmp"
-    if os.path.exists(tmp):
-        os.remove(tmp)
-    try:
-        os.link(src, tmp)
-    except OSError:
-        shutil.copy2(src, tmp)
-    os.replace(tmp, dst)
-
-
 def validate_project(path):
     """FreeCAD may return an empty document on bad XML instead of raising."""
     with zipfile.ZipFile(path) as archive:
@@ -280,61 +373,6 @@ def validate_project(path):
         bad_entry = archive.testzip()
         if bad_entry is not None:
             raise OpError(f"Invalid project file: damaged {bad_entry}")
-
-
-def recover_generation(model_path):
-    """Opening (A37): finish an identifiable interrupted save, preserving newer outside work.
-    Only a missing or unreadable main file permits fallback to .prev. Displaced bytes are kept aside.
-    Returns {"from", "rev", "why"} or None (an ordinary open, including outside edits).
-    """
-    def readable(path):
-        try:
-            validate_project(path)
-            return True
-        except (OSError, KeyError, zipfile.BadZipFile, ET.ParseError, OpError):
-            return False
-
-    g = generation(model_path)
-    have_file = os.path.exists(g["file"])
-    main_readable = readable(g["file"])
-    j = read_journal(g["journal"])
-    if main_readable and j:
-        main_hash = sha256(g["file"])
-        if main_hash in (j["file_sha256"], j.get("outside_sha256")):
-            return None                                 # our whole save, or a known outside edit
-    files = [k for k in ("file", "saving_file", "prev_file") if readable(g[k])]
-    journals = [(k, read_journal(g[k])) for k in ("journal", "saving_journal", "prev_journal")]
-    hashes = {k: sha256(g[k]) for k in files}
-    pairs = [(int(jj.get("rev", 0)), fk == "file", jk == "journal", fk, jk)
-             for fk in files for jk, jj in journals if jj and jj["file_sha256"] == hashes[fk]]
-    if main_readable:
-        # Contents identify our interrupted save; dates only veto replacing newer work.
-        next_rev = j and file_rev(g["file"]) == int(j.get("rev", -1)) + 1
-        pairs = [pair for pair in pairs
-                 if (pair[3] == "file" and pair[4] == "saving_journal")
-                 or (next_rev and pair[3] == "saving_file" and pair[4] == "saving_journal"
-                     and pair[0] == file_rev(g["file"])
-                     and os.stat(g["saving_file"]).st_mtime_ns >= os.stat(g["file"]).st_mtime_ns)]
-    if not pairs:
-        return None
-    rev, _, _, fk, jk = max(pairs)
-    if not have_file:
-        why = "the file was missing"
-    elif not main_readable:
-        why = "the file was unreadable"
-    elif not j:
-        why = "the journal was missing"
-    else:
-        why = f"the file (rev {file_rev(g['file'])}) and its journal (rev {j.get('rev')}) didn't match"
-    if fk != "file":
-        keep_aside(g["file"], g["unmatched_file"], [g["saving_file"], g["prev_file"]])
-        copy_into_place(g[fk], g["file"])
-    if jk != "journal":
-        keep_aside(g["journal"], g["unmatched_journal"], [g["saving_journal"], g["prev_journal"]])
-        copy_into_place(g[jk], g["journal"])
-    new = fk.startswith("saving") or jk.startswith("saving") or (fk == "file" and jk == "journal")
-    return {"from": "new" if new else "prev", "rev": rev,
-            "why": why + ("; finished the save that stopped part way" if new else "; opened the save before it")}
 
 
 def aside_name(model_path, when=None):
@@ -395,7 +433,8 @@ class Session:
         self.applied = []
         self.ids = IdRegistry()
         self.undo_floor = 0
-        self.floor_copy = None     # {"sha256", "ops"} of <model>.floor.FCStd when the floor came from FreeCAD (A38)
+        self.floor_copy = None     # {"sha256", "ops"} of ShopSketchFloor.FCStd when the floor came from FreeCAD (A38)
+        self._floor_bytes = None   # bytes of the floor snapshot, embedded in .FCStd on save (A42)
         self.external = False
         self.rev = 0
         self.units = None          # saved display units (doc.Meta["ShopSketchUnits"], I57); kept across rebuilds
@@ -408,9 +447,14 @@ class Session:
         self.file_sha = None       # the sha256 of the file as we last read or wrote it: an outside save differs (A36)
         self.rev_ops = {}          # rev -> the applied entries that revision of the file holds (what a reload keeps)
         self.dropped = []          # actions an outside save didn't have, taken out by a reload (A36; T65 offers them)
-        self.recovered = None      # {"from", "rev", "why"}: opening fell back to the newest whole save (A32)
+        self.recovered = None      # kept for open_reply compatibility; single-file saves are atomic
         if self.path and not fresh and not outside_reload:
-            self.recovered = recover_generation(self.path)
+            sp = saving_path(self.path)
+            if os.path.exists(sp):
+                try:
+                    os.remove(sp)
+                except OSError:
+                    pass
         if self.path and os.path.exists(self.path) and not fresh:
             self._open_existing(outside_reload)
         else:
@@ -449,24 +493,16 @@ class Session:
             raise
         return doc, model, drawing
 
-    def _write_floor_copy(self, floor_path=None):
-        """Write a floor snapshot atomically from the document at the floor (A38)."""
-        floor_path = floor_path or generation(self.path)["floor_file"]
-        base, ext = os.path.splitext(floor_path)
-        tmp = base + ".tmp" + ext
-        try:
+    def _capture_floor_bytes(self):
+        """Capture a floor snapshot in memory from the live document at the floor (A38, A42)."""
+        with tempfile.TemporaryDirectory(prefix="shopsketch-floor-") as td:
+            tmp = os.path.join(td, "floor.FCStd")
             with no_backups():
                 self.doc.saveCopy(tmp)
-            digest = sha256(tmp)
-            os.replace(tmp, floor_path)
-        except Exception:
-            if os.path.exists(tmp):
-                try:
-                    os.remove(tmp)
-                except OSError:
-                    pass
-            raise
-        self.floor_copy = {"sha256": digest, "ops": self.undo_floor}
+            with open(tmp, "rb") as f:
+                data = f.read()
+        self._floor_bytes = data
+        self.floor_copy = {"sha256": sha256_bytes(data), "ops": self.undo_floor}
 
     def _open_existing(self, outside_reload=False):
         if outside_reload:
@@ -476,27 +512,49 @@ class Session:
         self.rev = file_meta_rev
         self.units = parse_units(self.doc.Meta.get("ShopSketchUnits"))
         self.file_sha = sha256(self.path)
-        jp = journal_path(self.path)
+        sidecars = legacy_sidecars(self.path)
+        legacy_jp = sidecars["journal"]
+        using_legacy = os.path.exists(legacy_jp)
         j = None
-        if os.path.exists(jp):
-            with open(jp) as f:
-                j = json.load(f)
-        if j and j.get("format") == JOURNAL_FORMAT:
-            upgraded_ops = [upgrade_op(op) for op in j["ops"]]
-            for op, st in zip(upgraded_ops, j["status"]):
+        if using_legacy:
+            try:
+                with open(legacy_jp) as f:
+                    raw_j = json.load(f)
+                if isinstance(raw_j, dict) and raw_j.get("format") == JOURNAL_FORMAT:
+                    j = _upgrade_journal_dict(raw_j, require_sha=False)
+            except (OSError, ValueError):
+                j = None
+            if j:
+                journal_rev = int(j.get("rev", -1))
+                self.external = not (journal_rev == file_meta_rev and j.get("file_sha256") == self.file_sha)
+            else:
+                self.external = True
+        else:
+            raw_meta_j = self.doc.Meta.get("ShopSketchJournal")
+            if raw_meta_j:
+                try:
+                    j = _upgrade_journal_dict(json.loads(raw_meta_j), require_sha=False)
+                except ValueError:
+                    j = None
+            csha = self.doc.Meta.get("ShopSketchContentSha256")
+            content_ok = bool(csha and csha == content_sha256(self.path))
+            if j:
+                journal_rev = int(j.get("rev", -1))
+                self.external = not (content_ok and journal_rev == file_meta_rev)
+            else:
+                self.external = True     # not written by Shop Sketch (stage 3 will adopt foreign solids)
+        if j:
+            upgraded_ops = list(j.get("ops", []))
+            for op, st in zip(upgraded_ops, j.get("status", [])):
                 if st.get("status") == "ok":           # failed ops left nothing in the file
                     self.applied.append({"op": op, "key": canon(op), "id": op.get("id"), "type": op.get("type"), **st})
-            journal_rev = int(j.get("rev", -1))
-            self.external = not (journal_rev == file_meta_rev and j.get("file_sha256") == self.file_sha)
-            if outside_reload and journal_rev > file_meta_rev:
-                self.rev = journal_rev
-                self.rev_ops[journal_rev] = self.applied
+            if outside_reload and int(j.get("rev", -1)) > file_meta_rev:
+                self.rev = int(j["rev"])
+                self.rev_ops[self.rev] = self.applied
                 self.applied = self._file_ops(self.path, file_meta_rev)
-            self.dropped = [_upgrade_dropped(d) for d in j.get("dropped", [])]
+            self.dropped = list(j.get("dropped", []))
             self.ids.owners.update(j.get("id_owners", {}))
             self.ids.accept(upgraded_ops + self.dropped, j.get("reserved_ids", []), legacy=True)
-        else:
-            self.external = True     # not written by Shop Sketch (stage 3 will adopt foreign solids)
         self.ids.seed_native(self.doc)
         # undo stops at a FreeCAD change: one since the journal, or one a reload took in earlier (the journal's floor)
         floor = min(int((j or {}).get("floor", 0) or 0), len(self.applied))
@@ -505,10 +563,32 @@ class Session:
         self.rev_ops[file_meta_rev] = list(self.applied)
         self.doc.clearUndos()
         if self.external and not outside_reload:
-            self._write_floor_copy()
+            self._capture_floor_bytes()
         else:
             fc = (j or {}).get("floor_copy")
             self.floor_copy = dict(fc) if isinstance(fc, dict) else None
+            self._floor_bytes = None
+            if isinstance(self.floor_copy, dict) and not self.external:
+                want_sha = self.floor_copy.get("sha256")
+                if using_legacy:
+                    fp = sidecars["floor_file"]
+                    if os.path.exists(fp):
+                        try:
+                            with open(fp, "rb") as f:
+                                data = f.read()
+                            if sha256_bytes(data) == want_sha:
+                                self._floor_bytes = data
+                        except OSError:
+                            pass
+                else:
+                    try:
+                        with zipfile.ZipFile(self.path, "r") as z:
+                            if "ShopSketchFloor.FCStd" in z.namelist():
+                                data = z.read("ShopSketchFloor.FCStd")
+                                if sha256_bytes(data) == want_sha:
+                                    self._floor_bytes = data
+                    except (OSError, zipfile.BadZipFile):
+                        pass
         self.file_sig = self.disk_sig()
         self.glb_dirty = True
 
@@ -537,18 +617,6 @@ class Session:
             return True
         return False
 
-    def mark_outside(self):
-        """Note FreeCAD's save in the journal at once (A36), so if the worker stops before the reload, opening the
-        file doesn't take it for a save of ours that stopped part way (recover_generation)."""
-        jp = journal_path(self.path)
-        try:
-            with open(jp) as f:
-                j = json.load(f)
-            j["outside_sha256"] = sha256(self.path)
-            atomic_json(jp, j)
-        except (OSError, ValueError):
-            pass
-
     def copy_outside_aside(self):
         """'Keep Shop Sketch's' (A36): FreeCAD's file is copied to <model>.freecad-<time>.FCStd before ours goes
         over it. Returns the copy's path."""
@@ -569,8 +637,9 @@ class Session:
         return out
 
     def _file_ops(self, path, frev):
-        """Read the ops from the file itself, then try the session's history and the previous journal."""
+        """Read the ops from the file itself (ShopSketchOps, then ShopSketchJournal), then the session's history."""
         if frev is not None:
+            meta = {}
             try:
                 with zipfile.ZipFile(path) as archive:
                     root = ET.fromstring(archive.read("Document.xml"))
@@ -587,12 +656,16 @@ class Session:
             except (OSError, zipfile.BadZipFile, ET.ParseError, KeyError, TypeError, ValueError,
                     OverflowError, RecursionError):
                 pass  # Old or damaged metadata leaves the historical fallbacks available.
+            if meta.get("ShopSketchJournal"):
+                try:
+                    mj = _upgrade_journal_dict(json.loads(meta["ShopSketchJournal"]), require_sha=False)
+                    if mj and int(mj.get("rev", -1)) == frev:
+                        return [{"op": o, "key": canon(o), "id": o.get("id"), "type": o.get("type"), **st}
+                                for o, st in zip(mj["ops"], mj["status"]) if st.get("status") == "ok"]
+                except (ValueError, TypeError, KeyError):
+                    pass
         if frev in self.rev_ops:
             return list(self.rev_ops[frev])
-        pj = read_journal(generation(self.path)["prev_journal"])
-        if frev is not None and pj and int(pj.get("rev", -1)) == frev:
-            return [{"op": o, "key": canon(o), "id": o.get("id"), "type": o.get("type"), **st}
-                    for o, st in zip(pj["ops"], pj["status"]) if st.get("status") == "ok"]
         return []
 
     @staticmethod
@@ -612,88 +685,63 @@ class Session:
         last_export = self._exported_boards(outdir) if resumed and outdir else None
         sig = self.disk_sig()
         folder = os.path.dirname(self.path)
-        files = generation(self.path)
-        with tempfile.TemporaryDirectory(dir=folder, prefix=".shopsketch-reload-") as stage:
-            # FreeCAD returns the live document for the same path; load a sibling snapshot instead.
-            with tempfile.NamedTemporaryFile(dir=folder, prefix=".shopsketch-reload-", suffix=".FCStd") as snapshot:
-                shutil.copyfile(self.path, snapshot.name)
-                validate_project(snapshot.name)
-                digest = sha256(snapshot.name)
-                frev = file_rev(snapshot.name)
-                kept = self._file_ops(snapshot.name, frev)
-                doc, model, _ = self._open_document(snapshot.name)
-            try:
-                staged = copy(self)
-                staged.doc, staged.model = doc, model
-                doc.FileName = self.path
-                doc.Label = os.path.splitext(os.path.basename(self.path))[0]
-                staged.glb_dirty = True
-                staged.ids = deepcopy(self.ids)
-                staged.ids.seed_native(doc)
-                file_meta_rev = int(doc.Meta.get("ShopSketchRev", "0") or 0)
-                kept_keys = {e["key"] for e in kept}
-                prior_ops = self.applied
-                if self.rev > int(self.doc.Meta.get("ShopSketchRev", "0") or 0) and self.rev in self.rev_ops:
-                    prior_ops = self.rev_ops[self.rev]
-                when = time.strftime("%Y-%m-%dT%H:%M:%S")
-                gone = [{"op": e["op"], "after_rev": frev, "at": when} for e in prior_ops
-                        if e["status"] == "ok" and e["key"] not in kept_keys]
-                staged.applied = kept
-                staged.undo_floor = staged.session_base = len(kept)
-                staged.external = staged.dirty = False
-                staged.dropped = self.dropped + gone
-                staged.rev = max(self.rev, file_meta_rev)
-                staged.units = parse_units(doc.Meta.get("ShopSketchUnits"))
-                staged.file_sha = digest
-                staged.file_sig = sig
-                staged.rev_ops = {file_meta_rev: list(kept)}
-                doc.clearUndos()
-                staged.model.show_as_hidden()
-                after = staged.board_marks()
-
-                floor = os.path.join(stage, "floor.FCStd")
-                journal = os.path.join(stage, "journal.json")
-                staged._write_floor_copy(floor)
-                atomic_json(journal, staged._journal(file_meta_rev, digest))
-
-                # Publish both recovery files before exposing the replacement boards.
-                published = []
-                try:
-                    for candidate, destination in ((floor, files["floor_file"]), (journal, files["journal"])):
-                        previous = None
-                        if os.path.isfile(destination):
-                            previous = candidate + ".previous"
-                            link_or_copy(destination, previous)
-                        os.replace(candidate, destination)
-                        published.append((destination, previous))
-                    if outdir:
-                        staged.export(outdir)
-                        if last_export is not None:
-                            current_export = self._exported_boards(outdir)
-                            if current_export is not None:
-                                before, after = last_export, current_export
-                except Exception:
-                    for destination, previous in reversed(published):
-                        if previous is None:
-                            os.remove(destination)
-                        else:
-                            os.replace(previous, destination)
-                    raise
-            except Exception:
-                App.closeDocument(doc.Name)
-                if self.doc is not None:
-                    App.setActiveDocument(self.doc.Name)
-                raise
+        # FreeCAD returns the live document for the same path; load a sibling snapshot instead.
+        with tempfile.NamedTemporaryFile(dir=folder, prefix=".shopsketch-reload-", suffix=".FCStd") as snapshot:
+            shutil.copyfile(self.path, snapshot.name)
+            validate_project(snapshot.name)
+            digest = sha256(snapshot.name)
+            frev = file_rev(snapshot.name)
+            kept = self._file_ops(snapshot.name, frev)
+            doc, model, _ = self._open_document(snapshot.name)
+        try:
+            staged = copy(self)
+            staged.doc, staged.model = doc, model
+            doc.FileName = self.path
+            doc.Label = os.path.splitext(os.path.basename(self.path))[0]
+            staged.glb_dirty = True
+            staged.ids = deepcopy(self.ids)
+            staged.ids.seed_native(doc)
+            file_meta_rev = int(doc.Meta.get("ShopSketchRev", "0") or 0)
+            kept_keys = {e["key"] for e in kept}
+            prior_ops = self.applied
+            if self.rev > int(self.doc.Meta.get("ShopSketchRev", "0") or 0) and self.rev in self.rev_ops:
+                prior_ops = self.rev_ops[self.rev]
+            when = time.strftime("%Y-%m-%dT%H:%M:%S")
+            gone = [{"op": e["op"], "after_rev": frev, "at": when} for e in prior_ops
+                    if e["status"] == "ok" and e["key"] not in kept_keys]
+            staged.applied = kept
+            staged.undo_floor = staged.session_base = len(kept)
+            staged.external = staged.dirty = False
+            staged.dropped = self.dropped + gone
+            staged.rev = max(self.rev, file_meta_rev)
+            staged.units = parse_units(doc.Meta.get("ShopSketchUnits"))
+            staged.file_sha = digest
+            staged.file_sig = sig
+            staged.rev_ops = {file_meta_rev: list(kept)}
+            doc.clearUndos()
+            staged.model.show_as_hidden()
+            after = staged.board_marks()
+            staged._capture_floor_bytes()
+            if outdir:
+                staged.export(outdir)
+                if last_export is not None:
+                    current_export = self._exported_boards(outdir)
+                    if current_export is not None:
+                        before, after = last_export, current_export
+        except Exception:
+            App.closeDocument(doc.Name)
             if self.doc is not None:
-                App.closeDocument(self.doc.Name)
-            self.__dict__.update(vars(staged))
+                App.setActiveDocument(self.doc.Name)
+            raise
+        if self.doc is not None:
+            App.closeDocument(self.doc.Name)
+        self.__dict__.update(vars(staged))
         return {"changed": sorted(b for b in after if before.get(b) != after[b]),
                 "removed": sorted(b for b in before if b not in after),
                 "dropped": [d["op"] for d in gone]}     # no "rev": the reply's is the session's (open_reply)
 
-    def _journal(self, rev, file_sha):
-        j = {"format": JOURNAL_FORMAT, "rev": rev, "file_sha256": file_sha,
-             "model": os.path.basename(self.path), "name": os.path.splitext(os.path.basename(self.path))[0],
+    def _journal(self, rev):
+        j = {"format": JOURNAL_FORMAT, "rev": rev,
              "ops": [e["op"] for e in self.applied],
              "status": [{k: e[k] for k in ("status", "changed", "message", "ms") if k in e} for e in self.applied],
              "floor": self.undo_floor, "dropped": self.dropped,
@@ -729,19 +777,18 @@ class Session:
             for op in ops:
                 self._apply(op)
             return
-        floor_path = generation(self.path)["floor_file"] if self.path else None
         fc = self.floor_copy
-        try:
-            floor_sha = sha256(floor_path) if floor_path and os.path.exists(floor_path) else None
-        except OSError:
-            floor_sha = None
-        if not (isinstance(fc, dict) and floor_sha is not None
-                and fc.get("ops") == self.undo_floor and fc.get("sha256") == floor_sha):
+        if not (isinstance(fc, dict) and self._floor_bytes is not None
+                and fc.get("ops") == self.undo_floor
+                and sha256_bytes(self._floor_bytes) == fc.get("sha256")):
             raise OpError("can't undo past the FreeCAD edit: its copy is missing")
         if self.doc is not None:
             App.closeDocument(self.doc.Name)
             self.doc = None
-        self._load_file(floor_path)
+        with tempfile.NamedTemporaryFile(suffix=".FCStd") as tmp:
+            tmp.write(self._floor_bytes)
+            tmp.flush()
+            self._load_file(tmp.name)
         self.doc.clearUndos()
         self.applied = list(self.applied[:self.undo_floor])
         self.session_base = self.undo_floor
@@ -871,18 +918,19 @@ class Session:
         meta["ShopSketchRev"] = str(self.rev)
         if self.units is not None:
             meta["ShopSketchUnits"] = self.units
+        meta["ShopSketchJournal"] = json.dumps(self._journal(self.rev), separators=(",", ":"))
+        meta.pop("ShopSketchContentSha256", None)
         self.doc.Meta = meta
-        g = generation(self.path)
+        tmp = saving_path(self.path)
         try:
-            self._write(g, outdir)
+            self._write(tmp, outdir)
         except Exception:
             self.rev -= 1           # a failed save leaves the revision where it was: the retry saves this one (T79)
             self.doc.Meta = prev_meta
-            for k in ("saving_file", "saving_journal"):
-                try:
-                    os.remove(g[k])
-                except OSError:
-                    pass
+            try:
+                os.remove(tmp)
+            except OSError:
+                pass
             raise
         self.dirty = False
         if self.drawing and outdir:
@@ -894,11 +942,8 @@ class Session:
         self.external = False   # the file is exactly our journal again; the undo floor stays (the journal keeps it)
         return round((time.perf_counter() - t0) * 1000, 1)
 
-    def _write(self, g, outdir):
-        """save()'s writing, one generation (A32): the new file and its journal under the .saving names; the current
-        pair kept as .prev; then the new pair renamed into place. A whole pair is on disk at every step (opening
-        finds it: recover_generation). Raises if any of it fails."""
-        tmp = g["saving_file"]
+    def _write(self, tmp, outdir):
+        """save()'s writing: one atomic step (<model>.saving.FCStd -> rename). Raises if any of it fails."""
         folder = os.path.dirname(self.path)
         os.makedirs(folder, exist_ok=True)
         if not os.access(folder, os.W_OK):          # FreeCAD would only say "Failed to open file" (T79)
@@ -918,15 +963,11 @@ class Session:
                 App.closeDocument(d2.Name)
                 if self.doc is not None:
                     App.setActiveDocument(self.doc.Name)
-        write_gui_document(tmp, self.path)          # what FreeCAD's window shows (T29)
-        new_sha = sha256(tmp)
-        atomic_json(g["saving_journal"], self._journal(self.rev, new_sha))
-        if os.path.exists(g["file"]) and os.path.exists(g["journal"]):
-            link_or_copy(g["journal"], g["prev_journal"])
-            link_or_copy(g["file"], g["prev_file"])
-        os.replace(tmp, g["file"])
-        self.file_sha = new_sha
-        os.replace(g["saving_journal"], g["journal"])
+        floor_bytes = self._floor_bytes if self.undo_floor > 0 else None
+        finalize_fcstd(tmp, previous=self.path, floor_bytes=floor_bytes)
+        os.replace(tmp, self.path)
+        self.file_sha = sha256(self.path)
+        _remove_legacy_sidecars(self.path)
 
     def close(self):
         if self.doc is not None:

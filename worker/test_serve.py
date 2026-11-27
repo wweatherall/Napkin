@@ -112,10 +112,15 @@ try:
               (len(tries), fl2))
     fl3 = b.ask({"cmd": "flush", "seq": 18}, "flush")
     landed = next((m for m in reversed(b.extra) if m.get("cmd") == "saved"), None)    # sent before flush's reply
-    jr = json.load(open(os.path.join(ro, "three.shopsketch.json")))
+    import zipfile, xml.etree.ElementTree as ET
+    with zipfile.ZipFile(m3) as z:
+        root = ET.fromstring(z.read("Document.xml"))
+    meta = {i.get("key"): i.get("value") for i in root.findall("./Properties/Property[@name='Meta']/Map/Item")}
+    jr = json.loads(meta["ShopSketchJournal"])
     check("once the folder is writable again the retry saves the same revision, and flush answers ok",
           fl3 and fl3["ok"] and fl3["saved"] == [{"model": m3, "rev": bad["rev"]}] and fl3["failed"] == []
-          and landed and landed["rev"] == bad["rev"] and jr["rev"] == bad["rev"] and len(jr["ops"]) == 2,
+          and landed and landed["rev"] == bad["rev"] and jr["rev"] == bad["rev"] and len(jr["ops"]) == 2
+          and not os.path.exists(os.path.join(ro, "three.shopsketch.json")),
           (fl3, landed, jr.get("rev")))
     fl4 = b.ask({"cmd": "flush", "seq": 19}, "flush")
     check("a flush with nothing pending saves nothing and answers ok", fl4["ok"] and fl4["saved"] == [], fl4)

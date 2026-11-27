@@ -65,7 +65,6 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H173 | Gemini | **Ready** | One file per model: everything the journal holds moves inside the .FCStd, nothing beside it | [H173](docs/handoff/H173-one-file-per-model.md) |  |
 
 <!-- end of job table -->
 

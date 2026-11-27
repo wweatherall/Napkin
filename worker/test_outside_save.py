@@ -53,8 +53,12 @@ for line in sys.stdin:
                 else:
                     meta[key] = value
             doc.Meta = meta
-        ex = [o for o in doc.Objects if o.TypeId == "Part::Extrusion"][0]
-        ex.LengthFwd = ex.LengthFwd.Value + float(req.get("add", 12))
+        if req.get("label") is not None:
+            doc.Label = req["label"]
+        add = float(req.get("add", 12))
+        if add:
+            ex = [o for o in doc.Objects if o.TypeId == "Part::Extrusion"][0]
+            ex.LengthFwd = ex.LengthFwd.Value + add
         doc.recompute()
         doc.save()
         App.closeDocument(doc.Name)
@@ -85,8 +89,8 @@ def _fc_call(req):
             return json.loads(line[len("HELPER_RESP:"):])
 
 
-def freecad_save(model, add=12, **meta):
-    _fc_call({"cmd": "edit", "model": model, "add": add, "meta": meta})
+def freecad_save(model, add=12, label=None, **meta):
+    _fc_call({"cmd": "edit", "model": model, "add": add, "label": label, "meta": meta})
 
 
 def sha(path):
@@ -94,7 +98,10 @@ def sha(path):
 
 
 def journal(model):
-    return json.load(open(os.path.splitext(model)[0] + ".shopsketch.json"))
+    with zipfile.ZipFile(model) as z:
+        root = ET.fromstring(z.read("Document.xml"))
+    meta = {i.get("key"): i.get("value") for i in root.findall("./Properties/Property[@name='Meta']/Map/Item")}
+    return json.loads(meta["ShopSketchJournal"])
 
 
 def second(w):
@@ -151,9 +158,9 @@ try:
           r and r["ok"] and r["changed"] == ["b1"] and len(r["ops"]) == 2 and r["dropped"] == [], r)
     check("the reloaded board has FreeCAD's thickness (18 + 12)", thickness(out1, "b1") == 30.0, thickness(out1, "b1"))
     check("undo stops at the FreeCAD change (undo_floor = 2)", r and r["undo_floor"] == 2, r and r["undo_floor"])
-    check("reloading leaves FreeCAD's file as it is", sha(m1) == fc_sha)
-    j = journal(m1)
-    check("the journal now names FreeCAD's file, with the floor", j["file_sha256"] == fc_sha and j["floor"] == 2, j.get("floor"))
+    check("reloading leaves FreeCAD's file as it is and writes no sidecars",
+          sha(m1) == fc_sha and not os.path.exists(os.path.splitext(m1)[0] + ".shopsketch.json")
+          and not os.path.exists(os.path.splitext(m1)[0] + ".floor.FCStd"))
     bad = sync(w, m1, ops[:1])
     check("a sync taking back an op below the floor is refused", bad and not bad["ok"] and "FreeCAD" in bad["error"], bad)
     sync(w, m1, ops + second(200))
@@ -203,10 +210,12 @@ try:
     r = ask({"cmd": "reload", "model": m2, "outdir": out2}, "reload")
     check("the reload takes the actions FreeCAD's save didn't have out of the list",
           r and [o["id"] for o in r["ops"]] == ["r1", "pp1"] and [o["id"] for o in r["dropped"]] == ["r2", "pp2"], r)
+    check("b2 is gone from the boards and b1 changed", r["changed"] == ["b1"] and r["removed"] == ["b2"], r)
+    sync(w, m2, board_ops(300) + second(200))
+    ask({"cmd": "flush", "model": m2}, "flush")
     j = journal(m2)
     check("they stay in the journal as dropped, with the revision they came after",
           [d["op"]["id"] for d in j["dropped"]] == ["r2", "pp2"] and j["dropped"][0]["after_rev"] == 1, j.get("dropped"))
-    check("b2 is gone from the boards and b1 changed", r["changed"] == ["b1"] and r["removed"] == ["b2"], r)
 
     # 3. 'Keep Shop Sketch's': FreeCAD's file aside first, then ours over it. Both survive on disk.
     m3 = fresh_model("mine")
@@ -225,7 +234,7 @@ try:
     check("the copy is FreeCAD's save, byte for byte", os.path.exists(aside) and sha(aside) == fc_sha)
     j = journal(m3)
     check("then Shop Sketch's version is the model, with every action",
-          sha(m3) != fc_sha and j["file_sha256"] == sha(m3) and len(j["ops"]) == 4 and j.get("dropped") == [], len(j["ops"]))
+          sha(m3) != fc_sha and len(j["ops"]) == 4 and j.get("dropped") == [], len(j["ops"]))
     sync(w, m3, board_ops(300) + second(220))
     ask({"cmd": "flush", "model": m3}, "flush")
     check("autosave carries on after the choice", journal(m3)["ops"][2]["size"] == [220, 100])
@@ -337,8 +346,6 @@ try:
     check("the previous outside edit sets a floor and changes the live board",
           first_reload and first_reload["ok"] and first_reload["undo_floor"] == 2 and thickness(live_out, "b1") == 30.0,
           first_reload)
-    floor = os.path.splitext(broken)[0] + ".floor.FCStd"
-    floor_sha = sha(floor)
     freecad_save(broken)
     held_event = wait_outside(broken)
     ops += second(200)
@@ -347,11 +354,9 @@ try:
         f.write(b"invalid FCStd")
     os.replace(broken + ".invalid", broken)
     broken_sha = sha(broken)
-    held_journal = journal(broken)
     r = ask({"cmd": "reload", "model": broken, "outdir": live_out}, "reload")
     check("an unreadable outside save fails reload while the model is held", held_event and r and not r["ok"], r)
-    check("failed reload leaves the floor, journal, and outside file intact",
-          sha(floor) == floor_sha and journal(broken) == held_journal and sha(broken) == broken_sha)
+    check("failed reload leaves the outside file intact", sha(broken) == broken_sha)
     os.remove(os.path.join(live_out, "bodies.json"))
     still_live = sync(w, broken, ops, outdir=live_out)
     check("after failed reload the live document still exports both boards",
@@ -359,7 +364,7 @@ try:
           still_live)
     k = ask({"cmd": "keep_mine", "model": broken, "outdir": live_out}, "keep_mine")
     check("after failed reload Keep Shop Sketch's copies the unreadable file aside and saves ours",
-          k and k["ok"] and sha(k["aside"]) == broken_sha and journal(broken)["file_sha256"] == sha(broken)
+          k and k["ok"] and sha(k["aside"]) == broken_sha
           and journal(broken)["ops"] == ops and journal(broken)["floor"] == 2, k)
 
     # 8. A held model with unsaved actions whose file is then deleted: the window closing (its save keeps both, and
@@ -427,7 +432,7 @@ try:
     r_xml = ask({"cmd": "reload", "model": m_xml, "outdir": out_xml}, "reload")
     check(H098_CHECKS[1], r_xml and not r_xml["ok"], r_xml)
 
-    # 3. Reload failure while writing the floor copy leaves the live document intact
+    # 3. Reload failure during export leaves the live document intact
     m_flr = fresh_model("floor_fail")
     out_flr = m_flr + "-out"
     opened(m_flr)
@@ -441,42 +446,22 @@ try:
     bodies_flr = os.path.join(out_flr, "bodies.json")
     with open(bodies_flr, "rb") as f:
         live_bodies = f.read()
-    flr_path = os.path.splitext(m_flr)[0] + ".floor.FCStd"
-    os.mkdir(flr_path)
-    r_flr = ask({"cmd": "reload", "model": m_flr, "outdir": out_flr}, "reload")
-    os.rmdir(flr_path)
-    with open(bodies_flr, "rb") as f:
-        check("a failed floor replacement leaves the last viewport export intact",
-              r_flr and not r_flr["ok"] and f.read() == live_bodies, r_flr)
-    journal_path = os.path.splitext(m_flr)[0] + ".shopsketch.json"
-    journal_backup = journal_path + ".test-backup"
-    os.rename(journal_path, journal_backup)
-    os.mkdir(journal_path)
-    try:
-        r_jrnl = ask({"cmd": "reload", "model": m_flr, "outdir": out_flr}, "reload")
-        with open(bodies_flr, "rb") as f:
-            check("a failed journal replacement keeps the last viewport export and rolls back the floor",
-                  r_jrnl and not r_jrnl["ok"] and f.read() == live_bodies and not os.path.exists(flr_path), r_jrnl)
-    finally:
-        os.rmdir(journal_path)
-        os.rename(journal_backup, journal_path)
     blocked_outdir = os.path.join(out_flr, "blocked")
     with open(blocked_outdir, "w"):
         pass
-    journal_before = sha(journal_path)
     r_export = ask({"cmd": "reload", "model": m_flr, "outdir": blocked_outdir}, "reload")
-    check("a failed reload export rolls back the journal and floor",
-          r_export and not r_export["ok"] and sha(journal_path) == journal_before and not os.path.exists(flr_path),
-          r_export)
+    with open(bodies_flr, "rb") as f:
+        check("a failed reload export keeps the last viewport export intact",
+              r_export and not r_export["ok"] and f.read() == live_bodies, r_export)
     k_flr = ask({"cmd": "keep_mine", "model": m_flr, "outdir": out_flr}, "keep_mine")
     km_ops = journal(m_flr)["ops"] if k_flr and k_flr.get("ok") else []
     s_flr = sync(w, m_flr, ops_flr, outdir=out_flr)
     b1_t = thickness(out_flr, "b1") if os.path.exists(os.path.join(out_flr, "bodies.json")) else None
     b2_t = thickness(out_flr, "b2") if os.path.exists(os.path.join(out_flr, "bodies.json")) else None
     check(H098_CHECKS[2],
-          r_flr and not r_flr["ok"] and k_flr and k_flr["ok"] and km_ops == ops_flr
+          r_export and not r_export["ok"] and k_flr and k_flr["ok"] and km_ops == ops_flr
           and s_flr and s_flr["ok"] and b1_t == 18.0 and b2_t == 18.0,
-          (r_flr, k_flr, len(km_ops), b1_t, b2_t))
+          (r_export, k_flr, len(km_ops), b1_t, b2_t))
 
     # 4. Worker crash mid-reload: retried reload on a new worker (without open) drops post-rev ops and keeps rev
     m_cr = fresh_model("crash_mid_reload")
@@ -499,8 +484,8 @@ try:
     r_cr = ask({"cmd": "reload", "model": m_cr, "outdir": out_cr}, "reload")
     check(H098_CHECKS[3],
           r_cr and r_cr["ok"] and [o["id"] for o in r_cr["ops"]] == ["r1", "pp1"]
-          and r_cr["undo_floor"] == 2 and [o["id"] for o in r_cr["dropped"]] == ["r2", "pp2"]
-          and r_cr["rev"] >= 2 and r_cr["changed"] == ["b1"] and r_cr["removed"] == ["b2"]
+          and r_cr["undo_floor"] == 2 and r_cr["dropped"] == []
+          and r_cr["rev"] == 1 and r_cr["changed"] == ["b1"] and r_cr["removed"] == ["b2"]
           and thickness(out_cr, "b1") == 30.0 and thickness(out_cr, "b2") is None,
           r_cr)
 
@@ -538,10 +523,12 @@ try:
         r = ask({"cmd": "reload", "model": m, "outdir": out}, "reload")
         check(f"FreeCAD's rev 1 save keeps both boards' ops and drops newer actions {name}",
               r and r["ok"] and [o["id"] for o in r["ops"]] == ["r1", "pp1", "r2", "pp2"]
-              and r["dropped"] == dropped and r["undo_floor"] == 4
+              and r["dropped"] == ([] if restart else dropped) and r["undo_floor"] == 4
               and thickness(out, "b1") == 30.0 and thickness(out, "b2") == 18.0, r)
         if not restart:
             unchanged = sync(w, m, kept)
+            ask({"cmd": "set_units", "model": m, "units": "mm:1"}, "set_units")
+            ask({"cmd": "flush", "model": m}, "flush")
             j = journal(m)
             check("XML quotes, ampersand, angle bracket and degree sign survive with the same canonical op keys",
                   r and r["ops"] == kept and unchanged and unchanged["ok"]
@@ -550,7 +537,7 @@ try:
                   j["ops"] == kept and j["status"] == [{"status": "ok"}] * len(kept), j.get("status"))
 
     for case, (name, metadata, restart, keep) in enumerate((
-        ("missing ShopSketchOps falls back to the previous journal", {"ShopSketchOps": None}, True, True),
+        ("missing ShopSketchOps falls back to ShopSketchJournal", {"ShopSketchOps": None}, True, True),
         ("invalid ShopSketchOps JSON falls back to the live revision", {"ShopSketchOps": "["}, False, True),
         ("a ShopSketchOps object falls back to the live revision", {"ShopSketchOps": "{}"}, False, True),
         ("a ShopSketchOps list with a non-op falls back to the live revision", {"ShopSketchOps": "[{}]"}, False, True),
@@ -621,6 +608,29 @@ session.close()
     ):
         check(name, meta_run.returncode == 0 and f"{marker}: True" in meta_run.stdout.splitlines(),
               meta_run.stdout + meta_run.stderr)
+
+    # Closed model: our own save reopens non-external; a FreeCAD save changing only a property (no geometry) opens external.
+    m_prop = fresh_model("prop_only")
+    opened(m_prop)
+    sync(w, m_prop, board_ops(300))
+    ask({"cmd": "flush", "model": m_prop}, "flush")
+    ask({"cmd": "bye"}, "bye")
+    worker.proc.wait(30)
+    w.drop()
+    worker = worker.restart()
+    w = Window(worker.port)
+    o_ours = ask({"cmd": "open", "model": m_prop}, "open")
+    check("a file saved by Shop Sketch reopens non-external",
+          o_ours and o_ours["ok"] and o_ours["external"] is False, o_ours)
+    ask({"cmd": "bye"}, "bye")
+    worker.proc.wait(30)
+    w.drop()
+    freecad_save(m_prop, add=0, label="PropOnlyLabel")
+    worker = worker.restart()
+    w = Window(worker.port)
+    o_prop = ask({"cmd": "open", "model": m_prop}, "open")
+    check("a FreeCAD save changing only a property (no geometry) while closed opens external",
+          o_prop and o_prop["ok"] and o_prop["external"] is True, o_prop)
 
     w.ask({"cmd": "quit", "seq": 999}, "quit")
     worker.proc.wait(30)

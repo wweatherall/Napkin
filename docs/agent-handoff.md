@@ -25,7 +25,6 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 <!-- open list: built from docs/handoff/ by tools/handoff.py; don't edit by hand -->
 
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
-- [H173 — One file per model: everything the journal holds moves inside the .FCStd, nothing beside it](handoff/H173-one-file-per-model.md) — status: open; for: gemini
 
 <!-- end of open list -->
 
@@ -33,6 +32,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 Full entries in [handoff-archive.md](handoff-archive.md).
 
+- H173 — One file per model: everything the journal holds moves inside the .FCStd, nothing beside it. Resolved: merged into main by the integrator, 2026-11-27.
 - H172 — status.json written only by one-off replays, not on every edit in the app. Resolved: merged into main by the integrator, 2026-11-27.
 - H171 — Fits become their own ops (`fit`, `unfit`), and old files' fits are upgraded when opened. Resolved: merged into main by the integrator, 2026-11-27.
 - H170 — One name per meaning for message numbers: `seq` for the model's state, `request_id` for the request. Resolved: merged into main by the integrator, 2026-11-27.
@@ -42,9 +42,8 @@ Full entries in [handoff-archive.md](handoff-archive.md).
 - H166 — T146 step 3: Process rulings to comitatus, and comitatus's principles one file each with one add command. Resolved: merged into main by the integrator, 2026-11-27.
 - H164 — One personal space per model and job, every new one made the same from a template. Resolved: merged into main by the integrator, 2026-11-27.
 - H163 — Onboarding: the start-up brief carries who you are, the principles, habits, tools and personal time. Resolved: merged into main by the integrator, 2026-11-27.
-- H165 — Architecture step 1: a module map generated from each file's own header line. Resolved: merged into main by the integrator, 2026-11-27.
 
-Older: docs/handoff-archive.md (170 entries; find one with grep "^### H0NN" docs/handoff-archive.md)
+Older: docs/handoff-archive.md (171 entries; find one with grep "^### H0NN" docs/handoff-archive.md)
 
 ## Entry template
 
