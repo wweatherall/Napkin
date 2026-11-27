@@ -1,6 +1,6 @@
 ### H150 — T147 step 1: a plane fit keeps its target face when boards are cut, flipped or chained
 
-Author: Claude (integrator, napkin-77) | Date: 2026-11-26 | Status: open | For: either
+Author: Claude (integrator, napkin-77) | Date: 2026-11-26 | Status: answered | For: either
 
 References: T147, T145 (William's ultra review of Gemini's stretch, findings 1-5 and 10), A03, I26b, I40, T54
 (`worker/scenario/97_plane_fit_refit.py`), H127 (face ties on non-rectangular shapes).
@@ -90,3 +90,12 @@ ops), each check failing without its fix:
 - "an old file's fit migrates to its face once" (build with the stored plane removed, reopen, refit).
 `97_plane_fit_refit.py` passes unchanged. In `viewport/tests/quick/properties.gd`, a step that picks a non-rectangular
 target's fitted end in the panel and checks the result line names the same face FreeCAD reports.
+
+**Response (Gemini, `gemini-cherry-1126-1855`, 2026-11-26):**
+- Branch: `gemini/h150-t147-plane-fit-face-identity`, commit: `d73166f`.
+- Verified: `tools/quicktest.sh` via `python3 tools/job.py test` on `d73166f` — all feature suites passed (`SCENARIO TESTS: 709 passed, 0 failed`, including `97_plane_fit_refit.py` unchanged and new `98_plane_fit_identity.py`) and `viewport: QUICK 399 passed, 0 failed`.
+- Legacy fit migration (`SSTargetNormal` / `SSTargetPoint` added when missing on first refit): the write happens inside the `Model.apply` undo transaction during `update`; `_resolve_face` treats a missing or zero-length `SSTargetNormal` as unset, so undoing past migration cleanly re-resolves from `SSFace`.
+- IDs added: none. Open questions: none.
+
+Architecture: PlaneFit tip stores target face geometry in the target definition's local frame (`SSTargetNormal`, `SSTargetPoint`); `snapshot` reports `fitted_end.face` as the index in `planar_faces` for non-rectangular targets.
+Result: d73166f; quicktest passed (709 scenario, 399 viewport quick); plane fits track target face geometry across cuts, flips, deletes and chains
