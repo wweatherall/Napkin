@@ -373,11 +373,13 @@ STATUSES = {   # the only statuses each table may use (P17): workers write resul
     "## Work list": {"Open", "In progress", "Done", "Parked", "Split"},
     "## Done work": {"Done", "Split"},
 }
-QUEUED = re.compile(r"^Open \(queued: H\d+\)$")
+ON_BOARD = re.compile(r"^On the board \(H(?:\d+|-new-\d+)(?:, H(?:\d+|-new-\d+))*\)$")
+QUEUED = ON_BOARD   # alias kept for tools/log.py; On the board (H040) replaced Open (queued: H040)
+LEGACY_QUEUED = re.compile(r"^Open \(queued: H\d+\)$")
 
 
 def status_problems(text):
-    """Every table row's Status must be one its section allows; a Work list item may also be "Open (queued: H040)"."""
+    """Every table row's Status must be one its section allows; a Work list item may also be "On the board (H040)"."""
     out, section = [], None
     for line in text.split("\n"):
         if line.startswith("## "):
@@ -872,6 +874,86 @@ def layout_problems(live, archive, rulings_dir=None, work_dir=None, questions_di
                     if p not in principles:
                         out.append(f"{c[0]} names principle {p}, which isn't in ## Principles")
     return out
+
+
+def _handoff_item_jobs(handoff_dir):
+    """Map Work list ID -> set of active job IDs from docs/handoff/ (open, queued, in progress, answered)."""
+    out = {}
+    if not os.path.isdir(handoff_dir):
+        return out
+    for name in sorted(os.listdir(handoff_dir)):
+        if not name.endswith(".md"):
+            continue
+        text = open(os.path.join(handoff_dir, name), encoding="utf-8").read()
+        meta_line = next((l for l in text.splitlines() if l.startswith("Author:")), "")
+        fields = {}
+        for part in meta_line.split(" | "):
+            if ":" in part:
+                k, v = part.split(":", 1)
+                fields[k.strip()] = v.strip()
+        if fields.get("For", "").lower() not in ("claude", "codex", "gemini", "either"):
+            continue
+        if not fields.get("Status", "").lower().startswith(("open", "queued", "in progress", "answered")):
+            continue
+        head_m = re.search(r"(?m)^###\s+([A-Z]+\d+[a-z]*|[A-Z]+-new-\d+[a-z]*)\b(.*)$", text)
+        jid = head_m.group(1) if head_m else name.split("-")[0]
+        items = re.findall(r"\bT\d+\b", head_m.group(0)) if head_m else []
+        for line in text.splitlines():
+            if re.match(r"^(?:#{1,6}[ \t]+Response\b|\*\*Response\b|Response (?:—|from\b))", line):
+                break
+            if line.startswith("Author:") and " | " in line:
+                for part in line.split(" | "):
+                    if part.strip().startswith("Item:"):
+                        items.extend(re.findall(r"\bT\d+\b", part))
+            elif line.startswith("Item:"):
+                items.extend(re.findall(r"\bT\d+\b", line))
+        for tid in items:
+            out.setdefault(tid, set()).add(jid)
+    return out
+
+
+def board_statuses(root):
+    """Sync Work list Open / On the board (...) statuses from docs/handoff/ jobs; returns changed descriptions."""
+    wdir = os.path.join(root, WORK_DIR)
+    if not os.path.isdir(wdir):
+        return []
+    item_jobs = _handoff_item_jobs(os.path.join(root, "docs", "handoff"))
+    changed = []
+    for ident in folder_ids(wdir):
+        path = os.path.join(wdir, f"{ident}.md")
+        raw = open(path, encoding="utf-8").read()
+        entry = parse_entry(raw, ident=ident)
+        status = entry["meta"].get("Status", "")
+        if not (status == "Open" or ON_BOARD.match(status) or LEGACY_QUEUED.match(status)):
+            continue
+        jids = sorted(item_jobs.get(ident, set()), key=lambda j: key(f"| {j} |"))
+        new_status = f"On the board ({', '.join(jids)})" if jids else "Open"
+        if new_status != status:
+            new_raw = re.sub(
+                r"(?m)^(Status:\s*)([^\n|]+?)(\s*(?:\||$))",
+                lambda m: f"{m.group(1)}{new_status}{m.group(3)}",
+                raw,
+                count=1,
+            )
+            if new_raw != raw:
+                open(path, "w", encoding="utf-8").write(new_raw)
+                changed.append(f"{ident}: {new_status}")
+    if changed:
+        live_p = os.path.join(root, LIVE)
+        arch_p = os.path.join(root, ARCHIVE)
+        if os.path.isfile(live_p) and os.path.isfile(arch_p):
+            rdir = os.path.join(root, RULINGS_DIR)
+            qdir = os.path.join(root, QUESTIONS_DIR)
+            l2, a2 = tidy(
+                open(live_p, encoding="utf-8").read(),
+                open(arch_p, encoding="utf-8").read(),
+                rulings_dir=rdir if os.path.isdir(rdir) else None,
+                work_dir=wdir,
+                questions_dir=qdir if os.path.isdir(qdir) else None,
+            )
+            open(live_p, "w", encoding="utf-8").write(l2)
+            open(arch_p, "w", encoding="utf-8").write(a2)
+    return changed
 
 
 def check_files(live, archive=None, rulings_dir=None, work_dir=None, questions_dir=None):

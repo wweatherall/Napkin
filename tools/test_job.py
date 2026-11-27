@@ -417,6 +417,14 @@ check("board: a job claimed by a hand-made branch shows the branch", "Claimed: b
 check("board: the text outside the table is kept", text.startswith("# Work board\n\nOrder:") and "- none" in text)
 r, out = run(job.board, root)
 check("job.py board rewrites BOARD.md", r and "| H005 |" in open(os.path.join(root, "BOARD.md")).read(), out)
+# job.py board updates Work list item statuses from docs/handoff/
+wdir_j = os.path.join(root, "03_Past_Decisions", "work")
+os.makedirs(wdir_j, exist_ok=True)
+open(os.path.join(wdir_j, "T1.md"), "w", encoding="utf-8").write(
+    "# T1 — First job.\n\nStatus: Open | Covers: —\n\nFirst job.\n\nResult / next step:\n")
+run(job.board, root)
+check("job.py board updates the item statuses from the handoff",
+      "Status: On the board (H001)" in open(os.path.join(wdir_j, "T1.md"), encoding="utf-8").read())
 check("job.py board writes no jobs bucket outside an Organization (P57)", "05_Jobs" not in out and job.org_jobs_path(root) is None, out)
 org = tempfile.mkdtemp(prefix="job-org-test-")
 os.makedirs(os.path.join(org, "05_Jobs")); os.makedirs(os.path.join(org, "08_Code_Bases", "Proj"))

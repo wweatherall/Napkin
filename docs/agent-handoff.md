@@ -212,6 +212,10 @@ References: decision IDs, files, commits, or tests.
 
 Touches: the files this job expects to change (P11).
 
+Item: T<n> (optional, if the heading doesn't name the Work list item).
+
+Completes: T<n> (optional, on the item's last job: sets it Done at merge).
+
 Finding or request: ... Each rule says what it's for ("RELEASE_DEG never below INFER_DEG, so an axis can't let
 go before it sticks"), so the worker can tell when the letter defeats it (P44).
 
