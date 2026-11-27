@@ -50,5 +50,34 @@ check("the other repo's index is untouched", not os.path.exists(os.path.join(oth
 check("nothing changed: no commit", C.commit(org, [os.path.join(org, "05_Jobs", "Proj.md")], "again") is False)
 check("a folder that isn't a repo is skipped", C.commit(tempfile.mkdtemp(), ["x"], "m") is False)
 
+# Push tests: bare remote + push=False vs push=True + rejecting remote (fail-open).
+remote = os.path.realpath(tempfile.mkdtemp(prefix="comitatus-remote-"))
+sh(remote, "git", "init", "--bare", "-q", "-b", "main")
+sh(org, "git", "remote", "add", "origin", remote)
+sh(org, "git", "push", "-q", "-u", "origin", "main")
+
+open(os.path.join(org, "05_Jobs", "Proj.md"), "w").write("jobs v2\n")
+made_nopush = C.commit(org, [os.path.join(org, "05_Jobs", "Proj.md")], "05_Jobs: v2 (generated)")
+check("push=False (default) commits locally without pushing",
+      made_nopush and sh(org, "git", "rev-parse", "HEAD") != sh(remote, "git", "rev-parse", "main"))
+
+open(os.path.join(org, "05_Jobs", "Proj.md"), "w").write("jobs v3\n")
+made_push = C.commit(org, [os.path.join(org, "05_Jobs", "Proj.md")], "05_Jobs: v3 (generated)", push=True)
+check("push=True pushes the commit to the remote",
+      made_push and sh(org, "git", "rev-parse", "HEAD") == sh(remote, "git", "rev-parse", "main"))
+
+hook = os.path.join(remote, "hooks", "pre-receive")
+open(hook, "w").write("#!/bin/sh\nexit 1\n")
+os.chmod(hook, 0o755)
+open(os.path.join(org, "05_Jobs", "Proj.md"), "w").write("jobs v4\n")
+msgs = []
+made_rejected = C.commit(org, [os.path.join(org, "05_Jobs", "Proj.md")], "05_Jobs: v4 (generated)",
+                         out=msgs.append, push=True)
+check("push=True is fail-open when the remote rejects (commit stays local, returns True)",
+      made_rejected and sh(org, "git", "log", "-1", "--format=%s") == "05_Jobs: v4 (generated)"
+      and sh(org, "git", "rev-parse", "HEAD") != sh(remote, "git", "rev-parse", "main")
+      and any("comitatus push skipped:" in m for m in msgs),
+      (made_rejected, msgs))
+
 print(f"COMITATUS COMMIT TESTS: {passed} passed, {failed} failed")
 sys.exit(1 if failed else 0)

@@ -94,6 +94,18 @@ def record_journal(root, line):
         pass
 
 
+def save_personal_space(root, agent):
+    """Fail-open: commit and push the worker's personal space at the end of a job."""
+    if agent not in AGENTS:
+        return
+    try:
+        import launch
+        import personal_space
+        personal_space.save(launch.space_of(agent), root=root)
+    except Exception:
+        pass
+
+
 def record_usage(root, event, jid, agent=None, session=None, quiet=True):
     """Notify job-usage passively at a job lifecycle boundary; fail-open so it never blocks a command (T117)."""
     tool = os.environ.get("SHOPSKETCH_USAGE_TOOL", USAGE_TOOL)
@@ -859,6 +871,7 @@ def done(cwd, jid=None, now=None, out=print):
     out(f"{k} done: the integrator is told. Tell William \"ready for review: {k}\".")
     out(next_step(read_state(state_path(cwd)), j.get("session")))
     record_usage(main_root(cwd), "done", k, quiet=True)
+    save_personal_space(main_root(cwd), j.get("agent"))
     return True
 
 
