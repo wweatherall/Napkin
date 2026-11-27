@@ -13,7 +13,6 @@ import sys
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(sys.argv[-1] if sys.argv[-1].endswith(".py") else __file__)))
 sys.path.insert(0, os.path.join(ROOT, "worker"))
 sys.dont_write_bytecode = True
-from length_input import evaluate  # noqa: E402
 
 CURATED = r"""150|19|19mm|1.9cm|0.019m|3/4"|0.75in|1 1/2"|1 1/2 in|1'|1'6"|1' 6"|1' 6 1/2"|1'6 1/2"|-12|+5| 3/4 in |
 5in + 23mm|1in + 5mm|(24in - 2*19mm)/3|2 * 19mm|-1ft 6in|1-1/2"|1'-6"|1ft 6in|1 ft 6 in|2ft - 3in|-1' 6"|
@@ -84,6 +83,10 @@ def expression(rng, depth=0):
 
 
 def main():
+    if "-h" in sys.argv[1:] or "--help" in sys.argv[1:]:
+        print(__doc__)
+        return
+    from length_input import evaluate
     rng = random.Random(42)
     texts = list(dict.fromkeys(CURATED))
     while len(texts) < 2500:
@@ -111,4 +114,5 @@ def main():
         len(cases), sum(c["mm"] is not None for c in cases), sum(c["mm"] is None for c in cases), out))
 
 
-main()
+if __name__ == "__main__":
+    main()

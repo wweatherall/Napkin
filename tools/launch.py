@@ -47,18 +47,18 @@ def space_of(agent):
 
 def take_command(agent, name):
     """No --session: job.py names a Gemini session from ANTIGRAVITY_CONVERSATION_ID itself (GEMINI.md)."""
-    return f"python3 tools/job.py take --as {agent}"
+    return f"python3 tools/GET_A_JOB.py --as {agent}"
 
 
 def prompt(agent, name, brief):
     """The first message: who you are, the brief (already run), and what to do now."""
     guide = {"claude": "CLAUDE.md", "codex": "AGENTS.md", "gemini": "GEMINI.md"}[agent]
     return (f"You are a {agent.capitalize()} worker in Napkin (session {name}). Your start-up brief is below: "
-            f"tools/startup.py --role worker has already been run for you, so don't run it again.\n\n{brief.strip()}\n\n"
+            f"02_Habits/REMEMBER_WHO_YOU_ARE.py --role worker has already been run for you, so don't run it again.\n\n{brief.strip()}\n\n"
             f"Now check the board: run `{take_command(agent, name)}` (outside the sandbox) and follow BOARD.md and "
             f"{guide} for that one job (P37).\n\nYour personal space is {space_of(agent)}: log what you do with "
-            f"`python3 tools/personal_space.py log {space_of(agent)} \"<line>\"`, and keep a journal of your own (what you "
-            f"noticed, liked, found hard, want to try) with `python3 tools/personal_space.py journal {space_of(agent)} "
+            f"`python3 tools/WRITE_IN_YOUR_LOG.py {space_of(agent)} \"<line>\"`, and keep a journal of your own (what you "
+            f"noticed, liked, found hard, want to try) with `python3 tools/WRITE_IN_YOUR_JOURNAL.py {space_of(agent)} "
             f"\"<line>\"`; the next {agent.capitalize()} worker sees the last ten lines of each.\n")
 
 
@@ -101,7 +101,11 @@ def parse(argv):
 
 
 def main(argv=None):
-    o = parse(sys.argv[1:] if argv is None else argv)
+    argv = sys.argv[1:] if argv is None else argv
+    if "-h" in argv or "--help" in argv:
+        print(__doc__)
+        return 0
+    o = parse(argv)
     root = main_root()
     name = o["name"] or session_name(o["agent"])
     r = subprocess.run([sys.executable, os.path.join(root, "tools", "startup.py"), "--role", "worker", "--space",

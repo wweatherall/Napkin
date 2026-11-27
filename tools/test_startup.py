@@ -178,13 +178,13 @@ acts = s.integrator_next_actions(
 joined_acts = "\n".join(acts)
 check("integrator_next_actions keeps authority separate and surfaces merge, waiting, done, stale, combined lock+archive, watch",
       "does not grant authority" in joined_acts and "Interrupted merge:" in joined_acts
-      and "job.py answer H125" in joined_acts and "integrate.py gemini/h128-loops" in joined_acts
+      and "ANSWER_A_WORKERS_QUESTION.py H125" in joined_acts and "MERGE_JOB.py gemini/h128-loops" in joined_acts
       and "stale job H129" in joined_acts
-      and "integrator.py take <session> --william --archive H131 --push" in joined_acts
-      and "BypassSandbox: true" in joined_acts and "watch --next" in joined_acts)
+      and "HOLD_THE_INTEGRATOR_LOCK.py <session> --william --archive H131 --push" in joined_acts
+      and "BypassSandbox: true" in joined_acts and "WAIT_FOR_THE_NEXT_JOB.py" in joined_acts)
 plain_acts = "\n".join(s.integrator_next_actions(None, [], None, [], 0))
 check("integrator_next_actions omits --william and --archive when lock is free and no state notes exist",
-      "integrator.py take <session>" in plain_acts and "--william" not in plain_acts and "--archive" not in plain_acts
+      "HOLD_THE_INTEGRATOR_LOCK.py <session>" in plain_acts and "--william" not in plain_acts and "--archive" not in plain_acts
       and "BypassSandbox: true" in plain_acts)
 
 summary_lines = s.role_summary("gemini-maple", ["H131"], 2, None, in_job_id="H125")
@@ -196,17 +196,17 @@ check("role_summary summarizes lock, state note, ready count, merge state and de
 
 check("role_brief returns checklists for integrator and worker",
       any("docs/integrator.md" in l for l in s.role_brief("integrator"))
-      and any("watch --next" in l for l in s.role_brief("integrator"))
-      and any("archive <ID> --push" in l for l in s.role_brief("integrator"))
+      and any("WAIT_FOR_THE_NEXT_JOB.py" in l for l in s.role_brief("integrator"))
+      and any("ARCHIVE_A_FINISHED_JOB.py <ID> --push" in l for l in s.role_brief("integrator"))
       and any("BOARD.md" in l for l in s.role_brief("worker"))
-      and any("job.py done" in l for l in s.role_brief("worker")))
+      and any("SUBMIT_JOB.py" in l for l in s.role_brief("worker")))
 
 # A generous bound (120 s), not a machine-speed threshold: a hang still fails here, not only under job.py run (P40).
 r = subprocess.run([sys.executable, os.path.join(HERE, "startup.py")], capture_output=True, text=True, timeout=120)
 check("smoke: the real report runs and has every section plus Summary, Role tip and live Job queue",
       r.returncode == 0 and all(h in r.stdout for h in ("This checkout:", "Worktrees", "Recent main:",
                                                          "Branches with commits", "Ready on the board",
-                                                         "Job queue (tools/job.py status):",
+                                                         "Job queue (tools/CHECK_THE_JOB_BOARD.py):",
                                                          "Waiting on William", "Follow-ups (docs/follow-ups.md",
                                                          "Summary:", "Role tip:"))
       and "Job queue: not read" not in r.stdout)
@@ -218,11 +218,11 @@ check("smoke: --role integrator prints interrupted merges, notes, next actions a
       and "Notes for the integrator (main:docs/handoff/):" in r.stdout
       and "Next actions (read-only briefing; does not take the lock):" in r.stdout
       and "Integrator checklist (docs/integrator.md):" in r.stdout and "Role tip:" not in r.stdout
-      and "Job queue (tools/job.py status):" in r.stdout and "Job queue: not read" not in r.stdout)
+      and "Job queue (tools/CHECK_THE_JOB_BOARD.py):" in r.stdout and "Job queue: not read" not in r.stdout)
 r = subprocess.run([sys.executable, os.path.join(HERE, "startup.py"), "--role", "worker", "T1"], capture_output=True, text=True, timeout=120)
 check("smoke: --role worker prints a lean worker brief with live queue and still resolves IDs",
       r.returncode == 0 and "Ready on the board" in r.stdout and "Worker checklist (BOARD.md):" in r.stdout
-      and "Job queue (tools/job.py status):" in r.stdout and "Job queue: not read" not in r.stdout
+      and "Job queue (tools/CHECK_THE_JOB_BOARD.py):" in r.stdout and "Job queue: not read" not in r.stdout
       and "== T1" in r.stdout and "Follow-ups (docs/follow-ups.md" not in r.stdout
       and "Waiting on William" not in r.stdout)
 r = subprocess.run([sys.executable, os.path.join(HERE, "startup.py"), "--role", "wizard"], capture_output=True, text=True, timeout=120)

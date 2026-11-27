@@ -11,9 +11,9 @@ You're a worker: one job, then stop. Only the integrator merges or pushes (P16).
 main checkout: read there, but run everything else as `cd /Users/Will/Sites/comitatus/08_Code_Bases/.worktrees/Napkin/<id> && ...`, in your job's
 worktree (T102).
 
-1. `python3 tools/job.py take --as claude` (or `--as codex` / `--as gemini`, outside sandbox if `.git/` is sandboxed)
+1. `python3 tools/GET_A_JOB.py --as claude` (or `--as codex` / `--as gemini`, outside sandbox if `.git/` is sandboxed)
    makes your job's worktree and branch and prints the full handoff entry — keep it in context instead of re-reading
-   the file later (a returned job comes first). Nothing Ready: run `python3 tools/job.py take --wait` in the
+   the file later (a returned job comes first). Nothing Ready: run `python3 tools/GET_A_JOB.py --wait` in the
    background; if it gives up (20 min), tell William.
 2. Read the Notes at the bottom for anything addressed to you. Follow the brief's `Reading path:` and batch
    independent searches and file-slice reads in one turn; skip reading `CLAUDE.md` unless a rule isn't already covered
@@ -26,7 +26,7 @@ worktree (T102).
    - ARCHITECTURE.md and docs/protocol.md: a change to a module, a message, a file format, who owns some state,
      or saving gets `Architecture: <what>` lines in your response instead (P28); a changed message also bumps
      PROTOCOL_VERSION by one on both sides (A35);
-   - log rows your job doesn't add or supersede. Add rows with `python3 tools/log.py add`, after merging main;
+   - log rows your job doesn't add or supersede. Add rows with `python3 tools/RECORD_A_DECISION.py`, after merging main;
      new IDs are placeholders like T-new-N (T74).
    Shared files (the log, viewport/main.gd) get small edits, made at the end.
    A rule in the brief that, followed to the letter, would defeat what it's for or break something the code
@@ -35,7 +35,7 @@ worktree (T102).
    "What can fail" case or a check, only change how one is met.
 4. Run tests and long commands in the background as `python3 tools/job.py run -- <command>`: past 10 minutes it
    stops them and prints HUNG, and the fix is yours (P40); `python3 tools/job.py check` lists your processes.
-   Quick test (`tools/quicktest.sh` — don't invoke `godot` directly without a running worker) after every change;
+   Quick test (`tools/TEST_YOUR_CODE_FAST.sh` — don't invoke `godot` directly without a running worker) after every change;
    commit when it passes. Set no timer: after 30 minutes with no commit, test or job.py command, the integrator is told (P24).
 5. To touch a file or function outside Touches, ask the integrator: `python3 tools/job.py wait --scope
    "<the question>"`. For behaviour, wording or what is saved, ask William in chat and run `python3 tools/job.py
@@ -50,8 +50,8 @@ worktree (T102).
      open questions; then a line each: `Changed from the brief: <what it said>; <what you did>; <why>` per departure
      (P44); `Architecture: <what>`; `Follow-up: <what>` per thing left; `For the integrator: <what>` per merge step
      (P26); last, `Result: <commit>; <tests>; <what changed>`, no `|` (T91)), set Status to `answered`, and in one
-     chained command run `python3 tools/handoff.py list && git add docs/agent-handoff.md docs/handoff/<file> && git -c core.hooksPath=.githooks commit -m "<ID>: record response and mark answered" && python3 tools/job.py done`.
-7. Once `job.py done` succeeds (it checks the response, Status, quick-test pass and hung processes), tell William
+     chained command run `python3 tools/handoff.py list && git add docs/agent-handoff.md docs/handoff/<file> && git -c core.hooksPath=.githooks commit -m "<ID>: record response and mark answered" && python3 tools/SUBMIT_JOB.py`.
+7. Once `SUBMIT_JOB.py` succeeds (it checks the response, Status, quick-test pass and hung processes), tell William
    "ready for review: <ID>" and stop: one job a session (P37). Don't take the integrator lock.
 
 ## If you're the integrator

@@ -469,7 +469,7 @@ def parse_interrupted_merge(state, merge_head, state_path=""):
             "branch": state.get("branch", "?"),
             "reasons": reasons,
             "summary": f"paused merge on {state.get('branch', '?')} waiting for {', '.join(reasons)}",
-            "action": "python3 tools/integrate.py --continue --as <session> --push --yes",
+            "action": "python3 tools/MERGE_JOB.py --continue --as <session> --push --yes",
         }
     if merge_head:
         return {
@@ -525,7 +525,7 @@ def integrator_next_actions(lock_holder, state_note_ids, merge_info, live_jobs, 
     """Concrete next actions for an integrator, derived read-only from live repo/queue state."""
     actions = []
     archive_flags = "".join(f" --archive {hid}" for hid in state_note_ids) + (" --push" if state_note_ids else "")
-    take_cmd = f"python3 tools/integrator.py take <session>{' --william' if lock_holder else ''}{archive_flags}"
+    take_cmd = f"python3 tools/HOLD_THE_INTEGRATOR_LOCK.py <session>{' --william' if lock_holder else ''}{archive_flags}"
     lead = (f"Lock is held by {lock_holder}" if lock_holder else "No integrator lock held")
     if state_note_ids:
         notes_csv = ", ".join(state_note_ids)
@@ -544,14 +544,14 @@ def integrator_next_actions(lock_holder, state_note_ids, merge_info, live_jobs, 
     for jid, info in live_jobs:
         st = info.get("state")
         if st == "waiting":
-            actions.append(f"Answer waiting worker {jid}: {info.get('label', '')} -> python3 tools/job.py answer {jid} \"<answer>\"")
+            actions.append(f"Answer waiting worker {jid}: {info.get('label', '')} -> python3 tools/ANSWER_A_WORKERS_QUESTION.py {jid} \"<answer>\"")
         elif st == "done":
-            actions.append(f"Review and integrate {jid} ({info.get('branch', '?')}): python3 tools/integrate.py {info.get('branch', '?')} --as <session> --push --yes")
+            actions.append(f"Review and integrate {jid} ({info.get('branch', '?')}): python3 tools/MERGE_JOB.py {info.get('branch', '?')} --as <session> --push --yes")
         elif st == "stale":
             actions.append(f"Inspect stale job {jid} ({info.get('branch', '?')} in {info.get('worktree', '?')})")
         elif st == "returned":
             actions.append(f"Returned job {jid} waits for a {info.get('agent', '?')} worker")
-    actions.append("Arm queue watch in the background: python3 tools/job.py watch --next (no timed check-ins, P39)")
+    actions.append("Arm queue watch in the background: python3 tools/WAIT_FOR_THE_NEXT_JOB.py (no timed check-ins, P39)")
     if ready_count and not live_jobs:
         noun = "job" if ready_count == 1 else "jobs"
         actions.append(f"{ready_count} Ready {noun} on BOARD.md (spin up workers on William's word)")
@@ -581,17 +581,17 @@ def role_brief(role):
         return [
             "Integrator checklist (docs/integrator.md):",
             "  Guide: read docs/integrator.md only (skip CLAUDE.md and BOARD.md upfront; owns BOARD.md, ARCHITECTURE.md, docs/protocol.md; only you merge/push).",
-            "  Lock: python3 tools/integrator.py take <session> --william [--archive <ID> --push] (writes .git/, run outside sandbox / BypassSandbox: true; --role never grants authority).",
-            "  Watch: run python3 tools/job.py watch --next in the background (no timed check-ins, P39).",
-            "  Notes: pre-/clear notes are printed inline above; archive with take --archive <ID> --push (or python3 tools/handoff.py archive <ID> --push).",
+            "  Lock: python3 tools/HOLD_THE_INTEGRATOR_LOCK.py <session> --william [--archive <ID> --push] (writes .git/, run outside sandbox / BypassSandbox: true; --role never grants authority).",
+            "  Watch: run python3 tools/WAIT_FOR_THE_NEXT_JOB.py in the background (no timed check-ins, P39).",
+            "  Notes: pre-/clear notes are printed inline above; archive with HOLD_THE_INTEGRATOR_LOCK.py --archive <ID> --push (or python3 tools/ARCHIVE_A_FINISHED_JOB.py <ID> --push).",
         ]
     if role == "worker":
         return [
             "Worker checklist (BOARD.md):",
             "  Guide: follow BOARD.md (and AGENTS.md / GEMINI.md for your agent); one job per session (P37).",
-            "  Take: python3 tools/job.py take --as <claude|codex|gemini> (Gemini without --session: job.py reads its conversation id, GEMINI.md).",
+            "  Take: python3 tools/GET_A_JOB.py --as <claude|codex|gemini> (Gemini without --session: job.py reads its conversation id, GEMINI.md).",
             "  Scope: work only in ../.worktrees/<checkout>/<id> (P63) and only on Touches; ask scope via job.py wait --scope.",
-            "  Done: run tools/quicktest.sh, record response + Result:, set Status: answered, run python3 tools/job.py done, tell William.",
+            "  Done: run tools/TEST_YOUR_CODE_FAST.sh, record response + Result:, set Status: answered, run python3 tools/SUBMIT_JOB.py, tell William.",
         ]
     return []
 
@@ -645,6 +645,9 @@ def space_lines(root, space):
 
 
 def main(argv):
+    if "-h" in argv or "--help" in argv:
+        print(__doc__)
+        return 0
     space, argv = split_space(argv)
     role, ids, err = parse_args(argv)
     if err:
@@ -704,7 +707,7 @@ def main(argv):
         import job
         lines = []
         job.status(root, out=lines.append, readonly=True)
-        print("Job queue (tools/job.py status):")
+        print("Job queue (tools/CHECK_THE_JOB_BOARD.py):")
         for l in lines:
             print("  " + l)
     except Exception as e:   # the queue is a convenience here; startup still reports the rest

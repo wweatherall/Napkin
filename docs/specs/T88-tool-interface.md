@@ -457,7 +457,7 @@ in migrated tools, finally including tool.gd; do not count comments as usage.
 The adapter must have an explicit public member allowlist tested against the
 listed surface. A thin facade with public raw controllers fails this check.
 
-Each row below is a separate implementation step/commit, with `tools/gate.sh`
+Each row below is a separate implementation step/commit, with `tools/TEST_BEFORE_MERGING.sh`
 passing before proceeding. Run quicktest during development; if it fails, run
 fulltest and report the cause. Do not update recorded references for a refactor.
 Keep temporary compatibility visible and remove it only after all its consumers

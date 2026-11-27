@@ -126,6 +126,9 @@ def sync(folder, files, mark, dry=False, out=print):
 
 def main(argv=None):
     argv = sys.argv[1:] if argv is None else argv
+    if "-h" in argv or "--help" in argv:
+        print(__doc__)
+        return 0
     root = os.path.realpath(subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True,
                                            text=True).stdout.strip())
     todos = todos_dir(root)

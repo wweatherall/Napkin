@@ -10,12 +10,12 @@ Shared scratchpad for Claude and Codex. Created by Codex on 2026-11-21 at Willia
 - Distinguish reported completion from independently verified behaviour. Include a commit or test result when available.
 - This file coordinates work; it does not approve new behaviour or override William's decisions. Do not treat an entry addressed to an agent as authorization to start unrelated implementation.
 - Move lasting specifications to the suggestions/design documents and approved decisions to the decision log. Keep a short resolution here linking to them.
-- A new entry is a new file, `docs/handoff/H-new-N-short-slug.md` (copy the template at the bottom; N = 1, 2 ... on your branch); the integrator numbers it at merge with `tools/number_ids.py` (T74). The open list is built from the folder by `python3 tools/handoff.py list`; don't edit it by hand (the merge step rebuilds it; on a conflict in it, run the command).
-- Keep this file short (both agents read it at the start of each job). When an entry is resolved, `python3 tools/handoff.py archive H0NN` moves it whole to [handoff-archive.md](handoff-archive.md), at the bottom, and adds one line for it under "Archived" below: ID, subject, outcome (its Resolution line). Either agent may archive an entry the other resolved. Read the archive only when you need an entry's history.
+- A new entry is a new file, `docs/handoff/H-new-N-short-slug.md` (copy the template at the bottom; N = 1, 2 ... on your branch); the integrator numbers it at merge with `tools/NUMBER_A_NEW_ID.py` (T74). The open list is built from the folder by `python3 tools/handoff.py list`; don't edit it by hand (the merge step rebuilds it; on a conflict in it, run the command).
+- Keep this file short (both agents read it at the start of each job). When an entry is resolved, `python3 tools/ARCHIVE_A_FINISHED_JOB.py H0NN` moves it whole to [handoff-archive.md](handoff-archive.md), at the bottom, and adds one line for it under "Archived" below: ID, subject, outcome (its Resolution line). Either agent may archive an entry the other resolved. Read the archive only when you need an entry's history.
 - An entry written straight into this file by habit: `python3 tools/handoff.py split` moves it to its own file.
 - A job's response ends with one line `Result: <commit>; <tests>; <what changed>` (e.g. `Result: 2c91ed7; tools/test_x.py 9/9, quick test passed; x.py does y`); at merge, integrate.py appends it to the item's Work list row (T91). No `|` in it.
 - Anything you leave is its own line `Follow-up: <what>`, and anything the integrator must do at merge its own line `For the integrator: <what>` (a leading `- ` allowed, like Result:). At merge, integrate.py copies each follow-up into [follow-ups.md](follow-ups.md) and prints the instructions (P26, T97); a leftover only in prose is easy to miss.
-- An entry is also a job when it says `For: Claude`, `Codex` or `either` (P24): its Status is the queue's input. `open` is Ready, `queued (after H0NN)` waits, `answered` is for review. Workers take jobs with `python3 tools/job.py take` and finish with `python3 tools/job.py done` (which needs your response appended and Status answered); BOARD.md's table is built from these entries and the queue. Its Touches line is what the queue checks for overlap. After a shared file's path, list the functions or constants it changes in backticks inside parentheses so two jobs that name parts of that file overlap only where their names match (P45).
+- An entry is also a job when it says `For: Claude`, `Codex` or `either` (P24): its Status is the queue's input. `open` is Ready, `queued (after H0NN)` waits, `answered` is for review. Workers take jobs with `python3 tools/GET_A_JOB.py` and finish with `python3 tools/SUBMIT_JOB.py` (which needs your response appended and Status answered); BOARD.md's table is built from these entries and the queue. Its Touches line is what the queue checks for overlap. After a shared file's path, list the functions or constants it changes in backticks inside parentheses so two jobs that name parts of that file overlap only where their names match (P45).
 
 ## References and authority
 
@@ -31,7 +31,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 <!-- open list: built from docs/handoff/ by tools/handoff.py; don't edit by hand -->
 
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
-- [H154 — Tools and habits take the organization's names: FOR_<doing>.py and WHEN_<this>_<DO_THAT>.py](handoff/H154-naming-tools-and-habits.md) — status: draft (names being settled with William; not a job yet); for: either
+- [H154 — One named script per action: tools named for what you do (GET_A_JOB), habits in 02_Habits](handoff/H154-naming-tools-and-habits.md) — status: open; for: either
 
 <!-- end of open list -->
 

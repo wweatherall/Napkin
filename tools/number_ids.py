@@ -218,6 +218,9 @@ def tidy_log(root):
 
 
 def main():
+    if "-h" in sys.argv[1:] or "--help" in sys.argv[1:]:
+        print(__doc__)
+        return
     root = subprocess.run(["git", "rev-parse", "--show-toplevel"], capture_output=True, text=True).stdout.strip()
     apply(root or os.getcwd(), dry_run="--dry-run" in sys.argv)
 

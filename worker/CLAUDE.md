@@ -24,7 +24,7 @@ ARCHITECTURE.md the module map and protocol (update it in the same commit when y
   and `focus` events), ownership (one window per model), delayed saves, idle exit (`SERVE_IDLE_EXIT`).
   `SERVE_PORT=0` binds a free port and writes it to `SERVE_PORT_FILE` (T47): tests start workers this way.
 - `length_input.py`: typed lengths through FreeCAD's expressions (T32, I35). `viewport/units.gd`
-  `evaluate_length` ports it: after changing it, run `freecadcmd tools/length_cases.py` and the units test.
+  `evaluate_length` ports it: after changing it, run `freecadcmd tools/CHECK_TYPED_LENGTHS_AGAINST_FREECAD.py` and the units test.
 - `object_properties.py`: the Properties panel's snapshot and `property_edit` (T46, I36).
 - `materials.py`: the wood library (T15, M03). `drawing.py`: shop drawings (plain python3, not the worker).
 - `hello` reports `PROTOCOL_VERSION` (serve.py; viewport/main.gd has the same constant): bump both when a message or
@@ -96,11 +96,11 @@ ARCHITECTURE.md the module map and protocol (update it in the same commit when y
 - FreeCAD 1.1.4 is installed; don't work around bugs that 1.1.4 no longer has.
 
 ## Tests (each runs in both test scripts)
-- `tools/featuretest.sh` finds every `worker/test_*.py` and runs it with freecadcmd, unless one of its first five
+- `tools/TEST_WITHOUT_THE_APP.sh` finds every `worker/test_*.py` and runs it with freecadcmd, unless one of its first five
   lines says `runner: python3` (tests that start freecadcmd themselves, like the serve and length-protocol tests) or
   `runner: none` (helpers: `test_load.py`, `test_native_common.py`, `test_link.py`). Each prints `<NAME> TESTS: N passed, M failed`;
   one that prints none fails. A new test file needs no other edit; its docstring says what it covers.
-  `tools/featuretest.sh --list` shows what's found. Use `TESTDIR=<dir>` for outputs.
+  `tools/TEST_WITHOUT_THE_APP.sh --list` shows what's found. Use `TESTDIR=<dir>` for outputs.
 - `test_link.py` (`runner: none`) holds the shared worker-link and P42 failure-path helpers for worker tests:
   `start_worker` / `Worker` (`kill`, `restart`, `stop`), `Window` (`send`, `ask`, `wait`, `drop`), `fresh_model`,
   `board_ops`, `sync`, `freecad_save`, `Checks`, and the restoring context managers `read_only`, `unreadable`, and

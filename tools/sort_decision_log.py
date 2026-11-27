@@ -1073,7 +1073,7 @@ def board_statuses(root, queue_state=None):
 def check_files(live, archive=None, rulings_dir=None, work_dir=None, questions_dir=None):
     """Every problem with the log (both files when there's an archive)."""
     if archive is None:
-        out = [] if sort_text(live) == live else [f"{LIVE} is not sorted by ID: run python3 tools/sort_decision_log.py"]
+        out = [] if sort_text(live) == live else [f"{LIVE} is not sorted by ID: run python3 02_Habits/WHEN_THE_LOG_IS_COMMITTED_TIDY_IT.py"]
         return out + details_problems(live) + status_problems(live)
     out = []
     for folder, sections in ((rulings_dir, RULING_SECTIONS), (work_dir, WORK_SECTIONS), (questions_dir, QUESTION_SECTIONS)):
@@ -1085,18 +1085,21 @@ def check_files(live, archive=None, rulings_dir=None, work_dir=None, questions_d
                 if ident in existing:
                     out.append(f"{ident} is in both {name} and {folder}/{ident}.md")
                 else:
-                    out.append(f"{ident} is still a table row in {name}: run python3 tools/sort_decision_log.py")
+                    out.append(f"{ident} is still a table row in {name}: run python3 02_Habits/WHEN_THE_LOG_IS_COMMITTED_TIDY_IT.py")
     l2, a2 = tidy(live, archive, rulings_dir=rulings_dir, work_dir=work_dir, questions_dir=questions_dir, dry_run=True)
     if l2 != live:
-        out.append(f"{LIVE} is not tidy: run python3 tools/sort_decision_log.py")
+        out.append(f"{LIVE} is not tidy: run python3 02_Habits/WHEN_THE_LOG_IS_COMMITTED_TIDY_IT.py")
     if a2 != archive:
-        out.append(f"{ARCHIVE} is not tidy: run python3 tools/sort_decision_log.py")
+        out.append(f"{ARCHIVE} is not tidy: run python3 02_Habits/WHEN_THE_LOG_IS_COMMITTED_TIDY_IT.py")
     for name, text in ((LIVE, live), (ARCHIVE, archive)):
         out += [f"{name}: {p}" for p in details_problems(text) + status_problems(text)]
     return out + layout_problems(live, archive, rulings_dir=rulings_dir, work_dir=work_dir, questions_dir=questions_dir)
 
 
 def main():
+    if "-h" in sys.argv[1:] or "--help" in sys.argv[1:]:
+        print(__doc__)
+        return
     args = [a for a in sys.argv[1:] if a != "--check"]
     live_path = args[0] if args else LIVE
     arch_path = args[1] if len(args) > 1 else os.path.join(os.path.dirname(live_path), os.path.basename(ARCHIVE))

@@ -961,7 +961,7 @@ def pause_for_map(s):
         if need_brief:
             for hid, what in changed:
                 print(f"  {hid}: changed: {what}")
-        cont = ("python3 tools/integrate.py --continue --as " + name
+        cont = ("python3 tools/MERGE_JOB.py --continue --as " + name
                 + (" --push" if "--push" in argv else "") + (" --yes" if "--yes" in argv else ""))
         if need_map:
             say("the merge is staged, not committed (P28): write these into ARCHITECTURE.md / docs/protocol.md, checked "
@@ -970,7 +970,7 @@ def pause_for_map(s):
             ids = list(dict.fromkeys(hid for hid, _ in changed))
             ret_id = s.jid or (ids[0] if len(ids) == 1 else "<id>")
             say("the merge is staged, not committed (P44): check each change from the brief above; accept with "
-                + cont + f', or put the job back with python3 tools/job.py return {ret_id} "<notes>"')
+                + cont + f', or put the job back with python3 tools/RETURN_JOB.py {ret_id} "<notes>"')
         return s.stop(0)
     return s
 
