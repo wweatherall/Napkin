@@ -12,7 +12,7 @@ Architecture: lines, the response) and CLAUDE.md (commit trailers); this page sa
   pre-/clear state note in one step) with
   `python3 tools/HOLD_THE_INTEGRATOR_LOCK.py <your session name> --william [--archive <ID> --push]` (drop `--william` if the
   lock is free; refused if another holds it without `--william`, P19; standalone archiving is
-  `python3 tools/ARCHIVE_A_FINISHED_JOB.py <ID> --push`). Commands that write `.git/`, push, launch Terminal windows, or
+  `python3 tools/ARCHIVE_A_FINISHED_JOB.py <ID> --push`, which also tidies `docs/agent-handoff.md`). Commands that write `.git/`, push, launch Terminal windows, or
   read transcripts outside the workspace (`HOLD_THE_INTEGRATOR_LOCK.py`, `ARCHIVE_A_FINISHED_JOB.py --push`, `MERGE_JOB.py`,
   `osascript` worker launches, and `../../09_Tools/MEASURE_TOKEN_USE.py`) require running outside the sandbox (`BypassSandbox: true`).
 - It keeps BOARD.md (nobody else edits it), assigns jobs, reviews, merges into main and pushes without asking once

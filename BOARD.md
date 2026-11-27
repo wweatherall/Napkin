@@ -50,7 +50,7 @@ worktree (T102).
      open questions; then a line each: `Changed from the brief: <what it said>; <what you did>; <why>` per departure
      (P44); `Architecture: <what>`; `Follow-up: <what>` per thing left; `For the integrator: <what>` per merge step
      (P26); last, `Result: <commit>; <tests>; <what changed>`, no `|` (T91)), set Status to `answered`, and in one
-     chained command run `python3 tools/handoff.py list && git add docs/agent-handoff.md docs/handoff/<file> && git -c core.hooksPath=.githooks commit -m "<ID>: record response and mark answered" && python3 tools/SUBMIT_JOB.py`.
+     chained command run `python3 tools/handoff.py tidy && git add docs/agent-handoff.md docs/handoff/<file> && git -c core.hooksPath=.githooks commit -m "<ID>: record response and mark answered" && python3 tools/SUBMIT_JOB.py`.
 7. Once `SUBMIT_JOB.py` succeeds (it checks the response, Status, quick-test pass and hung processes), tell William
    "ready for review: <ID>" and stop: one job a session (P37). Don't take the integrator lock.
 

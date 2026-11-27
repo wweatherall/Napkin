@@ -211,5 +211,73 @@ with TemporaryDirectory(prefix="handoff-archive-test-") as folder:
     res = run(root, sys.executable, "tools/handoff.py", "archive", "H022", "--bogus")
     check("archive rejects unknown flags with exit 2", res.returncode == 2, res.stdout + res.stderr)
 
+with TemporaryDirectory(prefix="handoff-tidy-test-") as folder:
+    root = Path(folder)
+    briefs = root / handoff.FOLDER
+    briefs.mkdir(parents=True)
+    (root / "tools").mkdir()
+    (root / ".githooks").mkdir()
+    (root / "README.txt").write_text("hi\n")
+    shutil.copy(ROOT / "tools/handoff.py", root / "tools/handoff.py")
+    shutil.copy(ROOT / ".githooks/pre-commit", root / ".githooks/pre-commit")
+
+    # Build 12 archived entries in docs/handoff-archive.md.
+    arch_parts = ["# Archive\n"]
+    for n in range(1, 13):
+        hid = f"H{n:03d}"
+        arch_parts.append(f"### {hid} — Item {n}\n\nAuthor: Codex | Status: resolved\n\nResolution: done {n}.\n")
+    (root / handoff.ARCHIVE).write_text("\n".join(arch_parts))
+    (root / handoff.HANDOFF).write_text(
+        f"# Handoff\n\n- [Readme](../README.txt)\n\n## Open exchanges\n\n{handoff.START}\n\n(none open)\n\n{handoff.END}\n\n"
+        "## Archived\n\n- H001 — Item 1. Resolved: done 1.\n\n## Entry template\n\nTemplate.\n"
+    )
+
+    # 1. --check fails when Archived is out of date, then tidy fixes it and keeps last 10 + Older: line.
+    res = run(root, sys.executable, "tools/handoff.py", "tidy", "--check")
+    check("tidy --check fails when Archived is out of date", res.returncode == 1 and "Archived" in res.stdout, res.stdout)
+    res = run(root, sys.executable, "tools/handoff.py", "tidy")
+    hand_text = (root / handoff.HANDOFF).read_text()
+    archived_bullets = [l for l in hand_text.splitlines() if l.startswith("- H")]
+    check("tidy keeps last 10 archived entries newest-first with Older summary",
+          res.returncode == 0 and len(archived_bullets) == 10
+          and archived_bullets[0].startswith("- H012 — Item 12. Resolved: done 12.")
+          and archived_bullets[-1].startswith("- H003 — Item 3. Resolved: done 3.")
+          and 'Older: docs/handoff-archive.md (12 entries; find one with grep "^### H0NN" docs/handoff-archive.md)' in hand_text
+          and "## Entry template" in hand_text,
+          hand_text)
+    res = run(root, sys.executable, "tools/handoff.py", "tidy", "--check")
+    check("tidy --check passes on a tidy file with valid relative links", res.returncode == 0 and not res.stdout, res.stdout)
+
+    # 2. Refuses to cut an archived line whose heading is missing from docs/handoff-archive.md.
+    (root / handoff.HANDOFF).write_text(
+        hand_text.replace("- H012 — Item 12.", "- H999 — Missing.\n- H012 — Item 12.")
+    )
+    res = run(root, sys.executable, "tools/handoff.py", "tidy")
+    check("tidy refuses to cut an archived entry missing from archive, naming it",
+          res.returncode != 0 and "H999" in (res.stdout + res.stderr)
+          and "- H999 — Missing." in (root / handoff.HANDOFF).read_text(),
+          res.stdout + res.stderr)
+
+    # 3. Rebuilds Archived cleanly even with git merge conflict markers inside Archived.
+    (root / handoff.HANDOFF).write_text(
+        hand_text.replace(
+            "- H012 — Item 12. Resolved: done 12.",
+            "<<<<<<< HEAD\n- H012 — Item 12. Resolved: done 12.\n=======\n- H011 — Item 11. Resolved: done 11.\n>>>>>>> branch",
+        )
+    )
+    res = run(root, sys.executable, "tools/handoff.py", "tidy")
+    rebuilt = (root / handoff.HANDOFF).read_text()
+    check("tidy rebuilds Archived across merge conflict markers",
+          res.returncode == 0 and "<<<<<<<" not in rebuilt and ">>>>>>>" not in rebuilt
+          and "- H012 — Item 12. Resolved: done 12." in rebuilt,
+          rebuilt)
+
+    # 4. Broken relative link is reported with line number and fails tidy --check.
+    (root / handoff.HANDOFF).write_text(rebuilt.replace("(../README.txt)", "(../NO_SUCH_FILE.md)"))
+    res = run(root, sys.executable, "tools/handoff.py", "tidy", "--check")
+    check("tidy --check fails on a broken relative link and prints its line",
+          res.returncode == 1 and "NO_SUCH_FILE.md" in res.stdout and f"{handoff.HANDOFF}:3:" in res.stdout,
+          res.stdout)
+
 print(f"HANDOFF TESTS: {sum(RESULTS)} passed, {len(RESULTS) - sum(RESULTS)} failed")
 raise SystemExit(0 if all(RESULTS) else 1)

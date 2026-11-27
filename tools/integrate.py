@@ -1128,7 +1128,7 @@ def unblock_queued_jobs(s):
             changed_paths.append(job.BOARD)
     hpath = os.path.join(root, handoff.HANDOFF)
     if os.path.isfile(hpath) and handoff.START in open(hpath, encoding="utf-8").read():
-        if handoff.write_list(root):
+        if handoff.tidy(root):
             changed_paths.append(handoff.HANDOFF)
     git("add", *changed_paths, root=root)
     msg = (f"Unblock {', '.join(summary_ids)}\n\n"
