@@ -71,7 +71,7 @@ Architecture: lines, the response) and CLAUDE.md (commit trailers); this page sa
 - Codex records William's decisions in the log itself (P09, AGENTS.md). When integrating its branch, carry over
   only the rows it added or superseded: its copy of the rest may be older than main's.
 - Results (T91, P17): integrate.py commits each response's `Result:` line to its Work list file (`03_Past_Decisions/work/<ID>.md`) and prints one short line per item plus the commit's oneline; a response without
-  one is yours to record. Follow-ups (P26): it copies `Follow-up:` lines into docs/follow-ups.md and prints
+  one is yours to record. Work list statuses move themselves (`On the board (<IDs>)` while jobs exist, `Open` when none remain, `Done` at merge when the brief says `Completes: T<n>`; `--status` overrides). Follow-ups (P26): it copies `Follow-up:` lines into docs/follow-ups.md and prints
   `For the integrator:` lines under "for you now:"; clear a follow-up in the commit that does it.
 - Small fixes (P22): merge and push the standing `small-fixes` (and `codex/small-fixes`) branch when the gate
   passes, without asking; list the fixes for William at the end of the session.
@@ -84,7 +84,7 @@ Architecture: lines, the response) and CLAUDE.md (commit trailers); this page sa
   read as a branch) is an additional omission detector, not a replacement for review.
 
 ## Writing jobs
-- **Full briefs only on `BOARD.md`**: every handoff entry on the board (whether `open` or `queued (after H0NN)`) must be a complete, ready-to-run brief (`Today`, `Reading path`, `Request`, `Touches`, `Checks`) so H146's auto-unblock works hands-free; partial ideas and unexpanded follow-ons stay in the Work list (`03_Past_Decisions/decision-log.md`) until ready for a full brief.
+- **Full briefs only on `BOARD.md`**: every handoff entry on the board (whether `open` or `queued (after H0NN)`) must be a complete, ready-to-run brief (`Today`, `Reading path`, `Request`, `Touches`, `Checks`) so H146's auto-unblock works hands-free; add `Completes: T<n>` to an item's last job (and `Item: T<n>` if the heading doesn't name it); partial ideas and unexpanded follow-ons stay in the Work list (`03_Past_Decisions/decision-log.md`) until ready for a full brief.
 - A job adding a tool or an op also lists the places that pin them (H130 asked for them one by one):
   `viewport/keys.gd`, `main.gd` `redo`, `tool_context.gd` and `test_tool_context.gd`, `test_tools.gd`,
   `tools/push_tool.gd`, `tools/CLAUDE.md`, `worker/scenario/99_op_registry.py`.

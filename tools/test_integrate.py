@@ -919,5 +919,62 @@ check("--status Done keeps the file and moves its index line",
       and "| T7 | Mirror fix. | Done |" in open(os.path.join(w_tmp, "03_Past_Decisions", "decision-archive.md"), encoding="utf-8").read())
 shutil.rmtree(w_tmp)
 
+# Completes: marks item Done at merge after recording Result; without it, board_statuses leaves On the board or Open
+c_root = repo()
+write(c_root, "03_Past_Decisions/decision-log.md",
+      "# Log\n\n## Work list\n\n| # | Item | Status |\n|---|---|---|\n"
+      "| T1 | First. | On the board (H090) |\n| T2 | Second. | On the board (H091, H092) |\n| T3 | Third. | On the board (H093) |\n")
+write(c_root, "03_Past_Decisions/decision-archive.md",
+      "# Archive\n\n## Done work\n\n| # | Item | Status |\n|---|---|---|\n")
+c_wdir = os.path.join(c_root, "03_Past_Decisions", "work")
+sort_decision_log.write_entry(c_wdir, "T1", sort_decision_log.format_work("T1", "First.", "On the board (H090)"))
+sort_decision_log.write_entry(c_wdir, "T2", sort_decision_log.format_work("T2", "Second.", "On the board (H091, H092)"))
+sort_decision_log.write_entry(c_wdir, "T3", sort_decision_log.format_work("T3", "Third.", "On the board (H093)"))
+write(c_root, "docs/handoff/H092-t2-other.md",
+      "### H092 — T2: other job\n\nAuthor: Claude | Date: 2026-11-26 | Status: open | For: either\n")
+sh(c_root, "git", "add", "-A"); sh(c_root, "git", "commit", "-qm", "setup work items")
+
+sh(c_root, "git", "checkout", "-qb", "agent/completes-t1")
+write(c_root, "docs/handoff/H090-t1.md",
+      "### H090 — T1: finish it\n\nAuthor: Gemini | Date: 2026-11-26 | Status: answered | For: either\n\n"
+      "Completes: T1\n\nResult: 1111aaa; tests 1/1; done T1\n")
+sh(c_root, "git", "add", "-A"); sh(c_root, "git", "commit", "-qm", "H090 answered")
+sh(c_root, "git", "checkout", "-q", "main")
+integrator.take(integrator.lock_path(c_root), "tester", out=lambda *a: None)
+cwd = os.getcwd(); os.chdir(c_root)
+try:
+    with contextlib.redirect_stdout(io.StringIO()):
+        rc_c1 = integrate.main(["agent/completes-t1", "--as", "tester", "--no-gate"])
+finally:
+    os.chdir(cwd)
+t1_final = open(os.path.join(c_wdir, "T1.md"), encoding="utf-8").read()
+check("a job with Completes: marks its item Done at merge",
+      rc_c1 == 0 and "Status: Done" in t1_final and "Result (1111aaa" in t1_final
+      and "| T1 | First. | Done |" in open(os.path.join(c_root, "03_Past_Decisions/decision-archive.md"), encoding="utf-8").read(),
+      t1_final)
+
+sh(c_root, "git", "checkout", "-qb", "agent/partial-t2-t3")
+write(c_root, "docs/handoff/H091-t2.md",
+      "### H091 — T2: step 1\n\nAuthor: Gemini | Date: 2026-11-26 | Status: answered | For: either\n\n"
+      "Result: 2222bbb; tests 1/1; step 1 T2\n")
+write(c_root, "docs/handoff/H093-t3.md",
+      "### H093 — T3: step 1\n\nAuthor: Gemini | Date: 2026-11-26 | Status: answered | For: either\n\n"
+      "Result: 3333ccc; tests 1/1; step 1 T3\n")
+sh(c_root, "git", "add", "-A"); sh(c_root, "git", "commit", "-qm", "H091 and H093 answered")
+sh(c_root, "git", "checkout", "-q", "main")
+cwd = os.getcwd(); os.chdir(c_root)
+try:
+    with contextlib.redirect_stdout(io.StringIO()):
+        rc_c2 = integrate.main(["agent/partial-t2-t3", "--as", "tester", "--no-gate"])
+finally:
+    os.chdir(cwd)
+t2_final = open(os.path.join(c_wdir, "T2.md"), encoding="utf-8").read()
+t3_final = open(os.path.join(c_wdir, "T3.md"), encoding="utf-8").read()
+check("a merged job without it leaves the item On the board while another job remains, else Open with the Result",
+      rc_c2 == 0 and "Status: On the board (H092)" in t2_final and "Result (2222bbb" in t2_final
+      and "Status: Open" in t3_final and "Result (3333ccc" in t3_final,
+      (t2_final, t3_final))
+shutil.rmtree(c_root)
+
 print(f"INTEGRATE TESTS: {sum(RESULTS)} passed, {len(RESULTS) - sum(RESULTS)} failed")
 raise SystemExit(0 if all(RESULTS) else 1)   # a failed check fails the run, not only its summary

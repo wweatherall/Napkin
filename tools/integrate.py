@@ -589,11 +589,29 @@ def add_follow_ups(root, items, date=None):
     return added
 
 
+def header_items(text, field):
+    """T<n> IDs named on a header line (`Item:` / `Completes:`) or in the Author metadata line."""
+    out = []
+    for line in (text or "").splitlines():
+        if RESPONSE_HEADING.match(line):
+            break
+        if line.startswith("Author:") and " | " in line:
+            for part in line.split(" | "):
+                if part.strip().startswith(f"{field}:"):
+                    out.extend(re.findall(r"\bT\d+\b", part))
+        elif re.match(rf"^{re.escape(field)}:\s*", line):
+            out.extend(re.findall(r"\bT\d+\b", line))
+    return out
+
+
 def entry_item(text, statuses):
-    """The Work list item an entry's result belongs to: the --status item its heading names, the only --status
-    item, or the T<n> its heading names."""
+    """The Work list item an entry's result belongs to: the --status item its heading or Item:/Completes: line
+    names, the only --status item, or the T<n> its heading or Item:/Completes: line names."""
     head = re.search(r"(?m)^### .*$", text or "")
     named = re.findall(r"\bT\d+\b", head.group(0)) if head else []
+    for tid in header_items(text, "Item") + header_items(text, "Completes"):
+        if tid not in named:
+            named.append(tid)
     hit = [t for t in statuses if t in named]
     if hit:
         return hit[0]
@@ -842,10 +860,14 @@ def number_entries(s):
 
 def archive_entries(s):
     root, answered, statuses, say = s.root, s.answered, s.statuses, s.say
-    results, missing, later, now, maps, changed = [], [], [], [], [], []
+    status_tids = {t for t, _ in statuses}
+    results, missing, later, now, maps, changed, completes = [], [], [], [], [], [], []
     for rel in answered:
         text = open(os.path.join(root, rel), encoding="utf-8").read()
         hid, got, tid = entry_id(text, rel), result_line(text), entry_item(text, [t for t, _ in statuses])
+        for c_tid in header_items(text, "Completes"):
+            if c_tid not in status_tids and c_tid not in completes:
+                completes.append(c_tid)
         later += [(hid, w) for w in follow_ups(text)]
         now += [(hid, w) for w in for_integrator(text)]
         maps += [(hid, w) for w in architecture(text)]
@@ -858,7 +880,7 @@ def archive_entries(s):
     added = add_follow_ups(root, later)
     if added:
         say(f"follow-ups: {len(added)} added to {FOLLOW_UPS}")
-    s.payload.update(results=results, missing=missing, now=now, maps=maps, changed=changed)
+    s.payload.update(results=results, missing=missing, now=now, maps=maps, changed=changed, completes=completes)
     return s
 
 
@@ -875,6 +897,9 @@ def rebuild_and_check(s):
     bpath = os.path.join(root, job.BOARD)
     if os.path.isfile(bpath) and job.START in open(bpath, encoding="utf-8").read():
         job.board(root, out=say)
+    else:
+        for line in sort_decision_log.board_statuses(root):
+            say(line)
     git("add", "-A", root=root)
     arch = os.path.join(root, ARCHIVE)
     rdir = os.path.join(root, sort_decision_log.RULINGS_DIR)
@@ -1113,7 +1138,8 @@ def unblock_queued_jobs(s):
 
 def record_results(s):
     root, state, name, say = s.root, s.payload, s.name, s.say
-    drafted = draft_results(root, [tuple(x) for x in state["results"]], name, say)
+    drafted = draft_results(root, [tuple(x) for x in state["results"]], name, say,
+                            completes=state.get("completes", []))
     if state["now"]:
         say("for you now:")
         for hid, what in state["now"]:
@@ -1138,9 +1164,10 @@ def push_main(s):
     return s
 
 
-def draft_results(root, results, name, say):
-    """Step 8: append each Result line to its Work list row and commit it on its own; show a short summary. True if made."""
-    if not results:
+def draft_results(root, results, name, say, completes=()):
+    """Step 8: append each Result line to its Work list row, mark Completes: items Done, and commit it on its own;
+    show a short summary. True if made."""
+    if not results and not completes:
         return False
     merge = git("rev-parse", "--short", "HEAD", root=root).stdout.strip()
     changed, items, summaries = set(), [], []
@@ -1151,9 +1178,20 @@ def draft_results(root, results, name, say):
             summaries.append(format_result_summary(tid, hid, commit, rest, merge))
         else:
             say(what)
+    for tid in completes:
+        msg = set_status(root, tid, "Done")
+        say(msg)
+        if "not in the decision log" not in msg:
+            for rel in (f"{sort_decision_log.WORK_DIR}/{tid}.md", LOG, ARCHIVE):
+                if os.path.isfile(os.path.join(root, rel)):
+                    changed.add(rel)
+            if not any(i == tid or i.startswith(f"{tid} ") for i in items):
+                items.append(tid)
     if not changed:
         return False
     git("add", *sorted(changed), root=root)
+    if git("diff", "--cached", "--quiet", root=root).returncode == 0:
+        return False
     msg = (f"{', '.join(items)}: Work list result, merged {merge}\n\nDrafted by tools/integrate.py ({name}) from the "
            "handoff response's Result line.\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>")
     r = subprocess.run(["git", "-c", "core.hooksPath=.githooks", "commit", "-q", "-F", "-"], input=msg, cwd=root,

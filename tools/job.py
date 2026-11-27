@@ -1159,6 +1159,13 @@ def board(cwd, now=None, out=print):
     if new != text:
         open(path, "w", encoding="utf-8").write(new)
         out(f"rebuilt the job table in {BOARD}")
+    try:
+        import sort_decision_log
+    except ImportError:
+        sort_decision_log = None
+    if sort_decision_log is not None:
+        for line in sort_decision_log.board_statuses(top):
+            out(line)
     write_org_jobs(top, new, out=out)
     return new != text
 

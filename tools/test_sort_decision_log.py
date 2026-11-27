@@ -51,12 +51,12 @@ check("03_Past_Decisions/decision-log.md: every (Details below.) row has its sec
 
 
 LOG = ("## Decisions\n\n| ID | D | Status |\n|---|---|---|\n| A1 | x | Active |\n| A2 | y | Maybe |\n\n"
-       "## Work list\n\n| # | Item | Status |\n|---|---|---|\n| T1 | a | Done |\n| T2 | b | Open (queued: H041) |\n"
+       "## Work list\n\n| # | Item | Status |\n|---|---|---|\n| T1 | a | Done |\n| T2 | b | On the board (H041) |\n"
        "| T3 | c | Done (review pending) |\n| T4 | d | In progress |\n")
 probs = s.status_problems(LOG)
 check("a decision with a status outside Active/Tentative is reported", any(p.startswith("A2:") for p in probs))
 check("a Work list status a worker invented ('Done (review pending)') is reported", any(p.startswith("T3:") for p in probs))
-check("Done, In progress and 'Open (queued: H041)' are accepted", not any(p[:3] in ("T1:", "T2:", "T4:") for p in probs))
+check("Done, In progress and 'On the board (H041)' are accepted", not any(p[:3] in ("T1:", "T2:", "T4:") for p in probs))
 check("the real decision log uses only allowed statuses",
       s.status_problems(open(os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "03_Past_Decisions", "decision-log.md"), encoding="utf-8").read()) == [])
 
@@ -226,6 +226,40 @@ check("an old branch's T row is moved into its file by the tidy",
       and "From branch." not in ql4)
 
 shutil.rmtree(tmp)
+
+# board_statuses: On the board (<IDs>) <-> Open, ignoring Done/Parked/Split and integrator-only entries
+bs_tmp = tempfile.mkdtemp(prefix="board-statuses-")
+bs_wdir = os.path.join(bs_tmp, s.WORK_DIR)
+bs_hdir = os.path.join(bs_tmp, "docs", "handoff")
+os.makedirs(bs_wdir)
+os.makedirs(bs_hdir)
+s.write_entry(bs_wdir, "T1", s.format_work("T1", "First item.", "Open"))
+s.write_entry(bs_wdir, "T2", s.format_work("T2", "Second item.", "Open (queued: H010)"))
+s.write_entry(bs_wdir, "T3", s.format_work("T3", "Done item.", "Done"))
+s.write_entry(bs_wdir, "T4", s.format_work("T4", "Parked item.", "Parked"))
+open(os.path.join(bs_hdir, "H012-t1.md"), "w", encoding="utf-8").write(
+    "### H012 — T1: queued job\n\nAuthor: Claude | Date: 2026-11-26 | Status: queued (after H011) | For: either\n")
+open(os.path.join(bs_hdir, "H009-item.md"), "w", encoding="utf-8").write(
+    "### H009 — Unrelated title\n\nAuthor: Claude | Date: 2026-11-26 | Status: open | For: gemini\n\nItem: T1\n")
+open(os.path.join(bs_hdir, "H015-integrator.md"), "w", encoding="utf-8").write(
+    "### H015 — T1: integrator note\n\nAuthor: Claude | Date: 2026-11-26 | Status: open | For: the integrator\n")
+open(os.path.join(bs_hdir, "H016-done-parked.md"), "w", encoding="utf-8").write(
+    "### H016 — T3 and T4: should not move\n\nAuthor: Claude | Date: 2026-11-26 | Status: open | For: either\n")
+s.board_statuses(bs_tmp)
+t1_text = open(os.path.join(bs_wdir, "T1.md"), encoding="utf-8").read()
+t2_text = open(os.path.join(bs_wdir, "T2.md"), encoding="utf-8").read()
+t3_text = open(os.path.join(bs_wdir, "T3.md"), encoding="utf-8").read()
+t4_text = open(os.path.join(bs_wdir, "T4.md"), encoding="utf-8").read()
+check("an Open item with a queued job is On the board with its ID",
+      "Status: On the board (H009, H012)" in t1_text and "H015" not in t1_text)
+check("legacy Open (queued: ...) with no job converts back to Open", "Status: Open" in t2_text)
+check("Done and Parked items are never moved", "Status: Done" in t3_text and "Status: Parked" in t4_text)
+os.remove(os.path.join(bs_hdir, "H012-t1.md"))
+os.remove(os.path.join(bs_hdir, "H009-item.md"))
+s.board_statuses(bs_tmp)
+check("an item whose last job is archived goes back to Open",
+      "Status: Open" in open(os.path.join(bs_wdir, "T1.md"), encoding="utf-8").read())
+shutil.rmtree(bs_tmp)
 
 print(f"LOG SORT TESTS: {sum(RESULTS)} passed, {len(RESULTS) - sum(RESULTS)} failed")
 raise SystemExit(0 if all(RESULTS) else 1)   # a failed check fails the run, not only its summary
