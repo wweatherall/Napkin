@@ -370,7 +370,7 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | T138 | Compress ARCHITECTURE.md heavily so the start-up brief can carry the map (about 80 KB t... | Open |
 | T139 | Rename the app to Napkin: what you see, the built app, folders, and the code and docs t... | Open |
 | T141 | William tries the Polygon tool by eye in a rebuilt app (tools/BUILD_THE_APP.sh). | Open |
-| T146 | Atomize the principles and past decisions: one file per ruling (G, P and the rest), wri... | Open |
+| T146 | Atomize the principles and past decisions: one file per ruling (G, P and the rest), wri... | On the board (H166) |
 | T152 | Thin the tests without losing coverage: research how others do it (coverage-guided test... | Open |
 | T153 | Generated tests: inputs made fresh each run (a random seed, printed so a failure can be... | Open |
 | T155 | Find a home for (or delete) the loose files at Napkin's top level: 'Codex's suggestions... | Open |
