@@ -289,7 +289,7 @@ Other representative payloads:
 
 `run_sync` writes `bodies.json`, changed mesh files, the material library (once per output folder per worker), and `status.json` into outdir before success. Save writes `model.glb` into the pending save's outdir, the actual model into its requested path, and its journal beside it; drawing saves also write `views.json`. If several syncs coalesce before saving, the latest pending outdir for that model wins. Paths are not a remote transfer mechanism.
 
-JSON outputs other than materials use `atomic_json` (`<path>.tmp`, then `os.replace`). Mesh and GLB also use temp + rename. These individual publications are atomic, not a transaction across all files. `.FCStd` uses `<model>.saving.FCStd` then rename; journal is written **after** that rename. `materials.json` is a direct write. Sources: [worker/serve.py](../worker/serve.py):`run_sync`, `serve.save_pending`; [worker/session.py](../worker/session.py):`atomic_json`, `Session.export`, `save`; [worker/export.py](../worker/export.py):`board_mesh_file`, `write_glb`; [worker/materials.py](../worker/materials.py):`write_library`.
+JSON outputs use `atomic_json` (`<path>.tmp`, then `os.replace`; `materials.json` the same way in `write_library`). Mesh and GLB also use temp + rename. These individual publications are atomic, not a transaction across all files. `.FCStd` uses `<model>.saving.FCStd` then rename; journal is written **after** that rename. Sources: [worker/serve.py](../worker/serve.py):`run_sync`, `serve.save_pending`; [worker/session.py](../worker/session.py):`atomic_json`, `Session.export`, `save`; [worker/export.py](../worker/export.py):`board_mesh_file`, `write_glb`; [worker/materials.py](../worker/materials.py):`write_library`.
 
 ### `bodies.json`
 
@@ -362,17 +362,17 @@ The native FreeCAD model is authoritative; its archive includes `Document.xml`, 
 
 Journal fields: `format: "shopsketch-journal/0.1"`, `rev: integer`, `file_sha256: string` (64 hex of landed FCStd bytes), `model: string` basename including extension, `name: string` stem, `ops: Op[]`, `status: JournalStatus[]` in corresponding order. JournalStatus has `status: "ok" | "failed"`, `ms: number`, optional `changed: string[] | null`, optional `message: string`; id/type are in the matching op, not duplicated in status.
 
+Optional fields (a journal without them opens as before):
+
+- History and IDs: `reserved_ids` (sorted strings: every ID reserved, kept when ops are undone or dropped) and `id_owners` (`{id: owner}`, which op made each ID, stable across typed amendments).
+- Undo floor and outside saves: `floor` (undo stops here: ops before it can't be taken back, A25; kept across saves and sessions), `dropped` (`[{op, after_rev, at}]`: actions an outside save didn't hold), `outside_sha256` (written the moment an outside save is seen; opening a file with that sha opens it external instead of recovering, A32).
+- Undo copy: `floor_copy` (`{sha256, ops}`: the sha256 of `<model>.floor.FCStd`, a copy of the document as it stood at the undo floor, and the floor it was written at), written only when the floor came from a FreeCAD change. A journal without it reads as no copy: undoing past the floor then needs a rebuild that is refused (`can't undo past the FreeCAD edit: its copy is missing`) rather than one that would drop FreeCAD's change.
+
 ```json
 {"format":"shopsketch-journal/0.1","rev":4,"file_sha256":"0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef","model":"chair.FCStd","name":"chair","ops":[],"status":[]}
 ```
 
 On reopen, revision/hash equality establishes that model matches journal. Only successful ops are adopted. Missing/wrong-format journal or a mismatched rev/hash marks external; the surviving history becomes an undo floor. Model and journal publication are separate atomic replacements; interruption between them can therefore be detected as an external/mismatched state. Sources: [worker/common.py](../worker/common.py):`JOURNAL_FORMAT`; [worker/session.py](../worker/session.py):`journal_path`, `Session.save`, `_open_existing`, `write_gui_document`.
-
-Journal fields added by T67: `reserved_ids` (sorted strings: every ID reserved, kept when ops are undone or dropped) and `id_owners` (`{id: owner}`, which op made each ID, stable across typed amendments); both optional, an older journal opens as before.
-
-Journal fields added by T64: `floor` (undo stops here: ops before it can't be taken back, A25; kept across saves and sessions), `dropped` (`[{op, after_rev, at}]`: actions an outside save didn't hold), `outside_sha256` (written the moment an outside save is seen; opening a file with that sha opens it external instead of recovering, A32).
-
-Journal field added by A38: `floor_copy` (`{sha256, ops}`: the sha256 of `<model>.floor.FCStd`, a copy of the document as it stood at the undo floor, and the floor it was written at); optional, written only when the floor came from a FreeCAD change. A journal without it reads as no copy: undoing past the floor then needs a rebuild that is refused (`can't undo past the FreeCAD edit: its copy is missing`) rather than one that would drop FreeCAD's change.
 
 ### `status.json`, `views.json`, startup port file
 

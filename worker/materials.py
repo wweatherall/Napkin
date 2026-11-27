@@ -128,5 +128,9 @@ def install(user_dir, textures_src):
 
 
 def write_library(path):
-    with open(path, "w") as f:
+    """Written to <path>.tmp and swapped in, like every other shared file, so a crash never leaves the window a
+    half-written library."""
+    tmp = path + ".tmp"
+    with open(tmp, "w") as f:
         json.dump(library(), f, indent=1)
+    os.replace(tmp, path)
