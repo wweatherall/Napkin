@@ -372,8 +372,8 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | T152 | Thin the tests without losing coverage: research how others do it (coverage-guided test... | Open |
 | T153 | Generated tests: inputs made fresh each run (a random seed, printed so a failure can be... | Open |
 | T155 | Find a home for (or delete) the loose files at Napkin's top level: 'Codex's suggestions... | Open |
-| T159 | Clarify push_pull and separate its jobs: one op today extrudes a profile or face, cuts,... | Open |
-| T161 | Think through plane-fit face numbering: faces are 0-5 (Left..Top) on plain stock but 't... | Open |
+| T159 | Clarify push_pull and separate its jobs: one op today extrudes a profile or face, cuts,... | On the board (H179) |
+| T161 | Think through plane-fit face numbering: faces are 0-5 (Left..Top) on plain stock but 't... | On the board (H179) |
 
 ## Tunables
 
