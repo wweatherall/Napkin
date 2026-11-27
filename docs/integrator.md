@@ -32,6 +32,9 @@ Architecture: lines, the response) and CLAUDE.md (commit trailers); this page sa
   it reads them arrive together, in recorded order (P47).
 - `python3 tools/job.py status` shows the queue; `python3 tools/job.py board` rebuilds the board's job table (the
   commit hook does it on main).
+- Spinning up a worker window: `python3 tools/launch.py <gemini|claude|codex> [--model M]` (T134; outside the sandbox;
+  tell William) opens it with its start-up brief already in the first message; `--dry-run` shows the command. The
+  commands it runs, for reference:
 - Spinning up a Gemini worker window (tell William; run outside sandbox / `BypassSandbox: true`): run
   `osascript -e 'tell application "Terminal" to do script "cd /Users/Will/Sites/comitatus/08_Code_Bases/Napkin && agy --model gemini-4-hydrogen-medium -i \"Gemini go! Check the board.\""'`
   (models: `gemini-4-hydrogen-medium` for standard jobs, `gemini-4-neon-medium` when asked for Neon; `agy models` lists all).
