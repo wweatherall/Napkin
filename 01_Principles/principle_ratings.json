@@ -1,0 +1,78 @@
+{
+ "ratings": {
+  "a4a8d1407b54": {
+   "rating": 984.0,
+   "comparisons": 1,
+   "id": "Napkin G01",
+   "text": "Feel first: a draft appears the moment you act and input never waits on FreeCAD; FreeCAD catches up and the wave confirms it."
+  },
+  "c736a42607db": {
+   "rating": 1016.0,
+   "comparisons": 1,
+   "id": "Napkin G06",
+   "text": "Typed values follow what you're doing: the direction you drag, and the model's units for a bare number; any unit you type, written however you write it, is understood."
+  },
+  "193b00b0cacf": {
+   "rating": 984.0,
+   "comparisons": 1,
+   "id": "Napkin G08",
+   "text": "Refer to geometry, never to FreeCAD's internal numbers."
+  },
+  "119a36d022c6": {
+   "rating": 1016.0,
+   "comparisons": 1,
+   "id": "Napkin G04",
+   "text": "Relationships stay live: copies, arrays, mirrors and fits follow later edits, and you can detach one on purpose."
+  },
+  "3b97b911fdc1": {
+   "rating": 984.0,
+   "comparisons": 1,
+   "id": "Napkin G13",
+   "text": "Show what an edit will change before it does."
+  },
+  "3fa59e25b2a2": {
+   "rating": 1016.0,
+   "comparisons": 1,
+   "id": "Napkin G09",
+   "text": "Never lose work: always saved, atomically, and undo crosses sessions without hiding changes made in FreeCAD."
+  },
+  "a2b6c5b8eeda": {
+   "rating": 984.0,
+   "comparisons": 1,
+   "id": "Napkin G12",
+   "text": "Work splits by files, and one integrator merges, numbers and keeps the records."
+  },
+  "2a256b8ac812": {
+   "rating": 1016.0,
+   "comparisons": 1,
+   "id": "Napkin G10",
+   "text": "A rejected action says why and leaves nothing behind."
+  }
+ },
+ "answers": [
+  {
+   "a": "a4a8d1407b54",
+   "b": "c736a42607db",
+   "score_a": 0.0,
+   "when": "2026-11-26 19:51"
+  },
+  {
+   "a": "193b00b0cacf",
+   "b": "119a36d022c6",
+   "score_a": 0.0,
+   "when": "2026-11-26 19:52"
+  },
+  {
+   "a": "3b97b911fdc1",
+   "b": "3fa59e25b2a2",
+   "score_a": 0.0,
+   "when": "2026-11-26 19:52"
+  },
+  {
+   "a": "a2b6c5b8eeda",
+   "b": "2a256b8ac812",
+   "score_a": 0.0,
+   "when": "2026-11-26 19:54"
+  }
+ ]
+}
