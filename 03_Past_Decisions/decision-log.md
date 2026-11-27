@@ -49,7 +49,7 @@ One subject per decision; the Decisions column is generated.
 | Feedback | The confirmation wave and what colours mean. | I06, W01, W02, W03, W04, W05, W06, W07, W08, W09 |
 | Materials | Wood cards, grain and painting. | A05, I33, M01, M02, M03, M04 |
 | Output | Drawings, cut lists and renders. | A07, D01, D02, I68, P06 |
-| Process | How the agents work, test, merge and record decisions. | P01, P02, P03, P07, P09, P10, P14, P15, P16, P17, P18, P19, P20, P21, P22, P23, P24, P25, P26, P28, P29, P31, P32, P33, P34, P35, P36, P37, P38, P39, P40, P41, P42, P43, P44, P45, P46, P47, P49, P50, P52, P53, P54, P56, P57, P58, P60, P61, P62, P63 |
+| Process | How the agents work, test, merge and record decisions. | P01, P02, P03, P07, P09, P10, P14, P15, P16, P17, P18, P19, P20, P21, P22, P23, P24, P25, P26, P28, P29, P31, P32, P33, P34, P35, P36, P37, P38, P39, P40, P41, P42, P43, P44, P45, P46, P47, P49, P50, P52, P53, P54, P56, P57, P58, P60, P61, P62, P63, P64 |
 
 ## Principles
 
@@ -310,6 +310,7 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | P61 | The first move takes decision-log.md and decision-archive.md into Napkin/03_Past_Decisions unchanged (the tools keep one table each); later steps move the Process rows to Organization/03_Past_Decisions, then convert rows to one file per ruling written by log.py. | Active | Replaces P59 (folder renumbered by P60) | William, 2026-11-26: move as is, split later; the folder follows P60. | — | Not built: T135 | 2026-11-26 |
 | P62 | The Organization repo is named comitatus (private GitHub repo wweatherall/comitatus); the code base and its GitHub repo are renamed fretchup -> Napkin (GitHub redirects the old URL). | Active | Builds on P54, P58 | William, 2026-11-26: 'comitatus' for the org; rename to Napkin now, a name clash later is a good problem to have. | — | Not built: T135 | 2026-11-26 |
 | P63 | Job worktrees live in Organization/08_Code_Bases/.worktrees/<code base>/<id> (hidden, one place for every code base), not <checkout>-jobs/; job.py works the path out from the checkout. | Active | Builds on P54, P57 | Integrator, 2026-11-26, William delegated the choice: a <checkout>-jobs folder would be a second entry in 08_Code_Bases that isn't a code base. | — | Not built: T135 (tools/job.py) | 2026-11-26 |
+| P64 | The organization is named comitatus, and so is its folder: ~/Sites/comitatus (was ~/Sites/Organization), so the code base is ~/Sites/comitatus/08_Code_Bases/Napkin and job worktrees ~/Sites/comitatus/08_Code_Bases/.worktrees/<code base>/<id>. | Active | Refines P62 (the repo was already comitatus), P55 and P63 (their paths) | William, 2026-11-26: 'name should be comitatus, file folder should be comitatus'. | — | Not built: T135 (folder rename) | 2026-11-26 |
 
 ## Open questions
 

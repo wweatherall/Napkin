@@ -8,7 +8,7 @@ Order: H150, H151
 ## If you're not the integrator
 
 You're a worker: one job, then stop. Only the integrator merges or pushes (P16). Each shell command starts in the
-main checkout: read there, but run everything else as `cd /Users/Will/Sites/Organization/08_Code_Bases/.worktrees/Napkin/<id> && ...`, in your job's
+main checkout: read there, but run everything else as `cd /Users/Will/Sites/comitatus/08_Code_Bases/.worktrees/Napkin/<id> && ...`, in your job's
 worktree (T102).
 
 1. `python3 tools/job.py take --as claude` (or `--as codex` / `--as gemini`, outside sandbox if `.git/` is sandboxed)

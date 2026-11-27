@@ -36,7 +36,7 @@ Integrator:
   python3 tools/job.py status   the queue as text: jobs in progress, waiting, done, returned; what's Ready
   python3 tools/job.py board    rewrite BOARD.md's job table from docs/handoff/ (in the board's Order line) plus the
                                 live state (the commit hook does this on main); a checkout at
-                                Organization/08_Code_Bases/<name> also copies the table to Organization/05_Jobs/<name>.md (P57)
+                                comitatus/08_Code_Bases/<name> also copies the table to comitatus/05_Jobs/<name>.md (P57)
   python3 tools/job.py watch [--once | --next]
                                 one line per event (done, stale, waiting, returned, queue empty while a worker waits),
                                 and keeps running: run it under your watcher (Monitor). --next: stays quiet about
@@ -1112,8 +1112,8 @@ def board_text(text, root, st, now):
 
 
 def org_jobs_path(top):
-    """Organization/05_Jobs/<code base>.md for a checkout at Organization/08_Code_Bases/<code base>, else None (a job
-    worktree, a test repo, a checkout that isn't under an Organization): only the main checkout fills the bucket (P57)."""
+    """comitatus/05_Jobs/<code base>.md for a checkout at comitatus/08_Code_Bases/<code base>, else None (a job
+    worktree, a test repo, a checkout that isn't under comitatus, the organization): only the main checkout fills the bucket (P57)."""
     parent = os.path.dirname(top)
     org = os.path.dirname(parent)
     if os.path.basename(parent) != "08_Code_Bases" or not os.path.isdir(os.path.join(org, "05_Jobs")):
@@ -1129,7 +1129,7 @@ def org_jobs_text(name, table_text):
 
 
 def write_org_jobs(top, text, out=print):
-    """Copy the board's job table into the Organization's 05_Jobs bucket, when there is one; True if it changed."""
+    """Copy the board's job table into the organization's (comitatus) 05_Jobs bucket, when there is one; True if it changed."""
     path = org_jobs_path(top)
     if path is None or START not in text or END not in text:
         return False

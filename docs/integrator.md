@@ -33,10 +33,10 @@ Architecture: lines, the response) and CLAUDE.md (commit trailers); this page sa
 - `python3 tools/job.py status` shows the queue; `python3 tools/job.py board` rebuilds the board's job table (the
   commit hook does it on main).
 - Spinning up a Gemini worker window (tell William; run outside sandbox / `BypassSandbox: true`): run
-  `osascript -e 'tell application "Terminal" to do script "cd /Users/Will/Sites/Organization/08_Code_Bases/Napkin && agy --model gemini-4-hydrogen-medium -i \"Gemini go! Check the board.\""'`
+  `osascript -e 'tell application "Terminal" to do script "cd /Users/Will/Sites/comitatus/08_Code_Bases/Napkin && agy --model gemini-4-hydrogen-medium -i \"Gemini go! Check the board.\""'`
   (models: `gemini-4-hydrogen-medium` for standard jobs, `gemini-4-neon-medium` when asked for Neon; `agy models` lists all).
 - Spinning up a Claude worker window (only when William asks; tell him; outside sandbox): run
-  `osascript -e 'tell application "Terminal" to do script "cd /Users/Will/Sites/Organization/08_Code_Bases/Napkin && claude --model sonnet --effort medium --add-dir /Users/Will/Sites/Organization/08_Code_Bases/.worktrees/Napkin --remote-control H0NN-worker \"You are a worker. Check the board.\""'`
+  `osascript -e 'tell application "Terminal" to do script "cd /Users/Will/Sites/comitatus/08_Code_Bases/Napkin && claude --model sonnet --effort medium --add-dir /Users/Will/Sites/comitatus/08_Code_Bases/.worktrees/Napkin --remote-control H0NN-worker \"You are a worker. Check the board.\""'`
 - Rolling integrator journal (no pre-/clear shutdown commit needed): jot one-line state updates with
   `python3 tools/integrator.py note "<line>"` (stored untracked in `.git/shopsketch-integrator-journal.log`, capped to the last 20 lines and printed inline by `startup.py --role integrator`).
 - Passive job usage (T117, T126): `job.py` (`take`, `done`, `return`) and `integrate.py` (`merge`) call
