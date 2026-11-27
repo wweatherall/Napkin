@@ -343,7 +343,17 @@ class Model(*action_mixins()):
             raise OpError(f"unknown op type '{op['type']}'")
         import plane_fit
         fit_inputs = plane_fit.refit_inputs(self)
-        changed = getattr(self, "op_" + op["type"])(op)
+        audit_path = os.environ.get("SERVE_FIELD_AUDIT")
+        if audit_path:
+            from field_audit import AuditedDict, append_record
+            sent = list(op.keys())
+            audited = AuditedDict(op)
+            try:
+                changed = getattr(self, "op_" + op["type"])(audited)
+            finally:
+                append_record(audit_path, op["type"], sent, audited.read_keys())
+        else:
+            changed = getattr(self, "op_" + op["type"])(op)
         self.doc.recompute()  # Resolve native features and expressions before reading fit frames.
         fitted = plane_fit.refit_changed(self, fit_inputs)
         if fitted:

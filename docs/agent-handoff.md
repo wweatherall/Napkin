@@ -28,7 +28,6 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H174 — A generated dependency map: who uses which file, and who calls a function](handoff/H174-dependency-map.md) — status: open; for: gemini
 - [H175 — The merge tools: six things the integrator did by hand on 2026-11-27, made automatic](handoff/H175-merge-tool-fixes.md) — status: open; for: gemini
 - [H177 — main.gd step 1: history replies and live preferences move to their own files, behaviour unchanged](handoff/H177-split-main-gd.md) — status: open; for: gemini
-- [H178 — The full test fails on an op field that's sent but never read (a misspelt field can't run as its default)](handoff/H178-unread-op-fields.md) — status: open; for: gemini
 
 <!-- end of open list -->
 
@@ -36,6 +35,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 Full entries in [handoff-archive.md](handoff-archive.md).
 
+- H178 — The full test fails on an op field that's sent but never read (a misspelt field can't run as its default). Resolved: merged into main by the integrator, 2026-11-27.
 - H176 — The two old protocol findings: drop the unused `replay` command, and one place for a session's name. Resolved: merged into main by the integrator, 2026-11-27.
 - H173 — One file per model: everything the journal holds moves inside the .FCStd, nothing beside it. Resolved: merged into main by the integrator, 2026-11-27.
 - H172 — status.json written only by one-off replays, not on every edit in the app. Resolved: merged into main by the integrator, 2026-11-27.
@@ -45,9 +45,8 @@ Full entries in [handoff-archive.md](handoff-archive.md).
 - H168 — A script that keeps docs/agent-handoff.md tidy: short, current, every link working. Resolved: merged into main by the integrator, 2026-11-27.
 - H167 — Architecture step 2: ARCHITECTURE.md down to a hand-written core under 8 KB, nothing lost. Resolved: merged into main by the integrator, 2026-11-27.
 - H166 — T146 step 3: Process rulings to comitatus, and comitatus's principles one file each with one add command. Resolved: merged into main by the integrator, 2026-11-27.
-- H164 — One personal space per model and job, every new one made the same from a template. Resolved: merged into main by the integrator, 2026-11-27.
 
-Older: docs/handoff-archive.md (172 entries; find one with grep "^### H0NN" docs/handoff-archive.md)
+Older: docs/handoff-archive.md (173 entries; find one with grep "^### H0NN" docs/handoff-archive.md)
 
 ## Entry template
 

@@ -39,7 +39,8 @@ trap 'kill "${WORKERS[@]}" 2>/dev/null' EXIT
 lane() {   # lane <n> <suites...>: its own worker, then each suite in turn
   local n=$1; shift
   local lane_start=$SECONDS
-  SERVE_PORT=0 SERVE_PORT_FILE="$OUT/worker$n.port" SERVE_STATUS_FILE=1 "$FC" worker/replay.py > "$OUT/worker$n.log" 2>&1 &   # T47
+  SERVE_PORT=0 SERVE_PORT_FILE="$OUT/worker$n.port" SERVE_STATUS_FILE=1 SERVE_FIELD_AUDIT="$OUT/field_audit_$n.jsonl" \
+    "$FC" worker/replay.py > "$OUT/worker$n.log" 2>&1 &   # T47
   local w=$!
   for i in $(seq 1 300); do [ -s "$OUT/worker$n.port" ] && break; sleep 0.1; done
   local port; port=$(cat "$OUT/worker$n.port" 2>/dev/null) || { echo "lane $n: the worker didn't start" > "$OUT/lane$n.fail"; kill $w; return; }
@@ -89,6 +90,15 @@ if [[ " $* " == *" --update-reference "* ]]; then
   run_stage "full: update references" update_references || FAIL=1
 fi
 run_stage "full: compare suites" python3 tools/compare_suites.py "$OUT" || FAIL=1
+if [ -f worker/field_audit.py ]; then
+  AUDIT_FILES=("$OUT"/field_audit_*.jsonl)
+  if [ -f "${AUDIT_FILES[0]}" ]; then
+    run_stage "full: field audit" python3 worker/field_audit.py "${AUDIT_FILES[@]}" || FAIL=1
+  else
+    echo "full: field audit failed (no audit files produced)"
+    FAIL=1
+  fi
+fi
 for t in $TARGETED; do grep -E "TEST|SCRIPT ERROR" "$OUT/$t/godot.log" | grep -v " done$"; done
 if [ -n "$FEATURES" ]; then
   wait $FEATURES || FAIL=1
