@@ -1,6 +1,6 @@
 ### H208 — Napkin's freecadcmd never saves over William's FreeCAD settings (T167)
 
-Author: Claude (integrator, opus-integrator) | Date: 2026-11-28 | Status: open | For: codex | Item: T167
+Author: Claude (integrator, opus-integrator) | Date: 2026-11-28 | Status: answered | For: codex | Item: T167
 
 References: T167 (William, 2026-11-28: "my FreeCAD settings appear to be gone"), G09 (never lose work: his settings
 are his work too), A41 (`worker/session.py` `no_backups`, which already restores the one setting Napkin changes),
@@ -42,3 +42,20 @@ Checks:
 - The response says William's `v1-1/user.cfg` mtime before and after a full gate run (unchanged).
 
 Architecture: viewport/worker_process.gd owns the app's FreeCAD user and system config paths. Its launcher seeds user.cfg from the macOS FreeCAD profile on first use, then passes the app-owned paths on every start. Each test process uses paths in its own output folder.
+
+Response — Codex, 2026-11-28: Worked on `codex/h208-freecad-settings-kept` (`8f08dd8`, tested after bringing main into the job branch at `66ff5b1`). The app passes explicit `-u` and `-s` under `user://freecad/`. It seeds `user.cfg` from the macOS FreeCAD profile once, with a log-only fallback to FreeCAD defaults when the source is unavailable. Test processes and the source-launcher version check use separate scratch configs. `tools/job.py` delegates to the test scripts and has no direct FreeCAD command to change.
+
+- FreeCAD 1.1.4 wrote both `App.ParamGet(...).SetBool` probe values to scratch configs on exit. The desktop configs had the same mtimes before and after that probe.
+- `tools/BUILD_THE_APP.sh` built the signed bundle. In a scratch home, its `worker.log` showed the worker listening on port 43808 and the app's `freecad/user.cfg` contained the seed marker.
+- `tools/test_freecad_user_cfg.py` passed all 12 checks, including both launch flags, an absent source and destination, a single log line, and preservation of the existing copy. The named typed-length tool regenerated 2,521 cases with a byte-for-byte match.
+- Recorded quick test passed on `66ff5b1`. The full merge gate passed with 405 viewport checks, zero failures and a passing field audit. An earlier gate overlapped H211's unflagged FreeCAD processes, so the timestamp check was repeated after they exited. Before and after the final gate, the desktop `v1-1/user.cfg` mtime was `2026-11-28 07:56:01.832355814 CST`, and `system.cfg` was `2026-11-28 07:56:01.831326073 CST`. Both SHA-256 hashes matched before and after.
+
+Changed from the brief: `tools/RUN_ONE_TEST.sh` now calls the shared feature test launcher so its direct runner uses the same private config paths.
+
+Changed from the brief: `worker/test_link.py`, `worker/test_length_protocol.py`, `worker/test_model_units.py`, `worker/test_outside_save.py`, and `worker/test_serve.py` also start FreeCAD. Their calls now use a common helper with private config paths per process.
+
+Changed from the brief: `worker/test_floor_copy.py` explicitly disables backups during its external-edit fixture. Its file-count checks had depended on the desktop FreeCAD preference.
+
+Changed from the brief: `tools/test_named_scripts.py` expects the named length-case tool in its help text, which now documents the isolated entry point.
+
+Result: 8f08dd8; recorded quick test, full merge gate (405 viewport checks), 12 config checks and signed bundle smoke passed; isolated all FreeCAD command-line launches and verified the desktop settings files kept their timestamps and contents.
