@@ -14,7 +14,7 @@ import length_input
 
 # The window <-> worker protocol's version (docs/protocol.md): bump it when a message or shared-file field changes.
 # Reported in hello; a window whose PROTOCOL_VERSION (viewport/main.gd) differs starts its own worker.
-PROTOCOL_VERSION = 24
+PROTOCOL_VERSION = 25
 
 
 def run_sync(session, req):
@@ -305,7 +305,7 @@ def serve(port):
                 s = session_for(model)
                 from object_properties import inspect
                 resp = {"ok": True, "cmd": cmd, "seq": seq, "model": model,
-                        "request_id": req["request_id"], "properties": inspect(s.model, req["body"])}
+                        "request_id": req["request_id"], "properties": inspect(s.model, req["body"], req.get("group"))}
             elif cmd == "sync":
                 model = os.path.abspath(req.get("model") or os.path.join(req["outdir"], "model.FCStd"))
                 if claim(conn, model) is not None:

@@ -1,7 +1,8 @@
 """Inspectable native properties and journalled edits, shared by the worker and tests.
 
 `_summary()` checks `rectangular` so non-rectangular/cut boards keep read-only BoundBox dimensions. `apply()` checks
-dependency chain, writability, and `expected` snapshot before mutating.
+dependency chain, writability, and `expected` snapshot before mutating. Drawings and compounds (an `inspect_properties`
+`group`) get a summary only: name, kind and overall size (H211).
 Entry points: related, describe, inspect, apply."""
 import math
 import FreeCAD as App
@@ -157,7 +158,65 @@ def _summary(model, body, boards, objs):
     }
 
 
-def inspect(model, body):
+def _overall_dimensions(bounds):
+    return [
+        dict(axis=i, label=label, value_mm=extent, editable=False, linked=False,
+             target_label='', target_face='', offset_mm=0.0)
+        for i, (label, extent) in enumerate(zip(('X', 'Y', 'Z'),
+                                                (bounds.XLength, bounds.YLength, bounds.ZLength)))
+    ]
+
+
+def _inspect_group(model, body, group):
+    from plane_fit import snapshot
+    members = [model.body(b) for b in group['members']]
+    count = len(members)
+    kind = group['kind']
+    if kind == 'assembly':
+        label = model.assemblies()[group['source']].Label
+        context = f'Assembly of {count}'
+    elif kind == 'row':
+        source = model.body(group['source'])
+        assembly = model.assembly_of(source)
+        label = assembly.Label if assembly is not None else source.Label
+        arrays = model.arrays_of(source)
+        if len(arrays) == 1 and arrays[0].Label != f'{arrays[0].SSOp} array':
+            label = arrays[0].Label
+        assemblies = [model.assembly_of(member) for member in members]
+        if all(assemblies):
+            count = len({a.Name for a in assemblies})
+        context = f'Array of {count}'
+    elif kind == 'component':
+        source = model.body(body)
+        definition = model.definition(source)
+        name = definition.Label
+        label = name if name and name != getattr(definition, 'BodyId', '') else source.Label
+        context = f'Linked component ({count} instances)'
+    else:
+        raise ValueError('Unknown compound selection')
+    bounds = model.world_shape(members[0]).BoundBox
+    for member in members[1:]:
+        bounds.add(model.world_shape(member).BoundBox)
+    parametric = any((snapshot(member) or {}).get('fitted', False) for member in members)
+    summary = dict(label=label, context=context, parametric=parametric, dimensions=_overall_dimensions(bounds))
+    return dict(body=body, summary=summary, boards={}, objects=[], references=[])
+
+
+def inspect(model, body, group=None):
+    if group is not None:
+        return _inspect_group(model, body, group)
+    if body not in model.bodies() and (drawing := model.drawing(body)) is not None:
+        if drawing.TypeId == 'Part::Plane':
+            kind = 'Rectangle'
+        elif getattr(drawing, 'SSRole', '') == 'polygon-profile':
+            kind = 'Polygon'
+        else:
+            geometry = drawing.Geometry[0].TypeId if getattr(drawing, 'Geometry', []) else ''
+            kind = {'Part::GeomLineSegment': 'Line', 'Part::GeomArcOfCircle': 'Arc',
+                    'Part::GeomCircle': 'Circle'}.get(geometry, 'Drawing')
+        summary = dict(label=drawing.Label, context=kind, parametric=False,
+                       dimensions=_overall_dimensions(model.world_shape(drawing).BoundBox))
+        return dict(body=body, summary=summary, boards={}, objects=[], references=[])
     from plane_fit import snapshot
     boards = {key: info for key, obj in model.bodies().items() if (info := snapshot(obj))}
     objs = related(model, body)

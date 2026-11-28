@@ -25,7 +25,6 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 <!-- open list: built from docs/handoff/ by tools/handoff.py; don't edit by hand -->
 
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
-- [H211 — Double-click enters William's copies; drawings (2D shapes) can be selected; a compound's properties show (T167)](handoff/H211-select-drawings-and-compounds.md) — status: open; for: codex
 
 <!-- end of open list -->
 
@@ -33,6 +32,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 Full entries in [handoff-archive.md](handoff-archive.md).
 
+- H211 — Double-click enters William's copies; drawings (2D shapes) can be selected; a compound's properties show (T167). Resolved: merged into main by the integrator, 2026-11-28.
 - H208 — Napkin's freecadcmd never saves over William's FreeCAD settings (T167). Resolved: merged into main by the integrator, 2026-11-28.
 - H202 — Design: how a fit that lost its face looks (a chain crumbling, or another gentle metaphor), a proposal with drafts for William. Resolved: merged into main by the integrator, 2026-11-28.
 - H209 — The toolbar shows each tool's key in brackets next to its name (T167). Resolved: merged into main by the integrator, 2026-11-28.
@@ -42,9 +42,8 @@ Full entries in [handoff-archive.md](handoff-archive.md).
 - H207 — Workers give feedback at every submit and resubmit; resume commands are recorded; windows close after the merge. Resolved: merged into main by the integrator, 2026-11-27.
 - H204 — Rename everything to Napkin: the app, its files, the names saved inside models, and the tools (T139, P51). Resolved: merged into main by the integrator, 2026-11-27.
 - H205 — Fewer stops for workers: branch log checks ignore newer comitatus rulings, the gate's pass counts for SUBMIT_JOB, the Result line is checked first, one test file runs on its own. Resolved: merged into main by the integrator, 2026-11-27.
-- H206 — Codex usage at parity: every view of the token tool shows Codex beside Claude and Gemini. Resolved: merged into main by the integrator, 2026-11-27.
 
-Older: docs/handoff-archive.md (208 entries; find one with grep "^### H0NN" docs/handoff-archive.md)
+Older: docs/handoff-archive.md (209 entries; find one with grep "^### H0NN" docs/handoff-archive.md)
 
 ## Entry template
 

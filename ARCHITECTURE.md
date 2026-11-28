@@ -81,7 +81,7 @@ One-line index per module (`tools/architecture_map.py`). Per-file details, warni
 - `viewport/tools/polygon_tool.gd` — Polygon (T84, I64): centre, then circumradius; Circle's click/drag gesture (I43)
 - `viewport/tools/push_tool.gd` — Push/Pull (P): click a face, rectangle or circle, move, then click or type a distance + Return (minus = cut)
 - `viewport/tools/rect_tool.gd` — Rectangle (R): click a face or the ground, then click or type  width, height  + Return
-- `viewport/tools/select_tool.gd` — Select (Space): click a board (from outside, its whole assembly or array row) to select it; Shift-click adds or removes; click empty space to clear
+- `viewport/tools/select_tool.gd` — Select (Space): click a drawing or a board (from outside, its whole assembly or array row) to select it; Shift-click adds or removes; click empty space to clear
 - `viewport/tools/tool.gd` — A tool owns its state; main.gd hands it the cursor, clicks, keys and typed values (T4)
 
 - `worker/arc.py` — Saved circular drawings (T83)

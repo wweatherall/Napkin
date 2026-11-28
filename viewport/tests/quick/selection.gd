@@ -101,15 +101,95 @@ func run() -> void:
 		m.ops.size() == n_ops + 1 and m.ops.back()["targets"] == [harness.id("b1")] and not harness._shown_ids().has(harness.id("b1")), m.ops.back())
 
 	# Enter a real row and delete its original: context, identity and linked survivors follow promotion.
-	await harness._fresh("selection_row", harness._plank(1, Vector3.ZERO, Vector3(100, 50, 18)) + [{"id": "mv1", "type": "move", "targets": ["b1"], "vector": [150, 0, 0], "copy": true, "count": 3, "new_ids": ["b2", "b3", "b4"]}])
-	await harness._view(Vector3(250, 25, 0), -15, -55, 1.8)
-	m.set_tool("select"); m.sel.enter_context_of(harness.id("b1")); m.sel.set_selection([harness.id("b1")])
+	await harness._fresh("selection_row", harness._plank(1, Vector3.ZERO, Vector3(100, 50, 18)) + [{"id": "mv1", "type": "move", "targets": ["b1"], "vector": [150, 0, 0], "copy": true, "count": 5, "new_ids": ["b2", "b3", "b4", "b5", "b6"]}])
+	await harness._view(Vector3(350, 25, 0), 0, -80, 1.8)
+	m.set_tool("select")
+	await harness._double_click_at(Vector3(200, 25, 18))
+	var member := harness.id("b2")
+	var original := harness.id("b1")
+	harness._ok("double-click on one of five linked copies isolates that instance and tints its siblings",
+		m.context == "component:" + member and m.sel.in_context(member) and not m.sel.in_context(original)
+		and m.bodies_root.get_node(original).material_override == m.mat_sibling, m.context)
+	await harness._key(KEY_ESCAPE)
+	m.sel.context = "row:" + original
+	m._apply_context()
+	m.sel.set_selection([original])
 	await harness._key(KEY_BACKSPACE); await harness._wait_wave()
-	harness._ok("entered row Delete preserves siblings and promotes a new original", harness._shown_ids().size() == 3 and m.context == "row:b2" and m.body_row.get(harness.id("b3"), "") == harness.id("b2") and m.body_array.get(harness.id("b2"), "") == "", [m.context, m.body_row, m.body_array])
+	harness._ok("entered row Delete preserves siblings and promotes a new original", harness._shown_ids().size() == 5 and m.context == "row:b2" and m.body_row.get(harness.id("b3"), "") == harness.id("b2") and m.body_array.get(harness.id("b2"), "") == "", [m.context, m.body_row, m.body_array])
 	harness._ok("window selection excludes out-of-context and deleted boards", not m.tools["select"].box_ids(Vector2.ZERO, harness.get_viewport().get_visible_rect().size).has(harness.id("b1")))
 	m.undo(); await harness._wait_wave()
-	harness._ok("undo restores the row's original and entered context", harness._shown_ids().size() == 4 and m.context == "row:b1", m.context)
+	harness._ok("undo restores the row's original and entered context", harness._shown_ids().size() == 6 and m.context == "row:b1", m.context)
 	m.sel.set_selection([harness.id("b2")]); m.sel.hide_selected(); await harness._wait_wave()
 	var window: Array = m.tools["select"].box_ids(Vector2.ZERO, harness.get_viewport().get_visible_rect().size)
 	harness._ok("window selection leaves hidden boards out", not window.has(harness.id("b2")) and window.has(harness.id("b3")), window)
 	m.sel.leave_context(); m.sel.set_selection([])
+
+	await _select_drawings()
+
+
+func _select_drawings() -> void:
+	var plane := {"origin": [0, 0, 0], "normal": [0, 0, 1]}
+	var drawing_ops := [
+		{"id": "r1", "type": "rect", "plane": plane, "size": [100, 50]},
+		{"id": "r2", "type": "circle", "plane": {"origin": [170, 25, 0], "normal": [0, 0, 1]}, "radius": 24},
+		{"id": "r3", "type": "polygon", "plane": {"origin": [270, 25, 0], "normal": [0, 0, 1]}, "radius": 24, "sides": 5},
+		{"id": "r4", "type": "line", "plane": {"origin": [30, 120, 0], "normal": [0, 0, 1]}, "end": [110, 120, 0]},
+		{"id": "r5", "type": "arc", "plane": {"origin": [190, 120, 0], "normal": [0, 0, 1]}, "mid": [220, 145, 0], "end": [250, 120, 0]},
+	]
+	await harness._fresh("profile_selection", drawing_ops)
+	m._rebuild_rect_drafts()
+	await harness._view(Vector3(165, 75, 0), 0, -82, 0.9)
+	m.set_tool("select")
+	for example in [
+		["r1", "rectangle", Vector3(50, 25, 0)],
+		["r2", "circle", Vector3(170, 25, 0)],
+		["r3", "polygon", Vector3(270, 25, 0)],
+		["r4", "line", Vector3(70, 120, 0)],
+		["r5", "arc", Vector3(220, 145, 0)],
+	]:
+		await harness._click_at(example[2])
+		var overlay: MeshInstance3D = m.pres.selection_view._sel_edges if example[0] in ["r4", "r5"] else m.pres._sel_overlay
+		harness._ok("click-select highlights a drawn %s" % example[1],
+			m.selection == [harness.id(example[0])] and overlay.mesh != null, m.selection)
+
+	var select = m.tools["select"]
+	var lo := Vector2(INF, INF)
+	var hi := -lo
+	for point in [Vector3(-10, -15, 0), Vector3(70, 15, 0), Vector3(85, 132, 0), Vector3(161, 167, 0)]:
+		var screen := harness._screen_of(point, Vector2.ZERO)
+		lo = lo.min(screen)
+		hi = hi.max(screen)
+	harness._ok("crossing box includes an intersected drawing segment",
+		select.box_ids(Vector2(hi.x, lo.y), Vector2(lo.x, hi.y)).has(harness.id("r4")))
+	var corners := [Vector3(-20, -20, 0), Vector3(320, -20, 0), Vector3(-20, 170, 0), Vector3(320, 170, 0)]
+	lo = Vector2(INF, INF); hi = -lo
+	for corner in corners:
+		var point := harness._screen_of(corner, Vector2.ZERO)
+		lo = lo.min(point)
+		hi = hi.max(point)
+	select.click(lo)
+	select.mouse_moved(hi)
+	select.release(hi)
+	harness._ok("box-select includes drawn profiles and loose edges", m.selection.size() == 5, m.selection)
+
+	var rectangle := harness.id("r1")
+	await harness._click_at(Vector3(50, 25, 0))
+	await harness._key(KEY_DELETE)
+	harness._ok("Delete immediately removes a selected drawing", not m.drafts.has(rectangle), m.drafts.keys())
+	await harness._wait_wave()
+	m.undo()
+	await harness._wait_wave()
+	harness._ok("Undo restores the deleted drawing", m.drafts.has(rectangle), m.drafts.keys())
+	await harness._click_at(Vector3(50, 25, 0))
+	m.set_tool("move")
+	await harness._grab(Vector3(50, 25, 0))
+	await harness._key(KEY_RIGHT)
+	await harness._drag_to(Vector3(100, 25, 0), 6)
+	await harness._type("35mm\n")
+	await harness._wait_wave()
+	harness._ok("Move translates the selected drawing by the typed distance",
+		m.ops.back().type == "move" and m.ops.back().targets == [rectangle]
+		and is_equal_approx(m.rects[rectangle].pts[0].x, 35.0), [m.ops.back(), m.rects[rectangle].pts])
+	m.undo()
+	await harness._wait_wave()
+	harness._ok("Undo restores the drawing placement", is_zero_approx(m.rects[rectangle].pts[0].x))

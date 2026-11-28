@@ -25,7 +25,7 @@ ARCHITECTURE.md the module map and protocol (update it in the same commit when y
   `SERVE_PORT=0` binds a free port and writes it to `SERVE_PORT_FILE` (T47): tests start workers this way.
 - `length_input.py`: typed lengths through FreeCAD's expressions (T32, I35). `viewport/units.gd`
   `evaluate_length` ports it: after changing it, run `python3 tools/CHECK_TYPED_LENGTHS_AGAINST_FREECAD.py` and the units test.
-- `object_properties.py`: the Properties panel's snapshot and `property_edit` (T46, I36).
+- `object_properties.py`: the Properties panel's native feature snapshot, compound bounds and `property_edit` (T46, I36).
 - `materials.py`: the wood library (T15, M03). `drawing.py`: shop drawings (plain python3, not the worker).
 - `hello` reports `PROTOCOL_VERSION` (serve.py; viewport/main.gd has the same constant): bump both when a message or
   shared-file field changes (docs/protocol.md). The worker's hash (`hello`) is the MD5 of every .py here except `test_*`; main.gd `_worker_identity()` computes

@@ -15,6 +15,7 @@ const CIRCLE_SEGMENTS := 64
 
 var pres                            # presenter.gd
 var rects := {}                     # profile id (rectangle, circle or polygon) -> {"tris","n","on","pts"}
+var _drawing_edits := {}
 var loose_lines := {}               # line id -> {a, b, n, on}; rebuilt from journal
 
 
@@ -74,6 +75,23 @@ func register_line(op: Dictionary) -> void:
 	pres.drafts["line:" + op.id] = node
 	if op.has("outline"): register_rect(op)
 	if loose_lines[op.id].on == "": _refresh_loop_drafts()
+
+
+func drawing_owner(id: String) -> Variant:
+	if loose_lines.has(id): return loose_lines[id].on
+	if rects.has(id) and pres.drafts.has(id): return rects[id].on
+	return null
+
+
+func drawing(id: String) -> Dictionary:
+	if loose_lines.has(id):
+		var line: Dictionary = loose_lines[id]
+		var segments := polyline_segments(line.pts) if line.has("pts") else PackedVector3Array([line.a, line.b])
+		return {"on": line.on, "normal": line.n, "segments": segments, "tris": PackedVector3Array()}
+	if rects.has(id) and pres.drafts.has(id):
+		var profile: Dictionary = rects[id]
+		return {"on": profile.on, "normal": profile.n, "segments": PackedVector3Array(), "tris": profile.tris}
+	return {}
 
 
 func _canonical_normal(n: Vector3) -> Vector3:
@@ -238,7 +256,10 @@ func polygon_geometry(center: Vector3, normal: Vector3, radius: float, sides: in
 
 func drop_draft(oid: String) -> void:
 	if pres.drafts.has(oid):
-		pres.drafts[oid].queue_free(); pres.drafts.erase(oid)
+		var node: Node3D = pres.drafts[oid]
+		node.get_parent().remove_child(node)
+		node.queue_free()
+		pres.drafts.erase(oid)
 
 
 func rebuild_rect_drafts(ops: Array, used: Dictionary) -> void:
@@ -253,7 +274,84 @@ func rebuild_rect_drafts(ops: Array, used: Dictionary) -> void:
 				register_rect(op); drop_draft(op["id"])
 			elif not pres.drafts.has(op["id"]):
 				register_rect(op)
+	apply_drawing_edits(ops, used, true)
 	_refresh_loop_drafts()
+
+
+func apply_drawing_edits(ops: Array, used: Dictionary, rebuilding := false) -> void:
+	"""Project explicitly moved or deleted drawings from their original ops, including undo and reopen."""
+	var sources := {}
+	var edits := {}
+	var changed_lines := false
+	for op in ops:
+		match op.type:
+			"rect", "circle", "polygon", "line", "arc": sources[op.id] = op
+			"move", "delete":
+				for id in op.targets:
+					if not sources.has(id): continue
+					if op.type == "delete": edits[id] = null
+					elif edits.get(id, Vector3.ZERO) != null and not op.get("copy", false):
+						var delta := Vector3(op.vector[0], op.vector[1], op.vector[2])
+						if delta != Vector3.ZERO: edits[id] = edits.get(id, Vector3.ZERO) + delta
+	var previous := _drawing_edits
+	if edits == previous and not rebuilding: return
+	var affected := previous.duplicate()
+	affected.merge(edits, true)
+	_drawing_edits = edits
+	for id in affected:
+		if not sources.has(id): continue
+		if not rebuilding and previous.has(id) == edits.has(id) and previous.get(id) == edits.get(id): continue
+		drop_draft(id)
+		drop_draft("line:" + id)
+		rects.erase(id)
+		loose_lines.erase(id)
+		var op: Dictionary = sources[id].duplicate(true)
+		var line: bool = op.type in ["line", "arc"]
+		changed_lines = changed_lines or line
+		var translation = edits.get(id, Vector3.ZERO)
+		if translation == null: continue
+		var plane: Dictionary = op.plane.get("on", op.plane)
+		var key := "point" if op.plane.has("on") else "origin"
+		for axis in 3:
+			plane[key][axis] += translation[axis]
+			if line: op.end[axis] += translation[axis]
+			if op.has("mid"): op.mid[axis] += translation[axis]
+		if edits.has(id) and op.plane.has("on"):
+			op.plane = {"origin": plane.point, "normal": plane.normal}
+		if line:
+			if edits.has(id): op.erase("outline")
+			register_line(op)
+		else:
+			register_rect(op)
+		if used.has(id): drop_draft(id)
+	if changed_lines:
+		_refresh_saved_outlines(sources, used)
+		_refresh_loop_drafts()
+	pres.apply_context()
+	pres.show_selection()
+
+
+func _refresh_saved_outlines(sources: Dictionary, used: Dictionary) -> void:
+	var unchanged := loose_lines.keys().filter(func(id): return not _drawing_edits.has(id))
+	for op in sources.values():
+		if not op.has("outline") or not loose_lines.has(op.id): continue
+		var edges: Array = op.outline
+		var owner: String = op.plane.get("on", {}).get("body", "")
+		var complete := true
+		for i in edges.size():
+			var a := Vector3(edges[i][0], edges[i][1], edges[i][2])
+			var j := (i + 1) % edges.size()
+			var b := Vector3(edges[j][0], edges[j][1], edges[j][2])
+			if not unchanged.any(func(id):
+				var line: Dictionary = loose_lines[id]
+				return not line.has("pts") and line.on == owner and (
+					(line.a.distance_to(a) < Regions.EPS and line.b.distance_to(b) < Regions.EPS) or
+					(line.a.distance_to(b) < Regions.EPS and line.b.distance_to(a) < Regions.EPS))):
+				complete = false
+				break
+		if complete and not rects.has(op.id): register_rect(op)
+		if not complete: rects.erase(op.id)
+		if not complete or used.has(op.id): drop_draft(op.id)
 
 
 func forget_op(op: Dictionary, ops: Array, used: Dictionary) -> void:

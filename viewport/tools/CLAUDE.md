@@ -57,8 +57,8 @@ geometry and Main's wrappers agreeing, and no main.gd reference in the context, 
 `../test_tools.gd` checks the registry and makes every tool with a ToolContext.
 
 ## The tools
-- `select_tool.gd` (Space; context-only, H071): click selects (from outside, an assembly or array row whole), Shift-click adds or
-  removes, empty space clears; drag right selects enclosed units, left selects crossing units, Shift adds. Double-click enters an assembly or array (T20), Esc cancels a box before leaving. Delete acts on the reusable selection (T34).
+- `select_tool.gd` (Space; context-only, H071): click selects boards or drawings (from outside, an assembly or array row whole), Shift-click adds or
+  removes, empty space clears; drag right selects enclosed units, left selects crossing units, Shift adds. Double-click enters an assembly or array (T20), or isolates the clicked linked instance (I69). Esc cancels a box before leaving. Delete acts on the reusable selection (T34).
 - `paint_tool.gd` (no key yet, Q14; context-only, H065): paints the Wood menu's wood; a linked board paints its family. T turns grain.
 - `rect_tool.gd` (R): click a face or the ground, then click or type `width, height` (or press-and-drag, I43). Its
   second corner ignores snaps that would leave a side at zero (I44).

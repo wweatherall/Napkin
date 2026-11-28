@@ -4,7 +4,9 @@ extends RefCounted
 ## `--freecad=`, `--worker=`, `--worker-log=`, `--shared-port=` override its paths. `worker_identity` computes the MD5
 ## of every worker .py except test_* (must match serve.py:worker_identity); `probe_worker` / `worker_of` share only if
 ## protocol and hash match (otherwise starts a private worker, at most WORKER_MAX_RESTARTS/min). `shutdown_worker` sends
-## `bye` for shared, `quit` then kill for private.
+## `bye` for shared, `quit` then kill for private. Every start passes `-u`/`-s` with Napkin's own FreeCAD config
+## (`user://freecad/`, seeded once from the macOS FreeCAD profile and never written back; a test's out folder), so no
+## freecadcmd Napkin runs can change William's FreeCAD settings (H208).
 ## Entry points: pick_worker, resolve_port, watch_worker, shutdown_worker, worker_identity, worker_of, log_worker, say_worker.
 
 # ---------------- the FreeCAD worker (T6) ----------------

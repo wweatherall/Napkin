@@ -1,5 +1,5 @@
 extends "res://tools/tool.gd"
-## Select (Space): click a board (from outside, its whole assembly or array row) to select it; Shift-click adds or
+## Select (Space): click a drawing or a board (from outside, its whole assembly or array row) to select it; Shift-click adds or
 ## removes; click empty space to clear. Double-click enters an assembly or an array (T20); Esc leaves.
 ##
 ## Context-only: left-to-right box requires all projected triangles contained; right-to-left tests intersection.
@@ -9,7 +9,7 @@ const TOOL := {"id": "select", "label": "Select", "tip": "Select (Space)", "key"
 
 
 func hint() -> String:
-	return "Select: click or drag a box (right = enclosed, left = crossing), Shift adds. Double-click an assembly or array to edit inside it. Cmd+G makes an assembly"
+	return "Select: click or drag a box (right = enclosed, left = crossing), Shift adds. Double-click an assembly, array or linked component to edit inside it. Cmd+G makes an assembly"
 
 
 func mouse_moved(screen: Vector2) -> void:
@@ -17,18 +17,30 @@ func mouse_moved(screen: Vector2) -> void:
 		dragging = true
 		_show_box(screen)
 		return
-	var p := ctx.pick.hit(screen)
+	var bid := _picked_id(screen)
 	ctx.view.clear_preview()
-	if p.get("hit", false) and p.get("body", "") != "":
-		ctx.view.preview(ctx.model.unit_triangles(ctx.selection.unit_of(p["body"])), "hover")
+	if bid == "": return
+	var drawing := ctx.model.drawing(bid)
+	if drawing.is_empty():
+		ctx.view.preview(ctx.model.unit_triangles(ctx.selection.unit_of(bid)), "hover")
+	else:
+		ctx.view.preview(drawing.tris, "hover", drawing.segments, Color(0.1, 0.45, 1.0))
+
+
+func _picked_id(screen: Vector2) -> String:
+	var hit := ctx.pick.hit(screen)
+	var drawing := ctx.pick.drawing_hit(screen, hit)
+	if not drawing.is_empty(): return drawing.body
+	if hit.get("rect", "") != "": hit = ctx.pick.hit_board(screen)
+	var body: String = hit.get("body", "")
+	return body if ctx.selection.in_context(body) and not ctx.selection.is_hidden(body) else ""
 
 
 func click(screen: Vector2) -> void:
 	anchor = screen; pressed = true; dragging = false
 	before = ctx.selection.ids()
 	additive = Input.is_key_pressed(KEY_SHIFT)
-	var p := ctx.pick.hit(screen)
-	var unit := ctx.selection.unit_of(p.get("body", "")) if p.get("hit", false) else {}
+	var unit := ctx.selection.unit_of(_picked_id(screen))
 	if unit.is_empty():
 		if not additive: ctx.selection.set_ids([])
 		return
@@ -46,7 +58,7 @@ func click(screen: Vector2) -> void:
 
 func double_click(screen: Vector2) -> void:
 	reset()
-	var p := ctx.pick.hit(screen)
+	var p := ctx.pick.hit_board(screen)
 	if p.get("hit", false): ctx.selection.enter(p.get("body", ""))
 
 
@@ -91,7 +103,7 @@ func box_ids(start: Vector2, finish: Vector2) -> Array:
 	for b in ctx.model.body_ids():
 		if not ctx.selection.in_context(b) or ctx.selection.is_hidden(b): continue
 		var unit := ctx.selection.unit_of(b)
-		var key: String = str(unit["bodies"])
+		var key: String = str(unit.kind) + ":" + str(unit.id)
 		units[key] = unit
 	var ids: Array = []
 	for unit in units.values():
@@ -117,7 +129,34 @@ func box_ids(start: Vector2, finish: Vector2) -> Array:
 		if any and (intersects if crossing else contained):
 			for b in unit["bodies"]:
 				if not ctx.selection.is_hidden(b) and not ids.has(b): ids.append(b)
+	for id in ctx.model.drawing_ids():
+		if not ctx.selection.in_context(id) or ctx.selection.is_hidden(id): continue
+		var drawing := ctx.model.drawing(id)
+		if drawing.is_empty(): continue
+		if _drawing_in_box(drawing, rect, crossing): ids.append(id)
 	return ids
+
+
+func _drawing_in_box(drawing: Dictionary, rect: Rect2, crossing: bool) -> bool:
+	var points: PackedVector3Array = drawing.tris if drawing.segments.is_empty() else drawing.segments
+	var stride := 3 if drawing.segments.is_empty() else 2
+	var corners := PackedVector2Array([rect.position, Vector2(rect.end.x, rect.position.y), rect.end,
+		Vector2(rect.position.x, rect.end.y)])
+	for i in range(0, points.size(), stride):
+		var projected := PackedVector2Array()
+		for j in stride:
+			var p := ctx.pick.project(points[i + j])
+			if p.behind:
+				if not crossing: return false
+			else:
+				projected.append(p.screen)
+				if rect.has_point(p.screen):
+					if crossing: return true
+				elif not crossing: return false
+		if projected.size() != stride or not crossing: continue
+		if stride == 3 and _triangle_crosses(rect, projected): return true
+		if stride == 2 and _crosses_border(projected[0], projected[1], corners): return true
+	return not crossing and not points.is_empty()
 
 
 static func _triangle_crosses(rect: Rect2, tri: PackedVector2Array) -> bool:
@@ -128,7 +167,12 @@ static func _triangle_crosses(rect: Rect2, tri: PackedVector2Array) -> bool:
 	for corner in corners:
 		if Geometry2D.is_point_in_polygon(corner, tri): return true
 	for i in 3:
-		for j in 4:
-			if Geometry2D.segment_intersects_segment(tri[i], tri[(i + 1) % 3], corners[j], corners[(j + 1) % 4]) != null:
-				return true
+		if _crosses_border(tri[i], tri[(i + 1) % 3], corners): return true
+	return false
+
+
+static func _crosses_border(a: Vector2, b: Vector2, corners: PackedVector2Array) -> bool:
+	for j in 4:
+		if Geometry2D.segment_intersects_segment(a, b, corners[j], corners[(j + 1) % 4]) != null:
+			return true
 	return false

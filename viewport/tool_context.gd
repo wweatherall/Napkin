@@ -65,6 +65,12 @@ class PickCapability extends _Capability:
 		"""What's under the cursor: inference.gd pick (same keys; a profile wins over the face it lies on)."""
 		return _infer.pick(screen)
 
+	func hit_board(screen: Vector2) -> Dictionary:
+		return _infer.pick_board(screen) if _infer.has_method("pick_board") else hit(screen)
+
+	func drawing_hit(screen: Vector2, hit: Dictionary) -> Dictionary:
+		return _infer.drawing_hit(screen, hit) if _infer.has_method("drawing_hit") else {}
+
 	func snap(p: Dictionary, screen: Vector2) -> Dictionary:
 		"""A point on a plane snapped (endpoint > midpoint > on edge, else the grid). Returns the answer; the
 		dictionary passed in is left as it was."""
@@ -128,6 +134,12 @@ class ModelCapability extends _Capability:
 	func profile(id: String) -> Dictionary:
 		"""A drawn rectangle, circle or polygon: {tris, n, on, pts, kind}; {} if there's none (a missing kind: a rectangle)."""
 		return _pres.rects.get(id, {}).duplicate(true)
+
+	func drawing_ids() -> Array:
+		return _pres.rects.keys() + _pres.loose_lines.keys().filter(func(id): return not _pres.rects.has(id))
+
+	func drawing(id: String) -> Dictionary:
+		return _pres.profiles.drawing(id) if _pres.get("profiles") != null else {}
 
 	func lines_on(body: String, normal: Vector3, point: Vector3) -> Array:
 		"""Saved segment snapshots on this body/plane, including ids."""

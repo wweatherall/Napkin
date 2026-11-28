@@ -10,6 +10,7 @@ const Geo := preload("res://tool_geometry.gd")
 var pres                            # presenter.gd
 var plane_node: MeshInstance3D      # the mirror plane, shown inside an entered mirror group (A11b)
 var _sel_overlay: MeshInstance3D
+var _sel_edges: MeshInstance3D
 var _sibling_overlay: MeshInstance3D
 var _sibling_key := ""              # the siblings now tinted ("-": out of date, draw again)
 var mat_ghost: StandardMaterial3D
@@ -67,6 +68,18 @@ func apply_context() -> void:
 			collider.remove_meta("ss_deleted")
 			collider.collision_layer = 1
 			collider.get_parent().visible = true
+	for id in pres.rects:
+		var shape: MeshInstance3D = pres.drafts.get(id)
+		if shape == null: continue
+		var visible: bool = not pres.sel.is_hidden(id)
+		var inside: bool = visible and pres.sel.in_context(id)
+		shape.visible = visible
+		shape.material_override = null if inside else mat_ghost
+		for child in shape.get_children():
+			if child is StaticBody3D: child.collision_layer = 2 if inside else 0
+	for id in pres.loose_lines:
+		var line: Node3D = pres.drafts.get("line:" + id)
+		if line != null: line.visible = not pres.sel.is_hidden(id) and pres.sel.in_context(id)
 	show_mirror_plane()
 
 
@@ -93,9 +106,22 @@ func show_mirror_plane() -> void:
 
 func show_selection() -> void:
 	if _sel_overlay == null: _sel_overlay = _overlay_node()
+	if _sel_edges == null:
+		_sel_edges = _overlay_node()
+		_sel_edges.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		_sel_edges.extra_cull_margin = 0.05
 	var t := PackedVector3Array()
-	for b in pres.sel.selection: t.append_array(pres.body_tris.get(b, PackedVector3Array()))
+	var segments := PackedVector3Array()
+	for b in pres.sel.selection:
+		t.append_array(pres.body_tris.get(b, PackedVector3Array()))
+		var drawing: Dictionary = pres.profiles.drawing(b)
+		if not drawing.is_empty():
+			t.append_array(drawing.tris)
+			segments.append_array(drawing.segments)
 	_sel_overlay.mesh = pres.tri_mesh(t, pres.m.mat_selected) if not t.is_empty() else null
+	var line_color: Color = pres.m.mat_selected.get_shader_parameter("color")
+	line_color.a = 0.95
+	_sel_edges.mesh = pres.line_mesh(segments, line_color, 3.0) if not segments.is_empty() else null
 
 
 func show_siblings(sib: Array) -> void:

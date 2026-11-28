@@ -259,6 +259,8 @@ func run() -> void:
 		m._apply_context()
 	m.properties_panel.hide()
 
+	await _compound_properties()
+
 	# T62: Properties "Pick face…" can tie a board to a circular board's planar face and updates when target moves.
 	var cyl_scene := harness._plank(1, Vector3.ZERO, Vector3(40, 40, 20))
 	cyl_scene.append({"id": "c1", "type": "circle", "plane": {"origin": [20, 20, 120], "normal": [0, 0, 1]}, "radius": 30.0})
@@ -328,3 +330,38 @@ func run() -> void:
 			m.ops.size() == ops_before and m.reject_note == "Source face no longer matches the chosen dimension"
 			and m.ui_sync.text == "✗ rejected Source face no longer matches the chosen dimension" and not pt.busy(),
 			[m.reject_note, m.ui_sync.text])
+
+
+func _compound_properties() -> void:
+	var scene := harness._plank(1, Vector3.ZERO, Vector3(100, 50, 18))
+	scene.append_array(harness._plank(2, Vector3(300, 0, 0), Vector3(100, 50, 18)))
+	scene.append_array(harness._plank(3, Vector3(450, 0, 0), Vector3(100, 50, 18)))
+	scene.append_array(harness._plank(4, Vector3(650, 0, 0), Vector3(100, 50, 18)))
+	scene.append_array([
+		{"id": "mv1", "type": "move", "targets": ["b1"], "vector": [0, 100, 0], "copy": true,
+			"count": 5, "new_ids": ["b5", "b6", "b7", "b8", "b9"]},
+		{"id": "a1op", "type": "make_assembly", "targets": ["b2", "b3"], "new_id": "a1", "name": "Frame"},
+		{"id": "mv2", "type": "move", "targets": ["b4"], "vector": [0, 100, 0], "copy": true, "new_ids": ["b10"]},
+	])
+	await harness._fresh("compound_properties", scene)
+	await harness._view(Vector3(375, 275, 18), 0, -80, 1.8)
+	m.set_tool("select")
+	var panel = m.properties_panel
+	panel.show()
+	for example in [
+		[Vector3(50, 125, 18), "Array of 6", "Board 1", 550.0],
+		[Vector3(340, 25, 18), "Assembly of 2", "Frame", 50.0],
+		[Vector3(695, 25, 18), "Linked component (2 instances)", "Board 4", 150.0],
+	]:
+		await harness._click_at(example[0])
+		await harness._wait_properties()
+		var dims: Array = panel.data.get("summary", {}).get("dimensions", [])
+		harness._ok("%s shows name and overall size with member fields hidden" % example[1],
+			panel.piece_title.text == example[2] and panel.piece_subtitle.text == example[1]
+			and panel.summary.visible and not panel.native_toggle.visible and not panel.ready_to_edit
+			and dims.size() == 3 and is_equal_approx(float(dims[1].value_mm), example[3]), panel.data)
+	await harness._double_click_at(Vector3(695, 25, 18))
+	await harness._click_at(Vector3(695, 25, 18))
+	await harness._wait_properties()
+	harness._ok("entering a component shows its member fields", panel.native_toggle.visible and panel.ready_to_edit)
+	panel.hide()

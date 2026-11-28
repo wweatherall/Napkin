@@ -40,7 +40,7 @@ protocol (update it in the same commit when you change either). Tools have their
   `draft_tests` (was `push_tests`) is the test recorder of new boards' draft bounds and the rejection filter. main forwards the old
   names (`m.body_tris`, `m.drafts`, `m._begin_wave`, ...). main routes the document's signals to it.
 - `profiles.gd` (H188): drawn profiles (rectangles, circles, polygons, lines and arcs), `pres.profiles`: owns `rects`
-  and `loose_lines`, their drafts, closed ground-loop fills, and op cleanup; the presenter forwards `rects`,
+  and `loose_lines`, their drafts, closed ground-loop fills, and their prediction from Move and Delete ops. The presenter forwards `rects`,
   `loose_lines`, `CIRCLE_SEGMENTS`, `arc_points`, `polyline_segments`, `register_line`, `lines_on`, `drawn_region`,
   `register_rect`, `circle_geometry`, `polygon_geometry`, `rebuild_rect_drafts`, `forget_op`, `drop_confirmed_drafts`.
 - `waves.gd` (H181): the confirmation and rejection waves (W01-W09), `pres.waves`: `op_waves`, `begin_wave`,

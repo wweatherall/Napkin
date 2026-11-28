@@ -129,7 +129,7 @@ func display(snapshot: Dictionary) -> void:
 	data = snapshot
 	reference_picker.get_popup().clear()
 	for ref in data.get("references", []): reference_picker.get_popup().add_item("%s (%s)" % [ref.label, ref.name])
-	ready_to_edit = true
+	ready_to_edit = not data.objects.is_empty()
 	cancel_pick()
 	var sum: Dictionary = data.get("summary", {})
 	piece_title.text = str(sum.get("label", data.objects[0].label if not data.get("objects", []).is_empty() else ""))
@@ -139,8 +139,8 @@ func display(snapshot: Dictionary) -> void:
 	piece_header.show()
 	status.visible = false
 	status.text = piece_title.text
-	native_toggle.show()
-	native_section.visible = native_toggle.button_pressed
+	native_toggle.visible = ready_to_edit
+	native_section.visible = ready_to_edit and native_toggle.button_pressed
 	_build_summary()
 	object_picker.clear()
 	var selected := 0
@@ -148,7 +148,7 @@ func display(snapshot: Dictionary) -> void:
 		var obj: Dictionary = data.objects[i]
 		object_picker.add_item("%s (%s)" % [obj.label, obj.name])
 		if obj.name == feature_name: selected = i
-	object_picker.select(selected)
+	if object_picker.item_count > 0: object_picker.select(selected)
 	_show_feature()
 
 func _show_feature() -> void:

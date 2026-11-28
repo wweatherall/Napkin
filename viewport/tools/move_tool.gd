@@ -66,8 +66,15 @@ func observe_shift(e: InputEventKey) -> void:
 		_shift_tap = e.keycode == KEY_SHIFT and ctx.ui.typed_text().is_empty()
 	elif e.keycode == KEY_SHIFT and _shift_tap:
 		_shift_tap = false
+		if _moving_drawings():
+			ctx.ui.show_status("Drawings can be moved. Copy and mirror require boards.")
+			return
 		mirror = not mirror
 		_refresh_mode()
+
+
+func _moving_drawings() -> bool:
+	return state.get("active", false) and not state.get("drawing_ids", []).is_empty()
 
 
 func _refresh_mode() -> void:
@@ -79,6 +86,9 @@ func _refresh_mode() -> void:
 
 func key(e: InputEventKey) -> bool:
 	if e.keycode in [KEY_CTRL, KEY_ALT]:
+		if _moving_drawings():
+			ctx.ui.show_status("Drawings can be moved. Copy and mirror require boards.")
+			return true
 		copy = not copy                # SketchUp: tap Ctrl (Option on a Mac) to toggle copy
 		_refresh_mode()
 		return true
@@ -134,6 +144,9 @@ func typed(txt: String) -> void:
 		return
 	var parsed := parse_array_count(txt)
 	if not parsed.is_empty():
+		if not state.get("drawing_ids", []).is_empty():
+			ctx.ui.show_status("Copy counts require boards.")
+			return
 		copy = true
 		state["count"] = parsed["count"]
 		state["divide"] = parsed["divide"]
@@ -303,23 +316,36 @@ func _end_commit() -> void:
 
 func _move_click(screen: Vector2) -> void:
 	if not state.get("active", false):
-		var p := ctx.pick.snap(ctx.pick.hit(screen), screen)
-		if not p.get("hit", false) or p["body"] == "" or not ctx.model.has_body(p["body"]): return
+		var hit := ctx.pick.hit(screen)
+		var drawing_hit := ctx.pick.drawing_hit(screen, hit)
+		var p := ctx.pick.snap(hit, screen) if drawing_hit.is_empty() else drawing_hit
+		if not p.get("hit", false) or p["body"] == "": return
+		var drawing := ctx.model.drawing(p["body"])
+		if drawing.is_empty() and not ctx.model.has_body(p["body"]): return
 		last_oid = ""
 		var tris: PackedVector3Array = ctx.model.triangles(p["body"])
 		var unit := ctx.selection.unit_of(p["body"])             # from outside: the whole assembly, or the array's row (I32)
 		var selected := ctx.selection.ids()
 		if selected.has(p["body"]) and selected.size() > 1:
 			unit = {"id": p["body"], "kind": "selection", "bodies": selected}
+		var segments := PackedVector3Array()
+		var drawing_ids: Array = unit.bodies.filter(func(id): return not ctx.model.drawing(id).is_empty())
 		var cut := ctx.model.cut_at(p["body"], p["point"]) if unit["kind"] == "board" and not selected.has(p["body"]) else {}
 		var cut_ref := {}
 		if unit["kind"] != "board":
 			tris = ctx.model.unit_triangles(unit)
+		for id in drawing_ids:
+			var profile := ctx.model.drawing(id)
+			tris.append_array(profile.tris)
+			segments.append_array(profile.segments)
+		if not drawing_ids.is_empty():
+			copy = false
+			mirror = false
 		if not cut.is_empty():                       # clicked a hole: move / copy the hole, not the board
 			cut_ref = {"body": p["body"], "op": cut["op"], "kind": cut["kind"]}
 			tris = ctx.model.cut_triangles(p["body"], cut["op"])
 		var lo := Vector3(INF, INF, INF); var hi := -lo
-		for q in tris: lo = lo.min(q); hi = hi.max(q)
+		for q in tris + segments: lo = lo.min(q); hi = hi.max(q)
 		var n: Vector3 = p["normal"]
 		var fax := 0
 		for i in 3:
@@ -328,7 +354,7 @@ func _move_click(screen: Vector2) -> void:
 					  "vec": Vector3.ZERO, "lock": -1, "lock_mode": "free", "inferred": -1, "kind": "",
 					  "count": 1, "divide": false, "lo": lo, "hi": hi,
 					  "face_ax": fax, "face_c": snappedf(p["point"][fax], 0.01), "face_sign": signf(n[fax]),
-					  "cut": cut_ref, "unit": unit}
+					  "cut": cut_ref, "unit": unit, "drawing_ids": drawing_ids, "segments": segments}
 		press_started(screen)
 	else:
 		_finish()
@@ -434,7 +460,9 @@ func _preview_move() -> void:
 		src = ctx.model.unit_triangles({"bodies": ctx.selection.members_of(aid)}) if aid != "" else ctx.model.triangles(body)
 	for off in _move_offsets(state["vec"], state["count"], state["divide"], copy):
 		for q in src: all.append(q + off)
-	ctx.view.preview(all, "draft" if state.get("cut", {}).is_empty() else "cut", Geo.feature_edges(all))
+	var edges := Geo.feature_edges(all)
+	for p in state.get("segments", PackedVector3Array()): edges.append(p + state["vec"])
+	ctx.view.preview(all, "draft" if state.get("cut", {}).is_empty() else "cut", edges)
 	ctx.ui.refresh_measurements()
 
 
@@ -467,7 +495,7 @@ func commit_move(vec: Vector3, count := 1, divide := false, reuse_oid := "") -> 
 				ids.append(ctx.document.next_id("a"))
 			groups[aid] = ids if count > 1 else ids[0]
 		op["groups"] = groups
-	if not copy and ctx.selection.context().begins_with("row:"):
+	if not copy and (ctx.selection.context().begins_with("row:") or ctx.selection.context().begins_with("component:")):
 		op["detach"] = true                          # inside an entered array a copy moves alone (I32)
 	var offsets := _move_offsets(vec, count, divide, copy)
 	var made := []
@@ -486,6 +514,7 @@ func commit_move(vec: Vector3, count := 1, divide := false, reuse_oid := "") -> 
 	# A row move has one op target but previews every member. Copies follow the
 	# same target-then-offset order used above to allocate their new body IDs.
 	var sources: Array = unit["bodies"] if not copy and unit["kind"] != "board" else targets
+	sources = sources.filter(func(id): return ctx.model.has_body(id))
 	var wave_bodies: Array = made if copy else sources
 	for source_id in sources:
 		var source := src if unit["kind"] == "board" else ctx.model.triangles(source_id)
@@ -496,7 +525,8 @@ func commit_move(vec: Vector3, count := 1, divide := false, reuse_oid := "") -> 
 			all.append_array(moved)
 			pieces.append(_board_piece(moved, wave_bodies[pieces.size()]))
 	var dest: Vector3 = state["ref"] + offsets.back()
-	ctx.view.present_draft(op, pieces, {"origin": dest, "tris": all, "is_new": copy, "bodies": wave_bodies, "attach": "drafts"})
+	if not pieces.is_empty():
+		ctx.view.present_draft(op, pieces, {"origin": dest, "tris": all, "is_new": copy, "bodies": wave_bodies, "attach": "drafts"})
 	last_oid = oid
 	state["last_vec"] = vec
 	_end_commit()
