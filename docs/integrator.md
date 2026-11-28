@@ -32,7 +32,7 @@ Architecture: lines, the response) and CLAUDE.md (commit trailers); this page sa
   it reads them arrive together, in recorded order (P47).
 - `python3 tools/CHECK_THE_JOB_BOARD.py` shows the queue; `python3 tools/REBUILD_THE_JOB_BOARD.py` rebuilds the board's job table (the
   commit hook does it on main).
-- **The hopper** (`Pace: one at a time` in `BOARD.md` under `Order:`): start the hopper once in its own Terminal
+- **The hopper** (routes by quota, P78; `Pace: one at a time` in `BOARD.md` under `Order:`): start the hopper once in its own Terminal
   window with `python3 tools/RUN_THE_HOPPER.py --window` (outside the sandbox; it runs `--forever` and survives a
   context clear, and a pid file in `.git/` refuses a second `--forever` hopper). After each start-up or clear, run
   `python3 tools/WAIT_FOR_THE_HOPPER.py` in the background: it launches nothing and wakes you when all work is paused
@@ -113,8 +113,9 @@ Architecture: lines, the response) and CLAUDE.md (commit trailers); this page sa
   `viewport/keys.gd`, `main.gd` `redo`, `tool_context.gd` and `test_tool_context.gd`, `test_tools.gd`,
   `tools/push_tool.gd`, `tools/CLAUDE.md`, `worker/scenario/99_op_registry.py`.
 - **Find callers before finalizing `Touches`**: when a brief changes a tool's hotkey, input mode, op schema, or function contract, run `python3 tools/dependency_map.py touches <file>:<function> [...]` (H174): it prints a ready Touches line from qualified calls, tests on their own, and lists calls it can't resolve for you to check by hand; `callers <file>:<function>` shows each call site. docs/dependency-map.md says which files use which.
-- Who builds it (P77): write a higher-complexity job (several modules, a tricky reading path, FreeCAD geometry, a
-  protocol or saving change) `For: Codex`, so Sol 6.2 takes it; the rest `For: either`, which goes to Gemini first.
+- Who builds it (P78): write a higher-complexity job (several modules, a tricky reading path, FreeCAD geometry, a
+  protocol or saving change) `For: Codex`: the hopper gives it to Codex Sol, or Claude Opus when Codex is low; the rest
+  `For: either`: Gemini Hydrogen, then Codex Sol, then Claude Sonnet as each runs low (floors: `QUOTA_FLOOR`).
 - Write the next jobs as handoff entries (a Status of open is Ready; "queued (after H0NN)" waits), each with its
   Touches list, and keep the board's Order line. Before marking one Ready, compare its Touches with every Ready or
   claimed job's: two whose lists overlap don't run at once (tell William before starting one that does). A

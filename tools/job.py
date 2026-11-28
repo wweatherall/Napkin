@@ -395,7 +395,8 @@ def takeable(root, st, agent, jobs, order, claims=None, pace="all at once"):
             return None, [f"pace is one at a time ({', '.join(pacing)} active)"]
     jobs = resolve_dependencies(jobs, st)
     claims = branch_claims(root) if claims is None else claims
-    mine = lambda j: j["for"] in (agent, "either")
+    launched_for = {jid for jid, info in st.get("launched", {}).items() if info.get("agent") == agent}
+    mine = lambda j: j["for"] in (agent, "either") or j["id"] in launched_for   # P78: routed to this agent
     back = [j for j in ordered(jobs, order) if st["jobs"].get(j["id"], {}).get("state") == "returned"
             and st["jobs"][j["id"]].get("agent") == agent]
     if back:
@@ -1651,9 +1652,9 @@ def board(cwd, now=None, out=print):
     return new != text
 
 
-def _default_launch(agent):
+def _default_launch(agent, model=None):
     import launch
-    return launch.launch_agent(agent)
+    return launch.launch_agent(agent, model=model)
 
 
 def _default_resume_launch(agent, jid, prev):
@@ -1844,44 +1845,105 @@ def _release_hopper_pid(cwd):
     _release_pid(hopper_pid_path(cwd))
 
 
-GEMINI_LOW = 0.10        # P77, William, 2026-11-28: no new Gemini jobs at or under 10% left of its 5-hour or weekly quota
-QUOTA_FRESH_S = 30 * 60  # an older quota sample says nothing (the monitor may be off): fail open
+# Quota routing (P78, William, 2026-11-28). An agent at or under its floor of quota left (5-hour or weekly) gets no
+# new job; Claude's floor is higher because the integrator is usually a Claude session.
+QUOTA_FLOOR = {"gemini": 0.10, "codex": 0.10, "claude": 0.25}
+QUOTA_FRESH_S = 30 * 60  # a Gemini sample older than this says nothing (it has no reset time): fail open
+# Who takes a job, by its For: line, in order of preference: (agent, model or None for launch.py's default). For:
+# either is the simpler tier (Gemini Hydrogen, then Codex Sol, then Claude Sonnet); For: Codex is the complex tier
+# the integrator marks (P77: Codex Sol, then Claude Opus).
+ROUTES = {"either": (("gemini", None), ("codex", None), ("claude", "sonnet")),
+          "codex": (("codex", None), ("claude", "opus")),
+          "gemini": (("gemini", None),),
+          "claude": (("claude", None),)}
 
 
-def gemini_quota_low(now=None):
-    """True when the newest Gemini quota sample (AGY_USAGE_DIR/history.jsonl, fractions left) is fresh and either
-    bucket is at or under GEMINI_LOW; False when there's no file, no fresh sample, or an unreadable one."""
-    base = os.environ.get("AGY_USAGE_DIR", "/Users/Will/Sites/agy-usage-monitor")
-    path = os.path.join(base, "history.jsonl") if base else ""
+def _last_line(path, needle=None):
+    """The last line of a file (the last holding needle, if given), reading only its end."""
+    with open(path, "rb") as f:
+        f.seek(0, 2)
+        size = f.tell()
+        f.seek(max(0, size - 262144))
+        lines = f.read().decode("utf-8", "replace").strip().splitlines()
+    lines = [l for l in lines if needle is None or needle in l]
+    return lines[-1]
+
+
+def _quota_left(agent, now):
+    """{bucket: fraction left} from the agent's newest still-valid sample, or {} when unknown (fail open)."""
     try:
-        with open(path, "rb") as f:
-            f.seek(0, 2)
-            f.seek(max(0, f.tell() - 4096))
-            last = f.read().decode("utf-8", "replace").strip().splitlines()[-1]
-        row = json.loads(last)
-        b = row["buckets"]
-        if (now or time.time()) - row["ts"] / 1000.0 > QUOTA_FRESH_S:
-            return False
-        return any(float(b[k]) <= GEMINI_LOW for k in ("gemini-5h", "gemini-weekly") if k in b)
-    except (OSError, ValueError, KeyError, IndexError, TypeError):
-        return False
+        if agent == "gemini":
+            base = os.environ.get("AGY_USAGE_DIR", "/Users/Will/Sites/agy-usage-monitor")
+            if not base:
+                return {}
+            row = json.loads(_last_line(os.path.join(base, "history.jsonl")))
+            if now - row["ts"] / 1000.0 > QUOTA_FRESH_S:
+                return {}
+            return {k: float(v) for k, v in row["buckets"].items() if k in ("gemini-5h", "gemini-weekly")}
+        if agent == "claude":
+            base = os.environ.get("CLAUDE_QUOTA_DIR", "/Users/Will/Sites/claude-usage")
+            if not base:
+                return {}
+            row = json.loads(_last_line(os.path.join(base, "history.jsonl")))
+            resets = row.get("resets", {})
+            return {k: float(v) for k, v in row["buckets"].items()
+                    if k in ("claude-5h", "claude-7d") and now * 1000 < resets.get(k, 0)}   # valid until it resets
+        if agent == "codex":
+            base = os.environ.get("CODEX_SESSIONS_DIR", os.path.expanduser("~/.codex/sessions"))
+            if not base:
+                return {}
+            files = glob.glob(os.path.join(base, "*", "*", "*", "rollout-*.jsonl"))
+            if not files:
+                return {}
+            row = json.loads(_last_line(max(files, key=os.path.getmtime), '"rate_limits"'))
+            limits = row["payload"]["rate_limits"]
+            out = {}
+            for slot, key in (("primary", "codex-5h"), ("secondary", "codex-weekly")):
+                w = limits.get(slot) or {}
+                if isinstance(w.get("used_percent"), (int, float)) and now < w.get("resets_at", 0):
+                    out[key] = 1 - w["used_percent"] / 100.0
+            return out
+    except (OSError, ValueError, KeyError, IndexError, TypeError, AttributeError):
+        return {}
+    return {}
 
 
-def _next_hopper_candidate(root, st, jobs, order, claims, pace, gemini_low=False):
-    """First entry in Order takeable as itself, or a returned job (H196). While Gemini's quota is low, an 'either'
-    job goes to Codex and a Gemini-only job waits."""
+def quota_low(now=None):
+    """{agent: True} for each agent at or under its QUOTA_FLOOR in any bucket."""
+    now = now or time.time()
+    return {a: any(v <= QUOTA_FLOOR[a] for v in _quota_left(a, now).values()) for a in QUOTA_FLOOR}
+
+
+def route_for(job_for, low):
+    """(agent, model) the hopper launches for a job's For: line given {agent: low}, or None when all are low."""
+    for agent, model in ROUTES.get(job_for, ((job_for, None),)):
+        if not low.get(agent):
+            return agent, model
+    return None
+
+
+def _next_hopper_candidate(root, st, jobs, order, claims, pace, low=None):
+    """(job, agent, model): a returned job first, resumed by its own agent (H196); else the first entry in Order
+    that is takeable, launched for whoever route_for picks. (None, None, None) when nothing can launch."""
+    low = low or {}
     for j in ordered(jobs, order):
-        if gemini_low and j["for"] == "gemini":
+        s = st["jobs"].get(j["id"], {})
+        if s.get("state") == "returned":
+            picked, _ = takeable(root, st, s.get("agent"), jobs, order, claims, pace=pace)
+            if picked and picked["id"] == j["id"]:
+                return picked, s.get("agent"), None
+    for j in ordered(jobs, order):
+        if st["jobs"].get(j["id"], {}).get("state") == "returned":
             continue
-        target_agent = ("codex" if gemini_low else "gemini") if j["for"] == "either" else j["for"]
-        picked, _ = takeable(root, st, target_agent, jobs, order, claims, pace=pace)
-        if not picked:
+        route = route_for(j["for"], low)
+        if route is None:
             continue
-        is_returned = st["jobs"].get(picked["id"], {}).get("state") == "returned"
-        if picked["id"] != j["id"] and not is_returned:
-            continue
-        return picked, target_agent
-    return None, None
+        agent, model = route
+        owner = agent if j["for"] == "either" else j["for"]
+        picked, _ = takeable(root, st, owner, jobs, order, claims, pace=pace)
+        if picked and picked["id"] == j["id"]:
+            return picked, agent, model
+    return None, None, None
 
 
 def paused_line(done_ids, waiting_jobs):
@@ -1923,7 +1985,7 @@ def hopper_wake_conditions(root, st, jobs, order, now, claims=None, pace="all at
     pending = [jid for jid, info in launched.items()
                if st["jobs"].get(jid, {}).get("state") not in TAKEN and now - info.get("at", 0) < LAUNCH_TIMEOUT]
     if not running and not pending:
-        picked, _ = _next_hopper_candidate(root, st, jobs, order, claims, pace, gemini_low=gemini_quota_low(now))
+        picked, _, _ = _next_hopper_candidate(root, st, jobs, order, claims, pace, low=quota_low(now))
         if picked is None:
             done_ids = [jid for jid, s in st["jobs"].items() if s.get("state") == "done"]
             waiting_jobs = [(jid, s) for jid, s in st["jobs"].items() if s.get("state") == "waiting"]
@@ -1976,19 +2038,21 @@ def hopper_step(root, now=None, dry_run=False, launcher=None, out=print, seen=No
                     out(f"waiting: {why}")
                     return "dry", 0, None, None
                 return "wait", None, None, None
-            picked, target_agent = _next_hopper_candidate(root, st, jobs, order, claims, pace,
-                                                          gemini_low=gemini_quota_low(now))
+            picked, target_agent, model = _next_hopper_candidate(root, st, jobs, order, claims, pace,
+                                                                 low=quota_low(now))
             if picked is not None:
                 if picked["id"] in st.get("launched", {}):
                     return "wait", None, None, None
                 prev = st["jobs"].get(picked["id"], {})
                 prev_resume = dict(prev) if prev.get("state") == "returned" and prev.get("resume_cmd") else None
                 if dry_run:
-                    how = f"resume {prev_resume['resume_cmd']}" if prev_resume else f"{target_agent}"
+                    how = (f"resume {prev_resume['resume_cmd']}" if prev_resume
+                           else target_agent + (f" {model}" if model else ""))
                     out(f"would launch {picked['id']} ({how}: {picked['item']})")
                     return "dry", 0, None, None
-                st.setdefault("launched", {})[picked["id"]] = {"at": now, "agent": target_agent}
-                launch_target = (picked, target_agent, prev_resume)
+                st.setdefault("launched", {})[picked["id"]] = dict({"at": now, "agent": target_agent},
+                                                                   **({"model": model} if model else {}))
+                launch_target = (picked, target_agent, prev_resume, model)
             if launch_target is None:
                 if dry_run:
                     out("nothing Ready and nothing in progress")
@@ -2005,7 +2069,7 @@ def hopper_step(root, now=None, dry_run=False, launcher=None, out=print, seen=No
         out(f"{hhmm(now)} launched integrator ({int_session})")
         sys.stdout.flush()
         return "exit", 0, detail, key
-    picked, target_agent, prev_resume = launch_target
+    picked, target_agent, prev_resume, model = launch_target
     if prev_resume is not None:
         if resume_launcher is not None:
             res = resume_launcher(target_agent, picked["id"], prev_resume)
@@ -2014,7 +2078,7 @@ def hopper_step(root, now=None, dry_run=False, launcher=None, out=print, seen=No
         else:
             res = launcher(target_agent)
     else:
-        res = launcher(target_agent)
+        res = launcher(target_agent) if model is None else launcher(target_agent, model)
     rc, win_info = res if isinstance(res, tuple) else (res, None)
     if rc != 0:
         with locked(state_path(root)) as st:
@@ -2027,7 +2091,7 @@ def hopper_step(root, now=None, dry_run=False, launcher=None, out=print, seen=No
             if picked["id"] in st["jobs"]:
                 st["jobs"][picked["id"]].setdefault("windows", []).append(win_info)
     verb = "resumed" if prev_resume is not None else "launched"
-    out(f"{hhmm(now)} {verb} {target_agent} for {picked['id']} ({picked['item']})")
+    out(f"{hhmm(now)} {verb} {target_agent}{' ' + model if model else ''} for {picked['id']} ({picked['item']})")
     sys.stdout.flush()
     return "launched", None, picked["id"], None
 
@@ -2046,8 +2110,7 @@ def hopper_has_work(root, now=None):
             return True
         if st.get("launched"):
             return True
-        picked, _ = _next_hopper_candidate(root, st, jobs, order, branch_claims(root), pace,
-                                           gemini_low=gemini_quota_low(now))
+        picked, _, _ = _next_hopper_candidate(root, st, jobs, order, branch_claims(root), pace, low=quota_low(now))
         return picked is not None
 
 

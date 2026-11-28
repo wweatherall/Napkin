@@ -49,7 +49,7 @@ One subject per decision; the Decisions column is generated.
 | Feedback | The confirmation wave and what colours mean. | I06, I79, W01, W02, W03, W04, W05, W06, W07, W08, W09 |
 | Materials | Wood cards, grain and painting. | A05, I33, M01, M02, M03, M04 |
 | Output | Drawings, cut lists and renders. | A07, D01, D02, I68, P06 |
-| Process | How the agents work, test, merge and record decisions. | P01, P02, P03, P07, P09, P10, P14, P15, P16, P17, P18, P19, P20, P21, P22, P23, P24, P25, P26, P28, P29, P31, P32, P33, P34, P35, P36, P37, P38, P39, P40, P41, P42, P43, P44, P45, P46, P47, P49, P50, P52, P53, P54, P56, P57, P58, P60, P61, P62, P63, P64, P65, P66, P67, P68, P69, P70, P71, P72, P73, P74, P75, P77 |
+| Process | How the agents work, test, merge and record decisions. | P01, P02, P03, P07, P09, P10, P14, P15, P16, P17, P18, P19, P20, P21, P22, P23, P24, P25, P26, P28, P29, P31, P32, P33, P34, P35, P36, P37, P38, P39, P40, P41, P42, P43, P44, P45, P46, P47, P49, P50, P52, P53, P54, P56, P57, P58, P60, P61, P62, P63, P64, P65, P66, P67, P68, P69, P70, P71, P72, P73, P74, P75, P78 |
 
 ## Principles
 
@@ -331,7 +331,7 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | P73 | A worker doesn't ask the integrator before a change outside Touches that follows mechan... | Active |
 | P74 | The hopper brings in the integrator only when all work is paused: nothing in progress a... | Active |
 | P75 | The hopper's pace defaults to one at a time: a board without a Pace line, or with an unknown one, runs... | Active |
-| P77 | While Gemini has 10% or less left of its 5-hour or weekly quota, the hopper gives it no... | Active |
+| P78 | The hopper routes each job by quota: an agent at or under its floor of quota left (5-ho... | Active |
 
 ## Open questions
 
@@ -445,6 +445,6 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | MAX_JOBS | 1 | Jobs one worker session takes before job.py refuses the next and it asks William for a /clear. | tools/job.py | P37 |
 | WORKER_WAIT | 1200 s | How long job.py take --wait looks for a Ready job before it stops (exit 1). | tools/job.py | P27 |
 | FIT_PAUSE_DEG | 2.0 | Degrees within 90 where a fit to a rotating rectangular target pauses instead of jumping to the opposite face | worker/plane_fit.py | I76 |
-| GEMINI_LOW | 0.10 | Fraction of Gemini's 5-hour or weekly quota left at or under which the hopper gives it no new jobs | tools/job.py | P77 |
+| QUOTA_FLOOR | gemini 0.10, codex 0.10, claude 0.25 | Fraction of an agent's 5-hour or weekly quota left at or under which the hopper gives it no new job | tools/job.py | P78 |
 
 ## Details

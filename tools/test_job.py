@@ -28,7 +28,8 @@ for _env_key in ("ANTIGRAVITY_CONVERSATION_ID", "ANTIGRAVITY_AGENT", "NAPKIN_SES
     os.environ.pop(_env_key, None)
 # Disable the external usage-tool subprocess by default; the usage-hook tests below override this with patch.dict.
 os.environ["NAPKIN_USAGE_TOOL"] = ""
-os.environ["AGY_USAGE_DIR"] = ""  # the real Gemini quota must not steer these tests' hopper
+for _q in ("AGY_USAGE_DIR", "CLAUDE_QUOTA_DIR", "CODEX_SESSIONS_DIR"):
+    os.environ[_q] = ""  # the real quotas must not steer these tests' hopper (P78)
 
 RESULTS = []
 VERBOSE = "-v" in sys.argv[1:] or "--verbose" in sys.argv[1:]
@@ -1803,7 +1804,7 @@ check("KeepAwake with no command (tests) or a missing program does nothing",
 with job.locked(job.state_path(h196_root)) as st:
     saved_jobs, saved_launched = json.loads(json.dumps(st["jobs"])), st.pop("launched", None)
     st["jobs"] = {k: {**v, "state": "merged"} for k, v in st["jobs"].items()}
-with patch.object(job, "_next_hopper_candidate", lambda *a, **k: (None, None)):
+with patch.object(job, "_next_hopper_candidate", lambda *a, **k: (None, None, None)):
     idle = job.hopper_has_work(h196_root)
     with job.locked(job.state_path(h196_root)) as st:
         st["jobs"]["H002"] = {"state": "done", "branch": "codex/h002-x"}
@@ -2196,35 +2197,87 @@ check("feedback_read marks all entries read in state",
 job.QUICKTEST = _saved_qt
 shutil.rmtree(h207_base, ignore_errors=True)
 
-# Gemini's quota steers the hopper (William, 2026-11-28): at or under 10% left of the 5-hour or weekly quota, an
-# 'either' job goes to Codex and a Gemini-only job waits; a missing or stale sample fails open.
+# Quota routing (P78, William, 2026-11-28): each agent has a floor of quota left (Gemini and Codex 10%, Claude 25%);
+# For: either goes Gemini, then Codex, then Claude Sonnet; For: Codex goes Codex, then Claude Opus; unknown fails open.
 _qdir = tempfile.mkdtemp(prefix="job-quota-")
 atexit.register(shutil.rmtree, _qdir, True)
-def _quota(five, week, age=0, now=2_000_000_000):
-    with open(os.path.join(_qdir, "history.jsonl"), "w") as f:
-        f.write(json.dumps({"ts": 1, "buckets": {"gemini-5h": 0.9, "gemini-weekly": 0.9}}) + "\n")
-        f.write(json.dumps({"ts": (now - age) * 1000, "buckets": {"gemini-5h": five, "gemini-weekly": week}}) + "\n")
-    return now
-with patch.dict(os.environ, {"AGY_USAGE_DIR": _qdir}):
-    check("gemini quota: plenty left is not low", not job.gemini_quota_low(_quota(0.5, 0.5)))
-    check("gemini quota: weekly at 10% left is low", job.gemini_quota_low(_quota(0.9, 0.10)))
-    check("gemini quota: 5-hour at 8% left is low", job.gemini_quota_low(_quota(0.08, 0.9)))
-    check("gemini quota: a sample over 30 min old fails open", not job.gemini_quota_low(_quota(0.01, 0.01, age=31 * 60)))
-    open(os.path.join(_qdir, "history.jsonl"), "w").write("not json\n")
-    check("gemini quota: an unreadable sample fails open", not job.gemini_quota_low(2_000_000_000))
-with patch.dict(os.environ, {"AGY_USAGE_DIR": os.path.join(_qdir, "missing")}):
-    check("gemini quota: no file fails open", not job.gemini_quota_low())
-_qjobs = [{"id": "H1", "name": "H1-g.md", "for": "gemini", "item": "g"}, {"id": "H2", "name": "H2-e.md", "for": "either", "item": "e"}]
+NOW = 2_000_000_000
+def _jsonl(path, *rows):
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, "w") as f:
+        f.write("".join(json.dumps(r) + "\n" for r in rows))
+def _gem(five, week, age=0):
+    _jsonl(os.path.join(_qdir, "agy", "history.jsonl"), {"ts": 1, "buckets": {"gemini-5h": 0.9, "gemini-weekly": 0.9}},
+           {"ts": (NOW - age) * 1000, "buckets": {"gemini-5h": five, "gemini-weekly": week}})
+def _cla(five, week, resets=NOW + 3600):
+    _jsonl(os.path.join(_qdir, "claude", "history.jsonl"),
+           {"ts": NOW * 1000, "buckets": {"claude-5h": five, "claude-7d": week},
+            "resets": {"claude-5h": resets * 1000, "claude-7d": resets * 1000}})
+def _cdx(used5, usedw, resets=NOW + 3600):
+    _jsonl(os.path.join(_qdir, "codex", "2026", "11", "28", "rollout-x.jsonl"), {"type": "session_meta"},
+           {"type": "event_msg", "payload": {"type": "token_count", "rate_limits": {
+               "primary": {"used_percent": used5, "window_minutes": 300, "resets_at": resets},
+               "secondary": {"used_percent": usedw, "window_minutes": 10080, "resets_at": resets}}}},
+           {"type": "event_msg", "payload": {"type": "agent_message"}})
+_qenv = {"AGY_USAGE_DIR": os.path.join(_qdir, "agy"), "CLAUDE_QUOTA_DIR": os.path.join(_qdir, "claude"),
+         "CODEX_SESSIONS_DIR": os.path.join(_qdir, "codex")}
+with patch.dict(os.environ, _qenv):
+    _gem(0.5, 0.5); _cla(0.5, 0.5); _cdx(50, 50)
+    check("quota: plenty left everywhere is low nowhere", job.quota_low(NOW) == {"gemini": False, "codex": False, "claude": False}, job.quota_low(NOW))
+    _gem(0.9, 0.10)
+    check("quota: Gemini weekly at 10% left is low", job.quota_low(NOW)["gemini"])
+    _gem(0.01, 0.01, age=31 * 60)
+    check("quota: a Gemini sample over 30 min old fails open", not job.quota_low(NOW)["gemini"])
+    _cdx(92, 10)
+    check("quota: Codex 5-hour at 8% left is low (its latest rate_limits line)", job.quota_low(NOW)["codex"])
+    _cdx(92, 10, resets=NOW - 1)
+    check("quota: a Codex sample past its reset time fails open", not job.quota_low(NOW)["codex"])
+    _cla(0.25, 0.9)
+    check("quota: Claude at 25% left is low (its floor is higher)", job.quota_low(NOW)["claude"])
+    _cla(0.30, 0.9)
+    check("quota: Claude at 30% left is not low", not job.quota_low(NOW)["claude"])
+    _cla(0.01, 0.01, resets=NOW - 1)
+    check("quota: a Claude sample past its reset time fails open", not job.quota_low(NOW)["claude"])
+    open(os.path.join(_qdir, "agy", "history.jsonl"), "w").write("not json\n")
+    check("quota: an unreadable sample fails open", not job.quota_low(NOW)["gemini"])
+with patch.dict(os.environ, {k: os.path.join(_qdir, "missing") for k in _qenv}):
+    check("quota: no files fail open", not any(job.quota_low(NOW).values()))
+L = lambda *agents: {a: True for a in agents}
+check("route: either goes to Gemini", job.route_for("either", {}) == ("gemini", None))
+check("route: either, Gemini low: Codex", job.route_for("either", L("gemini")) == ("codex", None))
+check("route: either, Gemini and Codex low: Claude Sonnet", job.route_for("either", L("gemini", "codex")) == ("claude", "sonnet"))
+check("route: either, all low: nothing", job.route_for("either", L("gemini", "codex", "claude")) is None)
+check("route: For: Codex (complex) goes to Codex", job.route_for("codex", L("gemini")) == ("codex", None))
+check("route: For: Codex, Codex low: Claude Opus", job.route_for("codex", L("codex")) == ("claude", "opus"))
+check("route: For: Gemini, Gemini low: waits", job.route_for("gemini", L("gemini")) is None)
+check("route: For: Claude, Claude low: waits", job.route_for("claude", L("claude")) is None)
+_qjobs = [{"id": "H1", "name": "H1-g.md", "for": "gemini", "item": "g"},
+          {"id": "H2", "name": "H2-c.md", "for": "codex", "item": "c"},
+          {"id": "H3", "name": "H3-e.md", "for": "either", "item": "e"}]
 _qtake = lambda root, st, agent, jobs, order, claims, pace="": (
     next((j for j in jobs if j["for"] in (agent, "either")), None), None)
 with patch.object(job, "takeable", _qtake):
     _st = {"jobs": {}}
-    p, a = job._next_hopper_candidate("", _st, _qjobs, ["H1", "H2"], {}, "one at a time")
-    check("hopper: with quota, a Gemini job goes to Gemini first", (p["id"], a) == ("H1", "gemini"), (p, a))
-    p, a = job._next_hopper_candidate("", _st, _qjobs, ["H1", "H2"], {}, "one at a time", gemini_low=True)
-    check("hopper: quota low, the Gemini job waits and the 'either' job goes to Codex", (p["id"], a) == ("H2", "codex"), (p, a))
-    p, a = job._next_hopper_candidate("", _st, _qjobs[:1], ["H1"], {}, "one at a time", gemini_low=True)
-    check("hopper: quota low and only a Gemini job left, nothing launches", p is None, (p, a))
+    r = job._next_hopper_candidate("", _st, _qjobs, ["H1", "H2", "H3"], {}, "one at a time")
+    check("hopper: with quota, the Gemini job goes to Gemini first", (r[0]["id"], r[1], r[2]) == ("H1", "gemini", None), r)
+    r = job._next_hopper_candidate("", _st, _qjobs, ["H1", "H2", "H3"], {}, "one at a time", low=L("gemini", "codex"))
+    check("hopper: Gemini and Codex low, the Gemini job waits and the complex job goes to Claude Opus",
+          (r[0]["id"], r[1], r[2]) == ("H2", "claude", "opus"), r)
+    r = job._next_hopper_candidate("", _st, _qjobs[:1], ["H1"], {}, "one at a time", low=L("gemini"))
+    check("hopper: only a Gemini job left and Gemini low, nothing launches", r == (None, None, None), r)
+    _st = {"jobs": {"H3": {"state": "returned", "agent": "gemini"}}}
+    _qtake2 = lambda root, st, agent, jobs, order, claims, pace="": (
+        (jobs[2] if agent == "gemini" else next((j for j in jobs if j["for"] in (agent, "either")), None)), None)
+    with patch.object(job, "takeable", _qtake2):
+        r = job._next_hopper_candidate("", _st, _qjobs, ["H1", "H2", "H3"], {}, "one at a time", low=L("gemini"))
+        check("hopper: a returned job resumes its own agent first, even when that agent is low (it finishes its work)",
+              (r[0]["id"], r[1]) == ("H3", "gemini"), r)
+_rjobs = job.jobs_from({"H902-complex.md": entry("H902", "Codex", "open", "tools/q.py.", "T9: complex")})
+_st = {"jobs": {}, "launched": {"H902": {"agent": "claude", "model": "opus", "at": NOW}}}
+r, _ = job.takeable("", _st, "claude", _rjobs, ["H902"], {}, pace="all at once")
+check("take: a Claude worker launched for a For: Codex job can take it (P78)", r is not None and r["id"] == "H902", r)
+r, _ = job.takeable("", {"jobs": {}}, "claude", _rjobs, ["H902"], {}, pace="all at once")
+check("take: without that launch, Claude can't take a For: Codex job", r is None, r)
 
 print(f"JOB TESTS: {sum(RESULTS)} passed, {len(RESULTS) - sum(RESULTS)} failed")
 sys.exit(0 if all(RESULTS) else 1)
