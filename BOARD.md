@@ -3,7 +3,7 @@
 "Check the board" sends you here. Only the integrator edits this file; the job table is built from docs/handoff/
 and the job queue.
 
-Order: H191, H192, H196, H197, H195, H193, H194, H198, H199, H206, H205, H204, H207, H200, H201, H211, H208, H209, H210, H202, H203, H212, H213
+Order: H191, H192, H196, H197, H195, H193, H194, H198, H199, H206, H205, H204, H207, H200, H201, H211, H208, H209, H210, H202, H203, H212, H213, H214, H215
 Pace: one at a time
 
 ## If you're not the integrator
@@ -74,8 +74,10 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H212 | Codex | In progress (codex since 09:20) | Components and arrays the SketchUp way: one click takes the group, inside every copy is linked, the original is marked (I82) | [H212](docs/handoff/H212-components-the-sketchup-way.md) |  |
-| H213 | either | **Ready** | The hopper workshop: William's animated, width-aware hopper picture (made with ChatGPT) brought into Napkin | [H213](docs/handoff/H213-hopper-workshop.md) |  |
+| H212 | Codex | Claimed: branch codex/h212-components-the-sketchup-way | Components and arrays the SketchUp way: one click takes the group, inside every copy is linked, the original is marked (I82) | [H212](docs/handoff/H212-components-the-sketchup-way.md) |  |
+| H213 | either | Claimed: branch gemini/h213-hopper-workshop | The hopper workshop: William's animated, width-aware hopper picture (made with ChatGPT) brought into Napkin | [H213](docs/handoff/H213-hopper-workshop.md) |  |
+| H214 | either | **Ready** | Test inventory: every check, its file, its suite and its time, in one generated file (T172 step 1) | [H214](docs/handoff/H214-test-inventory.md) |  |
+| H215 | either | Queued | Line coverage per test file for worker/ and tools/, added to the inventory (T172 step 2) | [H215](docs/handoff/H215-coverage-per-test.md) | H214 |
 
 <!-- end of job table -->
 
