@@ -1,6 +1,6 @@
 ### H202 — Design: how a fit that lost its face looks (a chain crumbling, or another gentle metaphor), a proposal with drafts for William
 
-Author: Claude (integrator, opus-integrator) | Date: 2026-11-27 | Status: queued (after H201) | For: codex
+Author: Claude (integrator, opus-integrator) | Date: 2026-11-27 | Status: open | For: codex
 
 References: I77 (William, 2026-11-27: "Reference unavailable is a bit harsh, it still has the length it got"; give it a
 metaphor, "like a chain crumbling to the ground"), G07 (violet cuts, red rejects, amber is new: none of them here),

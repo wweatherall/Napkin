@@ -262,7 +262,8 @@ p = model("legacy-fit-floor")
 s = Session(p)
 fit_base = board(1) + board(2)
 fit_base[2]["plane"]["origin"] = [0, 0, 100]  # b2 above b1
-fit_op = {"id": "fit1", "type": "fit", "body": "b1", "target_body": "b2", "axis": 2, "face": 4, "fit_mode": 0}
+fit_op = {"id": "fit1", "type": "fit", "body": "b1", "target_body": "b2", "axis": 2,
+          "face": {"normal": [0.0, 0.0, -1.0], "point": [0.0, 0.0, 100.0]}, "fit_mode": 0}
 s.sync(fit_base + [fit_op])
 s.save()
 s.close()

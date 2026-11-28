@@ -380,8 +380,8 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | T141 | William tries the Polygon tool by eye in a rebuilt app (tools/BUILD_THE_APP.sh). | Open |
 | T152 | Thin the tests without losing coverage: research how others do it (coverage-guided test... | Open |
 | T153 | Generated tests: inputs made fresh each run (a random seed, printed so a failure can be... | Open |
-| T161 | Think through plane-fit face numbering: faces are 0-5 (Left..Top) on plain stock but 't... | On the board (H201) |
-| T163 | Suspected bug (found by H179's T161 proposal): flipping a board (mirror with replace) t... | On the board (H201) |
+| T161 | Think through plane-fit face numbering: faces are 0-5 (Left..Top) on plain stock but 't... | Open |
+| T163 | Suspected bug (found by H179's T161 proposal): flipping a board (mirror with replace) t... | Open |
 | T164 | Find a home for (or delete) Napkin's three top-level reference docs: 'Codex's suggestio... | Open |
 | T165 | User test for William, one day after the fit rulings are built (I76, I77): try fits und... | Open |
 | T166 | Integrator's doubts about H205, for William to look at once it has run for a few days: ... | Open |
@@ -433,5 +433,6 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | WATCH_POLL | 20 s | How often job.py watch looks at the queue, and how often take --wait looks for a job. | tools/job.py | P24, P27 |
 | MAX_JOBS | 1 | Jobs one worker session takes before job.py refuses the next and it asks William for a /clear. | tools/job.py | P37 |
 | WORKER_WAIT | 1200 s | How long job.py take --wait looks for a Ready job before it stops (exit 1). | tools/job.py | P27 |
+| FIT_PAUSE_DEG | 2.0 | Degrees within 90 where a fit to a rotating rectangular target pauses instead of jumping to the opposite face | worker/plane_fit.py | I76 |
 
 ## Details
