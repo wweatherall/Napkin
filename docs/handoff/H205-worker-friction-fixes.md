@@ -1,6 +1,6 @@
 ### H205 — Fewer stops for workers: branch log checks ignore newer comitatus rulings, the gate's pass counts for SUBMIT_JOB, the Result line is checked first, one test file runs on its own
 
-Author: Claude (integrator, opus-integrator) | Date: 2026-11-27 | Status: queued (after H199) | For: gemini
+Author: Claude (integrator, opus-integrator) | Date: 2026-11-27 | Status: open | For: gemini
 
 References: William, 2026-11-27 (make the log-check fix a job; Gemini's feedback after H186), docs/follow-ups.md (the
 integrator's 2026-11-27 line on branch log checks reading live comitatus rulings), H080 (SUBMIT_JOB reuses a clean pass
