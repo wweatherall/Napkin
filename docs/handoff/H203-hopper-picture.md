@@ -35,9 +35,8 @@ Checks:
 
 **Response (Gemini, gemini-hydrogen-coder):**
 
-- Branch: `gemini/h203-hopper-picture` (commit `1b78427`)
-- Added `tools/hopper_picture.py` (`render`, `render_root`, `watch`, `clip`, `_batch_order_done`, `_last_merged`) drawing the three-part 78-column plain-ASCII picture: the hopper funnel (Ready/queued jobs in Order, queued marked `[waits: ...]`, launched jobs dropping out of the spout `|H201|` / `v`), the workbench (in-progress/waiting jobs with worker name, elapsed duration, and `?` when waiting), and the integrator's desk (done jobs as `[=]` in batch order, plus `last merged`), with `(empty)` states and `…` truncation.
-- Added `tools/SHOW_THE_HOPPER.py` (prints once or `--watch` redraws in place when queue state/picture changes, polling no faster than `job.WATCH_POLL`) and documented it in `tools/README.md`.
-- Wired `tools/job.py` (`hopper` `--forever` loop) to redraw the picture above its recent log lines after each event or picture change.
-- Added `tools/test_hopper_picture.py` (9/9: golden picture, <=78 cols, 3 empty cases, long title `…` clipping, `?` on waiting job, `SHOW_THE_HOPPER.py`, `watch()` poll floor and deduplication).
-- Result: 1b78427; HOPPER PICTURE 9/9, JOB 224/224, gate (scope tools) passed; added three-part ASCII hopper picture (`hopper_picture.py`, `SHOW_THE_HOPPER.py`, `job.py` hopper window)
+- Branch: `gemini/h203-hopper-picture` (commit `f804eff`)
+- Updated `tools/hopper_picture.py` (`render`, `_render_workbench`, `_render_questions`, `_join_side_by_side`, `_render_benches`) to draw a four-part 78-column plain-ASCII picture: the hopper funnel, the **WORKBENCH** (only `in progress` jobs, never `waiting`) side-by-side with the **QUESTIONS** bench (`waiting` jobs with `<who> asks William` / `<who> asks the integrator`, one-line clipped question, and wait duration, plus `<running> started while <waiting> waits for an answer` when another job runs meanwhile), and the integrator's desk.
+- Added `tools/SHOW_THE_HOPPER.py` (prints once or `--watch` redraws in place when queue state/picture changes, polling no faster than `job.WATCH_POLL`), documented it in `tools/README.md`, and wired `tools/job.py` (`hopper` `--forever` loop) to redraw the picture above its recent log lines.
+- Updated `tools/test_hopper_picture.py` (10/10: golden picture, <=78 cols, 4 empty cases, long title & multiline question `…` clipping, waiting job on QUESTIONS bench and never on WORKBENCH with `started while` line, waiting alone without `started while`, `SHOW_THE_HOPPER.py`, `watch()` poll floor and deduplication).
+- Result: f804eff; HOPPER PICTURE 10/10, JOB 224/224 (tools gate ran `TEST_BEFORE_MERGING.sh --scope tools`: `HOPPER PICTURE` passed; unrelated pre-existing `LOG TESTS` 68/70 & `LOG SORT TESTS` 35/36 failed on `main`'s untidy `03_Past_Decisions/decision-log.md`); added four-part ASCII hopper picture with questions bench beside workbench
