@@ -72,7 +72,6 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H183 | Gemini | **Done**: for review (gemini) | A failed op names the ids it failed on, so the window stops reading FreeCAD's message text | [H183](docs/handoff/H183-rejections-name-their-ids.md) |  |
 | H184 | Gemini | Returned: **Ready** for Gemini (resumes gemini/h184-field-audit-per-run) | The field audit checks each run of an op, not all runs of its type lumped together | [H184](docs/handoff/H184-field-audit-per-run.md) |  |
 
 <!-- end of job table -->

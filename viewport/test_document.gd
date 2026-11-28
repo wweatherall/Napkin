@@ -703,15 +703,21 @@ func _init() -> void:
 		{"id": "r1", "type": "rect", "plane": {}},
 		{"id": "pp1", "type": "push_pull", "target": {"rect": "r1"}, "body": "b1"},
 		{"id": "pp_edit", "type": "push_pull", "target": {"face": {"body": "b1"}}},
+		{"id": "r_about", "type": "rect", "plane": {}},
 		{"id": "r_msg", "type": "rect", "plane": {}},
 	]
 	var touch_root: Dictionary = d.reject("pp_edit", "face gone", 1000)
-	var by_msg: Dictionary = d.reject("r_msg", "failed on 'b1' face", 2000)
-	check("an op naming a touched board in FreeCAD's message joins the rejection",
+	var by_about: Dictionary = d.reject("r_about", "face gone", 2000, Callable(), ["b1"])
+	check("an op naming a touched board in about joins the rejection",
 		touch_root["root"] == "pp_edit" and not touch_root["joined"]
-		and by_msg["root"] == "pp_edit" and by_msg["joined"]
-		and by_msg["note"] == "pp_edit: face gone (and 1 action that built on it)"
-		and d.rejected_ids("pp_edit") == ["pp_edit", "r_msg"])
+		and by_about["root"] == "pp_edit" and by_about["joined"]
+		and by_about["note"] == "pp_edit: face gone (and 1 action that built on it)"
+		and d.rejected_ids("pp_edit") == ["pp_edit", "r_about"])
+	var msg_only: Dictionary = d.reject("r_msg", "failed on 'b1' face", 2500)
+	check("an op quoting a touched board only in FreeCAD's message without about does not join",
+		msg_only == {"root": "r_msg", "joined": false, "note": "r_msg: failed on 'b1' face"}
+		and d.rejected_ids("pp_edit") == ["pp_edit", "r_about"]
+		and d.rejected_ids("r_msg") == ["r_msg"])
 
 	t = make(); d = t[0]
 	d.ops = [

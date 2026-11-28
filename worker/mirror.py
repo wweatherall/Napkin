@@ -40,7 +40,7 @@ class MirrorActions:
             src = self.body(t)
             nid = t if replace else (new_ids.pop(0) if new_ids else f"{t}_m")
             if nid in self.bodies() and not replace:
-                raise OpError(f"body id '{nid}' already exists")
+                raise OpError(f"body id '{nid}' already exists", about=[nid])
             if replace:
                 src.SSRole = "source"
                 src.Label = f"{t} (unflipped)"
@@ -54,7 +54,7 @@ class MirrorActions:
                       SSHidden=bool(getattr(src, "SSHidden", False)) if replace else False)
             self.doc.recompute()
             if m.Shape.isNull() or not m.Shape.Solids:
-                raise OpError(f"could not mirror '{t}'")
+                raise OpError(f"could not mirror '{t}'", about=[t])
             if group is not None:
                 for other in src.InList:
                     if other.TypeId == "App::DocumentObjectGroup":

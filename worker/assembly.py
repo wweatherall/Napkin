@@ -23,14 +23,14 @@ class AssemblyActions:
         container scope to break mirrors or links); moving the assembly moves them all."""
         aid = op["new_id"]
         if aid in self.assemblies():
-            raise OpError(f"assembly '{aid}' already exists")
+            raise OpError(f"assembly '{aid}' already exists", about=[aid])
         g = self.doc.addObject("App::DocumentObjectGroup", "Assembly")
         g.Label = op.get("name", aid)
         add_props(g, SSRole="assembly", AssemblyId=aid)
         for t in op["targets"]:
             obj = self.body(t)
             if self.assembly_of(obj) is not None:
-                raise OpError(f"'{t}' is already in an assembly")
+                raise OpError(f"'{t}' is already in an assembly", about=[t])
             for other in obj.InList:
                 if other.TypeId == "App::DocumentObjectGroup":
                     other.removeObject(obj)
@@ -42,7 +42,7 @@ class AssemblyActions:
         g = made.get(aid)
         if g is None:
             if aid in self.assemblies():
-                raise OpError(f"assembly '{aid}' already exists")
+                raise OpError(f"assembly '{aid}' already exists", about=[aid])
             g = made[aid] = self.doc.addObject("App::DocumentObjectGroup", "Assembly")
             g.Label = aid
             add_props(g, SSRole="assembly", AssemblyId=aid)
@@ -75,12 +75,12 @@ class AssemblyActions:
         for o in mirrors:
             src = self.mirror_source(o)
             if src.Name not in moves:
-                raise OpError(f"'{o.BodyId}' mirrors a board outside its assembly: move them separately")
+                raise OpError(f"'{o.BodyId}' mirrors a board outside its assembly: move them separately", about=[o.BodyId])
             n = unit(o.Normal)
             rest = moves[o.Name] - refl(moves[src.Name], n)        # what the plane has to supply; it can only push along n
             along = rest.dot(n)
             if (rest - n * along).Length > 1e-6:
-                raise OpError(f"'{o.BodyId}' can't move with the rest: its original moves another way")
+                raise OpError(f"'{o.BodyId}' can't move with the rest: its original moves another way", about=[o.BodyId])
             o.Base = o.Base + n * (along / 2)
         plain = [o for o in members if not self.is_mirror(o)]
         moved_arrays = set()

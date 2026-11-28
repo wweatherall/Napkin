@@ -18,7 +18,7 @@ class VisibilityActions:
         for t in op["targets"]:
             obj = self.body(t)
             if not hasattr(obj, "SSHidden"):
-                raise OpError(f"'{t}' can't be hidden (the file was made before hiding existed; reopen it)")
+                raise OpError(f"'{t}' can't be hidden (the file was made before hiding existed; reopen it)", about=[t])
             obj.SSHidden = hidden
         return list(op["targets"])
 

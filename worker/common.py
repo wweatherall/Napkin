@@ -52,7 +52,9 @@ JOURNAL_FORMAT = "shopsketch-journal/0.1"
 
 
 class OpError(Exception):
-    pass
+    def __init__(self, message, about=()):
+        super().__init__(message)
+        self.about = tuple(about)
 
 
 def vec(a):

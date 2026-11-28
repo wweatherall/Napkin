@@ -34,7 +34,7 @@ class CircleActions:
     def op_circle(self, op):
         rid = op["id"]
         if self.rect_obj(rid) is not None:
-            raise OpError(f"profile id '{rid}' already exists")
+            raise OpError(f"profile id '{rid}' already exists", about=[rid])
         radius = float(op["radius"])
         if not math.isfinite(radius) or radius < TOL:
             raise OpError("circle radius must be at least 0.001 mm")

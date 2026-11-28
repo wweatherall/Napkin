@@ -25,7 +25,6 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 <!-- open list: built from docs/handoff/ by tools/handoff.py; don't edit by hand -->
 
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
-- [H183 — A failed op names the ids it failed on, so the window stops reading FreeCAD's message text](handoff/H183-rejections-name-their-ids.md) — status: open; for: gemini
 - [H184 — The field audit checks each run of an op, not all runs of its type lumped together](handoff/H184-field-audit-per-run.md) — status: open; for: gemini
 
 <!-- end of open list -->
@@ -34,6 +33,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 Full entries in [handoff-archive.md](handoff-archive.md).
 
+- H183 — A failed op names the ids it failed on, so the window stops reading FreeCAD's message text. Resolved: merged into main by the integrator, 2026-11-27.
 - H182 — What an op creates: the window and FreeCAD agree, checked by one shared table. Resolved: merged into main by the integrator, 2026-11-27.
 - H185 — The hopper: queued jobs run one at a time, each worker starting the next, and the integrator merges the batch once. Resolved: merged into main by the integrator, 2026-11-27.
 - H177 — main.gd step 1: history replies and live preferences move to their own files, behaviour unchanged. Resolved: merged into main by the integrator, 2026-11-27.
@@ -43,9 +43,8 @@ Full entries in [handoff-archive.md](handoff-archive.md).
 - H175 — The merge tools: six things the integrator did by hand on 2026-11-27, made automatic. Resolved: merged into main by the integrator, 2026-11-27.
 - H174 — A generated dependency map: who uses which file, and who calls a function. Resolved: merged into main by the integrator, 2026-11-27.
 - H178 — The full test fails on an op field that's sent but never read (a misspelt field can't run as its default). Resolved: merged into main by the integrator, 2026-11-27.
-- H176 — The two old protocol findings: drop the unused `replay` command, and one place for a session's name. Resolved: merged into main by the integrator, 2026-11-27.
 
-Older: docs/handoff-archive.md (181 entries; find one with grep "^### H0NN" docs/handoff-archive.md)
+Older: docs/handoff-archive.md (182 entries; find one with grep "^### H0NN" docs/handoff-archive.md)
 
 ## Entry template
 

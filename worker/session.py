@@ -764,6 +764,8 @@ class Session:
             self.doc.recompute()
             msg = str(e) if isinstance(e, OpError) else f"{type(e).__name__}: {e}"
             entry.update(status="failed", message=msg)
+            if isinstance(e, OpError) and e.about:
+                entry["about"] = list(e.about)
             print(f"WORKER op failed: {canon(op)} -> {msg}", flush=True)
         entry["ms"] = round((time.perf_counter() - t0) * 1000, 1)
         self.applied.append(entry)
@@ -839,7 +841,7 @@ class Session:
     def status(self):
         out = []
         for e in self.applied:
-            s = {k: e[k] for k in ("id", "type", "status", "changed", "message", "ms") if k in e}
+            s = {k: e[k] for k in ("id", "type", "status", "changed", "message", "about", "ms") if k in e}
             s.setdefault("id", e["op"].get("id"))
             s.setdefault("type", e["op"].get("type"))
             out.append(s)

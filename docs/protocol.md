@@ -1,6 +1,6 @@
 # Window ↔ worker protocol
 
-The wire protocol's version is **18**: the worker reports it in `hello` (`protocol`), defined once per side (`worker/serve.py` `PROTOCOL_VERSION`, `viewport/main.gd` `PROTOCOL_VERSION`). **Rule: bump it on both sides when a message or a shared-file field changes** (added, removed, renamed or its meaning changed), and update this document. There is no negotiation: a window shares a worker only when the version matches. Existing embedded format identifiers are `oplog/0.1` and `shopsketch-journal/0.1`; binary meshes use Godot's Variant array encoding. Version history, job tags and the old producer/consumer findings: [protocol-archive.md](protocol-archive.md).
+The wire protocol's version is **19**: the worker reports it in `hello` (`protocol`), defined once per side (`worker/serve.py` `PROTOCOL_VERSION`, `viewport/main.gd` `PROTOCOL_VERSION`). **Rule: bump it on both sides when a message or a shared-file field changes** (added, removed, renamed or its meaning changed), and update this document. There is no negotiation: a window shares a worker only when the version matches. Existing embedded format identifiers are `oplog/0.1` and `shopsketch-journal/0.1`; binary meshes use Godot's Variant array encoding. Version history, job tags and the old producer/consumer findings: [protocol-archive.md](protocol-archive.md).
 
 ## Transport, identity and lifetime
 
@@ -54,11 +54,11 @@ Examples are illustrative JSON lines; timing values, paths, IDs and hashes vary.
 
 ### `hello`
 
-Request: `cmd: "hello"`, `seq?`. Success: `ok: true`, `cmd: "hello"`, `seq` (echo or null), `app: "shopsketch"`, `protocol: integer` (the protocol version, currently 18), `worker: string` (32 lowercase hex MD5), `pid: integer`. The window uses the worker only if `protocol` equals its own version and `worker` its own identity.
+Request: `cmd: "hello"`, `seq?`. Success: `ok: true`, `cmd: "hello"`, `seq` (echo or null), `app: "shopsketch"`, `protocol: integer` (the protocol version, currently 19), `worker: string` (32 lowercase hex MD5), `pid: integer`. The window uses the worker only if `protocol` equals its own version and `worker` its own identity.
 
 ```json
 {"cmd":"hello"}
-{"ok":true,"cmd":"hello","seq":null,"app":"shopsketch","protocol":18,"worker":"0123456789abcdef0123456789abcdef","pid":1234}
+{"ok":true,"cmd":"hello","seq":null,"app":"shopsketch","protocol":19,"worker":"0123456789abcdef0123456789abcdef","pid":1234}
 ```
 
 Producer/consumer: [worker/serve.py](../worker/serve.py):`serve.handle`, `worker_identity`; [viewport/worker_process.gd](../viewport/worker_process.gd):`probe_worker` (`hello`, `worker_of`). Probing uses a separate short-lived connection.
@@ -109,7 +109,7 @@ Success has `ok: true`, `cmd`, `seq`, `wall_ms: number`, `outdir: string`, `resu
 | `rev` | integer, current saved rev + 1 if dirty (anticipated next save) |
 | `model` | absolute model path |
 
-OpStatus: `id: string`, `type: string`, `status: "ok" | "failed"`, `ms: number`; success normally includes `changed: string[]` (may be `null` if a handler returns no list); failure includes `message: string`. `changed` is a handler report, not an exhaustive geometry diff. Failed operations abort their transaction; later operations are still attempted. Thus request `ok: true` does **not** mean every operation succeeded. Example status: `{"id":"pp1","type":"push_pull","status":"failed","message":"unknown rect 'missing'","ms":0.2}`.
+OpStatus: `id: string`, `type: string`, `status: "ok" | "failed"`, `ms: number`; success normally includes `changed: string[]` (may be `null` if a handler returns no list); failure includes `message: string` and, when the error named specific ids, `about: string[]`. `changed` is a handler report, not an exhaustive geometry diff. Failed operations abort their transaction; later operations are still attempted. Thus request `ok: true` does **not** mean every operation succeeded. Example status: `{"id":"pp1","type":"push_pull","status":"failed","message":"unknown rect 'missing'","about":["missing"],"ms":0.2}`.
 
 Sync keeps the common canonical op prefix, undoes the rest, then applies the new suffix. If required native undo is unavailable it rebuilds; crossing an external undo floor is a request error. Export finishes before the reply (and `status.json` in one-off replay or when `SERVE_STATUS_FILE=1`). Changed/drawing sessions then enter the pending-save map; `saved` is a separate event after persistence.
 

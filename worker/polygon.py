@@ -42,7 +42,7 @@ class PolygonActions:
     def op_polygon(self, op):
         rid = op["id"]
         if self.rect_obj(rid) is not None:
-            raise OpError(f"profile id '{rid}' already exists")
+            raise OpError(f"profile id '{rid}' already exists", about=[rid])
         radius = float(op["radius"])
         if not math.isfinite(radius) or radius < TOL:
             raise OpError("polygon radius must be at least 0.001 mm")
