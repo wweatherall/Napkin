@@ -25,7 +25,6 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 <!-- open list: built from docs/handoff/ by tools/handoff.py; don't edit by hand -->
 
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
-- [H191 — Contracts for every profile op (rect, polygon, line, arc), and the tool and draft checks Circle's pilot lacked](handoff/H191-profile-op-contracts.md) — status: open; for: gemini
 - [H192 — Contracts for the single-mode board ops (paint, grain, hide, delete, link, assembly, mirror, unfit)](handoff/H192-board-op-contracts.md) — status: open; for: gemini
 - [H193 — Design: contracts for the ops with modes (move, push_pull, property_edit, fit), a proposal for William](handoff/H193-moded-op-contracts-design.md) — status: open; for: gemini
 - [H194 — The worker checks each op against its contract before running it (ops with a contract only)](handoff/H194-enforce-op-contracts.md) — status: open; for: gemini
@@ -45,6 +44,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 Full entries in [handoff-archive.md](handoff-archive.md).
 
+- H191 — Contracts for every profile op (rect, polygon, line, arc), and the tool and draft checks Circle's pilot lacked. Resolved: merged into main by the integrator, 2026-11-27.
 - H190 — What each step cost: a member's Log shown with the quota used between its lines. Resolved: merged into main by the integrator, 2026-11-27.
 - H189 — An op contract, piloted on Circle: what it takes, refers to and creates, written once beside its handler and checked everywhere else. Resolved: merged into main by the integrator, 2026-11-27.
 - H188 — presenter.gd step 2: drawn profiles (rectangles, circles, polygons, lines) move to their own file, behaviour unchanged. Resolved: merged into main by the integrator, 2026-11-27.
@@ -54,9 +54,8 @@ Full entries in [handoff-archive.md](handoff-archive.md).
 - H183 — A failed op names the ids it failed on, so the window stops reading FreeCAD's message text. Resolved: merged into main by the integrator, 2026-11-27.
 - H182 — What an op creates: the window and FreeCAD agree, checked by one shared table. Resolved: merged into main by the integrator, 2026-11-27.
 - H185 — The hopper: queued jobs run one at a time, each worker starting the next, and the integrator merges the batch once. Resolved: merged into main by the integrator, 2026-11-27.
-- H177 — main.gd step 1: history replies and live preferences move to their own files, behaviour unchanged. Resolved: merged into main by the integrator, 2026-11-27.
 
-Older: docs/handoff-archive.md (188 entries; find one with grep "^### H0NN" docs/handoff-archive.md)
+Older: docs/handoff-archive.md (189 entries; find one with grep "^### H0NN" docs/handoff-archive.md)
 
 ## Entry template
 

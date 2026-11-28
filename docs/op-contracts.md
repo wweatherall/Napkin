@@ -22,16 +22,18 @@ CONTRACT = {
 
 `worker/op_contracts.py` discovers every `*Actions` module (same AST scan as `Model.action_mixins()`), collects its `CONTRACT`, and writes `tests/op_contracts.json` (`--check` exits 1 if missing or stale). No adjustments to the proposed `circle` dict were needed: `op_circle` reads `id`, `plane`, `radius` (`>= TOL = 0.001`), and `center` (default `[0, 0]`), and creates `RectId=id`.
 
-## 2. Where Circle's meaning lived vs. what is now checked
+## 2. Where Profile Ops' Meaning Lived vs. What Is Now Checked
+
+Covers the five profile ops (`circle`, `rect`, `polygon`, `line`, `arc`; H189 + H191). Note: `line` and `arc` carry `snap_start` and `snap_end` marked `viewport_only: True` (sent by the tools, used by `register_line`, documented in `docs/protocol.md`, unread by the Python handlers).
 
 | Place | What it encodes | Checked against `CONTRACT`? |
 |---|---|---|
-| `worker/circle.py` (`op_circle`) | Required/optional fields, `radius >= TOL` | Yes — `worker/test_op_contracts.py` (via `AuditedDict`) |
-| `docs/protocol.md` (`circle` row) | Field names, required vs `?` | Yes — `tools/protocol_map.py --check` |
+| `worker/*.py` (`op_circle`, `op_rect`, `op_polygon`, `op_line`, `op_arc`) | Required/optional fields, `min`/`max` bounds | Yes — `worker/test_op_contracts.py` (via `AuditedDict`) |
+| `docs/protocol.md` (profile op rows) | Field names, required vs `?` | Yes — `tools/protocol_map.py --check` |
 | `worker/session.py` (`creations`) | IDs owned by the op (`id`) | Yes — `worker/test_op_contracts.py` |
 | `viewport/document.gd` (`_op_makes`, `_op_refs`) | Created IDs and referenced IDs (`plane.on.body`) | Yes — `viewport/test_document.gd` (via `tests/op_contracts.json`) |
-| `viewport/tools/circle_tool.gd` | Payload built on commit (`id`, `type`, `plane`, `radius`) | Not checked (listed in `tool` only) |
-| `viewport/presenter.gd` (`circle_geometry`, `register_profile`) | Draft tessellation and picking | Not checked |
+| `viewport/tools/{circle,rect,polygon,line,arc}_tool.gd` | Payload built on commit (required + documented optional fields) | Yes — `viewport/test_tool_context.gd` (via `tests/op_contracts.json`) |
+| `viewport/profiles.gd` (`register_rect`, `register_line`) | Draft tessellation and picking for required-only and full ops | Yes — `viewport/test_tool_context.gd` (via `tests/op_contracts.json`) |
 | `worker/scenario/99_op_registry.py` | Pins the 19 op types | Independent |
 
 ## 3. Adding a field to Circle: files touched
@@ -49,7 +51,7 @@ Each defect was introduced in turn, `tests/op_contracts.json` regenerated where 
 4. **Change `min` from `0.001` to `1.0` in `CONTRACT`**: caught by `worker/test_op_contracts.py` (`radius < 1.0 (min) is rejected` failed).
 5. **Remove `center` from `docs/protocol.md` `circle` row**: caught by `tools/protocol_map.py --check` (`missing ['center?']`).
 
-Gaps: `circle_tool.gd` is not checked against `CONTRACT` (only named), and `op_circle` does not validate against `CONTRACT` at runtime.
+Gaps: the remaining 14 ops (single-mode board ops and ops with modes) do not have contracts yet, and handlers do not validate ops against `CONTRACT` at runtime. (The tool and draft gaps for the five profile ops are closed in H191.)
 
 ## 5. What Move and Push/Pull contracts would need
 

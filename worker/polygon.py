@@ -12,6 +12,21 @@ from common import OpError, TOL, V, add_props, rotation_from, unit, vec
 MIN_SIDES, MAX_SIDES = 3, 64      # viewport/tools/polygon_tool.gd has the same range
 
 
+CONTRACT = {
+    "type": "polygon",
+    "fields": {
+        "plane": {"required": True, "kind": "Plane"},
+        "radius": {"required": True, "kind": "number", "min": 0.001},
+        "sides": {"required": True, "kind": "integer", "min": 3, "max": 64},
+        "center": {"required": False, "kind": "[number, number]", "default": [0, 0]},
+        "x": {"required": False, "kind": "[number, number, number]"},
+    },
+    "refers_to": ["plane.on.body"],
+    "creates": ["id"],
+    "tool": "viewport/tools/polygon_tool.gd",
+}
+
+
 class PolygonActions:
     def polygon_feature(self, center, x, y, radius, sides, label, existing=None):
         """A regular polygon whose first corner is `radius` along the sketch's x axis from its centre."""

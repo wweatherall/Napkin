@@ -74,6 +74,8 @@ class CircleInference:
 	func on_grid(p: Dictionary) -> Dictionary:
 		calls.append("on_grid"); p["snap"] = "grid"; return p
 	func ray(_screen: Vector2) -> Dictionary: return {"origin": ray_at + Vector3(0, 0, 500), "direction": Vector3(0, 0, -1)}
+	func snap_radius() -> float: return 10.0
+	func cursor() -> Vector2: return Vector2.ZERO
 
 
 class ProfilePresenter:
@@ -592,6 +594,7 @@ func _initialize() -> void:
 
 	_test_push()
 	_test_move()
+	_test_profile_contracts()
 
 	# --- geometry: the moved functions, and Main's wrappers give the same answers ---
 	var v3 := Vector3(1.23456, -7.0004, 2.5)
@@ -791,6 +794,134 @@ func _test_move() -> void:
 		and patch.mesh.surface_get_material(0) == scene.mat_cut and patch.get_child_count() == 1
 		and wave.body == "board" and wave.links.size() == 1 and wave.links[0][0] == confirmed
 		and wave.links[0][1] == edges and wave.og == Geo.m2g(Vector3.RIGHT * 10) and t.doc.seq == 4)
+
+
+func _test_profile_contracts() -> void:
+	var contracts_path := ProjectSettings.globalize_path("res://").path_join("../tests/op_contracts.json")
+	var contracts = JSON.parse_string(FileAccess.get_file_as_string(contracts_path))
+	check("H191: tests/op_contracts.json loads for tool and draft checks", contracts is Dictionary and not contracts.is_empty())
+	if not (contracts is Dictionary): return
+
+	var t := make()
+	var pres: Presenter = t.pres
+	var scene := DraftScene.new()
+	pres.m = scene
+	made.append(scene.drafts_root); made.append(scene.bodies_root)
+	var infer := CircleInference.new()
+	var measure := FakeMeasure.new()
+	var parts: Dictionary = t.parts.merged({"infer": infer, "measure": measure}, true)
+	var ctx := ToolContext.new(parts)
+
+	# 1. Tool check: each of the 5 profile tools commits an op with every required field and no undocumented field.
+	var tool_ops := {}
+
+	var circle = load("res://tools/circle_tool.gd").new()
+	circle.setup_context(ctx)
+	infer.hit = {"hit": true, "point": Vector3(0, 0, 0), "normal": Vector3(0, 0, 1), "body": "", "rect": ""}
+	circle.click(Vector2.ZERO)
+	infer.ray_at = Vector3(20, 0, 0)
+	circle.mouse_moved(Vector2(50, 0))
+	circle.click(Vector2(50, 0))
+	tool_ops["circle"] = t.doc.ops.back()
+
+	var rect = load("res://tools/rect_tool.gd").new()
+	rect.setup_context(ctx)
+	infer.hit = {"hit": true, "point": Vector3(0, 0, 0), "normal": Vector3(0, 0, 1), "body": "", "rect": ""}
+	rect.click(Vector2.ZERO)
+	infer.ray_at = Vector3(20, 30, 0)
+	rect.mouse_moved(Vector2(50, 50))
+	rect.click(Vector2(50, 50))
+	tool_ops["rect"] = t.doc.ops.back()
+
+	var polygon = load("res://tools/polygon_tool.gd").new()
+	polygon.setup_context(ctx)
+	infer.hit = {"hit": true, "point": Vector3(0, 0, 0), "normal": Vector3(0, 0, 1), "body": "", "rect": ""}
+	polygon.click(Vector2.ZERO)
+	infer.ray_at = Vector3(20, 0, 0)
+	polygon.mouse_moved(Vector2(50, 0))
+	polygon.click(Vector2(50, 0))
+	tool_ops["polygon"] = t.doc.ops.back()
+
+	var line = load("res://tools/line_tool.gd").new()
+	line.setup_context(ctx)
+	infer.hit = {"hit": true, "point": Vector3(0, 0, 0), "normal": Vector3(0, 0, 1), "body": "", "rect": ""}
+	line.click(Vector2.ZERO)
+	infer.ray_at = Vector3(20, 0, 0)
+	line.mouse_moved(Vector2(50, 0))
+	line.click(Vector2(50, 0))
+	tool_ops["line"] = t.doc.ops.back()
+
+	var arc = load("res://tools/arc_tool.gd").new()
+	arc.setup_context(ctx)
+	infer.hit = {"hit": true, "point": Vector3(0, 0, 0), "normal": Vector3(0, 0, 1), "body": "", "rect": ""}
+	arc.click(Vector2.ZERO)
+	infer.ray_at = Vector3(20, 0, 0)
+	arc.mouse_moved(Vector2(50, 0))
+	arc.click(Vector2(50, 0))
+	infer.ray_at = Vector3(10, 5, 0)
+	arc.mouse_moved(Vector2(25, 25))
+	arc.click(Vector2(25, 25))
+	tool_ops["arc"] = t.doc.ops.back()
+
+	for op_type in ["circle", "rect", "polygon", "line", "arc"]:
+		var contract: Dictionary = contracts.get(op_type, {})
+		var op: Dictionary = tool_ops[op_type]
+		var fields: Dictionary = contract.get("fields", {})
+		var missing_req := []
+		for fname in fields:
+			if fields[fname].get("required", true) and not op.has(fname):
+				missing_req.append(fname)
+		var extra := []
+		for k in op:
+			if k != "id" and k != "type" and not fields.has(k):
+				extra.append(k)
+		check("H191: %s tool commits op matching contract (missing=%s extra=%s)" % [op_type, missing_req, extra],
+			op.get("type", "") == op_type and missing_req.is_empty() and extra.is_empty(), op)
+
+		# 2. Draft check: register_rect / register_line draws both required-only and full ops from the contract.
+		for include_optional: bool in [false, true]:
+			var tag := "full" if include_optional else "required"
+			var draft_id := "draft_%s_%s" % [op_type, tag]
+			var draft_op := _build_contract_op(draft_id, contract, include_optional)
+			if op_type in ["line", "arc"]:
+				pres.register_line(draft_op)
+				var has_line := pres.drafts.has("line:" + draft_id)
+				var has_outline: bool = (not include_optional) or op_type != "line" or pres.drafts.has(draft_id)
+				check("H191: register_line draws %s %s op" % [tag, op_type], has_line and has_outline, draft_op)
+			else:
+				pres.register_rect(draft_op)
+				check("H191: register_rect draws %s %s op" % [tag, op_type], pres.drafts.has(draft_id), draft_op)
+
+
+static func _sample_contract_value(spec: Dictionary, fname: String) -> Variant:
+	var kind: String = spec.get("kind", "")
+	if kind == "Plane":
+		return {"origin": [0, 0, 0], "normal": [0, 0, 1]}
+	if kind == "number":
+		return maxf(float(spec.get("min", 1.0)) * 10.0, 10.0)
+	if kind == "integer":
+		return int(spec.get("min", 1))
+	if kind == "bool":
+		return not bool(spec.get("default", false))
+	if kind == "[number, number]":
+		return spec.get("default", [5.0, 5.0]).duplicate()
+	if kind == "[number, number, number]":
+		if fname == "mid":
+			return [5.0, 5.0, 0.0]
+		return [10.0, 0.0, 0.0]
+	if kind == "[[number, number, number]]":
+		return [[0.0, 0.0, 0.0], [10.0, 0.0, 0.0], [10.0, 10.0, 0.0]]
+	return null
+
+
+static func _build_contract_op(op_id: String, contract: Dictionary, include_optional: bool) -> Dictionary:
+	var op := {"id": op_id, "type": contract["type"]}
+	var fields: Dictionary = contract.get("fields", {})
+	for fname in fields:
+		var spec: Dictionary = fields[fname]
+		if spec.get("required", true) or include_optional:
+			op[fname] = _sample_contract_value(spec, fname)
+	return op
 
 
 static func _same(a: Array, b: Array) -> bool:

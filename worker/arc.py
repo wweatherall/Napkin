@@ -12,6 +12,21 @@ import Sketcher
 from common import OpError, TOL, V, add_props, rotation_from, vec
 
 
+CONTRACT = {
+    "type": "arc",
+    "fields": {
+        "plane": {"required": True, "kind": "Plane"},
+        "mid": {"required": True, "kind": "[number, number, number]"},
+        "end": {"required": True, "kind": "[number, number, number]"},
+        "snap_start": {"required": False, "kind": "bool", "default": False, "viewport_only": True},
+        "snap_end": {"required": False, "kind": "bool", "default": False, "viewport_only": True},
+    },
+    "refers_to": ["plane.on.body"],
+    "creates": ["id"],
+    "tool": "viewport/tools/arc_tool.gd",
+}
+
+
 class ArcActions:
     def op_arc(self, op):
         spec = op["plane"]

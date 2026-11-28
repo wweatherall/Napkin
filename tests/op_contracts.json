@@ -1,4 +1,40 @@
 {
+  "arc": {
+    "creates": [
+      "id"
+    ],
+    "fields": {
+      "end": {
+        "kind": "[number, number, number]",
+        "required": true
+      },
+      "mid": {
+        "kind": "[number, number, number]",
+        "required": true
+      },
+      "plane": {
+        "kind": "Plane",
+        "required": true
+      },
+      "snap_end": {
+        "default": false,
+        "kind": "bool",
+        "required": false,
+        "viewport_only": true
+      },
+      "snap_start": {
+        "default": false,
+        "kind": "bool",
+        "required": false,
+        "viewport_only": true
+      }
+    },
+    "refers_to": [
+      "plane.on.body"
+    ],
+    "tool": "viewport/tools/arc_tool.gd",
+    "type": "arc"
+  },
   "circle": {
     "creates": [
       "id"
@@ -27,5 +63,112 @@
     ],
     "tool": "viewport/tools/circle_tool.gd",
     "type": "circle"
+  },
+  "line": {
+    "creates": [
+      "id"
+    ],
+    "fields": {
+      "end": {
+        "kind": "[number, number, number]",
+        "required": true
+      },
+      "outline": {
+        "kind": "[[number, number, number]]",
+        "required": false
+      },
+      "plane": {
+        "kind": "Plane",
+        "required": true
+      },
+      "snap_end": {
+        "default": false,
+        "kind": "bool",
+        "required": false,
+        "viewport_only": true
+      },
+      "snap_start": {
+        "default": false,
+        "kind": "bool",
+        "required": false,
+        "viewport_only": true
+      }
+    },
+    "refers_to": [
+      "plane.on.body"
+    ],
+    "tool": "viewport/tools/line_tool.gd",
+    "type": "line"
+  },
+  "polygon": {
+    "creates": [
+      "id"
+    ],
+    "fields": {
+      "center": {
+        "default": [
+          0,
+          0
+        ],
+        "kind": "[number, number]",
+        "required": false
+      },
+      "plane": {
+        "kind": "Plane",
+        "required": true
+      },
+      "radius": {
+        "kind": "number",
+        "min": 0.001,
+        "required": true
+      },
+      "sides": {
+        "kind": "integer",
+        "max": 64,
+        "min": 3,
+        "required": true
+      },
+      "x": {
+        "kind": "[number, number, number]",
+        "required": false
+      }
+    },
+    "refers_to": [
+      "plane.on.body"
+    ],
+    "tool": "viewport/tools/polygon_tool.gd",
+    "type": "polygon"
+  },
+  "rect": {
+    "creates": [
+      "id"
+    ],
+    "fields": {
+      "corner": {
+        "default": [
+          0,
+          0
+        ],
+        "kind": "[number, number]",
+        "required": false
+      },
+      "plane": {
+        "kind": "Plane",
+        "required": true
+      },
+      "size": {
+        "kind": "[number, number]",
+        "required": true
+      },
+      "x": {
+        "kind": "[number, number, number]",
+        "required": false
+      }
+    },
+    "refers_to": [
+      "plane.on.body"
+    ],
+    "tool": "viewport/tools/rect_tool.gd",
+    "type": "rect"
   }
 }
