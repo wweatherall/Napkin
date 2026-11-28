@@ -1,6 +1,6 @@
 ### H199 — Push/Pull split, step 2: creating a board is a `new_board` op, and the one-time updater (T159, I74, A43)
 
-Author: Claude (integrator, opus-integrator) | Date: 2026-11-27 | Status: queued (after H198) | For: gemini | Item: T159
+Author: Claude (integrator, opus-integrator) | Date: 2026-11-27 | Status: open | For: gemini | Item: T159
 
 References: I74 (a new board is `new_board`; a fit in the same drag is an optional `fit` on it, so one Undo removes the
 whole gesture), A43 (no compatibility shims: a one-time updater rewrites examples/, the tests' saved files and
@@ -39,7 +39,12 @@ Request:
 4. Run it once on the default paths and commit the rewritten files in this job. The tests that read saved files must
    pass on the rewritten copies.
 5. Opening a file that still holds an old op (not updated) is a normal rejection, worded:
-   `This file was saved by an older Shop Sketch: run tools/UPDATE_OLD_FILES.py on it` (William may reword).
+   `This file was saved by an older Napkin: run tools/UPDATE_OLD_FILES.py on it` (William may reword).
+
+6. From H198's review: `commit_push` returns silently when a face fit has no stock frame or no axis matching the face
+   (`if src.is_empty() ...: return`, `if axis == -1: return`), where the worker used to refuse with a reason. Show
+   the worker's old messages as a normal rejection instead (G10: a rejected action says why): `Source has no
+   extrudable stock` and `Source face no longer matches the chosen dimension`. Test both.
 
 Not in this job: `resize_stock` (H200), the fit's face naming (H201).
 

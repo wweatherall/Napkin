@@ -128,9 +128,17 @@ func run() -> void:
 		await harness._key(KEY_ALT)                       # Slice at plane: the draft's end lies on the tilted rail
 		await harness._shot("push_edge_inferred_face")
 		await harness._press()
+		var fit_id: String = m.ops.back().get("id", "")
+		harness._ok("face fit creates one draft and one wave",
+				m.drafts_root.get_child_count() == 1 and m.pres.op_waves.has(fit_id),
+				[m.drafts_root.get_child_count(), m.pres.op_waves.keys()])
 		await harness._wait_confirm()
-		harness._ok("edge fit saved in a single push",m.ops.back().get("edge_fit",{}).get("face",-1)==initial and m.stock_frames.b1.fitted
-				and m.ops.back().edge_fit.get("fit_mode",-1) == 1 and "Slice at plane" in str(m.stock_frames.b1.result),m.ops.back())
+		harness._ok("edge fit saved in a single push",m.ops.back().get("type","")=="fit"
+				and m.ops.back().get("face",-1)==initial and m.stock_frames.b1.fitted
+				and m.ops.back().get("fit_mode",-1) == 1 and "Slice at plane" in str(m.stock_frames.b1.result),m.ops.back())
+		m.undo()
+		await harness._wait_confirm()
+		harness._ok("one Undo undoes face fit", not m.stock_frames.b1.fitted, m.stock_frames.b1)
 	# All three incident planes are reachable for this small piece under a doubly tilted rail.
 	var corner_scene := harness._plank(1,Vector3(-18,-18,0),Vector3(8,8,15))
 	var corner_target := harness._plank(2,Vector3(0,0,150),Vector3(70,60,12))
@@ -154,7 +162,7 @@ func run() -> void:
 		harness._ok("Tab cycles each incident face once",distinct == [0,2,5] and edge_tool.state.edge_fit.face == chosen[0],chosen)
 		await harness._press()
 		await harness._wait_confirm()
-		harness._ok("corner click commits its previewed face",m.stock_frames.b1.fitted and m.ops.back().edge_fit.face == chosen[0])
+		harness._ok("corner click commits its previewed face",m.stock_frames.b1.fitted and m.ops.back().get("type","") == "fit" and m.ops.back().get("face",-1) == chosen[0])
 	# T60: Push/Pull edge-inference onto a fitted board B's fitted end creates A <- B <- C, and moving A updates both.
 	var chain_scene := harness._plank(1, Vector3(-100, 0, 200), Vector3(120, 60, 20))
 	chain_scene.append_array(harness._plank(2, Vector3(0, 0, 80), Vector3(80, 40, 20)))

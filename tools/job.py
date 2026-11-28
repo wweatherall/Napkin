@@ -305,7 +305,7 @@ VALID_PACES = ("all at once", "one at a time")
 
 def board_pace(board_text):
     """(pace, warning) from the board's "Pace:" line. Missing or unknown values fall back to "one at a time" (P75:
-    parallel jobs' tests overload the machine and fail; "all at once" only when the board says so)."""
+    "all at once" only when the board says so)."""
     line = next((l for l in (board_text or "").split("\n") if l.startswith("Pace:")), None)
     if line is None:
         return "one at a time", None
@@ -371,9 +371,8 @@ def resolve_dependencies(jobs, st=None):
 
 
 def _pacing_jobs(st):
-    """Jobs that hold the `one at a time` pace (P75, replacing P74's "questions don't hold the queue"): `in progress`
-    and `waiting` jobs, so an answered worker never resumes its tests beside another job's."""
-    return [jid for jid, s in st["jobs"].items() if s.get("state") in ("in progress", "waiting")]
+    """Jobs that hold the `one at a time` pace (P74): only `in progress` jobs; waiting workers idle."""
+    return [jid for jid, s in st["jobs"].items() if s.get("state") == "in progress"]
 
 
 def takeable(root, st, agent, jobs, order, claims=None, pace="all at once"):

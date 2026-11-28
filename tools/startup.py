@@ -788,8 +788,9 @@ def parse_ranking(text):
         c = cells(line)
         if len(c) >= 4 and c[0].isdigit():
             body = c[4] if len(c) >= 5 else c[-1]
+            pid = c[3].split()[-1] if len(c) >= 5 and c[3].split() else ""   # "napkin G05" -> G05, the ID rulings cite
             if body:
-                ranked.append((int(c[0]), body))
+                ranked.append((int(c[0]), body + (f" ({pid})" if pid else "")))
     if ranked:
         return [f"{rank}. {body}" for rank, body in sorted(ranked)]
     plain = []

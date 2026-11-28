@@ -283,11 +283,11 @@ check("a 'your call' item in a file is waiting on William",
       w_rows == [("T147", "Your call: pick the snap rule.")])
 
 # --- Onboarding brief sections (H163) ---
-check("parse_ranking sorts table rows by rank regardless of input order",
+check("parse_ranking sorts table rows by rank regardless of input order, each ending with its ID",
       s.parse_ranking("| # | Rating | Compared | Principle | |\n|---|---|---|---|---|\n"
                       "| 2 | 1000 | 2 | org U2 | Second rule. |\n"
                       "| 1 | 1050 | 3 | org 02 | First rule. |\n")
-      == ["1. First rule.", "2. Second rule."])
+      == ["1. First rule. (02)", "2. Second rule. (U2)"])
 check("parse_ranking falls back to plain principle lines when there is no table",
       s.parse_ranking("# Principles\n\nHigher wins when two pull against each other.\n\n"
                       "- Alpha rule.\n- Beta rule.\n")

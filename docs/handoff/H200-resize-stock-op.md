@@ -1,6 +1,6 @@
 ### H200 — Push/Pull split, step 3: resizing plain stock is a `resize_stock` op (T159, I74)
 
-Author: Claude (integrator, opus-integrator) | Date: 2026-11-27 | Status: queued (after H199) | For: gemini | Item: T159 | Completes: T159
+Author: Claude (integrator, opus-integrator) | Date: 2026-11-27 | Status: queued (after H204) | For: gemini | Item: T159 | Completes: T159
 
 References: I74, A43, docs/proposals/T159-push-pull.md (split 3), H198, H199 (the updater), P73.
 

@@ -326,7 +326,7 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | P72 | The structural report (designs P31/P32): at merge, integrate.py works out the structura... | Active |
 | P73 | A worker doesn't ask the integrator before a change outside Touches that follows mechan... | Active |
 | P74 | The hopper brings in the integrator only when all work is paused: nothing in progress a... | Active |
-| P75 | Jobs run strictly one at a time until William says otherwise: the hopper's pace default... | Active |
+| P75 | The hopper's pace defaults to one at a time: a board without a Pace line, or with an unknown one, runs... | Active |
 
 ## Open questions
 
@@ -377,11 +377,11 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | T136 | Self-generated architecture map: current and proposed, unbuilt work ghosted, job-board ... | Open |
 | T137 | Decimal commas for European typing of measurements. | Open |
 | T138 | Compress ARCHITECTURE.md heavily so the start-up brief can carry the map (about 80 KB t... | Open |
-| T139 | Rename the app to Napkin: what you see, the built app, folders, and the code and docs t... | Open |
+| T139 | Rename the app to Napkin: what you see, the built app, folders, and the code and docs t... | On the board (H204) |
 | T141 | William tries the Polygon tool by eye in a rebuilt app (tools/BUILD_THE_APP.sh). | Open |
 | T152 | Thin the tests without losing coverage: research how others do it (coverage-guided test... | Open |
 | T153 | Generated tests: inputs made fresh each run (a random seed, printed so a failure can be... | Open |
-| T159 | Clarify push_pull and separate its jobs: one op today extrudes a profile or face, cuts,... | On the board (H198, H199, H200) |
+| T159 | Clarify push_pull and separate its jobs: one op today extrudes a profile or face, cuts,... | On the board (H199, H200) |
 | T161 | Think through plane-fit face numbering: faces are 0-5 (Left..Top) on plain stock but 't... | On the board (H201) |
 | T163 | Suspected bug (found by H179's T161 proposal): flipping a board (mirror with replace) t... | On the board (H201) |
 | T164 | Find a home for (or delete) Napkin's three top-level reference docs: 'Codex's suggestio... | Open |
