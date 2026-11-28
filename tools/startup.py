@@ -590,7 +590,7 @@ def role_brief(role):
             "Worker checklist (BOARD.md):",
             "  Guide: follow BOARD.md (and AGENTS.md / GEMINI.md for your agent); one job per session (P37).",
             "  Take: python3 tools/GET_A_JOB.py --as <claude|codex|gemini> (Gemini without --session: job.py reads its conversation id, GEMINI.md).",
-            "  Scope: work only in ../.worktrees/<checkout>/<id> (P63) and only on Touches; ask scope via job.py wait --scope.",
+            "  Scope: work only in ../.worktrees/<checkout>/<id> (P63) and only on Touches; mechanical consequences of the brief need no question (P73: name them in Changed from the brief:); ask other scope via job.py wait --scope.",
             "  Done: run tools/TEST_YOUR_CODE_FAST.sh, record response + Result:, set Status: answered, run python3 tools/SUBMIT_JOB.py, tell William.",
         ]
     return []
