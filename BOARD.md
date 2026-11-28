@@ -3,7 +3,7 @@
 "Check the board" sends you here. Only the integrator edits this file; the job table is built from docs/handoff/
 and the job queue.
 
-Order: H191, H192, H196, H197, H195, H193, H194
+Order: H191, H192, H196, H197, H195, H193, H194, H198, H199, H200, H201, H202, H203
 Pace: one at a time
 
 ## If you're not the integrator
@@ -76,9 +76,15 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 | H192 | Gemini | **Done**: for review (gemini) | Contracts for the single-mode board ops (paint, grain, hide, delete, link, assembly, mirror, unfit) | [H192](docs/handoff/H192-board-op-contracts.md) |  |
 | H196 | Gemini | **Done**: for review (gemini) | The hopper runs in its own Terminal window; the integrator waits for it separately (and Order is kept across agents) | [H196](docs/handoff/H196-hopper-in-its-own-window.md) |  |
 | H197 | Gemini | **Done**: for review (gemini) | When all work is paused, the hopper brings in the integrator: wakes it, or starts a new one | [H197](docs/handoff/H197-hopper-brings-the-integrator.md) |  |
-| H195 | Codex | **Ready** | Codex in the token tool: its quota windows and each job's tokens, from Codex's own session logs | [H195](docs/handoff/H195-codex-usage.md) |  |
+| H195 | Codex | In progress (codex since 20:36) | Codex in the token tool: its quota windows and each job's tokens, from Codex's own session logs | [H195](docs/handoff/H195-codex-usage.md) |  |
 | H193 | Gemini | **Done**: for review (gemini) | Design: contracts for the ops with modes (move, push_pull, property_edit, fit), a proposal for William | [H193](docs/handoff/H193-moded-op-contracts-design.md) |  |
-| H194 | Gemini | In progress (gemini since 20:29) | The worker checks each op against its contract before running it (ops with a contract only) | [H194](docs/handoff/H194-enforce-op-contracts.md) |  |
+| H194 | Gemini | **Done**: for review (gemini) | The worker checks each op against its contract before running it (ops with a contract only) | [H194](docs/handoff/H194-enforce-op-contracts.md) |  |
+| H198 | Gemini | Queued | Push/Pull split, step 1: fitting a face to another board's edge sends a `fit` op (T159, I74) | [H198](docs/handoff/H198-face-fit-is-a-fit-op.md) | H194 |
+| H199 | Gemini | Queued | Push/Pull split, step 2: creating a board is a `new_board` op, and the one-time updater (T159, I74, A43) | [H199](docs/handoff/H199-new-board-op.md) | H198 |
+| H200 | Gemini | Queued | Push/Pull split, step 3: resizing plain stock is a `resize_stock` op (T159, I74) | [H200](docs/handoff/H200-resize-stock-op.md) | H199 |
+| H201 | Gemini | Queued | A fit names its target face by geometry, follows flips and rotations, and detaches when the face is gone (T161, T163, I75-I77) | [H201](docs/handoff/H201-fits-name-faces-by-geometry.md) | H200 |
+| H202 | Gemini | Queued | Design: how a fit that lost its face looks (a chain crumbling, or another gentle metaphor), a proposal with drafts for William | [H202](docs/handoff/H202-fit-detach-look.md) | H201 |
+| H203 | Gemini | Queued | The hopper draws itself: an ASCII picture of the jobs waiting, being worked on, and on the integrator's desk | [H203](docs/handoff/H203-hopper-picture.md) | H197 |
 
 <!-- end of job table -->
 

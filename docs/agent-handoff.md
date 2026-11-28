@@ -32,6 +32,12 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H195 — Codex in the token tool: its quota windows and each job's tokens, from Codex's own session logs](handoff/H195-codex-usage.md) — status: open; for: codex
 - [H196 — The hopper runs in its own Terminal window; the integrator waits for it separately (and Order is kept across agents)](handoff/H196-hopper-in-its-own-window.md) — status: open; for: gemini
 - [H197 — When all work is paused, the hopper brings in the integrator: wakes it, or starts a new one](handoff/H197-hopper-brings-the-integrator.md) — status: open; for: gemini
+- [H198 — Push/Pull split, step 1: fitting a face to another board's edge sends a `fit` op (T159, I74)](handoff/H198-face-fit-is-a-fit-op.md) — status: queued (after H194); for: gemini
+- [H199 — Push/Pull split, step 2: creating a board is a `new_board` op, and the one-time updater (T159, I74, A43)](handoff/H199-new-board-op.md) — status: queued (after H198); for: gemini
+- [H200 — Push/Pull split, step 3: resizing plain stock is a `resize_stock` op (T159, I74)](handoff/H200-resize-stock-op.md) — status: queued (after H199); for: gemini
+- [H201 — A fit names its target face by geometry, follows flips and rotations, and detaches when the face is gone (T161, T163, I75-I77)](handoff/H201-fits-name-faces-by-geometry.md) — status: queued (after H200); for: gemini
+- [H202 — Design: how a fit that lost its face looks (a chain crumbling, or another gentle metaphor), a proposal with drafts for William](handoff/H202-fit-detach-look.md) — status: queued (after H201); for: gemini
+- [H203 — The hopper draws itself: an ASCII picture of the jobs waiting, being worked on, and on the integrator's desk](handoff/H203-hopper-picture.md) — status: queued (after H197); for: gemini
 
 <!-- end of open list -->
 
