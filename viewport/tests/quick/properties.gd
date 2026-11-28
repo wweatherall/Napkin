@@ -259,7 +259,7 @@ func run() -> void:
 	# T62: Properties "Pick face…" can tie a board to a circular board's planar face and updates when target moves.
 	var cyl_scene := harness._plank(1, Vector3.ZERO, Vector3(40, 40, 20))
 	cyl_scene.append({"id": "c1", "type": "circle", "plane": {"origin": [20, 20, 120], "normal": [0, 0, 1]}, "radius": 30.0})
-	cyl_scene.append({"id": "cp1", "type": "push_pull", "target": {"rect": "c1"}, "distance": 20.0, "body": "b2"})
+	cyl_scene.append({"id": "cp1", "type": "new_board", "target": {"rect": "c1"}, "distance": 20.0, "body": "b2"})
 	await harness._fresh("t62_cyl_fit", cyl_scene)
 	m.set_tool("select")
 	m.properties_panel.show()
@@ -284,7 +284,7 @@ func run() -> void:
 	# T147: Picking a non-rectangular target's fitted end in Properties names the same face FreeCAD reports.
 	var nonrect_fit_scene := harness._plank(1, Vector3.ZERO, Vector3(40, 40, 20))
 	nonrect_fit_scene.append({"id": "c2", "type": "circle", "plane": {"origin": [20, 20, 120], "normal": [0, 0, 1]}, "radius": 30.0})
-	nonrect_fit_scene.append({"id": "cp2", "type": "push_pull", "target": {"rect": "c2"}, "distance": 20.0, "body": "b2"})
+	nonrect_fit_scene.append({"id": "cp2", "type": "new_board", "target": {"rect": "c2"}, "distance": 20.0, "body": "b2"})
 	nonrect_fit_scene.append_array(harness._plank(3, Vector3(120, 0, 200), Vector3(40, 40, 20)))
 	nonrect_fit_scene.append({"id": "fit_b2", "type": "fit", "body": "b2",
 			"target_body": "b3", "axis": 2, "face": 4, "fit_mode": 0})
@@ -308,3 +308,20 @@ func run() -> void:
 				p147.data.boards.b1.fitted and "Face 2 face" in p147.data.boards.b1.result,
 				[preview_text, p147.data.boards.b1.result])
 	m.properties_panel.hide()
+
+	# H199: commit_push shows normal rejections for missing stock frame and unmatched axis
+	m.set_tool("push")
+	var pt = m.tools.push
+	var ops_before: int = m.ops.size()
+	pt.state = {"rect": "", "body": "no_such_board", "n": Vector3(0, 0, 1), "anchor": Vector3.ZERO}
+	pt.commit_push(10.0, {"target_body": harness.id("b3"), "face": 4})
+	harness._ok("H199 commit_push rejects missing stock frame with reason",
+			m.ops.size() == ops_before and m.reject_note == "Source has no extrudable stock"
+			and m.ui_sync.text == "✗ rejected Source has no extrudable stock" and not pt.busy(),
+			[m.reject_note, m.ui_sync.text])
+	pt.state = {"rect": "", "body": harness.id("b1"), "n": Vector3(1, 1, 0).normalized(), "anchor": Vector3.ZERO}
+	pt.commit_push(10.0, {"target_body": harness.id("b3"), "face": 4})
+	harness._ok("H199 commit_push rejects unmatched axis with reason",
+			m.ops.size() == ops_before and m.reject_note == "Source face no longer matches the chosen dimension"
+			and m.ui_sync.text == "✗ rejected Source face no longer matches the chosen dimension" and not pt.busy(),
+			[m.reject_note, m.ui_sync.text])

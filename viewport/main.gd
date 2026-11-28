@@ -496,7 +496,7 @@ func _make_tool_context():
 		"materials": {"hover": mat_hover, "profile": mat_rect, "draft": mat_draft, "cut": mat_cut, "cut_highlight": mat_cut_hl},
 		"show_marker": pres.show_marker, "hide_marker": func(): marker.visible = false,
 		"push_filter": pres.draft_tests.filter if test_mode else Callable(),
-		"refresh_tip": _update_tip, "clear_rejection": func(): reject_note = "",
+		"refresh_tip": _update_tip, "clear_rejection": func(): reject_note = "", "show_rejection": _say_rejection,
 		"refresh_hint": func(): ui_hint.text = tools[tool].hint(),
 		"show_status": _say_status, "tool_active": func(id: String) -> bool: return tool == id,
 		"new_board": func() -> bool: return new_board,
@@ -687,6 +687,13 @@ func _say_status(txt: String) -> void:
 	ui_sync.remove_theme_color_override("font_color")
 
 
+func _say_rejection(txt: String) -> void:
+	reject_note = txt
+	last_reject_note = txt
+	ui_sync.text = "✗ rejected " + doc.readable_ids(txt)
+	ui_sync.add_theme_color_override("font_color", Color(0.75, 0.1, 0.1))
+
+
 # ---------------- snapping visuals (the engine is inference.gd) ----------------
 const SNAP_COLORS := Presenter.SNAP_COLORS   # the rendering constants are the presenter's (T88)
 
@@ -750,7 +757,7 @@ var _first_open := true
 
 # The window <-> worker protocol's version (docs/protocol.md): bump it when a message or shared-file field changes.
 # The worker reports its own (worker/serve.py PROTOCOL_VERSION) in hello; a worker speaking another isn't shared.
-const PROTOCOL_VERSION := 20
+const PROTOCOL_VERSION := 21
 
 
 func _send_open() -> void:

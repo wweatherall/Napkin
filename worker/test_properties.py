@@ -22,9 +22,9 @@ os.makedirs(folder, exist_ok=True)
 s = Session(os.path.join(folder,'properties.FCStd'), fresh=True)
 ops = [
  {'id':'r1','type':'rect','plane':{'normal':[0,0,1],'origin':[0,0,0]},'size':[100,50]},
- {'id':'pp1','type':'push_pull','target':{'rect':'r1'},'distance':20,'body':'b1'},
+ {'id':'pp1','type':'new_board','target':{'rect':'r1'},'distance':20,'body':'b1'},
  {'id':'r2','type':'rect','plane':{'normal':[0,0,1],'origin':[300,0,0]},'size':[80,40]},
- {'id':'pp2','type':'push_pull','target':{'rect':'r2'},'distance':15,'body':'b2'},
+ {'id':'pp2','type':'new_board','target':{'rect':'r2'},'distance':15,'body':'b2'},
 ]
 s.sync(ops)
 root = s.model.body('b1')
@@ -129,7 +129,7 @@ check('explicit length detaches fit',fit_session.model.body('b1').Tip.TypeId=='P
 # A new extruded rectangle and its edge-inferred face tie share one journal entry.
 edge_session = Session(os.path.join(folder,'edge.FCStd'), fresh=True)
 rail = [dict(base_ops[2],plane={'normal':[0,0,1],'origin':[0,0,80]}),base_ops[3]]
-new_leg = dict(base_ops[1],edge_fit={'target_body':'b2','face':4})
+new_leg = dict(base_ops[1],fit={'target_body':'b2','face':4})
 edge_ops = rail + [base_ops[0],new_leg]
 edge_session.sync(edge_ops)
 def piece_volume():
@@ -141,7 +141,7 @@ edge_session.sync(edge_ops[:-1])
 check('one undo removes the extruded piece and fit','b1' not in edge_session.model.bodies())
 # The three end conditions through a push (I41), here to a level rail: all three give the same 400000 mm3.
 for mode in (1, 2):
-    edge_session.sync(rail + [base_ops[0], dict(new_leg, id='pp1_'+str(mode), edge_fit={'target_body':'b2','face':4,'fit_mode':mode})])
+    edge_session.sync(rail + [base_ops[0], dict(new_leg, id='pp1_'+str(mode), fit={'target_body':'b2','face':4,'fit_mode':mode})])
     check('push end condition '+str(mode)+' is stored', edge_session.model.body('b1').Tip.SSMode == mode and abs(piece_volume()-400000)<0.01)
 edge_session.sync(edge_ops)
 # Pull the low end of a board down to a rail. Replacing its length keeps the high end fixed.
@@ -178,9 +178,9 @@ check('undo numeric re-pull restores dimension',abs(piece_volume()-100000)<0.01)
 re_session = Session(os.path.join(folder,'repush.FCStd'), fresh=True)
 re_ops = [
  {'id':'r1','type':'rect','plane':{'normal':[0,0,1],'origin':[0,0,0]},'size':[40,20]},
- {'id':'pp1','type':'push_pull','target':{'rect':'r1'},'distance':100,'body':'b1'},
+ {'id':'pp1','type':'new_board','target':{'rect':'r1'},'distance':100,'body':'b1'},
  {'id':'r2','type':'rect','plane':{'normal':[0,0,1],'origin':[-50,-50,300]},'size':[200,200]},
- {'id':'pp2','type':'push_pull','target':{'rect':'r2'},'distance':20,'body':'b2'},
+ {'id':'pp2','type':'new_board','target':{'rect':'r2'},'distance':20,'body':'b2'},
  dict(type='fit',id='fit',body='b1',target_body='b2',axis=2,face=4,fit_mode=0),
  {'id':'again','type':'push_pull','target':{'face':{'body':'b1','normal':[0,0,1],'point':[20,10,300]}},'distance':50},
 ]
@@ -216,11 +216,11 @@ chain_session = Session(os.path.join(folder, 'chain.FCStd'), fresh=True)
 # Create C (b3) before B (b2) in doc.Objects to verify topological propagation order.
 chain_base = [
     {'id':'ca_r','type':'rect','plane':{'normal':[0,0,1],'origin':[0,0,300]},'size':[200,60]},
-    {'id':'ca_p','type':'push_pull','target':{'rect':'ca_r'},'distance':20,'body':'b1'},
+    {'id':'ca_p','type':'new_board','target':{'rect':'ca_r'},'distance':20,'body':'b1'},
     {'id':'cc_r','type':'rect','plane':{'normal':[0,0,1],'origin':[10,10,0]},'size':[40,20]},
-    {'id':'cc_p','type':'push_pull','target':{'rect':'cc_r'},'distance':20,'body':'b3'},
+    {'id':'cc_p','type':'new_board','target':{'rect':'cc_r'},'distance':20,'body':'b3'},
     {'id':'cb_r','type':'rect','plane':{'normal':[0,0,1],'origin':[0,0,100]},'size':[100,40]},
-    {'id':'cb_p','type':'push_pull','target':{'rect':'cb_r'},'distance':20,'body':'b2'},
+    {'id':'cb_p','type':'new_board','target':{'rect':'cb_r'},'distance':20,'body':'b2'},
 ]
 fit_ba = dict(type='fit', id='fit_ba', body='b2', target_body='b1', axis=2, face=4, fit_mode=0)
 fit_cb = dict(type='fit', id='fit_cb', body='b3', target_body='b2', axis=2, face=5, fit_mode=0)
@@ -298,11 +298,11 @@ App.closeDocument(chain_session.doc.Name)
 sloped_session = Session(os.path.join(folder, 'chain_sloped.FCStd'), fresh=True)
 sloped_base = [
     {'id':'sa_r','type':'rect','plane':{'normal':[0,0,1],'origin':[0,0,0]},'size':[150,80]},
-    {'id':'sa_p','type':'push_pull','target':{'rect':'sa_r'},'distance':15,'body':'b1'},
+    {'id':'sa_p','type':'new_board','target':{'rect':'sa_r'},'distance':15,'body':'b1'},
     {'id':'sb_r','type':'rect','plane':{'normal':[0,0,1],'origin':[0,0,0]},'size':[100,50]},
-    {'id':'sb_p','type':'push_pull','target':{'rect':'sb_r'},'distance':20,'body':'b2'},
+    {'id':'sb_p','type':'new_board','target':{'rect':'sb_r'},'distance':20,'body':'b2'},
     {'id':'sc_r','type':'rect','plane':{'normal':[0,0,1],'origin':[20,0,0]},'size':[40,20]},
-    {'id':'sc_p','type':'push_pull','target':{'rect':'sc_r'},'distance':10,'body':'b3'},
+    {'id':'sc_p','type':'new_board','target':{'rect':'sc_r'},'distance':10,'body':'b3'},
 ]
 sloped_session.sync(sloped_base)
 sa = sloped_session.model.body('b1')
@@ -331,12 +331,12 @@ App.closeDocument(sloped_session.doc.Name)
 lc_session = Session(os.path.join(folder, 'linked_copies.FCStd'), fresh=True)
 lc_base = [
     {'id':'lt_r','type':'rect','plane':{'normal':[0,0,1],'origin':[0,0,200]},'size':[260,120]},
-    {'id':'lt_p','type':'push_pull','target':{'rect':'lt_r'},'distance':20,'body':'t1'},
+    {'id':'lt_p','type':'new_board','target':{'rect':'lt_r'},'distance':20,'body':'t1'},
     {'id':'lb_r','type':'rect','plane':{'normal':[0,0,1],'origin':[0,0,0]},'size':[40,20]},
-    {'id':'lb_p','type':'push_pull','target':{'rect':'lb_r'},'distance':50,'body':'b1'},
+    {'id':'lb_p','type':'new_board','target':{'rect':'lb_r'},'distance':50,'body':'b1'},
     {'id':'lb_cp','type':'move','targets':['b1'],'vector':[100,0,0],'copy':True,'new_ids':['b2']},
     {'id':'lc_r','type':'rect','plane':{'normal':[0,0,1],'origin':[100,40,0]},'size':[30,20]},
-    {'id':'lc_p','type':'push_pull','target':{'rect':'lc_r'},'distance':30,'body':'c1'},
+    {'id':'lc_p','type':'new_board','target':{'rect':'lc_r'},'distance':30,'body':'c1'},
 ]
 lc_fit_b1 = dict(type='fit', id='lc_fit_b1', body='b1', target_body='t1', axis=2, face=4, fit_mode=0)
 lc_ops = lc_base + [lc_fit_b1]
@@ -465,9 +465,9 @@ App.closeDocument(lc_session.doc.Name)
 sum_session = Session(os.path.join(folder, 'summary.FCStd'), fresh=True)
 sum_ops = [
     {'id': 'sr1', 'type': 'rect', 'plane': {'normal': [0, 0, 1], 'origin': [0, 0, 0]}, 'size': [120, 60]},
-    {'id': 'sp1', 'type': 'push_pull', 'target': {'rect': 'sr1'}, 'distance': 20, 'body': 'b1'},
+    {'id': 'sp1', 'type': 'new_board', 'target': {'rect': 'sr1'}, 'distance': 20, 'body': 'b1'},
     {'id': 'sr2', 'type': 'rect', 'plane': {'normal': [0, 0, 1], 'origin': [0, 0, 200]}, 'size': [150, 80]},
-    {'id': 'sp2', 'type': 'push_pull', 'target': {'rect': 'sr2'}, 'distance': 20, 'body': 'b2'},
+    {'id': 'sp2', 'type': 'new_board', 'target': {'rect': 'sr2'}, 'distance': 20, 'body': 'b2'},
 ]
 sum_session.sync(sum_ops)
 s_plain = inspect(sum_session.model, 'b1')['summary']
@@ -512,15 +512,15 @@ App.closeDocument(sum_session.doc.Name)
 t62_session = Session(os.path.join(folder, 't62.FCStd'), fresh=True)
 t62_ops = [
     {'id': 'r1', 'type': 'rect', 'plane': {'normal': [0, 0, 1], 'origin': [0, 0, 0]}, 'size': [40, 40]},
-    {'id': 'p1', 'type': 'push_pull', 'target': {'rect': 'r1'}, 'distance': 20, 'body': 'b_rect'},
+    {'id': 'p1', 'type': 'new_board', 'target': {'rect': 'r1'}, 'distance': 20, 'body': 'b_rect'},
     {'id': 'c1', 'type': 'circle', 'plane': {'normal': [0, 0, 1], 'origin': [20, 20, 120]}, 'radius': 30},
-    {'id': 'p2', 'type': 'push_pull', 'target': {'rect': 'c1'}, 'distance': 20, 'body': 'b_cyl'},
+    {'id': 'p2', 'type': 'new_board', 'target': {'rect': 'c1'}, 'distance': 20, 'body': 'b_cyl'},
     {'id': 'r2', 'type': 'rect', 'plane': {'normal': [0, 0, 1], 'origin': [120, 0, 0]}, 'size': [80, 60]},
-    {'id': 'p3', 'type': 'push_pull', 'target': {'rect': 'r2'}, 'distance': 30, 'body': 'b_cut'},
+    {'id': 'p3', 'type': 'new_board', 'target': {'rect': 'r2'}, 'distance': 30, 'body': 'b_cut'},
     {'id': 'rp', 'type': 'rect', 'plane': {'on': {'body': 'b_cut', 'normal': [0, 0, 1], 'point': [160, 30, 30]}}, 'corner': [-10, -10], 'size': [20, 20]},
     {'id': 'pp', 'type': 'push_pull', 'target': {'rect': 'rp'}, 'distance': -10},
     {'id': 'r3', 'type': 'rect', 'plane': {'normal': [0, 0, 1], 'origin': [0, 0, 220]}, 'size': [250, 120]},
-    {'id': 'p4', 'type': 'push_pull', 'target': {'rect': 'r3'}, 'distance': 20, 'body': 'b_top'},
+    {'id': 'p4', 'type': 'new_board', 'target': {'rect': 'r3'}, 'distance': 20, 'body': 'b_top'},
 ]
 t62_session.sync(t62_ops)
 check('T62 snapshots expose planar faces for circular and cut boards',
@@ -601,9 +601,9 @@ upg_path = os.path.join(upg_dir, 'model.FCStd')
 upg_s = Session(upg_path, fresh=True)
 upg_base = [
     {'id': 'ur1', 'type': 'rect', 'plane': {'normal': [0, 0, 1], 'origin': [0, 0, 0]}, 'size': [100, 100]},
-    {'id': 'upp1', 'type': 'push_pull', 'target': {'rect': 'ur1'}, 'distance': 20, 'body': 'b1'},
+    {'id': 'upp1', 'type': 'new_board', 'target': {'rect': 'ur1'}, 'distance': 20, 'body': 'b1'},
     {'id': 'ur2', 'type': 'rect', 'plane': {'normal': [0, 0, 1], 'origin': [0, 0, 100]}, 'size': [100, 100]},
-    {'id': 'upp2', 'type': 'push_pull', 'target': {'rect': 'ur2'}, 'distance': 20, 'body': 'b2'},
+    {'id': 'upp2', 'type': 'new_board', 'target': {'rect': 'ur2'}, 'distance': 20, 'body': 'b2'},
 ]
 upg_fit = {'id': 'ufit1', 'type': 'fit', 'body': 'b1', 'target_body': 'b2', 'axis': 2, 'face': 4, 'fit_mode': 0}
 upg_s.sync(upg_base + [{'id': 'bad_pf', 'type': 'property_edit', 'mode': 'plane_fit', 'body': 'b1',
@@ -643,18 +643,27 @@ with zipfile.ZipFile(upg_path, 'r') as zin, zipfile.ZipFile(tmp_zip, 'w') as zou
 os.replace(tmp_zip, upg_path)
 write_meta_journal(upg_path, j_old, update_sha=True)
 
-# Reopen old file: ops and dropped are upgraded, sync matches without rebuild, undo/redo works, save persists.
+# Un-updated file is rejected on open; after UPDATE_OLD_FILES.py, ops and dropped are upgraded.
+from session import OLD_FILE_MSG
+import update_old_files as uof
+old_open_err = ''
+try:
+    Session(upg_path).close()
+except OpError as e:
+    old_open_err = str(e)
+check('H199 un-updated file is rejected on open with OLD_FILE_MSG', old_open_err == OLD_FILE_MSG)
+uof.update_paths([upg_path])
+
 reopened = Session(upg_path)
-check('T162 reopen upgrades journal ops and dropped entries without changing IDs',
+check('T162 updated file keeps upgraded journal ops and dropped entries without changing IDs',
       reopened.applied[-1]['op'] == upg_fit and 'mode' not in reopened.applied[-1]['op']
       and reopened.dropped[0]['op'] == {'id': 'ufit_drop', 'type': 'unfit', 'body': 'b1', 'axis': 2, 'value': '40 mm'}
       and abs(reopened.model.world_shape(reopened.model.body('b1')).Volume - fitted_vol) < 0.01)
 how_same, _ = reopened.sync([e['op'] for e in reopened.applied])
 check('T162 sync with upgraded ops after open does nothing (no undo or rebuild)',
       how_same == 'nothing')
-# Check _file_ops upgrades Meta ShopSketchOps directly.
 meta_ops = reopened._file_ops(upg_path, reopened.rev)
-check('T162 _file_ops upgrades Meta ShopSketchOps',
+check('T162 _file_ops reads upgraded Meta ShopSketchOps',
       meta_ops[-1]['op'] == upg_fit)
 # Undo across the fit and redo.
 reopened.sync(upg_base)

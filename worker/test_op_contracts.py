@@ -1,4 +1,5 @@
 """H189: verify every handler CONTRACT against op_contracts.json, handler reads/rejections, and session.creations."""
+import json
 import os
 import sys
 
@@ -9,7 +10,8 @@ from common import OpError
 from field_audit import AuditedDict
 from model import Model
 import op_contracts
-from session import creations, upgrade_op
+from session import OLD_FILE_MSG, Session, creations
+from update_old_files import upgrade_op
 
 R = [0, 0]
 
@@ -45,6 +47,10 @@ def _sample_value(spec, fname=""):
         return [10.0, 0.0, 0.0]
     if kind == "[[number, number, number]]":
         return [[0.0, 0.0, 0.0], [10.0, 0.0, 0.0], [10.0, 10.0, 0.0]]
+    if kind == "Target":
+        return {"rect": "sample_rect"}
+    if kind == "FitSpec":
+        return {"target_body": "sample_body", "face": 4, "fit_mode": 0}
     raise ValueError(f"unsupported contract field kind: {kind!r}")
 
 
@@ -56,11 +62,11 @@ def _next_tag(prefix):
     return f"{prefix}_{_SEQ[0]}"
 
 
-def _make_board(m, prefix="b", origin_x=0.0):
+def _make_board(m, prefix="b", origin_x=0.0, origin_z=0.0):
     rid = _next_tag(f"r_{prefix}")
     bid = _next_tag(prefix)
-    m.apply({"id": rid, "type": "rect", "plane": {"origin": [origin_x, 0, 0], "normal": [0, 0, 1]}, "size": [100, 100]})
-    m.apply({"id": _next_tag(f"pp_{prefix}"), "type": "push_pull", "target": {"rect": rid}, "distance": 18, "body": bid})
+    m.apply({"id": rid, "type": "rect", "plane": {"origin": [origin_x, 0, origin_z], "normal": [0, 0, 1]}, "size": [100, 100]})
+    m.apply({"id": _next_tag(f"nb_{prefix}"), "type": "new_board", "target": {"rect": rid}, "distance": 18, "body": bid})
     return bid
 
 
@@ -103,6 +109,17 @@ def _prepare_op(m, op_id, contract, include_optional, shared):
         op["body"] = ba
         op["axis"] = 0
         op["value"] = "150mm"
+    elif op_type == "new_board":
+        rid = _next_tag("nb_r")
+        m.apply({"id": rid, "type": "rect", "plane": {"origin": [0.0, 0.0, 0.0], "normal": [0.0, 0.0, 1.0]}, "size": [100.0, 50.0]})
+        tb = _make_board(m, "nb_tgt", origin_z=200.0)
+        aid = _next_tag("nb_a")
+        m.apply({"id": _next_tag("as"), "type": "make_assembly", "targets": [tb], "new_id": aid})
+        op["target"] = {"rect": rid}
+        op["distance"] = 18.0
+        op["body"] = _next_tag("nb_b")
+        op["assembly"] = aid
+        op["fit"] = {"target_body": tb, "face": 4, "fit_mode": 0}
     return op
 
 
@@ -269,7 +286,7 @@ try:
              "axis": 0, "face": 0, "fit_mode": 0})
     legacy_unfit = {"id": _next_tag("uf_leg"), "type": "property_edit", "mode": "replace_fit",
                     "body": ba_leg, "axis": 0, "value": "150mm"}
-    upgraded_unfit = upgrade_op(legacy_unfit)
+    upgraded_unfit, _ = upgrade_op(legacy_unfit)
     check("H194 legacy op upgraded passes validate", op_contracts.validate(upgraded_unfit) is None)
     try:
         m.apply(upgraded_unfit)
@@ -279,6 +296,52 @@ try:
         leg_ok = False
         leg_err = repr(e)
     check("H194 legacy op upgraded applies cleanly", leg_ok, leg_err)
+
+    # H199: push_pull refuses body/edge_fit/free target, and Session rejects un-updated files
+    for label, bad_pp in [
+        ("body", {"id": "bad_b", "type": "push_pull", "target": {"rect": "r_none"}, "distance": 18, "body": "b_none"}),
+        ("edge_fit", {"id": "bad_ef", "type": "push_pull", "target": {"face": {"body": ba_leg, "normal": [1, 0, 0], "point": [100, 20, 9]}},
+                      "distance": 10, "edge_fit": {"target_body": bb_leg, "face": 0}}),
+    ]:
+        refused = False
+        try:
+            m.apply(bad_pp)
+        except OpError:
+            refused = True
+        check(f"H199 push_pull with {label} refused", refused)
+    import tempfile
+    with tempfile.TemporaryDirectory(prefix="h199-old-") as td:
+        old_p = os.path.join(td, "old.FCStd")
+        s_old = Session(old_p, fresh=True)
+        s_old.sync([{"id": "r_o", "type": "rect", "plane": {"origin": [0, 0, 0], "normal": [0, 0, 1]}, "size": [100, 50]},
+                    {"id": "nb_o", "type": "new_board", "target": {"rect": "r_o"}, "distance": 18, "body": "b_o"}])
+        s_old.save()
+        s_old.close()
+        # Inject an old push_pull+body into ShopSketchOps & ShopSketchJournal
+        import zipfile, xml.etree.ElementTree as ET
+        with zipfile.ZipFile(old_p, "r") as zin:
+            entries = {n: zin.read(n) for n in zin.namelist()}
+        root = ET.fromstring(entries["Document.xml"])
+        mmap = root.find("./Properties/Property[@name='Meta']/Map")
+        for item in mmap.findall("Item"):
+            if item.get("key") == "ShopSketchOps":
+                ops_l = json.loads(item.get("value"))
+                ops_l[1]["type"] = "push_pull"
+                item.set("value", json.dumps(ops_l))
+            elif item.get("key") == "ShopSketchJournal":
+                j_d = json.loads(item.get("value"))
+                j_d["ops"][1]["type"] = "push_pull"
+                item.set("value", json.dumps(j_d))
+        entries["Document.xml"] = ET.tostring(root, encoding="utf-8", xml_declaration=True)
+        with zipfile.ZipFile(old_p, "w", zipfile.ZIP_DEFLATED) as zout:
+            for k, v in entries.items():
+                zout.writestr(k, v)
+        old_err = ""
+        try:
+            Session(old_p).close()
+        except OpError as e:
+            old_err = str(e)
+        check("H199 opening un-updated file rejects with OLD_FILE_MSG", old_err == OLD_FILE_MSG, old_err)
 finally:
     App.closeDocument(doc.Name)
 

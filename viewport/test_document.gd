@@ -209,7 +209,7 @@ func _init() -> void:
 	d.start_fresh = true
 	d.send_open()
 	check("tests: the first open starts fresh", c.last()["fresh"] == true)
-	d.on_opened({"ok": true, "rev": 5, "ops": [op("r1"), {"id": "pp4", "type": "push_pull", "body": "b7", "target": {"rect": "r1"}}],
+	d.on_opened({"ok": true, "rev": 5, "ops": [op("r1"), {"id": "pp4", "type": "new_board", "body": "b7", "target": {"rect": "r1"}}],
 		"undo_floor": 1}, true)
 	check("open adopts the file's history", d.ops.size() == 2 and d.undo_floor == 1 and d.opened)
 	check("its ops are already confirmed (no wave)", d.confirmed_ids.has("r1") and d.confirmed_ids.has("pp4"))
@@ -222,10 +222,10 @@ func _init() -> void:
 	check("a test's first open doesn't adopt the history", d2.ops.is_empty() and d2.opened and d2.saved_rev == 2)
 	check("consumed rects", d.consumed_rects() == {"r1": true})
 	var t_reg := make(); var d_reg = t_reg[0]
-	d_reg.ops = [op("r1"), {"id": "pp1", "type": "push_pull", "body": "b1",
+	d_reg.ops = [op("r1"), {"id": "pp1", "type": "new_board", "body": "b1",
 		"target": {"rect": "r1", "region": {"outline": [[0, 0, 0], [100, 0, 0], [100, 200, 0], [0, 200, 0]], "holes": [], "lines": ["r2"], "normal": [0, 0, 1]}}}]
 	check("region push leaves consumed_rects empty", d_reg.consumed_rects().is_empty())
-	d_reg.ops.append({"id": "pp2", "type": "push_pull", "body": "b2", "target": {"rect": "r1"}})
+	d_reg.ops.append({"id": "pp2", "type": "new_board", "body": "b2", "target": {"rect": "r1"}})
 	check("whole-profile push still consumes its rect", d_reg.consumed_rects() == {"r1": true})
 
 	# --- undo floor ---
@@ -680,10 +680,10 @@ func _init() -> void:
 	t = make(); d = t[0]
 	d.ops = [
 		{"id": "r1", "type": "rect", "plane": {}},
-		{"id": "pp1", "type": "push_pull", "target": {"rect": "r1"}, "body": "b1"},
+		{"id": "pp1", "type": "new_board", "target": {"rect": "r1"}, "body": "b1"},
 		{"id": "r2", "type": "rect", "plane": {"on": {"body": "b1"}}},
 		{"id": "r3", "type": "rect", "plane": {}},
-		{"id": "pp2", "type": "push_pull", "target": {"rect": "r3"}, "body": "b2"},
+		{"id": "pp2", "type": "new_board", "target": {"rect": "r3"}, "body": "b2"},
 	]
 	var alone: Dictionary = d.reject("pp1", "bad push", 1000)
 	check("an op rejected alone is its own root with its note",
@@ -701,7 +701,7 @@ func _init() -> void:
 	t = make(); d = t[0]
 	d.ops = [
 		{"id": "r1", "type": "rect", "plane": {}},
-		{"id": "pp1", "type": "push_pull", "target": {"rect": "r1"}, "body": "b1"},
+		{"id": "pp1", "type": "new_board", "target": {"rect": "r1"}, "body": "b1"},
 		{"id": "pp_edit", "type": "push_pull", "target": {"face": {"body": "b1"}}},
 		{"id": "r_about", "type": "rect", "plane": {}},
 		{"id": "r_msg", "type": "rect", "plane": {}},
@@ -722,7 +722,7 @@ func _init() -> void:
 	t = make(); d = t[0]
 	d.ops = [
 		{"id": "r1", "type": "rect", "plane": {}},
-		{"id": "pp1", "type": "push_pull", "target": {"rect": "r1"}, "body": "b1"},
+		{"id": "pp1", "type": "new_board", "target": {"rect": "r1"}, "body": "b1"},
 		{"id": "r2", "type": "rect", "plane": {"on": {"body": "b1"}}},
 		{"id": "r3", "type": "rect", "plane": {"on": {"body": "b1"}}},
 	]
@@ -751,10 +751,10 @@ func _init() -> void:
 	t = make(); d = t[0]
 	d.ops = [
 		{"id": "r1", "type": "rect", "plane": {}},
-		{"id": "pp1", "type": "push_pull", "target": {"rect": "r1"}, "body": "b1"},
+		{"id": "pp1", "type": "new_board", "target": {"rect": "r1"}, "body": "b1"},
 		{"id": "as1", "type": "make_assembly", "targets": ["b1"], "new_id": "a1"},
 		{"id": "r2", "type": "rect", "plane": {}},
-		{"id": "pp2", "type": "push_pull", "target": {"rect": "r2"}, "body": "b2", "assembly": "a1"},
+		{"id": "pp2", "type": "new_board", "target": {"rect": "r2"}, "body": "b2", "assembly": "a1"},
 	]
 	var asm_root: Dictionary = d.reject("as1", "bad assembly", 1000)
 	var in_asm: Dictionary = d.reject("pp2", "missing assembly", 2000)

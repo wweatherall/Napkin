@@ -1,8 +1,18 @@
 [
  {
-  "id": "b1",
+  "id": "b1_000dea833b88ed52fb1fa3335c6fb94e",
   "material": "",
-  "component": "b1",
+  "component": "b1_000dea833b88ed52fb1fa3335c6fb94e",
+  "grain": [
+   0.0,
+   0.0,
+   1.0
+  ],
+  "across": [
+   0.0,
+   1.0,
+   0.0
+  ],
   "world_bbox": [
    200.0,
    0.0,
@@ -18,19 +28,70 @@
   ],
   "volume_mm3": 2400000.0,
   "cuts": [],
-  "mesh": "b1-2ba8c6275781c997.bin",
+  "stock_frame": {
+   "label": "Board 1",
+   "origin": [
+    200.0,
+    0.0,
+    80.0
+   ],
+   "axes": [
+    [
+     1.0,
+     0.0,
+     0.0
+    ],
+    [
+     0.0,
+     1.0,
+     0.0
+    ],
+    [
+     0.0,
+     0.0,
+     1.0
+    ]
+   ],
+   "sizes": [
+    20.0,
+    300.0,
+    400.0
+   ],
+   "plane": "Rect",
+   "extrusion": "Extrude",
+   "fitted": false,
+   "reverse": false,
+   "linked_axis": -1,
+   "result": "",
+   "rectangular": true
+  },
+  "mesh": "b1_000dea833b88ed52fb1fa3335c6fb94e-225a4957bdd7b3de.bin",
   "color": [
    0.82,
    0.8,
    0.76
   ],
   "family": "Board",
-  "array": ""
+  "array": "",
+  "assembly": "a1_1292c5cdf0fc7f93d223c6a59a52508b",
+  "row": "b1_000dea833b88ed52fb1fa3335c6fb94e",
+  "hidden": false,
+  "mirror_plane": []
  },
  {
-  "id": "b3",
+  "id": "b3_4fd537fef3ce4c66a5e330d3133f1e7b",
   "material": "",
-  "component": "b1",
+  "component": "b1_000dea833b88ed52fb1fa3335c6fb94e",
+  "grain": [
+   0.0,
+   0.0,
+   1.0
+  ],
+  "across": [
+   0.0,
+   1.0,
+   0.0
+  ],
   "world_bbox": [
    300.0,
    0.0,
@@ -46,19 +107,70 @@
   ],
   "volume_mm3": 2400000.0,
   "cuts": [],
-  "mesh": "b3-6a1b5e6ee7cfc731.bin",
+  "stock_frame": {
+   "label": "Board 3",
+   "origin": [
+    300.0,
+    0.0,
+    80.0
+   ],
+   "axes": [
+    [
+     1.0,
+     0.0,
+     0.0
+    ],
+    [
+     0.0,
+     1.0,
+     0.0
+    ],
+    [
+     0.0,
+     0.0,
+     1.0
+    ]
+   ],
+   "sizes": [
+    20.0,
+    300.0,
+    400.0
+   ],
+   "plane": "Rect",
+   "extrusion": "Extrude",
+   "fitted": false,
+   "reverse": false,
+   "linked_axis": -1,
+   "result": "",
+   "rectangular": true
+  },
+  "mesh": "b3_4fd537fef3ce4c66a5e330d3133f1e7b-8a7ff2c11c01634d.bin",
   "color": [
    0.82,
    0.8,
    0.76
   ],
   "family": "Board",
-  "array": "Array"
+  "array": "Array",
+  "assembly": "",
+  "row": "b1_000dea833b88ed52fb1fa3335c6fb94e",
+  "hidden": false,
+  "mirror_plane": []
  },
  {
-  "id": "b4",
+  "id": "b4_7741211b6768057ffc2e187572b4a21a",
   "material": "",
-  "component": "b1",
+  "component": "b1_000dea833b88ed52fb1fa3335c6fb94e",
+  "grain": [
+   0.0,
+   0.0,
+   1.0
+  ],
+  "across": [
+   0.0,
+   1.0,
+   0.0
+  ],
   "world_bbox": [
    400.0,
    0.0,
@@ -74,19 +186,70 @@
   ],
   "volume_mm3": 2400000.0,
   "cuts": [],
-  "mesh": "b4-097834927891e4f2.bin",
+  "stock_frame": {
+   "label": "Board 4",
+   "origin": [
+    400.0,
+    0.0,
+    80.0
+   ],
+   "axes": [
+    [
+     1.0,
+     0.0,
+     0.0
+    ],
+    [
+     0.0,
+     1.0,
+     0.0
+    ],
+    [
+     0.0,
+     0.0,
+     1.0
+    ]
+   ],
+   "sizes": [
+    20.0,
+    300.0,
+    400.0
+   ],
+   "plane": "Rect",
+   "extrusion": "Extrude",
+   "fitted": false,
+   "reverse": false,
+   "linked_axis": -1,
+   "result": "",
+   "rectangular": true
+  },
+  "mesh": "b4_7741211b6768057ffc2e187572b4a21a-42c7737cd419bfdc.bin",
   "color": [
    0.82,
    0.8,
    0.76
   ],
   "family": "Board",
-  "array": "Array"
+  "array": "Array",
+  "assembly": "",
+  "row": "b1_000dea833b88ed52fb1fa3335c6fb94e",
+  "hidden": false,
+  "mirror_plane": []
  },
  {
-  "id": "b5",
+  "id": "b5_ea01fca17cda63626678263c676d1fe9",
   "material": "",
-  "component": "b1",
+  "component": "b1_000dea833b88ed52fb1fa3335c6fb94e",
+  "grain": [
+   0.0,
+   0.0,
+   1.0
+  ],
+  "across": [
+   0.0,
+   1.0,
+   0.0
+  ],
   "world_bbox": [
    500.0,
    0.0,
@@ -102,19 +265,70 @@
   ],
   "volume_mm3": 2400000.0,
   "cuts": [],
-  "mesh": "b5-821562aa8b59d947.bin",
+  "stock_frame": {
+   "label": "Board 5",
+   "origin": [
+    500.0,
+    0.0,
+    80.0
+   ],
+   "axes": [
+    [
+     1.0,
+     0.0,
+     0.0
+    ],
+    [
+     0.0,
+     1.0,
+     0.0
+    ],
+    [
+     0.0,
+     0.0,
+     1.0
+    ]
+   ],
+   "sizes": [
+    20.0,
+    300.0,
+    400.0
+   ],
+   "plane": "Rect",
+   "extrusion": "Extrude",
+   "fitted": false,
+   "reverse": false,
+   "linked_axis": -1,
+   "result": "",
+   "rectangular": true
+  },
+  "mesh": "b5_ea01fca17cda63626678263c676d1fe9-3f6788409c7f817a.bin",
   "color": [
    0.82,
    0.8,
    0.76
   ],
   "family": "Board",
-  "array": "Array"
+  "array": "Array",
+  "assembly": "",
+  "row": "b1_000dea833b88ed52fb1fa3335c6fb94e",
+  "hidden": false,
+  "mirror_plane": []
  },
  {
-  "id": "b6",
+  "id": "b6_76451f2bfc7060deb424d83d098a2e19",
   "material": "",
-  "component": "b1",
+  "component": "b1_000dea833b88ed52fb1fa3335c6fb94e",
+  "grain": [
+   0.0,
+   0.0,
+   1.0
+  ],
+  "across": [
+   0.0,
+   1.0,
+   0.0
+  ],
   "world_bbox": [
    600.0,
    0.0,
@@ -130,19 +344,70 @@
   ],
   "volume_mm3": 2400000.0,
   "cuts": [],
-  "mesh": "b6-a86b362ac08a3b56.bin",
+  "stock_frame": {
+   "label": "Board 6",
+   "origin": [
+    600.0,
+    0.0,
+    80.0
+   ],
+   "axes": [
+    [
+     1.0,
+     0.0,
+     0.0
+    ],
+    [
+     0.0,
+     1.0,
+     0.0
+    ],
+    [
+     0.0,
+     0.0,
+     1.0
+    ]
+   ],
+   "sizes": [
+    20.0,
+    300.0,
+    400.0
+   ],
+   "plane": "Rect",
+   "extrusion": "Extrude",
+   "fitted": false,
+   "reverse": false,
+   "linked_axis": -1,
+   "result": "",
+   "rectangular": true
+  },
+  "mesh": "b6_76451f2bfc7060deb424d83d098a2e19-8d47af34e988decd.bin",
   "color": [
    0.82,
    0.8,
    0.76
   ],
   "family": "Board",
-  "array": "Array"
+  "array": "Array",
+  "assembly": "",
+  "row": "b1_000dea833b88ed52fb1fa3335c6fb94e",
+  "hidden": false,
+  "mirror_plane": []
  },
  {
-  "id": "b8",
+  "id": "b8_e0c30f8febb327a2eea629f5d3276882",
   "material": "",
-  "component": "b1",
+  "component": "b1_000dea833b88ed52fb1fa3335c6fb94e",
+  "grain": [
+   0.0,
+   0.0,
+   1.0
+  ],
+  "across": [
+   0.0,
+   1.0,
+   0.0
+  ],
   "world_bbox": [
    200.0,
    200.0,
@@ -158,19 +423,70 @@
   ],
   "volume_mm3": 2400000.0,
   "cuts": [],
-  "mesh": "b8-05c9c8220570db47.bin",
+  "stock_frame": {
+   "label": "Board 8",
+   "origin": [
+    200.0,
+    200.0,
+    80.0
+   ],
+   "axes": [
+    [
+     1.0,
+     0.0,
+     0.0
+    ],
+    [
+     0.0,
+     1.0,
+     0.0
+    ],
+    [
+     0.0,
+     0.0,
+     1.0
+    ]
+   ],
+   "sizes": [
+    20.0,
+    300.0,
+    400.0
+   ],
+   "plane": "Rect",
+   "extrusion": "Extrude",
+   "fitted": false,
+   "reverse": false,
+   "linked_axis": -1,
+   "result": "",
+   "rectangular": true
+  },
+  "mesh": "b8_e0c30f8febb327a2eea629f5d3276882-cf343d8dc2a97e06.bin",
   "color": [
    0.82,
    0.8,
    0.76
   ],
   "family": "Board",
-  "array": "Array001"
+  "array": "Array001",
+  "assembly": "",
+  "row": "b1_000dea833b88ed52fb1fa3335c6fb94e",
+  "hidden": false,
+  "mirror_plane": []
  },
  {
-  "id": "b9",
+  "id": "b9_7cf0ba07faae560a32e3decaefa4f2f8",
   "material": "",
-  "component": "b1",
+  "component": "b1_000dea833b88ed52fb1fa3335c6fb94e",
+  "grain": [
+   0.0,
+   0.0,
+   1.0
+  ],
+  "across": [
+   0.0,
+   1.0,
+   0.0
+  ],
   "world_bbox": [
    200.0,
    400.0,
@@ -186,19 +502,70 @@
   ],
   "volume_mm3": 2400000.0,
   "cuts": [],
-  "mesh": "b9-136b6977bdf9a1e7.bin",
+  "stock_frame": {
+   "label": "Board 9",
+   "origin": [
+    200.0,
+    400.0,
+    80.0
+   ],
+   "axes": [
+    [
+     1.0,
+     0.0,
+     0.0
+    ],
+    [
+     0.0,
+     1.0,
+     0.0
+    ],
+    [
+     0.0,
+     0.0,
+     1.0
+    ]
+   ],
+   "sizes": [
+    20.0,
+    300.0,
+    400.0
+   ],
+   "plane": "Rect",
+   "extrusion": "Extrude",
+   "fitted": false,
+   "reverse": false,
+   "linked_axis": -1,
+   "result": "",
+   "rectangular": true
+  },
+  "mesh": "b9_7cf0ba07faae560a32e3decaefa4f2f8-2eb0746ba3c93ad4.bin",
   "color": [
    0.82,
    0.8,
    0.76
   ],
   "family": "Board",
-  "array": "Array001"
+  "array": "Array001",
+  "assembly": "",
+  "row": "b1_000dea833b88ed52fb1fa3335c6fb94e",
+  "hidden": false,
+  "mirror_plane": []
  },
  {
-  "id": "b10",
+  "id": "b10_8f77d81dd0835f00847b3291f1ef4285",
   "material": "",
-  "component": "b1",
+  "component": "b1_000dea833b88ed52fb1fa3335c6fb94e",
+  "grain": [
+   0.0,
+   0.0,
+   1.0
+  ],
+  "across": [
+   0.0,
+   1.0,
+   0.0
+  ],
   "world_bbox": [
    200.0,
    600.0,
@@ -214,19 +581,70 @@
   ],
   "volume_mm3": 2400000.0,
   "cuts": [],
-  "mesh": "b10-24fcfd3177e9d2a0.bin",
+  "stock_frame": {
+   "label": "Board 10",
+   "origin": [
+    200.0,
+    600.0,
+    80.0
+   ],
+   "axes": [
+    [
+     1.0,
+     0.0,
+     0.0
+    ],
+    [
+     0.0,
+     1.0,
+     0.0
+    ],
+    [
+     0.0,
+     0.0,
+     1.0
+    ]
+   ],
+   "sizes": [
+    20.0,
+    300.0,
+    400.0
+   ],
+   "plane": "Rect",
+   "extrusion": "Extrude",
+   "fitted": false,
+   "reverse": false,
+   "linked_axis": -1,
+   "result": "",
+   "rectangular": true
+  },
+  "mesh": "b10_8f77d81dd0835f00847b3291f1ef4285-2bca0d50f9e1b75c.bin",
   "color": [
    0.82,
    0.8,
    0.76
   ],
   "family": "Board",
-  "array": "Array001"
+  "array": "Array001",
+  "assembly": "",
+  "row": "b1_000dea833b88ed52fb1fa3335c6fb94e",
+  "hidden": false,
+  "mirror_plane": []
  },
  {
-  "id": "b11",
+  "id": "b11_bcd6e31b093e513d18481e5a7cfd4e8c",
   "material": "",
-  "component": "b1 (mirrored)",
+  "component": "b1_000dea833b88ed52fb1fa3335c6fb94e (mirrored)",
+  "grain": [
+   0.0,
+   0.0,
+   1.0
+  ],
+  "across": [
+   0.0,
+   1.0,
+   0.0
+  ],
   "world_bbox": [
    420.0,
    0.0,
@@ -242,13 +660,29 @@
   ],
   "volume_mm3": 2400000.0,
   "cuts": [],
-  "mesh": "b11-cb70b8b1d6c8baa0.bin",
+  "stock_frame": null,
+  "mesh": "b11_bcd6e31b093e513d18481e5a7cfd4e8c-9757c53adad17a24.bin",
   "color": [
    0.82,
    0.8,
    0.76
   ],
   "family": "Board",
-  "array": ""
+  "array": "",
+  "assembly": "a1_1292c5cdf0fc7f93d223c6a59a52508b",
+  "row": "",
+  "hidden": false,
+  "mirror_plane": [
+   [
+    320.0,
+    0.0,
+    0.0
+   ],
+   [
+    1.0,
+    0.0,
+    0.0
+   ]
+  ]
  }
 ]

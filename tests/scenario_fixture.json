@@ -1,19 +1,219 @@
 {
-  "about": "T48 fixture: a 600 x 400 x 720 mm carcass built from ops (not a saved .FCStd, so a FreeCAD upgrade can't change it). Used by worker/test_scenario.py.",
-  "ops": [
-    {"id": "r_left", "type": "rect", "plane": {"normal": [0, 0, 1], "origin": [0, 0, 0]}, "size": [18, 400]},
-    {"id": "p_left", "type": "push_pull", "target": {"rect": "r_left"}, "distance": 720, "body": "left"},
-    {"id": "r_bottom", "type": "rect", "plane": {"normal": [0, 0, 1], "origin": [18, 0, 0]}, "size": [564, 400]},
-    {"id": "p_bottom", "type": "push_pull", "target": {"rect": "r_bottom"}, "distance": 18, "body": "bottom"},
-    {"id": "r_pin", "type": "rect", "plane": {"on": {"body": "left", "normal": [1, 0, 0], "point": [18, 40, 300]}}, "size": [6, 6]},
-    {"id": "p_pin", "type": "push_pull", "target": {"rect": "r_pin"}, "distance": -12},
-    {"id": "pins", "type": "move", "targets": [], "cut": {"body": "left", "op": "p_pin"}, "vector": [0, 0, 32], "copy": true, "count": 4, "divide": false},
-    {"id": "mirror_sides", "type": "mirror", "targets": ["left"], "plane": {"point": [300, 0, 0], "normal": [1, 0, 0]}, "new_ids": ["right"], "group": "sides"},
-    {"id": "r_hole", "type": "rect", "plane": {"on": {"body": "bottom", "normal": [0, 0, 1], "point": [280, 180, 18]}}, "size": [40, 40]},
-    {"id": "p_hole", "type": "push_pull", "target": {"rect": "r_hole"}, "distance": -18, "through": true},
-    {"id": "r_shelf", "type": "rect", "plane": {"normal": [0, 0, 1], "origin": [18, 0, 360]}, "size": [564, 380]},
-    {"id": "p_shelf", "type": "push_pull", "target": {"rect": "r_shelf"}, "distance": 18, "body": "shelf"},
-    {"id": "copy_shelf", "type": "move", "targets": ["shelf"], "vector": [0, 0, 180], "copy": true, "new_ids": ["shelf2"]},
-    {"id": "paint_bottom", "type": "set_material", "targets": ["bottom"], "material": "white-oak"}
-  ]
+ "about": "T48 fixture: a 600 x 400 x 720 mm carcass built from ops (not a saved .FCStd, so a FreeCAD upgrade can't change it). Used by worker/test_scenario.py.",
+ "ops": [
+  {
+   "id": "r_left",
+   "type": "rect",
+   "plane": {
+    "normal": [
+     0,
+     0,
+     1
+    ],
+    "origin": [
+     0,
+     0,
+     0
+    ]
+   },
+   "size": [
+    18,
+    400
+   ]
+  },
+  {
+   "id": "p_left",
+   "type": "new_board",
+   "target": {
+    "rect": "r_left"
+   },
+   "distance": 720,
+   "body": "left"
+  },
+  {
+   "id": "r_bottom",
+   "type": "rect",
+   "plane": {
+    "normal": [
+     0,
+     0,
+     1
+    ],
+    "origin": [
+     18,
+     0,
+     0
+    ]
+   },
+   "size": [
+    564,
+    400
+   ]
+  },
+  {
+   "id": "p_bottom",
+   "type": "new_board",
+   "target": {
+    "rect": "r_bottom"
+   },
+   "distance": 18,
+   "body": "bottom"
+  },
+  {
+   "id": "r_pin",
+   "type": "rect",
+   "plane": {
+    "on": {
+     "body": "left",
+     "normal": [
+      1,
+      0,
+      0
+     ],
+     "point": [
+      18,
+      40,
+      300
+     ]
+    }
+   },
+   "size": [
+    6,
+    6
+   ]
+  },
+  {
+   "id": "p_pin",
+   "type": "push_pull",
+   "target": {
+    "rect": "r_pin"
+   },
+   "distance": -12
+  },
+  {
+   "id": "pins",
+   "type": "move",
+   "targets": [],
+   "cut": {
+    "body": "left",
+    "op": "p_pin"
+   },
+   "vector": [
+    0,
+    0,
+    32
+   ],
+   "copy": true,
+   "count": 4,
+   "divide": false
+  },
+  {
+   "id": "mirror_sides",
+   "type": "mirror",
+   "targets": [
+    "left"
+   ],
+   "plane": {
+    "point": [
+     300,
+     0,
+     0
+    ],
+    "normal": [
+     1,
+     0,
+     0
+    ]
+   },
+   "new_ids": [
+    "right"
+   ],
+   "group": "sides"
+  },
+  {
+   "id": "r_hole",
+   "type": "rect",
+   "plane": {
+    "on": {
+     "body": "bottom",
+     "normal": [
+      0,
+      0,
+      1
+     ],
+     "point": [
+      280,
+      180,
+      18
+     ]
+    }
+   },
+   "size": [
+    40,
+    40
+   ]
+  },
+  {
+   "id": "p_hole",
+   "type": "push_pull",
+   "target": {
+    "rect": "r_hole"
+   },
+   "distance": -18,
+   "through": true
+  },
+  {
+   "id": "r_shelf",
+   "type": "rect",
+   "plane": {
+    "normal": [
+     0,
+     0,
+     1
+    ],
+    "origin": [
+     18,
+     0,
+     360
+    ]
+   },
+   "size": [
+    564,
+    380
+   ]
+  },
+  {
+   "id": "p_shelf",
+   "type": "new_board",
+   "target": {
+    "rect": "r_shelf"
+   },
+   "distance": 18,
+   "body": "shelf"
+  },
+  {
+   "id": "copy_shelf",
+   "type": "move",
+   "targets": [
+    "shelf"
+   ],
+   "vector": [
+    0,
+    0,
+    180
+   ],
+   "copy": true,
+   "new_ids": [
+    "shelf2"
+   ]
+  },
+  {
+   "id": "paint_bottom",
+   "type": "set_material",
+   "targets": [
+    "bottom"
+   ],
+   "material": "white-oak"
+  }
+ ]
 }

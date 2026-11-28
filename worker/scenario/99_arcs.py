@@ -28,7 +28,7 @@ def run(ctx):
     area = 5000 + radius**2 * (sweep - math.sin(sweep)) / 2
     base = [
         dict(id="arc_base", type="rect", plane={"origin": [800, 0, 0], "normal": [0, 0, 1]}, size=[100, 100]),
-        dict(id="arc_board", type="push_pull", target={"rect": "arc_base"}, distance=20, body=board),
+        dict(id="arc_board", type="new_board", target={"rect": "arc_base"}, distance=20, body=board),
     ]
     arc = dict(id="divider_arc", type="arc", plane={"on": face(board, (0, 0, 1), (850, 0, 20))},
                mid=[870, 50, 20], end=[850, 100, 20], snap_start=True, snap_end=True)
@@ -60,7 +60,7 @@ def run(ctx):
     # A loose profile uses the same native refinement path as a board face.
     profile = dict(base[0], plane={"origin": [800, 0, 20], "normal": [0, 0, 1]})
     loose_arc = dict(arc, plane={"origin": [850, 0, 20], "normal": [0, 0, 1]})
-    extrude = dict(id="arc_profile_push", type="push_pull", target={"rect": profile["id"], "region": region},
+    extrude = dict(id="arc_profile_push", type="new_board", target={"rect": profile["id"], "region": region},
                    distance=10, body="arc_profile_stock")
     def exact_profile(st, _before, _after):
         model = ctx.S.model

@@ -10,7 +10,7 @@ var m: Main:
 
 func run() -> void:
 	await harness._fresh("hole", [{"id": "r1", "type": "rect", "plane": {"normal": [0, 0, 1], "origin": [0, 0, 0]}, "size": [600, 300]},
-		{"id": "pp1", "type": "push_pull", "target": {"rect": "r1"}, "distance": 18, "body": "b1"},
+		{"id": "pp1", "type": "new_board", "target": {"rect": "r1"}, "distance": 18, "body": "b1"},
 		{"id": "r2", "type": "rect", "plane": {"on": {"body": "b1", "normal": [0, 0, 1], "point": [30, 30, 18]}}, "size": [20, 20]},
 		{"id": "pp2", "type": "push_pull", "target": {"rect": "r2"}, "distance": -18}])
 	await harness._view(Vector3(300, 150, 0), -20, -50, 1.3)

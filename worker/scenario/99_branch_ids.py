@@ -32,7 +32,7 @@ def run(ctx):
                   snap(opened) == before and all(v in opened.ids.reserved for props in native.values() for v in props.values() if v))
         rid, oid, bid = ('r100_' + uuid.uuid4().hex, 'pp100_' + uuid.uuid4().hex, 'b100_' + uuid.uuid4().hex)
         modern = ctx.FIX + [dict(id=rid, type='rect', plane=dict(origin=[10000,0,0], normal=[0,0,1]), size=[50,40]),
-                            dict(id=oid, type='push_pull', target=dict(rect=rid), distance=10, body=bid)]
+                            dict(id=oid, type='new_board', target=dict(rect=rid), distance=10, body=bid)]
         opened.sync(modern)
         ctx.check('T67 random identities build a native board with a readable name',
                   opened.model.body(bid).Label == 'Board 100' and opened.model.rect_obj(rid).RectId == rid

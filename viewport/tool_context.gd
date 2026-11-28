@@ -30,7 +30,7 @@ var paint: PaintCapability
 
 func _init(parts := {}) -> void:
 	"""parts: infer, pres, sel, doc, measure (owner objects); cursor, show_marker, hide_marker,
-	tri_mesh, line_mesh, refresh_tip, clear_rejection, refresh_hint, show_status, tool_active, new_board
+	tri_mesh, line_mesh, refresh_tip, clear_rejection, show_rejection, refresh_hint, show_status, tool_active, new_board
 	(Callables); appearance (wood/paint owner);
 	overlay, overlay_lines (nodes); materials (style -> Material). Anything missing is null / a no-op."""
 	pick = PickCapability.new(parts)
@@ -224,7 +224,7 @@ class DocumentCapability extends _Capability:
 	func append(o: Dictionary) -> void:
 		"""Add an op (a copy of it) at the end. Doesn't sync: draw it, then call sync()."""
 		var copy := o.duplicate(true)
-		if _push_filter.is_valid() and copy.get("type") == "push_pull": _push_filter.call(copy)
+		if _push_filter.is_valid() and copy.get("type") in ["push_pull", "new_board"]: _push_filter.call(copy)
 		_doc.ops.append(copy)
 
 	func remove(id: String, resync := true) -> void:
@@ -316,6 +316,7 @@ class UiCapability extends _Capability:
 	var _measure
 	var _refresh_tip
 	var _clear_rejection
+	var _show_rejection
 	var _refresh_hint
 	var _show_status
 	var _tool_active
@@ -324,6 +325,7 @@ class UiCapability extends _Capability:
 	func _init(parts: Dictionary) -> void:
 		_measure = parts.get("measure")
 		_refresh_tip = parts.get("refresh_tip"); _clear_rejection = parts.get("clear_rejection")
+		_show_rejection = parts.get("show_rejection")
 		_refresh_hint = parts.get("refresh_hint")
 		_show_status = parts.get("show_status")
 		_tool_active = parts.get("tool_active")
@@ -351,6 +353,10 @@ class UiCapability extends _Capability:
 	func clear_rejection() -> void:
 		"""Clear the last rejection's status note (a new action starts)."""
 		_call(_clear_rejection)
+
+	func show_rejection(text: String) -> void:
+		"""Show a rejection reason in the status bar (G10)."""
+		_call(_show_rejection, [text])
 
 	func refresh_hint() -> void:
 		"""Ask the window to show the current tool's hint again."""

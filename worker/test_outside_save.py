@@ -492,8 +492,9 @@ try:
     # H094: a real FreeCAD save keeps the Meta of its open copy after rev 1 has aged out.
     def saved_reload_fixture(model):
         opened(model)
-        kept = board_ops(300) + second(200)
-        kept[1]["typed"] = '18 mm " & < 90°'
+        kept = board_ops(300) + second(200) + [
+            {"id": "c1", "type": "make_component", "body": "b1", "name": '18 mm " & < 90°'}
+        ]
         assert sync(w, model, kept)["ok"]
         assert ask({"cmd": "flush", "model": model}, "flush")["ok"]
         rev1 = model + ".rev1.FCStd"
@@ -522,8 +523,8 @@ try:
         out = m + "-out"
         r = ask({"cmd": "reload", "model": m, "outdir": out}, "reload")
         check(f"FreeCAD's rev 1 save keeps both boards' ops and drops newer actions {name}",
-              r and r["ok"] and [o["id"] for o in r["ops"]] == ["r1", "pp1", "r2", "pp2"]
-              and r["dropped"] == ([] if restart else dropped) and r["undo_floor"] == 4
+              r and r["ok"] and [o["id"] for o in r["ops"]] == ["r1", "pp1", "r2", "pp2", "c1"]
+              and r["dropped"] == ([] if restart else dropped) and r["undo_floor"] == 5
               and thickness(out, "b1") == 30.0 and thickness(out, "b2") == 18.0, r)
         if not restart:
             unchanged = sync(w, m, kept)

@@ -57,3 +57,11 @@ What can fail:
 
 Checks:
 - `tools/TEST_BEFORE_MERGING.sh` passes (full scope); quick tests pass; the full field audit passes.
+
+### Response (Gemini, 2026-11-27)
+
+Architecture: worker/model.py owns Model.op_new_board and new_board CONTRACT, delegating execution to worker/push.py PushActions._new_board_op
+Architecture: worker/session.py rejects pre-split ops (property_edit plane_fit/replace_fit, push_pull with body/edge_fit) on open with OLD_FILE_MSG instead of auto-upgrading
+Architecture: worker/update_old_files.py owns atomic one-time migration of .FCStd and .json files to new_board/fit/unfit (with tools/UPDATE_OLD_FILES.py CLI)
+Architecture: viewport/tool_context.gd UiCapability exposes show_rejection (wired to main.gd _say_rejection) so push_tool.gd reports stock/axis fit refusals as normal rejections
+Architecture: PROTOCOL_VERSION bumped 20 -> 21 across worker/serve.py, viewport/main.gd, and docs/protocol.md

@@ -28,7 +28,7 @@ def face_rect(rid, body, point, size, normal=(0, 0, 1)):
 
 
 def push(oid, rid, d, body=None):
-    op = {"id": oid, "type": "push_pull", "target": {"rect": rid}, "distance": d}
+    op = {"id": oid, "type": "new_board" if body else "push_pull", "target": {"rect": rid}, "distance": d}
     if body:
         op["body"] = body
     return op

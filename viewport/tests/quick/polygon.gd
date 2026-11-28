@@ -150,7 +150,7 @@ func _check_predictions() -> void:
 		# both sides get what the op carries (Geo.arr3 rounds the plane's normal, as every tool's op does)
 		center = Vector3(op.plane.origin[0], op.plane.origin[1], op.plane.origin[2])
 		normal = Vector3(op.plane.normal[0], op.plane.normal[1], op.plane.normal[2]).normalized()
-		await harness._fresh("polygon_prediction_%d" % i, [op, {"id": "pp1", "type": "push_pull", "target": {"rect": "r1"}, "distance": height, "body": "b1"}])
+		await harness._fresh("polygon_prediction_%d" % i, [op, {"id": "pp1", "type": "new_board", "target": {"rect": "r1"}, "distance": height, "body": "b1"}])
 		var shape: Dictionary = m.pres.polygon_geometry(center, normal, radius, sides, toward)
 		var lo := Vector3(INF, INF, INF)
 		var hi := -lo

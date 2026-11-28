@@ -1,8 +1,18 @@
 [
  {
-  "id": "b1",
+  "id": "b1_591872ae81636af4f7e430727955fa46",
   "material": "",
   "component": null,
+  "grain": [
+   0.0,
+   0.0,
+   1.0
+  ],
+  "across": [
+   0.0,
+   1.0,
+   0.0
+  ],
   "world_bbox": [
    663.0,
    2180.0,
@@ -18,17 +28,70 @@
   ],
   "volume_mm3": 2400000.0,
   "cuts": [],
-  "mesh": "b1-c832fdcebf57347d.bin",
+  "stock_frame": {
+   "label": "Board 1",
+   "origin": [
+    663.0,
+    2180.0,
+    -560.0
+   ],
+   "axes": [
+    [
+     1.0,
+     0.0,
+     0.0
+    ],
+    [
+     0.0,
+     1.0,
+     0.0
+    ],
+    [
+     0.0,
+     0.0,
+     1.0
+    ]
+   ],
+   "sizes": [
+    20.0,
+    300.0,
+    400.0
+   ],
+   "plane": "Rect",
+   "extrusion": "Extrude",
+   "fitted": false,
+   "reverse": false,
+   "linked_axis": -1,
+   "result": "",
+   "rectangular": true
+  },
+  "mesh": "b1_591872ae81636af4f7e430727955fa46-2622f6367e4838a7.bin",
   "color": [
    0.82,
    0.8,
    0.76
-  ]
+  ],
+  "family": "",
+  "array": "",
+  "assembly": "",
+  "row": "",
+  "hidden": false,
+  "mirror_plane": []
  },
  {
-  "id": "b2",
+  "id": "b2_eb56c261c1264c11ba03b66dac5b8a08",
   "material": "",
   "component": null,
+  "grain": [
+   1.0,
+   0.0,
+   0.0
+  ],
+  "across": [
+   0.0,
+   1.0,
+   0.0
+  ],
   "world_bbox": [
    513.0,
    210.0,
@@ -44,11 +107,54 @@
   ],
   "volume_mm3": 1800000.0,
   "cuts": [],
-  "mesh": "b2-7ca03ac503d82cbe.bin",
+  "stock_frame": {
+   "label": "Board 2",
+   "origin": [
+    513.0,
+    210.0,
+    0.0
+   ],
+   "axes": [
+    [
+     1.0,
+     0.0,
+     0.0
+    ],
+    [
+     0.0,
+     1.0,
+     0.0
+    ],
+    [
+     0.0,
+     0.0,
+     1.0
+    ]
+   ],
+   "sizes": [
+    300.0,
+    300.0,
+    20.0
+   ],
+   "plane": "Rect001",
+   "extrusion": "Extrude001",
+   "fitted": false,
+   "reverse": false,
+   "linked_axis": -1,
+   "result": "",
+   "rectangular": true
+  },
+  "mesh": "b2_eb56c261c1264c11ba03b66dac5b8a08-d87e73d56cdd86bc.bin",
   "color": [
    0.82,
    0.8,
    0.76
-  ]
+  ],
+  "family": "",
+  "array": "",
+  "assembly": "",
+  "row": "",
+  "hidden": false,
+  "mirror_plane": []
  }
 ]

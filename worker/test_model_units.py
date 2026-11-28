@@ -80,7 +80,7 @@ def board_ops(n=1):
     for i in range(1, n + 1):
         ops.append({"id": f"r{i}", "type": "rect",
                     "plane": {"normal": [0, 0, 1], "origin": [0, i * 120, 0]}, "size": [100, 80]})
-        ops.append({"id": f"pp{i}", "type": "push_pull",
+        ops.append({"id": f"pp{i}", "type": "new_board",
                     "target": {"rect": f"r{i}"}, "distance": 18, "body": f"b{i}"})
     return ops
 

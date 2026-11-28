@@ -1,51 +1,51 @@
 {
  "oplog": "live",
- "total_ms": 34.5,
- "export_ms": 19.6,
+ "total_ms": 58.7,
+ "export_ms": 28.2,
  "how": "undid 1, applied 0",
  "ops": [
   {
-   "id": "r1",
+   "id": "r1_d2cb351de33620acc422da46dcf9a125",
    "type": "rect",
    "status": "ok",
    "changed": [],
-   "ms": 0.5
+   "ms": 403.6
   },
   {
-   "id": "pp1",
-   "type": "push_pull",
+   "id": "nb1_2107485d4dd0cb8a828832d9fcf3dbd0",
+   "type": "new_board",
    "status": "ok",
    "changed": [
-    "b1"
+    "b1_4b6786261152c5269e9a1ac3f628b3f9"
    ],
-   "ms": 1.2
+   "ms": 11.1
   },
   {
-   "id": "r2",
+   "id": "r2_f415936e4d1fd1cf413f48f0a55276ea",
    "type": "rect",
    "status": "ok",
    "changed": [],
-   "ms": 1.9
+   "ms": 1.4
   },
   {
-   "id": "pp2",
+   "id": "pp1_569e1fb4553388ff81c3a75f455d32b3",
    "type": "push_pull",
    "status": "ok",
    "changed": [
-    "b1"
+    "b1_4b6786261152c5269e9a1ac3f628b3f9"
    ],
-   "ms": 9.7
+   "ms": 20.5
   },
   {
-   "id": "mv1",
+   "id": "mv1_50f250e5cec8927b36f82add2ad43ba9",
    "type": "move",
    "status": "ok",
    "changed": [
-    "b1"
+    "b1_4b6786261152c5269e9a1ac3f628b3f9"
    ],
-   "ms": 33.5
+   "ms": 49.6
   }
  ],
- "rev": 7,
- "model": "/private/tmp/claude-501/-Users-Will/300ed889-a247-4a9d-ab68-891ccd0c6236/scratchpad/vp_st/holetest/out/model.FCStd"
+ "rev": 5,
+ "model": "/Users/Will/Sites/comitatus/08_Code_Bases/.worktrees/Napkin/h199/scratch/shopsketch-full.8LjmTS/holetest/out/model.FCStd"
 }

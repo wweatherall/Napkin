@@ -1,138 +1,138 @@
 {
  "oplog": "live",
- "total_ms": 6.7,
- "export_ms": 3.3,
+ "total_ms": 46.4,
+ "export_ms": 35.3,
  "how": "undid 0, applied 1",
  "ops": [
   {
-   "id": "r1",
+   "id": "r1_791716a8e8eae98fc273a3dc3767a0af",
    "type": "rect",
    "status": "ok",
    "changed": [],
-   "ms": 59.1
+   "ms": 409.1
   },
   {
-   "id": "pp1",
-   "type": "push_pull",
+   "id": "nb1_fabfb5302e61e51ce0947c31006ee8e3",
+   "type": "new_board",
    "status": "ok",
    "changed": [
-    "b1"
+    "b1_3113ae67824ebc5a17d1b0c6e7004a4d"
    ],
-   "ms": 1.4
+   "ms": 15.8
   },
   {
-   "id": "r2",
+   "id": "r2_e5cf20c3d17067cec1acf1e1ed8dbf60",
    "type": "rect",
    "status": "ok",
    "changed": [],
-   "ms": 1.6
+   "ms": 3.4
   },
   {
-   "id": "pp2",
-   "type": "push_pull",
+   "id": "nb2_0049ddba22640e658c3b83b55e6b465e",
+   "type": "new_board",
    "status": "ok",
    "changed": [
-    "b2"
+    "b2_63a56a775f72fd6e163a4d65b8821b5c"
    ],
-   "ms": 1.4
+   "ms": 4.1
   },
   {
-   "id": "r3",
+   "id": "r3_6fb683c024aebdc6c475f89b8045be00",
    "type": "rect",
    "status": "ok",
    "changed": [],
-   "ms": 1.8
+   "ms": 6.5
   },
   {
-   "id": "pp3",
+   "id": "pp1_c87bc3210ce555e9309e859b7e7ecdbc",
    "type": "push_pull",
    "status": "ok",
    "changed": [
-    "b1"
+    "b1_3113ae67824ebc5a17d1b0c6e7004a4d"
    ],
-   "ms": 9.6
+   "ms": 18.6
   },
   {
-   "id": "r4",
+   "id": "r4_5df8b76b2493fc4332597cead441b45b",
    "type": "rect",
    "status": "ok",
    "changed": [],
-   "ms": 1.3
+   "ms": 2.1
   },
   {
-   "id": "pp4",
+   "id": "pp2_ae75085dce715b2cf5f3a4b3d1acb039",
    "type": "push_pull",
    "status": "ok",
    "changed": [
-    "b2"
+    "b2_63a56a775f72fd6e163a4d65b8821b5c"
    ],
-   "ms": 14.1
+   "ms": 13.2
   },
   {
-   "id": "r5",
+   "id": "r5_a692da194e01a65ce4b0edd90f9d016b",
    "type": "rect",
    "status": "ok",
    "changed": [],
-   "ms": 1.5
+   "ms": 3.2
   },
   {
-   "id": "pp5",
+   "id": "pp3_c1dc0e07d985361161130b97e9fb8ba4",
    "type": "push_pull",
    "status": "ok",
    "changed": [
-    "b1"
+    "b1_3113ae67824ebc5a17d1b0c6e7004a4d"
    ],
-   "ms": 20.3
+   "ms": 21.6
   },
   {
-   "id": "r6",
+   "id": "r6_2270e4f9e5b71b9681ee791ffea46589",
    "type": "rect",
    "status": "ok",
    "changed": [],
-   "ms": 1.5
+   "ms": 2.5
   },
   {
-   "id": "pp6",
+   "id": "pp4_d9eade7a970c74d0ee8d91d1ec4e3067",
    "type": "push_pull",
    "status": "ok",
    "changed": [
-    "b2"
+    "b2_63a56a775f72fd6e163a4d65b8821b5c"
    ],
-   "ms": 13.4
+   "ms": 15.1
   },
   {
-   "id": "r7",
+   "id": "r7_18777a3782904aae0393ea5f6819a48b",
    "type": "rect",
    "status": "ok",
    "changed": [],
-   "ms": 1.1
+   "ms": 1.9
   },
   {
-   "id": "pp7",
-   "type": "push_pull",
+   "id": "nb3_a84364b69a105b060bb5c79394ef7afa",
+   "type": "new_board",
    "status": "ok",
    "changed": [
-    "b3"
+    "b3_716f42bd2e6f18edd858ad653a786829"
    ],
-   "ms": 1.7
+   "ms": 2.0
   },
   {
-   "id": "r8",
+   "id": "r8_37c11e1db237187d935c000bcc201720",
    "type": "rect",
    "status": "ok",
    "changed": [],
-   "ms": 1.5
+   "ms": 8.0
   },
   {
-   "id": "pp8",
+   "id": "pp5_3e0b61f07acb882534a7a0c3dd227961",
    "type": "push_pull",
    "status": "ok",
    "changed": [
-    "b3"
+    "b3_716f42bd2e6f18edd858ad653a786829"
    ],
-   "ms": 6.6
+   "ms": 46.0
   }
  ],
- "rev": 16,
- "model": "/private/tmp/claude-501/-Users-Will/300ed889-a247-4a9d-ab68-891ccd0c6236/scratchpad/vp_st/facetest/out/model.FCStd"
+ "rev": 8,
+ "model": "/Users/Will/Sites/comitatus/08_Code_Bases/.worktrees/Napkin/h199/scratch/shopsketch-full.8LjmTS/facetest/out/model.FCStd"
 }

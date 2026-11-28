@@ -12,7 +12,7 @@ def run(ctx):
         return dict(id=rid, type='circle', plane=plane, radius=radius)
 
     def push(oid, rid, distance, **extra):
-        return dict(id=oid, type='push_pull', target={'rect': rid}, distance=distance, **extra)
+        return dict(id=oid, type='new_board' if 'body' in extra else 'push_pull', target={'rect': rid}, distance=distance, **extra)
 
     dowel = [circle('round', [800, 0, 0]), push('round_push', 'round', 100, body='dowel')]
 

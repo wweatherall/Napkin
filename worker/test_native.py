@@ -231,7 +231,7 @@ hows, vols_ok = [], True
 for n in range(len(IOPS) - 1, 1, -1):
     how, _ = s.sync(IOPS[:n])
     hows.append(how)
-    holes_left = sum(1 for o in IOPS[:n] if o["type"] == "push_pull") - 1
+    holes_left = sum(1 for o in IOPS[:n] if o["type"] == "push_pull")
     vols_ok &= vol(s) == V1 - holes_left * 7200
 check("FreeCAD keeps 20 undo steps; the 21st Ctrl+Z in a row rebuilds, then undo works again",
       hows[:20] == ["undid 1, applied 0"] * 20 and hows[20] == "rebuilt" and all(h.startswith("undid 1") for h in hows[21:]), hows)

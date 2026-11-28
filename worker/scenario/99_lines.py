@@ -22,7 +22,7 @@ def run(ctx):
         ("each line is an editable constrained sketch", len([o for o in ctx.S.doc.Objects if getattr(o, "SSLineId", "")]) == 3 and all(o.FullyConstrained for o in ctx.S.doc.Objects if getattr(o, "SSLineId", "")), ""),
         ("closed outline has exact triangular area", abs(ctx.S.model.rect_obj("line2").Shape.Area - 3000) < 1e-6, "")])
     def push(distance, body=None):
-        op = dict(id="linepush", type="push_pull", target={"rect": "line2"}, distance=distance)
+        op = dict(id="linepush", type="new_board" if body else "push_pull", target={"rect": "line2"}, distance=distance)
         if body: op["body"] = body
         return op
     solid = drawing + [push(20, "triangle")]

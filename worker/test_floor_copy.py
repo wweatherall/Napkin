@@ -14,7 +14,8 @@ sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import FreeCAD as App
 from common import OpError
-from session import Session, read_journal, sha256_bytes, write_meta_journal
+from session import OLD_FILE_MSG, Session, read_journal, sha256_bytes, write_meta_journal
+import update_old_files as uof
 
 tmp = os.environ.get("TESTDIR", "/tmp/floor_copy_test")
 os.makedirs(tmp, exist_ok=True)
@@ -34,7 +35,7 @@ def check(name, cond, detail=""):
 
 def board(n, w=200):
     return [{"id": f"r{n}", "type": "rect", "plane": {"normal": [0, 0, 1], "origin": [0, n * 300, 0]}, "size": [w, 100]},
-            {"id": f"pp{n}", "type": "push_pull", "target": {"rect": f"r{n}"}, "distance": 18, "body": f"b{n}"}]
+            {"id": f"pp{n}", "type": "new_board", "target": {"rect": f"r{n}"}, "distance": 18, "body": f"b{n}"}]
 
 
 def extra_25_ops(start=4):
@@ -271,8 +272,17 @@ j_raw["ops"][-1] = {"id": "fit1", "type": "property_edit", "mode": "plane_fit",
                     "body": "b1", "target_body": "b2", "axis": 2, "face": 4, "fit_mode": 0}
 write_meta_journal(p, j_raw, update_sha=False)
 
+old_err = ""
+try:
+    Session(p).close()
+except OpError as e:
+    old_err = str(e)
+check("legacy fit in floor entries is rejected on open until updated",
+      old_err == OLD_FILE_MSG, old_err)
+uof.update_paths([p])
+
 s = Session(p)
-check("legacy fit in floor entries is upgraded on open",
+check("updated fit in floor entries opens cleanly",
       s.external and s.undo_floor == 5 and s.applied[-1]["op"] == fit_op,
       (s.external, s.undo_floor, s.applied[-1]["op"]))
 more = extra_25_ops(4)

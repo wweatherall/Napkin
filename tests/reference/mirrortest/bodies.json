@@ -1,8 +1,18 @@
 [
  {
-  "id": "b2",
+  "id": "b2_d9a2f44a28333334815a1bfeef325f67",
   "material": "",
   "component": null,
+  "grain": [
+   0.0,
+   0.0,
+   1.0
+  ],
+  "across": [
+   0.0,
+   1.0,
+   0.0
+  ],
   "world_bbox": [
    690.0,
    0.0,
@@ -18,17 +28,45 @@
   ],
   "volume_mm3": 3960000.0,
   "cuts": [],
-  "mesh": "b2-72dcd78195b00bb6.bin",
+  "stock_frame": null,
+  "mesh": "b2_d9a2f44a28333334815a1bfeef325f67-55ab5f7352c1e17a.bin",
   "color": [
    0.82,
    0.8,
    0.76
+  ],
+  "family": "Board",
+  "array": "",
+  "assembly": "a1_055202763de38e0aafe6abe52996085b",
+  "row": "",
+  "hidden": false,
+  "mirror_plane": [
+   [
+    320.0,
+    0.0,
+    0.0
+   ],
+   [
+    1.0,
+    0.0,
+    0.0
+   ]
   ]
  },
  {
-  "id": "b3",
+  "id": "b3_d9feb79eb44cce4f35c9b916573fd419",
   "material": "",
   "component": null,
+  "grain": [
+   0.0,
+   0.0,
+   1.0
+  ],
+  "across": [
+   0.0,
+   -1.0,
+   0.0
+  ],
   "world_bbox": [
    -110.0,
    700.0,
@@ -44,17 +82,45 @@
   ],
   "volume_mm3": 3960000.0,
   "cuts": [],
-  "mesh": "b3-ce9e190b8bfd3480.bin",
+  "stock_frame": null,
+  "mesh": "b3_d9feb79eb44cce4f35c9b916573fd419-54f210e441a6f837.bin",
   "color": [
    0.82,
    0.8,
    0.76
+  ],
+  "family": "Board",
+  "array": "",
+  "assembly": "a1_055202763de38e0aafe6abe52996085b",
+  "row": "",
+  "hidden": false,
+  "mirror_plane": [
+   [
+    0.0,
+    500.0,
+    0.0
+   ],
+   [
+    0.0,
+    1.0,
+    0.0
+   ]
   ]
  },
  {
-  "id": "b1",
+  "id": "b1_963ba9147b3c0e646f73c61272c23ee3",
   "material": "",
   "component": null,
+  "grain": [
+   0.0,
+   0.0,
+   1.0
+  ],
+  "across": [
+   0.0,
+   1.0,
+   0.0
+  ],
   "world_bbox": [
    -150.0,
    0.0,
@@ -70,11 +136,29 @@
   ],
   "volume_mm3": 3960000.0,
   "cuts": [],
-  "mesh": "b1-1f2eff7f4b66c355.bin",
+  "stock_frame": null,
+  "mesh": "b1_963ba9147b3c0e646f73c61272c23ee3-081b741c49682506.bin",
   "color": [
    0.82,
    0.8,
    0.76
+  ],
+  "family": "Board",
+  "array": "",
+  "assembly": "a1_055202763de38e0aafe6abe52996085b",
+  "row": "",
+  "hidden": false,
+  "mirror_plane": [
+   [
+    -100.0,
+    0.0,
+    0.0
+   ],
+   [
+    1.0,
+    0.0,
+    0.0
+   ]
   ]
  }
 ]

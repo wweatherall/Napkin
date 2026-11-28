@@ -153,9 +153,9 @@ func present_draft(op: Dictionary, pieces: Array, wave: Dictionary) -> void:
 			for old in m.bodies_root.find_children(id, "MeshInstance3D", true, false):
 				old.visible = false
 
-	if op.type == "push_pull" and not op.target.has("region"): profiles.drop_draft(op.target.get("rect", ""))
+	if op.type in ["push_pull", "new_board"] and not op.target.has("region"): profiles.drop_draft(op.target.get("rect", ""))
 	var bodies: Array = wave.bodies
-	waves.begin_wave(op.id, wave.origin, wave.tris, wave.is_new, bodies[0] if op.type == "push_pull" or op.has("cut") else bodies)
+	waves.begin_wave(op.id, wave.origin, wave.tris, wave.is_new, bodies[0] if op.type in ["push_pull", "new_board"] or op.has("cut") else bodies)
 	if wave.attach == "drafts":
 		for surface in root.get_children():
 			waves.attach_wave(op.id, surface, surface.get_child(0), DEFAULT_BASE)

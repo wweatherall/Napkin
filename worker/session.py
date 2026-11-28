@@ -52,7 +52,7 @@ def creations(op):
     """Stable ownership across typed amendments: payload changes do not create another entity."""
     oid = op.get("id", "")
     yield oid, "op:" + str(op.get("type", ""))
-    if op.get("type") == "push_pull" and op.get("body"):
+    if op.get("type") == "new_board" and op.get("body"):
         yield op["body"], "body:" + oid
     for i, bid in enumerate(op.get("new_ids", [])):
         yield bid, f"body:{oid}:{i}"
@@ -259,33 +259,35 @@ def _remove_legacy_sidecars(model_path):
             pass
 
 
-def upgrade_op(op):
-    """Upgrade legacy fit ops saved before protocol 17 to top-level `fit` / `unfit` ops (T162)."""
-    if not isinstance(op, dict) or op.get("type") != "property_edit":
-        return op
-    mode = op.get("mode")
-    if mode not in ("plane_fit", "replace_fit"):
-        return op
-    upgraded = {k: v for k, v in op.items() if k != "mode"}
-    upgraded["type"] = "fit" if mode == "plane_fit" else "unfit"
-    return upgraded
+OLD_FILE_MSG = "This file was saved by an older Napkin: run tools/UPDATE_OLD_FILES.py on it"
 
 
-def _upgrade_dropped(entry):
-    if isinstance(entry, dict) and isinstance(entry.get("op"), dict):
-        return {**entry, "op": upgrade_op(entry["op"])}
-    return upgrade_op(entry)
+def is_legacy_op(op):
+    """True when op uses a pre-split shape that must be rewritten by tools/UPDATE_OLD_FILES.py."""
+    if not isinstance(op, dict):
+        return False
+    t = op.get("type")
+    if t == "property_edit" and op.get("mode") in ("plane_fit", "replace_fit"):
+        return True
+    if t == "push_pull" and (op.get("body") or op.get("edge_fit")):
+        return True
+    return False
 
 
-def _upgrade_journal_dict(j, require_sha=False):
+def _dropped_op(entry):
+    return entry["op"] if isinstance(entry, dict) and isinstance(entry.get("op"), dict) else entry
+
+
+def _check_no_legacy_ops(ops, dropped=()):
+    if any(is_legacy_op(op) for op in ops) or any(is_legacy_op(_dropped_op(d)) for d in dropped):
+        raise OpError(OLD_FILE_MSG)
+
+
+def _validate_journal_dict(j, require_sha=False):
     if not isinstance(j, dict) or j.get("format") != JOURNAL_FORMAT:
         return None
     if require_sha and not j.get("file_sha256"):
         return None
-    if isinstance(j.get("ops"), list):
-        j["ops"] = [upgrade_op(op) for op in j["ops"]]
-    if isinstance(j.get("dropped"), list):
-        j["dropped"] = [_upgrade_dropped(d) for d in j["dropped"]]
     return j
 
 
@@ -300,7 +302,7 @@ def read_journal(path):
             raw = meta.get("ShopSketchJournal")
             if not raw:
                 return None
-            return _upgrade_journal_dict(json.loads(raw), require_sha=False)
+            return _validate_journal_dict(json.loads(raw), require_sha=False)
         except (OSError, KeyError, ValueError, zipfile.BadZipFile, ET.ParseError):
             return None
     try:
@@ -308,7 +310,7 @@ def read_journal(path):
             j = json.load(f)
     except (OSError, ValueError):
         return None
-    return _upgrade_journal_dict(j, require_sha=True)
+    return _validate_journal_dict(j, require_sha=True)
 
 
 def write_meta_journal(fcstd_path, j, update_sha=True):
@@ -521,7 +523,7 @@ class Session:
                 with open(legacy_jp) as f:
                     raw_j = json.load(f)
                 if isinstance(raw_j, dict) and raw_j.get("format") == JOURNAL_FORMAT:
-                    j = _upgrade_journal_dict(raw_j, require_sha=False)
+                    j = _validate_journal_dict(raw_j, require_sha=False)
             except (OSError, ValueError):
                 j = None
             if j:
@@ -533,7 +535,7 @@ class Session:
             raw_meta_j = self.doc.Meta.get("ShopSketchJournal")
             if raw_meta_j:
                 try:
-                    j = _upgrade_journal_dict(json.loads(raw_meta_j), require_sha=False)
+                    j = _validate_journal_dict(json.loads(raw_meta_j), require_sha=False)
                 except ValueError:
                     j = None
             csha = self.doc.Meta.get("ShopSketchContentSha256")
@@ -543,8 +545,22 @@ class Session:
                 self.external = not (content_ok and journal_rev == file_meta_rev)
             else:
                 self.external = True     # not written by Shop Sketch (stage 3 will adopt foreign solids)
+        try:
+            raw_meta_ops = self.doc.Meta.get("ShopSketchOps")
+            if raw_meta_ops:
+                try:
+                    parsed_meta_ops = json.loads(raw_meta_ops)
+                except ValueError:
+                    parsed_meta_ops = None
+                if isinstance(parsed_meta_ops, list):
+                    _check_no_legacy_ops(parsed_meta_ops)
+            if j:
+                upgraded_ops = list(j.get("ops", []))
+                _check_no_legacy_ops(upgraded_ops, j.get("dropped", []))
+        except OpError:
+            self.close()
+            raise
         if j:
-            upgraded_ops = list(j.get("ops", []))
             for op, st in zip(upgraded_ops, j.get("status", [])):
                 if st.get("status") == "ok":           # failed ops left nothing in the file
                     self.applied.append({"op": op, "key": canon(op), "id": op.get("id"), "type": op.get("type"), **st})
@@ -650,7 +666,7 @@ class Session:
                     if isinstance(ops, list) and all(
                             isinstance(op, dict) and isinstance(op.get("type"), str) and op["type"]
                             and (op.get("id") is None or isinstance(op["id"], str)) for op in ops):
-                        ops = [upgrade_op(op) for op in ops]
+                        _check_no_legacy_ops(ops)
                         return [{"op": op, "key": canon(op), "id": op.get("id"), "type": op["type"], "status": "ok"}
                                 for op in ops]
             except (OSError, zipfile.BadZipFile, ET.ParseError, KeyError, TypeError, ValueError,
@@ -658,8 +674,9 @@ class Session:
                 pass  # Old or damaged metadata leaves the historical fallbacks available.
             if meta.get("ShopSketchJournal"):
                 try:
-                    mj = _upgrade_journal_dict(json.loads(meta["ShopSketchJournal"]), require_sha=False)
+                    mj = _validate_journal_dict(json.loads(meta["ShopSketchJournal"]), require_sha=False)
                     if mj and int(mj.get("rev", -1)) == frev:
+                        _check_no_legacy_ops(mj.get("ops", []), mj.get("dropped", []))
                         return [{"op": o, "key": canon(o), "id": o.get("id"), "type": o.get("type"), **st}
                                 for o, st in zip(mj["ops"], mj["status"]) if st.get("status") == "ok"]
                 except (ValueError, TypeError, KeyError):

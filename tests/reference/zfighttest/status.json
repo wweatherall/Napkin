@@ -1,42 +1,42 @@
 {
  "oplog": "live",
- "total_ms": 8.0,
- "export_ms": 6.2,
+ "total_ms": 17.5,
+ "export_ms": 13.1,
  "how": "undid 0, applied 1",
  "ops": [
   {
-   "id": "r1",
+   "id": "r1_20a0ccce01b26161e1fb7bf4b734f96c",
    "type": "rect",
    "status": "ok",
    "changed": [],
-   "ms": 0.4
-  },
-  {
-   "id": "pp1",
-   "type": "push_pull",
-   "status": "ok",
-   "changed": [
-    "b1"
-   ],
    "ms": 1.6
   },
   {
-   "id": "r2",
+   "id": "nb1_d38257d99cbcd02856abc4d283b5bdb1",
+   "type": "new_board",
+   "status": "ok",
+   "changed": [
+    "b1_a8f1d4cbcfb20b8fbc5509423a3bd278"
+   ],
+   "ms": 5.2
+  },
+  {
+   "id": "r2_e543a85eba5428e73a704d6397ba11f3",
    "type": "rect",
    "status": "ok",
    "changed": [],
-   "ms": 2.2
+   "ms": 1.8
   },
   {
-   "id": "pp2",
+   "id": "pp1_2e1d2076445dc22d2c97abe71dea9332",
    "type": "push_pull",
    "status": "ok",
    "changed": [
-    "b1"
+    "b1_a8f1d4cbcfb20b8fbc5509423a3bd278"
    ],
-   "ms": 7.9
+   "ms": 17.4
   }
  ],
- "rev": 4,
- "model": "/private/tmp/claude-501/-Users-Will/300ed889-a247-4a9d-ab68-891ccd0c6236/scratchpad/vp_st/zfighttest/out/model.FCStd"
+ "rev": 2,
+ "model": "/Users/Will/Sites/comitatus/08_Code_Bases/.worktrees/Napkin/h199/scratch/shopsketch-full.8LjmTS/zfighttest/out/model.FCStd"
 }

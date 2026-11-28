@@ -22,7 +22,7 @@ def run(ctx):
         if case.get("circle_radius"):
             continue  # native curved-boundary refinement is checked separately below
         spec = {k: case[k] for k in ("outline", "holes", "normal")}
-        op = dict(id="region_push", type="push_pull", target={"region": spec}, distance=12.5, body="region_board")
+        op = dict(id="region_push", type="new_board", target={"region": spec}, distance=12.5, body="region_board")
         def compare(st, a, b, c=case):
             model = ctx.S.model
             board = model.body("region_board")
@@ -40,7 +40,7 @@ def run(ctx):
     circle_spec = {k: circular[k] for k in ("outline", "holes", "normal")}
     circle_spec["lines"] = ["circle_divider"]
     circle_ops = [dict(id="circle_base", type="circle", plane={"origin":[800,0,0],"normal":[0,0,1]}, radius=50),
-                  dict(id="circle_stock", type="push_pull", target={"rect":"circle_base"}, distance=20, body="round_stock"),
+                  dict(id="circle_stock", type="new_board", target={"rect":"circle_base"}, distance=20, body="round_stock"),
                   dict(id="circle_divider", type="line", plane={"on":face("round_stock",(0,0,1),(800,-50,20))}, end=[800,50,20]),
                   dict(id="circle_region", type="push_pull", target={"face":face("round_stock",(0,0,1),(780,0,20)), "region":circle_spec}, distance=10)]
     def exact_circle(st, a, b):
@@ -51,7 +51,7 @@ def run(ctx):
                 ("preview area differs only by existing circle facets", abs(circular["area"] - math.pi * 1250) / (math.pi*1250) < 0.002, circular["area"])]
     ctx.step("region keeps exact circular boundary", ctx.FIX + circle_ops, exact_circle)
     base = [dict(id="region_base", type="rect", plane={"origin": [800, 0, 0], "normal": [0, 0, 1]}, size=[100,100]),
-            dict(id="region_stock", type="push_pull", target={"rect":"region_base"}, distance=20, body="split_stock")]
+            dict(id="region_stock", type="new_board", target={"rect":"region_base"}, distance=20, body="split_stock")]
     line = dict(id="divider", type="line", plane={"on":face("split_stock", (0,0,1), (850,0,20))}, end=[850,100,20])
     region = dict(outline=[[800,0,20],[850,0,20],[850,100,20],[800,100,20]], holes=[], normal=[0,0,1], lines=["divider"])
     target = dict(face=face("split_stock", (0,0,1), (820,20,20)), region=region)
@@ -60,7 +60,7 @@ def run(ctx):
         ctx.step("region edits only half the stock %s" % distance, ctx.FIX + base + [line, pushed], lambda st, a, b, d=distance: [ok(st, 4),
             ("half alone changes volume even with resize_stock requested", abs(b["boards"]["split_stock"]["vol"] - (200000 + 5000*d)) < 0.02, b["boards"]["split_stock"]),
             ("other half still has its original top face", any(f.normalAt(0,0).z > 0.999 and f.isInside(V(875,50,20),0.001,True) for f in ctx.S.model.world_shape(ctx.S.model.body("split_stock")).Faces), "")])
-    separate = dict(id="split_separate", type="push_pull", target=target, distance=10, body="separate_region")
+    separate = dict(id="split_separate", type="new_board", target=target, distance=10, body="separate_region")
     story = ctx.FIX + base + [line, separate]
     ctx.step("region New board leaves source unchanged", story, lambda st, a, b: [ok(st, 4),
         ("source stays whole", b["boards"]["split_stock"]["vol"] == 200000, ""),

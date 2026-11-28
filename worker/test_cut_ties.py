@@ -47,7 +47,8 @@ def f_rect(rid, body, point, size, normal=(0, 0, 1), corner=None):
 
 
 def push(oid, rid, dist, **extra):
-    op = {"id": oid, "type": "push_pull", "target": {"rect": rid}, "distance": dist}
+    op_type = "new_board" if "body" in extra else "push_pull"
+    op = {"id": oid, "type": op_type, "target": {"rect": rid}, "distance": dist}
     op.update(extra)
     return op
 
@@ -229,16 +230,11 @@ base_ops = [
 s.sync(base_ops)
 tf = {"normal": [0, 0, 1], "point": [50, 50, 14]}
 bad_cases = [
-    ("free rect (new board)", [g_rect("rf", [0, 200, 0], [50, 50]), push("pf", "rf", -10, to_face=tf)]),
-    ("separate body on face", [f_rect("rs", "b1", [10, 10, 20], [40, 40]), push("ps", "rs", -10, body="b3", to_face=tf)]),
     ("positive distance", [f_rect("rp", "b1", [10, 10, 20], [40, 40]), push("pp", "rp", 10, to_face=tf)]),
     ("with through=True", [f_rect("rt", "b1", [10, 10, 20], [40, 40]), push("pt", "rt", -20, through=True, to_face=tf)]),
     ("with resize_stock", [{"id": "prs", "type": "push_pull",
                             "target": {"face": {"body": "b1", "normal": [1, 0, 0], "point": [200, 50, 10]}},
                             "distance": -10, "resize_stock": True, "to_face": tf}]),
-    ("with edge_fit", [{"id": "pef", "type": "push_pull",
-                        "target": {"face": {"body": "b1", "normal": [1, 0, 0], "point": [200, 50, 10]}},
-                        "distance": -10, "edge_fit": {"target_body": "b2", "face": 0}, "to_face": tf}]),
 ]
 for label, extra in bad_cases:
     s.sync(base_ops + extra)

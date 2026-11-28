@@ -29,6 +29,7 @@ Named scripts for every action a person or worker runs directly. Each script is 
 - `../../09_Tools/MEASURE_TOKEN_USE.py` — inspect session usage and token benchmarks (moved to `comitatus/09_Tools`, P69; run `python3 ../../09_Tools/MEASURE_TOKEN_USE.py`).
 - `COMPARE_TEST_SUITES.py` — compare viewport suite runs with `tests/reference/` (`compare_suites.py`).
 - `CHECK_TYPED_LENGTHS_AGAINST_FREECAD.py` — regenerate `tests/length_cases.json` with `freecadcmd` (`length_cases.py`).
+- `UPDATE_OLD_FILES.py` — one-time updater rewriting pre-H199 ops in `.FCStd` and `.json` files (`worker/update_old_files.py`).
 - `TEST_YOUR_CODE_FAST.sh` — run the quick test (`quicktest.sh`).
 - `TEST_YOUR_CODE_THOROUGHLY.sh` — run the full test (`fulltest.sh`).
 - `TEST_WITHOUT_THE_APP.sh` — run the headless feature tests (`featuretest.sh`).

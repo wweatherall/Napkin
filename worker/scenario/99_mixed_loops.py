@@ -55,7 +55,7 @@ def run(ctx):
     ]
     arch_spec = dict(outline=arch_outline, holes=[], normal=[0, 0, 1],
                      lines=[o["id"] for o in arch_lines])
-    arch_push = dict(id="arch_push", type="push_pull", target={"region": arch_spec}, distance=20, body="arch_board")
+    arch_push = dict(id="arch_push", type="new_board", target={"region": arch_spec}, distance=20, body="arch_board")
     arch_area = 8000.0 + 0.5 * math.pi * 2500.0
     arch_story = ctx.FIX + arch_lines + [arch_push]
 
@@ -102,7 +102,7 @@ def run(ctx):
              mid=[850, 20, 0], end=[900, 0, 0]),
         dict(id="lens_bot", type="arc", plane={"origin": [800, 0, 0], "normal": [0, 0, 1]},
              mid=[850, -20, 0], end=[900, 0, 0]),
-        dict(id="lens_push", type="push_pull",
+        dict(id="lens_push", type="new_board",
              target={"region": dict(outline=lens_outline, holes=[], normal=[0, 0, 1], lines=["lens_top", "lens_bot"])},
              distance=15, body="lens_board"),
     ]
@@ -124,7 +124,7 @@ def run(ctx):
     # 3. On-face loop of lines + arc pushed up (boss) and down (pocket and through-hole)
     stock_ops = [
         dict(id="ml_base", type="rect", plane={"origin": [800, 0, 0], "normal": [0, 0, 1]}, size=[100, 100]),
-        dict(id="ml_stock", type="push_pull", target={"rect": "ml_base"}, distance=20, body="ml_stock"),
+        dict(id="ml_stock", type="new_board", target={"rect": "ml_base"}, distance=20, body="ml_stock"),
     ]
     face_arc_pts = _arc_points([820, 50, 20], [850, 80, 20], [880, 50, 20])
     face_outline = [[820, 20, 20], [880, 20, 20], [880, 50, 20]] + list(reversed(face_arc_pts))[1:-1] + [[820, 50, 20]]
@@ -168,7 +168,7 @@ def run(ctx):
              mid=[870, 60, 0], end=[840, 90, 0]),
     ]
     holed_push = dict(
-        id="holed_push", type="push_pull",
+        id="holed_push", type="new_board",
         target={"region": dict(outline=outer_pts, holes=[hole_outline], normal=[0, 0, 1],
                                lines=[o["id"] for o in holed_drawings])},
         distance=20, body="holed_board",
@@ -200,7 +200,7 @@ def run(ctx):
         dict(id="u_left", type="line", plane={"origin": [800, 80, 0], "normal": [0, 0, 1]}, end=[800, 0, 0]),
     ]
     u_push = dict(
-        id="u_push", type="push_pull",
+        id="u_push", type="new_board",
         target={"region": dict(outline=u_outline, holes=[], normal=[0, 0, 1],
                                lines=[o["id"] for o in u_drawings])},
         distance=15, body="u_board",
@@ -221,11 +221,11 @@ def run(ctx):
     unclosed_spec = dict(outline=arch_outline, holes=[], normal=[0, 0, 1],
                          lines=["arch_right", "arch_left", "arch_top"])
     ctx.step("ground loop rejects unclosed drawings",
-             ctx.FIX + arch_lines[1:] + [dict(id="bad_open", type="push_pull", target={"region": unclosed_spec}, distance=20, body="bad_open")],
+             ctx.FIX + arch_lines[1:] + [dict(id="bad_open", type="new_board", target={"region": unclosed_spec}, distance=20, body="bad_open")],
              lambda st, _a, _b: [("unclosed loop rejected", st[-1]["status"] == "failed", st[-1])])
 
     missing_spec = dict(outline=arch_outline, holes=[], normal=[0, 0, 1],
                         lines=[o["id"] for o in arch_lines] + ["no_such_line"])
     ctx.step("ground loop rejects missing line id",
-             ctx.FIX + arch_lines + [dict(id="bad_miss", type="push_pull", target={"region": missing_spec}, distance=20, body="bad_miss")],
+             ctx.FIX + arch_lines + [dict(id="bad_miss", type="new_board", target={"region": missing_spec}, distance=20, body="bad_miss")],
              lambda st, _a, _b: [("missing line rejected", st[-1]["status"] == "failed", st[-1])])

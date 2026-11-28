@@ -32,7 +32,7 @@ def check(name, cond, detail=""):
 
 def board(n, w=200):
     return [{"id": f"r{n}", "type": "rect", "plane": {"normal": [0, 0, 1], "origin": [0, n * 300, 0]}, "size": [w, 100]},
-            {"id": f"pp{n}", "type": "push_pull", "target": {"rect": f"r{n}"}, "distance": 18, "body": f"b{n}"}]
+            {"id": f"pp{n}", "type": "new_board", "target": {"rect": f"r{n}"}, "distance": 18, "body": f"b{n}"}]
 
 
 def model(name):

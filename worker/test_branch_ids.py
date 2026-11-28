@@ -27,17 +27,17 @@ def rejects(name, registry, ops, match=None):
 
 r = IdRegistry()
 profile, push, body = fresh('r1_'), fresh('pp1_'), fresh('b3_')
-ops = [dict(id=profile, type='rect'), dict(id=push, type='push_pull', body=body)]
+ops = [dict(id=profile, type='rect'), dict(id=push, type='new_board', body=body)]
 r.accept(ops)
 r.accept([])                                # undo every action
 other = fresh('pp2_')
 rejects('an abandoned board ID cannot belong to another creation', r,
-        [dict(id=other, type='push_pull', body=body)])
+        [dict(id=other, type='new_board', body=body)])
 rejects('an op ID cannot become a board ID', r,
-        [dict(id=other, type='push_pull', body=profile)])
+        [dict(id=other, type='new_board', body=profile)])
 rejects('duplicate op IDs in one path are refused before any reservation changes', r, ops + [ops[0]])
 rejects('an op identity cannot change operation kind', r, [dict(id=profile, type='circle')])
-r.accept([dict(id=profile, type='rect', size=[20, 30]), dict(id=push, type='push_pull', body=body, distance=40)])
+r.accept([dict(id=profile, type='rect', size=[20, 30]), dict(id=push, type='new_board', body=body, distance=40)])
 check('typed amendments keep the same logical profile, op and board', r.owners[body] == 'body:' + push)
 unclaimed = fresh('a8_')
 r.accept([], [unclaimed])
@@ -60,8 +60,8 @@ try:
     sr, sp, sb1 = fresh('r10_'), fresh('pp10_'), fresh('b10_')
     sp2, sB = fresh('pp11_'), fresh('b11_')
     r_op = dict(id=sr, type='rect', plane=dict(origin=[0, 0, 0], normal=[0, 0, 1]), size=[100, 60])
-    p_op = dict(id=sp, type='push_pull', target=dict(rect=sr), distance=20, body=sb1)
-    p2_op = dict(id=sp2, type='push_pull',
+    p_op = dict(id=sp, type='new_board', target=dict(rect=sr), distance=20, body=sb1)
+    p2_op = dict(id=sp2, type='new_board',
                  target=dict(face=dict(body=sb1, normal=[0, 0, 1], point=[50, 30, 20])),
                  distance=15, body=sB)
     s.sync([r_op, p_op], [sp2, sB])
@@ -75,7 +75,7 @@ try:
     s.sync([r_op, p_op, p2_op], [sp2, sB])
     check('syncing the same op list again succeeds',
           all(e['status'] == 'ok' for e in s.status()) and s.ids.owners.get(sB) == 'body:' + sp2)
-    other_push = dict(id=fresh('pp12_'), type='push_pull',
+    other_push = dict(id=fresh('pp12_'), type='new_board',
                       target=dict(face=dict(body=sb1, normal=[0, 0, 1], point=[50, 30, 20])),
                       distance=15, body=sB)
     try:
@@ -93,10 +93,10 @@ try:
               'ID collision' in str(e) and s.ids.owners.get(sB) == 'body:' + sp2)
     dup_b = fresh('b12_')
     s.sync([r_op, p_op], [dup_b])
-    d1 = dict(id=fresh('pp13_'), type='push_pull',
+    d1 = dict(id=fresh('pp13_'), type='new_board',
               target=dict(face=dict(body=sb1, normal=[0, 0, 1], point=[50, 30, 20])),
               distance=10, body=dup_b)
-    d2 = dict(id=fresh('pp14_'), type='push_pull',
+    d2 = dict(id=fresh('pp14_'), type='new_board',
               target=dict(face=dict(body=sb1, normal=[0, 0, 1], point=[50, 30, 20])),
               distance=12, body=dup_b)
     try:

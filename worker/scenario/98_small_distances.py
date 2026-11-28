@@ -19,6 +19,6 @@ def run(ctx):
             ('exact added strip', abs(b['boards']['bottom']['vol']-a['boards']['bottom']['vol']-564*18*d)<0.02,
              b['boards']['bottom']['vol'])])
     small = [dict(id='tinyrect', type='rect', plane={'normal':[0,0,1],'origin':[800,0,0]},size=[0.2,20]),
-             dict(id='tinypush',type='push_pull',target={'rect':'tinyrect'},distance=0.2,body='tiny')]
+             dict(id='tinypush',type='new_board',target={'rect':'tinyrect'},distance=0.2,body='tiny')]
     ctx.step('small rectangular stock', fix+small, lambda st,a,b: [ok(st,2), only(a,b,{'tiny'}),
         ('exact small stock volume', abs(b['boards'].get('tiny',{}).get('vol',0)-0.8)<0.01,b['boards'].get('tiny'))])

@@ -27,5 +27,5 @@ func run() -> void:
 	var note: String = m.last_reject_note
 	var ids: Array = m.ops.map(func(o): return o["id"])
 	harness._ok("the rejected board and the 2 actions built on it go; the rest stays",
-		ids == [harness.id("r1"), harness.id("pp1"), harness.id("r2"), harness.id("r4"), harness.id("pp4")] and harness._shown_ids() == [harness.id("b1"), harness.id("b3")], [ids, harness._shown_ids()])
+		ids == [harness.id("r1"), harness.id("pp1"), harness.id("r2"), harness.id("r4"), harness.id("nb2")] and harness._shown_ids() == [harness.id("b1"), harness.id("b3")], [ids, harness._shown_ids()])
 	harness._ok("one message for all three", note.contains("2 actions that built on it"), note)
