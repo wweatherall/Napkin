@@ -25,6 +25,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 <!-- open list: built from docs/handoff/ by tools/handoff.py; don't edit by hand -->
 
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
+- [H212 — Components and arrays the SketchUp way: one click takes the group, inside every copy is linked, the original is marked (I82)](handoff/H212-components-the-sketchup-way.md) — status: open; for: codex
 
 <!-- end of open list -->
 

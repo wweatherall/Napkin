@@ -42,7 +42,7 @@ One subject per decision; the Decisions column is generated.
 | Files, saving and undo | The .FCStd model and its journal, saving, opening, undo and redo. | A21, A23, A24, A25, A28, A36, A39, A41, A42, A43, I38, I42, I54, I55, I78, U01, U02, U03 |
 | Drawing tools | Rectangle, Circle, Line: how a drawing gesture starts, follows and ends. | I02, I04b, I09, I11, I43, I44, I49, I50, I51, I58, I60, I61, I64, I65, I71, I73, I81 |
 | Push/Pull | Extruding, cutting, and fitting a board's end to another board. | I05, I08, I23, I24, I34, I40, I41, I45, I56, I74, I75, I76, I77 |
-| Move, copies and arrays | Move, linked copies, arrays, mirrors, components and assemblies. | A10, A11b, A22c, A26, I10, I12c, I13b, I14, I15, I16, I17, I20, I21, I25, I28, I32, I46, I52, I53, I66, I69, I80 |
+| Move, copies and arrays | Move, linked copies, arrays, mirrors, components and assemblies. | A10, A11b, A22c, A26, I10, I12c, I13b, I14, I15, I16, I17, I20, I21, I25, I28, I32, I46, I52, I53, I66, I69, I80, I82 |
 | Snapping | Points, edges, axes and the grid, shared by every tool. | I03b, I18, I19 |
 | Measurements | Typed values, units and the measurements box. | I35, I48, I57, I59, I62, I67, I70 |
 | View and look | Camera and input devices, panels, the Mac look, lines, lighting, hiding. | I22, I30, I31, I36, I37, I63, W10, W11, W12, W14 |
@@ -191,6 +191,7 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | I66 | Typing an array count (Nx, xN, *N, /N) during a Move previews the array live before cli... | Active |
 | I69 | Double-clicking a linked component (board family) enters and isolates it like an assemb... | Active |
 | I80 | A drawing drawn on a board face stays attached to that board while a move keeps it on t... | Active |
+| I82 | Components and arrays of linked copies, the SketchUp way (all copies linked, Make Uniqu... | Active |
 
 ### Snapping
 
@@ -390,6 +391,7 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | T166 | Integrator's doubts about H205, for William to look at once it has run for a few days: ... | Open |
 | T167 | William's notes from a session in Napkin (2026-11-28), as written: blue is select & 2D ... | Open |
 | T168 | Keep the array when one copy inside it is moved: a FreeCAD array that holds a per-copy ... | Parked |
+| T169 | Build I82 (components and arrays the SketchUp way): check each part against the app, fi... | On the board (H212) |
 
 ## Tunables
 

@@ -3,7 +3,7 @@
 "Check the board" sends you here. Only the integrator edits this file; the job table is built from docs/handoff/
 and the job queue.
 
-Order: H191, H192, H196, H197, H195, H193, H194, H198, H199, H206, H205, H204, H207, H200, H201, H211, H208, H209, H210, H202, H203
+Order: H191, H192, H196, H197, H195, H193, H194, H198, H199, H206, H205, H204, H207, H200, H201, H211, H208, H209, H210, H202, H203, H212
 Pace: one at a time
 
 ## If you're not the integrator
@@ -74,6 +74,7 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
+| H212 | Codex | **Ready** | Components and arrays the SketchUp way: one click takes the group, inside every copy is linked, the original is marked (I82) | [H212](docs/handoff/H212-components-the-sketchup-way.md) |  |
 
 <!-- end of job table -->
 
