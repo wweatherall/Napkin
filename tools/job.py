@@ -61,6 +61,7 @@ import fcntl
 import json
 import os
 import re
+import shlex
 import signal
 import subprocess
 import sys
@@ -1349,6 +1350,106 @@ def _default_launch(agent):
     return launch.main([agent])
 
 
+def hopper_pid_path(cwd=None):
+    return os.path.join(common_dir(cwd), "shopsketch-hopper.pid")
+
+
+def _pid_alive(pid):
+    try:
+        os.kill(pid, 0)
+        return True
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    except OSError:
+        return False
+
+
+def _running_hopper_pid(cwd):
+    path = hopper_pid_path(cwd)
+    try:
+        pid = int(open(path, encoding="utf-8").read().strip())
+    except (OSError, ValueError):
+        return None
+    if pid != os.getpid() and _pid_alive(pid):
+        return pid
+    return None
+
+
+def _claim_hopper_pid(cwd):
+    path = hopper_pid_path(cwd)
+    existing = _running_hopper_pid(cwd)
+    if existing is not None:
+        return existing
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(f"{os.getpid()}\n")
+    return None
+
+
+def _release_hopper_pid(cwd):
+    path = hopper_pid_path(cwd)
+    try:
+        if int(open(path, encoding="utf-8").read().strip()) == os.getpid():
+            os.unlink(path)
+    except (OSError, ValueError):
+        pass
+
+
+def _next_hopper_candidate(root, st, jobs, order, claims, pace):
+    """First entry in Order takeable as itself, or a returned job (H196)."""
+    for j in ordered(jobs, order):
+        target_agent = "gemini" if j["for"] == "either" else j["for"]
+        picked, _ = takeable(root, st, target_agent, jobs, order, claims, pace=pace)
+        if not picked:
+            continue
+        is_returned = st["jobs"].get(picked["id"], {}).get("state") == "returned"
+        if picked["id"] != j["id"] and not is_returned:
+            continue
+        return picked, target_agent
+    return None, None
+
+
+def hopper_wake_conditions(root, st, jobs, order, now, claims=None, pace="all at once", procs=None, mutate=False):
+    """Active hopper wake conditions as {seen_key: detail} (H196), shared by hopper_step and hopper_wait."""
+    conds = {}
+    claims = branch_claims(root) if claims is None else claims
+    for k, j in st["jobs"].items():
+        if j.get("state") in WORKING:
+            act = refresh(root, j, now, (procs or {}).get(k))
+            if j["state"] == "waiting":
+                conds[("waiting", k, j.get("since"))] = waiting_line(k, j)
+            elif stale(j, act, now):
+                conds[("stale", k, act)] = (
+                    f"stale: {k} ({j.get('agent')}) no beat since {hhmm(act)}: check {j.get('branch')} in {j.get('worktree')}"
+                )
+    launched = st.get("launched", {})
+    for jid, info in list(launched.items()):
+        if st["jobs"].get(jid, {}).get("state") in ACTIVE:
+            if mutate:
+                launched.pop(jid, None)
+        elif now - info.get("at", 0) >= LAUNCH_TIMEOUT:
+            if mutate:
+                launched.pop(jid, None)
+            mins = int((now - info.get("at", 0)) // 60)
+            conds[("launch_timeout", jid, info.get("at"))] = (
+                f"launch timeout: {jid} ({info.get('agent')}) hasn't taken its job in {mins} min"
+            )
+    pacing = [jid for jid, s in st["jobs"].items()
+              if s.get("state") == "in progress" or (s.get("state") == "waiting" and s.get("question_kind") == "scope")]
+    pending = [jid for jid, info in launched.items()
+               if st["jobs"].get(jid, {}).get("state") not in ACTIVE and now - info.get("at", 0) < LAUNCH_TIMEOUT]
+    if not pacing and not pending:
+        picked, _ = _next_hopper_candidate(root, st, jobs, order, claims, pace)
+        if picked is None:
+            done_ids = [jid for jid, s in st["jobs"].items() if s.get("state") == "done"]
+            if done_ids:
+                conds[("batch_ready", tuple(sorted(done_ids)))] = (
+                    f"batch ready to merge: {', '.join(done_ids)} (run python3 tools/MERGE_THE_BATCH.py)"
+                )
+    return conds
+
+
 def hopper_step(root, now=None, dry_run=False, launcher=None, out=print, seen=None, procs=None):
     """One poll of the hopper (H185). Returns (action, exit_code, detail, seen_key):
     action is 'exit', 'launched', 'dry', or 'wait'."""
@@ -1359,30 +1460,14 @@ def hopper_step(root, now=None, dry_run=False, launcher=None, out=print, seen=No
     claims = branch_claims(root)
     launch_target = None
     with state_read(state_path(root), readonly=dry_run) as st:
-        for k, j in st["jobs"].items():
-            s = j.get("state")
-            if s in WORKING:
-                act = refresh(root, j, now, (procs or {}).get(k))
-                if j["state"] == "waiting":
-                    key = ("waiting", k, j.get("since"))
-                    if seen is None or key not in seen:
-                        return "exit", 0, waiting_line(k, j), key
-                elif stale(j, act, now):
-                    key = ("stale", k, act)
-                    if seen is None or key not in seen:
-                        return ("exit", 0,
-                                f"stale: {k} ({j.get('agent')}) no beat since {hhmm(act)}: check {j.get('branch')} in {j.get('worktree')}",
-                                key)
-        launched = st.get("launched", {})
-        for jid, info in list(launched.items()):
-            if st["jobs"].get(jid, {}).get("state") in ACTIVE:
-                if not dry_run:
-                    launched.pop(jid, None)
-            elif now - info.get("at", 0) >= LAUNCH_TIMEOUT:
-                if not dry_run:
-                    launched.pop(jid, None)
-                mins = int((now - info.get("at", 0)) // 60)
-                return "exit", 0, f"launch timeout: {jid} ({info.get('agent')}) hasn't taken its job in {mins} min", None
+        conds = hopper_wake_conditions(root, st, jobs, order, now, claims=claims, pace=pace,
+                                       procs=procs, mutate=not dry_run)
+        for key, detail in conds.items():
+            if seen is None or key not in seen:
+                if dry_run and key[0] == "batch_ready":
+                    out(detail)
+                    return "dry", 0, None, None
+                return "exit", 0, detail, key
         pacing = [jid for jid, s in st["jobs"].items()
                   if s.get("state") == "in progress" or (s.get("state") == "waiting" and s.get("question_kind") == "scope")]
         pending = list(st.get("launched", {}).items())
@@ -1392,13 +1477,8 @@ def hopper_step(root, now=None, dry_run=False, launcher=None, out=print, seen=No
                 out(f"waiting: {why}")
                 return "dry", 0, None, None
             return "wait", None, None, None
-        # Pick the next takeable job in BOARD.md order (returned jobs for an agent come first via takeable).
-        candidates = [j for j in ordered(jobs, order)]
-        for j in candidates:
-            target_agent = "gemini" if j["for"] == "either" else j["for"]
-            picked, _ = takeable(root, st, target_agent, jobs, order, claims, pace=pace)
-            if not picked:
-                continue
+        picked, target_agent = _next_hopper_candidate(root, st, jobs, order, claims, pace)
+        if picked is not None:
             if picked["id"] in st.get("launched", {}):
                 return "wait", None, None, None
             if dry_run:
@@ -1406,15 +1486,7 @@ def hopper_step(root, now=None, dry_run=False, launcher=None, out=print, seen=No
                 return "dry", 0, None, None
             st.setdefault("launched", {})[picked["id"]] = {"at": now, "agent": target_agent}
             launch_target = (picked, target_agent)
-            break
         if launch_target is None:
-            done_ids = [jid for jid, s in st["jobs"].items() if s.get("state") == "done"]
-            if done_ids:
-                msg = f"batch ready to merge: {', '.join(done_ids)} (run python3 tools/MERGE_THE_BATCH.py)"
-                if dry_run:
-                    out(msg)
-                    return "dry", 0, None, None
-                return "exit", 0, msg, None
             if dry_run:
                 out("nothing Ready and nothing in progress")
                 return "dry", 0, None, None
@@ -1430,34 +1502,91 @@ def hopper_step(root, now=None, dry_run=False, launcher=None, out=print, seen=No
     return "launched", None, picked["id"], None
 
 
-def hopper(cwd, dry_run=False, launcher=None, out=print, now=None, sleep=time.sleep, poll=None):
-    """Run the hopper (H185): launch one worker at a time, wake the integrator when the batch is done or needs help."""
+def hopper(cwd, dry_run=False, launcher=None, out=print, now=None, sleep=time.sleep, poll=None,
+           forever=False, window=False):
+    """Run the hopper (H185, H196): launch one worker at a time, wake the integrator when the batch is done or needs help."""
     root = main_root(cwd)
+    if window:
+        import launch
+        if not dry_run:
+            existing = _running_hopper_pid(root)
+            if existing is not None:
+                out(f"hopper already running (pid {existing})")
+                return 1
+        cmd = f"cd {shlex.quote(root)} && python3 tools/RUN_THE_HOPPER.py --forever"
+        rc = launch.open_terminal(cmd, dry_run=dry_run, out=out)
+        if rc != 0:
+            return rc
+        if not dry_run:
+            out("opened hopper in a new Terminal window (python3 tools/RUN_THE_HOPPER.py --forever)")
+        return 0
     poll = WATCH_POLL if poll is None else poll
     if dry_run:
         hopper_step(root, now=now, dry_run=True, launcher=launcher, out=out)
         return 0
-    # Ignore waiting/stale events that were already active before this run started (like watch --next).
-    seen = set()
-    jobs, order = main_view(root)
+    if forever:
+        existing = _claim_hopper_pid(root)
+        if existing is not None:
+            out(f"hopper already running (pid {existing})")
+            return 1
+    try:
+        # Ignore waiting/stale events that were already active before this run started (like watch --next).
+        seen = set()
+        t0 = now or time.time()
+        with state_read(state_path(root), readonly=True) as st:
+            for k, j in st["jobs"].items():
+                if j.get("state") == "waiting":
+                    seen.add(("waiting", k, j.get("since")))
+                elif j.get("state") == "in progress":
+                    act = refresh(root, j, t0)
+                    if stale(j, act, t0):
+                        seen.add(("stale", k, act))
+        while True:
+            t = now or time.time()
+            action, code, detail, key = hopper_step(root, now=t, dry_run=False, launcher=launcher, out=out, seen=seen)
+            if action == "exit":
+                out(f"{hhmm(t)} {detail}")
+                sys.stdout.flush()
+                if not forever:
+                    return code
+                if key is not None:
+                    seen.add(key)
+            else:
+                if key is not None:
+                    seen.add(key)
+                if forever and action == "launched":
+                    seen = {k for k in seen if k[0] != "batch_ready"}
+            sleep(poll)
+    finally:
+        if forever:
+            _release_hopper_pid(root)
+
+
+def hopper_wait(cwd, out=print, now=None, sleep=time.sleep, poll=None):
+    """Wait for the first new hopper wake condition without launching anything (H196).
+    Ignores conditions already true at start, except batch ready (reported immediately)."""
+    root = main_root(cwd)
+    poll = WATCH_POLL if poll is None else poll
     t0 = now or time.time()
+    jobs, order = main_view(root)
+    pace, _ = main_pace(root)
+    claims = branch_claims(root)
     with state_read(state_path(root), readonly=True) as st:
-        for k, j in st["jobs"].items():
-            if j.get("state") == "waiting":
-                seen.add(("waiting", k, j.get("since")))
-            elif j.get("state") == "in progress":
-                act = refresh(root, j, t0)
-                if stale(j, act, t0):
-                    seen.add(("stale", k, act))
+        init = hopper_wake_conditions(root, st, jobs, order, t0, claims=claims, pace=pace, mutate=False)
+    seen = {k for k in init if k[0] != "batch_ready"}
     while True:
         t = now or time.time()
-        action, code, detail, key = hopper_step(root, now=t, dry_run=False, launcher=launcher, out=out, seen=seen)
-        if action == "exit":
-            out(f"{hhmm(t)} {detail}")
-            sys.stdout.flush()
-            return code
-        if key is not None:
-            seen.add(key)
+        jobs, order = main_view(root)
+        pace, _ = main_pace(root)
+        claims = branch_claims(root)
+        with state_read(state_path(root), readonly=True) as st:
+            conds = hopper_wake_conditions(root, st, jobs, order, t, claims=claims, pace=pace, mutate=False)
+        for key, detail in conds.items():
+            if key not in seen:
+                out(f"{hhmm(t)} {detail}")
+                sys.stdout.flush()
+                return 0
+        seen = set(conds)
         sleep(poll)
 
 
@@ -1516,7 +1645,9 @@ def main(argv):
         watch(cwd, once="--once" in argv, until_new="--next" in argv)
         return 0
     if cmd == "hopper":
-        return hopper(cwd, dry_run="--dry-run" in argv)
+        return hopper(cwd, dry_run="--dry-run" in argv, forever="--forever" in argv, window="--window" in argv)
+    if cmd == "hopper-wait":
+        return hopper_wait(cwd)
     if cmd == "return" and len(argv) >= 3:
         return 0 if return_job(cwd, argv[1].upper(), argv[2]) else 1
     if cmd == "merged" and len(argv) >= 2:

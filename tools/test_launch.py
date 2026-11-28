@@ -109,5 +109,10 @@ check("--dry-run prints the command, writes the prompt with the real brief, open
 if os.path.exists(made):
     os.remove(made)
 
+term_out = []
+term_rc = launch.open_terminal("cd /x && python3 tools/RUN_THE_HOPPER.py --forever", dry_run=True, out=term_out.append)
+check("open_terminal --dry-run prints the command without opening a window",
+      term_rc == 0 and term_out == ["cd /x && python3 tools/RUN_THE_HOPPER.py --forever"], (term_rc, term_out))
+
 print(f"LAUNCH TESTS: {passed} passed, {failed} failed")
 sys.exit(1 if failed else 0)

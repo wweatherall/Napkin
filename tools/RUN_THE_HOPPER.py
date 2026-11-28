@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the hopper (H185): launch one worker at a time, wake the integrator when the batch is done or needs help."""
+"""Run the hopper (H185, H196): launch one worker at a time (`--window` opens a Terminal running `--forever`)."""
 import os
 import sys
 

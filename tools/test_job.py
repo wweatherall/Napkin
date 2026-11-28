@@ -1639,5 +1639,112 @@ check("hopper_step exits 0 when batch is all done",
       act_done == "exit" and code_done == 0 and "batch ready to merge" in det_done, (act_done, det_done))
 shutil.rmtree(hp_base)
 
+# 4. H196: Order across agents, --window --dry-run, --forever + pid file, and hopper_wait
+h196_base, h196_root = repo()
+with open(os.path.join(h196_root, "docs", "handoff", "H001-first-job.md"), "r+") as f:
+    txt = f.read().replace("For: Claude", "For: gemini")
+    f.seek(0); f.write(txt); f.truncate()
+with open(os.path.join(h196_root, "docs", "handoff", "H002-second-job.md"), "r+") as f:
+    txt = f.read().replace("For: Claude", "For: codex")
+    f.seek(0); f.write(txt); f.truncate()
+with open(os.path.join(h196_root, "docs", "handoff", "H003-third-job.md"), "r+") as f:
+    txt = f.read().replace("For: either", "For: gemini")
+    f.seek(0); f.write(txt); f.truncate()
+with open(os.path.join(h196_root, "BOARD.md"), "r+") as f:
+    btxt = f.read().replace("Order:", "Pace: one at a time\nOrder:")
+    f.seek(0); f.write(btxt); f.truncate()
+commit(h196_root, "h196 order across agents")
+
+# Order [done Gemini (H001), Ready Codex (H002), Ready Gemini (H003)] -> launches Codex (H002), not Gemini (H003)
+with job.locked(job.state_path(h196_root)) as st:
+    st["jobs"]["H001"] = {"state": "done", "branch": "gemini/h001-first-job"}
+ord_launches = []
+act_ord, _, det_ord, _ = job.hopper_step(h196_root, now=6000, launcher=lambda a: ord_launches.append(a) or 0)
+check("hopper_step keeps Order across agents: [done Gemini, Ready Codex, Ready Gemini] launches Codex",
+      act_ord == "launched" and det_ord == "H002" and ord_launches == ["codex"],
+      (act_ord, det_ord, ord_launches))
+
+# Returned Gemini job still takes priority over Ready Codex job
+with job.locked(job.state_path(h196_root)) as st:
+    st.pop("launched", None)
+    st["jobs"]["H003"] = {"state": "returned", "agent": "gemini", "branch": "gemini/h003-third-job"}
+ret_launches = []
+act_ret, _, det_ret, _ = job.hopper_step(h196_root, now=6010, launcher=lambda a: ret_launches.append(a) or 0)
+check("hopper_step still prioritizes a returned job for an agent",
+      act_ret == "launched" and det_ret == "H003" and ret_launches == ["gemini"],
+      (act_ret, det_ret, ret_launches))
+
+# --window --dry-run prints Terminal command without opening it
+win_out = []
+win_rc = job.hopper(h196_root, dry_run=True, window=True, out=win_out.append)
+check("hopper --window --dry-run prints the Terminal command without opening a window",
+      win_rc == 0 and any("RUN_THE_HOPPER.py --forever" in l for l in win_out), (win_rc, win_out))
+
+# Second --forever hopper refuses while pid file holds a live process; dead pid is replaced
+live_proc = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(10)"])
+try:
+    open(job.hopper_pid_path(h196_root), "w").write(f"{live_proc.pid}\n")
+    dup_out = []
+    dup_rc = job.hopper(h196_root, forever=True, out=dup_out.append)
+    check("a second --forever hopper refuses and exits 1 while one is running",
+          dup_rc == 1 and any("already running" in l for l in dup_out), (dup_rc, dup_out))
+finally:
+    live_proc.terminate()
+    live_proc.wait()
+
+# Replace pid file with a dead pid and verify --forever clears it on exit and carries on past batch ready
+open(job.hopper_pid_path(h196_root), "w").write("999999\n")
+with job.locked(job.state_path(h196_root)) as st:
+    for jid in ("H001", "H002", "H003", "H004", "H005", "H006"):
+        st["jobs"][jid] = {"state": "done", "branch": f"codex/{jid.lower()}-x"}
+f_out = []
+polls = [0]
+def _forever_sleep(_):
+    polls[0] += 1
+    if polls[0] == 1:
+        # Mark H002 open/Ready so --forever launches it on the second poll instead of exiting
+        with job.locked(job.state_path(h196_root)) as st:
+            st["jobs"].pop("H002", None)
+    else:
+        raise SystemExit(0)
+
+try:
+    job.hopper(h196_root, forever=True, launcher=lambda a: 0, out=f_out.append, now=7000, sleep=_forever_sleep, poll=0)
+except SystemExit:
+    pass
+check("hopper --forever prints batch ready, carries on to launch new Ready job, and clears pid file on exit",
+      any("batch ready to merge" in l for l in f_out)
+      and any("launched codex for H002" in l for l in f_out)
+      and not os.path.exists(job.hopper_pid_path(h196_root)),
+      (f_out, os.path.exists(job.hopper_pid_path(h196_root))))
+
+# hopper_wait reports already-ready batch immediately with the same line as hopper_step, without launching
+with job.locked(job.state_path(h196_root)) as st:
+    st.pop("launched", None)
+    st["jobs"]["H002"] = {"state": "done", "branch": "codex/h002-x"}
+step_cmp = []
+_, _, det_cmp, _ = job.hopper_step(h196_root, now=8000, launcher=lambda a: step_cmp.append(a) or 0)
+wait_out = []
+wait_rc = job.hopper_wait(h196_root, out=wait_out.append, now=8000, sleep=lambda _: (_ for _ in ()).throw(AssertionError("should not sleep")), poll=0)
+check("hopper_wait exits immediately on batch ready with the exact hopper_step line and launches nothing",
+      wait_rc == 0 and wait_out and det_cmp in wait_out[0] and not step_cmp,
+      (wait_rc, wait_out, det_cmp, step_cmp))
+
+# hopper_wait ignores a waiting condition already true at start and wakes on a new one
+with job.locked(job.state_path(h196_root)) as st:
+    st["jobs"]["H002"] = {"state": "waiting", "agent": "codex", "question": "q1", "since": 7900}
+w2_out = []
+w2_polls = [0]
+def _w2_sleep(_):
+    w2_polls[0] += 1
+    with job.locked(job.state_path(h196_root)) as st:
+        st["jobs"]["H002"] = {"state": "done", "branch": "codex/h002-x"}
+w2_rc = job.hopper_wait(h196_root, out=w2_out.append, now=8100, sleep=_w2_sleep, poll=0)
+check("hopper_wait ignores already-waiting condition at start and wakes on new batch ready",
+      w2_rc == 0 and w2_polls[0] == 1 and any("batch ready to merge" in l for l in w2_out),
+      (w2_rc, w2_polls[0], w2_out))
+
+shutil.rmtree(h196_base)
+
 print(f"JOB TESTS: {sum(RESULTS)} passed, {len(RESULTS) - sum(RESULTS)} failed")
 sys.exit(0 if all(RESULTS) else 1)
