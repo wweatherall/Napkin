@@ -317,18 +317,18 @@ try:
                     {"id": "nb_o", "type": "new_board", "target": {"rect": "r_o"}, "distance": 18, "body": "b_o"}])
         s_old.save()
         s_old.close()
-        # Inject an old push_pull+body into ShopSketchOps & ShopSketchJournal
+        # Inject an old push_pull+body into NapkinOps & NapkinJournal
         import zipfile, xml.etree.ElementTree as ET
         with zipfile.ZipFile(old_p, "r") as zin:
             entries = {n: zin.read(n) for n in zin.namelist()}
         root = ET.fromstring(entries["Document.xml"])
         mmap = root.find("./Properties/Property[@name='Meta']/Map")
         for item in mmap.findall("Item"):
-            if item.get("key") == "ShopSketchOps":
+            if item.get("key") == "NapkinOps":
                 ops_l = json.loads(item.get("value"))
                 ops_l[1]["type"] = "push_pull"
                 item.set("value", json.dumps(ops_l))
-            elif item.get("key") == "ShopSketchJournal":
+            elif item.get("key") == "NapkinJournal":
                 j_d = json.loads(item.get("value"))
                 j_d["ops"][1]["type"] = "push_pull"
                 item.set("value", json.dumps(j_d))
@@ -342,6 +342,44 @@ try:
         except OpError as e:
             old_err = str(e)
         check("H199 opening un-updated file rejects with OLD_FILE_MSG", old_err == OLD_FILE_MSG, old_err)
+
+        # H204: old Meta keys (from update_old_files.META_KEY_RENAMES) are rejected, then open after update_paths
+        import update_old_files as uof
+        inv_meta = {v: k for k, v in uof.META_KEY_RENAMES.items()}
+        h204_p = os.path.join(td, "old_keys.FCStd")
+        s_h204 = Session(h204_p, fresh=True)
+        s_h204.sync([{"id": "r_h", "type": "rect", "plane": {"origin": [0, 0, 0], "normal": [0, 0, 1]}, "size": [100, 50]},
+                     {"id": "nb_h", "type": "new_board", "target": {"rect": "r_h"}, "distance": 18, "body": "b_h"}])
+        s_h204.save()
+        s_h204.close()
+        with zipfile.ZipFile(h204_p, "r") as zin:
+            h_entries = {n: zin.read(n) for n in zin.namelist()}
+        h_root = ET.fromstring(h_entries["Document.xml"])
+        h_mmap = h_root.find("./Properties/Property[@name='Meta']/Map")
+        for item in h_mmap.findall("Item"):
+            if item.get("key") in inv_meta:
+                item.set("key", inv_meta[item.get("key")])
+        h_entries["Document.xml"] = ET.tostring(h_root, encoding="utf-8", xml_declaration=True)
+        h_csha = uof._compute_content_sha256(h_entries)
+        for item in h_mmap.findall("Item"):
+            if item.get("key") == "ShopSketchContentSha256":
+                item.set("value", h_csha)
+        h_entries["Document.xml"] = ET.tostring(h_root, encoding="utf-8", xml_declaration=True)
+        with zipfile.ZipFile(h204_p, "w", zipfile.ZIP_DEFLATED) as zout:
+            for k, v in h_entries.items():
+                zout.writestr(k, v)
+        h204_err = ""
+        try:
+            Session(h204_p).close()
+        except OpError as e:
+            h204_err = str(e)
+        check("H204 opening file with old Meta keys rejects with OLD_FILE_MSG", h204_err == OLD_FILE_MSG, h204_err)
+        uof.update_paths([h204_p], out=open(os.devnull, "w"), err=open(os.devnull, "w"))
+        s_reopen = Session(h204_p)
+        check("H204 updated file opens cleanly with its body",
+              s_reopen.rev == 1 and not s_reopen.external and any(getattr(o, "BodyId", None) == "b_h" for o in s_reopen.doc.Objects),
+              (s_reopen.rev, s_reopen.external))
+        s_reopen.close()
 finally:
     App.closeDocument(doc.Name)
 

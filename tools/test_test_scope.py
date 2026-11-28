@@ -48,7 +48,7 @@ FULL_FILES = [
     "sim/x.py",
     "dist/x.app",
     # Top-level app scripts and unknown files/folders
-    "Start Shop Sketch.command",
+    "Start Napkin.command",
     "common.sh",
     "newfolder/x.py",
     "unknown_top_file.py",

@@ -37,6 +37,6 @@ Named scripts for every action a person or worker runs directly. Each script is 
 - `TEST_BEFORE_MERGING.sh` — run the merge gate (`gate.sh`).
 - `CHECK_THE_SCRIPTS_PARSE.sh` — check all viewport GDScript files parse (`parsecheck.sh`).
 - `START_A_WORKER.sh` — open a Terminal window for a Claude worker (`start_worker.sh`).
-- `BUILD_THE_APP.sh` — build `dist/Shop Sketch.app` (`build_app.sh`).
-- `BUILD_THE_LAUNCHER.sh` — make `Napkin.app`: click it to build Shop Sketch when main has moved, then open it.
+- `BUILD_THE_APP.sh` — build `dist/Napkin.app` (`build_app.sh`).
+- `BUILD_THE_LAUNCHER.sh` — make `Napkin.app`: click it to build Napkin when main has moved, then open it.
 - `front_sim.py` — simulate the wave-front controller to try W09's values without Godot (`python3 tools/front_sim.py`).

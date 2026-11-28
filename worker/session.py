@@ -1,9 +1,9 @@
 """Session: one live document bound to one .FCStd file; sync, undo, journal, saving (A23, A42).
 
 Owns `IdRegistry` (`accept`, `seed_native` from BodyId/RectId/SSOp/AssemblyId/SSLineId), display units (`set_units`,
-`ShopSketchUnits` Meta), atomic single-file saves (`save()`: `glb_dirty`, disables `CreateBackupFiles`, `Session.drawing`
-one-shot flag never latched on open/reload, `<model>.saving.FCStd` -> atomic rename, `ShopSketchJournal` and
-`ShopSketchContentSha256` in Meta, `ShopSketchFloor.FCStd` inside the zip), and outside-save reload (`reload_outside()`
+`NapkinUnits` Meta), atomic single-file saves (`save()`: `glb_dirty`, disables `CreateBackupFiles`, `Session.drawing`
+one-shot flag never latched on open/reload, `<model>.saving.FCStd` -> atomic rename, `NapkinJournal` and
+`NapkinContentSha256` in Meta, `NapkinFloor.FCStd` inside the zip), and outside-save reload (`reload_outside()`
 with `validate_project` snapshot; `copy_outside_aside`, `aside_name`).
 Entry points: sync, _apply, _open_existing, export, save, reload_outside, copy_outside_aside."""
 import FreeCAD as App
@@ -171,18 +171,18 @@ def _strip_content_sha_from_xml(doc_xml_bytes):
     meta_map = root.find("./Properties/Property[@name='Meta']/Map")
     if meta_map is not None:
         for item in list(meta_map.findall("Item")):
-            if item.get("key") == "ShopSketchContentSha256":
+            if item.get("key") == "NapkinContentSha256":
                 meta_map.remove(item)
         meta_map.set("count", str(len(meta_map.findall("Item"))))
     return ET.canonicalize(ET.tostring(root, encoding="unicode")).encode("utf-8")
 
 
 def content_sha256(fcstd_path):
-    """Hash of the .FCStd zip's contents excluding GuiDocument.xml, ShopSketchFloor.FCStd, and ShopSketchContentSha256."""
+    """Hash of the .FCStd zip's contents excluding GuiDocument.xml, NapkinFloor.FCStd, and NapkinContentSha256."""
     h = hashlib.sha256()
     with zipfile.ZipFile(fcstd_path, "r") as z:
         for name in sorted(z.namelist()):
-            if name in ("GuiDocument.xml", "ShopSketchFloor.FCStd"):
+            if name in ("GuiDocument.xml", "NapkinFloor.FCStd"):
                 continue
             data = z.read(name)
             if name == "Document.xml":
@@ -192,7 +192,7 @@ def content_sha256(fcstd_path):
 
 
 def finalize_fcstd(fcstd_path, previous=None, floor_bytes=None):
-    """Inject ShopSketchContentSha256, GuiDocument.xml, and optional ShopSketchFloor.FCStd into a saved .FCStd."""
+    """Inject NapkinContentSha256, GuiDocument.xml, and optional NapkinFloor.FCStd into a saved .FCStd."""
     csha = content_sha256(fcstd_path)
     tmp_zip = fcstd_path + ".zip"
     try:
@@ -203,20 +203,20 @@ def finalize_fcstd(fcstd_path, previous=None, floor_bytes=None):
             meta_map = root.find("./Properties/Property[@name='Meta']/Map")
             if meta_map is not None:
                 for item in list(meta_map.findall("Item")):
-                    if item.get("key") == "ShopSketchContentSha256":
+                    if item.get("key") == "NapkinContentSha256":
                         meta_map.remove(item)
-                ET.SubElement(meta_map, "Item", key="ShopSketchContentSha256", value=csha)
+                ET.SubElement(meta_map, "Item", key="NapkinContentSha256", value=csha)
                 meta_map.set("count", str(len(meta_map.findall("Item"))))
             new_doc_bytes = ET.tostring(root, encoding="utf-8", xml_declaration=True)
             zout.writestr("Document.xml", new_doc_bytes)
             for item in zin.infolist():
-                if item.filename in ("Document.xml", "ShopSketchFloor.FCStd"):
+                if item.filename in ("Document.xml", "NapkinFloor.FCStd"):
                     continue
                 zout.writestr(item, zin.read(item.filename))
             if "GuiDocument.xml" not in names:
                 zout.writestr("GuiDocument.xml", _build_gui_document(new_doc_bytes, previous))
             if floor_bytes is not None:
-                zout.writestr("ShopSketchFloor.FCStd", floor_bytes)
+                zout.writestr("NapkinFloor.FCStd", floor_bytes)
         os.replace(tmp_zip, fcstd_path)
     except Exception:
         if os.path.exists(tmp_zip):
@@ -243,10 +243,10 @@ def legacy_sidecars(model_path):
     """Sidecar files from the pre-A42 file-and-journal layout (removed after the first save, except .unmatched)."""
     base, ext = os.path.splitext(model_path)
     return {
-        "journal": base + ".shopsketch.json",
-        "saving_journal": base + ".shopsketch.saving.json",
+        "journal": base + ".napkin.json",
+        "saving_journal": base + ".napkin.saving.json",
         "prev_file": base + ".prev" + ext,
-        "prev_journal": base + ".shopsketch.prev.json",
+        "prev_journal": base + ".napkin.prev.json",
         "floor_file": base + ".floor" + ext,
     }
 
@@ -292,14 +292,14 @@ def _validate_journal_dict(j, require_sha=False):
 
 
 def read_journal(path):
-    """Read the journal from a .FCStd's ShopSketchJournal Meta, or from a legacy .shopsketch.json file."""
+    """Read the journal from a .FCStd's NapkinJournal Meta, or from a legacy .napkin.json file."""
     if path.lower().endswith(".fcstd"):
         try:
             with zipfile.ZipFile(path) as z:
                 root = ET.fromstring(z.read("Document.xml"))
             meta = {item.get("key"): item.get("value")
                     for item in root.findall("./Properties/Property[@name='Meta']/Map/Item")}
-            raw = meta.get("ShopSketchJournal")
+            raw = meta.get("NapkinJournal")
             if not raw:
                 return None
             return _validate_journal_dict(json.loads(raw), require_sha=False)
@@ -314,18 +314,18 @@ def read_journal(path):
 
 
 def write_meta_journal(fcstd_path, j, update_sha=True):
-    """Update ShopSketchJournal (and optionally ShopSketchContentSha256) in a .FCStd's Document.xml Meta."""
+    """Update NapkinJournal (and optionally NapkinContentSha256) in a .FCStd's Document.xml Meta."""
     floor_bytes = None
     tmp_zip = fcstd_path + ".meta.tmp"
     with zipfile.ZipFile(fcstd_path, "r") as zin, zipfile.ZipFile(tmp_zip, "w", zipfile.ZIP_DEFLATED) as zout:
-        if "ShopSketchFloor.FCStd" in zin.namelist():
-            floor_bytes = zin.read("ShopSketchFloor.FCStd")
+        if "NapkinFloor.FCStd" in zin.namelist():
+            floor_bytes = zin.read("NapkinFloor.FCStd")
         root = ET.fromstring(zin.read("Document.xml"))
         meta_map = root.find("./Properties/Property[@name='Meta']/Map")
         for item in list(meta_map.findall("Item")):
-            if item.get("key") == "ShopSketchJournal":
+            if item.get("key") == "NapkinJournal":
                 meta_map.remove(item)
-        ET.SubElement(meta_map, "Item", key="ShopSketchJournal", value=json.dumps(j, separators=(",", ":")))
+        ET.SubElement(meta_map, "Item", key="NapkinJournal", value=json.dumps(j, separators=(",", ":")))
         meta_map.set("count", str(len(meta_map.findall("Item"))))
         new_doc_bytes = ET.tostring(root, encoding="utf-8", xml_declaration=True)
         zout.writestr("Document.xml", new_doc_bytes)
@@ -339,17 +339,17 @@ def write_meta_journal(fcstd_path, j, update_sha=True):
 
 
 def file_rev(path):
-    """The ShopSketchRev a .FCStd carries, read from its Document.xml without opening it (None if it has none)."""
+    """The NapkinRev a .FCStd carries, read from its Document.xml without opening it (None if it has none)."""
     try:
         with zipfile.ZipFile(path) as z:
             xml = z.read("Document.xml").decode("utf-8", "replace")
     except (OSError, KeyError, zipfile.BadZipFile):
         return None
-    m = re.search(r'<Item key="ShopSketchRev" value="(\d+)"', xml)
+    m = re.search(r'<Item key="NapkinRev" value="(\d+)"', xml)
     return int(m.group(1)) if m else None
 
 
-# Display units saved in doc.Meta["ShopSketchUnits"] (I57, I62): canonical "<format>:<rounding>" strings.
+# Display units saved in doc.Meta["NapkinUnits"] (I57, I62): canonical "<format>:<rounding>" strings.
 # Unrecognized or absent values read as None so opening never fails (I62).
 UNIT_SPECS = {
     "ft-in:1/8", "ft-in:1/16", "ft-in:1/32", "ft-in:1/64",
@@ -378,7 +378,7 @@ def validate_project(path):
 
 
 def aside_name(model_path, when=None):
-    """Where 'Keep Shop Sketch's' puts FreeCAD's save first (A36): <model>.freecad-<time>.FCStd, never an existing file."""
+    """Where 'Keep Napkin's' puts FreeCAD's save first (A36): <model>.freecad-<time>.FCStd, never an existing file."""
     base, ext = os.path.splitext(model_path)
     stamp = time.strftime("%Y%m%d-%H%M%S", time.localtime(when))
     name, n = f"{base}.freecad-{stamp}{ext}", 2
@@ -435,11 +435,11 @@ class Session:
         self.applied = []
         self.ids = IdRegistry()
         self.undo_floor = 0
-        self.floor_copy = None     # {"sha256", "ops"} of ShopSketchFloor.FCStd when the floor came from FreeCAD (A38)
+        self.floor_copy = None     # {"sha256", "ops"} of NapkinFloor.FCStd when the floor came from FreeCAD (A38)
         self._floor_bytes = None   # bytes of the floor snapshot, embedded in .FCStd on save (A42)
         self.external = False
         self.rev = 0
-        self.units = None          # saved display units (doc.Meta["ShopSketchUnits"], I57); kept across rebuilds
+        self.units = None          # saved display units (doc.Meta["NapkinUnits"], I57); kept across rebuilds
         self.dirty = False
         self.glb_dirty = True
         self.drawing = False
@@ -464,12 +464,12 @@ class Session:
 
     # ----- document lifecycle -----
     def _doc_label(self):
-        return os.path.splitext(os.path.basename(self.path))[0] if self.path else "ShopSketch"
+        return os.path.splitext(os.path.basename(self.path))[0] if self.path else "Napkin"
 
     def _new_doc(self):
         if self.doc is not None:
             App.closeDocument(self.doc.Name)
-        self.doc = App.newDocument("ShopSketch")
+        self.doc = App.newDocument("Napkin")
         self.doc.Label = self._doc_label()
         self.doc.UndoMode = 1
         self.model = Model(self.doc)
@@ -497,7 +497,7 @@ class Session:
 
     def _capture_floor_bytes(self):
         """Capture a floor snapshot in memory from the live document at the floor (A38, A42)."""
-        with tempfile.TemporaryDirectory(prefix="shopsketch-floor-") as td:
+        with tempfile.TemporaryDirectory(prefix="napkin-floor-") as td:
             tmp = os.path.join(td, "floor.FCStd")
             with no_backups():
                 self.doc.saveCopy(tmp)
@@ -510,9 +510,14 @@ class Session:
         if outside_reload:
             validate_project(self.path)
         self._load_file()
-        file_meta_rev = int(self.doc.Meta.get("ShopSketchRev", "0") or 0)
+        from update_old_files import META_KEY_RENAMES, OLD_SIDECAR_SUFFIX
+        base = os.path.splitext(self.path)[0]
+        if any(k in self.doc.Meta for k in META_KEY_RENAMES) or os.path.exists(base + OLD_SIDECAR_SUFFIX):
+            self.close()
+            raise OpError(OLD_FILE_MSG)
+        file_meta_rev = int(self.doc.Meta.get("NapkinRev", "0") or 0)
         self.rev = file_meta_rev
-        self.units = parse_units(self.doc.Meta.get("ShopSketchUnits"))
+        self.units = parse_units(self.doc.Meta.get("NapkinUnits"))
         self.file_sha = sha256(self.path)
         sidecars = legacy_sidecars(self.path)
         legacy_jp = sidecars["journal"]
@@ -532,21 +537,21 @@ class Session:
             else:
                 self.external = True
         else:
-            raw_meta_j = self.doc.Meta.get("ShopSketchJournal")
+            raw_meta_j = self.doc.Meta.get("NapkinJournal")
             if raw_meta_j:
                 try:
                     j = _validate_journal_dict(json.loads(raw_meta_j), require_sha=False)
                 except ValueError:
                     j = None
-            csha = self.doc.Meta.get("ShopSketchContentSha256")
+            csha = self.doc.Meta.get("NapkinContentSha256")
             content_ok = bool(csha and csha == content_sha256(self.path))
             if j:
                 journal_rev = int(j.get("rev", -1))
                 self.external = not (content_ok and journal_rev == file_meta_rev)
             else:
-                self.external = True     # not written by Shop Sketch (stage 3 will adopt foreign solids)
+                self.external = True     # not written by Napkin (stage 3 will adopt foreign solids)
         try:
-            raw_meta_ops = self.doc.Meta.get("ShopSketchOps")
+            raw_meta_ops = self.doc.Meta.get("NapkinOps")
             if raw_meta_ops:
                 try:
                     parsed_meta_ops = json.loads(raw_meta_ops)
@@ -599,8 +604,8 @@ class Session:
                 else:
                     try:
                         with zipfile.ZipFile(self.path, "r") as z:
-                            if "ShopSketchFloor.FCStd" in z.namelist():
-                                data = z.read("ShopSketchFloor.FCStd")
+                            if "NapkinFloor.FCStd" in z.namelist():
+                                data = z.read("NapkinFloor.FCStd")
                                 if sha256_bytes(data) == want_sha:
                                     self._floor_bytes = data
                     except (OSError, zipfile.BadZipFile):
@@ -634,7 +639,7 @@ class Session:
         return False
 
     def copy_outside_aside(self):
-        """'Keep Shop Sketch's' (A36): FreeCAD's file is copied to <model>.freecad-<time>.FCStd before ours goes
+        """'Keep Napkin's' (A36): FreeCAD's file is copied to <model>.freecad-<time>.FCStd before ours goes
         over it. Returns the copy's path."""
         aside = aside_name(self.path)
         shutil.copy2(self.path, aside)
@@ -653,7 +658,7 @@ class Session:
         return out
 
     def _file_ops(self, path, frev):
-        """Read the ops from the file itself (ShopSketchOps, then ShopSketchJournal), then the session's history."""
+        """Read the ops from the file itself (NapkinOps, then NapkinJournal), then the session's history."""
         if frev is not None:
             meta = {}
             try:
@@ -661,8 +666,8 @@ class Session:
                     root = ET.fromstring(archive.read("Document.xml"))
                 meta = {item.get("key"): item.get("value")
                         for item in root.findall("./Properties/Property[@name='Meta']/Map/Item")}
-                if int(meta["ShopSketchRev"]) == frev:
-                    ops = json.loads(meta["ShopSketchOps"])
+                if int(meta["NapkinRev"]) == frev:
+                    ops = json.loads(meta["NapkinOps"])
                     if isinstance(ops, list) and all(
                             isinstance(op, dict) and isinstance(op.get("type"), str) and op["type"]
                             and (op.get("id") is None or isinstance(op["id"], str)) for op in ops):
@@ -672,9 +677,9 @@ class Session:
             except (OSError, zipfile.BadZipFile, ET.ParseError, KeyError, TypeError, ValueError,
                     OverflowError, RecursionError):
                 pass  # Old or damaged metadata leaves the historical fallbacks available.
-            if meta.get("ShopSketchJournal"):
+            if meta.get("NapkinJournal"):
                 try:
-                    mj = _validate_journal_dict(json.loads(meta["ShopSketchJournal"]), require_sha=False)
+                    mj = _validate_journal_dict(json.loads(meta["NapkinJournal"]), require_sha=False)
                     if mj and int(mj.get("rev", -1)) == frev:
                         _check_no_legacy_ops(mj.get("ops", []), mj.get("dropped", []))
                         return [{"op": o, "key": canon(o), "id": o.get("id"), "type": o.get("type"), **st}
@@ -703,7 +708,7 @@ class Session:
         sig = self.disk_sig()
         folder = os.path.dirname(self.path)
         # FreeCAD returns the live document for the same path; load a sibling snapshot instead.
-        with tempfile.NamedTemporaryFile(dir=folder, prefix=".shopsketch-reload-", suffix=".FCStd") as snapshot:
+        with tempfile.NamedTemporaryFile(dir=folder, prefix=".napkin-reload-", suffix=".FCStd") as snapshot:
             shutil.copyfile(self.path, snapshot.name)
             validate_project(snapshot.name)
             digest = sha256(snapshot.name)
@@ -718,10 +723,10 @@ class Session:
             staged.glb_dirty = True
             staged.ids = deepcopy(self.ids)
             staged.ids.seed_native(doc)
-            file_meta_rev = int(doc.Meta.get("ShopSketchRev", "0") or 0)
+            file_meta_rev = int(doc.Meta.get("NapkinRev", "0") or 0)
             kept_keys = {e["key"] for e in kept}
             prior_ops = self.applied
-            if self.rev > int(self.doc.Meta.get("ShopSketchRev", "0") or 0) and self.rev in self.rev_ops:
+            if self.rev > int(self.doc.Meta.get("NapkinRev", "0") or 0) and self.rev in self.rev_ops:
                 prior_ops = self.rev_ops[self.rev]
             when = time.strftime("%Y-%m-%dT%H:%M:%S")
             gone = [{"op": e["op"], "after_rev": frev, "at": when} for e in prior_ops
@@ -731,7 +736,7 @@ class Session:
             staged.external = staged.dirty = False
             staged.dropped = self.dropped + gone
             staged.rev = max(self.rev, file_meta_rev)
-            staged.units = parse_units(doc.Meta.get("ShopSketchUnits"))
+            staged.units = parse_units(doc.Meta.get("NapkinUnits"))
             staged.file_sha = digest
             staged.file_sig = sig
             staged.rev_ops = {file_meta_rev: list(kept)}
@@ -911,7 +916,7 @@ class Session:
         if parsed is None:
             raise OpError(f"unknown units '{units}'")
         missing_on_disk = bool(self.path) and not os.path.exists(self.path)
-        meta_matches = self.doc is not None and self.doc.Meta.get("ShopSketchUnits") == parsed
+        meta_matches = self.doc is not None and self.doc.Meta.get("NapkinUnits") == parsed
         changed = parsed != self.units or not meta_matches or missing_on_disk
         self.units = parsed
         if changed:
@@ -932,13 +937,13 @@ class Session:
         saved_ops = [e for e in self.applied if e["status"] == "ok"]
         meta = self.doc.Meta
         prev_meta = dict(meta)
-        meta["ShopSketchOps"] = json.dumps([e["op"] for e in saved_ops], separators=(",", ":"))
+        meta["NapkinOps"] = json.dumps([e["op"] for e in saved_ops], separators=(",", ":"))
         self.rev += 1
-        meta["ShopSketchRev"] = str(self.rev)
+        meta["NapkinRev"] = str(self.rev)
         if self.units is not None:
-            meta["ShopSketchUnits"] = self.units
-        meta["ShopSketchJournal"] = json.dumps(self._journal(self.rev), separators=(",", ":"))
-        meta.pop("ShopSketchContentSha256", None)
+            meta["NapkinUnits"] = self.units
+        meta["NapkinJournal"] = json.dumps(self._journal(self.rev), separators=(",", ":"))
+        meta.pop("NapkinContentSha256", None)
         self.doc.Meta = meta
         tmp = saving_path(self.path)
         try:

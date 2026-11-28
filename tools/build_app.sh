@@ -1,19 +1,19 @@
 #!/bin/bash
-# Builds "dist/Shop Sketch.app" for this Mac: the viewport packed into Resources, run by a copy of the Godot
+# Builds "dist/Napkin.app" for this Mac: the viewport packed into Resources, run by a copy of the Godot
 # program (no export templates needed), plus the FreeCAD worker scripts. Ad-hoc signed: for this machine.
 # Needs /Applications/Godot.app (4.6+) to build, and FreeCAD in /Applications to run.
 set -euo pipefail
 cd "$(dirname "$0")/.."
 GD=/Applications/Godot.app/Contents/MacOS/Godot
-APP="dist/Shop Sketch.app"
+APP="dist/Napkin.app"
 C="$APP/Contents"
 rm -rf "$APP"
 mkdir -p "$C/MacOS" "$C/Resources/worker"
 
 echo "Packing the viewport..."
-"$GD" --headless --path viewport --export-pack "macOS" "$PWD/$C/Resources/Shop Sketch.pck" > dist/pack.log 2>&1 \
+"$GD" --headless --path viewport --export-pack "macOS" "$PWD/$C/Resources/Napkin.pck" > dist/pack.log 2>&1 \
   || { tail -20 dist/pack.log; exit 1; }
-cp "$GD" "$C/MacOS/Shop Sketch"              # Godot runs "<its name>.pck" from Resources
+cp "$GD" "$C/MacOS/Napkin"              # Godot runs "<its name>.pck" from Resources
 for f in worker/*.py; do                       # every worker script but the tests (T42: replay.py is split in modules)
   case "$(basename "$f")" in test_*) ;; *) cp "$f" "$C/Resources/worker/" ;; esac
 done
@@ -21,13 +21,13 @@ mkdir -p "$C/Resources/materials" && cp -R materials/textures "$C/Resources/mate
 
 echo "Icon..."
 ICON_TMP=$(mktemp -d)
-qlmanage -t -s 1024 -o "$ICON_TMP" tools/icon.svg > /dev/null 2>&1
-mkdir -p "$ICON_TMP/ShopSketch.iconset"
+qlmanage -t -s 1024 -o "$ICON_TMP" tools/napkin_icon.svg > /dev/null 2>&1
+mkdir -p "$ICON_TMP/Napkin.iconset"
 for s in 16 32 128 256 512; do
-  sips -z $s $s "$ICON_TMP/icon.svg.png" --out "$ICON_TMP/ShopSketch.iconset/icon_${s}x${s}.png" > /dev/null
-  sips -z $((s * 2)) $((s * 2)) "$ICON_TMP/icon.svg.png" --out "$ICON_TMP/ShopSketch.iconset/icon_${s}x${s}@2x.png" > /dev/null
+  sips -z $s $s "$ICON_TMP/napkin_icon.svg.png" --out "$ICON_TMP/Napkin.iconset/icon_${s}x${s}.png" > /dev/null
+  sips -z $((s * 2)) $((s * 2)) "$ICON_TMP/napkin_icon.svg.png" --out "$ICON_TMP/Napkin.iconset/icon_${s}x${s}@2x.png" > /dev/null
 done
-iconutil -c icns "$ICON_TMP/ShopSketch.iconset" -o "$C/Resources/ShopSketch.icns"
+iconutil -c icns "$ICON_TMP/Napkin.iconset" -o "$C/Resources/Napkin.icns"
 rm -rf "$ICON_TMP"
 
 VERSION=$(git describe --always --dirty 2>/dev/null || echo dev)
@@ -36,11 +36,11 @@ cat > "$C/Info.plist" <<PLIST
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
 <dict>
-  <key>CFBundleName</key><string>Shop Sketch</string>
-  <key>CFBundleDisplayName</key><string>Shop Sketch</string>
-  <key>CFBundleExecutable</key><string>Shop Sketch</string>
-  <key>CFBundleIdentifier</key><string>local.shopsketch</string>
-  <key>CFBundleIconFile</key><string>ShopSketch</string>
+  <key>CFBundleName</key><string>Napkin</string>
+  <key>CFBundleDisplayName</key><string>Napkin</string>
+  <key>CFBundleExecutable</key><string>Napkin</string>
+  <key>CFBundleIdentifier</key><string>local.napkin</string>
+  <key>CFBundleIconFile</key><string>Napkin</string>
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>0.2</string>
   <key>CFBundleVersion</key><string>$VERSION</string>
@@ -54,6 +54,6 @@ PLIST
 codesign --force --deep -s - "$APP" > /dev/null 2>&1
 # The pack's tools/ holds .gd.remap / .gdc files: check the tool registry finds every tool there as it does from
 # source (viewport/test_tools.gd). After signing: macOS stops the half-built bundle's program.
-"$C/MacOS/Shop Sketch" --headless --script res://test_tools.gd > dist/tools-check.log 2>&1 \
+"$C/MacOS/Napkin" --headless --script res://test_tools.gd > dist/tools-check.log 2>&1 \
   || { grep -E "^FAIL|TOOL TESTS" dist/tools-check.log; echo "The built app doesn't find its tools."; exit 1; }
 echo "Built $APP ($(du -sh "$APP" | cut -f1)). Open it, or drag it to /Applications."

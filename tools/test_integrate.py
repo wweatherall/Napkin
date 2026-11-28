@@ -768,10 +768,10 @@ def usage_merge_repo(jid, branch, with_scratch=False):
 
 
 root = usage_merge_repo("H090", "claude/h090-u")
-with patch.dict(os.environ, {"SHOPSKETCH_USAGE_TOOL": usage_stub}):
+with patch.dict(os.environ, {"NAPKIN_USAGE_TOOL": usage_stub}):
     rc, said = run_integrate("claude/h090-u", "--as", "tester", "--no-gate")
 u_calls = [json.loads(l) for l in open(usage_log, encoding="utf-8").read().splitlines()] if os.path.isfile(usage_log) else []
-check("usage hook: merge calls SHOPSKETCH_USAGE_TOOL with --repo <tmp_root>, --event merge, --job, and no --quiet",
+check("usage hook: merge calls NAPKIN_USAGE_TOOL with --repo <tmp_root>, --event merge, --job, and no --quiet",
       rc == 0 and len(u_calls) == 1
       and u_calls[0] == ["--repo", os.path.realpath(root), "snapshot", "--event", "merge", "--job", "H090"]
       and "--quiet" not in u_calls[0] and u_calls[0][1] != job.main_root(HERE), (rc, u_calls, said))
@@ -779,26 +779,26 @@ shutil.rmtree(root)
 
 open(usage_log, "w").close()
 root = usage_merge_repo("H091", "claude/h091-u", with_scratch=True)
-with patch.dict(os.environ, {"SHOPSKETCH_USAGE_TOOL": usage_stub}):
+with patch.dict(os.environ, {"NAPKIN_USAGE_TOOL": usage_stub}):
     rc, said = run_integrate("scratch/h091", "--as", "tester", "--no-gate", "--job", "H091")
 u_calls = [json.loads(l) for l in open(usage_log, encoding="utf-8").read().splitlines()] if os.path.isfile(usage_log) else []
-check("usage hook: --job scratch merge calls SHOPSKETCH_USAGE_TOOL once for the merged job without --quiet",
+check("usage hook: --job scratch merge calls NAPKIN_USAGE_TOOL once for the merged job without --quiet",
       rc == 0 and len(u_calls) == 1
       and u_calls[0] == ["--repo", os.path.realpath(root), "snapshot", "--event", "merge", "--job", "H091"],
       (rc, u_calls, said))
 shutil.rmtree(root)
 
 root = usage_merge_repo("H092", "claude/h092-u")
-with patch.dict(os.environ, {"SHOPSKETCH_USAGE_TOOL": usage_missing}):
+with patch.dict(os.environ, {"NAPKIN_USAGE_TOOL": usage_missing}):
     rc, said = run_integrate("claude/h092-u", "--as", "tester", "--no-gate")
-check("usage hook: merge succeeds with a missing SHOPSKETCH_USAGE_TOOL path",
+check("usage hook: merge succeeds with a missing NAPKIN_USAGE_TOOL path",
       rc == 0 and job.read_state(job.state_path(root))["jobs"]["H092"]["state"] == "merged", (rc, said))
 shutil.rmtree(root)
 
 root = usage_merge_repo("H093", "claude/h093-u")
-with patch.dict(os.environ, {"SHOPSKETCH_USAGE_TOOL": usage_fail}):
+with patch.dict(os.environ, {"NAPKIN_USAGE_TOOL": usage_fail}):
     rc, said = run_integrate("claude/h093-u", "--as", "tester", "--no-gate")
-check("usage hook: merge succeeds when SHOPSKETCH_USAGE_TOOL exits 1 (fail-open)",
+check("usage hook: merge succeeds when NAPKIN_USAGE_TOOL exits 1 (fail-open)",
       rc == 0 and job.read_state(job.state_path(root))["jobs"]["H093"]["state"] == "merged", (rc, said))
 shutil.rmtree(root)
 
@@ -812,10 +812,10 @@ def fail_usage_run(cmd, *a, **k):
     return orig_sub_run(cmd, *a, **k)
 
 
-with patch.dict(os.environ, {"SHOPSKETCH_USAGE_TOOL": usage_stub}), \
+with patch.dict(os.environ, {"NAPKIN_USAGE_TOOL": usage_stub}), \
      patch.object(job.subprocess, "run", side_effect=fail_usage_run):
     rc, said = run_integrate("claude/h094-u", "--as", "tester", "--no-gate")
-check("usage hook: merge succeeds when SHOPSKETCH_USAGE_TOOL raises (fail-open)",
+check("usage hook: merge succeeds when NAPKIN_USAGE_TOOL raises (fail-open)",
       rc == 0 and job.read_state(job.state_path(root))["jobs"]["H094"]["state"] == "merged", (rc, said))
 shutil.rmtree(root)
 shutil.rmtree(usage_tmp)

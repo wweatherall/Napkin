@@ -60,7 +60,7 @@ Architecture: lines, the response) and CLAUDE.md (commit trailers); this page sa
   files. `02_Habits/REMEMBER_WHO_YOU_ARE.py --role integrator` prints the last ten lines of each, so no pre-/clear
   shutdown commit is needed.
 - Passive job usage (T117, T126): `job.py` (`take`, `done`, `return`) and `integrate.py` (`merge`) call
-  `../../09_Tools/MEASURE_TOKEN_USE.py` fail-open, appending snapshots to untracked `.git/shopsketch-usage.jsonl`. Inspect (outside
+  `../../09_Tools/MEASURE_TOKEN_USE.py` fail-open, appending snapshots to untracked `.git/napkin-usage.jsonl`. Inspect (outside
   sandbox / `BypassSandbox: true` so `~/.gemini/antigravity-cli/brain` and `~/.claude/projects` are readable) with
   `python3 ../../09_Tools/MEASURE_TOKEN_USE.py orient` (startup benchmark), `bench` (worker + integrator summary with 5h % estimates),
   `viz` (`--solo --sort burn`, `--job <H0NN>`), `report --only-measured`, `overhead`, `compare`, or

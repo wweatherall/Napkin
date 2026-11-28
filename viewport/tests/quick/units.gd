@@ -171,7 +171,7 @@ func run() -> void:
 	harness._ok("reopening auto-adopted model restores in-frac:1/16 and locks units_explicit",
 		m.measure.units == "in-frac:1/16" and m.measure.units_explicit, [m.measure.units, m.measure.units_explicit])
 
-	# 5e. Model already has saved ShopSketchUnits (mm:0.1): typing 4", 5" converts without flipping units.
+	# 5e. Model already has saved NapkinUnits (mm:0.1): typing 4", 5" converts without flipping units.
 	var model_saved_mm := m.out_dir.path_join("quick_units_saved_mm.FCStd")
 	m.switch_model(model_saved_mm, true)
 	await _until(func(): return m.opened)

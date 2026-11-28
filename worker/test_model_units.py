@@ -3,8 +3,8 @@
   - set_units with no action after it is saved on flush and comes back on reopen;
   - units survive a rebuild past FreeCAD's 20-step undo history (both empty rebuild and floor-copy rebuild);
   - undo doesn't change the units;
-  - old files (no ShopSketchUnits in Meta) and unreadable values ('furlongs') open cleanly without stopping open;
-  - outside saves: reload takes FreeCAD's file's units, Keep Shop Sketch's keeps the window's;
+  - old files (no NapkinUnits in Meta) and unreadable values ('furlongs') open cleanly without stopping open;
+  - outside saves: reload takes FreeCAD's file's units, Keep Napkin's keeps the window's;
   - P21 round-trip: every formatted length across all 6 formats and all roundings parses back to the same rounded
     length through FreeCAD's length_input.evaluate.
   python3 worker/test_model_units.py   (TESTDIR=<folder>; FREECAD=<freecadcmd>)"""
@@ -20,7 +20,7 @@ import zipfile
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 FC = os.environ.get("FREECAD", "/Applications/FreeCAD.app/Contents/Resources/bin/freecadcmd")
-tmp = os.path.abspath(os.environ.get("TESTDIR") or tempfile.mkdtemp(prefix="shopsketch-units-"))
+tmp = os.path.abspath(os.environ.get("TESTDIR") or tempfile.mkdtemp(prefix="napkin-units-"))
 os.makedirs(tmp, exist_ok=True)
 R = [0, 0]
 
@@ -96,7 +96,7 @@ def meta_units(fcstd):
     with zipfile.ZipFile(fcstd) as z:
         xml = z.read("Document.xml").decode("utf-8", "replace")
     import re
-    m = re.search(r'<Item key="ShopSketchUnits" value="([^"]*)"', xml)
+    m = re.search(r'<Item key="NapkinUnits" value="([^"]*)"', xml)
     return m.group(1) if m else None
 
 
@@ -128,7 +128,7 @@ if mode == "plain":
 elif mode == "set_meta":
     doc = App.openDocument(path)
     meta = doc.Meta
-    meta["ShopSketchUnits"] = os.environ["HELPER_UNITS"]
+    meta["NapkinUnits"] = os.environ["HELPER_UNITS"]
     doc.Meta = meta
     doc.save()
     App.closeDocument(doc.Name)
@@ -138,7 +138,7 @@ elif mode == "edit_and_units":
     ex.LengthFwd = ex.LengthFwd.Value + 10.0
     if "HELPER_UNITS" in os.environ:
         meta = doc.Meta
-        meta["ShopSketchUnits"] = os.environ["HELPER_UNITS"]
+        meta["NapkinUnits"] = os.environ["HELPER_UNITS"]
         doc.Meta = meta
     doc.recompute()
     doc.save()
@@ -232,11 +232,11 @@ try:
     ask({"cmd": "flush", "model": m4}, "flush")
     check("undo after a units change leaves the units intact", meta_units(m4) == "cm:0.1", meta_units(m4))
 
-    # 5. Old file (no ShopSketchUnits) and corrupt Meta ("furlongs") open cleanly (I62).
+    # 5. Old file (no NapkinUnits) and corrupt Meta ("furlongs") open cleanly (I62).
     m5 = fresh_model("old_no_units")
     run_helper("plain", m5)
     o5 = ask({"cmd": "open", "model": m5}, "open")
-    check("pre-T66 file with no ShopSketchUnits opens with no units field", o5 and o5["ok"] and "units" not in o5, o5)
+    check("pre-T66 file with no NapkinUnits opens with no units field", o5 and o5["ok"] and "units" not in o5, o5)
     ask({"cmd": "set_units", "model": m5, "units": "m:0.001"}, "set_units")
     ask({"cmd": "flush", "model": m5}, "flush")
     check("and saving writes the chosen units into Meta", meta_units(m5) == "m:0.001", meta_units(m5))
@@ -244,14 +244,14 @@ try:
     m6 = fresh_model("corrupt_units")
     run_helper("plain", m6)
     run_helper("set_meta", m6, HELPER_UNITS="furlongs")
-    check("fixture genuinely has ShopSketchUnits='furlongs'", meta_units(m6) == "furlongs", meta_units(m6))
+    check("fixture genuinely has NapkinUnits='furlongs'", meta_units(m6) == "furlongs", meta_units(m6))
     o6 = ask({"cmd": "open", "model": m6}, "open")
-    check("unreadable ShopSketchUnits ('furlongs') never stops open and reads as unset", o6 and o6["ok"] and "units" not in o6, o6)
+    check("unreadable NapkinUnits ('furlongs') never stops open and reads as unset", o6 and o6["ok"] and "units" not in o6, o6)
     ask({"cmd": "set_units", "model": m6, "units": "in-frac:1/32"}, "set_units")
     ask({"cmd": "flush", "model": m6}, "flush")
     check("subsequent save replaces unreadable Meta with valid units", meta_units(m6) == "in-frac:1/32", meta_units(m6))
 
-    # 6. Outside save (A36): reload takes FreeCAD's file's units; Keep Shop Sketch's keeps ours.
+    # 6. Outside save (A36): reload takes FreeCAD's file's units; Keep Napkin's keeps ours.
     m7 = fresh_model("outside_reload")
     ask({"cmd": "open", "model": m7, "fresh": True}, "open")
     sync(w, m7, board_ops(1), 1)
@@ -274,7 +274,7 @@ try:
     ask({"cmd": "set_units", "model": m8, "units": "in-dec:0.001"}, "set_units")
     k8 = ask({"cmd": "keep_mine", "model": m8, "outdir": m8 + "-out"}, "keep_mine")
     aside = (k8 or {}).get("aside") or ""
-    check("Keep Shop Sketch's saves the window's units and preserves FreeCAD's in the aside copy",
+    check("Keep Napkin's saves the window's units and preserves FreeCAD's in the aside copy",
           k8 and k8["ok"] and meta_units(m8) == "in-dec:0.001" and aside and meta_units(aside) == "ft-in:1/8",
           (k8, meta_units(m8), meta_units(aside) if aside else None))
 

@@ -41,7 +41,7 @@ func run() -> void:
 	m.doc.reloaded.connect(func(_r): reloads[0] += 1)
 	DirAccess.rename_absolute(rev1, model)
 	await _until(func(): return reloads[0] > 0, 5000)
-	harness._ok("an outside save is reloaded with no action from Shop Sketch's side", reloads[0] == 1, reloads)
+	harness._ok("an outside save is reloaded with no action from Napkin's side", reloads[0] == 1, reloads)
 	harness._ok("the board FreeCAD's save has is back, and the wave runs over it",
 		m.body_tris.has(harness.id("b2")) and m.prompts.reload_waves == [harness.id("b2")] and m.pres.op_waves.has("reload:b2"),
 		[m.body_tris.keys(), m.prompts.reload_waves, m.pres.op_waves.keys()])
@@ -51,7 +51,7 @@ func run() -> void:
 	m.undo()
 	harness._ok("undo stops at the FreeCAD change", _ids().size() == 4 and m.doc.at_undo_floor(), _ids())
 
-	# The dialog's wiring (the wait itself is the document test's): asked, Keep Shop Sketch's copies the file aside.
+	# The dialog's wiring (the wait itself is the document test's): asked, Keep Napkin's copies the file aside.
 	m.doc.outside = {"rev": 1, "unsaved": true}
 	m.prompts.ask_outside()
 	harness._ok("with actions still out after the wait it asks, saying why",
@@ -60,7 +60,7 @@ func run() -> void:
 	m.doc.kept_mine.connect(func(r): kept[0] = String(r.get("aside", "")))
 	m.prompts.outside_choice("mine")
 	await _until(func(): return kept[0] != "", 5000)
-	harness._ok("Keep Shop Sketch's copies FreeCAD's file aside as <model>.freecad-<time>.FCStd",
+	harness._ok("Keep Napkin's copies FreeCAD's file aside as <model>.freecad-<time>.FCStd",
 		kept[0].get_file().begins_with("quick_outside_save.freecad-") and FileAccess.file_exists(kept[0]), kept)
 	m.prompts.outside_asked.clear()
 
@@ -89,7 +89,7 @@ func run() -> void:
 	harness._ok("landing actions close the outside-save question and a stale click sends no keep_mine",
 		dismissed[0] and reloads[0] == 3, [dismissed[0], m.prompts.outside_closed, reloads[0]])
 	harness._ok("the reload status explains why the question closed",
-		m.ui_sync.text.ends_with(" (Shop Sketch's actions landed while you were deciding, so the question closed)"),
+		m.ui_sync.text.ends_with(" (Napkin's actions landed while you were deciding, so the question closed)"),
 		m.ui_sync.text)
 
 	# H098 outside-save regressions
@@ -132,7 +132,7 @@ func run() -> void:
 	m.prompts.dismiss_outside_question()
 	m.doc.outside_keep_failed.emit("PermissionError: read-only")
 	await _until(func(): return m.prompts.outside_asked.size() > previous_question.size(), 1000)
-	harness._ok("a failed Keep Shop Sketch's shows the error and restores the outside-save question",
+	harness._ok("a failed Keep Napkin's shows the error and restores the outside-save question",
 		previous_question.size() == 1 and m.prompts.outside_asked == previous_question + previous_question
 		and m.ui_sync.text.ends_with("PermissionError: read-only"),
 		[m.prompts.outside_asked, m.ui_sync.text])

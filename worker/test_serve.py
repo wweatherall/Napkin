@@ -16,7 +16,7 @@ if HERE not in sys.path:
 from test_link import (FC, Checks, Window, board_ops, fresh_model, missing,
                        read_only, start_worker, sync, unreadable)
 
-tmp = os.path.abspath(os.environ.get("TESTDIR") or tempfile.mkdtemp(prefix="shopsketch-serve-"))
+tmp = os.path.abspath(os.environ.get("TESTDIR") or tempfile.mkdtemp(prefix="napkin-serve-"))
 os.makedirs(tmp, exist_ok=True)
 checks = Checks("SERVE")
 check = checks.check
@@ -48,13 +48,13 @@ try:
     a, b = Window(worker.port), Window(worker.port)
     ha, hb = a.ask({"cmd": "hello", "seq": 11}, "hello"), b.ask({"cmd": "hello", "seq": None}, "hello")
     check("both windows reach the same worker, which says who it is",
-          ha and hb and ha["app"] == "shopsketch" and ha["pid"] == hb["pid"] and len(ha["worker"]) == 32, (ha, hb))
+          ha and hb and ha["app"] == "napkin" and ha["pid"] == hb["pid"] and len(ha["worker"]) == 32, (ha, hb))
     with open(os.path.join(HERE, "serve.py")) as f:
         version = int(re.search(r"^PROTOCOL_VERSION = (\d+)$", f.read(), re.M).group(1))
     with open(os.path.join(HERE, "..", "viewport", "main.gd")) as f:
         window_version = int(re.search(r"^const PROTOCOL_VERSION := (\d+)$", f.read(), re.M).group(1))
     check("hello carries the protocol version (serve.py PROTOCOL_VERSION), the same main.gd checks for",
-          ha.get("protocol") == version == window_version == 21 and isinstance(ha.get("protocol"), int),
+          ha.get("protocol") == version == window_version == 22 and isinstance(ha.get("protocol"), int),
           (ha.get("protocol"), version, window_version))
     rp_unknown = a.ask({"cmd": "replay", "model": m1, "seq": 10}, "replay")
     check("replay command is rejected as an unknown command (H176)",
@@ -120,11 +120,11 @@ try:
     with zipfile.ZipFile(m3) as z:
         root = ET.fromstring(z.read("Document.xml"))
     meta = {i.get("key"): i.get("value") for i in root.findall("./Properties/Property[@name='Meta']/Map/Item")}
-    jr = json.loads(meta["ShopSketchJournal"])
+    jr = json.loads(meta["NapkinJournal"])
     check("once the folder is writable again the retry saves the same revision, and flush answers ok",
           fl3 and fl3["ok"] and fl3["saved"] == [{"model": m3, "rev": bad["rev"]}] and fl3["failed"] == []
           and landed and landed["rev"] == bad["rev"] and jr["rev"] == bad["rev"] and len(jr["ops"]) == 2
-          and not os.path.exists(os.path.join(ro, "three.shopsketch.json")),
+          and not os.path.exists(os.path.join(ro, "three.napkin.json")),
           (fl3, landed, jr.get("rev")))
     fl4 = b.ask({"cmd": "flush", "seq": 19}, "flush")
     check("a flush with nothing pending saves nothing and answers ok", fl4["ok"] and fl4["saved"] == [], fl4)
@@ -207,7 +207,7 @@ try:
     h_re = w_re.ask({"cmd": "hello"}, "hello")
     w_re.drop()
     check("helper Worker.kill ends the link (wait returns None) and restart gives a worker answering hello",
-          gone is None and h_re and h_re.get("ok") and h_re.get("app") == "shopsketch", (gone, h_re))
+          gone is None and h_re and h_re.get("ok") and h_re.get("app") == "napkin", (gone, h_re))
     # T125: explicit drawing export via serve is one-shot, survives read-only retry, and leaves no TechDraw/.FCBak
     import zipfile
     md = fresh_model(tmp, "drawing_serve")

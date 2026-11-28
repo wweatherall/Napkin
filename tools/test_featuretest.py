@@ -203,7 +203,7 @@ echo "$dir"
                   r"gate: quick test started\ngate: quick test passed in \d+ s\n"
                   r"gate: full test started\ngate: full test passed in \d+ s", "\n".join(stages)), output)
         gate_dirs = list(map(Path, allocations.read_text().splitlines()))
-        gate_dir = next(d for d in gate_dirs if d.name.startswith("shopsketch-gate."))
+        gate_dir = next(d for d in gate_dirs if d.name.startswith("napkin-gate."))
         quick_last = (gate_dir / "quick.log").read_text().splitlines()[-1]
         full_last = (gate_dir / "full.log").read_text().splitlines()[-1]
         check(f"quick, full and gate keep their final summaries ({label})",
@@ -215,7 +215,7 @@ echo "$dir"
         paths = list(map(Path, allocations.read_text().splitlines()))
         check(f"all five script folders use the expected parent ({label})",
               standalone.returncode == 0 and {d.name.split(".")[0] for d in paths} ==
-              {"shopsketch-" + name for name in ("gate", "parse", "quick", "full", "feature")}
+              {"napkin-" + name for name in ("gate", "parse", "quick", "full", "feature")}
               and all(d.parent == expected for d in paths), paths)
 
 print(f"FEATURETEST TESTS: {sum(RESULTS)} passed, {len(RESULTS) - sum(RESULTS)} failed")

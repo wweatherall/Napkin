@@ -493,7 +493,7 @@ func _init() -> void:
 	d.on_outside_save(outside_save(d, true))
 	d.send_keep_mine()
 	var km: Dictionary = c.last_of("keep_mine")
-	check("'Keep Shop Sketch's' asks the worker to keep both", km["cmd"] == "keep_mine" and km["model"] == d.model_path
+	check("'Keep Napkin's' asks the worker to keep both", km["cmd"] == "keep_mine" and km["model"] == d.model_path
 		and not d.outside.is_empty())
 	d.on_sync_reply(reply(d, ["r1", "r2"], s2, {"rev": 2}))
 	check("its actions carry on landing, and no reload follows", seen["synced"].size() == 1 and c.last()["cmd"] == "keep_mine")

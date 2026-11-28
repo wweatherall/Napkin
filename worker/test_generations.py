@@ -1,6 +1,6 @@
 """Atomic single-file saves (A42) and legacy file-and-journal upgrades (G09): saves write <model>.saving.FCStd
 and rename it over <model>.FCStd; nothing else is written beside the model. Opening removes any leftover
-.saving.FCStd, and upgrades legacy <model>.shopsketch.json + <model>.floor.FCStd on first save.
+.saving.FCStd, and upgrades legacy <model>.napkin.json + <model>.floor.FCStd on first save.
 
   freecadcmd worker/test_generations.py        (TESTDIR=<folder> for its files)"""
 import json
@@ -50,7 +50,7 @@ def whole(p):
     with zipfile.ZipFile(p) as z:
         root = ET.fromstring(z.read("Document.xml"))
     meta = {i.get("key"): i.get("value") for i in root.findall("./Properties/Property[@name='Meta']/Map/Item")}
-    return meta.get("ShopSketchContentSha256") == content_sha256(p)
+    return meta.get("NapkinContentSha256") == content_sha256(p)
 
 
 def rev_of(p):
@@ -202,7 +202,7 @@ except PermissionError:
 finally:
     os.chmod(upg_dir, 0o755)
 check("failed save on legacy model leaves old journal and floor copy in place",
-      ro_failed and os.path.exists(os.path.join(upg_dir, "model.shopsketch.json"))
+      ro_failed and os.path.exists(os.path.join(upg_dir, "model.napkin.json"))
       and os.path.exists(os.path.join(upg_dir, "model.floor.FCStd")),
       (ro_failed, os.listdir(upg_dir)))
 
@@ -240,7 +240,7 @@ mm_dir = os.path.join(tmp, "legacy-mismatch")
 shutil.rmtree(mm_dir, ignore_errors=True)
 shutil.copytree(LEGACY_FIXTURE, mm_dir)
 mm_p = os.path.join(mm_dir, "model.FCStd")
-mm_jp = os.path.join(mm_dir, "model.shopsketch.json")
+mm_jp = os.path.join(mm_dir, "model.napkin.json")
 with open(mm_jp) as f:
     mm_j = json.load(f)
 mm_j["file_sha256"] = "0" * 64
@@ -360,8 +360,8 @@ views_path = os.path.join(out, "views.json")
 if os.path.exists(views_path):
     os.remove(views_path)
 check("failed save during drawing export rolls back rev/Meta and keeps drawing=True",
-      raised and s.rev == 1 and s.doc.Meta.get("ShopSketchRev") == "1" and s.drawing,
-      (raised, s.rev, s.doc.Meta.get("ShopSketchRev"), s.drawing))
+      raised and s.rev == 1 and s.doc.Meta.get("NapkinRev") == "1" and s.drawing,
+      (raised, s.rev, s.doc.Meta.get("NapkinRev"), s.drawing))
 s.save(out)
 check("retry after failed drawing export writes views.json and clears drawing=False",
       s.rev == 2 and os.path.exists(views_path) and not s.drawing,

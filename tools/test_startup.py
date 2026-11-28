@@ -150,14 +150,14 @@ check("state_note_body strips heading/Author/Touches boilerplate and keeps the n
       s.state_note_body(STATE_TEXT) == ["Archive it once read.", "", "Paused before quota."])
 
 pm = s.parse_interrupted_merge({"branch": "gemini/h125-ties", "maps": [["H125", "m"]], "changed": [["H125", "c"]]},
-                               "deadbeef123456", "/repo/.git/shopsketch-integrate.json")
+                               "deadbeef123456", "/repo/.git/napkin-integrate.json")
 check("parse_interrupted_merge reports paused integrate.py merge with reasons and --continue",
       pm and pm["kind"] == "paused" and "map updates (1)" in pm["summary"] and "brief changes (1)" in pm["summary"]
       and "--continue" in pm["action"])
 gm = s.parse_interrupted_merge(None, "deadbeef123456", "")
 check("parse_interrupted_merge reports raw MERGE_HEAD with no state file",
       gm and gm["kind"] == "git_merge" and "MERGE_HEAD" in gm["summary"])
-sm = s.parse_interrupted_merge({"branch": "codex/h090"}, "", "/repo/.git/shopsketch-integrate.json")
+sm = s.parse_interrupted_merge({"branch": "codex/h090"}, "", "/repo/.git/napkin-integrate.json")
 check("parse_interrupted_merge reports stale state file when MERGE_HEAD is absent",
       sm and sm["kind"] == "stale_state" and "stale paused-merge state" in sm["summary"])
 check("parse_interrupted_merge returns None when clean", s.parse_interrupted_merge(None, "", "") is None)

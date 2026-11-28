@@ -53,14 +53,14 @@ ARCHITECTURE.md the module map and protocol (update it in the same commit when y
   mirror's Base to keep it with the rest.
 - A component instance is mirrored through a Part::Compound wrapper (`SSRole` = `mirror-input`, A26): released
   FreeCAD 1.1 mirrors an App::Link without its placement. Walk mirrors with `mirror_source()`, not `.Source`.
-- All Shop Sketch state lives on those objects (`BodyId`, `SSRole`, `RectId`, `SSMaterial`, `SSOp`, `SSGrain`,
+- All Napkin state lives on those objects (`BodyId`, `SSRole`, `RectId`, `SSMaterial`, `SSOp`, `SSGrain`,
   `SSHidden`).
 - Hidden boards (T28, I37): op `hide` sets `SSHidden`. FreeCAD's undo doesn't take `Visibility` back (it isn't in
   FreeCAD's transactions), so no op sets a board's Visibility: `show_as_hidden()` works it out after every sync.
 - Delete (T34/I46): one `delete` op for all selected BodyIds. A deleted board leaves the document with every object only it used (`remove_unneeded`: features, an unused definition, a mirror's placed input, an emptied array); one a surviving link, mirror or array still builds from stays as an invisible `SSRole=deleted` object (excluded by `bodies()`) until that goes too. Shared definitions keep editable native features; their BodyId follows a survivor. Deleting an array source promotes a surviving member, updating holders' SSSource without moving or redistributing the others. Selection moves use `move_members` to resolve shared array/mirror sources once per transaction; selected copies detach first inside an entered row.
 - Wood: `materials.py` has Wood Handbook numbers and ambientCG CC0 textures (`materials/textures`, `<key>_end.jpg`
   end grain). The worker installs it as FreeCAD cards in
-  `~/Library/Application Support/FreeCAD/v1-1/Material/Shop Sketch/` on first use and puts the card on the board's
+  `~/Library/Application Support/FreeCAD/v1-1/Material/Napkin/` on first use and puts the card on the board's
   current solid (`ShapeMaterial`; `set_tip` carries it to each new solid). `SSGrain` (board frame, zero = longest
   edge) and the across-the-width direction go out in bodies.json; `materials.json` is the paint list.
 - Faces are referenced by geometry `{body, normal, point}`, never by face numbers (A03). Model space is Z-up mm.
@@ -71,14 +71,14 @@ ARCHITECTURE.md the module map and protocol (update it in the same commit when y
 - After each action: `bodies.json` plus `meshes/<board>-<key>.bin` for boards whose shape changed (A29).
 - Autosave is atomic, after 0.25 s idle, one file per model (A42: `<model>.saving.FCStd` renamed atomically over
   `<model>.FCStd`; nothing is written beside the model; a leftover `.saving.FCStd` is removed on open); model.glb at
-  autosave. The journal lives in `doc.Meta["ShopSketchJournal"]` alongside `ShopSketchRev`, `ShopSketchUnits`,
-  `ShopSketchOps`, and `ShopSketchContentSha256` (content hash excluding `GuiDocument.xml`, `ShopSketchFloor.FCStd`,
+  autosave. The journal lives in `doc.Meta["NapkinJournal"]` alongside `NapkinRev`, `NapkinUnits`,
+  `NapkinOps`, and `NapkinContentSha256` (content hash excluding `GuiDocument.xml`, `NapkinFloor.FCStd`,
   and itself). Each save adds FreeCAD's view part (`GuiDocument.xml`, `_build_gui_document`): without it FreeCAD
   opens the model with everything hidden. A landed save sends `{"cmd": "saved", "rev"}` (Q22).
-- Opening a file adopts its embedded journal (or upgrades a legacy `<model>.shopsketch.json` on the first save). The
+- Opening a file adopts its embedded journal (or upgrades a legacy `<model>.napkin.json` on the first save). The
   worker watches the open model's file; FreeCAD's save is reloaded with the wave, or kept beside ours (A36, T64); the
   journal keeps the undo floor and dropped actions. Setting the floor from FreeCAD's change also captures the floor
-  snapshot in memory and embeds it as `ShopSketchFloor.FCStd` inside the `.FCStd` zip on save (A38): a rebuild past
+  snapshot in memory and embeds it as `NapkinFloor.FCStd` inside the `.FCStd` zip on save (A38): a rebuild past
   20 undo steps starts from it, not from empty.
 
 ## FreeCAD rules (learned the hard way)

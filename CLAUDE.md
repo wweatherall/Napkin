@@ -1,4 +1,4 @@
-# Shop Sketch
+# Napkin
 
 A SketchUp-feel modeller over FreeCAD for woodworking: tool-first (no workbenches), fast to draw,
 while the model stays a real, editable FreeCAD file with FreeCAD's drawings. Blender is for renders only.
@@ -57,33 +57,33 @@ confirmed meshes, the worker link, typed values, drawing rules, viewport tests) 
   catches up and the real mesh replaces the draft, with the confirmation wave (W01–W09).
 - `worker/` (inside `freecadcmd`, started by `replay.py`) keeps a live FreeCAD document per model and turns each
   action into native features in one undo transaction (A22, A23). The .FCStd file is the model (A21); the journal
-  `<model>.shopsketch.json` sits beside it (A24). One worker serves every window (W13), one window per model.
+  `<model>.napkin.json` sits beside it (A24). One worker serves every window (W13), one window per model.
 - `sync(ops)`: keep the common prefix, take back the rest with FreeCAD undo, apply new ops (A23).
 - Units: model space is Z-up millimetres; Godot is Y-up metres (`m2g` / `g2m`). Faces are referenced by geometry
   `{body, normal, point}`, never by face numbers (A03).
 
 ## Run (macOS)
-- `tools/BUILD_THE_APP.sh` builds `dist/Shop Sketch.app` (A30): a copy of the Godot program runs
-  `Resources/Shop Sketch.pck` (`--export-pack`, preset in `viewport/export_presets.cfg`; no export templates needed),
-  with `Resources/worker/*.py`, an icon from `tools/icon.svg`, ad-hoc signed. Files next to the viewport are found
+- `tools/BUILD_THE_APP.sh` builds `dist/Napkin.app` (A30): a copy of the Godot program runs
+  `Resources/Napkin.pck` (`--export-pack`, preset in `viewport/export_presets.cfg`; no export templates needed),
+  with `Resources/worker/*.py`, an icon from `tools/napkin_icon.svg`, ad-hoc signed. Files next to the viewport are found
   with `_beside_project()` (repo when run from source, bundle Resources in the app).
-- The app opens the last model (`user://settings.cfg`), else `~/Documents/Shop Sketch/Untitled.FCStd`; File > New /
+- The app opens the last model (`user://settings.cfg`), else `~/Documents/Napkin/Untitled.FCStd`; File > New /
   Open call `switch_model()`. Each model's outputs go in `user://out/<name>-<hash>/` (tests keep `--out` as is).
 - Renderer: Compatibility (on a Mac it draws through Metal). Forward+ works (`--rendering-method forward_plus`,
   background matched) but hatches edges on thin faces; see Q5.
-- `./Start Shop Sketch.command` opens `models/model.FCStd`; the app starts its worker. Worker log: `worker.log`.
+- `./Start Napkin.command` opens `models/model.FCStd`; the app starts its worker. Worker log: `worker.log`.
 - FreeCAD's command-line program: `/Applications/FreeCAD.app/Contents/Resources/bin/freecadcmd`
 - Godot: `/Applications/Godot.app/Contents/MacOS/Godot`
 
 ## Tests
-- Two kinds of test (P07): feature tests check Shop Sketch's answers against FreeCAD with no window
+- Two kinds of test (P07): feature tests check Napkin's answers against FreeCAD with no window
   (`tools/TEST_WITHOUT_THE_APP.sh`, ~10 s, all side by side; it finds every `worker/test_*.py`, `tools/test_*.py` and
   `viewport/test_*.gd` itself, T95, `--list` shows them; the folder guides say how); UI tests drive the viewport.
   A new feature gets a numbered file in `worker/scenario/` first (run the feature tests while building it), then a
   quick-test step once its tool exists.
 - After every change: `tools/TEST_YOUR_CODE_FAST.sh` (~8 s): the feature tests beside every viewport feature once, in three
   Godot windows side by side (`--quicktest --quick-lane=N`, T49; `--one` for a single window), each step checking its
-  own answer. Each window starts its own worker on a port it owns, so test runs never touch a running Shop Sketch
+  own answer. Each window starts its own worker on a port it owns, so test runs never touch a running Napkin
   or each other.
 - Before a merge: `tools/TEST_BEFORE_MERGING.sh` (the quick test, then the full test, one verdict; failures listed in
   `tests/known_failures.txt` with their Work list item pass, nothing else, P18). When only tools, hooks, docs or
@@ -102,7 +102,7 @@ confirmed meshes, the worker link, typed values, drawing rules, viewport tests) 
 - Q18: FreeCAD booleans slow down along a chain (24 chained cuts: 5 → 358 ms). Done: hole arrays, one boolean
   per run (A22b): hole 48 on a panel is 290 ms (was 4.3 s). In reserve (T9): answer from plain shapes first.
 - The work list is the decision log's "Work list" section (T1, T2, ...).
-- Q19: stage 2, watch the file and merge FreeCAD-side changes. Q17 / stage 3: adopt solids from files Shop Sketch didn't make.
+- Q19: stage 2, watch the file and merge FreeCAD-side changes. Q17 / stage 3: adopt solids from files Napkin didn't make.
 - Q4: feel test on real hardware. Earlier tuning was judged from software-rendered recordings.
 
 ## Conventions

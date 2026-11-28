@@ -1,6 +1,6 @@
-"""Shop Sketch's wood library (T15, M03): one table, written out as FreeCAD material cards (.FCMat) where FreeCAD
+"""Napkin's wood library (T15, M03): one table, written out as FreeCAD material cards (.FCMat) where FreeCAD
 looks for user materials, and as materials.json for the viewport.
-Twelve-species library (`SPECIES`); `install` writes FreeCAD cards under the user `Material/Shop Sketch` directory.
+Twelve-species library (`SPECIES`); `install` writes FreeCAD cards under the user `Material/Napkin` directory.
 Entry points: install, write_library, SPECIES.
 
 Numbers: USDA Forest Products Laboratory, Wood Handbook, Centennial ed. (GTR-190, 2010), chapter 5 (Kretschmann):
@@ -63,14 +63,14 @@ SOURCE = "USDA FPL Wood Handbook GTR-190 (2010), ch. 5, Tables 5-1, 5-2, 5-3a, 1
 
 
 def material_uuid(key):
-    return str(uuid.uuid5(uuid.NAMESPACE_URL, "shopsketch:material:" + key))
+    return str(uuid.uuid5(uuid.NAMESPACE_URL, "napkin:material:" + key))
 
 
 def card_text(key, texture_path):
     name, row, sg, moe, hard, ratios, mu, tex, grain, size, col = SPECIES[key]
     el = moe * 1.1
-    lines = ["---", "# Written by Shop Sketch (worker/materials.py); edits here are overwritten.", "General:",
-             f'  UUID: "{material_uuid(key)}"', f'  Name: "{name}"', '  Author: "Shop Sketch"',
+    lines = ["---", "# Written by Napkin (worker/materials.py); edits here are overwritten.", "General:",
+             f'  UUID: "{material_uuid(key)}"', f'  Name: "{name}"', '  Author: "Napkin"',
              f'  License: "Values: US federal work (public domain). Texture: ambientCG {tex}, CC0."',
              f'  Description: "{row}. {SOURCE}. Orthotropic axes: X along the grain (L), Y radial (R), Z tangential (T)."',
              "Inherits:", "  Wood:", f'    UUID: "{WOOD_PARENT}"',
@@ -105,9 +105,9 @@ def library():
 
 
 def install(user_dir, textures_src):
-    """Write the cards (and copy the textures) into FreeCAD's user material folder, under "Shop Sketch".
+    """Write the cards (and copy the textures) into FreeCAD's user material folder, under "Napkin".
     Returns the number of files changed (0 when everything is already current)."""
-    dest = os.path.join(user_dir, "Shop Sketch")
+    dest = os.path.join(user_dir, "Napkin")
     tdest = os.path.join(dest, "textures")
     os.makedirs(tdest, exist_ok=True)
     changed = 0

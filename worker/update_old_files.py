@@ -1,9 +1,10 @@
-"""One-time updater for pre-H199 saved files (.FCStd and .json) (T159, A43, G09).
+"""One-time updater for pre-H199/H204 saved files (.FCStd and .json) (T159, T139, A43, G09).
 
 Rewrites:
 - `property_edit` with `mode` in (`plane_fit`, `replace_fit`) -> `fit` / `unfit` (T162)
 - `push_pull` with `body` (or free rect/region without `body`) -> `new_board` (`edge_fit` -> `fit`)
 - `status.json` `push_pull` entries that created a body -> `new_board`
+- `ShopSketch*` Meta keys, `ShopSketchFloor.FCStd`, `shopsketch-journal/0.1`, and `.shopsketch.json` sidecars -> Napkin (T139)
 
 Reports and leaves untouched:
 - `push_pull` with `edge_fit` on a face (H198's old shape)
@@ -21,6 +22,18 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_PATHS = ("examples", "tests/legacy_one_file", "tests/reference", "04_Napkin_Drawings", "models")
+
+META_KEY_RENAMES = {
+    "ShopSketchOps": "NapkinOps",
+    "ShopSketchRev": "NapkinRev",
+    "ShopSketchJournal": "NapkinJournal",
+    "ShopSketchUnits": "NapkinUnits",
+    "ShopSketchContentSha256": "NapkinContentSha256",
+}
+ZIP_ENTRY_RENAMES = {
+    "ShopSketchFloor.FCStd": "NapkinFloor.FCStd",
+}
+OLD_SIDECAR_SUFFIX = ".shopsketch.json"
 
 
 def upgrade_op(op, free_rects=None):
@@ -115,6 +128,9 @@ def _upgrade_journal_obj(data, path_str, warnings):
     changed = ops_changed
     out = dict(data)
     out["ops"] = new_ops
+    if out.get("format") == "shopsketch-journal/0.1":
+        out["format"] = "napkin-journal/0.1"
+        changed = True
 
     if isinstance(data.get("dropped"), list):
         free_rects = _free_rects_in(data["ops"])
@@ -196,7 +212,7 @@ def _strip_content_sha_from_xml(doc_xml_bytes):
     meta_map = root.find("./Properties/Property[@name='Meta']/Map")
     if meta_map is not None:
         for item in list(meta_map.findall("Item")):
-            if item.get("key") == "ShopSketchContentSha256":
+            if item.get("key") in ("ShopSketchContentSha256", "NapkinContentSha256"):
                 meta_map.remove(item)
         meta_map.set("count", str(len(meta_map.findall("Item"))))
     return ET.canonicalize(ET.tostring(root, encoding="unicode")).encode("utf-8")
@@ -205,7 +221,7 @@ def _strip_content_sha_from_xml(doc_xml_bytes):
 def _compute_content_sha256(entries):
     h = hashlib.sha256()
     for name in sorted(entries):
-        if name in ("GuiDocument.xml", "ShopSketchFloor.FCStd"):
+        if name in ("GuiDocument.xml", "ShopSketchFloor.FCStd", "NapkinFloor.FCStd"):
             continue
         data = entries[name]
         if name == "Document.xml":
@@ -215,7 +231,7 @@ def _compute_content_sha256(entries):
 
 
 def update_fcstd(path, warnings):
-    """Update ShopSketchOps and ShopSketchJournal inside a .FCStd file. Returns True if changed."""
+    """Update Napkin/ShopSketch Meta, ops, journal, and floor entry inside a .FCStd file. Returns True if changed."""
     path = Path(path)
     with zipfile.ZipFile(path, "r") as zin:
         infolist = zin.infolist()
@@ -223,6 +239,7 @@ def update_fcstd(path, warnings):
             return False
         entries = {item.filename: zin.read(item.filename) for item in infolist}
 
+    old_sha_matched = False
     root = ET.fromstring(entries["Document.xml"])
     meta_map = root.find("./Properties/Property[@name='Meta']/Map")
     if meta_map is None:
@@ -232,9 +249,26 @@ def update_fcstd(path, warnings):
     old_content_sha = None
     for item in list(meta_map.findall("Item")):
         key = item.get("key")
-        if key == "ShopSketchContentSha256":
+        if key in ("ShopSketchContentSha256", "NapkinContentSha256"):
             old_content_sha = item.get("value")
-        elif key == "ShopSketchOps" and item.get("value"):
+    if old_content_sha is not None and old_content_sha == _compute_content_sha256(entries):
+        old_sha_matched = True
+
+    new_entries = {}
+    for name, data in entries.items():
+        if name in ZIP_ENTRY_RENAMES:
+            new_entries[ZIP_ENTRY_RENAMES[name]] = data
+            changed = True
+        else:
+            new_entries[name] = data
+
+    for item in list(meta_map.findall("Item")):
+        key = item.get("key")
+        if key in META_KEY_RENAMES:
+            key = META_KEY_RENAMES[key]
+            item.set("key", key)
+            changed = True
+        if key == "NapkinOps" and item.get("value"):
             try:
                 ops = json.loads(item.get("value"))
             except ValueError:
@@ -244,7 +278,7 @@ def update_fcstd(path, warnings):
                 if ops_changed:
                     item.set("value", json.dumps(new_ops, separators=(",", ":")))
                     changed = True
-        elif key == "ShopSketchJournal" and item.get("value"):
+        elif key == "NapkinJournal" and item.get("value"):
             try:
                 j = json.loads(item.get("value"))
             except ValueError:
@@ -258,11 +292,11 @@ def update_fcstd(path, warnings):
         return False
 
     new_doc_bytes = ET.tostring(root, encoding="utf-8", xml_declaration=True)
-    if old_content_sha is not None and old_content_sha == _compute_content_sha256(entries):
-        entries["Document.xml"] = new_doc_bytes
-        csha = _compute_content_sha256(entries)
+    if old_sha_matched:
+        new_entries["Document.xml"] = new_doc_bytes
+        csha = _compute_content_sha256(new_entries)
         for item in list(meta_map.findall("Item")):
-            if item.get("key") == "ShopSketchContentSha256":
+            if item.get("key") == "NapkinContentSha256":
                 item.set("value", csha)
                 break
         new_doc_bytes = ET.tostring(root, encoding="utf-8", xml_declaration=True)
@@ -274,8 +308,10 @@ def update_fcstd(path, warnings):
             for item in infolist:
                 if item.filename == "Document.xml":
                     zout.writestr("Document.xml", new_doc_bytes)
+                elif item.filename in ZIP_ENTRY_RENAMES:
+                    zout.writestr(ZIP_ENTRY_RENAMES[item.filename], new_entries[ZIP_ENTRY_RENAMES[item.filename]])
                 else:
-                    zout.writestr(item, entries[item.filename])
+                    zout.writestr(item, new_entries[item.filename])
         os.replace(tmp_name, path)
     except BaseException:
         try:
@@ -296,17 +332,28 @@ def update_json(path, warnings, fcstd_sha_map=None):
         return False
 
     new_data, changed = _upgrade_journal_obj(data, str(path), warnings)
+    dest_path = path
+    for old_suf, new_suf in (
+        (".shopsketch.json", ".napkin.json"),
+        (".shopsketch.prev.json", ".napkin.prev.json"),
+        (".shopsketch.saving.json", ".napkin.saving.json"),
+    ):
+        if path.name.endswith(old_suf):
+            dest_path = path.with_name(path.name[:-len(old_suf)] + new_suf)
+            changed = True
+            break
+
     if fcstd_sha_map and isinstance(new_data, dict) and "file_sha256" in new_data:
-        stem = str(path)
-        if stem.endswith(".shopsketch.json"):
-            fcstd_path = Path(stem[:-len(".shopsketch.json")] + ".FCStd")
+        stem = str(dest_path)
+        if stem.endswith(".napkin.json"):
+            fcstd_path = Path(stem[:-len(".napkin.json")] + ".FCStd")
             if fcstd_path in fcstd_sha_map:
                 old_sha, new_sha = fcstd_sha_map[fcstd_path]
                 if new_data.get("file_sha256") == old_sha and new_sha != old_sha:
                     new_data = dict(new_data)
                     new_data["file_sha256"] = new_sha
                     changed = True
-            floor_path = Path(stem[:-len(".shopsketch.json")] + ".floor.FCStd")
+            floor_path = Path(stem[:-len(".napkin.json")] + ".floor.FCStd")
             if floor_path in fcstd_sha_map and isinstance(new_data.get("floor_copy"), dict):
                 old_fsha, new_fsha = fcstd_sha_map[floor_path]
                 if new_data["floor_copy"].get("sha256") == old_fsha and new_fsha != old_fsha:
@@ -319,7 +366,12 @@ def update_json(path, warnings, fcstd_sha_map=None):
 
     indent = 1 if "\n " in raw else None
     text = json.dumps(new_data, indent=indent) + ("\n" if raw.endswith("\n") else "")
-    _atomic_write_bytes(path, text.encode("utf-8"))
+    _atomic_write_bytes(dest_path, text.encode("utf-8"))
+    if dest_path != path:
+        try:
+            os.unlink(path)
+        except OSError:
+            pass
     return True
 
 

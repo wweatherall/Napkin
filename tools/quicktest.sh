@@ -2,7 +2,7 @@
 # Quick check, after every change (~12 s): the feature tests (tools/featuretest.sh: every test_* file in worker/, tools/ and
 # viewport/, no window) beside the UI test, every viewport feature once (--quicktest). The UI test runs in
 # LANES windows side by side (T49), each with its own worker and a share of the sections (viewport/tests/quick_runner.gd QUICK_LANES),
-# so it never touches a running Shop Sketch. Each step checks its own answer.
+# so it never touches a running Napkin. Each step checks its own answer.
 #   tools/quicktest.sh            the lanes side by side
 #   tools/quicktest.sh --one      every section in one window, one after another (as before T49)
 # If anything fails, run tools/fulltest.sh. Exit status 0 = all passed.
@@ -20,7 +20,7 @@ for arg in "$@"; do
 done
 resolve_test_scope "$@"
 echo "quick: $TEST_SCOPE_DESC"
-OUT=$(mktemp -d "${TEST_TMPDIR%/}/shopsketch-quick.XXXXXX") || exit 1
+OUT=$(mktemp -d "${TEST_TMPDIR%/}/napkin-quick.XXXXXX") || exit 1
 if [ "$TEST_SCOPE" = "tools" ]; then
   run_stage "quick: feature tests" run_features "$OUT" --tools-only
   FT=$?

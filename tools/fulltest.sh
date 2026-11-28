@@ -21,7 +21,7 @@ if [ $GATE_UI_ONLY -eq 0 ]; then
 fi
 if [ $GATE_UI_ONLY -eq 0 ]; then echo "TIMING parse: $((SECONDS - START)) s";
 else echo "TIMING parse/features: reused successful quick checks"; fi
-OUT=$(mktemp -d "${TEST_TMPDIR%/}/shopsketch-full.XXXXXX") || exit 1
+OUT=$(mktemp -d "${TEST_TMPDIR%/}/napkin-full.XXXXXX") || exit 1
 FAST=--fast
 for a in "$@"; do [ "$a" = "--full-pace" ] && FAST=""; done
 RECORDED="facetest movetest mirrortest infertest holetest zfighttest"
@@ -52,9 +52,9 @@ lane() {   # lane <n> <suites...>: its own worker, then each suite in turn
         > "$OUT/$suite/godot.log" 2>&1
       local rc=$?
       # T80: Godot sometimes crashes at startup (signal 11 in macOS open-file handling) before any of our scripts
-      # print. That says nothing about Shop Sketch: run the suite once more, and say so.
+      # print. That says nothing about Napkin: run the suite once more, and say so.
       if [ $rc -ge 128 ] && [ $rc -ne 143 ] && [ $try = 1 ] && \
-         ! grep -qE "^(SHOT|TEST|SHOPSKETCH|SCRIPT ERROR|QUICK)|GDScript backtrace" "$OUT/$suite/godot.log"; then
+         ! grep -qE "^(SHOT|TEST|NAPKIN|SCRIPT ERROR|QUICK)|GDScript backtrace" "$OUT/$suite/godot.log"; then
         mv "$OUT/$suite/godot.log" "$OUT/$suite/godot-crash.log"
         echo "$suite: Godot crashed at startup (exit $rc) before our scripts ran; ran it again (log: $OUT/$suite/godot-crash.log)" >> "$OUT/retries"
         continue

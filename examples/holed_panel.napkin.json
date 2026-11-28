@@ -1,7 +1,7 @@
 {
- "format": "shopsketch-journal/0.1",
+ "format": "napkin-journal/0.1",
  "rev": 1,
- "file_sha256": "e84c2b336f5c6345fea34a7e7fa712ee75a8de9faf9297720f45f0be87066ec5",
+ "file_sha256": "a14c81d93e04cfbccf138973e7b04e709de5129d64dbb4328beed9b6603788d3",
  "model": "model.FCStd",
  "name": "model",
  "ops": [

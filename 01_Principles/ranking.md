@@ -9,7 +9,7 @@ Higher wins when two pull against each other (comitatus principle 01). From Will
 | 1 | 1048 | 3 | napkin G09 | Never lose work: always saved, atomically, and undo crosses sessions without hiding changes made in FreeCAD. |
 | 2 | 1047 | 3 | napkin G04 | Relationships stay live: copies, arrays, mirrors and fits follow later edits, and you can detach one on purpose. |
 | 3 | 1016 | 3 | napkin G01 | Feel first: a draft appears the moment you act and input never waits on FreeCAD; FreeCAD catches up and the wave confirms it. |
-| 4 | 1016 | 3 | napkin G02 | The .FCStd file is the model: every action becomes ordinary, editable FreeCAD features, and Shop Sketch is a view of them. |
+| 4 | 1016 | 3 | napkin G02 | The .FCStd file is the model: every action becomes ordinary, editable FreeCAD features, and Napkin is a view of them. |
 | 5 | 1016 | 3 | napkin G10 | A rejected action says why and leaves nothing behind. |
 | 6 | 1001 | 2 | napkin G06 | Typed values follow what you're doing: the direction you drag, and the model's units for a bare number; any unit you type, written however you write it, is understood. |
 | 7 | 999 | 2 | napkin G05 | One key per idea, meaning the same thing in every tool. |

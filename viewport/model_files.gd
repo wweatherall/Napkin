@@ -15,7 +15,7 @@ func _init(main = null) -> void:
 	m = main
 
 
-# Shop Sketch works on one FreeCAD file at a time. File > New / Open switch files without restarting; the last
+# Napkin works on one FreeCAD file at a time. File > New / Open switch files without restarting; the last
 # file reopens next time.
 func _beside_project(rel: String) -> String:
 	"""A file shipped next to the viewport: the repo when run from source, the app bundle's Resources otherwise."""
@@ -31,7 +31,7 @@ func _last_model() -> String:
 		var p: String = cfg.get_value("files", "last_model", "")
 		if p != "" and (FileAccess.file_exists(p) or DirAccess.dir_exists_absolute(p.get_base_dir())):
 			return p
-	var docs := OS.get_system_dir(OS.SYSTEM_DIR_DOCUMENTS).path_join("Shop Sketch")
+	var docs := OS.get_system_dir(OS.SYSTEM_DIR_DOCUMENTS).path_join("Napkin")
 	DirAccess.make_dir_recursive_absolute(docs)
 	return docs.path_join("Untitled.FCStd")
 
@@ -49,7 +49,7 @@ func _out_for(path: String) -> String:
 
 func _set_title() -> void:
 	if m.test_mode: return
-	DisplayServer.window_set_title("%s — Shop Sketch" % m.model_path.get_file().get_basename())
+	DisplayServer.window_set_title("%s — Napkin" % m.model_path.get_file().get_basename())
 
 
 func switch_model(path: String, fresh := false) -> void:

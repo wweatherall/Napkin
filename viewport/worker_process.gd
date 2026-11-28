@@ -8,7 +8,7 @@ extends RefCounted
 ## Entry points: pick_worker, resolve_port, watch_worker, shutdown_worker, worker_identity, worker_of, log_worker, say_worker.
 
 # ---------------- the FreeCAD worker (T6) ----------------
-# Shop Sketch starts its own worker (freecadcmd worker/replay.py) on a free port, watches it, and starts it
+# Napkin starts its own worker (freecadcmd worker/replay.py) on a free port, watches it, and starts it
 # again if it stops; the request that was lost with it is sent again. On quit the worker saves and stops.
 const FREECAD_CANDIDATES := ["/Applications/FreeCAD.app/Contents/Resources/bin/freecadcmd",
 	"/Applications/FreeCAD.app/Contents/Resources/bin/FreeCADCmd", "/Applications/FreeCAD.app/Contents/MacOS/freecadcmd",
@@ -85,17 +85,17 @@ func _port_free(p: int) -> bool:
 
 
 func probe_worker(p: int) -> String:
-	"""Ask whatever listens on port p who it is: the worker's script hash, or "" if it isn't a Shop Sketch worker
+	"""Ask whatever listens on port p who it is: the worker's script hash, or "" if it isn't a Napkin worker
 	this window can use (worker_of)."""
 	return worker_of(hello(p), p)
 
 
 func worker_of(r, p: int) -> String:
-	"""A hello reply's worker hash, or "": not a Shop Sketch worker, or one speaking another protocol version
+	"""A hello reply's worker hash, or "": not a Napkin worker, or one speaking another protocol version
 	(then it's treated like a different worker: this window starts its own, and says why)."""
-	if typeof(r) != TYPE_DICTIONARY or r.get("app", "") != "shopsketch": return ""
+	if typeof(r) != TYPE_DICTIONARY or r.get("app", "") != "napkin": return ""
 	if int(r.get("protocol", 0)) != m.PROTOCOL_VERSION:
-		print("SHOPSKETCH the worker on port %d speaks protocol %s, this window %d: not sharing it" % [p, str(r.get("protocol", "none")), m.PROTOCOL_VERSION])
+		print("NAPKIN the worker on port %d speaks protocol %s, this window %d: not sharing it" % [p, str(r.get("protocol", "none")), m.PROTOCOL_VERSION])
 		return ""
 	return String(r.get("worker", ""))
 
@@ -139,7 +139,7 @@ func pick_worker() -> int:
 	elif probe_worker(SHARED_PORT) == mine and mine != "":
 		shared_worker = true                       # another window's worker: use it
 		worker_port = SHARED_PORT
-		print("SHOPSKETCH sharing the worker on port %d" % SHARED_PORT)
+		print("NAPKIN sharing the worker on port %d" % SHARED_PORT)
 	else:
 		worker_port = _free_port(SHARED_PORT + 1)   # something else (or another version) has the port
 		_start_worker()
@@ -162,7 +162,7 @@ func _start_worker() -> void:
 	# pick the same port before either binds it (T47). The app's workers keep their known ports (W13).
 	var port_file := ""
 	if m.test_mode:
-		port_file = OS.get_temp_dir().path_join("shopsketch-worker-%d.port" % OS.get_process_id())
+		port_file = OS.get_temp_dir().path_join("napkin-worker-%d.port" % OS.get_process_id())
 		DirAccess.remove_absolute(port_file)
 		worker_port = 0
 	if OS.get_name() == "Windows":
@@ -176,7 +176,7 @@ func _start_worker() -> void:
 	if port_file != "" and m.client != null:           # a restarted worker: wait for its new port
 		worker_port = _await_port_file()
 		m.client.port = worker_port
-	print("SHOPSKETCH worker pid %d %s: %s (log %s)" % [worker_pid, "port pending" if worker_port == 0 else
+	print("NAPKIN worker pid %d %s: %s (log %s)" % [worker_pid, "port pending" if worker_port == 0 else
 		"on port %d" % worker_port, worker_script, worker_log])
 
 
@@ -196,11 +196,11 @@ func _await_port_file() -> int:
 			var p := int(FileAccess.get_file_as_string(path).strip_edges())
 			DirAccess.remove_absolute(path)
 			if p > 0:
-				print("SHOPSKETCH worker on port %d" % p)
+				print("NAPKIN worker on port %d" % p)
 				return p
 		if worker_pid > 0 and not OS.is_process_running(worker_pid): break
 		OS.delay_msec(20)
-	push_error("SHOPSKETCH the worker didn't report its port: see %s" % worker_log)
+	push_error("NAPKIN the worker didn't report its port: see %s" % worker_log)
 	return -1
 
 
@@ -267,9 +267,9 @@ func shutdown_worker() -> void:
 
 func log_worker(line: String) -> void:
 	"""A line in worker.log from this window (A36: a stuck or stopped worker at an outside save)."""
-	print("SHOPSKETCH " + line)
+	print("NAPKIN " + line)
 	if worker_log == "": return
 	var f := FileAccess.open(worker_log, FileAccess.READ_WRITE) if FileAccess.file_exists(worker_log) else FileAccess.open(worker_log, FileAccess.WRITE)
 	if f == null: return
 	f.seek_end()
-	f.store_line("SHOPSKETCH %s %s" % [Time.get_datetime_string_from_system(), line])
+	f.store_line("NAPKIN %s %s" % [Time.get_datetime_string_from_system(), line])

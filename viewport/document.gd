@@ -30,10 +30,10 @@ signal removed                      # done removing (one or several): show the s
 signal idle                         # nothing in flight and nothing waiting
 signal outside_waiting              # FreeCAD saved the model while actions were on their way (A36): main waits, then asks
 signal outside_failed(error: String) # FreeCAD's save couldn't be opened: ask what to do with both versions
-signal outside_keep_failed(error: String) # Shop Sketch's version could not be saved
+signal outside_keep_failed(error: String) # Napkin's version could not be saved
 signal outside_actions_landed       # the pending actions landed and the automatic reload was sent (A39)
 signal reloaded(resp: Dictionary)   # FreeCAD's save is the model now: main shows it, with the wave on changed boards
-signal kept_mine(resp: Dictionary)  # Shop Sketch's version went over FreeCAD's save (copied aside first)
+signal kept_mine(resp: Dictionary)  # Napkin's version went over FreeCAD's save (copied aside first)
 
 var client                          # anything with send(Dictionary) (worker_client.gd; a stand-in in tests)
 var model_path := ""                # the FreeCAD file: the model itself (A21)

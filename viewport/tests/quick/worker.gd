@@ -17,7 +17,7 @@ static func restart_limit_holds() -> bool:
 
 
 func run() -> void:
-	# 10. The worker stops: Shop Sketch starts it again and carries on (A27)
+	# 10. The worker stops: Napkin starts it again and carries on (A27)
 	harness._q_lap("worker")
 	harness._ok("five worker restarts in a minute are allowed, the sixth is refused", restart_limit_holds())
 	if m.worker.worker_pid > 0:

@@ -4,7 +4,7 @@
 Reach for these when writing worker protocol, saving, or outside-save checks:
 - start_worker() / Worker: run an isolated worker on a free port (T47).
   P42 worker gone: Worker.kill() (SIGKILL, no goodbye), then Worker.restart().
-- Window: stand-in Shop Sketch window with its own seq numbering.
+- Window: stand-in Napkin window with its own seq numbering.
   P42 reply late or out of order: Window.send() twice before reading with wait().
   P42 window gone: Window.drop() (closes the socket without bye).
 - read_only(folder): P42 save that fails (PermissionError; restored on exit).
@@ -46,7 +46,7 @@ class Checks:
 
 
 class Window:
-    """A stand-in for one Shop Sketch window over TCP, with its own seq numbering.
+    """A stand-in for one Napkin window over TCP, with its own seq numbering.
 
     Reach for Window.send() twice before reading to test P42 late/out-of-order replies,
     and Window.drop() to test P42 window gone (disconnect without bye).

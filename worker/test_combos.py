@@ -12,7 +12,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import test_load  # Configure the FreeCAD test runtime before loading worker modules.
 import FreeCAD as App
 from session import Session
-ROOT = Path(os.environ.get('TESTDIR', '/tmp/shopsketch-combos'))
+ROOT = Path(os.environ.get('TESTDIR', '/tmp/napkin-combos'))
 ROOT.mkdir(parents=True, exist_ok=True)
 R = [0, 0]
 SERIAL = 0

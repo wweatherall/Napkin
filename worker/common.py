@@ -43,7 +43,7 @@ def material_card(key):
 V = App.Vector
 TOL = 1e-3          # mm, for face matching
 NORMAL_TOL = 0.999  # cosine
-JOURNAL_FORMAT = "shopsketch-journal/0.1"
+JOURNAL_FORMAT = "napkin-journal/0.1"
 
 # FreeCAD keeps 20 undo steps per document. Only its GUI applies the MaxUndoSize preference, and there is no
 # Python call to change it, so in freecadcmd it stays 20 (checked on 1.1.3 and 1.1.4). Undoing further back
@@ -78,16 +78,16 @@ def board_label(bid):
 
 
 def add_props(obj, **props):
-    """All Shop Sketch properties are added when an object is created (adding them later
+    """All Napkin properties are added when an object is created (adding them later
     inside an undo transaction is not reliably undone)."""
     kinds = {str: "App::PropertyString", bool: "App::PropertyBool", int: "App::PropertyInteger",
              float: "App::PropertyFloat", App.Vector: "App::PropertyVector"}
     for name, value in props.items():
         if name == "Tip":
-            obj.addProperty("App::PropertyLinkChild", "Tip", "ShopSketch", "the feature that is this board's current solid")
+            obj.addProperty("App::PropertyLinkChild", "Tip", "Napkin", "the feature that is this board's current solid")
             obj.Tip = value
             continue
-        obj.addProperty(kinds[type(value)], name, "ShopSketch", "")
+        obj.addProperty(kinds[type(value)], name, "Napkin", "")
         setattr(obj, name, value)
     return obj
 

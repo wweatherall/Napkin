@@ -1,7 +1,7 @@
 {
  "format": "oplog/0.1",
  "units": "mm",
- "name": "Shop Sketch session",
+ "name": "Napkin session",
  "ops": [
   {
    "id": "r1",

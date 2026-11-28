@@ -1,4 +1,4 @@
-# FreeCAD feature map for Shop Sketch
+# FreeCAD feature map for Napkin
 
 Reviewed 2026-11-21 against the changing local working tree and installed FreeCAD 1.1.4. This maps all S01–S16 suggestions, related relationship/solid-editing proposals, and history/architecture work to their implementation providers. Recheck current implementation before scheduling: Claude is actively adding features.
 
@@ -42,12 +42,12 @@ Keep the existing provider evidence below, but interpret native-feature preferen
 ## Provider and verification legend
 
 **Core:** built into FreeCAD's document/model system or a bundled workbench.
-**GUI:** a FreeCAD interface capability; Shop Sketch implements an equivalent Godot interaction, not a headless call to FreeCAD's window.
+**GUI:** a FreeCAD interface capability; Napkin implements an equivalent Godot interaction, not a headless call to FreeCAD's window.
 **Adapter:** custom orchestration/UI around native model features; no new geometry engine.
 **Optional add-on:** installed separately and required wherever its scripted features must recompute.
 **Needs spike:** provider exists, but integration or promised behaviour is not yet verified.
 
-Verification below is deliberately scoped. Creating a feature object proves availability, not that every possible input works. A simple round-trip sample proves that sample, not general robustness or integration with Shop Sketch links, mirrors and undo.
+Verification below is deliberately scoped. Creating a feature object proves availability, not that every possible input works. A simple round-trip sample proves that sample, not general robustness or integration with Napkin links, mirrors and undo.
 
 ## What is already available locally
 
@@ -75,7 +75,7 @@ Sources: [Draft snapping](https://github.com/FreeCAD/FreeCAD-documentation/blob/
 | ID / feature | Preferred FreeCAD provider and action | Editable representation and worker route | Verification / caveat |
 |---|---|---|---|
 | S07: Rotate | Core Placement and Rotation; Draft Rotate as UI precedent | Transform the native object's placement about chosen pivot/axis; linked definition remains shared | Native math/provider available. Integrate local/world frames, mirrors and arrays; don't rotate the displayed mesh alone. |
-| S07: radial copies | Draft.make_polar_array(base, number, angle, center, use_link=True) | Bundled Draft Array Python feature backed by links; edit count/angle/axis/center | Simple array created, saved, reopened and recomputed. Translate Shop Sketch's copy-count convention to Draft's actual element count and test it explicitly. |
+| S07: radial copies | Draft.make_polar_array(base, number, angle, center, use_link=True) | Bundled Draft Array Python feature backed by links; edit count/angle/axis/center | Simple array created, saved, reopened and recomputed. Translate Napkin's copy-count convention to Draft's actual element count and test it explicitly. |
 | S08: Line, Circle, Arc, polygon and rotated rectangle | Sketcher::SketchObject with Part.LineSegment, Part.Circle and arc geometry; alternatively bundled Draft wire/circle/arc objects | Prefer sketches for editable profiles; add constraints through Sketcher, place sketch in local plane; keep simple existing plane rectangles supported | Sketch object and circle/extrusion verified. Sketch geometry is planar: rotate its Placement to orient it in 3D. Profile closure, multiple loops and holes need integration cases. |
 | S08: editing/trimming profiles and regions on faces | Sketcher editing/trim/constraints; Part boolean/face operations where appropriate | Edit source sketch, then recompute downstream native extrusion/cut/fuse | SketchUp-style drawing an edge on an arbitrary finished face does not automatically produce an equivalent editable FreeCAD feature. Decide whether editing a source profile or adding a new cutter/profile; do not silently replace the solid with a mesh. |
 | S08: extrude arbitrary closed profiles | Part::Extrusion Base, Dir, LengthFwd/LengthRev, Solid; Part::Cut / MultiFuse to combine | Extend the existing board/Tip pipeline to accept sketches, not only rectangles | Native circle extrusion passed round-trip. Open paths may create surfaces; require closed valid profiles for physical boards. |
@@ -97,7 +97,7 @@ Sources: [Part command implementation](https://github.com/FreeCAD/FreeCAD/blob/m
 
 **Up to face:** PartDesign::Pad and Pocket have UpToFace/UpToShape properties, verified in this installation. They are the native reference features, but their Body/support rules mean they are not a direct replacement for the current Part::Extrusion.
 
-For the current graph, first investigate supported planar relationships expressed through native placements, sketch constraints, expressions and attachment references. An expression referencing a part's explicit dimension is different from finding an arbitrary face geometrically. If the desired target cannot be represented robustly with native dependencies, choose a deliberate PartDesign Body workflow or limit the feature. Do not maintain the final geometry through a Shop Sketch-only recompute callback.
+For the current graph, first investigate supported planar relationships expressed through native placements, sketch constraints, expressions and attachment references. An expression referencing a part's explicit dimension is different from finding an arbitrary face geometrically. If the desired target cannot be represented robustly with native dependencies, choose a deliberate PartDesign Body workflow or limit the feature. Do not maintain the final geometry through a Napkin-only recompute callback.
 
 I26b settles the interaction: pushing that same tied face or typing its new length releases the native driver; edits to other faces do not. Moving either part preserves the tie, linked copies share it and chains propagate. A disappeared target freezes the current measured length with a note; no silent reassignment. Loss of overlap keeps following with a subtle colour cue; zero/negative lengths reject. Point snaps create no tie. T14 implements these decided rules; arbitrary face dependencies still need native representation work.
 
@@ -105,7 +105,7 @@ I26b settles the interaction: pushing that same tied face or typing its new leng
 
 ## S12–S16: organization, views, materials and exchange
 
-| ID / feature | FreeCAD provider | What Shop Sketch supplies / limits |
+| ID / feature | FreeCAD provider | What Napkin supplies / limits |
 |---|---|---|
 | S12: standard views, orthographic/perspective, fit selection/model, orbit/pan/zoom | Standard GUI camera commands, including ViewFitAll, ViewFitSelection and camera projection controls | Equivalent Godot camera behaviour; no geometry change or new workbench. GUI commands cannot simply execute in the command-line worker. |
 | S12: hide/show/isolate and lock | Native visibility and GUI selectability controls | Godot filters and state persistence; define whether “lock” means unselectable or forbidding edits. Do not equate GUI selectability with an immutable model. |
@@ -126,7 +126,7 @@ Sources: [standard GUI commands](https://github.com/FreeCAD/FreeCAD/blob/main/sr
 - **Explode for presentation — parked (Q24/T21):** move links/copies in a separate presentation arrangement using native Placement, preserving construction positions. Animated explode/reassembly is custom presentation or an evaluated add-on; not the same command as splitting a solid or exploding a compound.
 - **Enter a part to change constituent features:** expose existing native sketch, extrusion and boolean properties. This is frontend navigation; recomputation remains FreeCAD's. Moving a feature independently may invalidate the result and needs normal validation.
 - **Plans:** bundled TechDraw pages, projected/section/detail views and dimensions. The app's existing drawing.py is a custom layout adapter around FreeCAD output. A custom cut-list aggregation is also app logic; grain/stock dimensions must be modeled explicitly rather than inferred solely from bounding boxes.
-- **Persistent branches (H01–H03a):** custom history graph/checkpoints and state restoration through native actions. Native transactions execute the selected history path. FreeCAD alone will show the active model; it will not acquire Shop Sketch's branch browser automatically.
+- **Persistent branches (H01–H03a):** custom history graph/checkpoints and state restoration through native actions. Native transactions execute the selected history path. FreeCAD alone will show the active model; it will not acquire Napkin's branch browser automatically.
 - **Branch merging (H04–H05):** custom semantic conflict detection and orchestration, expressly permitted by William's UI/history clarification. A geometric Fuse is not a history merge. Combined geometry must be generated by native FreeCAD actions and validated there.
 - **Controller, save recovery, presenter/context extraction (A-S01–A-S03):** application infrastructure around FreeCAD. No new geometry provider or workbench needed.
 - **D01–D07 design issues:** I12c intentionally keeps Shift for Move-mirror, arrows for locks; the contrary D01 shortcut proposal is withdrawn. Q22 uses Saving/Saved, not an autosave pulse. Other shortcuts, ownership, snap-versus-attachment, linkage scope, numerical input, local frames and exact-curve export are integration contracts across the above providers, not missing geometry kernels. In particular, the app's 0.5 mm Push/Pull cutoff is an interaction policy to revisit, not evidence FreeCAD cannot model smaller distances.
@@ -135,13 +135,13 @@ Sources: [standard GUI commands](https://github.com/FreeCAD/FreeCAD/blob/main/sr
 
 | Provider | Recommendation |
 |---|---|
-| Part + Sketcher + Draft | Use bundled versions for the core backlog. No download needed. Draft's Python-defined features are normal FreeCAD dependencies, not Shop Sketch-specific features. |
+| Part + Sketcher + Draft | Use bundled versions for the core backlog. No download needed. Draft's Python-defined features are normal FreeCAD dependencies, not Napkin-specific features. |
 | PartDesign | Already bundled. Evaluate a deliberate Body-based route for general up-to-face behaviour; do not migrate the existing board graph casually. |
 | TechDraw, Material, Measure, Import, Mesh | Already bundled; use for their corresponding tasks. GUI portions need Godot equivalents or a separately tested GUI path. |
 | Assembly | Already bundled, but unnecessary for a simple outliner/grouping feature. Only adopt its joint solver if assembly constraints become a requirement. |
 | Curves WB | Optional for advanced NURBS/surface work beyond basic arcs, sweeps and lofts. Local v1-1 package metadata shows 0.6.83, but runtime compatibility was not tested. Do not make it a baseline dependency. [Upstream](https://github.com/tomate44/CurvesWB). |
 | Render WB | Optional candidate for FreeCAD-managed render materials and standalone Cycles. Installation via Addon Manager is documented; not installed as part of this task. Validate dependencies and the intended Blender workflow before selecting it. |
-| A new Shop Sketch workbench | Not necessary to create the listed geometry. Could later expose history/metadata controls inside FreeCAD, but would be a new custom UI dependency, not an already available geometry provider. |
+| A new Napkin workbench | Not necessary to create the listed geometry. Could later expose history/metadata controls inside FreeCAD, but would be a new custom UI dependency, not an already available geometry provider. |
 | Other furniture/exploded-view add-ons | Not required for S01–S16. Evaluate only for a specific unmet workflow; no blanket dependency recommendation. |
 
 ## Implementation gate for each geometry feature
@@ -150,7 +150,7 @@ Before marking a feature ready:
 
 1. Identify the native object type or bundled/add-on provider and the editable properties.
 2. Create a minimal valid sample in an isolated document through the intended command-line API.
-3. Save FCStd; reopen and recompute in a fresh FreeCAD process without importing Shop Sketch code. Add-on features must have their documented dependency installed.
+3. Save FCStd; reopen and recompute in a fresh FreeCAD process without importing Napkin code. Add-on features must have their documented dependency installed.
 4. Change the relevant native property in FreeCAD and verify that dependents update correctly.
 5. Exercise links, mirrors, rotated placements and assemblies that the feature claims to support.
 6. Verify semantic undo/redo, rejection and branch restoration through the app adapter.
@@ -169,4 +169,4 @@ Separate FreeCAD processes were used; no existing model or running worker was to
 - Fractional-inch input parsed through FreeCAD.Units.Quantity.
 - Full app integration, clean-process round-trip of every provider, GUI commands, general face attachment and advanced curves remain unverified by those provider samples. H009 additionally inspected the implemented material/grain export and ran the existing native test suite; actual Blender shader consumption remains unverified. The first sweep test used an incorrectly oriented sketch; correcting the sketch Placement produced the passing native sweep sample.
 
-Probe files/results were created under /tmp/fretchup-native-mapping. The result JSON is copied alongside this document under docs/freecad-capability-check.json for review. These focused checks are capability evidence, not substitutes for the repository's quick/full suites when implementation changes.
+Probe files/results were created under /tmp/napkin-native-mapping. The result JSON is copied alongside this document under docs/freecad-capability-check.json for review. These focused checks are capability evidence, not substitutes for the repository's quick/full suites when implementation changes.

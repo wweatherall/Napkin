@@ -17,12 +17,12 @@ func _init(main = null) -> void:
 # ---------------- open, undo ----------------
 func _on_open(resp: Dictionary) -> void:
 	if not m.doc.is_current_open(resp):           # an answer to an older open (a model since left): ignored (T70)
-		print("SHOPSKETCH ignored a late open reply for %s" % resp.get("model", "?"))
+		print("NAPKIN ignored a late open reply for %s" % resp.get("model", "?"))
 		return
 	if resp.get("error", "") == "already_open":
 		if m._model_before == "":
 			# launched on a model another window has: that window came forward, this one isn't needed (W13)
-			print("SHOPSKETCH %s is open in another window: closing this one" % m.model_path)
+			print("NAPKIN %s is open in another window: closing this one" % m.model_path)
 			m.get_tree().quit()
 		else:
 			var name: String = m.model_path.get_file()
@@ -43,7 +43,7 @@ func _on_open(resp: Dictionary) -> void:
 	sync()
 	if resp.get("external", false):
 		m.reject_note = ""
-		m.ui_sync.text = "opened %s - changed in FreeCAD since Shop Sketch last saved it" % m.model_path.get_file()
+		m.ui_sync.text = "opened %s - changed in FreeCAD since Napkin last saved it" % m.model_path.get_file()
 
 
 func undo() -> void:

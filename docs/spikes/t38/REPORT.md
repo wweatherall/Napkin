@@ -13,7 +13,7 @@ The requested front fit and curved far-end/socket are feasible using bundled Fre
 | Far end with target opening | Inside = Part::Common(P, S-before-cut). FarP = Part::MultiFuse(Near, Inside), Refine enabled. Socket = Part::Cut(S-before-cut, FarP). FarP fills the approach plus the portion inside S, terminating on S's far surface. |
 | No cuts | Preserve S and retain the chosen bounded extrusion construction (Near or FarP for that surface snap); omit Socket. This mode allows overlap. Free drag remains an ordinary finite extrusion. |
 
-All operation objects above are persistent document features. CompoundFilter is FreeCAD's bundled Part module Python feature, not a new Shop Sketch algorithm. Its collision-pass stencil follows the starting profile in a production implementation. Do not select a fragment by its index: ordering can change.
+All operation objects above are persistent document features. CompoundFilter is FreeCAD's bundled Part module Python feature, not a new Napkin algorithm. Its collision-pass stencil follows the starting profile in a production implementation. Do not select a fragment by its index: ordering can change.
 
 ## Evidence and reproduction
 
@@ -29,7 +29,7 @@ Twenty cases: square flat face, 30-degree flat face, transverse cylinder, sphere
 
 Placement traps found while developing the experiment: an App::Link needs its instance placement explicitly assigned; changing its source placement is not a substitute for moving that instance. The angled target must be rotated about its actual centre. Early tests passed shape validity with the extrusion still extending to 100 mm, so the final checks also require two remnants, a bounded endpoint and a changed endpoint after edits.
 
-This is a feature-level test. It does not exercise Shop Sketch's App::Part ownership, edit_frame, sibling-edit policy, Tip/material propagation, or UI. Moving a link instance and changing source dimensions are tested; propagation into every sibling is an integration concern. Mirror normal/Base and source transforms remain different operations. For a mirrored App::Link, preserve the existing Compound wrapper workaround in replay.py; the combined link-plus-mirror case is not covered by this matrix.
+This is a feature-level test. It does not exercise Napkin's App::Part ownership, edit_frame, sibling-edit policy, Tip/material propagation, or UI. Moving a link instance and changing source dimensions are tested; propagation into every sibling is an integration concern. Mirror normal/Base and source transforms remain different operations. For a mirrored App::Link, preserve the existing Compound wrapper workaround in replay.py; the combined link-plus-mirror case is not covered by this matrix.
 
 ## Alternatives compared
 

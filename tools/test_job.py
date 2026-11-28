@@ -22,10 +22,10 @@ import job
 os.environ.pop("NAPKIN_SPACE", None)  # a worker session sets it (launch.py); the tests pick their own spaces
 
 # Isolate from host agent env vars so tests behave identically whether run by Claude, Codex, Gemini, or CI.
-for _env_key in ("ANTIGRAVITY_CONVERSATION_ID", "ANTIGRAVITY_AGENT", "SHOPSKETCH_SESSION"):
+for _env_key in ("ANTIGRAVITY_CONVERSATION_ID", "ANTIGRAVITY_AGENT", "NAPKIN_SESSION"):
     os.environ.pop(_env_key, None)
 # Disable the external usage-tool subprocess by default; the usage-hook tests below override this with patch.dict.
-os.environ["SHOPSKETCH_USAGE_TOOL"] = ""
+os.environ["NAPKIN_USAGE_TOOL"] = ""
 
 RESULTS = []
 VERBOSE = "-v" in sys.argv[1:] or "--verbose" in sys.argv[1:]
@@ -152,7 +152,20 @@ check("queued jobs aren't taken: nothing Ready for Codex", r is None and "nothin
 r, out = run(job.take, root, "claude", "s3")
 check("a job with a branch made by hand counts as claimed", r is None and "H006: claimed by branch" in out, out)
 check("the state lives in git's common folder, shared by every worktree",
-      job.state_path(wt1) == job.state_path(root) and job.state_path(root).endswith(os.path.join(".git", "shopsketch-jobs.json")))
+      job.state_path(wt1) == job.state_path(root) and job.state_path(root).endswith(os.path.join(".git", "napkin-jobs.json")))
+
+# H204: state_path migrates a legacy .git/shopsketch-jobs.json in place without losing jobs.
+mig_root = os.path.realpath(tempfile.mkdtemp(prefix="job-migrate-"))
+subprocess.run(["git", "init", "-b", "main"], cwd=mig_root, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+legacy_state = os.path.join(mig_root, ".git", "shopsketch-jobs.json")
+new_state = os.path.join(mig_root, ".git", "napkin-jobs.json")
+with open(legacy_state, "w", encoding="utf-8") as _f:
+    json.dump({"jobs": {"H999": {"id": "H999", "status": "open", "for": "gemini"}}, "events": [], "waiting_workers": {}}, _f)
+got_path = job.state_path(mig_root)
+got_st = job.read_state(got_path)
+check("state_path migrates legacy shopsketch-jobs.json to napkin-jobs.json keeping every job",
+      got_path == new_state and os.path.exists(new_state) and not os.path.exists(legacy_state) and "H999" in got_st["jobs"],
+      (got_path, os.path.exists(legacy_state), got_st))
 
 named_jobs = job.jobs_from({
     "H001-redo.md": entry("H001", "either", "open", "viewport/main.gd (`redo`)."),
@@ -174,7 +187,7 @@ check("a job that builds on another (Builds on: H001) isn't held back by sharing
 # --- wrong-checkout guard (T102), including both shell entry points before any test starts ---
 guard_env = {k: v for k, v in os.environ.items() if k not in
              ("CLAUDE_CODE_SESSION_ID", "CODEX_SESSION_ID", "CODEX_THREAD_ID",
-              "ANTIGRAVITY_CONVERSATION_ID", "ANTIGRAVITY_AGENT", "SHOPSKETCH_SESSION", "SHOPSKETCH_ANY_CHECKOUT")}
+              "ANTIGRAVITY_CONVERSATION_ID", "ANTIGRAVITY_AGENT", "NAPKIN_SESSION", "NAPKIN_ANY_CHECKOUT")}
 for checkout in (root, wt1):
     folder = os.path.join(checkout, "tools")
     os.makedirs(folder, exist_ok=True)
@@ -200,7 +213,7 @@ for key in ("CLAUDE_CODE_SESSION_ID", "CODEX_SESSION_ID", "CODEX_THREAD_ID"):
 guard_check("runs in a job worktree", checkout=wt1, extra={"CODEX_THREAD_ID": "s1"})
 guard_check("runs for a session without a job", extra={"CODEX_THREAD_ID": "integrator"})
 guard_check("runs without a detectable session ID")
-guard_check("allows the deliberate override", extra={"CODEX_THREAD_ID": "s1", "SHOPSKETCH_ANY_CHECKOUT": "1"})
+guard_check("allows the deliberate override", extra={"CODEX_THREAD_ID": "s1", "NAPKIN_ANY_CHECKOUT": "1"})
 queue = job.state_path(root)
 saved_queue = open(queue).read()
 os.remove(queue)
@@ -1090,7 +1103,7 @@ u_fail = os.path.join(u_base, "usage_fail.py")
 open(u_fail, "w").write("import sys\nsys.stderr.write('boom\\n')\nsys.exit(1)\n")
 u_missing = os.path.join(u_base, "no_such_usage_tool.py")
 
-with patch.dict(os.environ, {"SHOPSKETCH_USAGE_TOOL": u_stub}):
+with patch.dict(os.environ, {"NAPKIN_USAGE_TOOL": u_stub}):
     r_take, out_take = run(job.take, u_root, "claude", "u-sess-1")
     wt_u1 = os.path.realpath(job.worktree_for(u_root, "H001"))
     hp_u1 = os.path.join(wt_u1, "docs", "handoff", "H001-first-job.md")
@@ -1122,14 +1135,14 @@ check("usage hook: return passes --repo <tmp_root>, snapshot, --event return, --
 check("usage hook: temp-repo runs target their temp repo, never the real checkout",
       all(c[1] == u_real_root and c[1] != job.main_root(HERE) for c in u_calls), u_calls)
 
-# Missing or empty SHOPSKETCH_USAGE_TOOL: no subprocess spawned, take/done/return all succeed.
+# Missing or empty NAPKIN_USAGE_TOOL: no subprocess spawned, take/done/return all succeed.
 for label, val in (("missing path", u_missing), ("empty string", "")):
-    with patch.dict(os.environ, {"SHOPSKETCH_USAGE_TOOL": val}), \
+    with patch.dict(os.environ, {"NAPKIN_USAGE_TOOL": val}), \
          patch.object(job.subprocess, "run") as spy_run:
         job.record_usage(u_real_root, "take", "H001", agent="claude", session="s", quiet=True)
     check(f"usage hook: {label} returns immediately without spawning a subprocess", not spy_run.called)
 
-with patch.dict(os.environ, {"SHOPSKETCH_USAGE_TOOL": u_missing}):
+with patch.dict(os.environ, {"NAPKIN_USAGE_TOOL": u_missing}):
     r_m_take, _ = run(job.take, u_root, "claude", "u-miss-1")
     _qt = job.QUICKTEST
     try:
@@ -1138,11 +1151,11 @@ with patch.dict(os.environ, {"SHOPSKETCH_USAGE_TOOL": u_missing}):
     finally:
         job.QUICKTEST = _qt
     r_m_ret, _ = run(job.return_job, u_root, "H001", "still needs tweak")
-check("usage hook: missing SHOPSKETCH_USAGE_TOOL lets take, done, and return succeed",
+check("usage hook: missing NAPKIN_USAGE_TOOL lets take, done, and return succeed",
       r_m_take == "H001" and r_m_done is True and r_m_ret is True, (r_m_take, r_m_done, r_m_ret))
 
-# Failing SHOPSKETCH_USAGE_TOOL (exits 1 or raises): fail-open on take, done, return.
-with patch.dict(os.environ, {"SHOPSKETCH_USAGE_TOOL": u_fail}):
+# Failing NAPKIN_USAGE_TOOL (exits 1 or raises): fail-open on take, done, return.
+with patch.dict(os.environ, {"NAPKIN_USAGE_TOOL": u_fail}):
     r_f_take, _ = run(job.take, u_root, "claude", "u-fail-1")
     _qt = job.QUICKTEST
     try:
@@ -1151,12 +1164,12 @@ with patch.dict(os.environ, {"SHOPSKETCH_USAGE_TOOL": u_fail}):
     finally:
         job.QUICKTEST = _qt
     r_f_ret, _ = run(job.return_job, u_root, "H001", "fail-open check")
-check("usage hook: failing SHOPSKETCH_USAGE_TOOL (exit 1) is fail-open on take, done, and return",
+check("usage hook: failing NAPKIN_USAGE_TOOL (exit 1) is fail-open on take, done, and return",
       r_f_take == "H001" and r_f_done is True and r_f_ret is True, (r_f_take, r_f_done, r_f_ret))
 
 raised = False
 try:
-    with patch.dict(os.environ, {"SHOPSKETCH_USAGE_TOOL": u_stub}), \
+    with patch.dict(os.environ, {"NAPKIN_USAGE_TOOL": u_stub}), \
          patch.object(job.subprocess, "run", side_effect=subprocess.TimeoutExpired("usage", 5)):
         job.record_usage(u_real_root, "done", "H001", quiet=True)
 except Exception:
@@ -1206,7 +1219,7 @@ open(os.path.join(agy_root, "BOARD.md"), "w").write(
 commit(agy_root, "add parallel gemini jobs")
 
 clean_agent_env = {k: v for k, v in os.environ.items() if not k.startswith(("CLAUDE", "CODEX", "ANTIGRAVITY"))
-                   and k not in ("SHOPSKETCH_SESSION", "SHOPSKETCH_ANY_CHECKOUT")}
+                   and k not in ("NAPKIN_SESSION", "NAPKIN_ANY_CHECKOUT")}
 with patch.dict(os.environ, clean_agent_env, clear=True):
     check("default_agent returns None without agent env vars", job.default_agent() is None)
     with patch.dict(os.environ, {"ANTIGRAVITY_AGENT": "1"}):
@@ -1219,8 +1232,8 @@ with patch.dict(os.environ, clean_agent_env, clear=True):
               bool(job.counted("aaaa1111-2222-3333-4444-555566667777"))
               and bool(job.counted("gemini-cedar-1124-0658-aaaa1111"))
               and not job.counted("gemini"))
-    with patch.dict(os.environ, {"SHOPSKETCH_SESSION": "custom-sess"}):
-        check("default_session falls back to SHOPSKETCH_SESSION before agent",
+    with patch.dict(os.environ, {"NAPKIN_SESSION": "custom-sess"}):
+        check("default_session falls back to NAPKIN_SESSION before agent",
               job.default_session("gemini") == "custom-sess")
 
 
@@ -1300,9 +1313,9 @@ with patch.dict(os.environ, dict(clean_agent_env, ANTIGRAVITY_CONVERSATION_ID=co
     g_man_ok, g_man_out = run(job.guard_checkout, agy_root)
     check("guard_checkout also refuses main checkout when AGY job was taken with a manual --session",
           g_man_ok is False and "H011" in g_man_out, (g_man_ok, g_man_out))
-with patch.dict(os.environ, dict(clean_agent_env, ANTIGRAVITY_CONVERSATION_ID=conv2, SHOPSKETCH_ANY_CHECKOUT="1"), clear=True):
+with patch.dict(os.environ, dict(clean_agent_env, ANTIGRAVITY_CONVERSATION_ID=conv2, NAPKIN_ANY_CHECKOUT="1"), clear=True):
     g_ovr, _ = run(job.guard_checkout, agy_root)
-    check("guard_checkout allows main checkout for AGY session when SHOPSKETCH_ANY_CHECKOUT=1", g_ovr is True)
+    check("guard_checkout allows main checkout for AGY session when NAPKIN_ANY_CHECKOUT=1", g_ovr is True)
 
 # 5. Without ANTIGRAVITY_CONVERSATION_ID, existing --session collision/counting behaviour is 100% unchanged.
 rc_plain1, out_plain1 = cli_take(agy_root, ["--as", "gemini", "--session", "gemini-cedar-1124-0658"], {})

@@ -24,7 +24,7 @@ if [ "$TEST_RUNNER" = "none" ]; then
   echo "$f has runner: none (not a standalone test)" >&2
   exit 1
 fi
-OUT=$(mktemp -d "${TEST_TMPDIR%/}/shopsketch-one.XXXXXX") || exit 1
+OUT=$(mktemp -d "${TEST_TMPDIR%/}/napkin-one.XXXXXX") || exit 1
 mkdir -p "$OUT/$TEST_NAME"
 TESTDIR="$OUT/$TEST_NAME" $TEST_CMD > "$OUT/$TEST_NAME.log" 2>&1; RC=$?
 grep -E "^FAIL" "$OUT/$TEST_NAME.log" | sed "s/^/[$TEST_NAME] /"

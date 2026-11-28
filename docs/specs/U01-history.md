@@ -17,7 +17,7 @@ Verified against viewport/main.gd, viewport/tools/move_tool.gd and worker/replay
 - `Session.sync(ops)` compares canonical op prefixes, undoes the divergent tail, then applies new ops. It rebuilds when the prefix predates `session_base` or the native undo stack is too short. History must not assume the native 20-step stack is durable storage.
 - `_states` holds 40 confirmed mesh states keyed by the op-list hash. It is a visual cache, not history retention.
 - Replies carry seq; `_on_response` uses the latest seq and dirty flag for successful sync results. Saved notifications currently identify model and rev, not a history node.
-- The journal is `shopsketch-journal/0.1`, containing ops, statuses, rev and FCStd hash. FCStd replacement and journal replacement are separate; a matching revision/hash detects a mismatch but does not itself recover the previous pair.
+- The journal is `napkin-journal/0.1`, containing ops, statuses, rev and FCStd hash. FCStd replacement and journal replacement are separate; a matching revision/hash detects a mismatch but does not itself recover the previous pair.
 - W13 supplies one writer window per model, with a shared select-based worker serving multiple models. Neither sequence numbers nor revision numbers are globally unique across models or worker restarts.
 
 ## Controller ownership and invariants
@@ -78,13 +78,13 @@ Migration from journal 0.1:
 
 ## Storage proposal
 
-Keep the authoritative tree in the existing adjacent journal, introducing `shopsketch-journal/0.2`. Put large optional checkpoints under `<model>.shopsketch-history/`. Moving/copying a model with history must carry its journal and checkpoint directory; ordinary FCStd alone stays usable in FreeCAD but cannot contain all abandoned futures under this proposal.
+Keep the authoritative tree in the existing adjacent journal, introducing `napkin-journal/0.2`. Put large optional checkpoints under `<model>.napkin-history/`. Moving/copying a model with history must carry its journal and checkpoint directory; ordinary FCStd alone stays usable in FreeCAD but cannot contain all abandoned futures under this proposal.
 
 Suggested logical schema (field names provisional):
 
 ```json
 {
-  "format": "shopsketch-journal/0.2",
+  "format": "napkin-journal/0.2",
   "document_id": "uuid",
   "generation": 42,
   "model_rev": 42,
@@ -127,7 +127,7 @@ External FreeCAD changes must not be overwritten by automatic repair: compare th
 
 An externally changed FCStd establishes a new epoch with an immutable baseline and an undo floor at that baseline. Preserve the old tree under its previous epoch; do not claim it can replay on the modified geometry. Keep the floor as explicit epoch metadata across saves/restarts, rather than clearing it merely because a new journal was saved. The existing save code resets undo_floor; implementing this invariant needs a change there.
 
-Q19's choice to reapply missing Shop Sketch actions creates new action versions on the new baseline and must report failures. It never silently splices two histories. “Keep external version” retains the old epoch as history, without applying it. Recommended UI: older epochs are browseable but restoring one requires an explicit “Restore this older model version” action with a preview, preserving the current epoch first. That cross-epoch restore policy needs William's decision; initial T36 may keep those rows read-only.
+Q19's choice to reapply missing Napkin actions creates new action versions on the new baseline and must report failures. It never silently splices two histories. “Keep external version” retains the old epoch as history, without applying it. Recommended UI: older epochs are browseable but restoring one requires an explicit “Restore this older model version” action with a preview, preserving the current epoch first. That cross-epoch restore policy needs William's decision; initial T36 may keep those rows read-only.
 
 ## Restoration and transport
 

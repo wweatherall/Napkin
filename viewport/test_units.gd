@@ -252,7 +252,7 @@ func _freecad_agreement() -> void:
 
 ## MeasureBox units sync: last-used settings, open races, link drop & reconnect, reload, and default_unit (H052 P42).
 func _measure_box_units_lifecycle() -> void:
-	var cfg := OS.get_temp_dir().path_join("shopsketch-units-test-%d.cfg" % OS.get_process_id())
+	var cfg := OS.get_temp_dir().path_join("napkin-units-test-%d.cfg" % OS.get_process_id())
 	DirAccess.remove_absolute(cfg)
 	var doc := Document.new(); made.append(doc)
 	var client := FakeClient.new()
