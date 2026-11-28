@@ -53,6 +53,11 @@ with TemporaryDirectory(prefix="handoff-test-") as folder:
         "H011", "`viewport/ui.gd` (new), a new\n `worker/test_link.py`, tools/",
         "queued (after H010)",
     ))
+    (briefs / "H013-wrapped.md").write_text(entry(
+        "H013", "tools/\nhandoff.py (`touches_named`), `viewport/w.gd` (new, generated), viewport/v.gd (new: moved).\n"
+        "Also in the comitatus repo: 09_Tools/x.py, 09_Tools/README.md.",
+        "queued (after H010)",
+    ))
     findings = run(root, *cli)
     check("known top-level file, folders, excluded prose and marked new paths pass",
           findings.returncode == 0 and not findings.stdout, findings.stdout)
