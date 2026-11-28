@@ -9,6 +9,7 @@ Named scripts for every action a person or worker runs directly. Each script is 
 - `CHECK_THE_JOB_BOARD.py` — show the live job queue status (`job.py status`).
 - `WAIT_FOR_THE_NEXT_JOB.py` — wait for the next worker or queue event (`job.py watch --next`).
 - `RUN_THE_HOPPER.py` — run the hopper: launch one worker at a time (`--window` opens a Terminal running `--forever`, `job.py hopper`).
+- `SHOW_THE_HOPPER.py` — draw the queue as a three-part ASCII picture (`--watch` redraws when the queue changes).
 - `WAIT_FOR_THE_HOPPER.py` — wait for the next hopper wake condition without launching (`job.py hopper-wait`).
 - `REBUILD_THE_JOB_BOARD.py` — rebuild `BOARD.md`'s job table (`job.py board`).
 - `MERGE_JOB.py` — review, gate, and merge a job branch into `main` (`integrate.py`).
