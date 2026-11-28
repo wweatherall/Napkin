@@ -29,6 +29,7 @@ Named scripts for every action a person or worker runs directly. Each script is 
 - `protocol_map.py` — rebuild and check the message table and references in `docs/protocol.md` (`python3 tools/protocol_map.py [--check]`).
 - `../../09_Tools/MEASURE_TOKEN_USE.py` — inspect session usage and token benchmarks (moved to `comitatus/09_Tools`, P69; run `python3 ../../09_Tools/MEASURE_TOKEN_USE.py`).
 - `COMPARE_TEST_SUITES.py` — compare viewport suite runs with `tests/reference/` (`compare_suites.py`).
+- `test_inventory.py` — list every check, its file, suite and time in `tests/test_inventory.json` (`--quick` adds the quick lanes, `--report` prints the totals, slowest and unparsed files from the saved file; T172, H214).
 - `CHECK_TYPED_LENGTHS_AGAINST_FREECAD.py` — regenerate `tests/length_cases.json` with `freecadcmd` (`length_cases.py`).
 - `UPDATE_OLD_FILES.py` — one-time updater rewriting pre-H199 ops in `.FCStd` and `.json` files (`worker/update_old_files.py`).
 - `TEST_YOUR_CODE_FAST.sh` — run the quick test (`quicktest.sh`).
