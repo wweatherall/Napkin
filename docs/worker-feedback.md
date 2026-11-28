@@ -17,3 +17,7 @@
 ### 2026-11-28 02:15 — H201 (codex, 01a2210d-f942-7420-9648-4a5151725b4e, resubmit)
 - **How was the review round: were the return notes clear, and what would have avoided the return?** The return notes were clear and their exact FreeCAD reproduction made verification easy. A resize-after-pocket case in the original matrix would have caught the detach. The review also exposed the first resize after reopen and a cut after rotation as useful regressions.
 - **Any improvements you can think of?** Keep GATE_FULL out of the nested tools-scope fixture so an explicitly forced full gate can pass the same checks as an automatically selected full gate.
+
+### 2026-11-28 07:58 — H208 (codex, 01a22259-fffe-7730-ae03-79149a9938c1, first submit)
+- **How was working on this job in our code base?** The shared worker test helper covered several direct FreeCAD launches. The floor-copy check exposed an implicit dependency on the desktop backup preference once the suite ran with clean configs.
+- **Any improvements you can think of?** Keep test subprocesses behind their shared launch helpers and set any preferences a fixture depends on explicitly.
