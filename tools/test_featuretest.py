@@ -66,6 +66,7 @@ try:
         os.makedirs(os.path.join(tmp, d))
     shutil.copy(os.path.join(ROOT, "tools", "gate.sh"), os.path.join(tmp, "tools"))
     shutil.copy(SCRIPT, os.path.join(tmp, "tools", "featuretest.sh"))
+    shutil.copy(os.path.join(ROOT, "tools", "RUN_ONE_TEST.sh"), os.path.join(tmp, "tools", "RUN_ONE_TEST.sh"))
     with open(os.path.join(tmp, "tools", "test_sample.py"), "w") as f:
         f.write('print("SAMPLE TESTS: 2 passed, 0 failed")\n')
     with open(os.path.join(tmp, "worker", "test_plain.py"), "w") as f:
@@ -111,6 +112,22 @@ try:
           and "VIEWPORT SAME TESTS: 2 passed, 0 failed" in out
           and os.path.isfile(os.path.join(pair_out, "worker-same.log"))
           and os.path.isfile(os.path.join(pair_out, "viewport-same.log")), out)
+
+    one = os.path.join(tmp, "tools", "RUN_ONE_TEST.sh")
+    rc, out = run(one, "tools/test_sample.py")
+    check("RUN_ONE_TEST.sh runs a single tools test and prints its summary line",
+          rc == 0 and "SAMPLE TESTS: 2 passed, 0 failed" in out, out)
+    rc, out = run(one, "worker/test_plain.py")
+    check("RUN_ONE_TEST.sh obeys runner: python3 on a worker test",
+          rc == 0 and "PLAIN TESTS: 1 passed, 0 failed" in out, out)
+    with open(os.path.join(tmp, "tools", "test_broken.py"), "w") as f:
+        f.write('print("BROKEN TESTS: 1 passed, 1 failed")\n')
+    rc, out = run(one, "tools/test_broken.py")
+    check("RUN_ONE_TEST.sh fails when the single test reports a failure",
+          rc != 0 and "BROKEN TESTS: 1 passed, 1 failed" in out, out)
+    rc, out = run(one, "worker/test_helper.py")
+    check("RUN_ONE_TEST.sh refuses a runner: none helper",
+          rc != 0 and "runner: none" in out, out)
 finally:
     shutil.rmtree(tmp, ignore_errors=True)
 

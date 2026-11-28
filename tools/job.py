@@ -878,6 +878,21 @@ def run_quick(top, out=print):
     return rc == 0, output.strip().split("\n")[-1:]
 
 
+def record_test(cwd, ok=True, jid=None, commit=None, clean=None, out=print):
+    """Record a quick-test result (commit, clean, ok, at) for the current job worktree, if any."""
+    top = toplevel(cwd)
+    head = commit or git(top, "rev-parse", "HEAD").stdout.strip()
+    if clean is None:
+        clean = not git(top, "status", "--porcelain").stdout.strip()
+    now = time.time()
+
+    def go(st, k, j):
+        j["test"] = {"commit": head, "clean": bool(clean), "ok": bool(ok), "at": now}
+        j["beat"] = now
+        return k
+    return with_job(cwd, jid, lambda _s: None, go)
+
+
 def test(cwd, jid=None, out=print):
     top = toplevel(cwd)
     if beat(cwd, jid, out=lambda s: None) is None:
@@ -886,13 +901,7 @@ def test(cwd, jid=None, out=print):
     head = git(top, "rev-parse", "HEAD").stdout.strip()
     clean = not git(top, "status", "--porcelain").stdout.strip()
     ok, tail = run_quick(top, out=out)
-    now = time.time()
-
-    def go(st, k, j):
-        j["test"] = {"commit": head, "clean": clean, "ok": ok, "at": now}
-        j["beat"] = now
-        return k
-    with_job(cwd, jid, out, go)
+    record_test(cwd, ok=ok, jid=jid, commit=head, clean=clean, out=out)
     out(("quick test passed" if ok else "QUICK TEST FAILED") + f" on {head[:7]}{'' if clean else ' (uncommitted changes)'}: "
         + " ".join(tail))
     return ok
@@ -960,6 +969,9 @@ def done(cwd, jid=None, now=None, out=print):
             out("refused: " + p)
         beat(cwd, k, out=lambda s: None)
         return False
+    if not re.search(r"(?m)^[-*]?\s*Result:\s*[0-9a-f]{7,40}\s*;", text):   # integrate.py copies it (T91)
+        out(f"note: {handoff.FOLDER}/{j['handoff']} has no line \"Result: <commit>; <tests>; <what changed>\": "
+            "the integrator will write the Work list result by hand (add one and commit to save them that)")
     head = git(top, "rev-parse", "HEAD").stdout.strip()
     t = j.get("test") or {}
     if not quick_pass_covers(top, t, head, out):
@@ -967,9 +979,6 @@ def done(cwd, jid=None, now=None, out=print):
         if not test(cwd, k, out):
             out("refused: the quick test failed on the latest commit")
             return False
-    if not re.search(r"(?m)^[-*]?\s*Result:\s*[0-9a-f]{7,40}\s*;", text):   # integrate.py copies it (T91)
-        out(f"note: {handoff.FOLDER}/{j['handoff']} has no line \"Result: <commit>; <tests>; <what changed>\": "
-            "the integrator will write the Work list result by hand (add one and commit to save them that)")
     now = now or time.time()
 
     def go(st, k, j):
@@ -1708,6 +1717,11 @@ def main(argv):
         return run(cwd, argv[argv.index("--") + 1:], int(lim) if lim else None)
     if cmd == "test":
         return 0 if test(cwd, opt("--job")) else 1
+    if cmd == "record-test":
+        clean_opt = opt("--clean")
+        clean_val = None if clean_opt is None else (clean_opt == "1")
+        record_test(cwd, ok="--fail" not in argv, jid=opt("--job"), commit=opt("--commit"), clean=clean_val)
+        return 0
     if cmd == "wait":
         args = argv[1:]
         scope = args[:1] == ["--scope"]

@@ -33,6 +33,7 @@ Named scripts for every action a person or worker runs directly. Each script is 
 - `TEST_YOUR_CODE_FAST.sh` — run the quick test (`quicktest.sh`).
 - `TEST_YOUR_CODE_THOROUGHLY.sh` — run the full test (`fulltest.sh`).
 - `TEST_WITHOUT_THE_APP.sh` — run the headless feature tests (`featuretest.sh`).
+- `RUN_ONE_TEST.sh` — run one feature test file the way `featuretest.sh` runs it and print its summary line.
 - `TEST_BEFORE_MERGING.sh` — run the merge gate (`gate.sh`).
 - `CHECK_THE_SCRIPTS_PARSE.sh` — check all viewport GDScript files parse (`parsecheck.sh`).
 - `START_A_WORKER.sh` — open a Terminal window for a Claude worker (`start_worker.sh`).

@@ -1808,5 +1808,95 @@ check("hopper --forever launches one integrator when no wait is running, not two
 
 shutil.rmtree(h196_base)
 
+# --- H205: Result line checked before tests; gate.sh records full quick-test pass, not tools-only ---
+h205_base = tempfile.mkdtemp(prefix="job-h205-")
+h205_root = os.path.join(h205_base, "Napkin")
+h205_wt = os.path.join(h205_base, ".worktrees", "Napkin", "h205")
+os.makedirs(os.path.join(h205_root, "tools"))
+os.makedirs(os.path.join(h205_root, "docs", "handoff"))
+os.makedirs(os.path.join(h205_root, "tests"))
+shutil.copy(os.path.join(os.path.dirname(os.path.abspath(__file__)), "gate.sh"),
+            os.path.join(h205_root, "tools", "gate.sh"))
+open(os.path.join(h205_root, "tools", "job.py"), "w").write(
+    f"import sys; sys.path.insert(0, {os.path.dirname(os.path.abspath(__file__))!r}); "
+    "import job; sys.exit(job.main(sys.argv[1:]))\n"
+)
+open(os.path.join(h205_root, "tools", "quicktest.sh"), "w").write(
+    "#!/bin/bash\n"
+    "echo 'features: SAMPLE TESTS: 1 passed, 0 failed | viewport: QUICK 1 passed, 0 failed in 0.1 s'\n"
+)
+os.chmod(os.path.join(h205_root, "tools", "quicktest.sh"), 0o755)
+open(os.path.join(h205_root, "tools", "fulltest.sh"), "w").write("#!/bin/bash\nexit 0\n")
+os.chmod(os.path.join(h205_root, "tools", "fulltest.sh"), 0o755)
+open(os.path.join(h205_root, "tools", "test_scope.py"), "w").write("print('tools\\ntools/foo.py')\n")
+open(os.path.join(h205_root, "tools", "test_bookkeeping.py"), "w").write("import sys; sys.exit(0)\n")
+open(os.path.join(h205_root, "docs", "handoff", "H010-sample.md"), "w").write(
+    "### H010 — Sample\n\nAuthor: Claude | Date: 2026-11-27 | Status: answered | For: gemini\n\n"
+    "Response: done.\n"
+)
+open(os.path.join(h205_root, job.handoff.HANDOFF), "w").write(
+    job.handoff.with_list(
+        "<!-- open list: built from docs/handoff/ by tools/handoff.py; don't edit by hand -->\n"
+        "<!-- end of open list -->\n",
+        h205_root,
+    )
+)
+open(os.path.join(h205_root, ".gitignore"), "w").write("scratch/\n")
+sh(h205_root, "git", "init", "-b", "main")
+sh(h205_root, "git", "config", "user.email", "t@t")
+sh(h205_root, "git", "config", "user.name", "T")
+sh(h205_root, "git", "add", ".")
+sh(h205_root, "git", "commit", "-m", "init")
+sh(h205_root, "git", "worktree", "add", "-b", "gemini/h010-sample", h205_wt, "main")
+with job.locked(job.state_path(h205_root)) as st:
+    st["jobs"]["H010"] = {
+        "state": "in progress", "agent": "gemini", "session": "s-h205",
+        "branch": "gemini/h010-sample", "worktree": h205_wt,
+        "handoff": "H010-sample.md", "touches": ["tools/foo.py"], "taken": time.time(), "beat": time.time(),
+    }
+
+# 1. done checks for Result line BEFORE running any test
+_saved_qt = job.QUICKTEST
+job.QUICKTEST = ["false"]
+r, out = run(job.done, h205_wt)
+job.QUICKTEST = _saved_qt
+check("done prints the missing Result line note before running the quick test",
+      not r and "has no line \"Result:" in out and "no quick-test pass recorded" in out
+      and out.index("has no line \"Result:") < out.index("no quick-test pass recorded"), out)
+
+# 2. gate.sh with scope tools records nothing, so done still refuses to reuse
+prev_test = state(h205_root)["jobs"]["H010"].get("test")
+g_tools = subprocess.run(["bash", "tools/gate.sh"], cwd=h205_wt, capture_output=True, text=True)
+check("gate.sh (scope tools) passes without recording a quick-test pass",
+      g_tools.returncode == 0 and "GATE PASS (scope tools)" in g_tools.stdout
+      and state(h205_root)["jobs"]["H010"].get("test") == prev_test,
+      (g_tools.stdout, g_tools.stderr, state(h205_root)["jobs"]["H010"]))
+
+# 3. gate.sh with full scope records the pass, and a handoff-only commit + done reuses it
+open(os.path.join(h205_wt, "tools", "test_scope.py"), "w").write("print('full\\nworker/foo.py')\n")
+commit(h205_wt, "full scope change")
+g_full = subprocess.run(["bash", "tools/gate.sh"], cwd=h205_wt, capture_output=True, text=True)
+gate_head = sh(h205_wt, "git", "rev-parse", "HEAD").stdout.strip()
+t_rec = state(h205_root)["jobs"]["H010"].get("test") or {}
+check("gate.sh (full scope) records commit, clean, and ok in job state",
+      g_full.returncode == 0 and "GATE PASS:" in g_full.stdout
+      and t_rec.get("commit") == gate_head and t_rec.get("clean") is True and t_rec.get("ok") is True,
+      (g_full.stdout, g_full.stderr, t_rec))
+
+# Handoff-only commit after passing gate, then SUBMIT_JOB (done) reuses the gate's pass
+open(os.path.join(h205_wt, "docs", "handoff", "H010-sample.md"), "a").write(
+    f"\nResult: {gate_head[:7]}; tests 1/1; done.\n"
+)
+job.handoff.write_list(h205_wt)
+commit(h205_wt, "handoff result")
+job.QUICKTEST = ["false"]
+r, out = run(job.done, h205_wt)
+job.QUICKTEST = _saved_qt
+check("after passing gate and a handoff-only commit, done reuses the gate's pass",
+      r and f"reused the quick-test pass from {gate_head[:7]}" in out
+      and state(h205_root)["jobs"]["H010"]["state"] == "done", out)
+
+shutil.rmtree(h205_base, ignore_errors=True)
+
 print(f"JOB TESTS: {sum(RESULTS)} passed, {len(RESULTS) - sum(RESULTS)} failed")
 sys.exit(0 if all(RESULTS) else 1)
