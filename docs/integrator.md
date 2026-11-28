@@ -32,6 +32,12 @@ Architecture: lines, the response) and CLAUDE.md (commit trailers); this page sa
   it reads them arrive together, in recorded order (P47).
 - `python3 tools/CHECK_THE_JOB_BOARD.py` shows the queue; `python3 tools/REBUILD_THE_JOB_BOARD.py` rebuilds the board's job table (the
   commit hook does it on main).
+- **The hopper** (`Pace: one at a time` in `BOARD.md` under `Order:`): instead of launching every Ready job at once,
+  run `python3 tools/RUN_THE_HOPPER.py` in the background (outside the sandbox). It launches one worker at a time as
+  each job finishes, stacks overlapping Ready jobs onto `done` branches (`base:`), and wakes you only when the batch
+  is all `done`, a worker asks a question, a job goes stale, or a launch fails/times out (10 min). When the batch is
+  submitted, merge all `done` jobs together with `python3 tools/MERGE_THE_BATCH.py [--push] [--yes]` (shows all
+  review pauses together first, takes one `--continue`, runs the gate once, and resets `main` if the gate fails).
 - Spinning up a worker window: `python3 tools/LAUNCH_A_WORKER.py <gemini|claude|codex> [--model M]` (T134; outside the sandbox;
   tell William) opens it with its start-up brief already in the first message; `--dry-run` shows the command. The
   commands it runs, for reference:

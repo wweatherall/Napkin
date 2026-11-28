@@ -1518,5 +1518,126 @@ check("job.py merged <ID> marks a done job merged, removes worktree/branch, and 
       (ok_m, state(m_root)["jobs"][m_jid], out_m, ok_missing, out_missing))
 shutil.rmtree(m_base)
 
+# H185: Pace, stacking on done branches, return_job stacked warning, and hopper_step
+h_base, h_root = repo()
+# 1. board_pace: missing -> all at once, unknown -> all at once + warning in status
+p_none, w_none = job.board_pace("Order: H001\n")
+p_one, w_one = job.board_pace("Order: H001\nPace: one at a time\n")
+p_bad, w_bad = job.board_pace("Order: H001\nPace: turbo\n")
+check("board_pace handles missing, valid, and unknown values",
+      p_none == "all at once" and w_none is None
+      and p_one == "one at a time" and w_one is None
+      and p_bad == "all at once" and "unknown Pace" in w_bad,
+      (p_none, w_none, p_one, w_one, p_bad, w_bad))
+b_orig = open(os.path.join(h_root, "BOARD.md")).read()
+open(os.path.join(h_root, "BOARD.md"), "w").write(b_orig.replace("Order:", "Pace: turbo\nOrder:"))
+_, out_bad_status = run(job.status, h_root)
+check("status warns on unknown Pace in BOARD.md", "unknown Pace" in out_bad_status, out_bad_status)
+
+# 2. Set Pace: one at a time on main and use H001 (Claude, tools/a.py), H002 (Claude, tools/a.py), H003 (either, tools/b.py)
+open(os.path.join(h_root, "BOARD.md"), "w").write(b_orig.replace("Order:", "Pace: one at a time\nOrder:"))
+open(os.path.join(h_root, ".gitignore"), "w").write("scratch/\n")
+commit(h_root, "set Pace: one at a time")
+
+j1, _ = run(job.take, h_root, "claude", "s-h185-1", now=2000)
+# While H001 is in progress, another agent cannot take anything under one at a time
+j_blocked, out_blocked = run(job.take, h_root, "gemini", "s-h185-2", now=2005)
+check("one at a time blocks taking a second job while one is in progress",
+      j1 == "H001" and j_blocked is None and "pace is one at a time" in out_blocked, (j1, j_blocked, out_blocked))
+
+# Scope question (waiting on integrator) still holds the pace
+wt1 = job.worktree_for(h_root, j1)
+run(job.wait, wt1, "can I touch b?", now=2010, scope=True, wait=0)
+j_scope_blocked, _ = run(job.take, h_root, "gemini", "s-h185-2", now=2015)
+check("one at a time holds the pace while waiting on the integrator (scope)", j_scope_blocked is None)
+
+# Question for William does NOT hold the pace for non-overlapping jobs, still blocks overlapping
+run(job.answer, h_root, j1, "yes", now=2016)
+run(job.wait, wt1, "read answer", now=2017, wait=0)
+run(job.wait, wt1, "what colour?", now=2020, scope=False, wait=0)
+j_w_other, _ = run(job.take, h_root, "gemini", "s-h185-other", now=2025)
+j_w_overlap, _ = run(job.take, h_root, "claude", "s-h185-overlap", now=2025)
+check("waiting on William does not hold the pace for non-overlapping jobs, still blocks overlapping",
+      j_w_other == "H003" and j_w_overlap is None, (j_w_other, j_w_overlap))
+
+# Finish H003 and H001 so H002 can stack on H001
+wt3 = job.worktree_for(h_root, "H003")
+for w in (wt1, wt3):
+    sh(w, "git", "config", "user.email", "t@example.invalid")
+    sh(w, "git", "config", "user.name", "T")
+run(job.answer, h_root, j1, "blue", source="william", now=2030)
+open(os.path.join(wt1, "h1_marker.txt"), "w").write("from h1\n")
+hp1 = os.path.join(wt1, "docs", "handoff", "H001-first-job.md")
+t1 = open(hp1).read()
+open(hp1, "w").write(t1.replace("Status: open", "Status: answered") + "\nResponse: done.\n")
+sh(wt1, "git", "add", "-A"); sh(wt1, "git", "commit", "-qm", "H001 work")
+hp3 = os.path.join(wt3, "docs", "handoff", "H003-third-job.md")
+t3 = open(hp3).read()
+open(hp3, "w").write(t3.replace("Status: open", "Status: answered") + "\nResponse: done.\n")
+sh(wt3, "git", "add", "-A"); sh(wt3, "git", "commit", "-qm", "H003 work")
+job.QUICKTEST = ["true"]
+run(job.done, wt1, now=2040)
+run(job.done, wt3, now=2045)
+
+# Now H002 (overlaps H001 on tools/a.py) is taken: it stacks on H001's branch and records base
+j2, out_j2 = run(job.take, h_root, "claude", "s-h185-3", now=2050)
+wt2 = job.worktree_for(h_root, "H002")
+check("overlapping Ready job stacks on newest done job's branch and records base",
+      j2 == "H002"
+      and state(h_root)["jobs"]["H002"].get("base") == state(h_root)["jobs"]["H001"]["branch"]
+      and os.path.isfile(os.path.join(wt2, "h1_marker.txt")),
+      (j2, state(h_root)["jobs"].get("H002"), out_j2))
+
+# return_job on H001 warns about H002 built on it
+ok_ret, out_ret = run(job.return_job, h_root, "H001", "needs fix", now=2060)
+check("return_job warns about jobs built on the returned job",
+      ok_ret and "H002" in out_ret and "built on" in out_ret, out_ret)
+
+for w in [l.split()[1] for l in sh(h_root, "git", "worktree", "list", "--porcelain").stdout.split("\n")
+          if l.startswith("worktree ")][1:]:
+    sh(h_root, "git", "worktree", "remove", "--force", w)
+shutil.rmtree(h_base)
+
+# 3. hopper_step: idempotent launch, launch timeout, launch failure, waiting/stale/batch-done exits, dry-run
+hp_base, hp_root = repo()
+open(os.path.join(hp_root, "BOARD.md"), "w").write(
+    open(os.path.join(hp_root, "BOARD.md")).read().replace("Order:", "Pace: one at a time\nOrder:"))
+commit(hp_root, "hopper pace")
+launches = []
+dry_out = []
+act_dry, _, _, _ = job.hopper_step(hp_root, now=3000, dry_run=True, launcher=lambda a: launches.append(a) or 0, out=dry_out.append)
+check("hopper_step --dry-run prints what it would launch without launching or recording",
+      act_dry == "dry" and not launches and "launched" not in state(hp_root)
+      and any("would launch H001 (claude" in l for l in dry_out), (act_dry, launches, dry_out))
+
+# Run hopper_step twice with no take between: launches only once!
+h_out = []
+act1, _, d1, _ = job.hopper_step(hp_root, now=3000, launcher=lambda a: launches.append(a) or 0, out=h_out.append)
+act2, _, d2, _ = job.hopper_step(hp_root, now=3030, launcher=lambda a: launches.append(a) or 0, out=h_out.append)
+check("running hopper_step twice with no take between launches only one window",
+      act1 == "launched" and d1 == "H001" and act2 == "wait" and launches == ["claude"]
+      and "H001" in state(hp_root).get("launched", {}), (act1, act2, launches, state(hp_root).get("launched")))
+
+# After 10 min with no take, hopper_step emits launch timeout and clears launched
+act_to, code_to, det_to, _ = job.hopper_step(hp_root, now=3000 + job.LAUNCH_TIMEOUT, launcher=lambda a: launches.append(a) or 0)
+check("hopper_step wakes on 10-minute launch timeout",
+      act_to == "exit" and code_to == 0 and "launch timeout: H001" in det_to
+      and "H001" not in state(hp_root).get("launched", {}), (act_to, det_to))
+
+# Launch failure exits with code 1 and does not record launched
+act_fail, code_fail, det_fail, _ = job.hopper_step(hp_root, now=4000, launcher=lambda a: 1)
+check("hopper_step exits 1 on launch failure without recording launched",
+      act_fail == "exit" and code_fail == 1 and "launch failed for H001" in det_fail
+      and "H001" not in state(hp_root).get("launched", {}), (act_fail, code_fail, det_fail))
+
+# When all jobs are done and none Ready/in progress, hopper_step exits with batch ready
+with job.locked(job.state_path(hp_root)) as st:
+    for jid in ("H001", "H002", "H003", "H004", "H005", "H006"):
+        st["jobs"][jid] = {"state": "done", "branch": f"codex/{jid.lower()}-x"}
+act_done, code_done, det_done, _ = job.hopper_step(hp_root, now=5000, launcher=lambda a: 0)
+check("hopper_step exits 0 when batch is all done",
+      act_done == "exit" and code_done == 0 and "batch ready to merge" in det_done, (act_done, det_done))
+shutil.rmtree(hp_base)
+
 print(f"JOB TESTS: {sum(RESULTS)} passed, {len(RESULTS) - sum(RESULTS)} failed")
 sys.exit(0 if all(RESULTS) else 1)

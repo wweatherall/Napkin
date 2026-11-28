@@ -757,6 +757,8 @@ def run_steps(s, steps):
 #   the commit; continuation stages only map files and refuses other changes instead of repeating the gate.
 # - Commit before deleting jobs/worktrees; record results with that merge's ID, then show them before any push.
 def main(argv):
+    if argv and argv[0] == "--batch":
+        return batch_main(argv[1:])
     if argv and argv[0] == "--continue":
         return resume(argv[1:])
     if not argv or argv[0].startswith("-") or "--as" not in argv:
@@ -1003,13 +1005,13 @@ _ARCH_OWNS_RE = re.compile(r"^\s*`?([^\s:`]+)`?\s+owns\b", re.IGNORECASE)
 _ARCH_USES_RE = re.compile(r"^\s*`?([^\s:`]+)`?\s+uses\s+`?([^\s:`]+)`?(?:\s*:|\s|$)", re.IGNORECASE)
 
 
-def _structure_changes(root):
+def _structure_changes(root, base_ref="HEAD"):
     arch_diff = {"added": [], "removed": [], "changed": []}
     arch_rel = architecture_map.ARCHITECTURE
     has_arch = (os.path.isfile(os.path.join(root, arch_rel))
-                or git("cat-file", "-e", f"HEAD:{arch_rel}", root=root).returncode == 0)
+                or git("cat-file", "-e", f"{base_ref}:{arch_rel}", root=root).returncode == 0)
     if has_arch:
-        old_arch_r = git("show", f"HEAD:{arch_rel}", root=root)
+        old_arch_r = git("show", f"{base_ref}:{arch_rel}", root=root)
         old_arch = old_arch_r.stdout if old_arch_r.returncode == 0 else ""
         body, _ = architecture_map.build_map(Path(root))
         arch_diff = architecture_map.diff(old_arch, body)
@@ -1017,9 +1019,9 @@ def _structure_changes(root):
     dep_diff = {"added": [], "removed": []}
     dep_rel = dependency_map.OUTPUT
     has_dep = (os.path.isfile(os.path.join(root, dep_rel))
-               or git("cat-file", "-e", f"HEAD:{dep_rel}", root=root).returncode == 0)
+               or git("cat-file", "-e", f"{base_ref}:{dep_rel}", root=root).returncode == 0)
     if has_dep:
-        old_dep_r = git("show", f"HEAD:{dep_rel}", root=root)
+        old_dep_r = git("show", f"{base_ref}:{dep_rel}", root=root)
         old_dep = old_dep_r.stdout if old_dep_r.returncode == 0 else ""
         new_dep = dependency_map.render_map(Path(root))
         dep_diff = dependency_map.diff(old_dep, new_dep)
@@ -1027,10 +1029,10 @@ def _structure_changes(root):
     return arch_diff, dep_diff
 
 
-def check_structure(s):
+def check_structure(s, base_ref="HEAD"):
     """Compare main's and the merged tree's module and dependency maps; flag unexplained additions (P31)."""
     root, say = s.root, s.say
-    arch_diff, dep_diff = _structure_changes(root)
+    arch_diff, dep_diff = _structure_changes(root, base_ref=base_ref)
     if not any(arch_diff.values()) and not any(dep_diff.values()):
         s.payload["unexplained_structure"] = []
         return s
@@ -1374,6 +1376,240 @@ def draft_results(root, results, name, say, completes=()):
 MERGE_STEPS = (check_start, prepare_log, merge_branch, settle_conflicts, check_touches, number_entries,
                archive_entries, update_statuses, rebuild_and_check, run_gate, check_structure, pause_for_map)
 FINISH_STEPS = (commit_merge, clean_up_job, unblock_queued_jobs, record_results, push_main)
+
+BATCH_PREP_STEPS = (check_start, prepare_log, merge_branch, settle_conflicts, check_touches, number_entries,
+                    archive_entries, update_statuses, rebuild_and_check)
+
+
+def batch_plan(root, st, order):
+    """Order done jobs for batch merge: base jobs before jobs stacked on them, then BOARD.md Order.
+    Returns (planned [(jid, job_dict)], excluded [(jid, branch, base, reason)])."""
+    done_jobs = {jid: j for jid, j in st.get("jobs", {}).items() if j.get("state") == "done" and j.get("branch")}
+    included = dict(done_jobs)
+    excluded = []
+    while True:
+        inc_branches = {j["branch"] for j in included.values()}
+        dropped = []
+        for jid, j in list(included.items()):
+            base = j.get("base")
+            if not base or base == "main" or base in inc_branches:
+                continue
+            if git("merge-base", "--is-ancestor", base, "HEAD", root=root).returncode == 0:
+                continue
+            dropped.append((jid, j["branch"], base, f"built on {base}, which isn't in the batch"))
+        if not dropped:
+            break
+        for jid, branch, base, reason in dropped:
+            included.pop(jid)
+            excluded.append((jid, branch, base, reason))
+    branch_to_jid = {j["branch"]: jid for jid, j in included.items()}
+    parent_of = {}
+    for jid, j in included.items():
+        base = j.get("base")
+        parent_of[jid] = branch_to_jid.get(base) if base and base in branch_to_jid else None
+    order_pos = {jid: i for i, jid in enumerate(order)}
+    planned, placed, remaining = [], set(), set(included)
+    while remaining:
+        ready = [jid for jid in remaining if parent_of[jid] is None or parent_of[jid] in placed]
+        if not ready:
+            ready = list(remaining)
+        pick = min(ready, key=lambda jid: (order_pos.get(jid, len(order_pos)), jid))
+        planned.append((pick, included[pick]))
+        placed.add(pick)
+        remaining.remove(pick)
+    return planned, excluded
+
+
+def _run_batch_gate(root, pre_batch, jobs, name, argv, say):
+    if "--no-gate" in argv:
+        return True
+    gate = os.path.join(root, "tools", "gate.sh") if os.path.exists(os.path.join(root, "tools", "gate.sh")) else os.path.join(HERE, "gate.sh")
+    rc, output = job.stream_command([gate], root)
+    verdict = (output.strip().split("\n") or [""])[-1]
+    say(verdict)
+    if rc != 0:
+        git("reset", "--hard", pre_batch, root=root)
+        if os.path.isfile(state_file(root)):
+            os.remove(state_file(root))
+        print(output[-2000:], flush=True)
+        say(f"gate failed — reset main to {pre_batch[:7]} (nothing pushed). Merge one by one:")
+        for item in jobs:
+            print(f"  python3 tools/MERGE_JOB.py {item['branch']} --as {name}")
+        return False
+    return True
+
+
+def _finish_batch(root, state, name, argv, say):
+    for item in state["jobs"]:
+        jid = job.merged(root, item["branch"], out=say)
+        if jid:
+            job.record_usage(root, "merge", jid, quiet=False)
+            job.record_journal(root, f"merged {jid} ({item['branch']})")
+    s = Integration(argv, root, name, None)
+    unblock_queued_jobs(s)
+    if s.exit_code is not None:
+        return s.exit_code
+    s.payload = state
+    record_results(s)
+    if s.exit_code is not None:
+        return s.exit_code
+    push_main(s)
+    if os.path.isfile(state_file(root)):
+        os.remove(state_file(root))
+    return s.exit_code or 0
+
+
+def batch_main(argv):
+    """Merge every done job in stacking order with one review pause and one gate at the end (H185)."""
+    if "-h" in argv or "--help" in argv:
+        print("integrate.py --batch [--push] [--yes] [--dry-run] [--continue [--regate]] [--as <name>] [--impact <reason>] [--no-gate]\n\n"
+              + (batch_main.__doc__ or ""))
+        return 0
+    say = lambda text: print("integrate: " + text, flush=True)
+    root = git("rev-parse", "--show-toplevel").stdout.strip()
+    name = argv[argv.index("--as") + 1] if "--as" in argv and argv.index("--as") + 1 < len(argv) else None
+    if not name:
+        held = integrator.read(integrator.lock_path(root))
+        name = held.get("holder") if held else None
+    impact = argv[argv.index("--impact") + 1] if "--impact" in argv and argv.index("--impact") + 1 < len(argv) else None
+    if "--dry-run" in argv:
+        st = job.read_state(job.state_path(root))
+        bpath = os.path.join(root, job.BOARD)
+        order = job.board_order(open(bpath, encoding="utf-8").read()) if os.path.isfile(bpath) else []
+        planned, excluded = batch_plan(root, st, order)
+        for jid, branch, _base, reason in excluded:
+            say(f"left out {jid} ({branch}): {reason}")
+        if planned:
+            say("would merge in order: " + ", ".join(f"{jid} ({j['branch']})" for jid, j in planned))
+        else:
+            say("nothing to merge")
+        return 0
+    if not name:
+        say("no integrator lock held (give --as <name> or take the lock first)")
+        return 1
+    if not integrator.touch(integrator.lock_path(root), name, out=say):
+        return 1
+    if "--continue" in argv:
+        path = state_file(root)
+        if not os.path.isfile(path):
+            say("nothing to continue: no paused batch merge")
+            return 1
+        state = json.load(open(path, encoding="utf-8"))
+        if not state.get("batch"):
+            say("paused merge is not a batch merge: use MERGE_JOB.py --continue")
+            return 1
+        pre_batch = state["pre_batch"]
+        impact = impact or state.get("impact")
+        map_dirty = bool(git("status", "--porcelain", "--", *MAP_FILES, root=root).stdout.strip())
+        if map_dirty:
+            git("add", "--", *MAP_FILES, root=root)
+            r = subprocess.run(
+                ["git", "commit", "-q", "--no-verify", "-m",
+                 "Batch map update\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"],
+                cwd=root, capture_output=True, text=True,
+            )
+            if r.returncode != 0:
+                say("map commit failed: " + (r.stdout + r.stderr).strip())
+                return 1
+        map_changed = bool(git("diff", "--name-only", pre_batch, "--", *MAP_FILES, root=root).stdout.strip())
+        if state.get("maps") and not impact and not map_changed:
+            say("ARCHITECTURE.md / docs/protocol.md aren't changed yet: write the Architecture lines in first (or give "
+                "--impact \"<why the map stays as it is>\")")
+            for hid, what in state["maps"]:
+                print(f"  {hid}: map: {what}")
+            return 1
+        if not _run_batch_gate(root, pre_batch, state["jobs"], name, argv, say):
+            return 1
+        return _finish_batch(root, state, name, argv, say)
+    if git("branch", "--show-current", root=root).stdout.strip() != "main":
+        say("run this in the checkout that has main")
+        return 1
+    if git("status", "--porcelain", "--untracked-files=no", root=root).stdout.strip():
+        say("main has uncommitted changes: commit or put them away first")
+        return 1
+    st = job.read_state(job.state_path(root))
+    bpath = os.path.join(root, job.BOARD)
+    order = job.board_order(open(bpath, encoding="utf-8").read()) if os.path.isfile(bpath) else []
+    planned, excluded = batch_plan(root, st, order)
+    for jid, branch, _base, reason in excluded:
+        say(f"left out {jid} ({branch}): {reason}")
+    if not planned:
+        say("nothing to merge")
+        return 0
+    pre_batch = git("rev-parse", "HEAD", root=root).stdout.strip()
+    batch_jobs = []
+    all_now, all_maps, all_changed, all_results, all_missing, all_completes = [], [], [], [], [], []
+    for jid, j in planned:
+        branch = j["branch"]
+        say(f"merging {jid} ({branch})...")
+        s = Integration(argv, root, name, impact, branch, jid)
+        rc = run_steps(s, BATCH_PREP_STEPS)
+        if rc != 0:
+            if git("rev-parse", "-q", "--verify", "MERGE_HEAD", root=root).returncode == 0:
+                git("merge", "--abort", root=root)
+            git("reset", "--hard", pre_batch, root=root)
+            say(f"stopped at {jid} ({branch}); reset main to {pre_batch[:7]}. Merge one by one with MERGE_JOB.py.")
+            return rc
+        _build_merge_state(s)
+        msg = s.payload["msg"] + "\n\nCo-Authored-By: Claude Opus 5.5 <noreply@anthropic.com>"
+        r = subprocess.run(["git", "commit", "-q", "--no-verify", "-F", "-"], input=msg, cwd=root,
+                           capture_output=True, text=True)
+        if r.returncode != 0:
+            git("reset", "--hard", pre_batch, root=root)
+            say(f"commit failed for {jid}; reset main to {pre_batch[:7]}: {(r.stdout + r.stderr).strip()}")
+            return 1
+        batch_jobs.append({"jid": jid, "branch": branch})
+        all_now.extend(s.payload.get("now", []))
+        all_maps.extend(s.payload.get("maps", []))
+        all_changed.extend(s.payload.get("changed", []))
+        all_results.extend(s.payload.get("results", []))
+        all_missing.extend(s.payload.get("missing", []))
+        for c in s.payload.get("completes", []):
+            if c not in all_completes:
+                all_completes.append(c)
+    batch_s = Integration(argv, root, name, impact)
+    batch_s.payload = {
+        "batch": True,
+        "pre_batch": pre_batch,
+        "jobs": batch_jobs,
+        "now": all_now,
+        "maps": all_maps,
+        "changed": all_changed,
+        "results": all_results,
+        "missing": all_missing,
+        "completes": all_completes,
+        "impact": impact,
+    }
+    check_structure(batch_s, base_ref=pre_batch)
+    unexplained = batch_s.payload.get("unexplained_structure", [])
+    map_changed = bool(git("diff", "--name-only", pre_batch, "--", *MAP_FILES, root=root).stdout.strip())
+    need_map = bool(all_maps and not impact and not map_changed)
+    need_brief = bool(all_changed)
+    need_structure = bool(unexplained)
+    if need_map or need_brief or need_structure:
+        with open(state_file(root), "w", encoding="utf-8") as f:
+            json.dump(batch_s.payload, f, indent=1)
+        say("for you now:")
+        for hid, what in all_now:
+            print(f"  {hid}: {what}")
+        if need_map:
+            for hid, what in all_maps:
+                print(f"  {hid}: map: {what}")
+        if need_structure:
+            for msg in unexplained:
+                print(f"  structure: {msg}")
+        if need_brief:
+            for hid, what in all_changed:
+                print(f"  {hid}: changed: {what}")
+        cont = ("python3 tools/MERGE_THE_BATCH.py --continue --as " + name
+                + (" --push" if "--push" in argv else "") + (" --yes" if "--yes" in argv else "")
+                + (" --no-gate" if "--no-gate" in argv else ""))
+        say("batch merged on main (not gated or pushed yet): review the above, update ARCHITECTURE.md / docs/protocol.md "
+            "if needed, then: " + cont)
+        return 0
+    if not _run_batch_gate(root, pre_batch, batch_jobs, name, argv, say):
+        return 1
+    return _finish_batch(root, batch_s.payload, name, argv, say)
 
 
 if __name__ == "__main__":
