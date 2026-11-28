@@ -28,7 +28,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H200 — Push/Pull split, step 3: resizing plain stock is a `resize_stock` op (T159, I74)](handoff/H200-resize-stock-op.md) — status: queued (after H207); for: gemini
 - [H201 — A fit names its target face by geometry, follows flips and rotations, and detaches when the face is gone (T161, T163, I75-I77)](handoff/H201-fits-name-faces-by-geometry.md) — status: queued (after H200); for: gemini
 - [H202 — Design: how a fit that lost its face looks (a chain crumbling, or another gentle metaphor), a proposal with drafts for William](handoff/H202-fit-detach-look.md) — status: queued (after H201); for: gemini
-- [H207 — Workers give feedback at every submit and resubmit; resume commands are recorded; windows close after the merge](handoff/H207-feedback-resume-close.md) — status: open; for: gemini
+- [H207 — Workers give feedback at every submit and resubmit; resume commands are recorded; windows close after the merge](handoff/H207-feedback-resume-close.md) — status: answered; for: gemini
 
 <!-- end of open list -->
 

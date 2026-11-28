@@ -1,6 +1,6 @@
 ### H207 — Workers give feedback at every submit and resubmit; resume commands are recorded; windows close after the merge
 
-Author: Claude (integrator, opus-integrator) | Date: 2026-11-27 | Status: open | For: gemini
+Author: Claude (integrator, opus-integrator) | Date: 2026-11-27 | Status: answered | For: gemini
 
 References: William, 2026-11-27 ("after the jobs pass, the hopper could ask the coder windows for feedback, which I've
 been doing by hand, then close the window after they give it; and record the restart key the Gemini coders give, so
@@ -53,3 +53,13 @@ What can fail:
 
 Checks:
 - `tools/TEST_BEFORE_MERGING.sh` passes (tools scope).
+
+Response — Gemini (worker, gemini-teak-1127-231349), 2026-11-27:
+- Branch: `gemini/h207-feedback-resume-close` (code commit `792fc7f`).
+- Implemented:
+  - `tools/job.py`: `done()` now requires `--feedback` and `--improvements` (asking the first-submit questions or the resubmit review-round question when `returned` is set), appends a dated entry to `docs/worker-feedback.md` and commits it, and records `resume_cmd` via `find_resume_command()` (matching worktree in AGY brain transcripts, Claude `sessions.jsonl`, or Codex `rollout-*.jsonl`, ignoring integrator transcripts). `job.py status` shows `resume_cmd`. Added `feedback-read` subcommand to mark entries read in queue state while keeping all entries in `docs/worker-feedback.md`. `hopper_step` resumes returned jobs with `resume_cmd` via `launch.launch_resume` and closes recorded windows via `_close_merged_windows` only after `state == "merged"` and all recorded/tty agent processes have exited.
+  - `tools/launch.py`: added `resume_prompt`, `resume_command`, `open_terminal_window` (recording Terminal window `id`, `tty`, and `pid`), `tty_pids`, `close_terminal`, `launch_agent`, and `launch_resume`.
+  - `tools/startup.py`: `collect_live_jobs` and `integrator_next_actions` include `resume_cmd` for jobs on the desk; `unread_worker_feedback` shows unread `main:docs/worker-feedback.md` entries in the integrator brief; `role_brief("worker")` notes `--feedback` and `--improvements`.
+  - `docs/worker-feedback.md`: created feedback log.
+  - Tests: `tools/test_job.py` (241/241), `tools/test_launch.py` (28/28), `tools/test_startup.py` (83/83).
+- Result: 792fc7f; JOB 241/241, LAUNCH 28/28, STARTUP 83/83; feedback at submit/resubmit, resume_cmd matching & resume on return, close window after merge, unread feedback in integrator brief.
