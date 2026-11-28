@@ -150,8 +150,20 @@ func update_wood_checks(k: String) -> void:
 			NativeMenu.set_item_checked(_wood_menu_rid, i, NativeMenu.get_item_tag(_wood_menu_rid, i) == k)
 
 
+const DRAWINGS := "04_Napkin_Drawings"   # William's own models (I-new-1): New and Open start here
+
+
+static func dialog_start(model_path: String) -> String:
+	"""Where New and Open start: 04_Napkin_Drawings/ beside the app's models/ working folder, else the model's own folder."""
+	var dir := model_path.get_base_dir()
+	if dir.get_file() == "models":
+		var drawings := dir.get_base_dir().path_join(DRAWINGS)
+		if DirAccess.dir_exists_absolute(drawings): return drawings
+	return dir
+
+
 func _file_dialog(new: bool) -> void:
-	var start: String = m.model_path.get_base_dir()
+	var start: String = dialog_start(m.model_path)
 	var name := "Untitled.FCStd" if new else ""
 	var filters := PackedStringArray(["*.FCStd ; FreeCAD model"])
 	var mode := DisplayServer.FILE_DIALOG_MODE_SAVE_FILE if new else DisplayServer.FILE_DIALOG_MODE_OPEN_FILE
