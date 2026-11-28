@@ -32,12 +32,15 @@ Architecture: lines, the response) and CLAUDE.md (commit trailers); this page sa
   it reads them arrive together, in recorded order (P47).
 - `python3 tools/CHECK_THE_JOB_BOARD.py` shows the queue; `python3 tools/REBUILD_THE_JOB_BOARD.py` rebuilds the board's job table (the
   commit hook does it on main).
-- **The hopper** (`Pace: one at a time` in `BOARD.md` under `Order:`): instead of launching every Ready job at once,
-  run `python3 tools/RUN_THE_HOPPER.py` in the background (outside the sandbox). It launches one worker at a time as
-  each job finishes, stacks overlapping Ready jobs onto `done` branches (`base:`), and wakes you only when the batch
-  is all `done`, a worker asks a question, a job goes stale, or a launch fails/times out (10 min). When the batch is
-  submitted, merge all `done` jobs together with `python3 tools/MERGE_THE_BATCH.py [--push] [--yes]` (shows all
-  review pauses together first, takes one `--continue`, runs the gate once, and resets `main` if the gate fails).
+- **The hopper** (`Pace: one at a time` in `BOARD.md` under `Order:`): start the hopper once in its own Terminal
+  window with `python3 tools/RUN_THE_HOPPER.py --window` (outside the sandbox; it runs `--forever` and survives a
+  context clear, and a pid file in `.git/` refuses a second `--forever` hopper). After each start-up or clear, run
+  `python3 tools/WAIT_FOR_THE_HOPPER.py` in the background: it launches nothing and wakes you on the first new
+  condition (batch ready — reported immediately if already waiting — a worker question, a stale job, or a launch
+  timeout), with no need to restart the hopper after a clear. It launches one worker at a time as each job finishes
+  and stacks overlapping Ready jobs onto `done` branches (`base:`). When the batch is submitted, merge all `done`
+  jobs together with `python3 tools/MERGE_THE_BATCH.py [--push] [--yes]` (shows all review pauses together first,
+  takes one `--continue`, runs the gate once, and resets `main` if the gate fails).
 - Spinning up a worker window: `python3 tools/LAUNCH_A_WORKER.py <gemini|claude|codex> [--model M]` (T134; outside the sandbox;
   tell William) opens it with its start-up brief already in the first message; `--dry-run` shows the command. The
   commands it runs, for reference:

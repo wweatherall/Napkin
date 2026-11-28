@@ -114,6 +114,18 @@ def applescript(command):
     return f'tell application "Terminal" to do script "{escaped}"'
 
 
+def open_terminal(command, dry_run=False, out=print):
+    """Open a Terminal window running `command` via osascript, or print the command on --dry-run (H196)."""
+    if dry_run:
+        out(command)
+        return 0
+    s = subprocess.run(["osascript", "-e", applescript(command)], capture_output=True, text=True)
+    if s.returncode != 0:
+        out(s.stderr.strip() or "osascript failed")
+        return 1
+    return 0
+
+
 def parse(argv):
     if not argv or argv[0] not in AGENTS:
         raise SystemExit(__doc__)
@@ -152,12 +164,10 @@ def main(argv=None):
         f.write(prompt(o["agent"], name, r.stdout, model=model))
     command = agent_command(o["agent"], root, path, name, o["model"])
     if o["dry"]:
-        print(command)
+        open_terminal(command, dry_run=True)
         print("".join(open(path, encoding="utf-8").readlines()[:3]))
         return 0
-    s = subprocess.run(["osascript", "-e", applescript(command)], capture_output=True, text=True)
-    if s.returncode != 0:
-        print(s.stderr.strip() or "osascript failed")
+    if open_terminal(command) != 0:
         return 1
     print(f"launched {name} ({o['agent']}) with its brief in {os.path.relpath(path, root)}")
     return 0
