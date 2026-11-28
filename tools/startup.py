@@ -521,22 +521,31 @@ def worker_job_context(root, branch, entries):
     return None
 
 
-def integrator_next_actions(lock_holder, state_note_ids, merge_info, live_jobs, ready_count):
+def integrator_next_actions(lock_holder, state_note_ids, merge_info, live_jobs, ready_count, hopper_session=None):
     """Concrete next actions for an integrator, derived read-only from live repo/queue state."""
     actions = []
     archive_flags = "".join(f" --archive {hid}" for hid in state_note_ids) + (" --push" if state_note_ids else "")
-    take_cmd = f"python3 tools/HOLD_THE_INTEGRATOR_LOCK.py <session>{' --william' if lock_holder else ''}{archive_flags}"
+    if hopper_session:
+        sess = hopper_session if isinstance(hopper_session, str) else "<session>"
+        take_cmd = f"python3 tools/HOLD_THE_INTEGRATOR_LOCK.py {sess} --hopper{archive_flags}"
+        auth = "started by the hopper, P74 standing permission"
+        ask = "read"
+    else:
+        take_cmd = f"python3 tools/HOLD_THE_INTEGRATOR_LOCK.py <session>{' --william' if lock_holder else ''}{archive_flags}"
+        auth = "reading this brief does not grant authority"
+        ask = "if William named you integrator, read"
     lead = (f"Lock is held by {lock_holder}" if lock_holder else "No integrator lock held")
     if state_note_ids:
         notes_csv = ", ".join(state_note_ids)
         actions.append(
-            f"{lead} (reading this brief does not grant authority): if William named you integrator, read {notes_csv} "
+            f"{lead} ({auth}): {ask} {notes_csv} "
             f"above (already inline; no need to open its file or BOARD.md) and take the lock + archive/commit/push "
             f"in one step (writes .git/, run outside sandbox / BypassSandbox: true): {take_cmd}"
         )
     else:
+        take_verb = "take the lock" if hopper_session else "if William named you integrator, take the lock"
         actions.append(
-            f"{lead} (reading this brief does not grant authority): if William named you integrator, take the lock "
+            f"{lead} ({auth}): {take_verb} "
             f"(writes .git/, run outside sandbox / BypassSandbox: true): {take_cmd}"
         )
     if merge_info:
@@ -551,8 +560,11 @@ def integrator_next_actions(lock_holder, state_note_ids, merge_info, live_jobs, 
             actions.append(f"Inspect stale job {jid} ({info.get('branch', '?')} in {info.get('worktree', '?')})")
         elif st == "returned":
             actions.append(f"Returned job {jid} waits for a {info.get('agent', '?')} worker")
-    actions.append("Arm queue watch in the background: python3 tools/WAIT_FOR_THE_NEXT_JOB.py (no timed check-ins, P39)")
-    if ready_count and not live_jobs:
+    if hopper_session:
+        actions.append("Wait for the next pause in the background after answering/merging: python3 tools/WAIT_FOR_THE_HOPPER.py (no timed check-ins, P39)")
+    else:
+        actions.append("Arm queue watch in the background: python3 tools/WAIT_FOR_THE_NEXT_JOB.py (no timed check-ins, P39)")
+    if ready_count and not live_jobs and not hopper_session:
         noun = "job" if ready_count == 1 else "jobs"
         actions.append(f"{ready_count} Ready {noun} on BOARD.md (spin up workers on William's word)")
     return actions
@@ -632,6 +644,22 @@ def split_space(argv):
         else:
             rest.append(argv[i]); i += 1
     return space, rest
+
+
+def split_hopper(argv):
+    """[--hopper [<session>] | --hopper=<session>] -> (session or None, the other arguments)."""
+    hopper, rest, i = None, [], 0
+    while i < len(argv):
+        if argv[i] == "--hopper":
+            if i + 1 < len(argv) and not argv[i + 1].startswith("-"):
+                hopper, i = argv[i + 1], i + 2
+            else:
+                hopper, i = "<session>", i + 1
+        elif argv[i].startswith("--hopper="):
+            hopper, i = argv[i].split("=", 1)[1] or "<session>", i + 1
+        else:
+            rest.append(argv[i]); i += 1
+    return hopper, rest
 
 
 def space_lines(root, space):
@@ -891,6 +919,7 @@ def main(argv):
         print(__doc__)
         return 0
     space, argv = split_space(argv)
+    hopper_session, argv = split_hopper(argv)
     role, ids, err = parse_args(argv)
     if err:
         print(err)
@@ -1012,7 +1041,8 @@ def main(argv):
                 print("  (none)")
             live = collect_live_jobs(root)
             print("Next actions (read-only briefing; does not take the lock):")
-            for act in integrator_next_actions(lock_holder, state_note_ids, merge_info, live, len(jobs)):
+            for act in integrator_next_actions(lock_holder, state_note_ids, merge_info, live, len(jobs),
+                                               hopper_session=hopper_session):
                 print("  - " + act)
             print("\n".join(role_brief("integrator")))
         else:

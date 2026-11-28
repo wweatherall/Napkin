@@ -33,11 +33,31 @@ check("the lock lives in git's common folder, shared by every worktree",
       g.lock_path().endswith(os.path.join(".git", "shopsketch-integrator.lock")))
 
 check("parse_take_args parses --william, --archive and --push together",
-      g.parse_take_args(["--william", "--archive", "H134", "--push"]) == (True, ["H134"], True, True, None))
+      g.parse_take_args(["--william", "--archive", "H134", "--push"]) == (True, False, ["H134"], True, True, None))
+check("parse_take_args parses --hopper and rejects --william --hopper together",
+      g.parse_take_args(["--hopper"]) == (False, True, [], False, False, None)
+      and g.parse_take_args(["--william", "--hopper"])[5] is not None)
 check("parse_take_args rejects --push without --archive, missing ID, and unknown flags",
-      g.parse_take_args(["--push"])[4] is not None
-      and g.parse_take_args(["--archive"])[4] is not None
-      and g.parse_take_args(["--bogus"])[4] is not None)
+      g.parse_take_args(["--push"])[5] is not None
+      and g.parse_take_args(["--archive"])[5] is not None
+      and g.parse_take_args(["--bogus"])[5] is not None)
+
+# H197: --hopper takes lock only when integrator_launched names the session, and logs by hopper (P74)
+import json
+h_dir = tempfile.mkdtemp(prefix="lock-hopper-")
+h_lock = os.path.join(h_dir, "shopsketch-integrator.lock")
+h_state = os.path.join(h_dir, "shopsketch-jobs.json")
+g.take(h_lock, "prev-integrator", out=quiet)
+check("take --hopper refuses when no hopper launch record exists",
+      not g.take(h_lock, "integrator-h1", hopper=True, state_file=h_state, out=quiet)
+      and g.read(h_lock)["holder"] == "prev-integrator")
+json.dump({"integrator_launched": {"session": "integrator-h1", "at": 1000}}, open(h_state, "w"))
+check("take --hopper refuses a different session name",
+      not g.take(h_lock, "integrator-other", hopper=True, state_file=h_state, out=quiet))
+check("take --hopper takes the lock when the launch record names this session and logs by hopper (P74)",
+      g.take(h_lock, "integrator-h1", hopper=True, state_file=h_state, out=quiet)
+      and g.read(h_lock)["holder"] == "integrator-h1"
+      and any("by hopper (P74)" in l and "William" not in l for l in g.read(h_lock)["log"]))
 
 # Temp git repo to verify take_and_archive only archives after the lock is granted.
 repo = tempfile.mkdtemp(prefix="lock-archive-")

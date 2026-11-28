@@ -31,7 +31,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H194 — The worker checks each op against its contract before running it (ops with a contract only)](handoff/H194-enforce-op-contracts.md) — status: open; for: gemini
 - [H195 — Codex in the token tool: its quota windows and each job's tokens, from Codex's own session logs](handoff/H195-codex-usage.md) — status: open; for: codex
 - [H196 — The hopper runs in its own Terminal window; the integrator waits for it separately (and Order is kept across agents)](handoff/H196-hopper-in-its-own-window.md) — status: answered; for: gemini
-- [H197 — When all work is paused, the hopper brings in the integrator: wakes it, or starts a new one](handoff/H197-hopper-brings-the-integrator.md) — status: open; for: gemini
+- [H197 — When all work is paused, the hopper brings in the integrator: wakes it, or starts a new one](handoff/H197-hopper-brings-the-integrator.md) — status: answered; for: gemini
 
 <!-- end of open list -->
 

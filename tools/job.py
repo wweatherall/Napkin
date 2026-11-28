@@ -369,12 +369,15 @@ def resolve_dependencies(jobs, st=None):
     return out
 
 
+def _pacing_jobs(st):
+    """Jobs that hold the `one at a time` pace (P74): only `in progress` jobs; waiting workers idle."""
+    return [jid for jid, s in st["jobs"].items() if s.get("state") == "in progress"]
+
+
 def takeable(root, st, agent, jobs, order, claims=None, pace="all at once"):
     """(the job to take or None, [reasons others were passed over]). Returned jobs for the agent come first."""
     if pace == "one at a time":
-        pacing = [jid for jid, s in st["jobs"].items()
-                  if s.get("state") == "in progress"
-                  or (s.get("state") == "waiting" and s.get("question_kind") == "scope")]
+        pacing = _pacing_jobs(st)
         if pacing:
             return None, [f"pace is one at a time ({', '.join(pacing)} active)"]
     jobs = resolve_dependencies(jobs, st)
@@ -1350,8 +1353,22 @@ def _default_launch(agent):
     return launch.main([agent])
 
 
+def _default_launch_integrator(session, wake_line):
+    import launch
+    return launch.main(["integrator", "--name", session, "--wake", wake_line])
+
+
+def _integrator_session_name(root):
+    import launch
+    return launch.session_name("integrator", folder=os.path.join(root, "scratch", "launch"))
+
+
 def hopper_pid_path(cwd=None):
     return os.path.join(common_dir(cwd), "shopsketch-hopper.pid")
+
+
+def hopper_wait_pid_path(cwd=None):
+    return os.path.join(common_dir(cwd), "shopsketch-hopper-wait.pid")
 
 
 def _pid_alive(pid):
@@ -1366,8 +1383,7 @@ def _pid_alive(pid):
         return False
 
 
-def _running_hopper_pid(cwd):
-    path = hopper_pid_path(cwd)
+def _running_pid(path):
     try:
         pid = int(open(path, encoding="utf-8").read().strip())
     except (OSError, ValueError):
@@ -1377,9 +1393,8 @@ def _running_hopper_pid(cwd):
     return None
 
 
-def _claim_hopper_pid(cwd):
-    path = hopper_pid_path(cwd)
-    existing = _running_hopper_pid(cwd)
+def _claim_pid(path):
+    existing = _running_pid(path)
     if existing is not None:
         return existing
     with open(path, "w", encoding="utf-8") as f:
@@ -1387,13 +1402,24 @@ def _claim_hopper_pid(cwd):
     return None
 
 
-def _release_hopper_pid(cwd):
-    path = hopper_pid_path(cwd)
+def _release_pid(path):
     try:
         if int(open(path, encoding="utf-8").read().strip()) == os.getpid():
             os.unlink(path)
     except (OSError, ValueError):
         pass
+
+
+def _running_hopper_pid(cwd):
+    return _running_pid(hopper_pid_path(cwd))
+
+
+def _claim_hopper_pid(cwd):
+    return _claim_pid(hopper_pid_path(cwd))
+
+
+def _release_hopper_pid(cwd):
+    _release_pid(hopper_pid_path(cwd))
 
 
 def _next_hopper_candidate(root, st, jobs, order, claims, pace):
@@ -1410,16 +1436,26 @@ def _next_hopper_candidate(root, st, jobs, order, claims, pace):
     return None, None
 
 
+def paused_line(done_ids, waiting_jobs):
+    """Format the all-work-paused wake line (P74, H197)."""
+    parts = []
+    if done_ids:
+        parts.append("review " + ", ".join(sorted(done_ids)))
+    if waiting_jobs:
+        qs = [f"{jid} ({'integrator' if j.get('question_kind') == 'scope' else 'William'}) {j.get('question', '')}"
+              for jid, j in sorted(waiting_jobs)]
+        parts.append("questions: " + "; ".join(qs))
+    return "paused: " + "; ".join(parts)
+
+
 def hopper_wake_conditions(root, st, jobs, order, now, claims=None, pace="all at once", procs=None, mutate=False):
-    """Active hopper wake conditions as {seen_key: detail} (H196), shared by hopper_step and hopper_wait."""
+    """Active hopper wake conditions as {seen_key: detail} (H196, H197), shared by hopper_step and hopper_wait."""
     conds = {}
     claims = branch_claims(root) if claims is None else claims
     for k, j in st["jobs"].items():
         if j.get("state") in WORKING:
             act = refresh(root, j, now, (procs or {}).get(k))
-            if j["state"] == "waiting":
-                conds[("waiting", k, j.get("since"))] = waiting_line(k, j)
-            elif stale(j, act, now):
+            if j["state"] == "in progress" and stale(j, act, now):
                 conds[("stale", k, act)] = (
                     f"stale: {k} ({j.get('agent')}) no beat since {hhmm(act)}: check {j.get('branch')} in {j.get('worktree')}"
                 )
@@ -1435,23 +1471,23 @@ def hopper_wake_conditions(root, st, jobs, order, now, claims=None, pace="all at
             conds[("launch_timeout", jid, info.get("at"))] = (
                 f"launch timeout: {jid} ({info.get('agent')}) hasn't taken its job in {mins} min"
             )
-    pacing = [jid for jid, s in st["jobs"].items()
-              if s.get("state") == "in progress" or (s.get("state") == "waiting" and s.get("question_kind") == "scope")]
+    pacing = _pacing_jobs(st)
     pending = [jid for jid, info in launched.items()
                if st["jobs"].get(jid, {}).get("state") not in ACTIVE and now - info.get("at", 0) < LAUNCH_TIMEOUT]
     if not pacing and not pending:
         picked, _ = _next_hopper_candidate(root, st, jobs, order, claims, pace)
         if picked is None:
             done_ids = [jid for jid, s in st["jobs"].items() if s.get("state") == "done"]
-            if done_ids:
-                conds[("batch_ready", tuple(sorted(done_ids)))] = (
-                    f"batch ready to merge: {', '.join(done_ids)} (run python3 tools/MERGE_THE_BATCH.py)"
-                )
+            waiting_jobs = [(jid, s) for jid, s in st["jobs"].items() if s.get("state") == "waiting"]
+            if done_ids or waiting_jobs:
+                key = ("paused", tuple(sorted(done_ids)), tuple(sorted((k, s.get("since")) for k, s in waiting_jobs)))
+                conds[key] = paused_line(done_ids, waiting_jobs)
     return conds
 
 
-def hopper_step(root, now=None, dry_run=False, launcher=None, out=print, seen=None, procs=None):
-    """One poll of the hopper (H185). Returns (action, exit_code, detail, seen_key):
+def hopper_step(root, now=None, dry_run=False, launcher=None, out=print, seen=None, procs=None,
+                launch_integrator=False, integrator_launcher=None):
+    """One poll of the hopper (H185, H197). Returns (action, exit_code, detail, seen_key):
     action is 'exit', 'launched', 'dry', or 'wait'."""
     now = now or time.time()
     launcher = launcher or _default_launch
@@ -1459,38 +1495,60 @@ def hopper_step(root, now=None, dry_run=False, launcher=None, out=print, seen=No
     pace, _ = main_pace(root)
     claims = branch_claims(root)
     launch_target = None
+    int_launch = None
     with state_read(state_path(root), readonly=dry_run) as st:
         conds = hopper_wake_conditions(root, st, jobs, order, now, claims=claims, pace=pace,
                                        procs=procs, mutate=not dry_run)
+        is_paused = any(k[0] == "paused" for k in conds)
+        if not is_paused and not dry_run:
+            st.pop("integrator_launched", None)
         for key, detail in conds.items():
             if seen is None or key not in seen:
-                if dry_run and key[0] == "batch_ready":
+                if dry_run and key[0] == "paused":
                     out(detail)
                     return "dry", 0, None, None
+                if (key[0] == "paused" and launch_integrator and not dry_run
+                        and _running_pid(hopper_wait_pid_path(root)) is None
+                        and not st.get("integrator_launched")):
+                    int_session = _integrator_session_name(root)
+                    st["integrator_launched"] = {"session": int_session, "at": now}
+                    int_launch = (int_session, detail, key)
+                    break
                 return "exit", 0, detail, key
-        pacing = [jid for jid, s in st["jobs"].items()
-                  if s.get("state") == "in progress" or (s.get("state") == "waiting" and s.get("question_kind") == "scope")]
-        pending = list(st.get("launched", {}).items())
-        if pacing or pending:
-            if dry_run:
-                why = f"{', '.join(pacing)} active" if pacing else f"{pending[0][0]} launched, awaiting take"
-                out(f"waiting: {why}")
-                return "dry", 0, None, None
-            return "wait", None, None, None
-        picked, target_agent = _next_hopper_candidate(root, st, jobs, order, claims, pace)
-        if picked is not None:
-            if picked["id"] in st.get("launched", {}):
+        if int_launch is None:
+            pacing = _pacing_jobs(st)
+            pending = list(st.get("launched", {}).items())
+            if pacing or pending:
+                if dry_run:
+                    why = f"{', '.join(pacing)} active" if pacing else f"{pending[0][0]} launched, awaiting take"
+                    out(f"waiting: {why}")
+                    return "dry", 0, None, None
                 return "wait", None, None, None
-            if dry_run:
-                out(f"would launch {picked['id']} ({target_agent}: {picked['item']})")
-                return "dry", 0, None, None
-            st.setdefault("launched", {})[picked["id"]] = {"at": now, "agent": target_agent}
-            launch_target = (picked, target_agent)
-        if launch_target is None:
-            if dry_run:
-                out("nothing Ready and nothing in progress")
-                return "dry", 0, None, None
-            return "wait", None, None, None
+            picked, target_agent = _next_hopper_candidate(root, st, jobs, order, claims, pace)
+            if picked is not None:
+                if picked["id"] in st.get("launched", {}):
+                    return "wait", None, None, None
+                if dry_run:
+                    out(f"would launch {picked['id']} ({target_agent}: {picked['item']})")
+                    return "dry", 0, None, None
+                st.setdefault("launched", {})[picked["id"]] = {"at": now, "agent": target_agent}
+                launch_target = (picked, target_agent)
+            if launch_target is None:
+                if dry_run:
+                    out("nothing Ready and nothing in progress")
+                    return "dry", 0, None, None
+                return "wait", None, None, None
+    if int_launch is not None:
+        int_session, detail, key = int_launch
+        rc = (integrator_launcher(int_session, detail) if integrator_launcher
+              else _default_launch_integrator(int_session, detail))
+        if rc != 0:
+            with locked(state_path(root)) as st:
+                st.pop("integrator_launched", None)
+            return "exit", 1, "launch failed for integrator", None
+        out(f"{hhmm(now)} launched integrator ({int_session})")
+        sys.stdout.flush()
+        return "exit", 0, detail, key
     picked, target_agent = launch_target
     rc = launcher(target_agent)
     if rc != 0:
@@ -1503,8 +1561,8 @@ def hopper_step(root, now=None, dry_run=False, launcher=None, out=print, seen=No
 
 
 def hopper(cwd, dry_run=False, launcher=None, out=print, now=None, sleep=time.sleep, poll=None,
-           forever=False, window=False):
-    """Run the hopper (H185, H196): launch one worker at a time, wake the integrator when the batch is done or needs help."""
+           forever=False, window=False, integrator_launcher=None):
+    """Run the hopper (H185, H196, H197): launch one worker at a time, wake or start the integrator when all work pauses."""
     root = main_root(cwd)
     if window:
         import launch
@@ -1530,20 +1588,20 @@ def hopper(cwd, dry_run=False, launcher=None, out=print, now=None, sleep=time.sl
             out(f"hopper already running (pid {existing})")
             return 1
     try:
-        # Ignore waiting/stale events that were already active before this run started (like watch --next).
+        # Ignore stale events that were already active before this run started (like watch --next).
         seen = set()
         t0 = now or time.time()
         with state_read(state_path(root), readonly=True) as st:
             for k, j in st["jobs"].items():
-                if j.get("state") == "waiting":
-                    seen.add(("waiting", k, j.get("since")))
-                elif j.get("state") == "in progress":
+                if j.get("state") == "in progress":
                     act = refresh(root, j, t0)
                     if stale(j, act, t0):
                         seen.add(("stale", k, act))
         while True:
             t = now or time.time()
-            action, code, detail, key = hopper_step(root, now=t, dry_run=False, launcher=launcher, out=out, seen=seen)
+            action, code, detail, key = hopper_step(root, now=t, dry_run=False, launcher=launcher, out=out,
+                                                    seen=seen, launch_integrator=forever,
+                                                    integrator_launcher=integrator_launcher)
             if action == "exit":
                 out(f"{hhmm(t)} {detail}")
                 sys.stdout.flush()
@@ -1555,7 +1613,7 @@ def hopper(cwd, dry_run=False, launcher=None, out=print, now=None, sleep=time.sl
                 if key is not None:
                     seen.add(key)
                 if forever and action == "launched":
-                    seen = {k for k in seen if k[0] != "batch_ready"}
+                    seen = {k for k in seen if k[0] != "paused"}
             sleep(poll)
     finally:
         if forever:
@@ -1563,31 +1621,37 @@ def hopper(cwd, dry_run=False, launcher=None, out=print, now=None, sleep=time.sl
 
 
 def hopper_wait(cwd, out=print, now=None, sleep=time.sleep, poll=None):
-    """Wait for the first new hopper wake condition without launching anything (H196).
-    Ignores conditions already true at start, except batch ready (reported immediately)."""
+    """Wait for the first new hopper wake condition without launching anything (H196, H197).
+    Ignores conditions already true at start, except paused (reported immediately)."""
     root = main_root(cwd)
     poll = WATCH_POLL if poll is None else poll
-    t0 = now or time.time()
-    jobs, order = main_view(root)
-    pace, _ = main_pace(root)
-    claims = branch_claims(root)
-    with state_read(state_path(root), readonly=True) as st:
-        init = hopper_wake_conditions(root, st, jobs, order, t0, claims=claims, pace=pace, mutate=False)
-    seen = {k for k in init if k[0] != "batch_ready"}
-    while True:
-        t = now or time.time()
+    wait_pid = hopper_wait_pid_path(root)
+    with open(wait_pid, "w", encoding="utf-8") as f:
+        f.write(f"{os.getpid()}\n")
+    try:
+        t0 = now or time.time()
         jobs, order = main_view(root)
         pace, _ = main_pace(root)
         claims = branch_claims(root)
         with state_read(state_path(root), readonly=True) as st:
-            conds = hopper_wake_conditions(root, st, jobs, order, t, claims=claims, pace=pace, mutate=False)
-        for key, detail in conds.items():
-            if key not in seen:
-                out(f"{hhmm(t)} {detail}")
-                sys.stdout.flush()
-                return 0
-        seen = set(conds)
-        sleep(poll)
+            init = hopper_wake_conditions(root, st, jobs, order, t0, claims=claims, pace=pace, mutate=False)
+        seen = {k for k in init if k[0] != "paused"}
+        while True:
+            t = now or time.time()
+            jobs, order = main_view(root)
+            pace, _ = main_pace(root)
+            claims = branch_claims(root)
+            with state_read(state_path(root), readonly=True) as st:
+                conds = hopper_wake_conditions(root, st, jobs, order, t, claims=claims, pace=pace, mutate=False)
+            for key, detail in conds.items():
+                if key not in seen:
+                    out(f"{hhmm(t)} {detail}")
+                    sys.stdout.flush()
+                    return 0
+            seen = set(conds)
+            sleep(poll)
+    finally:
+        _release_pid(wait_pid)
 
 
 def main(argv):

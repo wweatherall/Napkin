@@ -1545,26 +1545,22 @@ j_blocked, out_blocked = run(job.take, h_root, "gemini", "s-h185-2", now=2005)
 check("one at a time blocks taking a second job while one is in progress",
       j1 == "H001" and j_blocked is None and "pace is one at a time" in out_blocked, (j1, j_blocked, out_blocked))
 
-# Scope question (waiting on integrator) still holds the pace
+# Scope question (waiting on integrator) does NOT hold the pace for non-overlapping jobs (P74), still blocks overlapping
 wt1 = job.worktree_for(h_root, j1)
 run(job.wait, wt1, "can I touch b?", now=2010, scope=True, wait=0)
-j_scope_blocked, _ = run(job.take, h_root, "gemini", "s-h185-2", now=2015)
-check("one at a time holds the pace while waiting on the integrator (scope)", j_scope_blocked is None)
-
-# Question for William does NOT hold the pace for non-overlapping jobs, still blocks overlapping
-run(job.answer, h_root, j1, "yes", now=2016)
-run(job.wait, wt1, "read answer", now=2017, wait=0)
-run(job.wait, wt1, "what colour?", now=2020, scope=False, wait=0)
-j_w_other, _ = run(job.take, h_root, "gemini", "s-h185-other", now=2025)
-j_w_overlap, _ = run(job.take, h_root, "claude", "s-h185-overlap", now=2025)
-check("waiting on William does not hold the pace for non-overlapping jobs, still blocks overlapping",
-      j_w_other == "H003" and j_w_overlap is None, (j_w_other, j_w_overlap))
+j_scope_other, _ = run(job.take, h_root, "gemini", "s-h185-2", now=2015)
+j_scope_overlap, _ = run(job.take, h_root, "claude", "s-h185-2b", now=2015)
+check("waiting on integrator (scope) does not hold the pace for non-overlapping jobs, still blocks overlapping (P74)",
+      j_scope_other == "H003" and j_scope_overlap is None, (j_scope_other, j_scope_overlap))
 
 # Finish H003 and H001 so H002 can stack on H001
 wt3 = job.worktree_for(h_root, "H003")
 for w in (wt1, wt3):
     sh(w, "git", "config", "user.email", "t@example.invalid")
     sh(w, "git", "config", "user.name", "T")
+run(job.answer, h_root, j1, "yes", now=2016)
+run(job.wait, wt1, "read answer", now=2017, wait=0)
+run(job.wait, wt1, "what colour?", now=2020, scope=False, wait=0)
 run(job.answer, h_root, j1, "blue", source="william", now=2030)
 open(os.path.join(wt1, "h1_marker.txt"), "w").write("from h1\n")
 hp1 = os.path.join(wt1, "docs", "handoff", "H001-first-job.md")
@@ -1630,13 +1626,13 @@ check("hopper_step exits 1 on launch failure without recording launched",
       act_fail == "exit" and code_fail == 1 and "launch failed for H001" in det_fail
       and "H001" not in state(hp_root).get("launched", {}), (act_fail, code_fail, det_fail))
 
-# When all jobs are done and none Ready/in progress, hopper_step exits with batch ready
+# When all jobs are done and none Ready/in progress, hopper_step exits with paused: review ...
 with job.locked(job.state_path(hp_root)) as st:
     for jid in ("H001", "H002", "H003", "H004", "H005", "H006"):
         st["jobs"][jid] = {"state": "done", "branch": f"codex/{jid.lower()}-x"}
 act_done, code_done, det_done, _ = job.hopper_step(hp_root, now=5000, launcher=lambda a: 0)
 check("hopper_step exits 0 when batch is all done",
-      act_done == "exit" and code_done == 0 and "batch ready to merge" in det_done, (act_done, det_done))
+      act_done == "exit" and code_done == 0 and "paused: review" in det_done, (act_done, det_done))
 shutil.rmtree(hp_base)
 
 # 4. H196: Order across agents, --window --dry-run, --forever + pid file, and hopper_wait
@@ -1709,16 +1705,17 @@ def _forever_sleep(_):
         raise SystemExit(0)
 
 try:
-    job.hopper(h196_root, forever=True, launcher=lambda a: 0, out=f_out.append, now=7000, sleep=_forever_sleep, poll=0)
+    job.hopper(h196_root, forever=True, launcher=lambda a: 0, integrator_launcher=lambda s, d: 0,
+               out=f_out.append, now=7000, sleep=_forever_sleep, poll=0)
 except SystemExit:
     pass
-check("hopper --forever prints batch ready, carries on to launch new Ready job, and clears pid file on exit",
-      any("batch ready to merge" in l for l in f_out)
+check("hopper --forever prints paused, carries on to launch new Ready job, and clears pid file on exit",
+      any("paused: review" in l for l in f_out)
       and any("launched codex for H002" in l for l in f_out)
       and not os.path.exists(job.hopper_pid_path(h196_root)),
       (f_out, os.path.exists(job.hopper_pid_path(h196_root))))
 
-# hopper_wait reports already-ready batch immediately with the same line as hopper_step, without launching
+# hopper_wait reports already-paused batch immediately with the same line as hopper_step, without launching
 with job.locked(job.state_path(h196_root)) as st:
     st.pop("launched", None)
     st["jobs"]["H002"] = {"state": "done", "branch": "codex/h002-x"}
@@ -1726,13 +1723,13 @@ step_cmp = []
 _, _, det_cmp, _ = job.hopper_step(h196_root, now=8000, launcher=lambda a: step_cmp.append(a) or 0)
 wait_out = []
 wait_rc = job.hopper_wait(h196_root, out=wait_out.append, now=8000, sleep=lambda _: (_ for _ in ()).throw(AssertionError("should not sleep")), poll=0)
-check("hopper_wait exits immediately on batch ready with the exact hopper_step line and launches nothing",
+check("hopper_wait exits immediately on paused batch with the exact hopper_step line and launches nothing",
       wait_rc == 0 and wait_out and det_cmp in wait_out[0] and not step_cmp,
       (wait_rc, wait_out, det_cmp, step_cmp))
 
-# hopper_wait ignores a waiting condition already true at start and wakes on a new one
+# hopper_wait ignores a paused/waiting condition already true at start and wakes on a new one
 with job.locked(job.state_path(h196_root)) as st:
-    st["jobs"]["H002"] = {"state": "waiting", "agent": "codex", "question": "q1", "since": 7900}
+    st["jobs"]["H002"] = {"state": "waiting", "agent": "codex", "question": "q1", "question_kind": "scope", "since": 7900}
 w2_out = []
 w2_polls = [0]
 def _w2_sleep(_):
@@ -1740,9 +1737,73 @@ def _w2_sleep(_):
     with job.locked(job.state_path(h196_root)) as st:
         st["jobs"]["H002"] = {"state": "done", "branch": "codex/h002-x"}
 w2_rc = job.hopper_wait(h196_root, out=w2_out.append, now=8100, sleep=_w2_sleep, poll=0)
-check("hopper_wait ignores already-waiting condition at start and wakes on new batch ready",
-      w2_rc == 0 and w2_polls[0] == 1 and any("batch ready to merge" in l for l in w2_out),
+check("hopper_wait wakes when waiting job finishes and all work is paused",
+      w2_rc == 0 and w2_polls[0] == 1 and any("paused: review" in l for l in w2_out),
       (w2_rc, w2_polls[0], w2_out))
+
+# 5. H197: paused line format, wake-or-start integrator, once per pause, and clear when work moves on
+t_h197 = time.time() + 100
+with job.locked(job.state_path(h196_root)) as st:
+    st.pop("integrator_launched", None)
+    st["jobs"]["H001"] = {"state": "done", "branch": "gemini/h001-first-job"}
+    st["jobs"]["H002"] = {"state": "waiting", "agent": "codex", "question": "scope?", "question_kind": "scope", "since": t_h197}
+    st["jobs"]["H003"] = {"state": "waiting", "agent": "gemini", "question": "colour?", "question_kind": "behaviour", "since": t_h197 + 1}
+    for jid in ("H004", "H005", "H006"):
+        st["jobs"][jid] = {"state": "done", "branch": f"codex/{jid.lower()}-x"}
+_, _, p_det, _ = job.hopper_step(h196_root, now=t_h197 + 10, launcher=lambda a: 0)
+check("paused wake line lists done jobs and waiting questions with who is asked",
+      p_det == "paused: review H001, H004, H005, H006; questions: H002 (integrator) scope?; H003 (William) colour?",
+      p_det)
+
+# With a live WAIT_FOR_THE_HOPPER pid, --forever does NOT launch an integrator
+wait_proc = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(10)"])
+try:
+    open(job.hopper_wait_pid_path(h196_root), "w").write(f"{wait_proc.pid}\n")
+    int_calls_live = []
+    p_polls = [0]
+    def _stop_after_one(_):
+        p_polls[0] += 1
+        raise SystemExit(0)
+    try:
+        job.hopper(h196_root, forever=True, launcher=lambda a: 0,
+                   integrator_launcher=lambda s, d: int_calls_live.append((s, d)) or 0,
+                   out=lambda *_: None, now=t_h197 + 20, sleep=_stop_after_one, poll=0)
+    except SystemExit:
+        pass
+    check("hopper --forever does not launch an integrator when WAIT_FOR_THE_HOPPER is running",
+          not int_calls_live and "integrator_launched" not in state(h196_root),
+          (int_calls_live, state(h196_root).get("integrator_launched")))
+finally:
+    wait_proc.terminate()
+    wait_proc.wait()
+    if os.path.exists(job.hopper_wait_pid_path(h196_root)):
+        os.unlink(job.hopper_wait_pid_path(h196_root))
+
+# With no wait running, --forever launches at most one integrator per pause, and clears when work moves on
+int_calls = []
+p2_polls = [0]
+def _pause_and_move(_):
+    p2_polls[0] += 1
+    if p2_polls[0] == 1:
+        # Still paused on poll 2: must NOT launch a second integrator
+        return
+    if p2_polls[0] == 2:
+        # Work moves on (H002 answered -> in progress): clears integrator_launched
+        with job.locked(job.state_path(h196_root)) as st:
+            st["jobs"]["H002"] = {"state": "in progress", "agent": "codex", "beat": t_h197 + 30}
+        return
+    raise SystemExit(0)
+
+try:
+    job.hopper(h196_root, forever=True, launcher=lambda a: 0,
+               integrator_launcher=lambda s, d: int_calls.append((s, d)) or 0,
+               out=lambda *_: None, now=t_h197 + 30, sleep=_pause_and_move, poll=0)
+except SystemExit:
+    pass
+check("hopper --forever launches one integrator when no wait is running, not two on the same pause, and clears when work moves on",
+      len(int_calls) == 1 and "paused: review" in int_calls[0][1]
+      and "integrator_launched" not in state(h196_root),
+      (int_calls, state(h196_root).get("integrator_launched")))
 
 shutil.rmtree(h196_base)
 

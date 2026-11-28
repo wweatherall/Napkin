@@ -1,6 +1,6 @@
 ### H197 — When all work is paused, the hopper brings in the integrator: wakes it, or starts a new one
 
-Author: Claude (integrator, opus-integrator) | Date: 2026-11-27 | Status: open | For: gemini | Builds on: H196
+Author: Claude (integrator, opus-integrator) | Date: 2026-11-27 | Status: answered | For: gemini | Builds on: H196
 
 References: P74 (William, 2026-11-27: the hopper brings in the integrator only when all work is paused; questions
 don't hold the queue; a hopper-started integrator has his standing permission), H196 (the hopper in its own window,
@@ -55,3 +55,13 @@ What can fail:
 Checks:
 - `tools/TEST_BEFORE_MERGING.sh` passes; JOB, LAUNCH, LOCK and STARTUP tests include the cases above.
 - `python3 tools/LAUNCH_A_WORKER.py integrator --dry-run` prints the Terminal command and the first message.
+
+Response:
+- `tools/job.py`: updated `_pacing_jobs` / `takeable` / `hopper_wake_conditions` / `hopper_step` so only `in progress` jobs hold `one at a time` (waiting workers idle); replaced standalone `waiting` and `batch_ready` wakes with one `paused` wake (`paused_line`: `paused: review ...; questions: <jid> (integrator|William) ...`); added `hopper_wait_pid_path` pid tracking in `hopper_wait`; and updated `hopper(..., forever=True)` / `hopper_step` to wake a running `WAIT_FOR_THE_HOPPER.py` or launch `launch.py integrator` once per pause (`st["integrator_launched"]`, cleared when work moves on).
+- `tools/launch.py`: added `integrator` target (`opus`, `opus-integrator`, `--add-dir`, `--remote-control`, no bypass flag), `--wake`, and `integrator_prompt` with the P74 standing-permission message and `--hopper` lock command.
+- `tools/integrator.py`: added `--hopper` to `parse_take_args`, `take`, and `take_and_archive`, verifying `integrator_launched["session"] == name` and logging `by hopper (P74)` instead of William's word.
+- `tools/startup.py`: added `split_hopper` and `hopper_session` support in `integrator_next_actions` so hopper-started briefs show `HOLD_THE_INTEGRATOR_LOCK.py <session> --hopper` and `WAIT_FOR_THE_HOPPER.py`.
+- `docs/integrator.md`: updated the hopper paragraph for P74 (questions don't hold the queue, single `paused` wake, wake-or-start integrator).
+- Tests: `tools/test_job.py` (`222/222`), `tools/test_launch.py` (`21/21`), `tools/test_integrator.py` (`17/17`), `tools/test_startup.py` (`80/80`); `python3 tools/LAUNCH_A_WORKER.py integrator --dry-run` printed the Terminal command and first message; `tools/TEST_BEFORE_MERGING.sh` passed (`GATE PASS (scope tools): tools quick test passes; 35 s total`).
+
+Result: H197 merged; hopper wakes or starts the integrator with P74 standing permission only when all work is paused.
