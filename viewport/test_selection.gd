@@ -93,8 +93,9 @@ func _init() -> void:
 	s.leave_context()
 	check("Esc leaves", s.context == "" and seen["context"] == 2)
 	s.enter_context_of("b5")
-	check("double-click on a copy enters its row", s.context == "row:b3" and s.in_context("b4")
-		and not s.in_context("b3") and s.context_assembly() == "")
+	check("double-click on a linked array copy isolates that instance", s.context == "component:b5"
+		and s.in_context("b5") and not s.in_context("b4") and s.is_context_sibling("b4")
+		and s.context_assembly() == "")
 	s.leave_context()
 	s.enter_context_of("b6")
 	check("a loose board has nothing to enter", s.context == "" and seen["context"] == 4)

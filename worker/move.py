@@ -218,6 +218,21 @@ class MoveActions:
     def op_move(self, op):
         if op.get("cut"):
             return self.move_cut(op)
+        boards = self.bodies()
+        drawings = [t for t in op["targets"] if t not in boards and self.drawing(t) is not None]
+        if drawings:
+            if op.get("copy", False):
+                raise OpError("Drawings can be moved. Copy requires boards.", about=drawings)
+            targets = [self.editable_drawing(t) for t in dict.fromkeys(drawings)]
+            offset = vec(op["vector"])
+            if offset.Length > 0.0:
+                self.forget_drawing_outlines(targets)
+                for obj in targets:
+                    obj.Placement = App.Placement(obj.Placement.Base + offset, obj.Placement.Rotation)
+                    obj.OnBody = ""
+            board_targets = [t for t in op["targets"] if t not in drawings]
+            changed = self.op_move({**op, "targets": board_targets}) if board_targets else []
+            return list(dict.fromkeys(drawings)) + changed
         if op.get("selection") and not op.get("copy", False):
             return self.move_selection(op)
         vecv = vec(op["vector"])

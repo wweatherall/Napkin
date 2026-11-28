@@ -292,6 +292,7 @@ func _ready() -> void:
 	doc.start_fresh = test_mode and not heavy_test
 	add_child(doc)
 	doc.sync_started.connect(history._on_sync_started)
+	doc.sync_started.connect(func(): pres.profiles.apply_drawing_edits(ops, doc.consumed_rects()))
 	doc.sent.connect(func(n: int): sent_clock[n] = movie_clock)
 	doc.synced.connect(history._on_synced)
 	doc.sync_failed.connect(history._on_sync_failed)
@@ -599,6 +600,7 @@ func _make_selection() -> void:
 	sel.name = "Selection"
 	sel.doc = doc
 	sel.has_board = func(b): return body_tris.has(b)
+	sel.drawing_owner = pres.profiles.drawing_owner
 	add_child(sel)
 	sel.selection_changed.connect(_on_selection_changed)
 	sel.context_changed.connect(_on_context_changed)
@@ -635,15 +637,19 @@ func _request_properties() -> void:
 	if properties_panel == null or not properties_panel.visible: return
 	properties_request += 1
 	properties_seq = -1
-	if selection.size() != 1:
-		properties_panel.message("Select one piece to inspect its properties.")
+	var unit := sel.inspection_unit()
+	if unit.is_empty():
+		properties_panel.message("Select a piece or a compound to inspect its properties.")
 		return
 	if in_flight or dirty or not opened:
 		properties_panel.message("Waiting for FreeCAD…")
 		return
 	properties_panel.message("Reading properties…")
-	client.send({"cmd": "inspect_properties", "model": model_path, "body": selection[0],
-		"seq": seq, "request_id": properties_request})
+	var req := {"cmd": "inspect_properties", "model": model_path, "body": selection[0],
+		"seq": seq, "request_id": properties_request}
+	if unit.kind != "board":
+		req["group"] = {"kind": unit.kind, "members": unit.bodies, "source": unit.id}
+	client.send(req)
 
 func _on_properties(resp: Dictionary) -> void:
 	if properties_panel == null or not properties_panel.visible: return
@@ -653,7 +659,7 @@ func _on_properties(resp: Dictionary) -> void:
 		properties_panel.message(str(resp.get("error", "Could not read properties")))
 		return
 	if resp.get("model") != model_path: return
-	if selection.size() != 1 or resp.properties.body != selection[0]: return
+	if selection.is_empty() or resp.properties.body != selection[0]: return
 	properties_seq = seq
 	properties_panel.display(resp.properties)
 
@@ -661,7 +667,7 @@ func _edit_property(change: Dictionary) -> void:
 	if properties_seq != seq or dirty or in_flight:
 		_request_properties()
 		return
-	if selection.size() != 1 or change.body != selection[0]: return
+	if sel.inspection_unit().get("kind") != "board" or change.body != selection[0]: return
 	var op := change.duplicate(true)
 	var kind: String = str(op.get("type", "property_edit"))
 	var prefix := "ft" if kind == "fit" else ("uf" if kind == "unfit" else "pr")
@@ -757,7 +763,7 @@ var _first_open := true
 
 # The window <-> worker protocol's version (docs/protocol.md): bump it when a message or shared-file field changes.
 # The worker reports its own (worker/serve.py PROTOCOL_VERSION) in hello; a worker speaking another isn't shared.
-const PROTOCOL_VERSION := 24
+const PROTOCOL_VERSION := 25
 
 
 func _send_open() -> void:

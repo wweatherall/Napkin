@@ -118,6 +118,41 @@ class Model(*action_mixins()):
                 return o
         return None
 
+    def drawing(self, identity):
+        """A native drawing feature, with a line preferred to its generated outline."""
+        if not identity:
+            return None
+        line = next((o for o in self.doc.Objects if getattr(o, "SSLineId", None) == identity), None)
+        return line if line is not None else self.rect_obj(identity)
+
+    def editable_drawing(self, identity):
+        obj = self.drawing(identity)
+        if obj is None or not all(g.TypeId == "App::DocumentObjectGroup" and getattr(g, "SSRole", "") != "assembly"
+                                  for g in obj.InList):
+            raise OpError(f"'{identity}' is not a stand-alone drawing", about=[identity])
+        return obj
+
+    def forget_drawing_outlines(self, drawings):
+        """An edited line can invalidate a generated face. Keep faces still driving a native feature."""
+        def segment(edge):
+            if isinstance(edge.Curve, Part.Line) and len(edge.Vertexes) == 2:
+                return tuple(v.Point for v in edge.Vertexes)
+            return None
+
+        changed = [pair for drawing in drawings if getattr(drawing, "SSLineId", "")
+                   for edge in self.world_shape(drawing).Edges if (pair := segment(edge))]
+        if not changed:
+            return
+
+        def affected(a, b):
+            return any((a.isEqual(x, TOL) and b.isEqual(y, TOL)) or
+                       (a.isEqual(y, TOL) and b.isEqual(x, TOL)) for x, y in changed)
+
+        for outline in self.doc.Objects:
+            if getattr(outline, "SSRole", "") == "line-profile" and self._free(outline, set()):
+                if any(affected(*pair) for edge in self.world_shape(outline).Edges if (pair := segment(edge))):
+                    self.doc.removeObject(outline.Name)
+
     @staticmethod
     def is_instance(obj):
         return obj.TypeId == "App::Link"

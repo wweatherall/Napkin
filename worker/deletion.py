@@ -9,7 +9,7 @@ For a deleted row source, a surviving member is detached as the new original and
 CONTRACT = {
     "type": "delete",
     "fields": {
-        "targets": {"required": True, "kind": "[string]"},
+        "targets": {"required": True, "kind": "[string]", "description": "Board IDs or stand-alone drawing op IDs."},
     },
     "refers_to": ["targets"],
     "creates": ["id"],
@@ -20,8 +20,12 @@ CONTRACT = {
 class DeleteActions:
     def op_delete(self, op):
         targets = list(dict.fromkeys(op["targets"]))
-        objects = [self.body(t) for t in targets]  # validate before changing anything
-        for obj in objects:
+        boards = self.bodies()
+        drawings = [self.editable_drawing(t) for t in targets if t not in boards]
+        self.forget_drawing_outlines(drawings)
+        for drawing in drawings:
+            self.doc.removeObject(drawing.Name)
+        for obj in [boards[t] for t in targets if t in boards]:
             # A row's original is an instance too. Promote a surviving member, leaving the
             # row's origin and indices untouched so spacing, expressions and positions survive.
             arrays = [a for a in self.doc.Objects

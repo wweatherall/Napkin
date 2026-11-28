@@ -70,6 +70,7 @@
     ],
     "fields": {
       "targets": {
+        "description": "Board IDs or stand-alone drawing op IDs.",
         "kind": "[string]",
         "required": true
       }

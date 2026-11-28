@@ -1,6 +1,6 @@
 # Window ↔ worker protocol
 
-The wire protocol's version is **24**: the worker reports it in `hello` (`protocol`), defined once per side (`worker/serve.py` `PROTOCOL_VERSION`, `viewport/main.gd` `PROTOCOL_VERSION`). **Rule: bump it on both sides when a message or a shared-file field changes** (added, removed, renamed or its meaning changed), and update this document. There is no negotiation: a window shares a worker only when the version matches. Existing embedded format identifiers are `oplog/0.1` and `napkin-journal/0.1`; binary meshes use Godot's Variant array encoding. Version history, job tags and the old producer/consumer findings: [protocol-archive.md](protocol-archive.md).
+The wire protocol's version is **25**: the worker reports it in `hello` (`protocol`), defined once per side (`worker/serve.py` `PROTOCOL_VERSION`, `viewport/main.gd` `PROTOCOL_VERSION`). **Rule: bump it on both sides when a message or a shared-file field changes** (added, removed, renamed or its meaning changed), and update this document. There is no negotiation: a window shares a worker only when the version matches. Existing embedded format identifiers are `oplog/0.1` and `napkin-journal/0.1`; binary meshes use Godot's Variant array encoding. Version history, job tags and the old producer/consumer findings: [protocol-archive.md](protocol-archive.md).
 
 ## Transport, identity and lifetime
 
@@ -43,7 +43,7 @@ Examples are illustrative JSON lines; timing values, paths, IDs and hashes vary.
 | `reload` | command | `model`, `outdir?`, `seq?` | `ok`, `cmd`, `model`, `rev`, `ops`, `undo_floor`, `external`, `seq`, `reserved_ids`, `units?`, `recovered?`, `outdir`, `**info` | `worker/serve.py:serve.handle` |
 | `keep_mine` | command | `model`, `outdir?`, `seq?` | `ok`, `cmd`, `model`, `aside`, `rev`, `seq` | `worker/serve.py:serve.handle` |
 | `set_units` | command | `model`, `units?`, `seq?` | `ok`, `cmd`, `model`, `units`, `rev`, `seq` | `worker/serve.py:serve.handle` |
-| `inspect_properties` | command | `model`, `request_id`, `body`, `seq?` | `ok`, `cmd`, `seq`, `model`, `request_id`, `properties` | `worker/serve.py:serve.handle` |
+| `inspect_properties` | command | `model`, `request_id`, `body`, `group?`, `seq?` | `ok`, `cmd`, `seq`, `model`, `request_id`, `properties` | `worker/serve.py:serve.handle` |
 | `sync` | command | `model?`, `outdir`, `ops`, `oplog`, `drawing?`, `name?`, `seq?` | `ok`, `cmd`, `result`, `outdir`, `seq`, `wall_ms` | `worker/serve.py:serve.handle` |
 | `focus` | event | — | `ok`, `cmd`, `model` | `worker/serve.py:serve.handle` |
 | `outside_save` | event | — | `ok`, `cmd`, `model`, `rev`, `unsaved` | `worker/serve.py:serve.hold` |
@@ -54,11 +54,11 @@ Examples are illustrative JSON lines; timing values, paths, IDs and hashes vary.
 
 ### `hello`
 
-Request: `cmd: "hello"`, `seq?`. Success: `ok: true`, `cmd: "hello"`, `seq` (echo or null), `app: "napkin"`, `protocol: integer` (the protocol version, currently 24), `worker: string` (32 lowercase hex MD5), `pid: integer`. The window uses the worker only if `protocol` equals its own version and `worker` its own identity.
+Request: `cmd: "hello"`, `seq?`. Success: `ok: true`, `cmd: "hello"`, `seq` (echo or null), `app: "napkin"`, `protocol: integer` (the protocol version, currently 25), `worker: string` (32 lowercase hex MD5), `pid: integer`. The window uses the worker only if `protocol` equals its own version and `worker` its own identity.
 
 ```json
 {"cmd":"hello"}
-{"ok":true,"cmd":"hello","seq":null,"app":"napkin","protocol":24,"worker":"0123456789abcdef0123456789abcdef","pid":1234}
+{"ok":true,"cmd":"hello","seq":null,"app":"napkin","protocol":25,"worker":"0123456789abcdef0123456789abcdef","pid":1234}
 ```
 
 Producer/consumer: [worker/serve.py](../worker/serve.py):`serve.handle`, `worker_identity`; [viewport/worker_process.gd](../viewport/worker_process.gd):`probe_worker` (`hello`, `worker_of`). Probing uses a separate short-lived connection.
@@ -135,6 +135,8 @@ Request: `cmd: "inspect_properties"`, `model: string`, `body: string` (BodyId), 
 {"cmd":"inspect_properties","model":"/tmp/chair.FCStd","body":"b1","seq":4,"request_id":9}
 {"ok":true,"cmd":"inspect_properties","model":"/tmp/chair.FCStd","seq":4,"request_id":9,"properties":{"body":"b1","boards":{},"summary":{"label":"Board 1","context":"Board","parametric":false,"dimensions":[]},"objects":[],"references":[]}}
 ```
+
+A whole compound adds `group: {kind, members, source}`. `kind` is `"assembly"`, `"row"` or `"component"`, `members` contains the member BodyIds, and `source` identifies the assembly, row source or component instance. The reply carries the title, kind and world-axis bounds in `summary`, with empty `boards`, `objects` and `references` because individual members are edited inside their context.
 
 The illustrative empty arrays above stand for the native data. Snapshot fields:
 
@@ -289,9 +291,9 @@ Other representative payloads:
 
 ### Notes on selection ops
 
-`move` with `selection: true`, `targets: [BodyId, ...]`, `vector`, optional `copy`, `count`, `divide`, `new_ids` and `detach` is one native transaction. A move resolves shared array/mirror sources once through the assembly motion algebra; inside an array, selected copies detach before motion. Copy uses source-major new IDs, one per source per offset. `mirror` uses several BodyIds and the existing plane/replace/new_ids schema. Drafts and confirmation waves contain each affected board. Retyping a multi-copy count/span retains its full target set. A copy that includes every member of an assembly carries `groups: {old AssemblyId: new AssemblyId}` for a single copy, or `groups: {old AssemblyId: [new AssemblyId, ...]}` for a row (T58, I52); group ids are ordered by offset while board ids remain source-major. Each copied assembly has its own group of linked boards. The worker still reads the single-string form in existing journals.
+`move` with `selection: true`, `targets: [BodyId, ...]`, `vector`, optional `copy`, `count`, `divide`, `new_ids` and `detach` is one native transaction. A move accepts stand-alone drawing op IDs alongside BodyIds for translation. A move resolves shared array/mirror sources once through the assembly motion algebra; inside an array, selected copies detach before motion. Copy uses source-major new IDs, one per source per offset. `mirror` uses several BodyIds and the existing plane/replace/new_ids schema. Drafts and confirmation waves contain each affected board. Retyping a multi-copy count/span retains its full target set. A copy that includes every member of an assembly carries `groups: {old AssemblyId: new AssemblyId}` for a single copy, or `groups: {old AssemblyId: [new AssemblyId, ...]}` for a row (T58, I52); group ids are ordered by offset while board ids remain source-major. Each copied assembly has its own group of linked boards. The worker still reads the single-string form in existing journals.
 
-`delete` with `id` and `targets: [BodyId, ...]` removes the selected instances and promotes surviving originals (I46), in one transaction.
+`delete` removes the selected boards and stand-alone drawings in one transaction. `targets` may contain BodyIds and drawing op IDs. Surviving array and component instances can be promoted to original (I46).
 
 ### Notes on fits, pocket-floor ties and hide
 

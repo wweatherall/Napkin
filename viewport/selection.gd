@@ -23,6 +23,7 @@ signal links_changed                # a board left its family or array (the sibl
 signal say(txt: String)             # a status-bar message
 
 var doc                             # document.gd: ops, counters, sync()
+var drawing_owner: Callable = func(_id): return null
 var has_board: Callable = func(_b): return true   # is this board in the model (confirmed or drafted)
 
 var selection: Array = []
@@ -68,7 +69,7 @@ func set_boards(data: Array) -> void:
 			_context_parent = ""
 			context = next
 			context_changed.emit()
-	selection = selection.filter(func(b): return body_family.has(b))
+	selection = selection.filter(func(b): return body_family.has(b) or drawing_owner.call(b) != null)
 
 
 # ---------------- queries ----------------
@@ -84,8 +85,25 @@ func unit_of(bid: String) -> Dictionary:
 		if a != "":
 			return {"id": a, "kind": "assembly", "bodies": body_assembly.keys().filter(func(b): return body_assembly[b] == a)}
 		var r: String = body_row.get(bid, "")
-		if r != "":
-			return {"id": bid, "kind": "row", "bodies": body_row.keys().filter(func(b): return body_row[b] == r)}
+		if r != "" and context == "":
+			return {"id": r, "kind": "row", "bodies": body_row.keys().filter(func(b): return body_row[b] == r)}
+	return {"id": bid, "kind": "board", "bodies": [bid]}
+
+
+func inspection_unit() -> Dictionary:
+	"""One selected piece or one whole compound. A mixed selection has no common properties."""
+	if selection.is_empty(): return {}
+	var bid: String = selection[0]
+	var unit := unit_of(bid)
+	var members: Array = unit.bodies
+	if unit.kind in ["assembly", "row"]:
+		var picked := members.filter(func(b): return not is_hidden(b) or selection.has(b))
+		if picked.size() == selection.size() and picked.all(func(b): return selection.has(b)):
+			return unit
+	if selection.size() != 1: return {}
+	var siblings := siblings_of(bid)
+	if context == "" and unit.kind == "board" and not siblings.is_empty():
+		return {"id": bid, "kind": "component", "bodies": [bid] + siblings}
 	return {"id": bid, "kind": "board", "bodies": [bid]}
 
 
@@ -108,11 +126,13 @@ func _assembly_row(bid: String) -> Dictionary:
 				members.append(other)
 	if rows.is_empty() or assemblies.size() < 2: return {}
 	rows.sort()
-	return {"id": bid, "kind": "row", "source": rows[0], "bodies": members}
+	return {"id": rows[0], "kind": "row", "source": rows[0], "bodies": members}
 
 
 func in_context(bid: String) -> bool:
 	if context == "" or bid == "": return true
+	var on = drawing_owner.call(bid)
+	if on != null: return on != "" and in_context(on)
 	if context.begins_with("assembly:"): return body_assembly.get(bid, "") == context.substr(9)
 	if context.begins_with("component:"): return bid == context.substr(10)
 	var row := _assembly_row(bid)
@@ -175,7 +195,9 @@ func refresh_hidden() -> void:
 
 func is_hidden(bid: String) -> bool:
 	"""Hidden and out of sight: not picked, not snapped to."""
-	return body_deleted.has(bid) or (body_hidden.has(bid) and not show_hidden)
+	if body_deleted.has(bid) or (body_hidden.has(bid) and not show_hidden): return true
+	var owner = drawing_owner.call(bid)
+	return owner != null and owner != "" and (body_deleted.has(owner) or (body_hidden.has(owner) and not show_hidden))
 
 
 # ---------------- selection and context ----------------
@@ -186,7 +208,7 @@ func set_selection(ids: Array) -> void:
 
 
 func enter_context_of(bid: String) -> void:
-	if bid == "" or context.begins_with("component:"): return
+	if bid == "" or context.begins_with("component:") or not in_context(bid): return
 	if context.begins_with("assembly:"):
 		if body_family.get(bid, "") == "" or body_assembly.get(bid, "") != context.substr(9): return
 		_context_parent = context
@@ -197,8 +219,8 @@ func enter_context_of(bid: String) -> void:
 	var row := _assembly_row(bid)
 	if context == "" and not row.is_empty(): context = "row:" + row["source"]
 	elif body_assembly.get(bid, "") != "": context = "assembly:" + body_assembly[bid]
-	elif body_row.get(bid, "") != "": context = "row:" + body_row[bid]
 	elif body_family.get(bid, "") != "": context = "component:" + bid
+	elif context == "" and body_row.get(bid, "") != "": context = "row:" + body_row[bid]
 	else: return
 	_context_parent = ""
 	set_selection([])
@@ -234,9 +256,9 @@ static func _boards_word(n: int) -> String:
 
 func hide_selected() -> void:
 	"""Edit > Hide (H): the selection, else the board (or assembly) under the cursor."""
-	var ids: Array = selection.duplicate()
+	var ids: Array = selection
 	if ids.is_empty() and hover_body != "": ids = unit_of(hover_body).get("bodies", [])
-	ids = ids.filter(func(b): return not body_hidden.has(b))
+	ids = ids.filter(func(b): return not body_hidden.has(b) and drawing_owner.call(b) == null)
 	if ids.is_empty():
 		say.emit("Select the boards to hide first (Select tool)"); return
 	_hide_op(ids, true)
@@ -272,7 +294,7 @@ func toggle_hidden_geometry() -> void:
 
 
 func make_assembly() -> void:
-	var ids := selection.filter(func(b): return body_assembly.get(b, "") == "")
+	var ids := selection.filter(func(b): return body_assembly.get(b, "") == "" and drawing_owner.call(b) == null)
 	if ids.is_empty():
 		say.emit("Select the boards first (Select tool, Shift-click to add)"); return
 	var aid: String = doc.next_id("a")
@@ -300,7 +322,7 @@ func linked_op(kind: String) -> void:
 
 
 func delete_selected() -> void:
-	var ids := selection.filter(func(b): return has_board.call(b) and in_context(b))
+	var ids := selection.filter(func(b): return (has_board.call(b) or drawing_owner.call(b) != null) and in_context(b))
 	if ids.is_empty(): return
 	doc.ops.append({"id": doc.next_id("del"), "type": "delete", "targets": ids})
 	set_selection([])

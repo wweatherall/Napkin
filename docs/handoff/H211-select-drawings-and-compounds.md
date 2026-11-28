@@ -42,3 +42,11 @@ Checks:
 - Named checks: double-click on a member of a linked row of copies enters it (a fixture like William's: one board, 5x copies); click-select a profile; box-select includes it; Delete then Undo brings it back; an assembly, an array
   and a linked component each show their summary properties when selected whole.
 - `tools/TEST_BEFORE_MERGING.sh` passes.
+
+
+Response — Codex, 2026-11-28:
+
+Architecture: `viewport/selection.gd` owns the entered context and resolves a current selection to one piece or one compound for inspection.
+Architecture: `viewport/inference.gd` owns viewport picking for drawable profiles and projected loose edges. `viewport/profiles.gd` owns the visible projection of drawing Move and Delete ops, including undo, redo, and reopen.
+Architecture: `worker/model.py` resolves drawing op IDs to editable native features and clears unused derived outlines when their source geometry changes. The existing `move` and `delete` ops accept drawing op IDs for native transactions.
+Architecture: `worker/object_properties.py` owns the drawing and compound summaries. `inspect_properties` now accepts optional compound membership and drawing IDs. Both sides speak protocol 25.

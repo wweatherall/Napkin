@@ -32,7 +32,11 @@ var sel                                             # selection.gd: is_hidden
 var grid_enabled: Callable = func() -> bool: return true    # the window's grid toggle
 
 
-func pick(screen: Vector2) -> Dictionary:
+func pick_board(screen: Vector2) -> Dictionary:
+	return pick(screen, false)
+
+
+func pick(screen: Vector2, with_profiles := true) -> Dictionary:
 	var o := cam.project_ray_origin(screen)
 	var d := cam.project_ray_normal(screen)
 	var space := world.direct_space_state
@@ -41,7 +45,7 @@ func pick(screen: Vector2) -> Dictionary:
 	var r := space.intersect_ray(q)
 	var q2 := PhysicsRayQueryParameters3D.create(o, o + d * 100.0, 2)
 	q2.hit_back_faces = true
-	var r2 := space.intersect_ray(q2)
+	var r2 := space.intersect_ray(q2) if with_profiles else {}
 	if not r2.is_empty() and (r.is_empty() or o.distance_to(r2["position"]) <= o.distance_to(r["position"]) + 0.002):
 		r = r2   # a rectangle drawn on a face wins over the face itself
 	if not r.is_empty():
@@ -58,6 +62,34 @@ func pick(screen: Vector2) -> Dictionary:
 		if t > 0:
 			return {"hit": true, "point": Geo.g2m(o + d * t), "normal": Vector3(0, 0, 1), "body": "", "rect": "", "ground": true}
 	return {"hit": false}
+
+
+func drawing_hit(screen: Vector2, hit: Dictionary) -> Dictionary:
+	"""A profile face or a visible loose edge near the cursor."""
+	var best := {}
+	var distance := minf(snap_px, 6.0)
+	for id in pres.loose_lines:
+		if not sel.in_context(id) or sel.is_hidden(id): continue
+		var drawing: Dictionary = pres.profiles.drawing(id)
+		var segments: PackedVector3Array = drawing.segments
+		for i in range(0, segments.size(), 2):
+			var a := project(segments[i])
+			var b := project(segments[i + 1])
+			if a.behind or b.behind: continue
+			var near := Geometry2D.get_closest_point_to_segment(screen, a.screen, b.screen)
+			var d := near.distance_to(screen)
+			if d >= distance: continue
+			var ray_at_edge := ray(near)
+			var point := closest_on_segment_to_ray(segments[i], segments[i + 1], ray_at_edge.origin, ray_at_edge.direction)
+			if not _visible(point): continue
+			distance = d
+			best = {"hit": true, "body": id, "rect": "", "point": point, "normal": drawing.normal}
+	if not best.is_empty(): return best
+	var id: String = hit.get("rect", "")
+	if id != "" and not pres.loose_lines.has(id) and sel.in_context(id) and not sel.is_hidden(id):
+		best = hit.duplicate()
+		best.body = id
+	return best
 
 
 func snap(p: Dictionary, screen: Vector2) -> Dictionary:
@@ -122,7 +154,7 @@ func point(screen: Vector2, exclude: String, plane := {}, with_rects := false, n
 			edges["rect " + rid] = perimeter
 	for lid in pres.loose_lines:
 		var line: Dictionary = pres.loose_lines[lid]
-		if line.on != "" and sel.is_hidden(line.on): continue
+		if "line " + lid == exclude or lid == exclude or sel.is_hidden(lid): continue
 		verts["line " + lid] = PackedVector3Array([line.a, line.b])
 		var drawing_id: String = "line " + lid
 		if line.has("pts"):

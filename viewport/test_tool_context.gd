@@ -115,9 +115,9 @@ func check(label: String, condition: bool, detail = "") -> void:
 # The spec's surface (docs/specs/T88-tool-interface.md, "Proposed surface"). `selection.set` is `set_ids`
 # (Object.set can't be overridden).
 const ALLOW := {
-	"pick": ["hit", "snap", "on_grid", "point", "axis", "axis_dest", "plane_dest", "ray", "project", "cursor",
+	"pick": ["hit", "hit_board", "drawing_hit", "snap", "on_grid", "point", "axis", "axis_dest", "plane_dest", "ray", "project", "cursor",
 			 "grid_enabled", "grid_step", "snap_radius"],
-	"model": ["body_ids", "has_body", "triangles", "profile", "stock_frame", "unit_triangles", "cut_at",
+	"model": ["body_ids", "drawing_ids", "drawing", "has_body", "triangles", "profile", "stock_frame", "unit_triangles", "cut_at",
 			  "cut_triangles", "circle_geometry", "polygon_geometry", "lines_on", "drawn_region"],
 	"selection": ["ids", "context", "assembly_of", "members_of", "unit_of", "in_context", "is_hidden",
 				  "context_assembly", "edit_blocked", "set_ids", "enter"],
