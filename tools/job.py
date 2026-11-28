@@ -1381,6 +1381,18 @@ def hopper_wait_pid_path(cwd=None):
     return os.path.join(common_dir(cwd), "shopsketch-hopper-wait.pid")
 
 
+def hopper_woke_path(cwd=None):
+    """The pause a WAIT_FOR_THE_HOPPER last woke its integrator for: that pause needs no new integrator."""
+    return os.path.join(common_dir(cwd), "shopsketch-hopper-wait.woke")
+
+
+def _woke_for(root, key):
+    try:
+        return open(hopper_woke_path(root), encoding="utf-8").read().strip() == repr(key)
+    except OSError:
+        return False
+
+
 def _pid_alive(pid):
     try:
         os.kill(pid, 0)
@@ -1519,6 +1531,7 @@ def hopper_step(root, now=None, dry_run=False, launcher=None, out=print, seen=No
                     return "dry", 0, None, None
                 if (key[0] == "paused" and launch_integrator and not dry_run
                         and _running_pid(hopper_wait_pid_path(root)) is None
+                        and not _woke_for(root, key)
                         and not st.get("integrator_launched")):
                     int_session = _integrator_session_name(root)
                     st["integrator_launched"] = {"session": int_session, "at": now}
@@ -1680,6 +1693,9 @@ def hopper_wait(cwd, out=print, now=None, sleep=time.sleep, poll=None):
                 conds = hopper_wake_conditions(root, st, jobs, order, t, claims=claims, pace=pace, mutate=False)
             for key, detail in conds.items():
                 if key not in seen:
+                    if key[0] == "paused":      # the integrator is told: the hopper mustn't start another for it
+                        with open(hopper_woke_path(root), "w", encoding="utf-8") as f:
+                            f.write(repr(key) + "\n")
                     out(f"{hhmm(t)} {detail}")
                     sys.stdout.flush()
                     return 0
