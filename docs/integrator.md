@@ -113,6 +113,8 @@ Architecture: lines, the response) and CLAUDE.md (commit trailers); this page sa
   `viewport/keys.gd`, `main.gd` `redo`, `tool_context.gd` and `test_tool_context.gd`, `test_tools.gd`,
   `tools/push_tool.gd`, `tools/CLAUDE.md`, `worker/scenario/99_op_registry.py`.
 - **Find callers before finalizing `Touches`**: when a brief changes a tool's hotkey, input mode, op schema, or function contract, run `python3 tools/dependency_map.py touches <file>:<function> [...]` (H174): it prints a ready Touches line from qualified calls, tests on their own, and lists calls it can't resolve for you to check by hand; `callers <file>:<function>` shows each call site. docs/dependency-map.md says which files use which.
+- Who builds it (P77): write a higher-complexity job (several modules, a tricky reading path, FreeCAD geometry, a
+  protocol or saving change) `For: Codex`, so Sol 6.2 takes it; the rest `For: either`, which goes to Gemini first.
 - Write the next jobs as handoff entries (a Status of open is Ready; "queued (after H0NN)" waits), each with its
   Touches list, and keep the board's Order line. Before marking one Ready, compare its Touches with every Ready or
   claimed job's: two whose lists overlap don't run at once (tell William before starting one that does). A

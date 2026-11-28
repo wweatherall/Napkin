@@ -1844,7 +1844,7 @@ def _release_hopper_pid(cwd):
     _release_pid(hopper_pid_path(cwd))
 
 
-GEMINI_LOW = 0.10        # William, 2026-11-28: no new Gemini jobs at or under 10% left of its 5-hour or weekly quota
+GEMINI_LOW = 0.10        # P77, William, 2026-11-28: no new Gemini jobs at or under 10% left of its 5-hour or weekly quota
 QUOTA_FRESH_S = 30 * 60  # an older quota sample says nothing (the monitor may be off): fail open
 
 
