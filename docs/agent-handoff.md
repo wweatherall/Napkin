@@ -29,7 +29,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H201 — A fit names its target face by geometry, follows flips and rotations, and detaches when the face is gone (T161, T163, I75-I77)](handoff/H201-fits-name-faces-by-geometry.md) — status: queued (after H200); for: gemini
 - [H202 — Design: how a fit that lost its face looks (a chain crumbling, or another gentle metaphor), a proposal with drafts for William](handoff/H202-fit-detach-look.md) — status: queued (after H201); for: gemini
 - [H204 — Rename everything to Napkin: the app, its files, the names saved inside models, and the tools (T139, P51)](handoff/H204-rename-to-napkin.md) — status: open; for: gemini
-- [H207 — After a job merges, its worker is asked for feedback in its own session, then its window closes; resume commands are recorded](handoff/H207-feedback-resume-close.md) — status: queued (after H204); for: gemini
+- [H207 — Workers give feedback at every submit and resubmit; resume commands are recorded; windows close after the merge](handoff/H207-feedback-resume-close.md) — status: queued (after H204); for: gemini
 
 <!-- end of open list -->
 

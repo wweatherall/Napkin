@@ -1,4 +1,4 @@
-### H207 — After a job merges, its worker is asked for feedback in its own session, then its window closes; resume commands are recorded
+### H207 — Workers give feedback at every submit and resubmit; resume commands are recorded; windows close after the merge
 
 Author: Claude (integrator, opus-integrator) | Date: 2026-11-27 | Status: queued (after H204) | For: gemini
 
@@ -22,16 +22,14 @@ Reading path:
    transcript, Gemini (agy) brain transcript, and Codex rollout to find that id.
 
 Request:
-1. **Feedback after the merge** (William, 2026-11-27: "I don't want them to give feedback until they've had the full
-   runaround", review, any return and the merge included). When a job merges, the hopper ends the worker's process,
-   then resumes its session non-interactively with the two questions William asked by hand, "How was working on
-   this job in our code base?" and "Any improvements you can think of?", in one message that says the job merged
-   (Claude `claude --resume <id> -p "<message>"`, Gemini `agy --conversation <id> -p "<message>"`, Codex
-   `codex exec resume <id> "<message>"`), run from the job's worktree or the main checkout if it's gone, with a time
-   limit. The answer goes to docs/worker-feedback.md as one dated entry (job, agent, session, the answer), committed
-   on main. Ending the window's process first means two processes never share a conversation. Ask as soon as the
-   merge lands: providers cache a conversation's prompt for a short time (minutes to about an hour), so an early
-   question costs less than a late one. If the resume fails, record that in the entry and go on.
+1. **Feedback at every submit** (William, 2026-11-27: ask when they submit, and again if they have to resubmit).
+   `SUBMIT_JOB.py` refuses until the worker answers the two questions William asked by hand, "How was working on
+   this job in our code base?" and "Any improvements you can think of?" (`SUBMIT_JOB.py --feedback "<answer 1>"
+   --improvements "<answer 2>"`). On a resubmit after a return, the first question becomes "How was the review
+   round: were the return notes clear, and what would have avoided the return?". Each answer goes to
+   docs/worker-feedback.md as one dated entry (job, agent, session, first submit or resubmit, both answers),
+   committed with the job. Asking in the session at submit needs no window typed into, and the conversation's cache
+   is still warm.
 2. **Resume command.** At submit, record the session's resume command in the job's state (for example
    `agy --conversation 1f3e...` run from the job's worktree), found from the agent's own transcript or rollout as
    H195/H206 do; `job.py status` shows it, and the integrator brief lists it for jobs on the desk.
@@ -39,11 +37,11 @@ Request:
    resuming that session in a new window with the return notes as the first message, instead of a fresh worker; with
    no resume command it launches fresh as today.
 4. **Close after merge.** launch.py records the window and the agent's process it opened. After a job merges, the
-   hopper ends that agent's process and closes its window (then asks for feedback, item 1); a job returned or still
+   hopper ends that agent's process and closes its window; a job returned or still
    on the desk keeps its window open until its merge. A window William opened by hand (not recorded) is never touched.
 5. The integrator brief shows feedback entries not yet read, and the integrator marks them read
    (`docs/worker-feedback.md` keeps them all).
-6. Tests for each: after a merge the feedback question is sent to the recorded session (the agent command faked) and the entry is written; the resume command is recorded and
+6. Tests for each: a submit without feedback is refused; a resubmit asks the review-round question; the entry is written; the resume command is recorded and
    used on return; a merged job's recorded window is closed and an unrecorded one isn't (with launch's AppleScript
    faked).
 
