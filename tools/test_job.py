@@ -2065,6 +2065,15 @@ check("hopper_step resumes returned job with resume_cmd and records new window",
       and resumed_calls == [("gemini", "H020", "agy --conversation conv-right-111", "needs one more fix")]
       and {"id": 7002, "pid": 88002} in state(h207_root)["jobs"]["H020"]["windows"],
       (act_res, resumed_calls, state(h207_root)["jobs"]["H020"].get("windows")))
+act_again, _, _, _ = job.hopper_step(
+    h207_root, now=1110,
+    launcher=lambda a: fresh_calls.append(a) or 0,
+    resume_launcher=lambda a, jid, prev: resumed_calls.append((a, jid)) or (0, {"id": 7003}),
+    window_closer=lambda wid: None,
+)
+check("the next poll after resuming a returned job waits for its take, never opens a second window (2026-11-28 window storm)",
+      act_again == "wait" and len(resumed_calls) == 1 and "H020" in state(h207_root).get("launched", {}),
+      (act_again, resumed_calls, state(h207_root).get("launched")))
 
 # Mark merged: if process is still alive, window stays open; once process ends, recorded windows close; unrecorded job untouched
 with job.locked(job.state_path(h207_root)) as st:
