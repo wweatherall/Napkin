@@ -27,7 +27,6 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
 - [H193 — Design: contracts for the ops with modes (move, push_pull, property_edit, fit), a proposal for William](handoff/H193-moded-op-contracts-design.md) — status: open; for: gemini
 - [H194 — The worker checks each op against its contract before running it (ops with a contract only)](handoff/H194-enforce-op-contracts.md) — status: open; for: gemini
-- [H195 — Codex in the token tool: its quota windows and each job's tokens, from Codex's own session logs](handoff/H195-codex-usage.md) — status: open; for: codex
 - [H198 — Push/Pull split, step 1: fitting a face to another board's edge sends a `fit` op (T159, I74)](handoff/H198-face-fit-is-a-fit-op.md) — status: queued (after H194); for: gemini
 - [H199 — Push/Pull split, step 2: creating a board is a `new_board` op, and the one-time updater (T159, I74, A43)](handoff/H199-new-board-op.md) — status: queued (after H198); for: gemini
 - [H200 — Push/Pull split, step 3: resizing plain stock is a `resize_stock` op (T159, I74)](handoff/H200-resize-stock-op.md) — status: queued (after H199); for: gemini
@@ -41,6 +40,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 Full entries in [handoff-archive.md](handoff-archive.md).
 
+- H195 — Codex in the token tool: its quota windows and each job's tokens, from Codex's own session logs. Resolved: merged into main by the integrator, 2026-11-27.
 - H197 — When all work is paused, the hopper brings in the integrator: wakes it, or starts a new one. Resolved: merged into main by the integrator, 2026-11-27.
 - H196 — The hopper runs in its own Terminal window; the integrator waits for it separately (and Order is kept across agents). Resolved: merged into main by the integrator, 2026-11-27.
 - H192 — Contracts for the single-mode board ops (paint, grain, hide, delete, link, assembly, mirror, unfit). Resolved: merged into main by the integrator, 2026-11-27.
@@ -50,9 +50,8 @@ Full entries in [handoff-archive.md](handoff-archive.md).
 - H188 — presenter.gd step 2: drawn profiles (rectangles, circles, polygons, lines) move to their own file, behaviour unchanged. Resolved: merged into main by the integrator, 2026-11-27.
 - H187 — main.gd step 2: model files and rejection handling move to their own files, behaviour unchanged. Resolved: merged into main by the integrator, 2026-11-27.
 - H186 — Napkin's top level: two old launchers go, the wave simulator moves to tools/. Resolved: merged into main by the integrator, 2026-11-27.
-- H184 — The field audit checks each run of an op, not all runs of its type lumped together. Resolved: merged into main by the integrator, 2026-11-27.
 
-Older: docs/handoff-archive.md (192 entries; find one with grep "^### H0NN" docs/handoff-archive.md)
+Older: docs/handoff-archive.md (193 entries; find one with grep "^### H0NN" docs/handoff-archive.md)
 
 ## Entry template
 
