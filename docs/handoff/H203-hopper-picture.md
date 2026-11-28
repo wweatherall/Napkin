@@ -19,14 +19,17 @@ Request:
    where the terminal supports it, never violet, red or amber, G07):
    - **the hopper** (a funnel drawn in ASCII) holding the Ready and queued jobs in Order, each as `H198 split 1`
      (id and a short title), queued ones marked with what they wait for;
-   - **the workbench** under its spout: each job in progress with who is on it (`gemini-larch`), for how long, and a
-     mark when it is waiting on a question (`?`);
+   - **the workbench** under its spout: each job in progress with who is on it (`gemini-larch`) and for how long;
+   - **the bench for questions** beside it, kept apart so it is never read as a second running job (William,
+     2026-11-27: a job waiting on a question, with the next job started meanwhile under P74, looked like two jobs
+     running at once): each waiting job with who asked whom (`gemini-larch asks the integrator` / `asks William`),
+     the question cut to one line, and how long it has waited; and, when a job runs meanwhile, a line saying so
+     (`H199 started while H198 waits for an answer`);
    - **the integrator's desk**: the done jobs waiting for review/merge, in batch order, and the last merged one.
    Empty parts still draw (an empty funnel, an empty desk). Long titles are cut to fit with `…`.
 2. `SHOW_THE_HOPPER.py` prints it; `--watch` redraws in place when the queue file changes (no polling faster than the
    queue's own WATCH_POLL). The hopper's own window (H196) shows the same picture above its log lines.
-3. Tests: a fixed queue state draws a fixed picture (a golden text), the three empty cases, a long title, and a
-   question mark on a waiting job.
+3. Tests: a fixed queue state draws a fixed picture (a golden text), the three empty cases, a long title, a waiting job drawn on the questions bench (never on the workbench), with the 'started while' line when another job runs.
 4. Make it a little delightful: a small touch or two (a job dropping out of the spout when taken, a tidy stack on the
    desk) is welcome, as long as the picture stays readable in an 80x24 terminal.
 
