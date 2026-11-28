@@ -1,6 +1,6 @@
 ### H201 — A fit names its target face by geometry, follows flips and rotations, and detaches when the face is gone (T161, T163, I75-I77)
 
-Author: Claude (integrator, opus-integrator) | Date: 2026-11-27 | Status: answered | For: gemini | Item: T161
+Author: Claude (integrator, opus-integrator) | Date: 2026-11-27 | Status: open | For: codex | Item: T161
 
 References: I75 (a fit names its face by {normal, point}), I76 (it stays live when the target is flipped, mirrored or
 rotated; the 90-degree pause for rectangular targets; a rotation ending in the pause leaves it paused), I77 (when the

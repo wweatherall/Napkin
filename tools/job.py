@@ -86,6 +86,8 @@ START = "<!-- job table: built by tools/job.py board from docs/handoff/ and the 
 END = "<!-- end of job table -->"
 ACTIVE = ("in progress", "waiting", "done", "returned")     # a job in one of these holds its files
 WORKING = ("in progress", "waiting")                         # ... and in one of these, its session
+TAKEN = ("in progress", "waiting", "done")                  # a launched worker has taken its job (not "returned":
+                                                            # a resumed returned job is still returned until it's taken)
 INTERESTING = re.compile(r"godot|freecad|\.sh\b|python", re.I)
 RESPONSE = re.compile(r"^[#*\s]*Response\b", re.M)
 
@@ -1384,6 +1386,11 @@ def reassign_job(cwd, jid, to_agent, notes=None, now=None, out=print):
             wt = target
         old_agent = j.get("agent")
         note = notes if notes else f"reassigned from {old_agent} by the integrator"
+        if j.get("notes") and j["notes"] not in note:
+            note = f"{note}\n\nEarlier notes: {j['notes']}"     # a return's notes (the repro) survive a reassign
+        if agent != old_agent:
+            j.pop("resume_cmd", None)    # another agent's session can't be resumed by this one
+            j.pop("space", None)
         for sess_jobs in st.get("sessions", {}).values():
             while jid in sess_jobs:
                 sess_jobs.remove(jid)
@@ -1834,7 +1841,7 @@ def hopper_wake_conditions(root, st, jobs, order, now, claims=None, pace="all at
                 )
     launched = st.get("launched", {})
     for jid, info in list(launched.items()):
-        if st["jobs"].get(jid, {}).get("state") in ACTIVE:
+        if st["jobs"].get(jid, {}).get("state") in TAKEN:
             if mutate:
                 launched.pop(jid, None)
         elif now - info.get("at", 0) >= LAUNCH_TIMEOUT:
@@ -1846,7 +1853,7 @@ def hopper_wake_conditions(root, st, jobs, order, now, claims=None, pace="all at
             )
     running = [jid for jid, s in st["jobs"].items() if s.get("state") == "in progress"]   # a waiting job is paused work
     pending = [jid for jid, info in launched.items()
-               if st["jobs"].get(jid, {}).get("state") not in ACTIVE and now - info.get("at", 0) < LAUNCH_TIMEOUT]
+               if st["jobs"].get(jid, {}).get("state") not in TAKEN and now - info.get("at", 0) < LAUNCH_TIMEOUT]
     if not running and not pending:
         picked, _ = _next_hopper_candidate(root, st, jobs, order, claims, pace)
         if picked is None:
