@@ -33,3 +33,7 @@
 ### 2026-11-28 07:58 — H208 (codex, 01a22259-fffe-7730-ae03-79149a9938c1, first submit)
 - **How was working on this job in our code base?** The shared worker test helper covered several direct FreeCAD launches. The floor-copy check exposed an implicit dependency on the desktop backup preference once the suite ran with clean configs.
 - **Any improvements you can think of?** Keep test subprocesses behind their shared launch helpers and set any preferences a fixture depends on explicitly.
+
+### 2026-11-28 10:11 — H214 (gemini, fba6d597-0497-4fd3-8e05-be47be972671, first submit)
+- **How was working on this job in our code base?** H214 brief was clear and well-scoped; noting that tools/test_inventory.py starts with test_ despite Touches saying it has no test_ prefix, so # runner: none was needed in its header to keep featuretest.sh from running it recursively.
+- **Any improvements you can think of?** When a new tools/ script starts with test_ and is not a test file, mention # runner: none in the brief or name it without the test_ prefix.
