@@ -24,3 +24,6 @@
 ### 2026-11-28 08:05 — H209 (codex, 01a22273-35ee-79f0-ac09-adb534271f8e, first submit)
 - **How was working on this job in our code base?** The existing registry check exercised the actual toolbar. Adding a width check made the first layout failure as easy to measure as it was to see in the capture.
 - **Any improvements you can think of?** The merge gate already records a clean quick-test pass. The worker checklist could accept that pass in place of asking for a second quick run on the same commit.
+### 2026-11-28 08:34 — H202 (codex, 01a22280-8112-77d1-825e-f1ba4a0a07de, first submit)
+- **How was working on this job in our code base?** The existing stock and line helpers gave the standalone demo the same visual language as the viewport. The design brief made the comparison easy to verify.
+- **Any improvements you can think of?** Consider a gate scope for standalone demos that combines the tools gate with headless scene loads. Adding demo source currently triggers app checks in the ordinary scope resolver.
