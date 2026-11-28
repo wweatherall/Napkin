@@ -218,6 +218,7 @@ Work list items that are finished (and Split ones whose parts are all done).
 | T156 | One personal space per model and job (sonnet-coder, opus-coder, gemini-hydrogen-coder, ... | Done |
 | T157 | Replay's reply says cmd sync (protocol finding 6): a consumer matching a reply's cmd to... | Done |
 | T158 | The window sends the op list's name nested (oplog.name) but the worker's run_sync reads... | Done |
+| T159 | Clarify push_pull and separate its jobs: one op today extrudes a profile or face, cuts,... | Done |
 | T160 | Check every field the window sends in an op is one the worker reads (today unknown fiel... | Done |
 | T162 | Fits become their own ops: plane_fit and replace_fit leave property_edit as fit and unf... | Done |
 
