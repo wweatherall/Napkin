@@ -3,7 +3,7 @@
 "Check the board" sends you here. Only the integrator edits this file; the job table is built from docs/handoff/
 and the job queue.
 
-Order: H191, H192, H196, H197, H195, H193, H194, H198, H199, H206, H205, H204, H207, H200, H201, H202, H203
+Order: H191, H192, H196, H197, H195, H193, H194, H198, H199, H206, H205, H204, H207, H200, H201, H211, H208, H209, H210, H202, H203
 Pace: one at a time
 
 ## If you're not the integrator
@@ -73,7 +73,11 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H201 | Codex | Returned: **Ready** for Codex (resumes gemini/h201-fits-name-faces-by-geometry) | A fit names its target face by geometry, follows flips and rotations, and detaches when the face is gone (T161, T163, I75-I77) | [H201](docs/handoff/H201-fits-name-faces-by-geometry.md) |  |
+| H201 | Codex | **Done**: for review (codex) | A fit names its target face by geometry, follows flips and rotations, and detaches when the face is gone (T161, T163, I75-I77) | [H201](docs/handoff/H201-fits-name-faces-by-geometry.md) |  |
+| H211 | Codex | **Ready** | Double-click enters William's copies; drawings (2D shapes) can be selected; a compound's properties show (T167) | [H211](docs/handoff/H211-select-drawings-and-compounds.md) |  |
+| H208 | Codex | **Ready** | Napkin's freecadcmd never saves over William's FreeCAD settings (T167) | [H208](docs/handoff/H208-freecad-settings-kept.md) |  |
+| H209 | Codex | **Ready** | The toolbar shows each tool's key in brackets next to its name (T167) | [H209](docs/handoff/H209-toolbar-shows-hotkeys.md) |  |
+| H210 | Codex | **Ready** | Typed copy counts: 5x, x5, *5 (and 5*) all work after a move or copy (T167) | [H210](docs/handoff/H210-typed-copy-counts.md) |  |
 | H202 | Codex | Queued | Design: how a fit that lost its face looks (a chain crumbling, or another gentle metaphor), a proposal with drafts for William | [H202](docs/handoff/H202-fit-detach-look.md) | H201 |
 
 <!-- end of job table -->
