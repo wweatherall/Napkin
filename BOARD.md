@@ -3,7 +3,7 @@
 "Check the board" sends you here. Only the integrator edits this file; the job table is built from docs/handoff/
 and the job queue.
 
-Order: H187, H188, H189
+Order: H187, H188, H189, H190
 Pace: one at a time
 
 ## If you're not the integrator
@@ -72,9 +72,10 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H187 | Gemini | **Ready** | main.gd step 2: model files and rejection handling move to their own files, behaviour unchanged | [H187](docs/handoff/H187-split-main-gd-step-2.md) |  |
-| H188 | Gemini | **Ready** | presenter.gd step 2: drawn profiles (rectangles, circles, polygons, lines) move to their own file, behaviour unchanged | [H188](docs/handoff/H188-split-presenter-gd-step-2.md) |  |
-| H189 | Gemini | **Ready** | An op contract, piloted on Circle: what it takes, refers to and creates, written once beside its handler and checked everywhere else | [H189](docs/handoff/H189-circle-op-contract.md) |  |
+| H187 | Gemini | **Done**: for review (gemini) | main.gd step 2: model files and rejection handling move to their own files, behaviour unchanged | [H187](docs/handoff/H187-split-main-gd-step-2.md) |  |
+| H188 | Gemini | **Done**: for review (gemini) | presenter.gd step 2: drawn profiles (rectangles, circles, polygons, lines) move to their own file, behaviour unchanged | [H188](docs/handoff/H188-split-presenter-gd-step-2.md) |  |
+| H189 | Gemini | In progress (gemini since 19:24) | An op contract, piloted on Circle: what it takes, refers to and creates, written once beside its handler and checked everywhere else | [H189](docs/handoff/H189-circle-op-contract.md) |  |
+| H190 | Gemini | **Ready** | What each step cost: a member's Log shown with the quota used between its lines | [H190](docs/handoff/H190-log-with-usage.md) |  |
 
 <!-- end of job table -->
 
