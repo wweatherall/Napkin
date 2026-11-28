@@ -304,17 +304,18 @@ VALID_PACES = ("all at once", "one at a time")
 
 
 def board_pace(board_text):
-    """(pace, warning) from the board's "Pace:" line. Missing or unknown values fall back to "all at once"."""
+    """(pace, warning) from the board's "Pace:" line. Missing or unknown values fall back to "one at a time" (P-new-1:
+    parallel jobs' tests overload the machine and fail; "all at once" only when the board says so)."""
     line = next((l for l in (board_text or "").split("\n") if l.startswith("Pace:")), None)
     if line is None:
-        return "all at once", None
+        return "one at a time", None
     raw = line.split(":", 1)[1].strip()
     if not raw:
-        return "all at once", None
+        return "one at a time", None
     val = raw.lower()
     if val in VALID_PACES:
         return val, None
-    return "all at once", f"warning: unknown Pace {raw!r} in {BOARD} (expected 'one at a time' or 'all at once'; treating as 'all at once')"
+    return "one at a time", f"warning: unknown Pace {raw!r} in {BOARD} (expected 'one at a time' or 'all at once'; treating as 'one at a time')"
 
 
 def main_pace(root):
@@ -370,8 +371,9 @@ def resolve_dependencies(jobs, st=None):
 
 
 def _pacing_jobs(st):
-    """Jobs that hold the `one at a time` pace (P74): only `in progress` jobs; waiting workers idle."""
-    return [jid for jid, s in st["jobs"].items() if s.get("state") == "in progress"]
+    """Jobs that hold the `one at a time` pace (P-new-1, replacing P74's "questions don't hold the queue"): `in progress`
+    and `waiting` jobs, so an answered worker never resumes its tests beside another job's."""
+    return [jid for jid, s in st["jobs"].items() if s.get("state") in ("in progress", "waiting")]
 
 
 def takeable(root, st, agent, jobs, order, claims=None, pace="all at once"):
@@ -1471,10 +1473,10 @@ def hopper_wake_conditions(root, st, jobs, order, now, claims=None, pace="all at
             conds[("launch_timeout", jid, info.get("at"))] = (
                 f"launch timeout: {jid} ({info.get('agent')}) hasn't taken its job in {mins} min"
             )
-    pacing = _pacing_jobs(st)
+    running = [jid for jid, s in st["jobs"].items() if s.get("state") == "in progress"]   # a waiting job is paused work
     pending = [jid for jid, info in launched.items()
                if st["jobs"].get(jid, {}).get("state") not in ACTIVE and now - info.get("at", 0) < LAUNCH_TIMEOUT]
-    if not pacing and not pending:
+    if not running and not pending:
         picked, _ = _next_hopper_candidate(root, st, jobs, order, claims, pace)
         if picked is None:
             done_ids = [jid for jid, s in st["jobs"].items() if s.get("state") == "done"]

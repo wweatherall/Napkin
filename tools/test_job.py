@@ -49,6 +49,7 @@ def entry(hid, who, status, touches, subject="a job"):
 BOARD = f"""# Work board
 
 Order: H001, H002, H003, H005, H004, H006
+Pace: all at once
 
 ## Jobs
 
@@ -1520,14 +1521,14 @@ shutil.rmtree(m_base)
 
 # H185: Pace, stacking on done branches, return_job stacked warning, and hopper_step
 h_base, h_root = repo()
-# 1. board_pace: missing -> all at once, unknown -> all at once + warning in status
+# 1. board_pace: missing -> one at a time, unknown -> one at a time + warning in status (P-new-1)
 p_none, w_none = job.board_pace("Order: H001\n")
 p_one, w_one = job.board_pace("Order: H001\nPace: one at a time\n")
 p_bad, w_bad = job.board_pace("Order: H001\nPace: turbo\n")
 check("board_pace handles missing, valid, and unknown values",
-      p_none == "all at once" and w_none is None
+      p_none == "one at a time" and w_none is None
       and p_one == "one at a time" and w_one is None
-      and p_bad == "all at once" and "unknown Pace" in w_bad,
+      and p_bad == "one at a time" and "unknown Pace" in w_bad,
       (p_none, w_none, p_one, w_one, p_bad, w_bad))
 b_orig = open(os.path.join(h_root, "BOARD.md")).read()
 open(os.path.join(h_root, "BOARD.md"), "w").write(b_orig.replace("Order:", "Pace: turbo\nOrder:"))
@@ -1545,13 +1546,21 @@ j_blocked, out_blocked = run(job.take, h_root, "gemini", "s-h185-2", now=2005)
 check("one at a time blocks taking a second job while one is in progress",
       j1 == "H001" and j_blocked is None and "pace is one at a time" in out_blocked, (j1, j_blocked, out_blocked))
 
-# Scope question (waiting on integrator) does NOT hold the pace for non-overlapping jobs (P74), still blocks overlapping
+# A waiting job holds the pace too (P-new-1): nothing else starts while a question waits
 wt1 = job.worktree_for(h_root, j1)
 run(job.wait, wt1, "can I touch b?", now=2010, scope=True, wait=0)
+j_scope_held, out_held = run(job.take, h_root, "gemini", "s-h185-2", now=2015)
+check("a waiting job holds the one-at-a-time pace (P-new-1)",
+      j_scope_held is None and "pace is one at a time (H001 active)" in out_held, (j_scope_held, out_held))
+# The rest of this test needs H003 in progress beside H001: take it under "all at once", then set the pace back
+open(os.path.join(h_root, "BOARD.md"), "w").write(b_orig.replace("Order:", "Pace: all at once\nOrder:"))
+commit(h_root, "set Pace: all at once")
 j_scope_other, _ = run(job.take, h_root, "gemini", "s-h185-2", now=2015)
+check("all at once: a non-overlapping job starts beside a waiting one", j_scope_other == "H003", j_scope_other)
+open(os.path.join(h_root, "BOARD.md"), "w").write(b_orig.replace("Order:", "Pace: one at a time\nOrder:"))
+commit(h_root, "set Pace: one at a time again")
 j_scope_overlap, _ = run(job.take, h_root, "claude", "s-h185-2b", now=2015)
-check("waiting on integrator (scope) does not hold the pace for non-overlapping jobs, still blocks overlapping (P74)",
-      j_scope_other == "H003" and j_scope_overlap is None, (j_scope_other, j_scope_overlap))
+check("one at a time again: nothing else starts", j_scope_overlap is None, j_scope_overlap)
 
 # Finish H003 and H001 so H002 can stack on H001
 wt3 = job.worktree_for(h_root, "H003")
