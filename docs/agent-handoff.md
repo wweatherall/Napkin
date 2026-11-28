@@ -25,7 +25,6 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 <!-- open list: built from docs/handoff/ by tools/handoff.py; don't edit by hand -->
 
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
-- [H190 — What each step cost: a member's Log shown with the quota used between its lines](handoff/H190-log-with-usage.md) — status: open; for: gemini
 
 <!-- end of open list -->
 
@@ -33,6 +32,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 Full entries in [handoff-archive.md](handoff-archive.md).
 
+- H190 — What each step cost: a member's Log shown with the quota used between its lines. Resolved: merged into main by the integrator, 2026-11-27.
 - H189 — An op contract, piloted on Circle: what it takes, refers to and creates, written once beside its handler and checked everywhere else. Resolved: merged into main by the integrator, 2026-11-27.
 - H188 — presenter.gd step 2: drawn profiles (rectangles, circles, polygons, lines) move to their own file, behaviour unchanged. Resolved: merged into main by the integrator, 2026-11-27.
 - H187 — main.gd step 2: model files and rejection handling move to their own files, behaviour unchanged. Resolved: merged into main by the integrator, 2026-11-27.
@@ -42,9 +42,8 @@ Full entries in [handoff-archive.md](handoff-archive.md).
 - H182 — What an op creates: the window and FreeCAD agree, checked by one shared table. Resolved: merged into main by the integrator, 2026-11-27.
 - H185 — The hopper: queued jobs run one at a time, each worker starting the next, and the integrator merges the batch once. Resolved: merged into main by the integrator, 2026-11-27.
 - H177 — main.gd step 1: history replies and live preferences move to their own files, behaviour unchanged. Resolved: merged into main by the integrator, 2026-11-27.
-- H181 — presenter.gd step 1: confirmation waves and selection drawing move to their own files, behaviour unchanged. Resolved: merged into main by the integrator, 2026-11-27.
 
-Older: docs/handoff-archive.md (187 entries; find one with grep "^### H0NN" docs/handoff-archive.md)
+Older: docs/handoff-archive.md (188 entries; find one with grep "^### H0NN" docs/handoff-archive.md)
 
 ## Entry template
 

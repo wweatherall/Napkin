@@ -379,5 +379,39 @@ if _cdir and os.path.isfile(os.path.join(_cdir, "P16.md")):
     check("smoke: startup.py P16 prints P16 from comitatus when not on Napkin main",
           r_p16.returncode == 0 and "== P16" in r_p16.stdout and "One Claude session is the integrator" in r_p16.stdout)
 
+# --- Integrator Log usage annotation (H190) ---
+with tempfile.TemporaryDirectory(prefix="startup-h190-") as tmp:
+    sample_slines = [
+        'Log (opus-integrator, last 10 lines; WRITE_IN_YOUR_LOG.py opus-integrator "..."):',
+        "  2026-11-27 18:54 merged H184",
+        "  2026-11-27 19:05 merged H186",
+        'Journal (opus-integrator, last 10 lines; WRITE_IN_YOUR_JOURNAL.py opus-integrator "..."):',
+        "  2026-11-27 19:00 felt good",
+    ]
+    annotated = s.annotate_integrator_log_lines(sample_slines, {"2026-11-27 18:54 merged H184": 0.012})
+    check("annotate_integrator_log_lines appends [claude 5h -1.2] only to matching Log lines",
+          annotated[1] == "  2026-11-27 18:54 merged H184  [claude 5h -1.2]"
+          and annotated[2] == "  2026-11-27 19:05 merged H186"
+          and annotated[4] == "  2026-11-27 19:00 felt good")
+
+    # Absent tool fails open
+    check("fetch_log_claude_5h returns {} when tool is absent",
+          s.fetch_log_claude_5h(tmp, "opus-integrator", usage_tool=os.path.join(tmp, "missing.py")) == {})
+
+    # Raising/failing tool fails open
+    bad_tool = os.path.join(tmp, "bad_tool.py")
+    open(bad_tool, "w").write("import sys; sys.exit(1)\n")
+    check("fetch_log_claude_5h returns {} when tool exits non-zero",
+          s.fetch_log_claude_5h(tmp, "opus-integrator", usage_tool=bad_tool) == {})
+
+    # Working tool returns claude-5h map
+    good_tool = os.path.join(tmp, "good_tool.py")
+    open(good_tool, "w").write(
+        'import json; print(json.dumps({"rows": [{"raw": "2026-11-27 18:54 merged H184", "claude": {"claude-5h": 0.012}}]}))\n'
+    )
+    check("fetch_log_claude_5h parses claude-5h from tool --json output",
+          s.fetch_log_claude_5h(tmp, "opus-integrator", usage_tool=good_tool)
+          == {"2026-11-27 18:54 merged H184": 0.012})
+
 print(f"STARTUP TESTS: {sum(RESULTS)} passed, {len(RESULTS) - sum(RESULTS)} failed")
 sys.exit(0 if all(RESULTS) else 1)

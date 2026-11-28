@@ -644,6 +644,66 @@ def space_lines(root, space):
     return lines
 
 
+def _usage_tool(root):
+    """comitatus/09_Tools/MEASURE_TOKEN_USE.py when the main checkout sits under 08_Code_Bases, else ''."""
+    override = os.environ.get("SHOPSKETCH_USAGE_TOOL")
+    if override is not None:
+        return override
+    top = os.path.realpath(root)
+    parent = os.path.dirname(top)
+    if os.path.basename(parent) != "08_Code_Bases":
+        return ""
+    return os.path.join(os.path.dirname(parent), "09_Tools", "MEASURE_TOKEN_USE.py")
+
+
+def fetch_log_claude_5h(root, space, last=10, usage_tool=None):
+    """Call MEASURE_TOKEN_USE.py log --json fail-open; return {raw_line: claude_5h_frac}."""
+    tool = _usage_tool(root) if usage_tool is None else usage_tool
+    if not tool or not os.path.isfile(tool):
+        return {}
+    cmd = [sys.executable, tool, "--repo", root, "log", space, "--last", str(last), "--json"]
+    try:
+        r = subprocess.run(cmd, capture_output=True, text=True, timeout=5, check=False)
+        if r.returncode != 0 or not r.stdout.strip():
+            return {}
+        data = json.loads(r.stdout)
+    except Exception:
+        return {}
+    out = {}
+    for row in data.get("rows") or []:
+        if not isinstance(row, dict):
+            continue
+        raw = row.get("raw")
+        claude = row.get("claude")
+        if raw and isinstance(claude, dict) and isinstance(claude.get("claude-5h"), (int, float)):
+            out[raw] = float(claude["claude-5h"])
+    return out
+
+
+def annotate_integrator_log_lines(slines, usage_by_raw):
+    """Append '  [claude 5h -X.X]' to lines in the Log block of personal_space.brief_lines."""
+    if not slines or not usage_by_raw:
+        return slines
+    out = []
+    in_log = False
+    for line in slines:
+        if line.startswith("Log ("):
+            in_log = True
+            out.append(line)
+            continue
+        if in_log and not line.startswith("  "):
+            in_log = False
+        if in_log and line.startswith("  "):
+            raw = line[2:]
+            if raw in usage_by_raw:
+                pp = round(usage_by_raw[raw] * 100.0, 1)
+                tag = "0.0" if pp <= 0.0 else f"-{pp:.1f}"
+                out.append(f"{line}  [claude 5h {tag}]")
+                continue
+        out.append(line)
+    return out
+
+
 PERSONAL_TIME = {
     "worker": (
         "When your job comes back clean (submitted with its tests passing), you may spend up to 1% of your 5-hour "
@@ -924,7 +984,10 @@ def main(argv):
         inotes = integrator_notes(texts)
         state_note_ids = [h.split()[0] for h, p in inotes if is_state_note(os.path.basename(p), texts.get(os.path.basename(p), ""))]
         if role == "integrator":
-            slines = space_lines(root, space or INTEGRATOR_SPACE)
+            member = space or INTEGRATOR_SPACE
+            slines = space_lines(root, member)
+            if slines:
+                slines = annotate_integrator_log_lines(slines, fetch_log_claude_5h(main_repo, member))
             jlines = [] if slines else journal_lines(root)
             for sl in slines:
                 print(sl)
