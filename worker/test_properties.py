@@ -7,6 +7,7 @@ sys.path.insert(0, str(HERE))
 import test_load  # Configure the FreeCAD test runtime before loading worker modules.
 import FreeCAD as App
 from session import Session
+from model import OpError
 from object_properties import inspect  # noqa: E402
 passed = 0
 
@@ -145,11 +146,18 @@ for mode in (1, 2):
 edge_session.sync(edge_ops)
 # Pull the low end of a board down to a rail. Replacing its length keeps the high end fixed.
 raised_leg = dict(base_ops[0],plane={'normal':[0,0,1],'origin':[0,0,200]})
-low_fit = dict(type='push_pull',id='low',target={'face':{'body':'b1','normal':[0,0,-1],'point':[40,20,200]}},
-               distance=105,edge_fit={'target_body':'b2','face':5})
+low_fit = dict(type='fit',id='low',body='b1',target_body='b2',axis=2,face=5,fit_mode=0,reverse=True)
 low_ops = rail+[raised_leg,base_ops[1],low_fit]
 edge_session.sync(low_ops)
 check('push from low end anchors the high end',abs(piece_volume()-625000)<0.01)
+bad_face_fit = dict(type='push_pull',id='bad_fit',target={'face':{'body':'b1','normal':[0,0,-1],'point':[40,20,200]}},
+                    distance=105,edge_fit={'target_body':'b2','face':5})
+refused = False
+try:
+    edge_session.model.apply(bad_face_fit)
+except OpError:
+    refused = True
+check('push_pull with edge_fit on face is refused', refused)
 edge_session.sync(low_ops+[dict(detach,id='low_replace')])
 bounds=edge_session.model.world_shape(edge_session.model.body('b1')).BoundBox
 check('detaching low end preserves high end',abs(bounds.ZMax-220)<0.01 and abs(bounds.ZMin-200)<0.01)

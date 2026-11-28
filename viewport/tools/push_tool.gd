@@ -391,39 +391,63 @@ func _finish_push() -> void:
 func commit_push(d: float, edge_fit := {}, snapped_to_floor := false) -> void:
 	if absf(d) < GEOMETRY_TOLERANCE_MM: return
 	ctx.ui.clear_rejection()
-	var oid := ctx.document.next_id("pp")
-	var op := {"id": oid, "type": "push_pull", "distance": d}
+	var op: Dictionary
 	var on := ""
-	if state["rect"] != "":
-		op["target"] = {"rect": state["rect"]}
-		on = ctx.model.profile(state["rect"]).on
-	else:
-		op["target"] = {"face": {"body": state["body"], "normal": Geo.arr3(state["n"]), "point": Geo.arr3(state["anchor"])}}
-		on = state["body"]
-	if state.has("region"):
-		var r: Dictionary = state.region
-		var array3 := func(v: Vector3) -> Array: return [v.x, v.y, v.z]
-		op.target["region"] = {"outline": Array(r.outline).map(array3),
-			"holes": r.holes.map(func(h): return Array(h).map(array3)), "lines": r.lines,
-			"normal": array3.call(state.n)}
-		if on == "": op.target.erase("face")
-	var depths: Array = state.get("depths", [])
-	if d < 0 and not depths.is_empty() and absf(d - float(depths.back())) < 0.01:
-		op["through"] = true        # to the opposite face: FreeCAD keeps it through if the board changes (I24)
 	var new_id := ""
-	# a rectangle becomes its own board (free, or on a face with "new board" on);
-	# pushing a body's own face always edits that body, like SketchUp
-	if (state["rect"] != "" or state.has("region")) and (on == "" or (d > 0 and ctx.ui.new_board())):
-		new_id = ctx.document.next_id("b")
-		op["body"] = new_id
-		if ctx.selection.context_assembly() != "": op["assembly"] = ctx.selection.context_assembly()   # drawn inside: it joins (T20)
-	if not edge_fit.is_empty():
-		op["edge_fit"] = edge_fit.duplicate()
-	elif not state.has("region") and state.rect == "" and not ctx.model.stock_frame(on).get("fitted", true) and ctx.model.stock_frame(on).get("rectangular", true):
-		op["resize_stock"] = true
-	if snapped_to_floor and d < 0 and on != "" and (state.rect != "" or state.has("region")) \
-			and not (op.has("through") or op.has("body") or op.has("edge_fit") or op.has("resize_stock")):
-		op["to_face"] = {"normal": Geo.arr3(state.n), "point": Geo.arr3(state.anchor + state.n * d)}
+	if not edge_fit.is_empty() and state["rect"] == "" and not state.has("region"):
+		on = state["body"]
+		var src := ctx.model.stock_frame(on)
+		if src.is_empty() or not src.has("axes"): return
+		var axes_to_check: Array = [0, 1, 2] if src.get("rectangular", true) else [2]
+		var axis := -1
+		for i in axes_to_check:
+			if absf(_vec(src.axes[i]).dot(state["n"])) > 0.9999:
+				axis = i
+				break
+		if axis == -1: return
+		var reverse: bool = _vec(src.axes[axis]).dot(state["n"]) < 0.0
+		op = {
+			"id": ctx.document.next_id("ft"),
+			"type": "fit",
+			"body": on,
+			"target_body": edge_fit["target_body"],
+			"axis": axis,
+			"face": edge_fit["face"],
+			"fit_mode": edge_fit.get("fit_mode", 0),
+			"reverse": reverse,
+		}
+	else:
+		var oid := ctx.document.next_id("pp")
+		op = {"id": oid, "type": "push_pull", "distance": d}
+		if state["rect"] != "":
+			op["target"] = {"rect": state["rect"]}
+			on = ctx.model.profile(state["rect"]).on
+		else:
+			op["target"] = {"face": {"body": state["body"], "normal": Geo.arr3(state["n"]), "point": Geo.arr3(state["anchor"])}}
+			on = state["body"]
+		if state.has("region"):
+			var r: Dictionary = state.region
+			var array3 := func(v: Vector3) -> Array: return [v.x, v.y, v.z]
+			op.target["region"] = {"outline": Array(r.outline).map(array3),
+				"holes": r.holes.map(func(h): return Array(h).map(array3)), "lines": r.lines,
+				"normal": array3.call(state.n)}
+			if on == "": op.target.erase("face")
+		var depths: Array = state.get("depths", [])
+		if d < 0 and not depths.is_empty() and absf(d - float(depths.back())) < 0.01:
+			op["through"] = true        # to the opposite face: FreeCAD keeps it through if the board changes (I24)
+		# a rectangle becomes its own board (free, or on a face with "new board" on);
+		# pushing a body's own face always edits that body, like SketchUp
+		if (state["rect"] != "" or state.has("region")) and (on == "" or (d > 0 and ctx.ui.new_board())):
+			new_id = ctx.document.next_id("b")
+			op["body"] = new_id
+			if ctx.selection.context_assembly() != "": op["assembly"] = ctx.selection.context_assembly()   # drawn inside: it joins (T20)
+		if not edge_fit.is_empty():
+			op["edge_fit"] = edge_fit.duplicate()
+		elif not state.has("region") and state.rect == "" and not ctx.model.stock_frame(on).get("fitted", true) and ctx.model.stock_frame(on).get("rectangular", true):
+			op["resize_stock"] = true
+		if snapped_to_floor and d < 0 and on != "" and (state.rect != "" or state.has("region")) \
+				and not (op.has("through") or op.has("body") or op.has("edge_fit") or op.has("resize_stock")):
+			op["to_face"] = {"normal": Geo.arr3(state.n), "point": Geo.arr3(state.anchor + state.n * d)}
 	ctx.document.append(op)
 	var pr := _push_shape(d)
 	var piece := {"tris": pr, "style": "cut" if d < 0 else "draft", "line_color": Color(0.6, 0.35, 0),
