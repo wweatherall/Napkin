@@ -50,7 +50,7 @@ def _sample_value(spec, fname=""):
     if kind == "Target":
         return {"rect": "sample_rect"}
     if kind == "FitSpec":
-        return {"target_body": "sample_body", "face": 4, "fit_mode": 0}
+        return {"target_body": "sample_body", "face": {"normal": [0.0, 0.0, -1.0], "point": [0.0, 0.0, 0.0]}, "fit_mode": 0}
     raise ValueError(f"unsupported contract field kind: {kind!r}")
 
 
@@ -105,7 +105,7 @@ def _prepare_op(m, op_id, contract, include_optional, shared):
         ba = _make_board(m, "fit_a", origin_x=0.0)
         bb = _make_board(m, "fit_b", origin_x=200.0)
         m.apply({"id": _next_tag("fit"), "type": "fit", "body": ba, "target_body": bb,
-                 "axis": 0, "face": 0, "fit_mode": 0})
+                 "axis": 0, "face": {"normal": [-1.0, 0.0, 0.0], "point": [200.0, 0.0, 0.0]}, "fit_mode": 0})
         op["body"] = ba
         op["axis"] = 0
         op["value"] = "150mm"
@@ -119,7 +119,7 @@ def _prepare_op(m, op_id, contract, include_optional, shared):
         op["distance"] = 18.0
         op["body"] = _next_tag("nb_b")
         op["assembly"] = aid
-        op["fit"] = {"target_body": tb, "face": 4, "fit_mode": 0}
+        op["fit"] = {"target_body": tb, "face": {"normal": [0.0, 0.0, -1.0], "point": [0.0, 0.0, 200.0]}, "fit_mode": 0}
     elif op_type == "resize_stock":
         bid = _make_board(m, "rs")
         op["target"] = {"face": {"body": bid, "normal": [0.0, 0.0, 1.0], "point": [50.0, 25.0, 18.0]}}
@@ -287,7 +287,7 @@ try:
     ba_leg = _make_board(m, "leg_a", origin_x=0.0)
     bb_leg = _make_board(m, "leg_b", origin_x=200.0)
     m.apply({"id": _next_tag("fit_leg"), "type": "fit", "body": ba_leg, "target_body": bb_leg,
-             "axis": 0, "face": 0, "fit_mode": 0})
+             "axis": 0, "face": {"normal": [-1.0, 0.0, 0.0], "point": [200.0, 0.0, 0.0]}, "fit_mode": 0})
     legacy_unfit = {"id": _next_tag("uf_leg"), "type": "property_edit", "mode": "replace_fit",
                     "body": ba_leg, "axis": 0, "value": "150mm"}
     upgraded_unfit, _ = upgrade_op(legacy_unfit)

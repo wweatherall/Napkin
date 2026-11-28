@@ -73,9 +73,9 @@ func vcb_value() -> String:
 
 func tip() -> String:
 	if state.has("edge_fit"):
-		var fit: Dictionary = state.edge_fit
+		var face_idx: int = state.get("edge_face_idx", 0)
 		var names := ["Left","Right","Front","Back","Bottom","Top"]
-		var face: String = names[fit.face] if fit.face < names.size() else "Face %d" % (fit.face + 1)  # cut targets have more planar faces (worker: "Face N")
+		var face: String = names[face_idx] if face_idx < names.size() else "Face %d" % (face_idx + 1)  # cut targets have more planar faces (worker: "Face N")
 		return "%s → %s face · %s · ⌥ end%s" % [state.edge_label, face, FIT_MODES[state.get("fit_mode", 0)],
 				" · Tab face" if state.options.size() > 1 else ""]
 	return "to " + state["snap"] if state.get("active", false) and state.get("snap", "") != "" else ""
@@ -322,8 +322,9 @@ func _edge_inference(pt: Dictionary, screen: Vector2) -> void:
 	var faces := options.map(func(option): return option.face)
 	faces.sort()
 	if previous.get("target_body","") == body and state.get("edge_faces",[]) == faces:
+		var prev_idx: int = state.get("edge_face_idx", -1)
 		for i in options.size():
-			if options[i].face == previous.face: choice = i
+			if options[i].face == prev_idx: choice = i
 	state["edge_faces"] = faces
 	state["options"] = options
 	state["edge_body"] = body
@@ -338,7 +339,12 @@ func _choose_face(index: int) -> void:
 	state["choice"] = index
 	var mode: int = state.get("fit_mode", 0)
 	state["dist"] = option.far if mode == 2 else option.distance      # Fully reach: square at the last contact
-	state["edge_fit"] = {"target_body":state.edge_body,"face":option.face,"fit_mode":mode}
+	state["edge_face_idx"] = option.face
+	state["edge_fit"] = {
+		"target_body": state.edge_body,
+		"face": {"normal": Geo.arr3(option.plane_normal), "point": Geo.arr3(option.plane_point)},
+		"fit_mode": mode,
+	}
 	var triangles := coplanar_region(state.edge_body,option.normal,state.edge_point)
 	ctx.view.face_highlight(triangles)
 
@@ -370,7 +376,7 @@ func _push_shape(d: float) -> PackedVector3Array:
 
 func _preview_push(d: float) -> void:
 	var ef: Dictionary = state.get("edge_fit", {})
-	var preview_key := [d, ef.get("target_body", ""), ef.get("face", -1), ef.get("fit_mode", 0)]
+	var preview_key := [d, ef.get("target_body", ""), state.get("edge_face_idx", -1), ef.get("fit_mode", 0)]
 	if state.get("_preview_key") == preview_key:
 		return
 	state["_preview_key"] = preview_key
@@ -447,7 +453,7 @@ func commit_push(d: float, edge_fit := {}, snapped_to_floor := false) -> void:
 			new_id = ctx.document.next_id("b")
 			op = {"id": ctx.document.next_id("nb"), "type": "new_board", "target": target, "distance": d, "body": new_id}
 			if ctx.selection.context_assembly() != "": op["assembly"] = ctx.selection.context_assembly()   # drawn inside: it joins (T20)
-			if not edge_fit.is_empty(): op["fit"] = edge_fit.duplicate()
+			if not edge_fit.is_empty(): op["fit"] = edge_fit.duplicate(true)
 		elif not state.has("region") and state.rect == "" and not ctx.model.stock_frame(on).get("fitted", true) and ctx.model.stock_frame(on).get("rectangular", true):
 			op = {"id": ctx.document.next_id("rs"), "type": "resize_stock", "target": target, "distance": d}
 		else:

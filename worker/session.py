@@ -271,6 +271,10 @@ def is_legacy_op(op):
         return True
     if t == "push_pull" and (op.get("body") or op.get("edge_fit") or op.get("resize_stock")):
         return True
+    if t == "fit" and isinstance(op.get("face"), int):
+        return True
+    if t == "new_board" and isinstance(op.get("fit"), dict) and isinstance(op["fit"].get("face"), int):
+        return True
     return False
 
 

@@ -279,7 +279,9 @@ func _build_summary() -> void:
 			apply_fit.disabled = true
 			apply_fit.pressed.connect(func():
 				if not pending.is_empty():
-					edit_requested.emit({"type":"fit","body":data.body,"axis":pending.axis,"target_body":pending.target,"face":pending.face,"fit_mode":mode_picker.selected,"reverse":board.get("reverse",false)}))
+					var pl := _target_face_plane(data.boards[pending.target], pending.face)
+					var fref := {"normal": [pl.normal.x, pl.normal.y, pl.normal.z], "point": [pl.point.x, pl.point.y, pl.point.z]}
+					edit_requested.emit({"type":"fit","body":data.body,"axis":pending.axis,"target_body":pending.target,"face":fref,"fit_mode":mode_picker.selected,"reverse":board.get("reverse",false)}))
 			actions.add_child(apply_fit)
 			result = Label.new()
 			result.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -359,7 +361,9 @@ func _build_summary() -> void:
 	apply_fit.disabled = true
 	apply_fit.pressed.connect(func():
 		if not pending.is_empty():
-			edit_requested.emit({"type":"fit","body":data.body,"axis":pending.axis,"target_body":pending.target,"face":pending.face,"fit_mode":mode_picker.selected,"reverse":board.get("reverse",false)}))
+			var pl := _target_face_plane(data.boards[pending.target], pending.face)
+			var fref := {"normal": [pl.normal.x, pl.normal.y, pl.normal.z], "point": [pl.point.x, pl.point.y, pl.point.z]}
+			edit_requested.emit({"type":"fit","body":data.body,"axis":pending.axis,"target_body":pending.target,"face":fref,"fit_mode":mode_picker.selected,"reverse":board.get("reverse",false)}))
 	actions.add_child(apply_fit)
 	result = Label.new()
 	result.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART

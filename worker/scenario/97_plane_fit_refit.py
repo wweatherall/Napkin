@@ -28,17 +28,17 @@ def run(ctx):
         def __getattr__(self, name):
             return getattr(self.doc, name)
 
-    def tracked(model, board, tip):
+    def tracked(model, board, tip, reference):
         calls.append(board.BodyId)
-        return original(model, board, tip)
+        return original(model, board, tip, reference)
 
     def board(bid, z):
         return [dict(id=bid+'r', type='rect', plane=dict(normal=[0,0,1], origin=[0,0,z]), size=[40,20]),
                 dict(id=bid+'p', type='new_board', target=dict(rect=bid+'r'), distance=20, body=bid)]
 
-    def fit(bid, target):
+    def fit(bid, target, z=300):
         return dict(id=bid+'fit', type='fit', body=bid,
-                    target_body=target, axis=2, face=4, fit_mode=0)
+                    target_body=target, axis=2, face=dict(normal=[0, 0, -1], point=[0, 0, z]), fit_mode=0)
 
     def move(bid, delta):
         return dict(id='move'+bid, type='move', targets=[bid], vector=delta)
@@ -107,7 +107,7 @@ def run(ctx):
                   abs(s.model.world_shape(s.model.body('leg0')).Volume-40*20*680)<0.01, calls)
         s.sync(ops)
         # T60: when a previously plain target becomes fitted, its dependents stay tied and match a fresh build.
-        chain_ops = ops + [fit('target', 'other')]
+        chain_ops = ops + [fit('target', 'other', z=600)]
         sync(chain_ops)
         ctx.check('plane refit: fitted target keeps dependents tied',
                   s.model.body('target').Tip.SSTargetId == 'other' and
