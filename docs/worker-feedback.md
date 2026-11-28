@@ -49,3 +49,7 @@
 ### 2026-11-28 10:39 — H215 (gemini, ?, resubmit)
 - **How was the review round: were the return notes clear, and what would have avoided the return?** Sharp return review: catching the untraced child-process blind spot immediately turned 9 false candidate probes into real coverage (serve.py 6%->89.8%, drawing.py 0%->94.5%, total 80.9%->90.0%).
 - **Any improvements you can think of?** Document in tools/README.md that freecadcmd ignores sitecustomize.py on PYTHONPATH, so child FreeCAD tracing works via the FREECAD wrapper that worker/test_link.py already honors.
+
+### 2026-11-28 12:36 — H216 (codex, 01a22319-c293-7210-bf4f-84e0f9b270c9, first submit)
+- **How was working on this job in our code base?** The brief gave me three concrete transcript formats and clear checks. Live logs exposed an extra Codex representation and a few ledger matches to integrator sessions. Checking claims, worktree activity, and merge history made those discrepancies traceable.
+- **Any improvements you can think of?** Record the confirmed transcript ID and start and end timestamps per job attempt. That would make returned and reassigned jobs easier to measure after queue pruning.

@@ -27,7 +27,6 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
 - [H212 — Components and arrays the SketchUp way: one click takes the group, inside every copy is linked, the original is marked (I82)](handoff/H212-components-the-sketchup-way.md) — status: open; for: codex
 - [H213 — The hopper workshop: William's animated, width-aware hopper picture (made with ChatGPT) brought into Napkin](handoff/H213-hopper-workshop.md) — status: open; for: either
-- [H216 — Reading cost per job: what each agent read before and while doing its job, from the saved transcripts (T175)](handoff/H216-reading-cost-per-job.md) — status: open; for: Codex
 - [H217 — Mutation testing for worker/: plant small bugs one at a time and record which tests catch each (T171 step 1)](handoff/H217-mutation-runner.md) — status: open; for: Codex
 - [H218 — Read the kill matrix: which tests stand for which, the gaps, and a draft tree of dense tests (T171 step 2)](handoff/H218-kill-matrix-report.md) — status: queued (after H217); for: either
 - [H219 — Mutation testing for the viewport's GDScript (T171 step 3)](handoff/H219-mutation-gdscript.md) — status: queued (after H217); for: Codex
@@ -39,6 +38,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 Full entries in [handoff-archive.md](handoff-archive.md).
 
+- H216 — Reading cost per job: what each agent read before and while doing its job, from the saved transcripts (T175). Resolved: merged into main by the integrator, 2026-11-28.
 - H215 — Line coverage per test file for worker/ and tools/, added to the inventory (T172 step 2). Resolved: merged into main by the integrator, 2026-11-28.
 - H214 — Test inventory: every check, its file, its suite and its time, in one generated file (T172 step 1). Resolved: merged into main by the integrator, 2026-11-28.
 - H211 — Double-click enters William's copies; drawings (2D shapes) can be selected; a compound's properties show (T167). Resolved: merged into main by the integrator, 2026-11-28.
@@ -48,9 +48,8 @@ Full entries in [handoff-archive.md](handoff-archive.md).
 - H210 — Typed copy counts: 5x, x5, *5 (and 5*) all work after a move or copy (T167). Resolved: merged into main by the integrator, 2026-11-28.
 - H201 — A fit names its target face by geometry, follows flips and rotations, and detaches when the face is gone (T161, T163, I75-I77). Resolved: merged into main by the integrator, 2026-11-28.
 - H200 — Push/Pull split, step 3: resizing plain stock is a `resize_stock` op (T159, I74). Resolved: merged into main by the integrator, 2026-11-27.
-- H207 — Workers give feedback at every submit and resubmit; resume commands are recorded; windows close after the merge. Resolved: merged into main by the integrator, 2026-11-27.
 
-Older: docs/handoff-archive.md (211 entries; find one with grep "^### H0NN" docs/handoff-archive.md)
+Older: docs/handoff-archive.md (212 entries; find one with grep "^### H0NN" docs/handoff-archive.md)
 
 ## Entry template
 

@@ -76,11 +76,10 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 |---|---|---|---|---|---|
 | H212 | Codex | Claimed: branch codex/h212-components-the-sketchup-way | Components and arrays the SketchUp way: one click takes the group, inside every copy is linked, the original is marked (I82) | [H212](docs/handoff/H212-components-the-sketchup-way.md) |  |
 | H213 | either | Claimed: branch gemini/h213-hopper-workshop | The hopper workshop: William's animated, width-aware hopper picture (made with ChatGPT) brought into Napkin | [H213](docs/handoff/H213-hopper-workshop.md) |  |
-| H216 | Codex | In progress (codex since 11:00) | Reading cost per job: what each agent read before and while doing its job, from the saved transcripts (T175) | [H216](docs/handoff/H216-reading-cost-per-job.md) |  |
-| H217 | Codex | **Ready** | Mutation testing for worker/: plant small bugs one at a time and record which tests catch each (T171 step 1) | [H217](docs/handoff/H217-mutation-runner.md) |  |
+| H217 | Codex | **Done**: for review (codex) | Mutation testing for worker/: plant small bugs one at a time and record which tests catch each (T171 step 1) | [H217](docs/handoff/H217-mutation-runner.md) |  |
 | H218 | either | Queued | Read the kill matrix: which tests stand for which, the gaps, and a draft tree of dense tests (T171 step 2) | [H218](docs/handoff/H218-kill-matrix-report.md) | H217 |
 | H219 | Codex | Queued | Mutation testing for the viewport's GDScript (T171 step 3) | [H219](docs/handoff/H219-mutation-gdscript.md) | H217 |
-| H220 | either | **Ready** | Small tools fixes from worker feedback and the integrator's follow-ups | [H220](docs/handoff/H220-worker-feedback-fixes.md) |  |
+| H220 | either | **Done**: for review (gemini) | Small tools fixes from worker feedback and the integrator's follow-ups | [H220](docs/handoff/H220-worker-feedback-fixes.md) |  |
 
 <!-- end of job table -->
 

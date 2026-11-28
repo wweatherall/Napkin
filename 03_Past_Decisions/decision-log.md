@@ -399,7 +399,7 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | T172 | Dense tests: a few front-line tests that fail for whatever would fail many others (a lo... | Open |
 | T173 | Reduce the merge gate: drop probes from the gate only where the kill matrix shows a den... | Open |
 | T174 | One quota reader: a 'quota left now' function in comitatus/09_Tools/MEASURE_TOKEN_USE.p... | Open |
-| T175 | Measure what agents read per job, from their saved transcripts (ChatGPT's review, 2026-... | On the board (H216) |
+| T175 | Measure what agents read per job, from their saved transcripts (ChatGPT's review, 2026-... | Open |
 | T176 | Go through the start-up briefs (02_Habits/REMEMBER_WHO_YOU_ARE.py: the integrator's, th... | Open |
 
 ## Tunables
