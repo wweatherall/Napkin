@@ -1735,6 +1735,42 @@ def hopper_pid_path(cwd=None):
     return os.path.join(common_dir(cwd), "napkin-hopper.pid")
 
 
+def hopper_stop_path(cwd=None):
+    """The integrator's kill switch (William, 2026-11-28): a running --forever hopper exits when it sees this file."""
+    return os.path.join(common_dir(cwd), "napkin-hopper.stop")
+
+
+def hopper_stop(cwd, session, out=print, now=None):
+    """Ask the running hopper to stop. Only the integrator holding the lock may (P16, P19)."""
+    import integrator
+    root = main_root(cwd)
+    lock = integrator.read(integrator.lock_path(root)) or {}
+    if not session or lock.get("holder") != session:
+        out(f"refused: only the integrator holding the lock can stop the hopper (holder: {lock.get('holder') or 'nobody'})")
+        return 1
+    pid = _running_hopper_pid(root)
+    if pid is None:
+        out("no hopper is running: nothing to stop")     # no stop file left behind to kill the next one at start
+        return 0
+    with open(hopper_stop_path(root), "w", encoding="utf-8") as f:
+        f.write(f"{session} {hhmm(now or time.time())}\n")
+    out(f"hopper (pid {pid}) stops at its next poll (within {WATCH_POLL} s); running workers carry on")
+    return 0
+
+
+def _stop_requested(root):
+    """Read and clear the kill switch -> the line it holds, or None."""
+    try:
+        line = open(hopper_stop_path(root), encoding="utf-8").read().strip()
+    except OSError:
+        return None
+    try:
+        os.remove(hopper_stop_path(root))
+    except OSError:
+        pass
+    return line or "integrator"
+
+
 def hopper_wait_pid_path(cwd=None):
     return os.path.join(common_dir(cwd), "napkin-hopper-wait.pid")
 
@@ -2014,6 +2050,11 @@ def hopper(cwd, dry_run=False, launcher=None, out=print, now=None, sleep=time.sl
         while True:
             t = now or time.time()
             step_out = emit if forever else out
+            stopped = _stop_requested(root) if forever else None
+            if stopped:
+                out(f"{hhmm(t)} hopper stopped by {stopped} (STOP_THE_HOPPER.py); running workers carry on")
+                sys.stdout.flush()
+                return 0
             action, code, detail, key = hopper_step(root, now=t, dry_run=False, launcher=launcher, out=step_out,
                                                     seen=seen, launch_integrator=forever,
                                                     integrator_launcher=integrator_launcher)
@@ -2150,6 +2191,8 @@ def main(argv):
         return hopper(cwd, dry_run="--dry-run" in argv, forever="--forever" in argv, window="--window" in argv)
     if cmd == "hopper-wait":
         return hopper_wait(cwd)
+    if cmd == "hopper-stop":
+        return hopper_stop(cwd, argv[1] if len(argv) > 1 else "")
     if cmd == "return" and len(argv) >= 3:
         return 0 if return_job(cwd, argv[1].upper(), argv[2]) else 1
     if cmd == "merged" and len(argv) >= 2:

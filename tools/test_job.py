@@ -1734,6 +1734,36 @@ check("hopper --forever prints paused, carries on to launch new Ready job, and c
       and not os.path.exists(job.hopper_pid_path(h196_root)),
       (f_out, os.path.exists(job.hopper_pid_path(h196_root))))
 
+# The integrator's kill switch (William, 2026-11-28): only the lock holder stops the hopper, at its next poll
+import integrator as _integrator
+json.dump({"holder": "int-A"}, open(_integrator.lock_path(h196_root), "w"))
+ks_out = []
+check("STOP_THE_HOPPER refuses a session that doesn't hold the integrator lock",
+      job.hopper_stop(h196_root, "worker-B", out=ks_out.append) == 1 and not os.path.exists(job.hopper_stop_path(h196_root))
+      and any("only the integrator holding the lock" in l for l in ks_out), ks_out)
+ks_out = []
+check("STOP_THE_HOPPER with no hopper running leaves no stop file behind (it would kill the next hopper at start)",
+      job.hopper_stop(h196_root, "int-A", out=ks_out.append) == 0 and not os.path.exists(job.hopper_stop_path(h196_root)), ks_out)
+live_proc = subprocess.Popen([sys.executable, "-c", "import time; time.sleep(10)"])
+try:
+    open(job.hopper_pid_path(h196_root), "w").write(f"{live_proc.pid}\n")
+    ks_out = []
+    check("STOP_THE_HOPPER from the lock holder leaves the stop for the running hopper",
+          job.hopper_stop(h196_root, "int-A", out=ks_out.append) == 0 and os.path.exists(job.hopper_stop_path(h196_root)), ks_out)
+finally:
+    live_proc.terminate()
+    live_proc.wait()
+open(job.hopper_pid_path(h196_root), "w").write("999999\n")
+ks_launched, ks_out = [], []
+ks_rc = job.hopper(h196_root, forever=True, launcher=lambda a: ks_launched.append(a) or 0,
+                   integrator_launcher=lambda s, d: ks_launched.append("integrator") or 0,
+                   out=ks_out.append, now=7100, sleep=lambda _: (_ for _ in ()).throw(SystemExit(1)), poll=0)
+check("a --forever hopper that sees the stop exits 0 before launching anything, clearing the stop and its pid file",
+      ks_rc == 0 and not ks_launched and any("hopper stopped by int-A" in l for l in ks_out)
+      and not os.path.exists(job.hopper_stop_path(h196_root)) and not os.path.exists(job.hopper_pid_path(h196_root)),
+      (ks_rc, ks_launched, ks_out))
+os.remove(_integrator.lock_path(h196_root))
+
 # hopper_wait reports already-paused batch immediately with the same line as hopper_step, without launching
 with job.locked(job.state_path(h196_root)) as st:
     st.pop("launched", None)
