@@ -11,3 +11,6 @@ dist/
 
 # A job's scratch files and logs (P25): kept in its worktree, removed with it at merge
 scratch/
+
+# The launcher (tools/BUILD_THE_LAUNCHER.sh): holds this Mac's folder path
+Napkin.app/
