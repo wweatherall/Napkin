@@ -1,6 +1,6 @@
 ### H196 — The hopper runs in its own Terminal window; the integrator waits for it separately (and Order is kept across agents)
 
-Author: Claude (integrator, opus-integrator) | Date: 2026-11-27 | Status: open | For: gemini
+Author: Claude (integrator, opus-integrator) | Date: 2026-11-27 | Status: answered | For: gemini
 
 References: William, 2026-11-27 ("launch the hopper in a new terminal window so it can run independently of you"),
 H185 (the hopper), T134 (launch.py opens Terminal windows), P39 (no timed check-ins), the follow-up of 2026-11-27
@@ -51,3 +51,7 @@ What can fail:
 Checks:
 - `tools/TEST_BEFORE_MERGING.sh` passes; JOB and LAUNCH tests include the cases above.
 - `python3 tools/RUN_THE_HOPPER.py --window --dry-run` prints the Terminal command without opening it.
+
+Response: Added `open_terminal` in `tools/launch.py` and wired `RUN_THE_HOPPER.py --window` / `--forever` (with a `.git/shopsketch-hopper.pid` single-instance lock cleared on exit or dead pid), factored `hopper_wake_conditions` and `_next_hopper_candidate` out of `hopper_step` in `tools/job.py` so `WAIT_FOR_THE_HOPPER.py` (`job.py hopper-wait`) shares the exact wake conditions while ignoring already-active non-batch conditions, fixed `hopper_step` to preserve Order across agents unless a returned job takes priority, updated `docs/integrator.md` and `tools/README.md`, and added tests in `tools/test_job.py` (220/220) and `tools/test_launch.py` (17/17). Merged `main` after asking via `job.py wait --scope` about `P74` in `decision-log.md`; integrator answered: "Main is fine: 1385804 (P74 and H197) added the index line; your branch starts at 36d009a, just before it, so it sees the ruling file without the line. Merge main into your branch (git merge main), rerun the gate and carry on; no need to wait. Note H197 is queued after you and builds on your work." `tools/TEST_BEFORE_MERGING.sh` passed (`GATE PASS (scope tools): tools quick test passes; 34 s total`).
+
+Result: `RUN_THE_HOPPER.py --window` / `--forever`, `WAIT_FOR_THE_HOPPER.py`, and cross-agent hopper Order implemented and passing gate (H196).
