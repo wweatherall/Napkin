@@ -5,6 +5,7 @@ extends SceneTree
 const Preferences = preload("res://preferences.gd")
 const MeasureBox = preload("res://measure_box.gd")
 const Units = preload("res://units.gd")
+const Menus = preload("res://menus.gd")
 
 var passed := 0
 var failed := 0
@@ -73,12 +74,23 @@ func _init() -> void:
 	_test_write_defaults()
 	_test_units_validation()
 	_test_measure_box_default_units()
+	_test_dialog_start()
 
 	if own_tmp:
 		cleanup_dir(tmp_dir)
 
 	print("PREFERENCES TESTS: %d passed, %d failed" % [passed, failed])
 	quit(1 if failed else 0)
+
+
+func _test_dialog_start() -> void:
+	"""New and Open start in 04_Napkin_Drawings/ beside models/ (I78), else in the open model's folder."""
+	var root := tmp_dir.path_join("dialog_start")
+	DirAccess.make_dir_recursive_absolute(root.path_join("models"))
+	check("dialog start: no drawings folder, the model's folder", Menus.dialog_start(root.path_join("models/model.FCStd")) == root.path_join("models"))
+	DirAccess.make_dir_recursive_absolute(root.path_join(Menus.DRAWINGS))
+	check("dialog start: the app's working file, 04_Napkin_Drawings", Menus.dialog_start(root.path_join("models/model.FCStd")) == root.path_join(Menus.DRAWINGS))
+	check("dialog start: one of William's models, its own folder", Menus.dialog_start(root.path_join(Menus.DRAWINGS + "/stool/stool.FCStd")) == root.path_join(Menus.DRAWINGS + "/stool"))
 
 
 func _test_missing_and_empty() -> void:

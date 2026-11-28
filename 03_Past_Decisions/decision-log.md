@@ -39,9 +39,9 @@ One subject per decision; the Decisions column is generated.
 |---|---|---|
 | Product | What Shop Sketch is for and the feel it aims at. | I01, P04, P51 |
 | Architecture | The processes, the worker link, the app and the code's main boundaries. | A02, A03, A06, A08, A09, A27, A29, A30, A31, A33b, A34, A35, A40, W13 |
-| Files, saving and undo | The .FCStd model and its journal, saving, opening, undo and redo. | A21, A23, A24, A25, A28, A36, A39, A41, A42, I38, I42, I54, I55, U01, U02, U03 |
+| Files, saving and undo | The .FCStd model and its journal, saving, opening, undo and redo. | A21, A23, A24, A25, A28, A36, A39, A41, A42, A43, I38, I42, I54, I55, I78, U01, U02, U03 |
 | Drawing tools | Rectangle, Circle, Line: how a drawing gesture starts, follows and ends. | I02, I04b, I09, I11, I43, I44, I49, I50, I51, I58, I60, I61, I64, I65, I71, I73 |
-| Push/Pull | Extruding, cutting, and fitting a board's end to another board. | I05, I08, I23, I24, I34, I40, I41, I45, I56 |
+| Push/Pull | Extruding, cutting, and fitting a board's end to another board. | I05, I08, I23, I24, I34, I40, I41, I45, I56, I74, I75, I76, I77 |
 | Move, copies and arrays | Move, linked copies, arrays, mirrors, components and assemblies. | A10, A11b, A22c, A26, I10, I12c, I13b, I14, I15, I16, I17, I20, I21, I25, I28, I32, I46, I52, I53, I66, I69 |
 | Snapping | Points, edges, axes and the grid, shared by every tool. | I03b, I18, I19 |
 | Measurements | Typed values, units and the measurements box. | I35, I48, I57, I59, I62, I67, I70 |
@@ -115,10 +115,12 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | A39 | When the actions pending under A36's 'FreeCAD saved this model' question land while it ... | Active |
 | A41 | The worker turns off FreeCAD's backup files only for the moment of its own save and the... | Active |
 | A42 | One file per model: everything Napkin keeps about a model (its edit history and results... | Active |
+| A43 | Until William says otherwise, a change to the op format may break old files: instead of... | Active |
 | I38 | Redo: Edit > Redo, ⇧⌘Z or the toolbar button; linear until U01 (a new action ends it). | Active |
 | I42 | A board's name in FreeCAD's tree is 'Board 3' for b3 (copies, mirrors and made-unique b... | Active |
 | I54 | When a save fails, the save indicator says "Couldn't save: <reason>" (in Saved's place,... | Active |
 | I55 | Closing a window whose latest revision isn't saved waits for it; if the save fails, a d... | Active |
+| I78 | New and Open start in 04_Napkin_Drawings/ (William's own models) while the open model i... | Active |
 | U01 | Undo keeps the paths you leave: a new edit after undoing starts a branch and the old pa... | Active |
 | U02 | Branch-safe identities: no new board, rectangle or hole reuses an ID a kept branch uses... | Active |
 | U03 | Merging branches, conservatively: an explicit command with a preview that keeps both or... | Active |
@@ -157,6 +159,10 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | I41 | Pulling into another board's face (Push/Pull or a Properties fit) has three end conditi... | Active |
 | I45 | Pushing in snaps to a face behind only when the cursor is nearer to it on screen than t... | Active |
 | I56 | In Push/Pull, ⌥ Option is the one key for how the pushed end meets what it hits: on a f... | Active |
+| I74 | push_pull's jobs split into their own ops: a face's end fitted to another board's edge ... | Active |
+| I75 | A fit names its target face by geometry, {normal, point} in world mm, as every other op... | Active |
+| I76 | A fit stays live when its target board is flipped, mirrored or rotated: it follows the ... | Active |
+| I77 | When the exact face a fit points to is cut away or deleted, the fit detaches (it doesn'... | Active |
 
 ### Move, copies and arrays
 
@@ -378,6 +384,7 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | T161 | Think through plane-fit face numbering: faces are 0-5 (Left..Top) on plain stock but 't... | Open |
 | T163 | Suspected bug (found by H179's T161 proposal): flipping a board (mirror with replace) t... | Open |
 | T164 | Find a home for (or delete) Napkin's three top-level reference docs: 'Codex's suggestio... | Open |
+| T165 | User test for William, one day after the fit rulings are built (I76, I77): try fits und... | Open |
 
 ## Tunables
 
