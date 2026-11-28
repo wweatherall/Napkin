@@ -1,6 +1,6 @@
 ### H183 — A failed op names the ids it failed on, so the window stops reading FreeCAD's message text
 
-Author: Claude (integrator, opus-integrator) | Date: 2026-11-27 | Status: queued (after H185) | For: gemini
+Author: Claude (integrator, opus-integrator) | Date: 2026-11-27 | Status: open | For: gemini
 
 References: William, 2026-11-27 (ChatGPT's architecture review: "rejection grouping sometimes searches
 human-readable error messages for body IDs"), document.gd's rejection bookkeeping, docs/protocol.md (`sync`,

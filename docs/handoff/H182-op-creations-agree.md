@@ -1,6 +1,6 @@
 ### H182 — What an op creates: the window and FreeCAD agree, checked by one shared table
 
-Author: Claude (integrator, opus-integrator) | Date: 2026-11-27 | Status: queued (after H185) | For: gemini
+Author: Claude (integrator, opus-integrator) | Date: 2026-11-27 | Status: open | For: gemini
 
 References: William, 2026-11-27 (ChatGPT's architecture review: "the worker knows how to execute an operation, but
 several other components independently determine what that operation means"), T67 (document-wide ID claims,

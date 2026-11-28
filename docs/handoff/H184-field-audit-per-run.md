@@ -1,6 +1,6 @@
 ### H184 — The field audit checks each run of an op, not all runs of its type lumped together
 
-Author: Claude (integrator, opus-integrator) | Date: 2026-11-27 | Status: queued (after H185) | For: gemini
+Author: Claude (integrator, opus-integrator) | Date: 2026-11-27 | Status: open | For: gemini
 
 References: William, 2026-11-27 (ChatGPT's architecture review: "the field auditor combines observations across all
 executions of an operation type: a parameter used in one execution but incorrectly ignored in another can escape
