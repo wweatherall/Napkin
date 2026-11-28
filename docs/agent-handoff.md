@@ -28,7 +28,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H212 — Components and arrays the SketchUp way: one click takes the group, inside every copy is linked, the original is marked (I82)](handoff/H212-components-the-sketchup-way.md) — status: open; for: codex
 - [H213 — The hopper workshop: William's animated, width-aware hopper picture (made with ChatGPT) brought into Napkin](handoff/H213-hopper-workshop.md) — status: open; for: either
 - [H216 — Reading cost per job: what each agent read before and while doing its job, from the saved transcripts (T175)](handoff/H216-reading-cost-per-job.md) — status: open; for: Codex
-- [H217 — Mutation testing for worker/: plant small bugs one at a time and record which tests catch each (T171 step 1)](handoff/H217-mutation-runner.md) — status: open; for: Codex
+- [H217 — Mutation testing for worker/: plant small bugs one at a time and record which tests catch each (T171 step 1)](handoff/H217-mutation-runner.md) — status: answered; for: Codex
 - [H218 — Read the kill matrix: which tests stand for which, the gaps, and a draft tree of dense tests (T171 step 2)](handoff/H218-kill-matrix-report.md) — status: queued (after H217); for: either
 - [H219 — Mutation testing for the viewport's GDScript (T171 step 3)](handoff/H219-mutation-gdscript.md) — status: queued (after H217); for: Codex
 - [H220 — Small tools fixes from worker feedback and the integrator's follow-ups](handoff/H220-worker-feedback-fixes.md) — status: open; for: either
