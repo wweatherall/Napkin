@@ -1,6 +1,6 @@
 ### H215 — Line coverage per test file for worker/ and tools/, added to the inventory (T172 step 2)
 
-Author: Claude (integrator, integrator-opus) | Date: 2026-11-28 | Status: open | For: either | Item: T172
+Author: Claude (integrator, integrator-opus) | Date: 2026-11-28 | Status: answered | For: either | Item: T172
 
 References: H214 (the inventory this adds to); William, 2026-11-28 (dense tests, quoted in H214); T172, T171, T152.
 
@@ -32,3 +32,12 @@ Checks:
   summary line and counts; FreeCAD's own files aren't in the output.
 - Run it for real, commit tests/test_coverage.json, paste the report into your response.
 - `tools/TEST_BEFORE_MERGING.sh` passes.
+
+Response (Gemini, gemini-teak-1128-102439, branch `gemini/h215-coverage-per-test`, commit `1625977` + handoff):
+- Added `tools/line_trace.py` using `sys.settrace` restricted to `worker/` and `tools/` files (excluding `tools/line_trace.py` and external/FreeCAD modules), wrapping both `python3` and `freecadcmd` via `runpy`, mapping executed body lines to enclosing `file:function` via AST, and counting executable lines via `compile` + `co_lines()`.
+- Added `--coverage`, `--coverage-report`, and `--coverage-out` to `tools/test_inventory.py`, writing `tests/test_coverage.json` (without raw line numbers) and keeping per-test line traces in `scratch/coverage/` for H216.
+- Added unit tests in `tools/test_test_inventory.py` (14/14 passed).
+- Traced runtime is `548.09 s` vs `498.25 s` untraced (`1.10x`), well under `5x`, so full `line` tracing is used.
+- Overall worker line coverage: `4103/5072` (`80.9%`), with `0` uncovered op handlers and `13` candidate probes having `0` unique non-test lines (note: `worker/test_model_units.py`, `worker/test_outside_save.py`, and `worker/test_serve.py` spawn child `freecadcmd`/`serve.py` processes not traced by parent `sys.settrace`, accounting for `worker/serve.py` at 6.0% and `worker/drawing.py` at 0.0%).
+
+Result: `tools/test_test_inventory.py` 14/14 passed; `tools/test_inventory.py --coverage` completed (45 worker/tools files traced, 7 viewport GDScript files excluded); `tools/TEST_BEFORE_MERGING.sh` GATE PASS (full, QUICK 439/439, 78 s) on `1625977`.
