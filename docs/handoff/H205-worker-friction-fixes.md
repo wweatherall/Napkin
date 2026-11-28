@@ -31,7 +31,9 @@ Request:
    brings it`) and doesn't fail the check or the tidy. On main it fails as today. Tests for both, and for a branch
    that did change such a line (still fails).
 2. The gate's quick test records its pass the way `job.py test` does (same commit, clean and ok fields), when it
-   runs in a job's worktree, so a handoff-only commit after a passing gate reuses it (H080's rules unchanged).
+   runs in a job's worktree, so a handoff-only commit after a passing gate reuses it (H080's rules unchanged). Only
+   a quick test of the same scope `job.py test` runs counts: a gate that ran a narrower scope (`scope tools`, `docs`,
+   app tests skipped) records nothing, so SUBMIT_JOB never skips app tests on the strength of a tools-only run.
 3. `done` checks for the Result line before any test runs and says so first (same wording as today).
 4. Clear the follow-ups line this job takes on.
 
