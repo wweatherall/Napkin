@@ -399,7 +399,7 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | draft_alpha | 0.55 | Opacity of draft (unconfirmed) boards. | viewport/confirm_wave.gdshader | W05 |
 | GRID | 10 | Grid snap step, mm. | viewport/inference.gd (main.gd keeps the name) | I03 |
 | SNAP_PX | 14 | Corner snap radius on screen, pixels. | viewport/inference.gd (main.gd keeps the name) | I03 |
-| Simulator | sim/front_sim.py | Try SLOW/TAU/LEAD/AMP_COMP values without launching Godot. | sim/front_sim.py | W09 |
+| Simulator | tools/front_sim.py | Try SLOW/TAU/LEAD/AMP_COMP values without launching Godot. | tools/front_sim.py | W09 |
 | INFER_DEG | 8 | Drag within this many degrees of an axis's on-screen direction to stick to it. | viewport/main.gd | I18 |
 | RELEASE_DEG | 12 | Angle at which an inferred axis lets go (bigger than INFER_DEG so it doesn't flicker). | viewport/main.gd | I18 |
 | EDGE_PX | 8 | On-edge snap radius on screen, pixels. | viewport/main.gd | I18 |
