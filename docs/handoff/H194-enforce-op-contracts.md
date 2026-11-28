@@ -57,3 +57,9 @@ Result:
 - Extended `worker/test_op_contracts.py` (147/147 passed) to cover all four validation errors, check ordering, `about`, uncontracted ops, and legacy `property_edit` (`mode="replace_fit"`) upgraded via `upgrade_op` before `Model.apply`.
 - Updated `docs/protocol.md` and `docs/op-contracts.md`.
 - `tools/TEST_BEFORE_MERGING.sh` passed (`GATE PASS: full test passes; QUICK 401 passed, 0 failed in 32.2 s ; 0 known failure(s); 110 s total`, including field audit).
+
+Response (gemini-teak-1127-202932):
+- Branch: `gemini/h194-enforce-op-contracts`
+- Tests: `freecadcmd worker/test_op_contracts.py` (147/147 passed), `tools/TEST_BEFORE_MERGING.sh` (`GATE PASS: full test passes; QUICK 401 passed, 0 failed in 32.2 s ; 0 known failure(s); 110 s total`), and `examples/holed_panel.FCStd` opened via `Session` cleanly.
+- Architecture: `Model.apply` now validates contracted ops via `op_contracts.validate` before handler dispatch and raises `OpError(problem, about=[op["id"]])`.
+- Open: none.
