@@ -1845,17 +1845,11 @@ def _release_hopper_pid(cwd):
     _release_pid(hopper_pid_path(cwd))
 
 
-# Quota routing (P78, William, 2026-11-28). An agent at or under its floor of quota left (5-hour or weekly) gets no
-# new job; Claude's floor is higher because the integrator is usually a Claude session.
-QUOTA_FLOOR = {"gemini": 0.10, "codex": 0.10, "claude": 0.25}
-QUOTA_FRESH_S = 30 * 60  # a Gemini sample older than this says nothing (it has no reset time): fail open
-# Who takes a job, by its For: line, in order of preference: (agent, model or None for launch.py's default). For:
-# either is the simpler tier (Gemini Hydrogen, then Codex Sol, then Claude Sonnet); For: Codex is the complex tier
-# the integrator marks (P77: Codex Sol, then Claude Opus).
-ROUTES = {"either": (("gemini", None), ("codex", None), ("claude", "sonnet")),
-          "codex": (("codex", None), ("claude", "opus")),
-          "gemini": (("gemini", None),),
-          "claude": (("claude", None),)}
+# Quota routing (P78, William, 2026-11-28): the floors, Gemini's freshness and the routes are in
+# tools/hopper_settings.toml (read each poll; tools/hopper_settings.py checks it and supplies the defaults).
+def _settings():
+    import hopper_settings       # here, not at the top: job.py also runs alone in the tests' small fixture repos
+    return hopper_settings.load()
 
 
 def _last_line(path, needle=None):
@@ -1877,7 +1871,7 @@ def _quota_left(agent, now):
             if not base:
                 return {}
             row = json.loads(_last_line(os.path.join(base, "history.jsonl")))
-            if now - row["ts"] / 1000.0 > QUOTA_FRESH_S:
+            if now - row["ts"] / 1000.0 > _settings()["quota"]["gemini_fresh_minutes"] * 60:
                 return {}
             return {k: float(v) for k, v in row["buckets"].items() if k in ("gemini-5h", "gemini-weekly")}
         if agent == "claude":
@@ -1909,14 +1903,15 @@ def _quota_left(agent, now):
 
 
 def quota_low(now=None):
-    """{agent: True} for each agent at or under its QUOTA_FLOOR in any bucket."""
+    """{agent: True} for each agent at or under its quota floor (hopper_settings.toml) in any bucket."""
     now = now or time.time()
-    return {a: any(v <= QUOTA_FLOOR[a] for v in _quota_left(a, now).values()) for a in QUOTA_FLOOR}
+    floor = _settings()["quota_floor"]
+    return {a: any(v <= floor[a] for v in _quota_left(a, now).values()) for a in floor}
 
 
 def route_for(job_for, low):
     """(agent, model) the hopper launches for a job's For: line given {agent: low}, or None when all are low."""
-    for agent, model in ROUTES.get(job_for, ((job_for, None),)):
+    for agent, model in _settings()["routes"].get(job_for, [(job_for, None)]):
         if not low.get(agent):
             return agent, model
     return None

@@ -188,6 +188,10 @@ check("integrator_next_actions omits --william and --archive when lock is free a
       "HOLD_THE_INTEGRATOR_LOCK.py <session>" in plain_acts and "--william" not in plain_acts and "--archive" not in plain_acts
       and "BypassSandbox: true" in plain_acts)
 hopper_acts = "\n".join(s.integrator_next_actions("prev", [], None, [], 2, hopper_session="integrator-h1"))
+run_acts = "\n".join(s.integrator_next_actions(None, [], None, [], 0, hopper_running=True))
+check("a running hopper: the brief says to wait for it with the start-and-wait habit, not the queue watch",
+      "WHEN_YOU_START_THE_HOPPER_WAIT_FOR_IT.py" in run_acts and "WAIT_FOR_THE_NEXT_JOB" not in run_acts)
+check("no hopper: the brief keeps the queue watch", "WAIT_FOR_THE_NEXT_JOB" in plain_acts)
 check("integrator_next_actions uses --hopper, P74 standing permission, and WAIT_FOR_THE_HOPPER when started by the hopper",
       "HOLD_THE_INTEGRATOR_LOCK.py integrator-h1 --hopper" in hopper_acts
       and "P74 standing permission" in hopper_acts

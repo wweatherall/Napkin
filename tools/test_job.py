@@ -17,6 +17,7 @@ os.environ.pop("GATE_FULL", None)   # fixture gates pick their own scope, even u
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
+os.environ["HOPPER_SETTINGS"] = ""  # built-in hopper settings only: William's edits must not change these answers
 import integrate
 import integrator
 import job

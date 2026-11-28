@@ -7,3 +7,5 @@ Each script is a thin wrapper around the library code in `tools/`.
 - `WHEN_THE_LOG_IS_COMMITTED_TIDY_IT.py` — sort and tidy `03_Past_Decisions/` when committed (`tools/sort_decision_log.py`).
 - `WHEN_WATCHED_CODE_IS_COMMITTED_CHECK_THE_MAP.py` — check `Architecture-Impact:` trailers on commits (`tools/check_architecture.py`).
 - `WHEN_MAIN_CHANGES_FILL_THE_TO_DOS.py` — sync `comitatus/06_To-dos/` from `main` (`tools/org_todos.py`).
+- `WHEN_YOU_START_THE_HOPPER_WAIT_FOR_IT.py` — start the hopper if none is running, then wait for its next pause, in one
+  background command, so a pause never launches a second integrator (`tools/job.py` `hopper`, `hopper-wait`).

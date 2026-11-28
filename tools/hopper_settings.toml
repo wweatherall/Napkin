@@ -1,0 +1,46 @@
+# Hopper settings (P78). The hopper reads this file every time it checks the queue, so a saved change counts at its
+# next check: no restart needed. If the file has a mistake, the hopper says so once in its window and uses the
+# built-in value for whatever it couldn't read (the values below are those built-in values), so a typo never stops it.
+#
+# Editing TOML safely:
+#   - A line starting with # is a comment: the hopper ignores it.
+#   - A setting is   name = value   on one line.
+#   - Numbers are bare:          gemini = 0.10        (not "0.10", and not 10%)
+#   - Text goes in double quotes: codex = "gpt-6.2-sol"
+#   - A list is square brackets with commas between the items, each item in quotes:
+#         either = ["gemini", "codex", "claude:sonnet"]
+#   - Keep each [section] heading as it is; change only what's after the = signs.
+#   - Each name appears once per section.
+# Check your edit:   python3 tools/hopper_settings.py      (prints the settings it read, or what's wrong)
+
+
+[quota_floor]
+# An agent with this much or less left of its 5-hour OR weekly quota gets no new jobs.
+# A fraction from 0 to 1: 0.10 means 10% left. 0 turns the floor off for that agent.
+gemini = 0.10
+codex = 0.10
+claude = 0.25        # higher, because the integrator is usually a Claude session
+
+
+[quota]
+# How many minutes a Gemini quota reading still counts. Gemini's monitor gives no reset time, so an older reading is
+# ignored (the hopper then treats Gemini as having quota). Claude and Codex readings count until their window resets.
+gemini_fresh_minutes = 30
+
+
+[routes]
+# Who takes each kind of job, first choice first. The hopper skips anyone at their quota floor; if everyone in a
+# list is at their floor, the job waits. Each item is "agent" (it uses the model in [models]) or "agent:model".
+# Agents: "gemini", "codex", "claude". The names on the left are a job's For: line.
+either = ["gemini", "codex", "claude:sonnet"]    # simpler jobs
+codex = ["codex", "claude:opus"]                 # the complex jobs the integrator writes For: Codex
+gemini = ["gemini"]
+claude = ["claude"]
+
+
+[models]
+# The model each agent launches with when a route doesn't name one.
+gemini = "gemini-4-hydrogen-medium"   # or "gemini-4-neon-medium"
+codex = "gpt-6.2-sol"                 # others: "gpt-6.2-astra", "gpt-6.1-terra"
+claude = "sonnet"                     # or "opus", "haiku"
+integrator = "opus"

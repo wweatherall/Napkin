@@ -32,10 +32,12 @@ Architecture: lines, the response) and CLAUDE.md (commit trailers); this page sa
   it reads them arrive together, in recorded order (P47).
 - `python3 tools/CHECK_THE_JOB_BOARD.py` shows the queue; `python3 tools/REBUILD_THE_JOB_BOARD.py` rebuilds the board's job table (the
   commit hook does it on main).
-- **The hopper** (routes by quota, P78; `Pace: one at a time` in `BOARD.md` under `Order:`): start the hopper once in its own Terminal
-  window with `python3 tools/RUN_THE_HOPPER.py --window` (outside the sandbox; it runs `--forever` and survives a
-  context clear, and a pid file in `.git/` refuses a second `--forever` hopper). After each start-up or clear, run
-  `python3 tools/WAIT_FOR_THE_HOPPER.py` in the background: it launches nothing and wakes you when all work is paused
+- **The hopper** (routes by quota, P78; `Pace: one at a time` in `BOARD.md` under `Order:`): start and watch the hopper with one background command, `python3 02_Habits/WHEN_YOU_START_THE_HOPPER_WAIT_FOR_IT.py`
+  (outside the sandbox): it opens the hopper's Terminal window if none is running (`RUN_THE_HOPPER.py --window`, which runs
+  `--forever`, survives a context clear, and a pid file in `.git/` refuses a second one), then waits as
+  `WAIT_FOR_THE_HOPPER.py` does; run it again after each wake and after each start-up or clear. Never start the hopper
+  without the wait: a pause with no waiter launches a new integrator (P74), which on 2026-11-28 started a second
+  integrator beside a live one. The wait launches nothing and wakes you when all work is paused
   (nothing `in progress`, no launch pending, and nothing takeable, with at least one job submitted or waiting on a
   question; stale jobs and launch failures still wake at once), with no need to restart the hopper after a clear.
   Questions don't hold the queue (P74): a waiting worker idles while the hopper launches the next takeable job, and

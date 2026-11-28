@@ -521,7 +521,8 @@ def worker_job_context(root, branch, entries):
     return None
 
 
-def integrator_next_actions(lock_holder, state_note_ids, merge_info, live_jobs, ready_count, hopper_session=None):
+def integrator_next_actions(lock_holder, state_note_ids, merge_info, live_jobs, ready_count, hopper_session=None,
+                            hopper_running=False):
     """Concrete next actions for an integrator, derived read-only from live repo/queue state."""
     actions = []
     archive_flags = "".join(f" --archive {hid}" for hid in state_note_ids) + (" --push" if state_note_ids else "")
@@ -565,6 +566,9 @@ def integrator_next_actions(lock_holder, state_note_ids, merge_info, live_jobs, 
             actions.append(f"In progress {jid} ({info.get('agent', '?')}){res_note}")
     if hopper_session:
         actions.append("Wait for the next pause in the background after answering/merging: python3 tools/WAIT_FOR_THE_HOPPER.py (no timed check-ins, P39)")
+    elif hopper_running:
+        actions.append("The hopper is running: wait for it in the background (or it starts a second integrator at its next pause): "
+                       "python3 02_Habits/WHEN_YOU_START_THE_HOPPER_WAIT_FOR_IT.py (outside the sandbox; P39)")
     else:
         actions.append("Arm queue watch in the background: python3 tools/WAIT_FOR_THE_NEXT_JOB.py (no timed check-ins, P39)")
     if ready_count and not live_jobs and not hopper_session:
@@ -1070,8 +1074,10 @@ def main(argv):
                 print("  (none)")
             live = collect_live_jobs(root)
             print("Next actions (read-only briefing; does not take the lock):")
+            import job as _job
             for act in integrator_next_actions(lock_holder, state_note_ids, merge_info, live, len(jobs),
-                                               hopper_session=hopper_session):
+                                               hopper_session=hopper_session,
+                                               hopper_running=_job._running_hopper_pid(root) is not None):
                 print("  - " + act)
             print("\n".join(role_brief("integrator")))
         else:

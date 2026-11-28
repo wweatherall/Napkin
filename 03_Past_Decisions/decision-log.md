@@ -445,6 +445,6 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | MAX_JOBS | 1 | Jobs one worker session takes before job.py refuses the next and it asks William for a /clear. | tools/job.py | P37 |
 | WORKER_WAIT | 1200 s | How long job.py take --wait looks for a Ready job before it stops (exit 1). | tools/job.py | P27 |
 | FIT_PAUSE_DEG | 2.0 | Degrees within 90 where a fit to a rotating rectangular target pauses instead of jumping to the opposite face | worker/plane_fit.py | I76 |
-| QUOTA_FLOOR | gemini 0.10, codex 0.10, claude 0.25 | Fraction of an agent's 5-hour or weekly quota left at or under which the hopper gives it no new job | tools/job.py | P78 |
+| QUOTA_FLOOR | gemini 0.10, codex 0.10, claude 0.25 | Fraction of an agent's 5-hour or weekly quota left at or under which the hopper gives it no new job (with the routes, models and Gemini freshness) | tools/hopper_settings.toml | P78 |
 
 ## Details

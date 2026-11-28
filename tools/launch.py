@@ -12,7 +12,8 @@ GEMINI_SKIP_PERMISSIONS to False to stop. Claude and Codex never get a bypass or
 Terminal command and the prompt's first lines instead of opening the window. Run outside the sandbox (osascript).
 
 Models: Gemini `gemini-4-hydrogen-medium` (default; `gemini-4-neon-medium` when asked), Claude `sonnet` at medium effort
-(default), Codex `gpt-6.2-sol` (William, 2026-11-27; 2026-11-28: cheaper for coding than Terra). One job per session (P37): launch one window per Ready job."""
+(default), Codex `gpt-6.2-sol` (William, 2026-11-27; 2026-11-28: cheaper for coding than Terra); set in
+tools/hopper_settings.toml [models]. One job per session (P37): launch one window per Ready job."""
 import datetime
 import os
 import random
@@ -23,7 +24,12 @@ import sys
 TOOLS = os.path.dirname(os.path.abspath(__file__))
 AGENTS = ("claude", "codex", "gemini")
 TARGETS = AGENTS + ("integrator",)
-DEFAULT_MODEL = {"claude": "sonnet", "gemini": "gemini-4-hydrogen-medium", "codex": "gpt-6.2-sol", "integrator": "opus"}
+import hopper_settings   # the default model per agent lives in tools/hopper_settings.toml [models] (P78)
+DEFAULT_MODEL = hopper_settings.DEFAULTS["models"]   # the built-in values; default_model() reads the file
+
+
+def default_model(agent):
+    return hopper_settings.load()["models"].get(agent) or DEFAULT_MODEL[agent]
 CLAUDE_FAMILIES = ("sonnet", "opus", "haiku", "fable")
 GEMINI_VARIANTS = ("hydrogen", "neon")
 GEMINI_SKIP_PERMISSIONS = True  # temporary, William 2026-11-27: Gemini workers stall on a permission prompt
@@ -123,7 +129,7 @@ def start_where(agent, root):
 
 def agent_command(agent, root, prompt_file, name, model=None):
     """The shell command the Terminal window runs."""
-    model = model or DEFAULT_MODEL[agent]
+    model = model or default_model(agent)
     space = space_of(agent, model)
     first = f'"$(cat {shlex.quote(prompt_file)})"'
     wt = shlex.quote(worktrees_dir(root))
@@ -284,7 +290,7 @@ def launch_agent(agent, model=None, name=None, wake=None, dry_run=False, out=pri
     folder = os.path.join(root, "scratch", "launch")
     os.makedirs(folder, exist_ok=True)
     name = name or session_name(agent, folder=folder)
-    model = model or DEFAULT_MODEL[agent]
+    model = model or default_model(agent)
     role = "integrator" if agent == "integrator" else "worker"
     startup_cmd = [sys.executable, os.path.join(TOOLS, "startup.py"), "--role", role, "--space",
                    space_of(agent, model)]
@@ -301,7 +307,7 @@ def launch_agent(agent, model=None, name=None, wake=None, dry_run=False, out=pri
             f.write(integrator_prompt(name, r.stdout, wake_line=wake))
         else:
             f.write(prompt(agent, name, r.stdout, model=model))
-    command = agent_command(agent, root, path, name, model if model != DEFAULT_MODEL[agent] else None)
+    command = agent_command(agent, root, path, name, model if model != default_model(agent) else None)
     if dry_run:
         open_terminal(command, dry_run=True, out=out)
         out("".join(open(path, encoding="utf-8").readlines()[:3]))

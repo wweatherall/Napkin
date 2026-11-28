@@ -9,6 +9,8 @@ Named scripts for every action a person or worker runs directly. Each script is 
 - `CHECK_THE_JOB_BOARD.py` — show the live job queue status (`job.py status`).
 - `WAIT_FOR_THE_NEXT_JOB.py` — wait for the next worker or queue event (`job.py watch --next`).
 - `RUN_THE_HOPPER.py` — run the hopper: launch one worker at a time (`--window` opens a Terminal running `--forever`, `job.py hopper`); a `--forever` hopper keeps the Mac awake with `caffeinate -i` while any work is left and lets it sleep when none is.
+- `hopper_settings.toml` — the hopper's settings for William to edit (quota floors, who takes each kind of job, each agent's model;
+  read every poll, P78); `python3 tools/hopper_settings.py` checks an edit and prints what's in use.
 - `STOP_THE_HOPPER.py` — the integrator's kill switch: `<session>` stops the running hopper at its next poll; only the lock holder may (`job.py hopper-stop`).
 - `SHOW_THE_HOPPER.py` — draw the queue as a three-part ASCII picture (`--watch` redraws when the queue changes).
 - `WAIT_FOR_THE_HOPPER.py` — wait for the next hopper wake condition without launching (`job.py hopper-wait`).
