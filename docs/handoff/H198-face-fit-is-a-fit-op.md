@@ -1,6 +1,6 @@
 ### H198 — Push/Pull split, step 1: fitting a face to another board's edge sends a `fit` op (T159, I74)
 
-Author: Claude (integrator, opus-integrator) | Date: 2026-11-27 | Status: open | For: gemini | Item: T159
+Author: Claude (integrator, opus-integrator) | Date: 2026-11-27 | Status: answered | For: gemini | Item: T159
 
 References: I74 (William, 2026-11-27: push_pull's jobs split into their own ops), A43 (breaking changes allowed: a
 one-time updater, no shims), docs/proposals/T159-push-pull.md (job #3, split 1), H171 (how `fit` was split out of
@@ -48,3 +48,26 @@ What can fail:
 
 Checks:
 - `tools/TEST_BEFORE_MERGING.sh` passes (full scope); the full field audit passes.
+
+### Response
+
+2026-11-27 (Gemini, `gemini-spruce-1127-204647`):
+- Branch: `gemini/h198-face-fit-is-a-fit-op` (code commit `1ad4241`, merged `main` at `6bd634a`).
+- Changes:
+  - `viewport/tools/push_tool.gd` (`commit_push`): when `edge_fit` is non-empty and the target is a face (no `rect`, no `region`), computes `axis` and `reverse` from `ctx.model.stock_frame(body)` and `state["n"]`, and sends `{"id": next_id("ft"), "type": "fit", "body", "target_body", "axis", "face", "fit_mode", "reverse"}` while keeping the single draft, confirmation wave, and single Undo step.
+  - `worker/push.py` (`op_push_pull`): removed the `edge_fit`-on-a-face branch and raised `OpError("edge_fit is only for a new board; use fit for an existing face")` when `edge_fit` is passed on a face target without `region`.
+  - `viewport/document.gd` (`_op_refs`): scoped `op.has("edge_fit")` to `op["type"] == "push_pull" and op.has("edge_fit")` so `rect`/`region` + `edge_fit` continues working while `fit` uses its own `body`/`target_body` branch.
+  - `worker/serve.py` and `viewport/main.gd`: bumped `PROTOCOL_VERSION` from 19 to 20.
+  - `docs/protocol.md`: updated protocol version to 20 (including the `hello` example), updated `push_pull` and `fit` rows and the `edge_fit` note.
+  - `worker/test_properties.py` and `viewport/tests/quick/properties.gd`: updated face-fit op assertions to `fit`, added a worker test verifying `push_pull` with `edge_fit` on a face is refused, and added quick-test assertions for one draft, one wave, and one Undo step on a face fit.
+- Integrator Q&A (`job.py wait --scope` on `LOG TESTS` / `LOG SORT TESTS` failing on `P75` before merging `main`):
+  > "Main is fine: the P75 index row is in Napkin's own 03_Past_Decisions/decision-log.md (comitatus keeps only the ruling files), added by main's 2174601 after your branch started. Merge main into your branch (git merge main), rerun the gate, and carry on; nothing in comitatus needs changing."
+- Verified:
+  - `tools/TEST_BEFORE_MERGING.sh` (full scope): `GATE PASS: full test passes; QUICK 403 passed, 0 failed in 49.8 s; 0 known failure(s); 113 s total`, including full field audit.
+  - `python3 tools/job.py test` on `6bd634a` (after merging `main`): `QUICK 403 passed, 0 failed`, `PROPERTY TESTS: 98 passed, 0 failed`, `SERVE TESTS: 34 passed, 0 failed`, `LOG TESTS: 70 passed, 0 failed`, `LOG SORT TESTS: 36 passed, 0 failed`.
+- IDs added: none. Open questions: none.
+
+Changed from the brief: brief listed `tests/op_contracts.json` (`push_pull`'s `edge_fit` only where a face is the target) and said `push_pull` would refuse it via H194 contract; `push_pull` has no `CONTRACT` in `worker/push.py` yet (deferred until after the split per H193), so `tests/op_contracts.json` was left untouched and `op_push_pull` raises `OpError` explicitly if `edge_fit` is passed on a face target without `region`.
+Changed from the brief: updated `worker/test_serve.py` protocol version assertion from 19 to 20 (P73: test pinning the old `PROTOCOL_VERSION`).
+Architecture: `viewport/tools/push_tool.gd` now sends a `fit` op (computing `axis` and `reverse` from `stock_frame`) instead of `push_pull` when fitting an existing face to another board's edge; `PROTOCOL_VERSION` bumped 19 -> 20.
+Result: 6bd634a; GATE PASS (403/403 quick, full + field audit passed) and job.py test passed; face-to-edge fits in Push/Pull now send fit ops (PROTOCOL_VERSION 20)
