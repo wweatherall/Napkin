@@ -1,4 +1,4 @@
-"""Collect per-op CONTRACT dicts from worker handler modules and generate tests/op_contracts.json.
+"""Per-op contracts (H189-H194): collect CONTRACT dicts from worker handler modules into tests/op_contracts.json, and validate(op), which Model.apply runs before a contracted op's handler.
 
 Usage:
   python3 worker/op_contracts.py          write tests/op_contracts.json
