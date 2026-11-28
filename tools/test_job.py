@@ -1780,6 +1780,24 @@ finally:
     if os.path.exists(job.hopper_wait_pid_path(h196_root)):
         os.unlink(job.hopper_wait_pid_path(h196_root))
 
+# A wait that woke its integrator for this pause has exited: the hopper must not start a second integrator for it
+woke_out = []
+woke_rc = job.hopper_wait(h196_root, out=woke_out.append, now=t_h197 + 30, sleep=lambda _: None, poll=0)
+int_calls0 = []
+def _stop(_):
+    raise SystemExit(0)
+try:
+    job.hopper(h196_root, forever=True, launcher=lambda a: 0,
+               integrator_launcher=lambda s, d: int_calls0.append((s, d)) or 0,
+               out=lambda *_: None, now=t_h197 + 30, sleep=_stop, poll=0)
+except SystemExit:
+    pass
+check("a pause the wait already woke the integrator for starts no second integrator",
+      woke_rc == 0 and any("paused" in l for l in woke_out) and int_calls0 == [], (woke_rc, woke_out, int_calls0))
+os.unlink(job.hopper_woke_path(h196_root))
+with job.locked(job.state_path(h196_root)) as st:
+    st.pop("integrator_launched", None)
+
 # With no wait running, --forever launches at most one integrator per pause, and clears when work moves on
 int_calls = []
 p2_polls = [0]

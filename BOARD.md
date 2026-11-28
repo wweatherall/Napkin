@@ -73,7 +73,7 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H204 | Gemini | **Ready** | Rename everything to Napkin: the app, its files, the names saved inside models, and the tools (T139, P51) | [H204](docs/handoff/H204-rename-to-napkin.md) |  |
+| H204 | Gemini | In progress (gemini since 22:44) | Rename everything to Napkin: the app, its files, the names saved inside models, and the tools (T139, P51) | [H204](docs/handoff/H204-rename-to-napkin.md) |  |
 | H200 | Gemini | Queued | Push/Pull split, step 3: resizing plain stock is a `resize_stock` op (T159, I74) | [H200](docs/handoff/H200-resize-stock-op.md) | H204 |
 | H201 | Gemini | Queued | A fit names its target face by geometry, follows flips and rotations, and detaches when the face is gone (T161, T163, I75-I77) | [H201](docs/handoff/H201-fits-name-faces-by-geometry.md) | H200 |
 | H202 | Gemini | Queued | Design: how a fit that lost its face looks (a chain crumbling, or another gentle metaphor), a proposal with drafts for William | [H202](docs/handoff/H202-fit-detach-look.md) | H201 |
