@@ -118,3 +118,80 @@ func run() -> void:
 	amend_xs.sort()
 	harness._ok("typing 250 after clicking a pre-previewed x3 array amends spacing to 250 mm keeping 3 copies",
 		amend_xs == [250.0, 500.0, 750.0], [harness._shown_ids(), amend_xs])
+
+	for form in ["5x", "x5", "*5", "5*", "/5"]:
+		await _begin_copy()
+		var distance: float = m.move_state["vec"].x
+		var length_id_before := m.length_id
+		await _type_measurement(form)
+		var divide: bool = form == "/5"
+		var preview_ok_for_form: bool = m.tools["move"].in_gesture() and not m.tools["move"].mirror \
+			and m.move_state.get("count") == 5 and m.move_state.get("divide") == divide and m.length_id == length_id_before
+		await harness._press()
+		await _check_copies("%s during a copy-move previews and commits five copies" % form, divide, distance, preview_ok_for_form)
+
+		await _begin_copy()
+		await harness._press()
+		var copy_op: Dictionary = m.ops.back()
+		length_id_before = m.length_id
+		await _type_measurement(form)
+		var amended: bool = m.ops.back()["id"] == copy_op["id"] and not m.tools["move"].mirror and m.length_id == length_id_before
+		await _check_copies("%s after a copy-move amends it to five copies" % form, divide, copy_op["vector"][0], amended)
+
+	await _begin_copy()
+	await harness._key(KEY_ALT)
+	var length_id := m.length_id
+	await _type_measurement("50*2")
+	await harness._wait_wave()
+	var moved := harness._bbox(harness.id("b1"))
+	harness._ok("50*2 during a move is a 100 mm distance",
+		moved.slice(0, 2) == [100.0, 0.0] and not m.ops.back().get("copy", true) and m.length_id == length_id,
+		[moved, m.ops.back(), length_id, m.length_id])
+
+
+func _begin_copy() -> void:
+	await harness._fresh("move_copy_counts", harness._plank(1, Vector3.ZERO, Vector3(90, 50, 18)))
+	await harness._view(Vector3(240, 25, 0), -30, -45, 2.2)
+	await harness._grab(Vector3(0, 25, 18))
+	await harness._key(KEY_ALT)
+	await harness._key(KEY_RIGHT)
+	await harness._drag_to(Vector3(500, 25, 18), 6)
+
+
+func _type_measurement(txt: String) -> void:
+	var star := txt.find("*")
+	if star < 0:
+		await harness._type(txt + "\n")
+		return
+	if star > 0:
+		await harness._type(txt.left(star))
+	# A top-row asterisk includes a real Shift press, which Move also uses for mirror.
+	await harness._key_state(KEY_SHIFT, true)
+	var key := InputEventKey.new()
+	key.keycode = KEY_8
+	key.physical_keycode = KEY_8
+	key.unicode = "*".unicode_at(0)
+	key.shift_pressed = true
+	key.pressed = true
+	Input.parse_input_event(key)
+	var up := key.duplicate()
+	up.pressed = false
+	Input.parse_input_event(up)
+	await harness._key_state(KEY_SHIFT, false)
+	await harness._type(txt.substr(star + 1) + "\n")
+
+
+func _check_copies(name: String, divide: bool, distance: float, action_ok: bool) -> void:
+	await harness._wait_wave()
+	var op: Dictionary = m.ops.back()
+	var positions := []
+	for bid in harness._shown_ids():
+		if bid != harness.id("b1"):
+			positions.append(harness._bbox(bid)[0])
+	positions.sort()
+	var step := distance / 5.0 if divide else distance
+	var expected := []
+	for i in range(1, 6):
+		expected.append(snappedf(i * step, 0.01))
+	harness._ok(name, action_ok and op.get("count") == 5 and op.get("divide") == divide and positions == expected,
+		[action_ok, op, positions, expected])

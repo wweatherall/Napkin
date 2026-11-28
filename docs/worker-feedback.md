@@ -17,3 +17,7 @@
 ### 2026-11-28 02:15 — H201 (codex, 01a2210d-f942-7420-9648-4a5151725b4e, resubmit)
 - **How was the review round: were the return notes clear, and what would have avoided the return?** The return notes were clear and their exact FreeCAD reproduction made verification easy. A resize-after-pocket case in the original matrix would have caught the detach. The review also exposed the first resize after reopen and a cut after rotation as useful regressions.
 - **Any improvements you can think of?** Keep GATE_FULL out of the nested tools-scope fixture so an explicitly forced full gate can pass the same checks as an automatically selected full gate.
+
+### 2026-11-28 08:12 — H210 (codex, 01a22279-cf6b-7661-aa86-11c57842643c, first submit)
+- **How was working on this job in our code base?** A shifted punctuation key needed both its character and its modifier events to reproduce the app failure.
+- **Any improvements you can think of?** For keyboard bugs, include physical modifier events in the baseline and check active and post-click paths separately.

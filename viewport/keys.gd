@@ -12,8 +12,9 @@ var m                               # main.gd: tools, tool, measure, sel, set_to
 
 
 func before_gui(e: InputEvent) -> bool:
-	"""Push/Pull into a face (I40): Tab switches the face, Option the end condition. Before the GUI, which takes
-	Tab. True when the tool used the key."""
+	"""Let Move see Shift chords and releases, and Push/Pull take Tab or Option before the GUI."""
+	if e is InputEventKey and not e.echo and m.tool == "move" and m.tools.has("move"):
+		m.tools["move"].observe_shift(e)
 	return e is InputEventKey and e.pressed and not e.echo and e.keycode in [KEY_TAB, KEY_ALT] and m.tool == "push" \
 			and m.tools.has(m.tool) and m.tools[m.tool].key(e)
 
@@ -48,7 +49,7 @@ func press(e: InputEventKey) -> void:
 			return
 	var ch := char(e.unicode) if e.unicode > 0 else ""
 	var t = m.tools[m.tool]
-	if not (box.vcb != "" and e.keycode == KEY_SHIFT) and t.key(e): return   # the tool's own keys (Move: modifiers, axis locks); while typing, Shift is for " and '
+	if not (box.vcb != "" and e.keycode == KEY_SHIFT) and t.key(e): return   # the tool's own keys; while typing, Shift is for quotes and symbols
 	if t.busy() and ch != "" and t.accepts(ch):
 		box.type_char(ch); return
 	# Only a tool with accepts_idle takes characters before a gesture (Polygon's `8s`).

@@ -275,13 +275,11 @@ func apply() -> void:
 	var txt := vcb.strip_edges()
 	vcb = ""
 	if txt != "":
-		var counts := RegEx.new()
-		counts.compile("^(?:[0-9]+x|[x*][0-9]+|/[0-9]+)$")
 		var raw: bool = active.has_method("typed_raw") and active.typed_raw()
 		# Polygon's side count: 8s at any time, or a plain whole number before a gesture, where the box says Sides (I73)
 		var side_count: bool = tool == "polygon" and ((txt.to_lower().ends_with("s") and txt.left(-1).strip_edges().is_valid_int())
 			or (not active.busy() and txt.is_valid_int()))
-		if raw or side_count or (tool == "move" and counts.search(txt.to_lower()) != null):
+		if raw or side_count or (tool == "move" and not active.parse_array_count(txt).is_empty()):
 			length_pending = {}
 			active.typed(txt)
 		elif tool == "polygon" and not active.busy():
