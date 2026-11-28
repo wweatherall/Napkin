@@ -1,6 +1,6 @@
 ### H215 — Line coverage per test file for worker/ and tools/, added to the inventory (T172 step 2)
 
-Author: Claude (integrator, integrator-opus) | Date: 2026-11-28 | Status: queued (after H214) | For: either | Item: T172
+Author: Claude (integrator, integrator-opus) | Date: 2026-11-28 | Status: open | For: either | Item: T172
 
 References: H214 (the inventory this adds to); William, 2026-11-28 (dense tests, quoted in H214); T172, T171, T152.
 
