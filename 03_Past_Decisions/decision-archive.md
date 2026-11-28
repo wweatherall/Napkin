@@ -201,6 +201,7 @@ Work list items that are finished (and Split ones whose parts are all done).
 | T130 | Auto-unblock queued jobs immediately when their dependency job(s) merge and push. | Done |
 | T131 | Quiet-by-default `tools/test_*.py` suites: print only `FAIL` lines and summary by defau... | Done |
 | T134 | One start script per agent role that loads its onboarding context (identity, principles... | Done |
+| T139 | Rename the app to Napkin: what you see, the built app, folders, and the code and docs t... | Done |
 | T140 | Decide when and how William's new organization principles take effect, and how they sit... | Done |
 | T142 | A Work list item is marked Done automatically when the job (or last of its jobs) that c... | Done |
 | T143 | Move tools/usage.py (2,760 lines, token benchmarking) and its tests out of the project'... | Done |
