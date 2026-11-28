@@ -12,7 +12,7 @@ GEMINI_SKIP_PERMISSIONS to False to stop. Claude and Codex never get a bypass or
 Terminal command and the prompt's first lines instead of opening the window. Run outside the sandbox (osascript).
 
 Models: Gemini `gemini-4-hydrogen-medium` (default; `gemini-4-neon-medium` when asked), Claude `sonnet` at medium effort
-(default), Codex its own default. One job per session (P37): launch one window per Ready job."""
+(default), Codex `gpt-6.2-sol` (William, 2026-11-27). One job per session (P37): launch one window per Ready job."""
 import datetime
 import os
 import random
@@ -22,7 +22,7 @@ import sys
 
 TOOLS = os.path.dirname(os.path.abspath(__file__))
 AGENTS = ("claude", "codex", "gemini")
-DEFAULT_MODEL = {"claude": "sonnet", "gemini": "gemini-4-hydrogen-medium", "codex": None}
+DEFAULT_MODEL = {"claude": "sonnet", "gemini": "gemini-4-hydrogen-medium", "codex": "gpt-6.2-sol"}
 CLAUDE_FAMILIES = ("sonnet", "opus", "haiku", "fable")
 GEMINI_VARIANTS = ("hydrogen", "neon")
 GEMINI_SKIP_PERMISSIONS = True  # temporary, William 2026-11-27: Gemini workers stall on a permission prompt
