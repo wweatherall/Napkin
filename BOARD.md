@@ -72,7 +72,6 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H197 | Gemini | **Done**: for review (gemini) | When all work is paused, the hopper brings in the integrator: wakes it, or starts a new one | [H197](docs/handoff/H197-hopper-brings-the-integrator.md) |  |
 | H195 | Codex | **Done**: for review (codex) | Codex in the token tool: its quota windows and each job's tokens, from Codex's own session logs | [H195](docs/handoff/H195-codex-usage.md) |  |
 | H193 | Gemini | **Done**: for review (gemini) | Design: contracts for the ops with modes (move, push_pull, property_edit, fit), a proposal for William | [H193](docs/handoff/H193-moded-op-contracts-design.md) |  |
 | H194 | Gemini | **Done**: for review (gemini) | The worker checks each op against its contract before running it (ops with a contract only) | [H194](docs/handoff/H194-enforce-op-contracts.md) |  |
@@ -81,7 +80,7 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 | H200 | Gemini | Queued | Push/Pull split, step 3: resizing plain stock is a `resize_stock` op (T159, I74) | [H200](docs/handoff/H200-resize-stock-op.md) | H199 |
 | H201 | Gemini | Queued | A fit names its target face by geometry, follows flips and rotations, and detaches when the face is gone (T161, T163, I75-I77) | [H201](docs/handoff/H201-fits-name-faces-by-geometry.md) | H200 |
 | H202 | Gemini | Queued | Design: how a fit that lost its face looks (a chain crumbling, or another gentle metaphor), a proposal with drafts for William | [H202](docs/handoff/H202-fit-detach-look.md) | H201 |
-| H203 | Gemini | Queued | The hopper draws itself: an ASCII picture of the jobs waiting, being worked on, and on the integrator's desk | [H203](docs/handoff/H203-hopper-picture.md) | H197 |
+| H203 | Gemini | **Ready** | The hopper draws itself: an ASCII picture of the jobs waiting, being worked on, and on the integrator's desk | [H203](docs/handoff/H203-hopper-picture.md) |  |
 
 <!-- end of job table -->
 

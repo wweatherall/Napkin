@@ -187,6 +187,16 @@ plain_acts = "\n".join(s.integrator_next_actions(None, [], None, [], 0))
 check("integrator_next_actions omits --william and --archive when lock is free and no state notes exist",
       "HOLD_THE_INTEGRATOR_LOCK.py <session>" in plain_acts and "--william" not in plain_acts and "--archive" not in plain_acts
       and "BypassSandbox: true" in plain_acts)
+hopper_acts = "\n".join(s.integrator_next_actions("prev", [], None, [], 2, hopper_session="integrator-h1"))
+check("integrator_next_actions uses --hopper, P74 standing permission, and WAIT_FOR_THE_HOPPER when started by the hopper",
+      "HOLD_THE_INTEGRATOR_LOCK.py integrator-h1 --hopper" in hopper_acts
+      and "P74 standing permission" in hopper_acts
+      and "WAIT_FOR_THE_HOPPER.py" in hopper_acts
+      and "--william" not in hopper_acts and "WAIT_FOR_THE_NEXT_JOB.py" not in hopper_acts)
+check("split_hopper extracts --hopper session from argv",
+      s.split_hopper(["--role", "integrator", "--hopper", "int-1"]) == ("int-1", ["--role", "integrator"])
+      and s.split_hopper(["--hopper=int-2", "H197"]) == ("int-2", ["H197"])
+      and s.split_hopper(["--role", "integrator"]) == (None, ["--role", "integrator"]))
 
 summary_lines = s.role_summary("gemini-maple", ["H131"], 2, None, in_job_id="H125")
 check("role_summary summarizes lock, state note, ready count, merge state and detected job checkout",

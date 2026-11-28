@@ -114,5 +114,30 @@ term_rc = launch.open_terminal("cd /x && python3 tools/RUN_THE_HOPPER.py --forev
 check("open_terminal --dry-run prints the command without opening a window",
       term_rc == 0 and term_out == ["cd /x && python3 tools/RUN_THE_HOPPER.py --forever"], (term_rc, term_out))
 
+# H197: integrator launch
+check("space_of('integrator') is opus-integrator",
+      launch.space_of("integrator") == "opus-integrator")
+icmd = launch.agent_command("integrator", root, "/x/int.txt", "integrator-maple-1")
+check("integrator runs Claude opus with --add-dir, --remote-control, NAPKIN_SPACE=opus-integrator, and no bypass flag",
+      "NAPKIN_SPACE=opus-integrator claude --model opus --effort medium --add-dir /x/comitatus/08_Code_Bases/.worktrees/Napkin --remote-control integrator-maple-1" in icmd
+      and not any(w in icmd for w in ("dangerously", "skip-permissions", "full-auto", "yolo", "bypass")), icmd)
+ip = launch.integrator_prompt("integrator-maple-1", "Integrator checklist", wake_line="paused: review H191")
+check("integrator_prompt carries the P74 standing-permission message, --hopper lock command, wake line, and WAIT_FOR_THE_HOPPER",
+      "You are the integrator: you have William's standing permission (P74), started by the hopper. "
+      "Take the lock with python3 tools/HOLD_THE_INTEGRATOR_LOCK.py integrator-maple-1 --hopper, "
+      "then: paused: review H191. Answer the questions, review and merge what's submitted, then run "
+      "python3 tools/WAIT_FOR_THE_HOPPER.py in the background." in ip
+      and "Integrator checklist" in ip, ip)
+i_dry = subprocess.run([sys.executable, os.path.join(os.path.dirname(os.path.abspath(__file__)), "launch.py"),
+                        "integrator", "--dry-run", "--name", "integrator-test-dryrun"], capture_output=True, text=True)
+i_made = os.path.join(launch.main_root(), "scratch", "launch", "integrator-test-dryrun.txt")
+check("integrator --dry-run prints the Terminal command and first message, and writes the integrator brief",
+      i_dry.returncode == 0 and "claude --model opus" in i_dry.stdout
+      and "You are the integrator: you have William's standing permission (P74)" in i_dry.stdout
+      and os.path.exists(i_made) and "Integrator checklist" in open(i_made).read(),
+      i_dry.stdout + i_dry.stderr)
+if os.path.exists(i_made):
+    os.remove(i_made)
+
 print(f"LAUNCH TESTS: {passed} passed, {failed} failed")
 sys.exit(1 if failed else 0)

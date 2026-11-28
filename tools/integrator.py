@@ -80,14 +80,23 @@ def stamp():
     return time.strftime("%Y-%m-%d %H:%M")
 
 
-def take(path, name, william=False, out=print):
+def take(path, name, william=False, hopper=False, state_file=None, out=print):
+    if hopper:
+        sf = state_file or os.path.join(os.path.dirname(path), "shopsketch-jobs.json")
+        launched = (read(sf) or {}).get("integrator_launched")
+        if not launched or launched.get("session") != name:
+            out("refused: --hopper requires a session started by the hopper")
+            return False
     held = read(path)
-    if held and held.get("holder") != name and not william:
+    if held and held.get("holder") != name and not william and not hopper:
         out(f"refused: {held['holder']} is the integrator (since {held['since']}, last active {held['seen']}). "
             f"Only William can hand it over: ask him, then run take {name} --william.")
         return False
     log = (held or {}).get("log", [])
-    if held and held.get("holder") != name:
+    if hopper:
+        prev = f" (was {held['holder']})" if held and held.get("holder") != name else ""
+        log.append(f"{stamp()} {name} took lock by hopper (P74){prev}")
+    elif held and held.get("holder") != name:
         log.append(f"{stamp()} William handed it from {held['holder']} to {name}")
     write(path, {"holder": name, "since": stamp() if not held or held.get("holder") != name else held["since"],
                  "seen": stamp(), "log": log[-20:]})
@@ -123,16 +132,19 @@ def status_line(path):
 
 
 def parse_take_args(argv):
-    """Parse flags after `take <name>` -> (william, archives, commit, push, error)."""
-    william, archives, commit, push, i = False, [], False, False, 0
+    """Parse flags after `take <name>` -> (william, hopper, archives, commit, push, error)."""
+    william, hopper, archives, commit, push, i = False, False, [], False, False, 0
     while i < len(argv):
         arg = argv[i]
         if arg == "--william":
             william = True
             i += 1
+        elif arg == "--hopper":
+            hopper = True
+            i += 1
         elif arg == "--archive":
             if i + 1 >= len(argv) or argv[i + 1].startswith("-"):
-                return False, [], False, False, "take --archive needs a handoff ID (e.g. H134)"
+                return False, False, [], False, False, "take --archive needs a handoff ID (e.g. H134)"
             archives.append(argv[i + 1])
             i += 2
         elif arg == "--commit":
@@ -142,15 +154,17 @@ def parse_take_args(argv):
             push = True
             i += 1
         else:
-            return False, [], False, False, f"unknown flag for take: {arg}"
+            return False, False, [], False, False, f"unknown flag for take: {arg}"
+    if william and hopper:
+        return False, False, [], False, False, "cannot combine --william and --hopper"
     if (commit or push) and not archives:
-        return False, [], False, False, "--commit / --push require --archive <ID>"
-    return william, archives, commit or push, push, None
+        return False, False, [], False, False, "--commit / --push require --archive <ID>"
+    return william, hopper, archives, commit or push, push, None
 
 
-def take_and_archive(path, name, william=False, archives=(), commit=False, push=False, root=None, out=print):
+def take_and_archive(path, name, william=False, hopper=False, archives=(), commit=False, push=False, root=None, out=print):
     """Take the integrator lock, then (only if granted) archive any listed state notes."""
-    if not take(path, name, william=william, out=out):
+    if not take(path, name, william=william, hopper=hopper, out=out):
         return False
     if not archives:
         return True
@@ -185,12 +199,12 @@ def main(argv):
         if cmd == "note":
             ok = log_note(" ".join(argv[1:]))
         elif cmd == "take":
-            william, archives, commit, push, err = parse_take_args(argv[2:])
+            william, hopper, archives, commit, push, err = parse_take_args(argv[2:])
             if err:
                 print(err)
                 print(__doc__)
                 return 2
-            ok = take_and_archive(path, name, william=william, archives=archives, commit=commit, push=push)
+            ok = take_and_archive(path, name, william=william, hopper=hopper, archives=archives, commit=commit, push=push)
         else:
             ok = {"touch": lambda: touch(path, name), "release": lambda: release(path, name)}[cmd]()
     except PermissionError as exc:
