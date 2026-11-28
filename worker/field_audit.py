@@ -6,13 +6,34 @@ every key accessed via [], get(), in, pop(), setdefault(), or whole-dict iterati
 line {"type": ..., "sent": [...], "read": [...]} to that file.
 
 CLI: python3 worker/field_audit.py <audit.jsonl> [...]
-Exits 0 if every sent key (other than id and type) was read at least once for its op type;
-exits 1 and prints the unread keys per op type otherwise.
+Exits 0 if every sent key (other than id, type, and UNREAD_WHEN entries) was read in every
+run that sent it; exits 1 and prints each unread (op_type, field) with run count and an
+example of sent keys otherwise.
 """
 import json
 import sys
 
 ALWAYS_READ = frozenset({"id", "type"})
+
+# {(op_type, field): "<when it is unread, and why that is fine (or 'SUSPECTED BUG: ...')>"}
+UNREAD_WHEN = {
+    ("move", "targets"): (
+        "when 'cut' is set, op_move dispatches to move_cut which reads op['cut'] "
+        "instead of op['targets'] (move_tool sends targets: [])."
+    ),
+    ("push_pull", "body"): (
+        "when op_push_pull rejects early with OpError (e.g. unknown rect in rejecttest), "
+        "Model.apply's finally block records the run before reaching op.get('body')."
+    ),
+    ("rect", "corner"): (
+        "when op_rect rejects early with OpError (e.g. invalid plane in rejecttest), "
+        "Model.apply's finally block records the run before reaching op.get('corner')."
+    ),
+    ("rect", "size"): (
+        "when op_rect rejects early with OpError (e.g. invalid plane in rejecttest), "
+        "Model.apply's finally block records the run before reaching op['size']."
+    ),
+}
 
 
 class AuditedDict(dict):
@@ -81,10 +102,11 @@ def append_record(path, op_type, sent_keys, read_keys):
         f.write(json.dumps(record) + "\n")
 
 
-def unread_fields(paths):
-    """Return {op_type: [unread_key, ...]} across all JSONL audit files in paths."""
-    sent_by_type = {}
-    read_by_type = {}
+def unread_fields(paths, allow=None):
+    """Return {op_type: {field: {"count": n, "example": [...]}}} for per-run unread fields."""
+    if allow is None:
+        allow = UNREAD_WHEN
+    unread = {}
     for path in paths:
         with open(path, "r", encoding="utf-8") as f:
             for line in f:
@@ -93,19 +115,28 @@ def unread_fields(paths):
                     continue
                 rec = json.loads(line)
                 op_type = rec["type"]
-                sent_by_type.setdefault(op_type, set()).update(rec["sent"])
-                read_by_type.setdefault(op_type, set()).update(rec["read"])
-    unread = {}
-    for op_type in sorted(sent_by_type):
-        diff = sorted(sent_by_type[op_type] - read_by_type.get(op_type, set()) - ALWAYS_READ)
-        if diff:
-            unread[op_type] = diff
+                sent = set(rec["sent"])
+                read = set(rec["read"])
+                for field in sorted(sent - read - ALWAYS_READ):
+                    if (op_type, field) in allow:
+                        continue
+                    by_field = unread.setdefault(op_type, {})
+                    entry = by_field.get(field)
+                    if entry is None:
+                        by_field[field] = {"count": 1, "example": sorted(rec["sent"])}
+                    else:
+                        entry["count"] += 1
     return unread
 
 
 def format_report(unread):
-    """Format unread {op_type: [key, ...]} for printing."""
-    return "\n".join(f"  {op_type}: {', '.join(keys)}" for op_type, keys in sorted(unread.items()))
+    """Format unread {op_type: {field: {"count": n, "example": [...]}}} for printing."""
+    lines = []
+    for op_type in sorted(unread):
+        for field, info in sorted(unread[op_type].items()):
+            ex = ", ".join(info["example"])
+            lines.append(f"  {op_type}.{field} ({info['count']} run(s), example sent: [{ex}])")
+    return "\n".join(lines)
 
 
 def main(argv=None):
@@ -116,7 +147,7 @@ def main(argv=None):
     unread = unread_fields(paths)
     if not unread:
         return 0
-    print("FIELD AUDIT FAIL: op field(s) sent but never read:")
+    print("FIELD AUDIT FAIL: op field(s) sent but not read in one or more runs:")
     print(format_report(unread))
     return 1
 
