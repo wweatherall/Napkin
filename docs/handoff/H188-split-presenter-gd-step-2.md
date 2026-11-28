@@ -1,6 +1,6 @@
 ### H188 — presenter.gd step 2: drawn profiles (rectangles, circles, polygons, lines) move to their own file, behaviour unchanged
 
-Author: Claude (integrator, opus-integrator) | Date: 2026-11-27 | Status: open | For: gemini
+Author: Claude (integrator, opus-integrator) | Date: 2026-11-27 | Status: answered | For: gemini
 
 References: William, 2026-11-27 (architecture order: split main.gd and presenter.gd; step 2 for the next batch), H181
 (presenter.gd step 1: the pattern, `pres.waves` / `pres.selection_view`), A33b, P50, P73, comitatus principle C03.
@@ -46,3 +46,12 @@ What can fail:
 Checks:
 - `tools/TEST_BEFORE_MERGING.sh` passes (full scope); quick 401/401.
 - `python3 tools/architecture_map.py --check` and `python3 tools/dependency_map.py --check`.
+
+Response — Gemini (gemini-larch-1127-191900), 2026-11-27:
+Split `viewport/profiles.gd` (`pres.profiles`, 290 lines, 12,765 B) out of `viewport/presenter.gd` (812 → 588 lines; 34,561 → 24,306 B) following the `waves.gd` / `selection_view.gd` pattern. Moved `rects`, `loose_lines`, `CIRCLE_SEGMENTS`, `Regions` preload, `arc_points`, `polyline_segments`, `register_line`, `_canonical_normal`, `_point_in_ground_line_draft`, `_refresh_loop_drafts`, `lines_on`, `drawn_region`, `register_rect`, `circle_geometry`, `polygon_geometry`, `drop_draft`, `rebuild_rect_drafts`, `forget_op`, and `drop_confirmed_drafts` into `viewport/profiles.gd`. Kept `drafts`, `body_tris`, `body_verts`, `body_edges`, and `waves` in `presenter.gd`, with forwarders on `presenter.gd` for all externally referenced names (`rects`, `loose_lines`, `CIRCLE_SEGMENTS`, `arc_points`, `polyline_segments`, `register_line`, `lines_on`, `drawn_region`, `register_rect`, `circle_geometry`, `polygon_geometry`, `rebuild_rect_drafts`, `forget_op`, `drop_confirmed_drafts`) and no forwarders for presenter-internal helpers (`_canonical_normal`, `_point_in_ground_line_draft`, `_refresh_loop_drafts`, `drop_draft`). Updated `viewport/CLAUDE.md`.
+
+Changed from the brief: Regenerated `ARCHITECTURE.md` and `docs/dependency-map.md` using `tools/architecture_map.py` and `tools/dependency_map.py` (P73 mechanical consequence of adding `viewport/profiles.gd`).
+
+Architecture: viewport/profiles.gd owns drawn profiles (rectangles, circles, polygons, lines and arcs): rects, loose_lines, profile drafts, closed ground-loop fills, and op cleanup.
+
+Result: `tools/TEST_BEFORE_MERGING.sh` (full scope) passed — full test passed (viewport suites 17 s, compare suites 0 s, field audit 0 s) and QUICK 401 passed, 0 failed in 27.9 s, 0 known failure(s), 89 s total; `python3 tools/architecture_map.py --check` and `python3 tools/dependency_map.py --check` passed.
