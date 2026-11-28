@@ -1656,19 +1656,28 @@ def _default_launch_integrator(session, wake_line):
     return launch.main(["integrator", "--name", session, "--wake", wake_line])
 
 
+CLOSE_AFTER_DONE = 120   # seconds after SUBMIT_JOB before the hopper closes a worker's window (its last words printed)
+
+
 def _close_merged_windows(root, now=None, out=print, closer=None, alive_fn=None, kill_fn=None,
-                          tty_pids_fn=None, sleep=time.sleep):
-    """End recorded agent processes and close recorded Terminal windows for merged jobs only (H207, G09)."""
+                          tty_pids_fn=None, sleep=time.sleep, window_tty_fn=None):
+    """End recorded agent processes and close recorded Terminal windows once a job is submitted (CLOSE_AFTER_DONE
+    later) or merged (H207, G09). A returned job resumes its session in a new window, so nothing is lost by closing at
+    submit (the integrator's call, William 2026-11-27: idle windows cost memory, not tokens). Before ending anything,
+    the window must still exist with its recorded tty: a window William closed, whose tty a new window took, is left alone."""
     import launch
     now = now or time.time()
     closer = closer or launch.close_terminal
     alive_fn = alive_fn or _pid_alive
     kill_fn = kill_fn or os.kill
     tty_pids_fn = tty_pids_fn or launch.tty_pids
+    window_tty_fn = window_tty_fn or launch.window_tty
     with state_read(state_path(root)) as st:
         targets = []
         for jid, j in st["jobs"].items():
-            if j.get("state") != "merged":
+            submitted = (j.get("state") == "done" and j.get("done") is not None
+                         and now - float(j["done"]) >= CLOSE_AFTER_DONE)
+            if j.get("state") != "merged" and not submitted:
                 continue
             for idx, w in enumerate(j.get("windows") or []):
                 if isinstance(w, dict) and w.get("id") is not None and not w.get("closed"):
@@ -1677,6 +1686,9 @@ def _close_merged_windows(root, now=None, out=print, closer=None, alive_fn=None,
         return
     closed = []
     for jid, idx, w in targets:
+        if w.get("tty") and window_tty_fn(w["id"]) != w["tty"]:
+            closed.append((jid, idx))      # gone, or its tty belongs to another window now: end nothing
+            continue
         pids = []
         if isinstance(w.get("pid"), int) and w["pid"] > 1 and w["pid"] != os.getpid():
             pids.append(w["pid"])
@@ -1697,7 +1709,7 @@ def _close_merged_windows(root, now=None, out=print, closer=None, alive_fn=None,
         if any(alive_fn(p) for p in pids):
             continue  # process hasn't ended yet; wait for next poll instead of closing with live work
         if closer(w["id"]) == 0:
-            out(f"{hhmm(now)} closed window {w['id']} for merged {jid}")
+            out(f"{hhmm(now)} closed window {w['id']} for {jid}")
             closed.append((jid, idx))
     if closed:
         with locked(state_path(root)) as st:

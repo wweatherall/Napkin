@@ -187,6 +187,18 @@ def tty_pids(tty):
     return out
 
 
+def window_tty(window_id):
+    """The tty of a Terminal window's selected tab, or None if that window no longer exists (H207's close check)."""
+    if window_id is None:
+        return None
+    script = ('tell application "Terminal"\n'
+              f'    if exists (window id {int(window_id)}) then return tty of selected tab of window id {int(window_id)}\n'
+              '    return ""\n'
+              'end tell')
+    r = subprocess.run(["osascript", "-e", script], capture_output=True, text=True)
+    return (r.stdout.strip() or None) if r.returncode == 0 else None
+
+
 def open_terminal_window(command, dry_run=False, out=print):
     """Open a Terminal window running `command` via osascript -> (rc, {'id': wid, 'tty': tty} or None) (H207)."""
     if dry_run:

@@ -2029,11 +2029,26 @@ job.status(h207_root, out=st_out.append)
 check("job.status shows the recorded resume command",
       any("resume: agy --conversation conv-right-111" in l for l in st_out), st_out)
 
-# While done (not merged), _close_merged_windows must NOT close window 7001
+# Just submitted (within CLOSE_AFTER_DONE): _close_merged_windows must NOT close window 7001 yet
 closed_ids = []
+with job.locked(job.state_path(h207_root)) as st:
+    st["jobs"]["H020"]["done"] = 1060
 job._close_merged_windows(h207_root, now=1070, out=lambda _: None, closer=lambda wid: closed_ids.append(wid) or 0,
                           alive_fn=lambda p: False, kill_fn=lambda p, s: None, tty_pids_fn=lambda t: [])
-check("done job keeps its window open until merge", closed_ids == [], closed_ids)
+check("a just-submitted job keeps its window for CLOSE_AFTER_DONE", closed_ids == [], closed_ids)
+
+# A recorded tty that now belongs to another window (William closed ours): nothing is killed or closed
+with job.locked(job.state_path(h207_root)) as st:
+    st["jobs"]["H099"] = {"state": "done", "done": 0, "windows": [{"id": 7099, "pid": 88099, "tty": "/dev/ttys009"}]}
+k99 = []
+job._close_merged_windows(h207_root, now=1070, out=lambda _: None, closer=lambda wid: closed_ids.append(wid) or 0,
+                          alive_fn=lambda p: True, kill_fn=lambda p, s: k99.append(p), tty_pids_fn=lambda t: [(88100, "vim")],
+                          window_tty_fn=lambda wid: "/dev/ttys011", sleep=lambda _: None)
+check("a window whose tty no longer matches is never killed or closed, and is marked done with",
+      k99 == [] and 7099 not in closed_ids and state(h207_root)["jobs"]["H099"]["windows"][0].get("closed"),
+      (k99, closed_ids, state(h207_root)["jobs"]["H099"]["windows"]))
+with job.locked(job.state_path(h207_root)) as st:
+    st["jobs"].pop("H099")
 
 # Returned job with resume_cmd uses resume_launcher in hopper_step
 run(job.return_job, h207_root, "H020", "needs one more fix", now=1080)
