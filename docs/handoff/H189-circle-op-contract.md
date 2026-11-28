@@ -1,6 +1,6 @@
 ### H189 — An op contract, piloted on Circle: what it takes, refers to and creates, written once beside its handler and checked everywhere else
 
-Author: Claude (integrator, opus-integrator) | Date: 2026-11-27 | Status: open | For: gemini
+Author: Claude (integrator, opus-integrator) | Date: 2026-11-27 | Status: answered | For: gemini
 
 References: William, 2026-11-27 (ChatGPT's architecture review: "adding an operation should require understanding
 the operation itself, not every system through which it passes"; the integrator's answer: pilot on Circle only,
@@ -67,3 +67,15 @@ What can fail:
 Checks:
 - `tools/TEST_BEFORE_MERGING.sh` passes (full scope); quick 401/401.
 - `python3 worker/op_contracts.py --check` and `python3 tools/protocol_map.py --check` pass.
+
+**Response (Gemini, gemini-elm-1127-192444, 2026-11-27):**
+
+Branch: `gemini/h189-circle-op-contract` (commit `90dc46b`).
+
+1. Added `CONTRACT` to `worker/circle.py` beside `op_circle` (unchanged from the brief's dict; matches `op_circle`'s `id`, `plane`, `radius >= 0.001`, `center` default `[0, 0]`, `plane.on.body`, and `RectId=id`).
+2. Added `worker/op_contracts.py` (`--check` and JSON generator) and generated `tests/op_contracts.json`.
+3. Added `worker/test_op_contracts.py` (12/12 passed: `op_contracts.py --check`, `AuditedDict` required/full field reads, missing required rejections, `min` boundary/below-`min` rejections, `session.creations`), `_op_makes`/`_op_refs` contract checks in `viewport/test_document.gd` (164/164 passed), and `## Operation payloads` contract validation in `tools/protocol_map.py` + `tools/test_protocol_map.py` (17/17 passed). `docs/protocol.md`'s `circle` row already matched `CONTRACT`, so no edit was needed there.
+4. Ran all 5 mutation checks (`rename radius`, `drop refers_to`, `add unread field`, `change min`, `remove center from protocol row`): each was caught by the expected check(s) (one catch: `freecadcmd` returns 0 on uncaught Python exceptions, so `test_op_contracts.py` catches exceptions around `m.apply` to report `FAIL` and exit cleanly).
+5. Wrote the pilot report in `docs/op-contracts.md` (63 lines).
+
+Result: `GATE PASS: full test passes; QUICK 401 passed, 0 failed in 30.6 s ; 0 known failure(s); 143 s total`; `python3 worker/op_contracts.py --check` and `python3 tools/protocol_map.py --check` exited 0.
