@@ -19,8 +19,8 @@ Today:
 - `python3 tools/handoff.py` with no command prints its whole usage text (about 20 lines).
 
 Touches: tools/startup.py (`waiting_handoffs` and its caller only), tools/test_startup.py, tools/number_ids.py (`SKIP`),
-tools/test_number_ids.py, tools/handoff.py (its no-command case only), tools/test_handoff.py. The integrator clears the
-two follow-up lines at merge.
+tools/test_number_ids.py, tools/handoff.py (its no-command case only), tools/test_handoff.py. The integrator cleared the
+two follow-up lines when writing this job.
 
 Request:
 1. `waiting_handoffs`: a handoff waits on William only when a question to him is actually pending, so the list and the
