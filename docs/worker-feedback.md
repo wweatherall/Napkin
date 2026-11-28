@@ -45,3 +45,7 @@
 ### 2026-11-28 10:31 — H215 (gemini, 6af2a9f7-b0af-486e-b5d4-546a2f71b0a5, first submit)
 - **How was working on this job in our code base?** Smooth, well-scoped brief: building on H214's test_inventory.py and featuretest.sh runner discovery made wiring --coverage straightforward, and the 5x slowdown threshold gave a clear target.
 - **Any improvements you can think of?** Note in docs/tools README that freecadcmd puts -u/-s flags before the script in sys.argv and runs top-level scripts with __name__ == <stem> rather than __main__, which is useful for any future freecadcmd wrapper.
+
+### 2026-11-28 10:39 — H215 (gemini, ?, resubmit)
+- **How was the review round: were the return notes clear, and what would have avoided the return?** Sharp return review: catching the untraced child-process blind spot immediately turned 9 false candidate probes into real coverage (serve.py 6%->89.8%, drawing.py 0%->94.5%, total 80.9%->90.0%).
+- **Any improvements you can think of?** Document in tools/README.md that freecadcmd ignores sitecustomize.py on PYTHONPATH, so child FreeCAD tracing works via the FREECAD wrapper that worker/test_link.py already honors.
