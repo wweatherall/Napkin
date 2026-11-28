@@ -1,6 +1,6 @@
 ### H204 — Rename everything to Napkin: the app, its files, the names saved inside models, and the tools (T139, P51)
 
-Author: Claude (integrator, opus-integrator) | Date: 2026-11-27 | Status: open | For: gemini | Item: T139 | Completes: T139
+Author: Claude (integrator, opus-integrator) | Date: 2026-11-27 | Status: answered | For: gemini | Item: T139 | Completes: T139
 
 References: P51 (the app is named Napkin, replacing Shop Sketch and FretchUp), T139 (William, 2026-11-26: change every
 name, including the .shopsketch.json files and the names stored inside .FCStd files; existing models must still open;
@@ -57,3 +57,20 @@ What can fail:
 Checks:
 - `tools/TEST_BEFORE_MERGING.sh` passes (full scope); the full field audit passes; `tools/BUILD_THE_APP.sh` builds
   dist/Napkin.app and it starts.
+
+Response (Gemini, gemini-hydrogen-coder, 2026-11-27):
+
+- Renamed every code, tool, doc, app, Meta key (`NapkinOps`, `NapkinRev`, `NapkinJournal`, `NapkinUnits`, `NapkinContentSha256`, `NapkinFloor.FCStd`), property group (`Napkin`), journal format (`napkin-journal/0.1`), env var (`NAPKIN_*`), `.git/napkin-*` state file, launcher (`Start Napkin.command`), and bundle (`dist/Napkin.app`, `local.napkin`, `tools/napkin_icon.svg`, `tools/icon.svg` removed) to Napkin. `git grep -i -E "shop ?sketch|fretchup"` now matches only historical archives/rulings/proposals/briefs, `worker/update_old_files.py` + `worker/test_update_old_files.py`, and the one-line `shopsketch-jobs.json` -> `napkin-jobs.json` migration in `tools/job.py`.
+- Updated `worker/update_old_files.py` (`META_KEY_RENAMES`, `ZIP_ENTRY_RENAMES`, `OLD_SIDECAR_SUFFIX`, `napkin-journal/0.1`, `.shopsketch*.json` -> `.napkin*.json`) and ran `tools/UPDATE_OLD_FILES.py` on `examples/`, `tests/legacy_one_file/`, `tests/reference/`, `04_Napkin_Drawings/`, and `/Users/Will/Sites/comitatus/08_Code_Bases/Napkin/models/`.
+- Updated `worker/session.py` (`_open_existing`) to reject files still carrying old `ShopSketch*` Meta keys or `.shopsketch.json` sidecars with `OLD_FILE_MSG`, and added end-to-end reject-then-update-then-reopen coverage in `worker/test_op_contracts.py`.
+- Added atomic `shopsketch-jobs.json` -> `napkin-jobs.json` migration in `tools/job.py` `state_path()` with a migration test in `tools/test_job.py`.
+- Updated `09_Tools/MEASURE_TOKEN_USE.py` and `09_Tools/test_measure_token_use.py` on `comitatus` branch `gemini/h204-napkin-usage` (`643ff9c`, `USAGE TESTS: 24 passed, 0 failed`) — merge into `comitatus/main` first, and restart the hopper after merging `H204`.
+
+Changed from the brief:
+- Preferences and saved user paths are not migrated automatically: `user://` moves from `~/Library/Application Support/Godot/app_userdata/Shop Sketch/` (`settings.cfg`, `preferences.json`, `worker.log`, `ops.json`, `out/`) to `.../Napkin/`; the default model folder moves from `~/Documents/Shop Sketch/` to `~/Documents/Napkin/`; and FreeCAD material cards move from `~/Library/Application Support/FreeCAD/v1-1/Material/Shop Sketch/` to `.../Material/Napkin/`. Old files at the previous paths stay where they are until moved or re-saved.
+- Mechanical consequences (P73): bumped `PROTOCOL_VERSION` 21 -> 22 in `worker/serve.py`, `viewport/main.gd`, `docs/protocol.md`, and `worker/test_serve.py` (because `hello.app`, `JOURNAL_FORMAT`, and `Napkin*` Meta keys changed); updated `tools/RUN_ONE_TEST.sh` and `tests/reference/{facetest,holetest,infertest,mirrortest,zfighttest}/status.json`; regenerated `docs/dependency-map.md` for `worker/session.py` importing `update_old_files`.
+
+Architecture impact:
+- `ARCHITECTURE.md`, `docs/protocol.md`, `docs/dependency-map.md`, `worker/serve.py`, `worker/session.py`, `worker/common.py`, `viewport/main.gd`, `viewport/model_files.gd`, and `viewport/worker_process.gd` updated to Napkin identifiers and `PROTOCOL_VERSION = 22` (`app: "napkin"`, `napkin-journal/0.1`, `Napkin*` Meta keys, `.napkin.json`).
+
+Result: `GATE PASS: full test passes; QUICK 405 passed, 0 failed in 29.9 s ; 0 known failure(s); 85 s total` on `67fa29a`; `BUILD_THE_APP.sh` built `dist/Napkin.app` (344M) and started cleanly; `JOB TESTS: 227 passed, 0 failed`; `UPDATE OLD FILES TESTS: 13 passed, 0 failed`; `OP CONTRACTS TESTS: 161 passed, 0 failed`; `FIELD AUDIT TESTS: 30 passed, 0 failed`; `SERVE TESTS: 34 passed, 0 failed`; `USAGE TESTS: 24 passed, 0 failed` on `comitatus` (`643ff9c`).
