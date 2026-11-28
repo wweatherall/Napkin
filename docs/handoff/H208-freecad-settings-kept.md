@@ -40,3 +40,5 @@ Checks:
   fine: it fails if a new launch site is added without it).
 - `tools/TEST_BEFORE_MERGING.sh` passes.
 - The response says William's `v1-1/user.cfg` mtime before and after a full gate run (unchanged).
+
+Architecture: viewport/worker_process.gd owns the app's FreeCAD user and system config paths. Its launcher seeds user.cfg from the macOS FreeCAD profile on first use, then passes the app-owned paths on every start. Each test process uses paths in its own output folder.

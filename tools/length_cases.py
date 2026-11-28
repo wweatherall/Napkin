@@ -3,14 +3,17 @@ set of typed lengths, plus random expressions built from the same pieces people 
 against it: worker/test_length_input.py (FreeCAD still gives these answers) and viewport/test_units.gd (the
 local evaluate_length gives the same answer, or declines). Regenerate after changing length_input.py:
 
-  freecadcmd tools/length_cases.py
+  python3 tools/CHECK_TYPED_LENGTHS_AGAINST_FREECAD.py
 """
 import json
 import os
 import random
+import subprocess
 import sys
+import tempfile
 
-ROOT = os.path.dirname(os.path.dirname(os.path.abspath(sys.argv[-1] if sys.argv[-1].endswith(".py") else __file__)))
+SCRIPT = os.path.abspath(__file__)
+ROOT = os.path.dirname(os.path.dirname(SCRIPT))
 sys.path.insert(0, os.path.join(ROOT, "worker"))
 sys.dont_write_bytecode = True
 
@@ -86,6 +89,15 @@ def main():
     if "-h" in sys.argv[1:] or "--help" in sys.argv[1:]:
         print(__doc__)
         return
+    if "FreeCAD" not in sys.modules:
+        freecad = os.environ.get("FREECAD", "/Applications/FreeCAD.app/Contents/Resources/bin/freecadcmd")
+        scratch = os.path.join(ROOT, "scratch")
+        os.makedirs(scratch, exist_ok=True)
+        with tempfile.TemporaryDirectory(prefix="length-cases-", dir=scratch) as folder:
+            subprocess.run([freecad, "-u", os.path.join(folder, "user.cfg"),
+                            "-s", os.path.join(folder, "system.cfg"), SCRIPT],
+                           stdin=subprocess.DEVNULL, check=True)
+        return
     from length_input import evaluate
     rng = random.Random(42)
     texts = list(dict.fromkeys(CURATED))
@@ -114,7 +126,6 @@ def main():
         len(cases), sum(c["mm"] is not None for c in cases), sum(c["mm"] is None for c in cases), out))
 
 
-# freecadcmd runs a script under its own module name, not "__main__": the basename check keeps
-# `freecadcmd tools/length_cases.py` working, and the wrapper (which imports this) from running it twice.
+# FreeCAD executes the script under its module name, while the named Python wrapper imports it.
 if __name__ == "__main__" or os.path.basename(sys.argv[-1]) == "length_cases.py":
     main()

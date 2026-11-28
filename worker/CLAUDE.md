@@ -24,7 +24,7 @@ ARCHITECTURE.md the module map and protocol (update it in the same commit when y
   and `focus` events), ownership (one window per model), delayed saves, idle exit (`SERVE_IDLE_EXIT`).
   `SERVE_PORT=0` binds a free port and writes it to `SERVE_PORT_FILE` (T47): tests start workers this way.
 - `length_input.py`: typed lengths through FreeCAD's expressions (T32, I35). `viewport/units.gd`
-  `evaluate_length` ports it: after changing it, run `freecadcmd tools/CHECK_TYPED_LENGTHS_AGAINST_FREECAD.py` and the units test.
+  `evaluate_length` ports it: after changing it, run `python3 tools/CHECK_TYPED_LENGTHS_AGAINST_FREECAD.py` and the units test.
 - `object_properties.py`: the Properties panel's snapshot and `property_edit` (T46, I36).
 - `materials.py`: the wood library (T15, M03). `drawing.py`: shop drawings (plain python3, not the worker).
 - `hello` reports `PROTOCOL_VERSION` (serve.py; viewport/main.gd has the same constant): bump both when a message or
@@ -86,7 +86,8 @@ ARCHITECTURE.md the module map and protocol (update it in the same commit when y
   reliably undone.
 - Removing objects inside a transaction: remove what others depend on first, its dependents after. The other way
   round, undo brings them back without their expression links (`deletion.py remove_unneeded`, 1.1.4).
-- `freecadcmd` passes the script itself as `sys.argv[1]`: pass paths through environment variables.
+- Launch `freecadcmd` through the app, test runners, or named tools, always with isolated `-u` and `-s` config paths.
+- `freecadcmd` includes its own arguments in `sys.argv`: pass application paths through environment variables.
 - When a script raises, `freecadcmd` runs it a second time: a crashed test shows every check twice, and the second
   pass trips over the first one's files. Read the first error.
 - Removing a TechDraw page also removes its views and template (1.1.4); removing an already-deleted object then

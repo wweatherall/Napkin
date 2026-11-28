@@ -14,7 +14,7 @@ sys.dont_write_bytecode = True
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import FreeCAD as App
 from common import OpError
-from session import OLD_FILE_MSG, Session, read_journal, sha256_bytes, write_meta_journal
+from session import OLD_FILE_MSG, Session, no_backups, read_journal, sha256_bytes, write_meta_journal
 import update_old_files as uof
 
 tmp = os.environ.get("TESTDIR", "/tmp/floor_copy_test")
@@ -63,7 +63,9 @@ def add_freecad_cube(path, label):
     box.Width = 50
     box.Height = 50
     d.recompute()
-    d.save()
+    # Keep the fixture's external save from adding a backup beside the model.
+    with no_backups():
+        d.save()
     App.closeDocument(d.Name)
 
 

@@ -49,7 +49,7 @@ PY_SCRIPTS = [
     ("tools/ARCHIVE_A_FINISHED_JOB.py", "handoff.py", sys.executable),
     ("tools/CHECK_JOBS_DONT_OVERLAP.py", "handoff.py", sys.executable),
     ("tools/COMPARE_TEST_SUITES.py", "compare_suites.py", sys.executable),
-    ("tools/CHECK_TYPED_LENGTHS_AGAINST_FREECAD.py", "length_cases.py", sys.executable),
+    ("tools/CHECK_TYPED_LENGTHS_AGAINST_FREECAD.py", "CHECK_TYPED_LENGTHS_AGAINST_FREECAD.py", sys.executable),
     ("02_Habits/REMEMBER_WHO_YOU_ARE.py", "startup.py", sys.executable),
     ("02_Habits/WHEN_THE_LOG_IS_COMMITTED_TIDY_IT.py", "sort_decision_log.py", sys.executable),
     ("02_Habits/WHEN_WATCHED_CODE_IS_COMMITTED_CHECK_THE_MAP.py", "--staged", sys.executable),

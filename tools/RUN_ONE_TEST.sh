@@ -25,8 +25,8 @@ if [ "$TEST_RUNNER" = "none" ]; then
   exit 1
 fi
 OUT=$(mktemp -d "${TEST_TMPDIR%/}/napkin-one.XXXXXX") || exit 1
-mkdir -p "$OUT/$TEST_NAME"
-TESTDIR="$OUT/$TEST_NAME" $TEST_CMD > "$OUT/$TEST_NAME.log" 2>&1; RC=$?
+mkdir -p "$OUT/$TEST_NAME" || exit 1
+TESTDIR="$OUT/$TEST_NAME" run_test_command $TEST_CMD > "$OUT/$TEST_NAME.log" 2>&1; RC=$?
 grep -E "^FAIL" "$OUT/$TEST_NAME.log" | sed "s/^/[$TEST_NAME] /"
 s=$(grep -E "$TAG" "$OUT/$TEST_NAME.log" | head -1)
 if [ -n "$s" ]; then

@@ -29,6 +29,15 @@ test_runner_for() {
   esac
 }
 
+run_test_command() {
+  if [ "$1" = "$FC" ]; then
+    shift
+    "$FC" -u "$TESTDIR/user.cfg" -s "$TESTDIR/system.cfg" "$@"
+  else
+    "$@"
+  fi
+}
+
 if [[ ${BASH_SOURCE[0]} != "$0" ]]; then return 0; fi
 
 cd "$(dirname "$0")/.."
@@ -55,7 +64,14 @@ for f in worker/test_*.py tools/test_*.py viewport/test_*.gd; do
 done
 
 if [ "$LIST" -eq 1 ]; then
-  for t in "${TESTS[@]}"; do IFS='|' read -r name cmd <<< "$t"; printf '%-26s %s\n' "$name" "$cmd"; done
+  for t in "${TESTS[@]}"; do
+    IFS='|' read -r name cmd <<< "$t"
+    if [[ "$cmd" == "$FC "* ]]; then
+      printf '%-26s %s -u "$TESTDIR/user.cfg" -s "$TESTDIR/system.cfg" %s\n' "$name" "$FC" "${cmd#"$FC "}"
+    else
+      printf '%-26s %s\n' "$name" "$cmd"
+    fi
+  done
   exit 0
 fi
 
@@ -66,9 +82,9 @@ mkdir -p "$OUT" || exit 1
 PIDS=()
 for t in "${TESTS[@]}"; do
   IFS='|' read -r name cmd <<< "$t"
-  mkdir -p "$OUT/$name"
+  mkdir -p "$OUT/$name" || exit 1
   ( TEST_START=$SECONDS
-    TESTDIR="$OUT/$name" $cmd > "$OUT/$name.log" 2>&1; RC=$?
+    TESTDIR="$OUT/$name" run_test_command $cmd > "$OUT/$name.log" 2>&1; RC=$?
     echo "TIMING feature $name: $((SECONDS - TEST_START)) s" > "$OUT/$name.time"
     echo $RC > "$OUT/$name.rc"
     exit $RC
