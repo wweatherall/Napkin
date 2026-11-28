@@ -65,6 +65,7 @@ Architecture: lines, the response) and CLAUDE.md (commit trailers); this page sa
   `python3 ../../09_Tools/MEASURE_TOKEN_USE.py orient` (startup benchmark), `bench` (worker + integrator summary with 5h % estimates),
   `viz` (`--solo --sort burn`, `--job <H0NN>`), `report --only-measured`, `overhead`, `compare`, or
   `holes <H0NN>` (Claude & AGY/Gemini transcripts).
+  Codex job tokens and 5-hour and weekly quota come from `~/.codex/sessions` and appear in `report --all-agents`.
 
 ## Review and merge
 - Review every done job (Codex's `codex/*` branches too). Read each `Changed from the brief:` line first (P44):
