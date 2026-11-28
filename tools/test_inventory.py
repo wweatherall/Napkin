@@ -1,0 +1,332 @@
+#!/usr/bin/env python3
+# runner: none
+"""Measure every feature test file (and optionally quicktest lanes) into tests/test_inventory.json.
+
+Sources tools/featuretest.sh for test_runner_for / run_test_command and tools/gate.sh for set_test_tmpdir so
+runner rules, TESTDIR, TMPDIR, and FreeCAD config handling never drift from the real test scripts.
+
+Usage:
+  python3 tools/test_inventory.py            Run feature tests, write tests/test_inventory.json, print report
+  python3 tools/test_inventory.py --quick    Also run tools/quicktest.sh --full and include its lane logs
+  python3 tools/test_inventory.py --report   Print the report from the saved tests/test_inventory.json
+"""
+from __future__ import annotations
+
+import argparse
+from collections import Counter, defaultdict
+from concurrent.futures import ThreadPoolExecutor
+import json
+import os
+from pathlib import Path
+import re
+import subprocess
+import sys
+import tempfile
+import time
+
+ROOT = Path(__file__).resolve().parent.parent
+DEFAULT_OUT_JSON = ROOT / "tests" / "test_inventory.json"
+
+FEATURE_SUMMARY_RE = re.compile(r"^[A-Z][A-Z -]* TESTS:\s*(\d+)\s+passed,\s*(\d+)\s+failed")
+CHECK_LINE_RE = re.compile(r"^(?:PASS|FAIL)\s+(.+)$")
+QUICK_SUMMARY_RE = re.compile(r"^QUICK\s+(\d+)\s+passed,\s*(\d+)\s+failed\s+in\s+([0-9.]+)\s+s")
+QUICK_TIMING_RE = re.compile(r"^QUICK\s+timing\s+\(s\):\s*(.+)$")
+QUICK_STEP_RE = re.compile(r"(\S+)\s+([0-9]+(?:\.[0-9]+)?)")
+QUICK_LOGS_RE = re.compile(r"\(logs:\s*([^)]+)\)")
+
+
+def strip_detail(body: str) -> str:
+    """Cut a PASS/FAIL check body at the two-space detail separator."""
+    return body.split("  ", 1)[0].strip()
+
+
+def parse_feature_log(text: str) -> tuple[list[str], bool]:
+    """Parse PASS/FAIL check names and summary count from a feature test log.
+
+    Returns (sorted_checks, parsed) where parsed is True iff a summary line was found
+    and the number of PASS/FAIL lines matches passed + failed.
+    """
+    checks: list[str] = []
+    expected_total: int | None = None
+    for line in text.splitlines():
+        m_chk = CHECK_LINE_RE.match(line)
+        if m_chk:
+            checks.append(strip_detail(m_chk.group(1)))
+            continue
+        if expected_total is None:
+            m_sum = FEATURE_SUMMARY_RE.match(line)
+            if m_sum:
+                expected_total = int(m_sum.group(1)) + int(m_sum.group(2))
+    parsed = expected_total is not None and len(checks) == expected_total
+    return sorted(checks), parsed
+
+
+def parse_quick_lane_log(text: str) -> tuple[list[dict[str, object]], float, int | None, bool]:
+    """Parse step timings, lane seconds, check count, and parsed status from a quicktest vp*.log.
+
+    Reads the 'QUICK timing (s): <step> <sec> ... | opening fresh models <sec>' line (disambiguating
+    repeated step names with #<index>) and the 'QUICK N passed, M failed in T s' summary line.
+    """
+    raw_steps: list[tuple[str, float]] = []
+    saw_timing = False
+    check_count: int | None = None
+    seconds = 0.0
+    for line in text.splitlines():
+        if not saw_timing:
+            m_tim = QUICK_TIMING_RE.match(line)
+            if m_tim:
+                saw_timing = True
+                left = m_tim.group(1).split("|", 1)[0]
+                for step_name, sec_str in QUICK_STEP_RE.findall(left):
+                    raw_steps.append((step_name, round(float(sec_str), 3)))
+                continue
+        if check_count is None:
+            m_sum = QUICK_SUMMARY_RE.match(line)
+            if m_sum:
+                check_count = int(m_sum.group(1)) + int(m_sum.group(2))
+                seconds = float(m_sum.group(3))
+
+    counts = Counter(name for name, _ in raw_steps)
+    seen: Counter[str] = Counter()
+    steps: list[dict[str, object]] = []
+    for name, sec in raw_steps:
+        if counts[name] > 1:
+            seen[name] += 1
+            labeled = f"{name}#{seen[name]}"
+        else:
+            labeled = name
+        steps.append({"name": labeled, "seconds": sec})
+    steps.sort(key=lambda s: str(s["name"]))
+    parsed = saw_timing and len(steps) > 0 and check_count is not None
+    return steps, seconds, check_count, parsed
+
+
+def discover_feature_tests(root: Path = ROOT) -> tuple[list[dict[str, str]], str]:
+    """Use featuretest.sh's test_runner_for and gate.sh's set_test_tmpdir to list tests and tmpdir."""
+    script = """
+set -e
+source tools/gate.sh
+set_test_tmpdir >/dev/null
+printf 'TMPDIR\\t%s\\n' "$TEST_TMPDIR"
+source tools/featuretest.sh
+for f in worker/test_*.py tools/test_*.py viewport/test_*.gd; do
+  [ -f "$f" ] || continue
+  test_runner_for "$f"
+  [ -z "$TEST_CMD" ] && continue
+  printf 'TEST\\t%s\\t%s\\t%s\\n' "$f" "$TEST_NAME" "$TEST_RUNNER"
+done
+"""
+    proc = subprocess.run(
+        ["bash", "-c", script],
+        cwd=root,
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    tests: list[dict[str, str]] = []
+    test_tmpdir = tempfile.gettempdir()
+    for line in proc.stdout.splitlines():
+        parts = line.split("\t")
+        if parts[0] == "TMPDIR" and len(parts) >= 2:
+            test_tmpdir = parts[1]
+        elif parts[0] == "TEST" and len(parts) >= 4:
+            rel_file, name, runner = parts[1], parts[2], parts[3]
+            suite = rel_file.split("/", 1)[0]
+            tests.append({
+                "file": rel_file,
+                "name": name,
+                "runner": runner,
+                "suite": suite,
+            })
+    return tests, test_tmpdir
+
+
+def run_feature_tests(root: Path = ROOT) -> tuple[list[dict], str]:
+    """Run all feature tests side by side via featuretest.sh and return file entries + tmpdir."""
+    tests, test_tmpdir = discover_feature_tests(root)
+    out_dir = Path(tempfile.mkdtemp(prefix="napkin-inventory-", dir=test_tmpdir))
+    env = os.environ.copy()
+    env["TMPDIR"] = test_tmpdir
+
+    def _run_one(t: dict[str, str]) -> dict:
+        testdir = out_dir / t["name"]
+        testdir.mkdir(parents=True, exist_ok=True)
+        log_path = out_dir / f"{t['name']}.log"
+        extra_args = " -v" if (t["suite"] == "tools" and t["file"].endswith(".py")) else ""
+        cmd = [
+            "bash",
+            "-c",
+            f'source tools/featuretest.sh; test_runner_for "$1"; TESTDIR="$2" run_test_command $TEST_CMD{extra_args}',
+            "_",
+            t["file"],
+            str(testdir),
+        ]
+        t0 = time.monotonic()
+        with open(log_path, "w", encoding="utf-8") as log_fh:
+            proc = subprocess.Popen(cmd, cwd=root, env=env, stdout=log_fh, stderr=subprocess.STDOUT)
+            proc.wait()
+        elapsed = round(time.monotonic() - t0, 3)
+        text = log_path.read_text(encoding="utf-8", errors="replace")
+        checks, parsed = parse_feature_log(text)
+        return {
+            "file": t["file"],
+            "suite": t["suite"],
+            "runner": t["runner"],
+            "seconds": elapsed,
+            "checks": checks,
+            "parsed": parsed,
+        }
+
+    with ThreadPoolExecutor(max_workers=max(1, len(tests))) as pool:
+        entries = list(pool.map(_run_one, tests))
+    return entries, test_tmpdir
+
+
+def run_quick_tests(root: Path = ROOT, test_tmpdir: str | None = None) -> list[dict]:
+    """Run tools/quicktest.sh --full once and parse its vp*.log lane logs."""
+    env = os.environ.copy()
+    if test_tmpdir:
+        env["TMPDIR"] = test_tmpdir
+    proc = subprocess.run(
+        ["bash", "tools/quicktest.sh", "--full"],
+        cwd=root,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    output = proc.stdout + "\n" + proc.stderr
+    matches = QUICK_LOGS_RE.findall(output)
+    if not matches:
+        raise RuntimeError(f"Could not find quicktest logs directory in output:\n{output}")
+    logs_dir = Path(matches[-1].strip())
+    if not logs_dir.is_absolute():
+        logs_dir = root / logs_dir
+
+    entries: list[dict] = []
+    for vp_log in sorted(logs_dir.glob("vp*.log")):
+        text = vp_log.read_text(encoding="utf-8", errors="replace")
+        steps, seconds, check_count, parsed = parse_quick_lane_log(text)
+        lane_name = vp_log.stem  # e.g. vp1, vp2, vp3
+        entry: dict = {
+            "file": f"quick/{lane_name}",
+            "suite": "quick",
+            "runner": "godot",
+            "seconds": round(seconds, 3),
+            "checks": [str(s["name"]) for s in steps],
+            "steps": steps,
+            "parsed": parsed,
+        }
+        if check_count is not None:
+            entry["check_count"] = check_count
+        entries.append(entry)
+    return entries
+
+
+def build_inventory(file_entries: list[dict]) -> dict:
+    """Sort file entries and build the top-level inventory dict."""
+    sorted_files = []
+    checks_flat: list[dict[str, str]] = []
+    for entry in sorted(file_entries, key=lambda e: e["file"]):
+        sorted_checks = sorted(entry["checks"])
+        item: dict = {
+            "file": entry["file"],
+            "suite": entry["suite"],
+            "runner": entry["runner"],
+            "seconds": round(float(entry["seconds"]), 3),
+            "checks": sorted_checks,
+            "parsed": bool(entry["parsed"]),
+        }
+        if "steps" in entry:
+            item["steps"] = sorted(
+                [{"name": str(s["name"]), "seconds": round(float(s["seconds"]), 3)} for s in entry["steps"]],
+                key=lambda s: str(s["name"]),
+            )
+        if "check_count" in entry:
+            item["check_count"] = int(entry["check_count"])
+        sorted_files.append(item)
+        for chk in sorted_checks:
+            checks_flat.append({"name": chk, "file": entry["file"]})
+
+    checks_flat.sort(key=lambda c: (c["name"], c["file"]))
+    return {"files": sorted_files, "checks": checks_flat}
+
+
+def format_report(inventory: dict) -> str:
+    """Format a concise human-readable report from an inventory dict."""
+    files = inventory.get("files", [])
+    checks = inventory.get("checks", [])
+
+    suite_stats: dict[str, dict[str, float | int]] = {}
+    for entry in files:
+        s = entry["suite"]
+        if s not in suite_stats:
+            suite_stats[s] = {"files": 0, "checks": 0, "seconds": 0.0}
+        suite_stats[s]["files"] += 1
+        suite_stats[s]["checks"] += len(entry["checks"])
+        suite_stats[s]["seconds"] += float(entry["seconds"])
+
+    lines: list[str] = []
+    lines.append("Totals by suite:")
+    for s in sorted(suite_stats):
+        st = suite_stats[s]
+        lines.append(f"  {s:10s} {st['files']:3d} files, {st['checks']:4d} checks, {st['seconds']:6.2f} s")
+    total_seconds = sum(float(e["seconds"]) for e in files)
+    lines.append(f"  {'total':10s} {len(files):3d} files, {len(checks):4d} checks, {total_seconds:6.2f} s")
+
+    lines.append("")
+    lines.append("10 slowest files:")
+    slowest = sorted(files, key=lambda e: (-float(e["seconds"]), e["file"]))[:10]
+    for entry in slowest:
+        lines.append(
+            f"  {float(entry['seconds']):6.2f} s  {entry['file']} ({entry['suite']}, {len(entry['checks'])} checks)"
+        )
+
+    unparsed = sorted((e for e in files if not e.get("parsed")), key=lambda e: e["file"])
+    lines.append("")
+    lines.append(f"Unparsed files ({len(unparsed)}):")
+    for entry in unparsed:
+        lines.append(f"  {entry['file']} ({entry['suite']}, {len(entry['checks'])} parsed checks)")
+
+    by_name: dict[str, set[str]] = defaultdict(set)
+    for chk in checks:
+        by_name[chk["name"]].add(chk["file"])
+    dups = sorted(
+        ((name, sorted(fset)) for name, fset in by_name.items() if len(fset) > 1),
+        key=lambda item: (-len(item[1]), item[0]),
+    )
+    lines.append("")
+    lines.append(f"Check names in more than one file ({len(dups)}):")
+    for name, fset in dups:
+        lines.append(f"  {name} ({len(fset)} files: {', '.join(fset)})")
+
+    return "\n".join(lines)
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Build and report the Napkin test inventory.")
+    parser.add_argument("--quick", action="store_true", help="Also run quicktest.sh --full and include lane logs")
+    parser.add_argument("--report", action="store_true", help="Print report from saved JSON without running tests")
+    parser.add_argument("--out", default=str(DEFAULT_OUT_JSON), help="Path to inventory JSON")
+    args = parser.parse_args(argv)
+
+    out_path = Path(args.out)
+    if args.report:
+        if not out_path.exists():
+            print(f"error: inventory file not found: {out_path}", file=sys.stderr)
+            return 1
+        inventory = json.loads(out_path.read_text(encoding="utf-8"))
+        print(format_report(inventory))
+        return 0
+
+    entries, test_tmpdir = run_feature_tests(ROOT)
+    if args.quick:
+        entries.extend(run_quick_tests(ROOT, test_tmpdir))
+    inventory = build_inventory(entries)
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(json.dumps(inventory, indent=2) + "\n", encoding="utf-8")
+    print(format_report(inventory))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

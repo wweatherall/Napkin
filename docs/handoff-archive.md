@@ -12216,3 +12216,188 @@ The merge gate passed with 425 viewport checks, the full feature suite, the reco
 Result: b3a468f; merge gate passed, 425 quick viewport checks and full suites; linked copies enter individually, drawings select and edit, and compounds show summary properties.
 
 Resolution: merged into main by the integrator, 2026-11-28.
+
+### H214 — Test inventory: every check, its file, its suite and its time, in one generated file (T172 step 1)
+
+Author: Claude (integrator, integrator-opus) | Date: 2026-11-28 | Status: resolved | For: either | Item: T172
+
+References: William, 2026-11-28: "we need to work on our testing. It is spiraling out of control ... as dense as
+possible ... a test that would fail for what would cause the failures of any 10 other tests, that is the ideal. And
+then you keep those other tests around for probing"; "we need to get testing to a higher velocity so we can move
+faster"; T172 (dense tests: this is its first step), T171 (mutation testing, waiting on William), T173 (reducing the
+merge gate, later), T152; C05 (a Python script, not a habit), C06 (one generated file, not hand counts).
+
+Today: nobody can say how many checks we have, which are slow, or how they overlap. `tools/featuretest.sh` finds every
+`worker/test_*.py`, `tools/test_*.py` and `viewport/test_*.gd` (51 files today; `--list` shows them and how each runs)
+and keeps only each file's summary line (`<NAME> TESTS: N passed, M failed`). Most files print one line per check,
+`PASS <name>` or `FAIL <name>  <detail>` (worker files through a `check(n, c, d)` helper, viewport ones through
+`func check(label, condition)`, the scenario through `worker/scenario/context.py` `Scenario.check`), but some don't
+(`grep -L 'PASS ' worker/test_*.py tools/test_*.py viewport/test_*.gd` lists them: test_native.py, test_scenario.py's
+own lines, test_load.py which is a helper, ...). The quick test (`tools/quicktest.sh`, viewport/tests/quick/*.gd, 66
+files) runs viewport steps in three lanes and prints its own per-check lines and a `QUICK ... in <time>` line per lane.
+`featuretest.sh` can be sourced for `test_runner_for <file>` (it returns early when sourced), which sets `TEST_NAME`,
+`TEST_RUNNER` and `TEST_CMD` the way the real run does.
+
+Touches: tools/test_inventory.py (new; its name has no test_ prefix, so the feature tests do not run it as a test),
+tools/test_test_inventory.py (new), tests/test_inventory.json (new, generated). The integrator adds its line to the tools README at merge, so this job does not overlap H213 there.
+
+Request:
+1. Write `tools/test_inventory.py`: it runs every feature test file the way featuretest.sh does (source it for
+   `test_runner_for` rather than copying the runner rules, so the two can't drift; same TESTDIR and FreeCAD config
+   handling, so it never touches a running Napkin), times each file, and collects each check line. Run the files side
+   by side as featuretest.sh does, so the inventory costs about one feature-test run, not the sum.
+   `--quick` also runs the quick test once (`tools/quicktest.sh` with an out dir) and reads its lane logs for the
+   viewport steps' check lines and lane times.
+2. Write `tests/test_inventory.json`: one entry per file `{file, suite (worker|tools|viewport|quick), runner,
+   seconds, checks: [names], parsed: true|false}`, and one per check `{name, file}`; `parsed: false` for a file whose
+   summary says N checks but whose PASS/FAIL lines don't add up to N, so we know where the counts are blind. Sort it
+   so a rerun on an unchanged tree changes only the seconds.
+3. Print a short report: totals (files, checks, seconds per suite), the 10 slowest files, the files that aren't
+   parsed, and check names that appear in more than one file (a first rough sign of overlap). `--report` prints it
+   from the saved JSON without running anything.
+4. Don't change any test or runner: this job only measures (William, 2026-11-28: no cuts until he agrees, T152).
+
+What can fail:
+- A test run by the inventory leaves files behind or uses a port a running Napkin owns. Check: run it while Napkin is
+  open and `git status` stays clean apart from tests/test_inventory.json; the quick run uses `--out` in scratch/.
+- A check name holds the detail text (`FAIL x  {...}`), so names change from run to run. Check: names are cut at the
+  two-space detail separator, and two runs on the same tree give the same names.
+
+Checks:
+- `tools/test_test_inventory.py` (summary line `TEST INVENTORY TESTS: N passed, M failed`): parsing a summary plus
+  PASS/FAIL lines, a file whose counts don't add up gets `parsed: false`, detail text is cut off, the sort is stable.
+- Run it for real, commit tests/test_inventory.json, and paste the report into your response.
+- `tools/TEST_BEFORE_MERGING.sh` passes.
+
+Response (Gemini, gemini-maple-1128-095502):
+- Branch: `gemini/h214-test-inventory` (commit `3a2de3e`, merged `main` at `968ab50`).
+- Implemented `tools/test_inventory.py` (sources `tools/featuretest.sh` for `test_runner_for`/`run_test_command` and `tools/gate.sh` for `set_test_tmpdir`, runs feature tests side by side via `ThreadPoolExecutor` for per-process timing, `--quick` runs `tools/quicktest.sh --full` and parses `vp*.log` lane logs, `--report` prints from saved JSON), `tools/test_test_inventory.py` (`TEST INVENTORY TESTS: 9 passed, 0 failed`), and generated `tests/test_inventory.json`.
+- Changed from the brief: added `# runner: none` to line 2 of `tools/test_inventory.py` because its filename starts with `test_` (contrary to Touches' note), so `tools/featuretest.sh` would otherwise run it recursively as a test.
+- Tests: `python3 tools/test_test_inventory.py -v` (9/9 passed); `tools/TEST_BEFORE_MERGING.sh` (`GATE PASS: full test passes; QUICK 439 passed, 0 failed in 26.4 s ; 0 known failure(s); 77 s total`).
+
+Report from `python3 tools/test_inventory.py --report`:
+```
+Totals by suite:
+  quick        3 files,    0 checks,  72.30 s
+  tools       25 files,    0 checks, 245.68 s
+  viewport     7 files,  880 checks,  39.25 s
+  worker      20 files, 1180 checks, 294.18 s
+  total       55 files, 2060 checks, 651.42 s
+
+10 slowest files:
+   42.81 s  tools/test_job.py (tools, 0 checks)
+   42.35 s  worker/test_outside_save.py (worker, 53 checks)
+   42.05 s  tools/test_integrate.py (tools, 0 checks)
+   33.16 s  worker/test_scenario.py (worker, 578 checks)
+   28.50 s  quick/vp1 (quick, 0 checks)
+   27.30 s  quick/vp3 (quick, 0 checks)
+   24.63 s  tools/test_startup.py (tools, 0 checks)
+   22.81 s  worker/test_runs.py (worker, 8 checks)
+   22.62 s  worker/test_native.py (worker, 74 checks)
+   20.20 s  tools/test_log.py (tools, 0 checks)
+
+Unparsed files (40):
+  quick/vp1 (quick, 0 parsed checks)
+  quick/vp2 (quick, 0 parsed checks)
+  quick/vp3 (quick, 0 parsed checks)
+  tools/test_architecture_map.py (tools, 0 parsed checks)
+  tools/test_bookkeeping.py (tools, 0 parsed checks)
+  tools/test_comitatus_commit.py (tools, 0 parsed checks)
+  tools/test_dependency_map.py (tools, 0 parsed checks)
+  tools/test_featuretest.py (tools, 0 parsed checks)
+  tools/test_follow_ups.py (tools, 0 parsed checks)
+  tools/test_freecad_user_cfg.py (tools, 0 parsed checks)
+  tools/test_handoff.py (tools, 0 parsed checks)
+  tools/test_hopper_picture.py (tools, 0 parsed checks)
+  tools/test_integrate.py (tools, 0 parsed checks)
+  tools/test_integrator.py (tools, 0 parsed checks)
+  tools/test_job.py (tools, 0 parsed checks)
+  tools/test_launch.py (tools, 0 parsed checks)
+  tools/test_log.py (tools, 0 parsed checks)
+  tools/test_log_archive.py (tools, 0 parsed checks)
+  tools/test_named_scripts.py (tools, 0 parsed checks)
+  tools/test_number_ids.py (tools, 0 parsed checks)
+  tools/test_org_todos.py (tools, 0 parsed checks)
+  tools/test_personal_space.py (tools, 0 parsed checks)
+  tools/test_protocol_map.py (tools, 0 parsed checks)
+  tools/test_sort_decision_log.py (tools, 0 parsed checks)
+  tools/test_start_worker.py (tools, 0 parsed checks)
+  tools/test_startup.py (tools, 0 parsed checks)
+  tools/test_test_inventory.py (tools, 0 parsed checks)
+  tools/test_test_scope.py (tools, 0 parsed checks)
+  worker/test_combos.py (worker, 46 parsed checks)
+  worker/test_cut_ties.py (worker, 16 parsed checks)
+  worker/test_floor_copy.py (worker, 19 parsed checks)
+  worker/test_generations.py (worker, 25 parsed checks)
+  worker/test_length_input.py (worker, 0 parsed checks)
+  worker/test_length_protocol.py (worker, 0 parsed checks)
+  worker/test_native.py (worker, 74 parsed checks)
+  worker/test_op_contracts.py (worker, 133 parsed checks)
+  worker/test_plane_fit.py (worker, 14 parsed checks)
+  worker/test_properties.py (worker, 77 parsed checks)
+  worker/test_runs.py (worker, 8 parsed checks)
+  worker/test_scenario.py (worker, 578 parsed checks)
+
+Check names in more than one file (0):
+```
+
+Response (Gemini, gemini-maple-1128-095502 — resubmission after return):
+- Branch: `gemini/h214-test-inventory` (commit `a7b710e`, merged `main` at `171f527`).
+- Addressed both return notes:
+  1. `tools/test_inventory.py` now runs `tools/*.py` tests with `-v` so `VERBOSE`-aware tools tests print their `PASS` lines and parse cleanly (19 of 25 tools tests now parsed with 988 named checks; the 6 without `-v` stay `parsed: false`).
+  2. `parse_quick_lane_log` now reads `QUICK timing (s): <step> <sec> ... | opening fresh models <sec>` (ignoring the `| opening fresh models` tail, recording each step's name and seconds in `steps`, disambiguating repeated step names with `#1`, `#2`, ... such as `move_copy_counts#1`..`#11`), records `check_count` from `QUICK N passed, M failed in T s`, and sets `parsed: true` when the timing and summary lines were read.
+  3. Added both cases to `tools/test_test_inventory.py` (`TEST INVENTORY TESTS: 11 passed, 0 failed`), regenerated `tests/test_inventory.json`.
+- Changed from the brief: added `# runner: none` to line 2 of `tools/test_inventory.py` because its filename starts with `test_` (contrary to Touches' note), so `tools/featuretest.sh` does not run it recursively.
+- Tests: `python3 tools/test_test_inventory.py -v` (11/11 passed); `tools/TEST_YOUR_CODE_FAST.sh` passed.
+
+Report from `python3 tools/test_inventory.py --quick`:
+```
+Totals by suite:
+  quick        3 files,   83 checks,  67.10 s
+  tools       25 files,  988 checks, 231.31 s
+  viewport     7 files,  880 checks,  37.31 s
+  worker      20 files, 1180 checks, 266.94 s
+  total       55 files, 3131 checks, 602.66 s
+
+10 slowest files:
+   39.54 s  worker/test_outside_save.py (worker, 53 checks)
+   39.33 s  tools/test_job.py (tools, 265 checks)
+   38.43 s  tools/test_integrate.py (tools, 103 checks)
+   28.75 s  worker/test_scenario.py (worker, 578 checks)
+   25.90 s  quick/vp1 (quick, 35 checks)
+   25.60 s  quick/vp3 (quick, 36 checks)
+   23.27 s  tools/test_startup.py (tools, 83 checks)
+   19.97 s  worker/test_runs.py (worker, 8 checks)
+   19.70 s  worker/test_native.py (worker, 74 checks)
+   18.23 s  tools/test_log.py (tools, 70 checks)
+
+Unparsed files (18):
+  tools/test_comitatus_commit.py (tools, 0 parsed checks)
+  tools/test_freecad_user_cfg.py (tools, 0 parsed checks)
+  tools/test_hopper_picture.py (tools, 0 parsed checks)
+  tools/test_launch.py (tools, 0 parsed checks)
+  tools/test_org_todos.py (tools, 0 parsed checks)
+  tools/test_personal_space.py (tools, 0 parsed checks)
+  worker/test_combos.py (worker, 46 parsed checks)
+  worker/test_cut_ties.py (worker, 16 parsed checks)
+  worker/test_floor_copy.py (worker, 19 parsed checks)
+  worker/test_generations.py (worker, 25 parsed checks)
+  worker/test_length_input.py (worker, 0 parsed checks)
+  worker/test_length_protocol.py (worker, 0 parsed checks)
+  worker/test_native.py (worker, 74 parsed checks)
+  worker/test_op_contracts.py (worker, 133 parsed checks)
+  worker/test_plane_fit.py (worker, 14 parsed checks)
+  worker/test_properties.py (worker, 77 parsed checks)
+  worker/test_runs.py (worker, 8 parsed checks)
+  worker/test_scenario.py (worker, 578 parsed checks)
+
+Check names in more than one file (4):
+  --check fails on stale section (2 files: tools/test_architecture_map.py, tools/test_protocol_map.py)
+  an ID in neither file is unknown (2 files: tools/test_log_archive.py, tools/test_startup.py)
+  rebuild is idempotent and preserves surrounding text (2 files: tools/test_architecture_map.py, tools/test_protocol_map.py)
+  reject (2 files: quick/vp3, viewport/test_units.gd)
+```
+
+Result: a7b710e; TEST INVENTORY TESTS 11/11 and TEST_YOUR_CODE_FAST.sh pass; added tools/test_inventory.py (-v for tools tests, QUICK timing step parsing with repeat indexing), tools/test_test_inventory.py, and tests/test_inventory.json (55 files, 3131 checks, 18 unparsed).
+
+Resolution: merged into main by the integrator, 2026-11-28.

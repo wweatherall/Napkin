@@ -27,7 +27,6 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
 - [H212 — Components and arrays the SketchUp way: one click takes the group, inside every copy is linked, the original is marked (I82)](handoff/H212-components-the-sketchup-way.md) — status: open; for: codex
 - [H213 — The hopper workshop: William's animated, width-aware hopper picture (made with ChatGPT) brought into Napkin](handoff/H213-hopper-workshop.md) — status: open; for: either
-- [H214 — Test inventory: every check, its file, its suite and its time, in one generated file (T172 step 1)](handoff/H214-test-inventory.md) — status: open; for: either
 - [H215 — Line coverage per test file for worker/ and tools/, added to the inventory (T172 step 2)](handoff/H215-coverage-per-test.md) — status: queued (after H214); for: either
 
 <!-- end of open list -->
@@ -36,6 +35,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 Full entries in [handoff-archive.md](handoff-archive.md).
 
+- H214 — Test inventory: every check, its file, its suite and its time, in one generated file (T172 step 1). Resolved: merged into main by the integrator, 2026-11-28.
 - H211 — Double-click enters William's copies; drawings (2D shapes) can be selected; a compound's properties show (T167). Resolved: merged into main by the integrator, 2026-11-28.
 - H208 — Napkin's freecadcmd never saves over William's FreeCAD settings (T167). Resolved: merged into main by the integrator, 2026-11-28.
 - H202 — Design: how a fit that lost its face looks (a chain crumbling, or another gentle metaphor), a proposal with drafts for William. Resolved: merged into main by the integrator, 2026-11-28.
@@ -45,9 +45,8 @@ Full entries in [handoff-archive.md](handoff-archive.md).
 - H200 — Push/Pull split, step 3: resizing plain stock is a `resize_stock` op (T159, I74). Resolved: merged into main by the integrator, 2026-11-27.
 - H207 — Workers give feedback at every submit and resubmit; resume commands are recorded; windows close after the merge. Resolved: merged into main by the integrator, 2026-11-27.
 - H204 — Rename everything to Napkin: the app, its files, the names saved inside models, and the tools (T139, P51). Resolved: merged into main by the integrator, 2026-11-27.
-- H205 — Fewer stops for workers: branch log checks ignore newer comitatus rulings, the gate's pass counts for SUBMIT_JOB, the Result line is checked first, one test file runs on its own. Resolved: merged into main by the integrator, 2026-11-27.
 
-Older: docs/handoff-archive.md (209 entries; find one with grep "^### H0NN" docs/handoff-archive.md)
+Older: docs/handoff-archive.md (210 entries; find one with grep "^### H0NN" docs/handoff-archive.md)
 
 ## Entry template
 
