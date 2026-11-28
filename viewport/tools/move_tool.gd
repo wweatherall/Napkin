@@ -1,7 +1,7 @@
 extends "res://tools/tool.gd"
 ## Move (M), SketchUp style: grab a point on a board (or a hole's wall: the hole), move, click or type a distance.
 ## Ctrl/Option toggles copy, Shift toggles mirror (the board flips across the plane halfway to the cursor).
-## Arrows cycle axis lock -> plane lock -> free. After a copy: 5x / *5 for an array, /5 to spread copies;
+## Arrows cycle axis lock -> plane lock -> free. After a copy: 5x, x5, *5 or 5* for an array, /5 to spread copies.
 ##
 ## Context-only: uses only `ctx` and `Geo` (never Main or inference). Consumes selection when grab point belongs to it.
 ## Entry points: commit_move, commit_mirror_move.
@@ -12,7 +12,8 @@ const TOOL := {"id": "move", "label": "Move", "tip": "Move (M)", "key": KEY_M, "
 var state := {}
 var copy := false
 var mirror := false
-var last_oid := ""      # the move/copy you can still adjust by typing (distance, Nx, *N, /N)
+var _shift_tap := false
+var last_oid := ""      # the move/copy you can still adjust by typing
 var memo := {}          # move op id -> {"tris": geometry before the move, "ref": pick-up point}
 
 
@@ -21,6 +22,7 @@ func reset() -> void:
 	press_reset()
 	copy = false
 	mirror = false
+	_shift_tap = false
 
 
 func hint() -> String:
@@ -58,14 +60,27 @@ func release(screen: Vector2) -> void:
 	_finish()
 
 
+func observe_shift(e: InputEventKey) -> void:
+	# Wait for the release to distinguish a mirror tap from a chord like Shift+8.
+	if e.pressed:
+		_shift_tap = e.keycode == KEY_SHIFT and ctx.ui.typed_text().is_empty()
+	elif e.keycode == KEY_SHIFT and _shift_tap:
+		_shift_tap = false
+		mirror = not mirror
+		_refresh_mode()
+
+
+func _refresh_mode() -> void:
+	var cursor := ctx.pick.cursor()
+	if in_gesture(): _move_move(cursor)
+	ctx.ui.refresh_measurements()
+	ctx.ui.refresh_tip(cursor)
+
+
 func key(e: InputEventKey) -> bool:
-	if e.keycode in [KEY_CTRL, KEY_ALT, KEY_SHIFT]:
-		if e.keycode == KEY_SHIFT:
-			mirror = not mirror            # Shift: mirror across the plane halfway to the cursor
-		else:
-			copy = not copy                # SketchUp: tap Ctrl (Option on a Mac) to toggle copy
-		if state.get("active", false): _move_move(ctx.pick.cursor())
-		ctx.ui.refresh_measurements(); ctx.ui.refresh_tip(ctx.pick.cursor())
+	if e.keycode in [KEY_CTRL, KEY_ALT]:
+		copy = not copy                # SketchUp: tap Ctrl (Option on a Mac) to toggle copy
+		_refresh_mode()
 		return true
 	if state.get("active", false):
 		var lock: int = {KEY_RIGHT: 0, KEY_LEFT: 1, KEY_UP: 2}.get(e.keycode, -2)
@@ -83,13 +98,18 @@ func key(e: InputEventKey) -> bool:
 	return false
 
 
-func _parse_array(txt: String) -> Dictionary:
+func parse_array_count(txt: String) -> Dictionary:
+	"""The whole-number forms that Measurements passes through before evaluating a length."""
 	var t := txt.strip_edges().to_lower()
-	if t.begins_with("/") and t.substr(1).is_valid_int():
-		return {"ok": true, "count": maxi(1, int(t.substr(1))), "divide": true}
-	if (t.ends_with("x") and t.left(-1).is_valid_int()) or ((t.begins_with("x") or t.begins_with("*")) and t.substr(1).is_valid_int()):
-		return {"ok": true, "count": maxi(1, int(t.trim_suffix("x").trim_prefix("x").trim_prefix("*"))), "divide": false}
-	return {"ok": false}
+	var divide := t.begins_with("/")
+	var digits := ""
+	if divide or t.begins_with("x") or t.begins_with("*"):
+		digits = t.substr(1)
+	elif t.ends_with("x") or t.ends_with("*"):
+		digits = t.left(-1)
+	if not digits.is_valid_int() or digits[0] not in "0123456789":
+		return {}
+	return {"count": maxi(1, int(digits)), "divide": divide}
 
 
 func typed(txt: String) -> void:
@@ -112,8 +132,8 @@ func typed(txt: String) -> void:
 				c = state["hi"][ax] + d if side >= 0 else state["lo"][ax] - d
 			commit_mirror_move(ax, c)
 		return
-	var parsed := _parse_array(txt)
-	if parsed["ok"]:
+	var parsed := parse_array_count(txt)
+	if not parsed.is_empty():
 		copy = true
 		state["count"] = parsed["count"]
 		state["divide"] = parsed["divide"]
@@ -525,7 +545,7 @@ func _whole_assemblies(targets: Array) -> Array:
 
 
 func _amend_last_move(txt: String) -> bool:
-	"""SketchUp's after-the-fact typing: a distance, Nx / xN / *N (array), or /N (divide)."""
+	"""SketchUp's after-the-fact typing: a distance, an array count or a divide count."""
 	if last_oid == "": return false
 	var op := ctx.document.op(last_oid)
 	if op.is_empty(): return false
@@ -533,8 +553,8 @@ func _amend_last_move(txt: String) -> bool:
 	var count: int = op.get("count", 1)
 	var divide: bool = op.get("divide", false)
 	var t := txt.strip_edges().to_lower()
-	var parsed := _parse_array(txt)
-	if parsed["ok"]:
+	var parsed := parse_array_count(txt)
+	if not parsed.is_empty():
 		if not op["copy"]: return false
 		count = parsed["count"]; divide = parsed["divide"]
 	elif t.is_valid_float():
