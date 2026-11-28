@@ -1,0 +1,31 @@
+{
+  "circle": {
+    "creates": [
+      "id"
+    ],
+    "fields": {
+      "center": {
+        "default": [
+          0,
+          0
+        ],
+        "kind": "[number, number]",
+        "required": false
+      },
+      "plane": {
+        "kind": "Plane",
+        "required": true
+      },
+      "radius": {
+        "kind": "number",
+        "min": 0.001,
+        "required": true
+      }
+    },
+    "refers_to": [
+      "plane.on.body"
+    ],
+    "tool": "viewport/tools/circle_tool.gd",
+    "type": "circle"
+  }
+}

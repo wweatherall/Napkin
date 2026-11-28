@@ -119,6 +119,7 @@ with TemporaryDirectory(prefix="proto-map-test-") as folder:
     doc = root / "docs/protocol.md"
     doc.write_text(MINI_DOC)
     shutil.copy(ROOT / "tools/protocol_map.py", root / "tools/protocol_map.py")
+    shutil.copy(ROOT / "worker/op_contracts.py", root / "worker/op_contracts.py")
     shutil.copy(ROOT / ".githooks/pre-commit", root / ".githooks/pre-commit")
 
     # Stale section fails
@@ -231,6 +232,31 @@ with TemporaryDirectory(prefix="proto-map-test-") as folder:
         c3.returncode != 0 and "protocol=99" in c3.stderr,
         c3.stdout + c3.stderr,
     )
+
+    # Op contract checks against ## Operation payloads
+    base_doc = doc.read_text().replace('"protocol":99', '"protocol":7')
+    (root / "worker/circle.py").write_text(
+        'CONTRACT = {"type": "circle", "fields": {"plane": {"required": True}, "radius": {"required": True}, "center": {"required": False}}}\n'
+        'class CircleActions:\n    pass\n'
+    )
+    payload_section = (
+        "\n## Operation payloads (`oplog/0.1`)\n\n"
+        "| Type | Fields beyond id/type | Source |\n|---|---|---|\n"
+        "| `circle` | `plane: Plane`, `radius: number`, `center?: [number,number] = [0,0]` | [circle.py](../worker/circle.py):`CircleActions` |\n"
+    )
+    doc.write_text(base_doc + payload_section)
+    oc_ok = run(root, sys.executable, "tools/protocol_map.py", "--check")
+    check("--check passes when op contract matches protocol.md row", oc_ok.returncode == 0, oc_ok.stderr)
+
+    doc.write_text(base_doc + payload_section.replace(", `center?: [number,number] = [0,0]`", ""))
+    oc_missing = run(root, sys.executable, "tools/protocol_map.py", "--check")
+    check("--check fails when optional field is missing from protocol.md row",
+          oc_missing.returncode == 1 and "center?" in oc_missing.stderr, oc_missing.stderr)
+
+    doc.write_text(base_doc + payload_section.replace("`radius: number`", "`radius?: number`"))
+    oc_opt = run(root, sys.executable, "tools/protocol_map.py", "--check")
+    check("--check fails when required field has '?' in protocol.md row",
+          oc_opt.returncode == 1 and "radius" in oc_opt.stderr, oc_opt.stderr)
 
 print(f"PROTOCOL MAP TESTS: {sum(RESULTS)} passed, {len(RESULTS) - sum(RESULTS)} failed")
 raise SystemExit(0 if all(RESULTS) else 1)

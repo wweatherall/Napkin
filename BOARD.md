@@ -72,7 +72,6 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H189 | Gemini | **Done**: for review (gemini) | An op contract, piloted on Circle: what it takes, refers to and creates, written once beside its handler and checked everywhere else | [H189](docs/handoff/H189-circle-op-contract.md) |  |
 | H190 | Gemini | **Done**: for review (gemini) | What each step cost: a member's Log shown with the quota used between its lines | [H190](docs/handoff/H190-log-with-usage.md) |  |
 
 <!-- end of job table -->
