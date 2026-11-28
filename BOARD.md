@@ -72,7 +72,6 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H193 | Gemini | **Done**: for review (gemini) | Design: contracts for the ops with modes (move, push_pull, property_edit, fit), a proposal for William | [H193](docs/handoff/H193-moded-op-contracts-design.md) |  |
 | H194 | Gemini | **Done**: for review (gemini) | The worker checks each op against its contract before running it (ops with a contract only) | [H194](docs/handoff/H194-enforce-op-contracts.md) |  |
 | H198 | Gemini | Queued | Push/Pull split, step 1: fitting a face to another board's edge sends a `fit` op (T159, I74) | [H198](docs/handoff/H198-face-fit-is-a-fit-op.md) | H194 |
 | H199 | Gemini | Queued | Push/Pull split, step 2: creating a board is a `new_board` op, and the one-time updater (T159, I74, A43) | [H199](docs/handoff/H199-new-board-op.md) | H198 |
