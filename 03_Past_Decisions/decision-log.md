@@ -393,6 +393,9 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | T168 | Keep the array when one copy inside it is moved: a FreeCAD array that holds a per-copy ... | Parked |
 | T169 | Build I82 (components and arrays the SketchUp way): check each part against the app, fi... | On the board (H212) |
 | T170 | Bring William's hopper workshop (an animated, width-aware hopper picture made with Chat... | On the board (H213) |
+| T171 | Mutation testing: plant small bugs (flip a comparison, delete a line, change a constant... | Open |
+| T172 | Dense tests: a few front-line tests that fail for whatever would fail many others (a lo... | Open |
+| T173 | Reduce the merge gate: drop probes from the gate only where the kill matrix shows a den... | Open |
 
 ## Tunables
 
