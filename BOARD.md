@@ -78,7 +78,6 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 | H213 | either | Claimed: branch gemini/h213-hopper-workshop | The hopper workshop: William's animated, width-aware hopper picture (made with ChatGPT) brought into Napkin | [H213](docs/handoff/H213-hopper-workshop.md) |  |
 | H218 | either | **Ready** | Read the kill matrix: which tests stand for which, the gaps, and a draft tree of dense tests (T171 step 2) | [H218](docs/handoff/H218-kill-matrix-report.md) |  |
 | H219 | Codex | **Ready** | Mutation testing for the viewport's GDScript (T171 step 3) | [H219](docs/handoff/H219-mutation-gdscript.md) |  |
-| H220 | either | **Done**: for review (gemini) | Small tools fixes from worker feedback and the integrator's follow-ups | [H220](docs/handoff/H220-worker-feedback-fixes.md) |  |
 
 <!-- end of job table -->
 

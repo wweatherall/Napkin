@@ -285,7 +285,8 @@ def report_ids(log, ids, archive="", read_ruling=None, read_work=None, read_ques
 # --- Waiting on William (T93): read from main's log, handoffs and board, so nobody keeps the list by hand.
 DECISION_ID = re.compile(r"\b[IAUDMWPG]\d+[a-z]?\b")   # a logged decision (not a Q question or T item)
 YOUR_CALL = re.compile(r"your call(?!, \d{4}-)", re.I)    # "Your call, 2026-11-21: ..." records an answer
-ASK = re.compile(r"\bask William\b", re.I)
+ASK = re.compile(r"\b(?:ask William|question for William)\b", re.I)
+RESPONSE_HEAD = re.compile(r"^(?:#+\s*)?Response\b", re.M)
 ANSWERED = re.compile(r"William's answer", re.I)
 
 
@@ -329,21 +330,33 @@ def tentative_principles(log):
             if len(c) > 2 and c[2] == "Tentative"]
 
 
-def waiting_handoffs(entries):
-    """Open or queued handoffs with an "Ask William" sentence and no answer after it: a "William's answers" line, or
-    a Response line that names a logged decision."""
+def waiting_handoffs(entries, live_jobs=None):
+    """Open or queued handoffs waiting on William now: either its queue job is waiting on a non-scope question, or a
+    Response section asks him something ("Ask William" / "Question for William") with no answer after it."""
+    live = dict(live_jobs or [])
     out = []
     for name, text in sorted(entries.items()):
         status = re.search(r"\| Status: ([^|\n]*)", text)
         if not status or not status.group(1).strip().startswith(("open", "queued")):
             continue
-        ask = ASK.search(text)
-        if not ask:
+        hid = name.split("-")[0]
+        job_info = live.get(hid)
+        if job_info and job_info.get("state") == "waiting" and job_info.get("question_kind", "behaviour") != "scope":
+            q = job_info.get("question") or "waiting on William"
+            out.append((hid, shorten(q, 90)))
             continue
-        rest = text[ask.end():]
-        if ANSWERED.search(rest) or any(l.startswith("Response") and DECISION_ID.search(l) for l in rest.splitlines()):
+        resp = RESPONSE_HEAD.search(text)
+        if not resp:
             continue
-        out.append((name.split("-")[0], sentence_at(text, ask.start())))
+        resp_text = text[resp.start():]
+        asks = list(ASK.finditer(resp_text))
+        if not asks:
+            continue
+        ask = asks[-1]
+        rest = resp_text[ask.end():]
+        if ANSWERED.search(rest) or any(l.lstrip("# ").startswith("Response") and DECISION_ID.search(l) for l in rest.splitlines()):
+            continue
+        out.append((hid, sentence_at(resp_text, ask.start())))
     return out
 
 
@@ -352,11 +365,11 @@ def william_notes(board):
             if re.match(r"-?\s*(for )?William\b", l.strip().removeprefix("- "), re.I)]
 
 
-def waiting_on_william(log, entries, board, lock_held, work_entries=None):
+def waiting_on_william(log, entries, board, lock_held, work_entries=None, live_jobs=None):
     """The report's lines: one per thing that waits on William, with its ID and a short reason."""
     lines = [f"  {i} (Work list): {why}" for i, why in waiting_rows(log, work_entries=work_entries)]
     lines += [f"  {i} (principle, Tentative): {text}" for i, text in tentative_principles(log)]
-    lines += [f"  {i} (handoff): {why}" for i, why in waiting_handoffs(entries)]
+    lines += [f"  {i} (handoff): {why}" for i, why in waiting_handoffs(entries, live_jobs=live_jobs)]
     lines += [f"  Board note: {shorten(n, 150)}" for n in william_notes(board)]
     if not lines:
         lines = ["  (nothing)"]
@@ -645,7 +658,9 @@ def collect_live_jobs(root):
             state = "stale" if job.stale(jcopy, act, now) else jcopy.get("state")
             label = job.waiting_line(k, jcopy) if state == "waiting" else job.live_label(jcopy, act, now)
             out.append((k, {"state": state, "branch": jcopy.get("branch"), "worktree": jcopy.get("worktree"),
-                            "agent": jcopy.get("agent"), "label": label, "resume_cmd": jcopy.get("resume_cmd")}))
+                            "agent": jcopy.get("agent"), "label": label, "resume_cmd": jcopy.get("resume_cmd"),
+                            "question": jcopy.get("question", ""),
+                            "question_kind": jcopy.get("question_kind", "behaviour")}))
         return out
     except Exception:
         return []
@@ -1028,8 +1043,9 @@ def main(argv):
         work_names = [l.split("/")[-1] for l in git("ls-tree", "--name-only", "main", s.WORK_DIR + "/", cwd=root).splitlines()
                       if l.endswith(".md")]
         work_entries = {n[:-3]: git("show", f"main:{s.WORK_DIR}/{n}", cwd=root) for n in work_names} if work_names else None
+        live = collect_live_jobs(root)
         print("Waiting on William (from main):")
-        print("\n".join(waiting_on_william(log, texts, board, bool(lock_info), work_entries=work_entries)))
+        print("\n".join(waiting_on_william(log, texts, board, bool(lock_info), work_entries=work_entries, live_jobs=live)))
         print("Follow-ups (docs/follow-ups.md, from main):")
         print("\n".join(follow_up_lines(git("show", "main:docs/follow-ups.md", cwd=root), limit=5)))
         inotes = integrator_notes(texts)
@@ -1072,7 +1088,6 @@ def main(argv):
                 print("  Mark read: python3 tools/job.py feedback-read")
             else:
                 print("  (none)")
-            live = collect_live_jobs(root)
             print("Next actions (read-only briefing; does not take the lock):")
             import job as _job
             for act in integrator_next_actions(lock_holder, state_note_ids, merge_info, live, len(jobs),

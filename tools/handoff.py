@@ -514,6 +514,10 @@ def main():
     if "-h" in args or "--help" in args:
         print(__doc__)
         return
+    if not args:
+        print(list_text(root))
+        print("commands: list, tidy, split, check, overlaps, archive (--help for the full text)")
+        return
     if args[:1] == ["list"]:
         if "--check" in args:
             text = open(os.path.join(root, HANDOFF), encoding="utf-8").read()

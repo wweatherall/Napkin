@@ -29,7 +29,6 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H213 — The hopper workshop: William's animated, width-aware hopper picture (made with ChatGPT) brought into Napkin](handoff/H213-hopper-workshop.md) — status: open; for: either
 - [H218 — Read the kill matrix: which tests stand for which, the gaps, and a draft tree of dense tests (T171 step 2)](handoff/H218-kill-matrix-report.md) — status: queued (after H217); for: either
 - [H219 — Mutation testing for the viewport's GDScript (T171 step 3)](handoff/H219-mutation-gdscript.md) — status: queued (after H217); for: Codex
-- [H220 — Small tools fixes from worker feedback and the integrator's follow-ups](handoff/H220-worker-feedback-fixes.md) — status: open; for: either
 
 <!-- end of open list -->
 
@@ -37,6 +36,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 Full entries in [handoff-archive.md](handoff-archive.md).
 
+- H220 — Small tools fixes from worker feedback and the integrator's follow-ups. Resolved: merged into main by the integrator, 2026-11-28.
 - H217 — Mutation testing for worker/: plant small bugs one at a time and record which tests catch each (T171 step 1). Resolved: merged into main by the integrator, 2026-11-28.
 - H216 — Reading cost per job: what each agent read before and while doing its job, from the saved transcripts (T175). Resolved: merged into main by the integrator, 2026-11-28.
 - H215 — Line coverage per test file for worker/ and tools/, added to the inventory (T172 step 2). Resolved: merged into main by the integrator, 2026-11-28.
@@ -46,9 +46,8 @@ Full entries in [handoff-archive.md](handoff-archive.md).
 - H202 — Design: how a fit that lost its face looks (a chain crumbling, or another gentle metaphor), a proposal with drafts for William. Resolved: merged into main by the integrator, 2026-11-28.
 - H209 — The toolbar shows each tool's key in brackets next to its name (T167). Resolved: merged into main by the integrator, 2026-11-28.
 - H210 — Typed copy counts: 5x, x5, *5 (and 5*) all work after a move or copy (T167). Resolved: merged into main by the integrator, 2026-11-28.
-- H201 — A fit names its target face by geometry, follows flips and rotations, and detaches when the face is gone (T161, T163, I75-I77). Resolved: merged into main by the integrator, 2026-11-28.
 
-Older: docs/handoff-archive.md (213 entries; find one with grep "^### H0NN" docs/handoff-archive.md)
+Older: docs/handoff-archive.md (214 entries; find one with grep "^### H0NN" docs/handoff-archive.md)
 
 ## Entry template
 

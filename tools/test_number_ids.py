@@ -390,5 +390,18 @@ check("history files keep already-archived placeholders untouched while numberin
       and "| I50 | new archived citing I49 |" in da_after)
 shutil.rmtree(hist_root)
 
+# H220: placeholders inside any tools/test_*.py fixture are left alone when a row defines them
+skip_root = tree({
+    "03_Past_Decisions/decision-log.md": LOG.replace("| I48 | forty-eight |", "| I48 | forty-eight |\n| I-new-1 | real rule |"),
+    "tools/test_other.py": 'FIXTURE = "| I-new-1 | fixture row |"\n',
+    "tools/helper.py": '# cites I-new-1\n',
+})
+got_skip, _ = run(skip_root)
+check("placeholders inside tools/test_*.py are left alone while other files are numbered",
+      got_skip.get("I-new-1") == "I49"
+      and 'FIXTURE = "| I-new-1 | fixture row |"' in read(skip_root, "tools/test_other.py")
+      and "# cites I49" in read(skip_root, "tools/helper.py"))
+shutil.rmtree(skip_root)
+
 print(f"ID TESTS: {sum(RESULTS)} passed, {len(RESULTS) - sum(RESULTS)} failed")
 raise SystemExit(0 if all(RESULTS) else 1)   # a failed check fails the run, not only its summary
