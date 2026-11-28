@@ -12,6 +12,7 @@ sys.path.insert(0, str(HERE))
 import test_load  # noqa: E402
 import FreeCAD as App  # noqa: E402
 import plane_fit  # noqa: E402
+from object_properties import inspect  # noqa: E402
 from session import Session  # noqa: E402
 
 R = [0, 0]
@@ -147,6 +148,12 @@ def main():
               and bj180["shelf"]["stock_frame"].get("fit_state") == "live",
               (shelf_len(), bj180["shelf"]["stock_frame"].get("fit_state")))
 
+        s.sync(ops + _cut("far_pocket", "panel", [80, 10, 220], [10, 10], depth=5))
+        check("I77 pocket on rotated panel keeps fit on the face selected after rotation",
+              shelf.Tip.SSTargetId == "panel" and abs(shelf_len() - 200.0) < 0.01,
+              (s.status()[-1], shelf.Tip.SSTargetId, shelf_len()))
+        s.sync(ops)
+
         # Back to 0, then 90 deg -> save and reopen paused -> rotate on to 100 deg -> resumes!
         _refit(s, lambda: _rotate_around(panel, pivot, x_ax, 0))
         len_0 = shelf_len()
@@ -267,14 +274,15 @@ def main():
         s.close()
 
     # 4. G04 + I77: a fit to a cut target follows when the target is lengthened (pocket away from fitted face).
-    s = Session(os.path.join(folder, "cut_lengthen.FCStd"), fresh=True)
+    cut_path = os.path.join(folder, "cut_lengthen.FCStd")
+    s = Session(cut_path, fresh=True)
     try:
-        from object_properties import inspect
+        fit = {"id": "f_x", "type": "fit", "body": "x_leg", "target_body": "t3", "axis": 0,
+               "face": {"normal": [1, 0, 0], "point": [140, 0, 0]}, "fit_mode": 0}
         ops_len = (
             _board("t3", [100, 0, 0], [40, 40, 20])
             + _board("x_leg", [0, 10, 0], [20, 20, 20])
-            + [{"id": "f_x", "type": "fit", "body": "x_leg", "target_body": "t3", "axis": 0,
-                "face": {"normal": [1, 0, 0], "point": [140, 0, 0]}, "fit_mode": 0}]
+            + [fit]
             + _cut("c_pkt", "t3", [110, 10, 20], [10, 10], depth=5)
         )
         s.sync(ops_len)
@@ -283,11 +291,12 @@ def main():
             if any(f["path"] == "Length" and f["editable"] for f in ob["fields"])
         )
         len_field = next(f for f in rect_obj["fields"] if f["path"] == "Length")
-        s.sync(ops_len + [{
+        lengthen = {
             "id": "pe_len", "type": "property_edit", "body": "t3", "object": rect_obj["name"],
             "property": "Length", "value": "60mm", "mode": "value",
             "expected": {"value": len_field["value"], "expression": len_field["expression"]},
-        }])
+        }
+        s.sync(ops_len + [lengthen])
         tip = s.model.body("x_leg").Tip
         leg_xmax = s.model.world_shape(s.model.body("x_leg")).BoundBox.XMax
         t3_xmax = s.model.world_shape(s.model.body("t3")).BoundBox.XMax
@@ -296,6 +305,36 @@ def main():
               and abs(t3_xmax - 160.0) < 0.01
               and abs(leg_xmax - 160.0) < 0.01,
               (tip.SSTargetId, t3_xmax, leg_xmax, tip.SSFitResult))
+        refit = {**fit, "id": "refit_pocket", "face": {"normal": [1, 0, 0], "point": [110, 15, 18]}}
+        s.sync(ops_len + [lengthen, refit])
+        leg = s.model.body("x_leg")
+        check("I75 choosing a different face on the same cut target refits the board",
+              leg.Tip.SSTargetId == "t3" and abs(s.model.world_shape(leg).BoundBox.XMax - 110.0) < 0.01,
+              (s.status()[-1], leg.Tip.SSTargetId, s.model.world_shape(leg).BoundBox.XMax))
+
+        s.sync(ops_len)
+        tip = s.model.body("x_leg").Tip
+        if "SSTargetStockFace" in tip.PropertiesList:
+            tip.removeProperty("SSTargetStockFace")  # Existing fits were saved with a point and normal alone.
+        s.save()
+    finally:
+        s.close()
+
+    s = Session(cut_path)
+    try:
+        s.sync(ops_len + [lengthen])
+        leg = s.model.body("x_leg")
+        check("G04 saved fit to a cut target follows its first resize after reopening",
+              leg.Tip.SSTargetId == "t3" and abs(s.model.world_shape(leg).BoundBox.XMax - 160.0) < 0.01,
+              (s.status()[-1], leg.Tip.SSTargetId, s.model.world_shape(leg).BoundBox.XMax))
+
+        moved = {"id": "move_target", "type": "move", "targets": ["t3"], "vector": [10, 0, 0]}
+        component = {"id": "link_target", "type": "make_component", "body": "t3", "name": "Pocketed rail"}
+        s.sync(ops_len + [moved, component, lengthen])
+        leg = s.model.body("x_leg")
+        check("G04 fit follows a lengthened cut component with a nonzero placement",
+              leg.Tip.SSTargetId == "t3" and abs(s.model.world_shape(leg).BoundBox.XMax - 170.0) < 0.01,
+              (s.status()[-2:], leg.Tip.SSTargetId, s.model.world_shape(leg).BoundBox.XMax))
     finally:
         s.close()
 

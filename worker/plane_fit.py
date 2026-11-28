@@ -8,7 +8,7 @@ refit_changed, family_bodies."""
 import math
 import FreeCAD as App
 import Part
-from common import Frame
+from common import Frame, TOL
 
 V = App.Vector
 FACES = ('Left', 'Right', 'Front', 'Back', 'Bottom', 'Top')
@@ -50,11 +50,8 @@ def _target_frame(board):
         if getattr(s, 'SSRole', '') == 'mirror-input' and getattr(s, 'Links', None):
             s = s.Links[0]
         cur = s
-    if getattr(cur, 'TypeId', '') == 'App::Link':
-        fr.into(cur.Placement)
-        cur = getattr(cur, 'LinkedObject', None)
-    if getattr(cur, 'TypeId', '') == 'App::Part':
-        fr.into(cur.Placement)
+    if getattr(cur, 'TypeId', '') in ('App::Link', 'App::Part'):
+        fr.into(cur.Placement)  # A component instance supplies the placement of its definition.
     return fr
 
 
@@ -384,99 +381,81 @@ def _along_dir(board, tip):
     return -along if getattr(tip, 'SSReverse', False) else along
 
 
-def _stock_face_planes(target):
-    """List of 6 world (point, outward_normal) for `target`'s underlying extrusion stock faces, or []."""
-    if getattr(target, 'TypeId', '') == 'Part::Mirroring':
-        dfn, _ = _def(target)
-        frame = source_frame(dfn) if dfn is not None else None
-        if frame is None:
-            return []
+def _target_backing_planes(target):
+    """Planes defined by the target's native stock and fit, in definition-local coordinates."""
+    dfn, _ = _def(target)
+    if dfn is None:
+        return
+    inv = dfn.Placement.inverse()
+    fit = _underlying_plane_fit(getattr(dfn, 'Tip', None))
+    if fit is not None:
+        end = fitted_end(dfn, fit)
+        if end is not None:
+            normal, point = end
+            yield 'fit', inv.multVec(point), inv.Rotation.multVec(normal)
+    frame = source_frame(dfn, fit)
+    if frame is not None:
         _, origin, axes, sizes = frame
-        fr = _target_frame(target)
-        inv = dfn.Placement.inverse()
-        out = []
-        for face in range(6):
-            index, positive = divmod(face, 2)
-            normal = axes[index]
-            point = origin + normal * sizes[index] if positive else origin
-            outward = normal if positive else -normal
-            pt_w, n_w = _frame_to_world(fr, inv.multVec(point), inv.Rotation.multVec(outward))
-            out.append((pt_w, n_w))
-        return out
-    frame = source_frame(target)
-    if frame is None:
-        return []
-    _, origin, axes, sizes = frame
-    out = []
-    for face in range(6):
-        index, positive = divmod(face, 2)
-        normal = axes[index]
-        point = origin + normal * sizes[index] if positive else origin
-        outward = normal if positive else -normal
-        out.append((point, outward))
-    return out
+        for normal, size in zip(axes, sizes):
+            local_n = inv.Rotation.multVec(normal)
+            yield 'stock', inv.multVec(origin), -local_n
+            yield 'stock', inv.multVec(origin + normal * size), local_n
 
 
-def _match_stock_face(target, world_point, world_normal):
-    """Return 0..5 if (world_point, world_normal) lies on one of `target`'s underlying stock faces, else -1."""
-    for i, (pt, n) in enumerate(_stock_face_planes(target)):
-        if n.dot(world_normal) > 0.9999 and abs((pt - world_point).dot(n)) < 0.1:
-            return i
-    return -1
+def _target_reference(target, tip, along):
+    """Capture the live plane before FreeCAD changes it, and which feature drives its position."""
+    if target is None:
+        return None
+    normal = getattr(tip, 'SSTargetNormal', None)
+    if _is_rect_target(target) or normal is None or normal.Length <= 1e-6:
+        _, plane, state = _resolve_face(target, tip, along)
+        if state != 'live':
+            return None
+        point, normal = _target_local_plane(target, *plane)
+    else:
+        point = tip.SSTargetPoint
+    for kind, backing_point, backing_normal in _target_backing_planes(target):
+        if backing_normal.dot(normal) > 0.9999 and abs((point - backing_point).dot(normal)) <= TOL:
+            return kind, point, normal
+    return None, point, normal
 
 
-def _resolve_face(target, tip, along=None):
+def _resolve_face(target, tip, along=None, reference=None):
     """Return (face_index, (world_point, world_normal), state) where state is 'live', 'paused', or 'detached'."""
     if target is None:
         return None, None, 'detached'
     faces = planar_faces(target)
     if not faces:
         return None, None, 'detached'
+    rectangular = _is_rect_target(target)
     n_local = getattr(tip, 'SSTargetNormal', None)
-    if n_local is not None and n_local.Length > 1e-6:
-        fr = _target_frame(target)
-        want_pt, want_n = _frame_to_world(fr, tip.SSTargetPoint, n_local)
-        if _is_rect_target(target) and along is not None:
-            dot = along.dot(want_n)
-            if abs(dot) <= math.sin(math.radians(FIT_PAUSE_DEG)):
-                return None, None, 'paused'
-            sign = int(getattr(tip, 'SSTargetSign', 0))
-            if sign == 0:
-                sign = 1 if dot > 0 else -1
-            pick_n = want_n if (dot > 0 and sign > 0) or (dot < 0 and sign < 0) else -want_n
-            matches = [(i, p) for i, p in enumerate(faces) if p[1].dot(pick_n) > 0.9999]
-            if not matches:
-                return None, None, 'detached'
-            idx, pl = min(matches, key=lambda item: abs((item[1][0] - want_pt).dot(pick_n)))
-            return idx, pl, 'live'
-        matches = [(i, p) for i, p in enumerate(faces) if p[1].dot(want_n) > 0.9999]
-        if not matches:
-            return None, None, 'detached'
-        ref_pt = want_pt
-        is_cut_or_nonrect = stock(target) is None
-        if is_cut_or_nonrect:
-            t_dfn, _ = _def(target)
-            pf_tip = _underlying_plane_fit(getattr(t_dfn, 'Tip', None)) if t_dfn is not None else None
-            matched_fe = False
-            if pf_tip is not None and len(getattr(pf_tip, 'SSFitCorners', ())) == 8:
-                fe = fitted_end(target, pf_tip)
-                if fe is not None and fe[0].dot(want_n) > 0.9999:
-                    ref_pt = fe[1]
-                    matched_fe = True
-            if not matched_fe:
-                sf_idx = int(getattr(tip, 'SSTargetStockFace', -1))
-                if 0 <= sf_idx < 6:
-                    sf_planes = _stock_face_planes(target)
-                    if sf_planes and sf_planes[sf_idx][1].dot(want_n) > 0.9999:
-                        ref_pt = sf_planes[sf_idx][0]
-        idx, pl = min(matches, key=lambda item: abs((item[1][0] - ref_pt).dot(want_n)))
-        if is_cut_or_nonrect and abs((pl[0] - ref_pt).dot(want_n)) > 0.1:
-            return None, None, 'detached'
-        return idx, pl, 'live'
-    face = int(getattr(tip, 'SSFace', -1))
-    if 0 <= face < len(faces):
-        return face, faces[face], 'live'
-    return None, None, 'detached'
+    pt_local = getattr(tip, 'SSTargetPoint', None)
+    if reference is not None and not rectangular:
+        kind, pt_local, n_local = reference
+        if kind is not None:
+            for backing_kind, point, normal in _target_backing_planes(target):
+                if backing_kind == kind and (kind == 'fit' or normal.dot(n_local) > 0.9999):
+                    pt_local, n_local = point, normal
+                    break
+    if n_local is None or n_local.Length <= 1e-6:
+        face = int(getattr(tip, 'SSFace', -1))
+        if 0 <= face < len(faces):
+            return face, faces[face], 'live'
+        return None, None, 'detached'
+    want_pt, want_n = _frame_to_world(_target_frame(target), pt_local, n_local)
+    if rectangular and along is not None:
+        dot = along.dot(want_n)
+        if abs(dot) <= math.sin(math.radians(FIT_PAUSE_DEG)):
+            return None, None, 'paused'
+        if dot * getattr(tip, 'SSTargetSign', 0) < 0:
+            want_n = -want_n
+    matches = [(i, p) for i, p in enumerate(faces) if p[1].dot(want_n) > 0.9999]
+    if not matches:
+        return None, None, 'detached'
+    idx, plane = min(matches, key=lambda item: abs((item[1][0] - want_pt).dot(want_n)))
+    if not rectangular and abs((plane[0] - want_pt).dot(want_n)) > TOL:
+        return None, None, 'detached'
+    return idx, plane, 'live'
 
 
 def snapshot(board):
@@ -575,6 +554,13 @@ def mm(x):
     return (text[:-2] if text.endswith('.0') else text) + ' mm'
 
 
+def _target_key(tip):
+    normal = getattr(tip, 'SSTargetNormal', V())
+    if normal.Length <= 1e-6:
+        return tip.SSTargetId, tip.SSFace  # Legacy fits can still have only an index.
+    return tip.SSTargetId, tuple(normal), tuple(tip.SSTargetPoint)
+
+
 def _inputs(board, tip, bodies):
     """Comparable fit inputs, including values resolved by FreeCAD expressions and fitted target ends.
 
@@ -602,15 +588,18 @@ def _inputs(board, tip, bodies):
 
     target = bodies.get(tip.SSTargetId)
     along = _along_dir(board, tip)
-    return (tip.SSTargetId, tip.SSAxis, tip.SSFace, tip.SSMode, getattr(tip, 'SSReverse', False),
+    return (_target_key(tip), tip.SSAxis, tip.SSFace, tip.SSMode, getattr(tip, 'SSReverse', False),
             src_key(board, tip), dst_key(target, tip, along))
 
 
 def refit_inputs(model):
     """Transient pre-op input values; nothing cached across undo, rebuild or reopen."""
     bodies = model.bodies()
-    return {tip.Name: _inputs(src, tip, bodies)
-            for tip, _, src, _ in _active_tips(model, bodies, promote=False)}
+    return {
+        tip.Name: (_inputs(src, tip, bodies),
+                   _target_reference(bodies.get(tip.SSTargetId), tip, _along_dir(src, tip)))
+        for tip, _, src, _ in _active_tips(model, bodies, promote=False)
+    }
 
 
 def _recompute_chain(target, recomputed):
@@ -668,8 +657,11 @@ def refit_changed(model, before):
                 target = bodies.get(tip.SSTargetId)
                 if target is not None:
                     _recompute_chain(target, recomputed)
-            if tip.SSTargetId in affected or before.get(tip.Name) != _inputs(src, tip, bodies):
-                update(model, src, tip)
+            previous, reference = before.get(tip.Name, (None, None))
+            if tip.SSTargetId in affected or previous != _inputs(src, tip, bodies):
+                if previous is not None and previous[0] != _target_key(tip):
+                    reference = None  # An explicit refit picked a new plane.
+                update(model, src, tip, reference)
                 affected.update(fam)
                 changed.extend(fam)
         unvisited = remaining
@@ -690,7 +682,7 @@ def _sliced_shape(board, base_shape, pt_world, n_world, start_local):
     return base_shape.common(box)
 
 
-def update(model, board, tip):
+def update(model, board, tip, reference=None):
     if not tip.SSTargetId:          # detached (or its target is gone): the shape stays as it is
         return
     target = model.bodies().get(tip.SSTargetId)
@@ -700,7 +692,7 @@ def update(model, board, tip):
         along = src[2][tip.SSAxis]
         if getattr(tip, 'SSReverse', False):
             along = -along
-    face_idx, plane, state = _resolve_face(target, tip, along=along)
+    face_idx, plane, state = _resolve_face(target, tip, along=along, reference=reference)
     if state == 'paused':
         if 'SSFitPaused' not in tip.PropertiesList:
             tip.addProperty('App::PropertyBool', 'SSFitPaused')
@@ -716,27 +708,23 @@ def update(model, board, tip):
     if 'SSFitPaused' in tip.PropertiesList:
         tip.SSFitPaused = False
     n_local = getattr(tip, 'SSTargetNormal', None)
-    if n_local is None or n_local.Length <= 1e-6:
+    pt_l, n_l = _target_local_plane(target, *plane)
+    # A cut target keeps the face that was live just before the cut. For rectangular targets,
+    # retain the original normal and sign so future rotations can still switch between opposite faces.
+    rectangular = _is_rect_target(target)
+    if not rectangular or n_local is None or n_local.Length <= 1e-6:
         if 'SSTargetNormal' not in tip.PropertiesList:
             tip.addProperty('App::PropertyVector', 'SSTargetNormal')
         if 'SSTargetPoint' not in tip.PropertiesList:
             tip.addProperty('App::PropertyVector', 'SSTargetPoint')
-        pt_l, n_l = _target_local_plane(target, plane[0], plane[1])
-        tip.SSTargetPoint = pt_l
         tip.SSTargetNormal = n_l
+        tip.SSTargetPoint = pt_l
+    elif n_l.dot(n_local) > 0.9999:
+        tip.SSTargetPoint = pt_l
     if 'SSTargetSign' not in tip.PropertiesList:
         tip.addProperty('App::PropertyInteger', 'SSTargetSign')
-    if getattr(tip, 'SSTargetSign', 0) == 0 and along is not None:
+    if along is not None and (not rectangular or tip.SSTargetSign == 0):
         tip.SSTargetSign = 1 if along.dot(plane[1]) > 0 else -1
-    if 'SSTargetStockFace' not in tip.PropertiesList:
-        tip.addProperty('App::PropertyInteger', 'SSTargetStockFace')
-        tip.SSTargetStockFace = _match_stock_face(target, plane[0], plane[1])
-    if n_local is not None and n_local.Length > 1e-6:
-        fr = _target_frame(target)
-        _, want_n = _frame_to_world(fr, tip.SSTargetPoint, n_local)
-        if plane[1].dot(want_n) > 0.9999:
-            pt_l, _ = _target_local_plane(target, plane[0], plane[1])
-            tip.SSTargetPoint = pt_l
     tip.SSFace = face_idx
     dst = stock(target)
     corners, ends, depths = geometry(src, dst, tip.SSAxis, tip.SSFace, tip.SSMode,
@@ -853,14 +841,11 @@ def apply(model, op):
         tip.addProperty("App::PropertyInteger","SSTargetSign")
     if "SSFitPaused" not in tip.PropertiesList:
         tip.addProperty("App::PropertyBool","SSFitPaused")
-    if "SSTargetStockFace" not in tip.PropertiesList:
-        tip.addProperty("App::PropertyInteger","SSTargetStockFace")
     pt_l, n_l = _target_local_plane(target, t_plane[0], t_plane[1])
     tip.SSTargetPoint = pt_l
     tip.SSTargetNormal = n_l
     along = -src[2][axis] if op.get("reverse", False) else src[2][axis]
     tip.SSTargetSign = 1 if along.dot(t_plane[1]) > 0 else -1
-    tip.SSTargetStockFace = _match_stock_face(target, t_plane[0], t_plane[1])
     tip.SSFitPaused = False
     tip.SSReverse = op.get("reverse",False)
     tip.SSSourceBodyId = board.BodyId if board_dfn is not board else ''

@@ -28,9 +28,9 @@ def run(ctx):
         def __getattr__(self, name):
             return getattr(self.doc, name)
 
-    def tracked(model, board, tip):
+    def tracked(model, board, tip, reference):
         calls.append(board.BodyId)
-        return original(model, board, tip)
+        return original(model, board, tip, reference)
 
     def board(bid, z):
         return [dict(id=bid+'r', type='rect', plane=dict(normal=[0,0,1], origin=[0,0,z]), size=[40,20]),
