@@ -96,6 +96,7 @@ One-line index per module (`tools/architecture_map.py`). Per-file details, warni
 - `worker/model.py` — Model: Shop Sketch operations on a FreeCAD document
 - `worker/move.py` — Move and copy: moving boards and holes, linked copies and arrays (A22c, T12), detach and make unique
 - `worker/object_properties.py` — Inspectable native properties and journalled edits, shared by the worker and tests
+- `worker/op_contracts.py` — Collect per-op CONTRACT dicts from worker handler modules and generate tests/op_contracts.json
 - `worker/paint.py` — Paint and grain (T15, M03): materials on a board definition, grain directions
 - `worker/plane_fit.py` — Board-local face references for Shop Sketch stock and extruded/cut boards
 - `worker/polygon.py` — Exact editable regular polygon profiles (T84): a native constrained sketch, like circle.py's circles

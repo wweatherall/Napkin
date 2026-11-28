@@ -5,6 +5,7 @@
   python3 tools/protocol_map.py --check  exit 1 if stale, out of sync with code, or examples/refs fail
 """
 import ast
+import importlib.util
 import json
 import re
 import sys
@@ -848,6 +849,68 @@ def _check_examples(section_text: str, proto_ver: int | None, specs: list[Messag
     return problems
 
 
+def _load_op_contracts(root: Path) -> dict[str, dict]:
+    mod_path = Path(__file__).resolve().parent.parent / "worker" / "op_contracts.py"
+    if not mod_path.is_file():
+        return {}
+    spec = importlib.util.spec_from_file_location("op_contracts", mod_path)
+    if spec is None or spec.loader is None:
+        return {}
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return mod.collect_contracts(root / "worker")
+
+
+def _operation_payloads_section(text: str) -> str:
+    m = re.search(r"^## Operation payloads\b.*$", text, re.M)
+    if not m:
+        return ""
+    rest = text[m.end():]
+    nxt = re.search(r"^## ", rest, re.M)
+    return rest[:nxt.start()] if nxt else rest
+
+
+def _check_op_contracts(root: Path, text: str) -> list[str]:
+    contracts = _load_op_contracts(root)
+    if not contracts:
+        return []
+    section = _operation_payloads_section(text)
+    if not section:
+        return [f"{PROTOCOL_DOC} is missing `## Operation payloads`"]
+    rows: dict[str, str] = {}
+    for line in section.splitlines():
+        if not line.startswith("|"):
+            continue
+        cells = [c.strip() for c in line.strip("|").split("|")]
+        if len(cells) < 2:
+            continue
+        m = re.fullmatch(r"`([A-Za-z0-9_]+)`", cells[0])
+        if m:
+            rows[m.group(1)] = cells[1]
+    problems: list[str] = []
+    for op_type, contract in sorted(contracts.items()):
+        if op_type not in rows:
+            problems.append(f"{PROTOCOL_DOC}: op `{op_type}` has a contract but no row in `## Operation payloads`")
+            continue
+        doc_fields = set(re.findall(r"`([A-Za-z_][A-Za-z0-9_]*\??)\s*:", rows[op_type]))
+        expected = {
+            name if spec.get("required", True) else f"{name}?"
+            for name, spec in contract.get("fields", {}).items()
+        }
+        missing = sorted(expected - doc_fields)
+        extra = sorted(doc_fields - expected)
+        if missing or extra:
+            parts = []
+            if missing:
+                parts.append(f"missing {missing}")
+            if extra:
+                parts.append(f"extra {extra}")
+            problems.append(
+                f"{PROTOCOL_DOC}: `{op_type}` row disagrees with contract ({', '.join(parts)})"
+            )
+    return problems
+
+
 def check_doc(root: Path) -> list[str]:
     proto_ver, specs, generic_err = extract_protocol(root)
     doc_path = root / PROTOCOL_DOC
@@ -868,6 +931,7 @@ def check_doc(root: Path) -> list[str]:
         problems.extend(_check_examples(section, proto_ver, specs, generic_err))
 
     problems.extend(_check_references(root, text))
+    problems.extend(_check_op_contracts(root, text))
     return problems
 
 

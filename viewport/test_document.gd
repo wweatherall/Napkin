@@ -764,6 +764,52 @@ func _init() -> void:
 		and in_asm["note"] == "as1: bad assembly (and 1 action that built on it)"
 		and d.rejected_ids("as1") == ["as1", "pp2"])
 
+	# --- H189: _op_makes and _op_refs agree with tests/op_contracts.json ---
+	var contracts_path := ProjectSettings.globalize_path("res://").path_join("../tests/op_contracts.json")
+	var contracts_raw := FileAccess.get_file_as_string(contracts_path)
+	var contracts = JSON.parse_string(contracts_raw)
+	check("tests/op_contracts.json parses as a non-empty dictionary", contracts is Dictionary and not contracts.is_empty())
+	if contracts is Dictionary:
+		t = make(); d = t[0]
+		for op_type in contracts:
+			var contract: Dictionary = contracts[op_type]
+			var built_op := _build_op_from_contract(contract)
+			var expected_makes := []
+			for p in contract.get("creates", []):
+				expected_makes.append(_read_dotted_path(built_op, p))
+			check("_op_makes matches contract.creates for %s" % op_type,
+				d._op_makes(built_op) == expected_makes)
+			var expected_refs := []
+			for p in contract.get("refers_to", []):
+				expected_refs.append(_read_dotted_path(built_op, p))
+			check("_op_refs matches contract.refers_to for %s" % op_type,
+				Document._op_refs(built_op) == expected_refs)
+
 	for n in made: n.free()
 	print("DOCUMENT TESTS: %d passed, %d failed" % [passed, failed])
 	quit(1 if failed > 0 else 0)
+
+
+static func _build_op_from_contract(contract: Dictionary) -> Dictionary:
+	var op := {"id": "c_contract_1", "type": contract["type"]}
+	var fields: Dictionary = contract.get("fields", {})
+	for fname in fields:
+		var spec: Dictionary = fields[fname]
+		var kind: String = spec.get("kind", "")
+		if kind == "Plane":
+			op[fname] = {"on": {"body": "b_contract_1", "normal": [0, 0, 1], "point": [0, 0, 0]}}
+		elif kind == "number":
+			op[fname] = maxf(float(spec.get("min", 1.0)) * 10.0, 10.0)
+		elif kind == "[number, number]":
+			op[fname] = spec.get("default", [0, 0])
+	return op
+
+
+static func _read_dotted_path(d: Dictionary, dotted: String) -> Variant:
+	var cur: Variant = d
+	for part in dotted.split("."):
+		if cur is Dictionary and cur.has(part):
+			cur = cur[part]
+		else:
+			return null
+	return cur

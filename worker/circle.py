@@ -10,6 +10,19 @@ import Sketcher
 from common import OpError, TOL, V, add_props, rotation_from, unit
 
 
+CONTRACT = {
+    "type": "circle",
+    "fields": {
+        "plane": {"required": True, "kind": "Plane"},
+        "radius": {"required": True, "kind": "number", "min": 0.001},
+        "center": {"required": False, "kind": "[number, number]", "default": [0, 0]},
+    },
+    "refers_to": ["plane.on.body"],
+    "creates": ["id"],
+    "tool": "viewport/tools/circle_tool.gd",
+}
+
+
 class CircleActions:
     def circle_feature(self, center, x, y, radius, label, existing=None):
         sketch = existing or self.doc.addObject("Sketcher::SketchObject", "Circle")
