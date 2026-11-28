@@ -3,7 +3,7 @@
 "Check the board" sends you here. Only the integrator edits this file; the job table is built from docs/handoff/
 and the job queue.
 
-Order: H191, H192, H196, H197, H195, H193, H194, H198, H199, H205, H204, H200, H201, H202, H203
+Order: H191, H192, H196, H197, H195, H193, H194, H198, H199, H206, H205, H204, H200, H201, H202, H203
 Pace: one at a time
 
 ## If you're not the integrator
@@ -74,6 +74,7 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
 | H199 | Gemini | In progress (gemini since 21:43) | Push/Pull split, step 2: creating a board is a `new_board` op, and the one-time updater (T159, I74, A43) | [H199](docs/handoff/H199-new-board-op.md) |  |
+| H206 | Codex | **Ready** | Codex usage at parity: every view of the token tool shows Codex beside Claude and Gemini | [H206](docs/handoff/H206-codex-usage-parity.md) |  |
 | H205 | Gemini | Queued | Fewer stops for workers: branch log checks ignore newer comitatus rulings, the gate's pass counts for SUBMIT_JOB, the Result line is checked first, one test file runs on its own | [H205](docs/handoff/H205-worker-friction-fixes.md) | H199 |
 | H204 | Gemini | Queued | Rename everything to Napkin: the app, its files, the names saved inside models, and the tools (T139, P51) | [H204](docs/handoff/H204-rename-to-napkin.md) | H205 |
 | H200 | Gemini | Queued | Push/Pull split, step 3: resizing plain stock is a `resize_stock` op (T159, I74) | [H200](docs/handoff/H200-resize-stock-op.md) | H204 |
