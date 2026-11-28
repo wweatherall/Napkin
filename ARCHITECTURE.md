@@ -130,6 +130,7 @@ One-line index per module (`tools/architecture_map.py`). Per-file details, warni
 - `tools/length_cases.py` — Writes tests/length_cases.json: what FreeCAD's length input (worker/length_input.py evaluate) gives for a fixed set of typed lengths, plus random expressions b…
 - `tools/line_trace.py` — Run a Python test script under sys.settrace and record executed lines and functions
 - `tools/log.py` — Add to and read the decision log (T92, P09, P23) without editing its tables by hand
+- `tools/mutate.py` — Measure which feature tests catch individual AST mutations in worker modules
 - `tools/number_ids.py` — Give placeholder IDs their numbers at merge (T74), so two branches never take the same number
 - `tools/org_todos.py` — Fill comitatus/06_To-dos (T134, P57's way): one file per thing waiting on someone, from this code base's main
 - `tools/parsecheck.sh` — Loads every viewport script once, headless, and prints any parse error

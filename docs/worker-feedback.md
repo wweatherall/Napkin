@@ -53,3 +53,6 @@
 ### 2026-11-28 12:36 — H216 (codex, 01a22319-c293-7210-bf4f-84e0f9b270c9, first submit)
 - **How was working on this job in our code base?** The brief gave me three concrete transcript formats and clear checks. Live logs exposed an extra Codex representation and a few ledger matches to integrator sessions. Checking claims, worktree activity, and merge history made those discrepancies traceable.
 - **Any improvements you can think of?** Record the confirmed transcript ID and start and end timestamps per job attempt. That would make returned and reassigned jobs easier to measure after queue pruning.
+### 2026-11-28 14:10 — H217 (codex, 01a22371-a885-7001-9acc-b13de31ed500, first submit)
+- **How was working on this job in our code base?** The Touches and failure modes gave a clear scope. The existing traces and timing inventory were directly usable.
+- **Any improvements you can think of?** Record the worker tracer's untraced children and FreeCAD's exit-zero assertion message format in future mutation-testing briefs.
