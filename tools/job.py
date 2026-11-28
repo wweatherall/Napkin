@@ -1598,13 +1598,25 @@ def hopper(cwd, dry_run=False, launcher=None, out=print, now=None, sleep=time.sl
                     act = refresh(root, j, t0)
                     if stale(j, act, t0):
                         seen.add(("stale", k, act))
+        import hopper_picture
+        tty_draw = forever and out is print and sys.stdout.isatty()
+        log_lines = []
+        last_pic = None
+
+        def emit(line):
+            log_lines.append(line)
+            del log_lines[:-6]
+            if not tty_draw:
+                out(line)
+
         while True:
             t = now or time.time()
-            action, code, detail, key = hopper_step(root, now=t, dry_run=False, launcher=launcher, out=out,
+            step_out = emit if forever else out
+            action, code, detail, key = hopper_step(root, now=t, dry_run=False, launcher=launcher, out=step_out,
                                                     seen=seen, launch_integrator=forever,
                                                     integrator_launcher=integrator_launcher)
             if action == "exit":
-                out(f"{hhmm(t)} {detail}")
+                step_out(f"{hhmm(t)} {detail}")
                 sys.stdout.flush()
                 if not forever:
                     return code
@@ -1615,6 +1627,19 @@ def hopper(cwd, dry_run=False, launcher=None, out=print, now=None, sleep=time.sl
                     seen.add(key)
                 if forever and action == "launched":
                     seen = {k for k in seen if k[0] != "paused"}
+            if forever:
+                pic = hopper_picture.render_root(root, now=t)
+                if pic != last_pic or action in ("launched", "exit"):
+                    if tty_draw:
+                        sys.stdout.write("\033[H\033[J")
+                        sys.stdout.flush()
+                        out(pic)
+                        for line in log_lines:
+                            out(line)
+                    elif pic != last_pic:
+                        out(pic)
+                    sys.stdout.flush()
+                    last_pic = pic
             sleep(poll)
     finally:
         if forever:
