@@ -122,4 +122,61 @@ Unparsed files (40):
 Check names in more than one file (0):
 ```
 
-Result: `tools/test_inventory.py`, `tools/test_test_inventory.py`, and `tests/test_inventory.json` added and verified (`TEST INVENTORY TESTS: 9 passed, 0 failed`, `GATE PASS`).
+Response (Gemini, gemini-maple-1128-095502 — resubmission after return):
+- Branch: `gemini/h214-test-inventory` (commit `a7b710e`, merged `main` at `171f527`).
+- Addressed both return notes:
+  1. `tools/test_inventory.py` now runs `tools/*.py` tests with `-v` so `VERBOSE`-aware tools tests print their `PASS` lines and parse cleanly (19 of 25 tools tests now parsed with 988 named checks; the 6 without `-v` stay `parsed: false`).
+  2. `parse_quick_lane_log` now reads `QUICK timing (s): <step> <sec> ... | opening fresh models <sec>` (ignoring the `| opening fresh models` tail, recording each step's name and seconds in `steps`, disambiguating repeated step names with `#1`, `#2`, ... such as `move_copy_counts#1`..`#11`), records `check_count` from `QUICK N passed, M failed in T s`, and sets `parsed: true` when the timing and summary lines were read.
+  3. Added both cases to `tools/test_test_inventory.py` (`TEST INVENTORY TESTS: 11 passed, 0 failed`), regenerated `tests/test_inventory.json`.
+- Changed from the brief: added `# runner: none` to line 2 of `tools/test_inventory.py` because its filename starts with `test_` (contrary to Touches' note), so `tools/featuretest.sh` does not run it recursively.
+- Tests: `python3 tools/test_test_inventory.py -v` (11/11 passed); `tools/TEST_YOUR_CODE_FAST.sh` passed.
+
+Report from `python3 tools/test_inventory.py --quick`:
+```
+Totals by suite:
+  quick        3 files,   83 checks,  67.10 s
+  tools       25 files,  988 checks, 231.31 s
+  viewport     7 files,  880 checks,  37.31 s
+  worker      20 files, 1180 checks, 266.94 s
+  total       55 files, 3131 checks, 602.66 s
+
+10 slowest files:
+   39.54 s  worker/test_outside_save.py (worker, 53 checks)
+   39.33 s  tools/test_job.py (tools, 265 checks)
+   38.43 s  tools/test_integrate.py (tools, 103 checks)
+   28.75 s  worker/test_scenario.py (worker, 578 checks)
+   25.90 s  quick/vp1 (quick, 35 checks)
+   25.60 s  quick/vp3 (quick, 36 checks)
+   23.27 s  tools/test_startup.py (tools, 83 checks)
+   19.97 s  worker/test_runs.py (worker, 8 checks)
+   19.70 s  worker/test_native.py (worker, 74 checks)
+   18.23 s  tools/test_log.py (tools, 70 checks)
+
+Unparsed files (18):
+  tools/test_comitatus_commit.py (tools, 0 parsed checks)
+  tools/test_freecad_user_cfg.py (tools, 0 parsed checks)
+  tools/test_hopper_picture.py (tools, 0 parsed checks)
+  tools/test_launch.py (tools, 0 parsed checks)
+  tools/test_org_todos.py (tools, 0 parsed checks)
+  tools/test_personal_space.py (tools, 0 parsed checks)
+  worker/test_combos.py (worker, 46 parsed checks)
+  worker/test_cut_ties.py (worker, 16 parsed checks)
+  worker/test_floor_copy.py (worker, 19 parsed checks)
+  worker/test_generations.py (worker, 25 parsed checks)
+  worker/test_length_input.py (worker, 0 parsed checks)
+  worker/test_length_protocol.py (worker, 0 parsed checks)
+  worker/test_native.py (worker, 74 parsed checks)
+  worker/test_op_contracts.py (worker, 133 parsed checks)
+  worker/test_plane_fit.py (worker, 14 parsed checks)
+  worker/test_properties.py (worker, 77 parsed checks)
+  worker/test_runs.py (worker, 8 parsed checks)
+  worker/test_scenario.py (worker, 578 parsed checks)
+
+Check names in more than one file (4):
+  --check fails on stale section (2 files: tools/test_architecture_map.py, tools/test_protocol_map.py)
+  an ID in neither file is unknown (2 files: tools/test_log_archive.py, tools/test_startup.py)
+  rebuild is idempotent and preserves surrounding text (2 files: tools/test_architecture_map.py, tools/test_protocol_map.py)
+  reject (2 files: quick/vp3, viewport/test_units.gd)
+```
+
+Result: a7b710e; TEST INVENTORY TESTS 11/11 and TEST_YOUR_CODE_FAST.sh pass; added tools/test_inventory.py (-v for tools tests, QUICK timing step parsing with repeat indexing), tools/test_test_inventory.py, and tests/test_inventory.json (55 files, 3131 checks, 18 unparsed).
