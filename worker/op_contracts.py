@@ -14,6 +14,84 @@ ROOT = Path(__file__).resolve().parent.parent
 WORKER_DIR = Path(__file__).resolve().parent
 CONTRACTS_PATH = ROOT / "tests" / "op_contracts.json"
 
+_CONTRACTS = None
+
+
+def _get_contracts():
+    global _CONTRACTS
+    if _CONTRACTS is None:
+        _CONTRACTS = collect_contracts()
+    return _CONTRACTS
+
+
+def _is_number(val):
+    return isinstance(val, (int, float)) and not isinstance(val, bool)
+
+
+def _is_integer(val):
+    return isinstance(val, int) and not isinstance(val, bool)
+
+
+def _check_kind(val, kind):
+    if kind == "number":
+        return _is_number(val), "a number"
+    if kind == "integer":
+        return _is_integer(val), "an integer"
+    if kind == "bool":
+        return isinstance(val, bool), "a bool"
+    if kind == "string":
+        return isinstance(val, str), "a string"
+    if kind == "[string]":
+        return isinstance(val, list) and all(isinstance(x, str) for x in val), "a list of strings"
+    if kind == "[number, number]":
+        return (
+            isinstance(val, list) and len(val) == 2 and all(_is_number(x) for x in val),
+            "a list of two numbers",
+        )
+    if kind == "[number, number, number]":
+        return (
+            isinstance(val, list) and len(val) == 3 and all(_is_number(x) for x in val),
+            "a list of three numbers",
+        )
+    if kind == "[[number, number, number]]":
+        return (
+            isinstance(val, list)
+            and all(isinstance(pt, list) and len(pt) == 3 and all(_is_number(x) for x in pt) for pt in val),
+            "a list of 3-number lists",
+        )
+    return isinstance(val, dict), "an object"
+
+
+def validate(op, contracts=None):
+    """Return the first contract problem string for op, or None if valid or uncontracted."""
+    if not isinstance(op, dict):
+        return None
+    if contracts is None:
+        contracts = _get_contracts()
+    op_type = dict.get(op, "type")
+    contract = contracts.get(op_type)
+    if contract is None:
+        return None
+    fields = contract.get("fields", {})
+    for fname, spec in fields.items():
+        if spec.get("required", True) and not dict.__contains__(op, fname):
+            return f"{op_type}: missing {fname}"
+    for fname in dict.keys(op):
+        if fname not in ("id", "type") and fname not in fields:
+            return f"{op_type}: unknown field {fname}"
+    for fname, spec in fields.items():
+        if not dict.__contains__(op, fname):
+            continue
+        val = dict.__getitem__(op, fname)
+        ok, label = _check_kind(val, spec["kind"])
+        if not ok:
+            return f"{op_type}: {fname} must be {label}"
+        if "min" in spec and val < spec["min"]:
+            return f"{op_type}: {fname} must be at least {spec['min']}"
+        if "max" in spec and val > spec["max"]:
+            return f"{op_type}: {fname} must be at most {spec['max']}"
+    return None
+
 
 def _has_actions_class(tree):
     return any(

@@ -9,7 +9,7 @@ from common import OpError
 from field_audit import AuditedDict
 from model import Model
 import op_contracts
-from session import creations
+from session import creations, upgrade_op
 
 R = [0, 0]
 
@@ -222,6 +222,63 @@ try:
         got_ids = [identity for identity, _ in creations(full_op)]
         check(f"{op_type}: creations matches contract.creates", got_ids == expected_ids,
               f"got={got_ids} expected={expected_ids}")
+
+    # 6. H194 runtime validation: all four problems, about=[op_id], uncontracted ops, legacy upgrade
+    base_circle = {"id": "c_val", "type": "circle", "plane": {"origin": [0, 0, 0], "normal": [0, 0, 1]}, "radius": 10.0}
+    cases = [
+        ("missing required field", {k: v for k, v in base_circle.items() if k != "radius"}, "circle: missing radius"),
+        ("unknown field", {**base_circle, "rad": 5.0}, "circle: unknown field rad"),
+        ("wrong kind (number)", {**base_circle, "radius": "10"}, "circle: radius must be a number"),
+        ("wrong kind (bool as number)", {**base_circle, "radius": True}, "circle: radius must be a number"),
+        ("wrong kind (list of two numbers)", {**base_circle, "center": [1]}, "circle: center must be a list of two numbers"),
+        ("wrong kind (object)", {**base_circle, "plane": "xy"}, "circle: plane must be an object"),
+        ("below min", {**base_circle, "radius": 0.0005}, "circle: radius must be at least 0.001"),
+    ]
+    for label, bad_op, expected_msg in cases:
+        check(f"H194 validate ({label})", op_contracts.validate(bad_op) == expected_msg,
+              f"got={op_contracts.validate(bad_op)!r}")
+        got_err = None
+        got_about = None
+        try:
+            m.apply(bad_op)
+        except OpError as e:
+            got_err = str(e)
+            got_about = e.about
+        check(f"H194 Model.apply ({label}) message", got_err == expected_msg, f"got={got_err!r}")
+        check(f"H194 Model.apply ({label}) about", got_about == (bad_op["id"],), f"got={got_about!r}")
+
+    # Check order: missing before unknown before kind before min
+    multi_bad = {"id": "c_order", "type": "circle", "plane": "bad", "rad": 1}
+    check("H194 validate order: missing before unknown/kind",
+          op_contracts.validate(multi_bad) == "circle: missing radius")
+    multi_bad2 = {"id": "c_order2", "type": "circle", "plane": "bad", "radius": 0, "rad": 1}
+    check("H194 validate order: unknown before kind/min",
+          op_contracts.validate(multi_bad2) == "circle: unknown field rad")
+    multi_bad3 = {"id": "c_order3", "type": "circle", "plane": {"origin": [0, 0, 0], "normal": [0, 0, 1]}, "radius": "x"}
+    check("H194 validate order: kind before min",
+          op_contracts.validate(multi_bad3) == "circle: radius must be a number")
+
+    # Uncontracted op type is untouched by validate
+    check("H194 uncontracted op untouched",
+          op_contracts.validate({"id": "pp_u", "type": "push_pull", "extra": 1}) is None)
+
+    # Legacy saved op upgraded first, then passes validate and Model.apply
+    ba_leg = _make_board(m, "leg_a", origin_x=0.0)
+    bb_leg = _make_board(m, "leg_b", origin_x=200.0)
+    m.apply({"id": _next_tag("fit_leg"), "type": "fit", "body": ba_leg, "target_body": bb_leg,
+             "axis": 0, "face": 0, "fit_mode": 0})
+    legacy_unfit = {"id": _next_tag("uf_leg"), "type": "property_edit", "mode": "replace_fit",
+                    "body": ba_leg, "axis": 0, "value": "150mm"}
+    upgraded_unfit = upgrade_op(legacy_unfit)
+    check("H194 legacy op upgraded passes validate", op_contracts.validate(upgraded_unfit) is None)
+    try:
+        m.apply(upgraded_unfit)
+        leg_ok = True
+        leg_err = ""
+    except Exception as e:
+        leg_ok = False
+        leg_err = repr(e)
+    check("H194 legacy op upgraded applies cleanly", leg_ok, leg_err)
 finally:
     App.closeDocument(doc.Name)
 
