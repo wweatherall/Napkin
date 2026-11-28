@@ -1069,16 +1069,16 @@ def layout_problems(live, archive, rulings_dir=None, work_dir=None, questions_di
 
 
 def _read_queue_jobs(root):
-    """Read live queue jobs from git-common-dir/shopsketch-jobs.json if available, else {}."""
+    """Read live queue jobs from git-common-dir/napkin-jobs.json if available, else {}."""
     candidates = []
     try:
         r = subprocess.run(["git", "rev-parse", "--git-common-dir"], cwd=root, capture_output=True, text=True)
         if r.returncode == 0 and r.stdout.strip():
             cdir = os.path.realpath(os.path.join(root, r.stdout.strip()))
-            candidates.append(os.path.join(cdir, "shopsketch-jobs.json"))
+            candidates.append(os.path.join(cdir, "napkin-jobs.json"))
     except OSError:
         pass
-    candidates.append(os.path.join(root, ".git", "shopsketch-jobs.json"))
+    candidates.append(os.path.join(root, ".git", "napkin-jobs.json"))
     for p in candidates:
         try:
             data = json.load(open(p, encoding="utf-8"))

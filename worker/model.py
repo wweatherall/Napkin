@@ -1,4 +1,4 @@
-"""Model: Shop Sketch operations on a FreeCAD document. This file reads the document and has the building
+"""Model: Napkin operations on a FreeCAD document. This file reads the document and has the building
 blocks (boards, extrusions, booleans); each kind of action is a mixin in its own file, found by action_mixins().
 The op types Model handles are its op_<type> methods (HANDLERS).
 
@@ -73,7 +73,7 @@ def action_mixins():
 
 
 class Model(*action_mixins()):
-    """Shop Sketch operations on a FreeCAD document. Holds no state of its own."""
+    """Napkin operations on a FreeCAD document. Holds no state of its own."""
 
     def __init__(self, doc):
         self.doc = doc
@@ -148,7 +148,7 @@ class Model(*action_mixins()):
         else:
             fr.into(obj.Placement)
         if obj.TypeId != "App::Part" or not hasattr(obj, "Tip"):
-            raise OpError(f"'{obj.Label}' is not a Shop Sketch board")
+            raise OpError(f"'{obj.Label}' is not a Napkin board")
         return obj, fr
 
     def group(self, name, label):
@@ -276,7 +276,7 @@ class Model(*action_mixins()):
 
     @staticmethod
     def check_result(base, result, distance):
-        """Shop Sketch's rejections (I08), judged on what FreeCAD just computed (`result`) against the board
+        """Napkin's rejections (I08), judged on what FreeCAD just computed (`result`) against the board
         before this op (`base`); no second boolean of our own. A rejected op's transaction is aborted."""
         if result.isNull() or not result.Solids:
             raise OpError("operation removed the whole body" if distance < 0 else "FreeCAD couldn't compute the merge")

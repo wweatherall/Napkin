@@ -5,7 +5,7 @@ import Part
 from BOPTools import SplitFeatures, SplitAPI
 from CompoundTools.CompoundFilter import makeCompoundFilter
 V = App.Vector
-OUT = os.environ.get('TESTDIR', '/tmp/fretchup-t38-results')
+OUT = os.environ.get('TESTDIR', '/tmp/napkin-t38-results')
 os.makedirs(OUT, exist_ok=True)
 results = {'freecad': App.Version(), 'cases': [], 'errors': []}
 

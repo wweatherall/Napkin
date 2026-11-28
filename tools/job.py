@@ -13,7 +13,7 @@ Worker (run in your job's worktree unless it says otherwise):
                                 background, so the session wakes when it exits.
   python3 tools/job.py guard-checkout
                                 refuse tests in the main checkout when this session holds a job elsewhere;
-                                SHOPSKETCH_ANY_CHECKOUT=1 allows a deliberate run there (T102)
+                                NAPKIN_ANY_CHECKOUT=1 allows a deliberate run there (T102)
   python3 tools/job.py beat     "still working": pushes the deadline back. Commits on the job's branch, a quick-test
                                 run in its worktree and every job.py command count as beats too.
   python3 tools/job.py run [--limit S] -- <command ...>
@@ -54,7 +54,7 @@ Integrator:
 tools/integrate.py marks a merged job merged and deletes its worktree and branch.
 
 The live state (claims, beats, done) is a JSON file beside the integrator lock in git's common folder
-(shopsketch-jobs.json): shared by every worktree, never committed. The jobs themselves are docs/handoff/ entries:
+(napkin-jobs.json): shared by every worktree, never committed. The jobs themselves are docs/handoff/ entries:
 Status "open" is Ready, "queued (after ...)" Queued, "answered" awaiting review; "For" says whose."""
 import contextlib
 import fcntl
@@ -115,7 +115,7 @@ def save_personal_space(root, agent, space=None):
 
 def record_usage(root, event, jid, agent=None, session=None, quiet=True):
     """Notify job-usage passively at a job lifecycle boundary; fail-open so it never blocks a command (T117)."""
-    tool = os.environ.get("SHOPSKETCH_USAGE_TOOL", USAGE_TOOL)
+    tool = os.environ.get("NAPKIN_USAGE_TOOL", USAGE_TOOL)
     if not tool or not os.path.isfile(tool):
         return
     cmd = [sys.executable, tool, "--repo", root, "snapshot", "--event", event, "--job", jid]
@@ -165,7 +165,14 @@ def toplevel(cwd=None):
 
 
 def state_path(cwd=None):
-    return os.path.join(common_dir(cwd), "shopsketch-jobs.json")
+    new = os.path.join(common_dir(cwd), "napkin-jobs.json")
+    old = os.path.join(os.path.dirname(new), "shopsketch-jobs.json")
+    if not os.path.exists(new) and os.path.exists(old):
+        try:
+            os.replace(old, new)
+        except OSError:
+            pass
+    return new
 
 
 def read_state(path):
@@ -515,14 +522,14 @@ def default_agent():
 def default_session(agent):
     return (os.environ.get("CLAUDE_CODE_SESSION_ID") or os.environ.get("CODEX_SESSION_ID")
             or os.environ.get("CODEX_THREAD_ID") or os.environ.get("ANTIGRAVITY_CONVERSATION_ID")
-            or os.environ.get("SHOPSKETCH_SESSION") or agent)
+            or os.environ.get("NAPKIN_SESSION") or agent)
 
 
 def guard_checkout(cwd, out=print):
     """Read-only, fail-open test guard: never lock the queue or use a shared fallback session."""
     try:
         session = default_session(None)
-        if os.environ.get("SHOPSKETCH_ANY_CHECKOUT") == "1" or not session:
+        if os.environ.get("NAPKIN_ANY_CHECKOUT") == "1" or not session:
             return True
         if toplevel(cwd) != main_root(cwd):
             return True
@@ -1374,16 +1381,16 @@ def _integrator_session_name(root):
 
 
 def hopper_pid_path(cwd=None):
-    return os.path.join(common_dir(cwd), "shopsketch-hopper.pid")
+    return os.path.join(common_dir(cwd), "napkin-hopper.pid")
 
 
 def hopper_wait_pid_path(cwd=None):
-    return os.path.join(common_dir(cwd), "shopsketch-hopper-wait.pid")
+    return os.path.join(common_dir(cwd), "napkin-hopper-wait.pid")
 
 
 def hopper_woke_path(cwd=None):
     """The pause a WAIT_FOR_THE_HOPPER last woke its integrator for: that pause needs no new integrator."""
-    return os.path.join(common_dir(cwd), "shopsketch-hopper-wait.woke")
+    return os.path.join(common_dir(cwd), "napkin-hopper-wait.woke")
 
 
 def _woke_for(root, key):

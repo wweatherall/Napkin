@@ -2,7 +2,7 @@
 """Outside saves (T64, A36): FreeCAD saves the open model; the worker notices without a sync, holds the model (no
 autosave over FreeCAD's file), tells the window, and reloads it or keeps both, as the window says. Covers: nothing
 pending (reload, changed boards, undo floor in this session and the journal); actions that landed in time (held,
-dropped into the journal); 'Use FreeCAD's version' and 'Keep Shop Sketch's' (files on disk, the copy-aside name);
+dropped into the journal); 'Use FreeCAD's version' and 'Keep Napkin's' (files on disk, the copy-aside name);
 a flush of a held model keeps both; a FreeCAD save of an older revision isn't taken for a broken save by a new
 worker (the journal's outside_sha256).
   python3 worker/test_outside_save.py   (TESTDIR=<folder> for its files; FREECAD=<freecadcmd> to override)"""
@@ -25,7 +25,7 @@ if HERE not in sys.path:
 from test_link import (FC, Checks, Window, board_ops,
                        fresh_model as _fresh_model, start_worker, sync)
 
-tmp = os.path.abspath(os.environ.get("TESTDIR") or tempfile.mkdtemp(prefix="shopsketch-outside-"))
+tmp = os.path.abspath(os.environ.get("TESTDIR") or tempfile.mkdtemp(prefix="napkin-outside-"))
 os.makedirs(tmp, exist_ok=True)
 checks = Checks("OUTSIDE SAVE")
 check = checks.check
@@ -101,7 +101,7 @@ def journal(model):
     with zipfile.ZipFile(model) as z:
         root = ET.fromstring(z.read("Document.xml"))
     meta = {i.get("key"): i.get("value") for i in root.findall("./Properties/Property[@name='Meta']/Map/Item")}
-    return json.loads(meta["ShopSketchJournal"])
+    return json.loads(meta["NapkinJournal"])
 
 
 def second(w):
@@ -159,7 +159,7 @@ try:
     check("the reloaded board has FreeCAD's thickness (18 + 12)", thickness(out1, "b1") == 30.0, thickness(out1, "b1"))
     check("undo stops at the FreeCAD change (undo_floor = 2)", r and r["undo_floor"] == 2, r and r["undo_floor"])
     check("reloading leaves FreeCAD's file as it is and writes no sidecars",
-          sha(m1) == fc_sha and not os.path.exists(os.path.splitext(m1)[0] + ".shopsketch.json")
+          sha(m1) == fc_sha and not os.path.exists(os.path.splitext(m1)[0] + ".napkin.json")
           and not os.path.exists(os.path.splitext(m1)[0] + ".floor.FCStd"))
     bad = sync(w, m1, ops[:1])
     check("a sync taking back an op below the floor is refused", bad and not bad["ok"] and "FreeCAD" in bad["error"], bad)
@@ -167,7 +167,7 @@ try:
     ask({"cmd": "flush", "model": m1}, "flush")
     label_read = _fc_call({"cmd": "read_label", "model": m1})
     expected_label = os.path.splitext(os.path.basename(m1))[0]
-    # FreeCAD normalizes the label on open, so check what Shop Sketch saved as well.
+    # FreeCAD normalizes the label on open, so check what Napkin saved as well.
     with zipfile.ZipFile(m1) as archive:
         document_xml = ET.fromstring(archive.read("Document.xml"))
         saved_label = document_xml.find("./Properties/Property[@name='Label']/String").get("value")
@@ -217,7 +217,7 @@ try:
     check("they stay in the journal as dropped, with the revision they came after",
           [d["op"]["id"] for d in j["dropped"]] == ["r2", "pp2"] and j["dropped"][0]["after_rev"] == 1, j.get("dropped"))
 
-    # 3. 'Keep Shop Sketch's': FreeCAD's file aside first, then ours over it. Both survive on disk.
+    # 3. 'Keep Napkin's': FreeCAD's file aside first, then ours over it. Both survive on disk.
     m3 = fresh_model("mine")
     out3 = m3 + "-out"
     opened(m3)
@@ -229,11 +229,11 @@ try:
     wait_outside(m3)
     k = ask({"cmd": "keep_mine", "model": m3, "outdir": out3}, "keep_mine")
     aside = (k or {}).get("aside") or ""
-    check("Keep Shop Sketch's copies FreeCAD's file aside as <model>.freecad-<time>.FCStd",
+    check("Keep Napkin's copies FreeCAD's file aside as <model>.freecad-<time>.FCStd",
           k and k["ok"] and re.fullmatch(r"mine\.freecad-\d{8}-\d{6}\.FCStd", os.path.basename(aside)) is not None, k)
     check("the copy is FreeCAD's save, byte for byte", os.path.exists(aside) and sha(aside) == fc_sha)
     j = journal(m3)
-    check("then Shop Sketch's version is the model, with every action",
+    check("then Napkin's version is the model, with every action",
           sha(m3) != fc_sha and len(j["ops"]) == 4 and j.get("dropped") == [], len(j["ops"]))
     sync(w, m3, board_ops(300) + second(220))
     ask({"cmd": "flush", "model": m3}, "flush")
@@ -255,7 +255,7 @@ try:
     check("a flush of a held model copies FreeCAD's save aside before saving ours",
           fl and fl["ok"] and asides and asides[0] and sha(asides[0]) == fc_sha and len(journal(m4)["ops"]) == 4, fl)
 
-    # 5. FreeCAD saves an older revision (it opened rev 1, Shop Sketch saved rev 2 since); the worker stops before the
+    # 5. FreeCAD saves an older revision (it opened rev 1, Napkin saved rev 2 since); the worker stops before the
     #    reload. A new worker opens FreeCAD's file as an outside edit, not as a save of ours that stopped part way.
     m5 = fresh_model("older")
     opened(m5)
@@ -363,7 +363,7 @@ try:
           still_live and still_live["ok"] and thickness(live_out, "b1") == 30.0 and thickness(live_out, "b2") == 18.0,
           still_live)
     k = ask({"cmd": "keep_mine", "model": broken, "outdir": live_out}, "keep_mine")
-    check("after failed reload Keep Shop Sketch's copies the unreadable file aside and saves ours",
+    check("after failed reload Keep Napkin's copies the unreadable file aside and saves ours",
           k and k["ok"] and sha(k["aside"]) == broken_sha
           and journal(broken)["ops"] == ops and journal(broken)["floor"] == 2, k)
 
@@ -389,7 +389,7 @@ try:
 
     # H098 outside-save regressions
     H098_CHECKS = [
-        "after a deleted outside save fails reload, Keep Shop Sketch's still saves ours",
+        "after a deleted outside save fails reload, Keep Napkin's still saves ours",
         "an outside save with corrupt Document.xml fails reload instead of wiping the model",
         "a reload failure while writing the floor copy leaves the live document intact",
         "a retried reload on a new worker after a crash drops post-rev ops and keeps the rev",
@@ -398,7 +398,7 @@ try:
     worker = worker.restart()
     w = Window(worker.port)
 
-    # 1. Deleted file while held: reload fails, then Keep Shop Sketch's still saves ours
+    # 1. Deleted file while held: reload fails, then Keep Napkin's still saves ours
     m_del = fresh_model("deleted_keep_mine")
     out_del = m_del + "-out"
     os.makedirs(out_del, exist_ok=True)
@@ -538,11 +538,11 @@ try:
                   j["ops"] == kept and j["status"] == [{"status": "ok"}] * len(kept), j.get("status"))
 
     for case, (name, metadata, restart, keep) in enumerate((
-        ("missing ShopSketchOps falls back to ShopSketchJournal", {"ShopSketchOps": None}, True, True),
-        ("invalid ShopSketchOps JSON falls back to the live revision", {"ShopSketchOps": "["}, False, True),
-        ("a ShopSketchOps object falls back to the live revision", {"ShopSketchOps": "{}"}, False, True),
-        ("a ShopSketchOps list with a non-op falls back to the live revision", {"ShopSketchOps": "[{}]"}, False, True),
-        ("ShopSketchOps with no ShopSketchRev falls back to no ops", {"ShopSketchRev": None}, False, False),
+        ("missing NapkinOps falls back to NapkinJournal", {"NapkinOps": None}, True, True),
+        ("invalid NapkinOps JSON falls back to the live revision", {"NapkinOps": "["}, False, True),
+        ("a NapkinOps object falls back to the live revision", {"NapkinOps": "{}"}, False, True),
+        ("a NapkinOps list with a non-op falls back to the live revision", {"NapkinOps": "[{}]"}, False, True),
+        ("NapkinOps with no NapkinRev falls back to no ops", {"NapkinRev": None}, False, False),
     )):
         m = fresh_model(f"meta_fallback_{case}")
         opened(m)
@@ -583,7 +583,7 @@ session.sync(ops)
 write = session._write
 def fail_write(g, outdir):
     meta = session.doc.Meta
-    assert meta["ShopSketchRev"] == "2" and json.loads(meta["ShopSketchOps"]) == ops
+    assert meta["NapkinRev"] == "2" and json.loads(meta["NapkinOps"]) == ops
     raise OSError("injected save failure")
 
 session._write = fail_write
@@ -604,7 +604,7 @@ session.close()
                               META_MODEL=fresh_model("meta_failed_save"), META_OPS=json.dumps(board_ops(300) + second(200))),
                               capture_output=True, text=True, timeout=120)
     for marker, name in (
-        ("META REV MISMATCH", "ShopSketchOps with a different revision falls back to no ops"),
+        ("META REV MISMATCH", "NapkinOps with a different revision falls back to no ops"),
         ("META SAVE ROLLBACK", "a failed save restores both Meta keys and a retry saves them together"),
     ):
         check(name, meta_run.returncode == 0 and f"{marker}: True" in meta_run.stdout.splitlines(),
@@ -621,7 +621,7 @@ session.close()
     worker = worker.restart()
     w = Window(worker.port)
     o_ours = ask({"cmd": "open", "model": m_prop}, "open")
-    check("a file saved by Shop Sketch reopens non-external",
+    check("a file saved by Napkin reopens non-external",
           o_ours and o_ours["ok"] and o_ours["external"] is False, o_ours)
     ask({"cmd": "bye"}, "bye")
     worker.proc.wait(30)

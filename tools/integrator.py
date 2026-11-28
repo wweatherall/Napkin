@@ -3,7 +3,7 @@
 
   python3 tools/integrator.py status              who holds it, since when, when last active
   python3 tools/integrator.py take <name>          take it: <name> is your session's name (ListAgents shows it,
-                                                   e.g. fretchup-73). Refused while another session holds it.
+                                                   e.g. napkin-73). Refused while another session holds it.
   python3 tools/integrator.py take <name> --william [--archive <ID> [--commit | --push]]
                                                    William said this session is the integrator: take it over
                                                    (after a context clear, a crash, or a hand-over); logged.
@@ -25,11 +25,11 @@ import time
 def lock_path(cwd=None):
     common = subprocess.run(["git", "rev-parse", "--git-common-dir"], cwd=cwd, capture_output=True, text=True).stdout.strip()
     common = os.path.abspath(os.path.join(cwd or os.getcwd(), common))
-    return os.path.join(common, "shopsketch-integrator.lock")
+    return os.path.join(common, "napkin-integrator.lock")
 
 
 def journal_path(cwd=None):
-    return os.path.join(os.path.dirname(lock_path(cwd)), "shopsketch-integrator-journal.log")
+    return os.path.join(os.path.dirname(lock_path(cwd)), "napkin-integrator-journal.log")
 
 
 def note(path, text, limit=20, out=print):
@@ -82,7 +82,7 @@ def stamp():
 
 def take(path, name, william=False, hopper=False, state_file=None, out=print):
     if hopper:
-        sf = state_file or os.path.join(os.path.dirname(path), "shopsketch-jobs.json")
+        sf = state_file or os.path.join(os.path.dirname(path), "napkin-jobs.json")
         launched = (read(sf) or {}).get("integrator_launched")
         if not launched or launched.get("session") != name:
             out("refused: --hopper requires a session started by the hopper")

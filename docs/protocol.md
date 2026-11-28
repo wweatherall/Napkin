@@ -1,6 +1,6 @@
 # Window ↔ worker protocol
 
-The wire protocol's version is **21**: the worker reports it in `hello` (`protocol`), defined once per side (`worker/serve.py` `PROTOCOL_VERSION`, `viewport/main.gd` `PROTOCOL_VERSION`). **Rule: bump it on both sides when a message or a shared-file field changes** (added, removed, renamed or its meaning changed), and update this document. There is no negotiation: a window shares a worker only when the version matches. Existing embedded format identifiers are `oplog/0.1` and `shopsketch-journal/0.1`; binary meshes use Godot's Variant array encoding. Version history, job tags and the old producer/consumer findings: [protocol-archive.md](protocol-archive.md).
+The wire protocol's version is **22**: the worker reports it in `hello` (`protocol`), defined once per side (`worker/serve.py` `PROTOCOL_VERSION`, `viewport/main.gd` `PROTOCOL_VERSION`). **Rule: bump it on both sides when a message or a shared-file field changes** (added, removed, renamed or its meaning changed), and update this document. There is no negotiation: a window shares a worker only when the version matches. Existing embedded format identifiers are `oplog/0.1` and `napkin-journal/0.1`; binary meshes use Godot's Variant array encoding. Version history, job tags and the old producer/consumer findings: [protocol-archive.md](protocol-archive.md).
 
 ## Transport, identity and lifetime
 
@@ -8,7 +8,7 @@ Each TCP stream carries UTF-8 JSON objects, one per LF-terminated line, on `127.
 
 Sources: [worker/serve.py](../worker/serve.py):`serve`, nested `handle`/`send`; [viewport/worker_client.gd](../viewport/worker_client.gd):`send`, `_process`, `_drain`.
 
-The window probes port 7878 using `hello`. A worker reporting another protocol version (or none) is treated like one with a different identity: the window starts its own and prints a `SHOPSKETCH ... speaks protocol` line. Identity is the MD5 of the concatenated contents of the worker's immediate `.py` files, sorted by filename, excluding `test_*` (not recursive). A matching worker is shared; an occupied port with a different identity leads to a private worker. Tests use `SERVE_PORT=0` and an atomic `SERVE_PORT_FILE` containing the chosen decimal port and LF. `SERVE_PORT` selects serve mode in `serve.main`; absent it, `OPLOG` and `OUTDIR` select one-off replay, with drawing and immediate save, without TCP.
+The window probes port 7878 using `hello`. A worker reporting another protocol version (or none) is treated like one with a different identity: the window starts its own and prints a `NAPKIN ... speaks protocol` line. Identity is the MD5 of the concatenated contents of the worker's immediate `.py` files, sorted by filename, excluding `test_*` (not recursive). A matching worker is shared; an occupied port with a different identity leads to a private worker. Tests use `SERVE_PORT=0` and an atomic `SERVE_PORT_FILE` containing the chosen decimal port and LF. `SERVE_PORT` selects serve mode in `serve.main`; absent it, `OPLOG` and `OUTDIR` select one-off replay, with drawing and immediate save, without TCP.
 
 Sources: [worker/replay.py](../worker/replay.py):entry point; [worker/serve.py](../worker/serve.py):`worker_files`, `worker_identity`, `main`, `serve`; [viewport/worker_process.gd](../viewport/worker_process.gd):`worker_identity`, `probe_worker`, `hello`, `worker_of`, `pick_worker`, `_start_worker`, `_await_port_file`.
 
@@ -54,18 +54,18 @@ Examples are illustrative JSON lines; timing values, paths, IDs and hashes vary.
 
 ### `hello`
 
-Request: `cmd: "hello"`, `seq?`. Success: `ok: true`, `cmd: "hello"`, `seq` (echo or null), `app: "shopsketch"`, `protocol: integer` (the protocol version, currently 21), `worker: string` (32 lowercase hex MD5), `pid: integer`. The window uses the worker only if `protocol` equals its own version and `worker` its own identity.
+Request: `cmd: "hello"`, `seq?`. Success: `ok: true`, `cmd: "hello"`, `seq` (echo or null), `app: "napkin"`, `protocol: integer` (the protocol version, currently 22), `worker: string` (32 lowercase hex MD5), `pid: integer`. The window uses the worker only if `protocol` equals its own version and `worker` its own identity.
 
 ```json
 {"cmd":"hello"}
-{"ok":true,"cmd":"hello","seq":null,"app":"shopsketch","protocol":21,"worker":"0123456789abcdef0123456789abcdef","pid":1234}
+{"ok":true,"cmd":"hello","seq":null,"app":"napkin","protocol":22,"worker":"0123456789abcdef0123456789abcdef","pid":1234}
 ```
 
 Producer/consumer: [worker/serve.py](../worker/serve.py):`serve.handle`, `worker_identity`; [viewport/worker_process.gd](../viewport/worker_process.gd):`probe_worker` (`hello`, `worker_of`). Probing uses a separate short-lived connection.
 
 ### `open`
 
-Request: `cmd: "open"`, `model: string`, `fresh?: boolean = false`, `seq?: integer` (the window always sends one). Success: `ok: true`, `cmd: "open"`, `model: string` (absolute), `seq` (echo or null), `rev: integer`, `ops: Op[]`, `undo_floor: integer`, `external: boolean`, `reserved_ids: string[]` (protocol 7: every ID the document has reserved, sorted; the window adds them to its own), `units?: string` (protocol 9: the model's display units as `<format>:<rounding>`, e.g. `in-frac:1/16`, from Meta `ShopSketchUnits`; omitted when the file has none or an unreadable value, and the window then uses the last units used, I62), `recovered?: {from: "new"|"prev", rev: integer, why: string}` (sent once, when opening found a save that stopped part way and put the newest whole file-and-journal pair in place, A32). `fresh` discards the cached/live document and starts empty; otherwise an existing cached session is reloaded if its disk signature changed. Opening does not export meshes or enqueue a save.
+Request: `cmd: "open"`, `model: string`, `fresh?: boolean = false`, `seq?: integer` (the window always sends one). Success: `ok: true`, `cmd: "open"`, `model: string` (absolute), `seq` (echo or null), `rev: integer`, `ops: Op[]`, `undo_floor: integer`, `external: boolean`, `reserved_ids: string[]` (protocol 7: every ID the document has reserved, sorted; the window adds them to its own), `units?: string` (protocol 9: the model's display units as `<format>:<rounding>`, e.g. `in-frac:1/16`, from Meta `NapkinUnits`; omitted when the file has none or an unreadable value, and the window then uses the last units used, I62), `recovered?: {from: "new"|"prev", rev: integer, why: string}` (sent once, when opening found a save that stopped part way and put the newest whole file-and-journal pair in place, A32). `fresh` discards the cached/live document and starts empty; otherwise an existing cached session is reloaded if its disk signature changed. Opening does not export meshes or enqueue a save.
 
 ```json
 {"cmd":"open","model":"/tmp/chair.FCStd","fresh":false,"seq":7}
@@ -212,7 +212,7 @@ All four are unsolicited, worker → window only; there is no matching request o
 {"ok":false,"cmd":"save_failed","model":"/tmp/chair.FCStd","rev":5,"error":"PermissionError: the folder tmp is read-only"}
 ```
 
-- `outside_save`: `ok: true`, `cmd: "outside_save"`, `model`, `rev` (the file's ShopSketchRev), `unsaved: boolean` (actions not yet on disk). Every `WATCH_S` (0.25 s) the worker stats each open model's file; a change that holds still for one look and isn't our own bytes is FreeCAD's save (each save also looks just before writing, A36, T64). The worker holds the model (no autosave writes over the file) until the window sends `reload` or `keep_mine`.
+- `outside_save`: `ok: true`, `cmd: "outside_save"`, `model`, `rev` (the file's NapkinRev), `unsaved: boolean` (actions not yet on disk). Every `WATCH_S` (0.25 s) the worker stats each open model's file; a change that holds still for one look and isn't our own bytes is FreeCAD's save (each save also looks just before writing, A36, T64). The worker holds the model (no autosave writes over the file) until the window sends `reload` or `keep_mine`.
 
 ```json
 {"ok":true,"cmd":"outside_save","model":"/tmp/chair.FCStd","rev":4,"unsaved":true}
@@ -367,7 +367,7 @@ Sources: [worker/materials.py](../worker/materials.py):`library`, `material_uuid
 
 Binary glTF 2.0 for renders, written at save (not each sync), excluding hidden boards. GLB header: magic `glTF`, version 2, total byte length (little-endian u32). JSON chunk is padded with spaces to 4-byte alignment; nonempty scenes also have a BIN chunk with padded vertex/normal data. Empty model has a JSON-only valid empty scene.
 
-JSON fields written by `write_glb`: `asset: {version: "2.0", generator: "Shop Sketch worker 0.2"}` (generator absent for empty scene), `scene: 0`, `scenes: [{nodes: integer[]}]`, `nodes`, `meshes`, `materials`, `accessors`, `bufferViews`, `buffers`. Each node: `name: BodyId`, `mesh: integer`, `extras: {body_id: string, material: string, component: string|null, grain_zup: Vec3, across_zup: Vec3, state: "confirmed"}`. Grain extras remain **Z-up**, unlike converted vertex geometry.
+JSON fields written by `write_glb`: `asset: {version: "2.0", generator: "Napkin worker 0.2"}` (generator absent for empty scene), `scene: 0`, `scenes: [{nodes: integer[]}]`, `nodes`, `meshes`, `materials`, `accessors`, `bufferViews`, `buffers`. Each node: `name: BodyId`, `mesh: integer`, `extras: {body_id: string, material: string, component: string|null, grain_zup: Vec3, across_zup: Vec3, state: "confirmed"}`. Grain extras remain **Z-up**, unlike converted vertex geometry.
 
 Each mesh: `name: BodyId`, `primitives: [{attributes: {POSITION: accessor index, NORMAL: accessor index}, material: material index}]`; unindexed triangles, float32 VEC3 accessors (`componentType = 5126`, count = vertex count); POSITION includes min/max. BufferView has buffer 0, byteOffset, byteLength and target 34962; buffers has byteLength. Materials: `name` (key or `"unassigned"`), `pbrMetallicRoughness: {baseColorFactor: [r,g,b,1], metallicFactor: 0, roughnessFactor: 0.8}`; wood materials add `extras: {wood: string, texture: absolute JPEG path, texture_grain_along: string, texture_size_mm: number, end_texture: absolute JPEG path, end_size_mm: number}`. Textures are external metadata, not embedded glTF textures/UVs. Example node: `{"name":"b1","mesh":0,"extras":{"body_id":"b1","material":"","component":null,"grain_zup":[1,0,0],"across_zup":[0,1,0],"state":"confirmed"}}`.
 
@@ -375,21 +375,21 @@ Source: [worker/export.py](../worker/export.py):`mesh_of` (Y-up metres), `write_
 
 ### Model `.FCStd` and embedded journal (one file per model, 2026-11-27)
 
-The native FreeCAD model is authoritative; its archive includes `Document.xml`, native shape data, `GuiDocument.xml`, and (when an undo floor came from FreeCAD) `ShopSketchFloor.FCStd`. Saved format changed on 2026-11-27 (A42): everything the journal holds lives inside the `.FCStd` itself, with nothing written beside the model. `Session.save` increments document Meta `ShopSketchRev` (string integer), writes `ShopSketchUnits` (protocol 9, when the model has units; kept on the Session so a rebuild doesn't lose them), `ShopSketchOps` (protocol 11: the revision's `ok` ops as compact JSON), and `ShopSketchJournal` (compact JSON of the journal below), saves a copy to `<model>.saving.FCStd`, optionally regenerates TechDraw there, injects `ShopSketchContentSha256` (a SHA-256 of the zip's contents excluding `GuiDocument.xml`, `ShopSketchFloor.FCStd`, and `ShopSketchContentSha256` itself), `GuiDocument.xml`, and `ShopSketchFloor.FCStd` if needed, then atomically renames `<model>.saving.FCStd` over the model.
+The native FreeCAD model is authoritative; its archive includes `Document.xml`, native shape data, `GuiDocument.xml`, and (when an undo floor came from FreeCAD) `NapkinFloor.FCStd`. Saved format changed on 2026-11-27 (A42): everything the journal holds lives inside the `.FCStd` itself, with nothing written beside the model. `Session.save` increments document Meta `NapkinRev` (string integer), writes `NapkinUnits` (protocol 9, when the model has units; kept on the Session so a rebuild doesn't lose them), `NapkinOps` (protocol 11: the revision's `ok` ops as compact JSON), and `NapkinJournal` (compact JSON of the journal below), saves a copy to `<model>.saving.FCStd`, optionally regenerates TechDraw there, injects `NapkinContentSha256` (a SHA-256 of the zip's contents excluding `GuiDocument.xml`, `NapkinFloor.FCStd`, and `NapkinContentSha256` itself), `GuiDocument.xml`, and `NapkinFloor.FCStd` if needed, then atomically renames `<model>.saving.FCStd` over the model.
 
-`ShopSketchJournal` fields: `format: "shopsketch-journal/0.1"`, `rev: integer`, `ops: Op[]`, `status: JournalStatus[]` in corresponding order. JournalStatus has `status: "ok" | "failed"`, `ms: number`, optional `changed: string[] | null`, optional `message: string`; id/type are in the matching op, not duplicated in status.
+`NapkinJournal` fields: `format: "napkin-journal/0.1"`, `rev: integer`, `ops: Op[]`, `status: JournalStatus[]` in corresponding order. JournalStatus has `status: "ok" | "failed"`, `ms: number`, optional `changed: string[] | null`, optional `message: string`; id/type are in the matching op, not duplicated in status.
 
 Optional fields (a journal without them opens as before):
 
 - History and IDs: `reserved_ids` (sorted strings: every ID reserved, kept when ops are undone or dropped) and `id_owners` (`{id: owner}`, which op made each ID, stable across typed amendments).
 - Undo floor and outside saves: `floor` (undo stops here: ops before it can't be taken back, A25; kept across saves and sessions), `dropped` (`[{op, after_rev, at}]`: actions an outside save didn't hold).
-- Undo copy: `floor_copy` (`{sha256, ops}`: the sha256 of the `ShopSketchFloor.FCStd` entry inside the zip, a copy of the document as it stood at the undo floor, and the floor it was written at), written only when the floor came from a FreeCAD change. A journal without it reads as no copy: undoing past the floor then needs a rebuild that is refused (`can't undo past the FreeCAD edit: its copy is missing`) rather than one that would drop FreeCAD's change.
+- Undo copy: `floor_copy` (`{sha256, ops}`: the sha256 of the `NapkinFloor.FCStd` entry inside the zip, a copy of the document as it stood at the undo floor, and the floor it was written at), written only when the floor came from a FreeCAD change. A journal without it reads as no copy: undoing past the floor then needs a rebuild that is refused (`can't undo past the FreeCAD edit: its copy is missing`) rather than one that would drop FreeCAD's change.
 
 ```json
-{"format":"shopsketch-journal/0.1","rev":4,"ops":[],"status":[],"floor":0,"dropped":[],"reserved_ids":[],"id_owners":{}}
+{"format":"napkin-journal/0.1","rev":4,"ops":[],"status":[],"floor":0,"dropped":[],"reserved_ids":[],"id_owners":{}}
 ```
 
-On reopen, `ShopSketchContentSha256` and `ShopSketchRev == rev` establish that the file is ours (FreeCAD's own save changes `Document.xml`, so `content_sha256` mismatches). Only successful ops are adopted. Missing/wrong-format journal or a mismatched rev/hash marks external; the surviving history becomes an undo floor. Any leftover `<model>.saving.FCStd` from an interrupted save is removed on open. Pre-A42 models with `<stem>.shopsketch.json` (and `<stem>.floor.FCStd`) beside them still open and upgrade themselves on the first save, which removes the legacy sidecars (leaving `.unmatched` files alone) only after the rename lands. Sources: [worker/common.py](../worker/common.py):`JOURNAL_FORMAT`; [worker/session.py](../worker/session.py):`read_journal`, `content_sha256`, `finalize_fcstd`, `Session.save`, `_open_existing`, `_build_gui_document`.
+On reopen, `NapkinContentSha256` and `NapkinRev == rev` establish that the file is ours (FreeCAD's own save changes `Document.xml`, so `content_sha256` mismatches). Only successful ops are adopted. Missing/wrong-format journal or a mismatched rev/hash marks external; the surviving history becomes an undo floor. Any leftover `<model>.saving.FCStd` from an interrupted save is removed on open. Pre-A42 models with `<stem>.napkin.json` (and `<stem>.floor.FCStd`) beside them still open and upgrade themselves on the first save, which removes the legacy sidecars (leaving `.unmatched` files alone) only after the rename lands. Sources: [worker/common.py](../worker/common.py):`JOURNAL_FORMAT`; [worker/session.py](../worker/session.py):`read_journal`, `content_sha256`, `finalize_fcstd`, `Session.save`, `_open_existing`, `_build_gui_document`.
 
 ### `status.json`, `views.json`, startup port file
 

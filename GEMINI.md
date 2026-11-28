@@ -1,4 +1,4 @@
-# Gemini instructions for Shop Sketch
+# Gemini instructions for Napkin
 
 Follow [AGENTS.md](AGENTS.md) (written for Codex; every rule applies to you) with these differences:
 

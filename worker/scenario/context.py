@@ -68,7 +68,7 @@ class Scenario:
 
     def __init__(self):
         self.T0 = time.perf_counter()
-        self.TESTDIR = os.environ.get("TESTDIR", "/tmp/shopsketch-scenario")
+        self.TESTDIR = os.environ.get("TESTDIR", "/tmp/napkin-scenario")
         os.makedirs(self.TESTDIR, exist_ok=True)
         self.FIX = json.load(open(os.path.join(HERE, "..", "tests", "scenario_fixture.json")))["ops"]
         self.R = [0, 0]

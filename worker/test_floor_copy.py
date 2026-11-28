@@ -1,5 +1,5 @@
 """Floor copy (A38, A42): rebuilding past FreeCAD's 20 undo steps or below session_base keeps FreeCAD's edits
-by starting from ShopSketchFloor.FCStd inside the .FCStd zip, recorded in ShopSketchJournal's floor_copy field.
+by starting from NapkinFloor.FCStd inside the .FCStd zip, recorded in NapkinJournal's floor_copy field.
 Covers: external edit on reopen, reload_outside, rebuild across restart, missing or tampered floor copy,
 legacy journal without floor_copy, FreeCAD save on top of an embedded floor copy, and models never edited outside.
 
@@ -25,7 +25,7 @@ MISSING_MSG = "can't undo past the FreeCAD edit: its copy is missing"
 
 def floor_entry(path):
     with zipfile.ZipFile(path, "r") as z:
-        return z.read("ShopSketchFloor.FCStd") if "ShopSketchFloor.FCStd" in z.namelist() else None
+        return z.read("NapkinFloor.FCStd") if "NapkinFloor.FCStd" in z.namelist() else None
 
 
 def check(name, cond, detail=""):
@@ -95,7 +95,7 @@ check("... floor_copy matches the floor bytes' sha and undo_floor",
       s.floor_copy == {"sha256": floor_sha, "ops": 6}, s.floor_copy)
 s.save()
 j = read_journal(p)
-check("... saved ShopSketchJournal records floor_copy matching embedded ShopSketchFloor.FCStd",
+check("... saved NapkinJournal records floor_copy matching embedded NapkinFloor.FCStd",
       j is not None and j.get("floor_copy") == {"sha256": floor_sha, "ops": 6} and j.get("floor") == 6
       and floor_entry(p) is not None and sha256_bytes(floor_entry(p)) == floor_sha
       and os.listdir(os.path.dirname(p)) == ["m.FCStd"],
@@ -122,7 +122,7 @@ check("saving after a floor-copy rebuild preserves embedded floor copy",
       and read_journal(p).get("floor_copy") == {"sha256": floor_sha, "ops": 6})
 s.close()
 
-# Reopen after save: floor_copy comes from ShopSketchJournal and still supports rebuild across restarts.
+# Reopen after save: floor_copy comes from NapkinJournal and still supports rebuild across restarts.
 s = Session(p)
 check("reopen after save: not external, keeps cube, b1..b4, undo_floor=6, floor_copy from .FCStd",
       not s.external and has_label(s.doc, "WorkshopCube")
@@ -136,7 +136,7 @@ check("rebuild across a restart (below session_base) keeps FreeCAD's cube and b1
       (how, has_label(s.doc, "WorkshopCube"), sorted(s.model.bodies())))
 s.close()
 
-# FreeCAD save on top of a file carrying ShopSketchFloor.FCStd: FreeCAD may drop it; newer edit becomes the floor.
+# FreeCAD save on top of a file carrying NapkinFloor.FCStd: FreeCAD may drop it; newer edit becomes the floor.
 add_freecad_cube(p, "NewerFreeCADCube")
 s = Session(p)
 check("FreeCAD save on top of floor-carrying .FCStd opens external with newer floor",
@@ -266,7 +266,7 @@ s.save()
 s.close()
 
 add_freecad_cube(p, "FitFloorCube")
-# Rewrite ShopSketchJournal before reopen so the floor entry is a legacy property_edit plane_fit.
+# Rewrite NapkinJournal before reopen so the floor entry is a legacy property_edit plane_fit.
 j_raw = read_journal(p)
 j_raw["ops"][-1] = {"id": "fit1", "type": "property_edit", "mode": "plane_fit",
                     "body": "b1", "target_body": "b2", "axis": 2, "face": 4, "fit_mode": 0}

@@ -84,7 +84,7 @@ cd "$(git rev-parse --show-toplevel 2>/dev/null || echo "$(dirname "$0")/..")" |
 python3 tools/job.py guard-checkout
 [ $? -eq 1 ] && exit 1
 set_test_tmpdir /tmp || exit 1
-OUT=$(mktemp -d "${TEST_TMPDIR%/}/shopsketch-gate.XXXXXX") || exit 1
+OUT=$(mktemp -d "${TEST_TMPDIR%/}/napkin-gate.XXXXXX") || exit 1
 KNOWN=tests/known_failures.txt
 START=$SECONDS
 # Keep the complete child log and forward its progress as each line arrives.

@@ -1,16 +1,16 @@
-Shop Sketch - Mac
+Napkin - Mac
 
 A tool-first woodworking modeller with an editable FreeCAD model underneath.
 
 Setup and launch
 - Developed and tested with FreeCAD 1.1.4 and Godot 4.6, installed in /Applications.
-- Run tools/BUILD_THE_APP.sh to make dist/Shop Sketch.app; rebuild after updating the source.
-  The app opens your last model, or Documents/Shop Sketch/Untitled.FCStd on first use.
-- For development, double-click "Start Shop Sketch.command". It opens models/model.FCStd;
+- Run tools/BUILD_THE_APP.sh to make dist/Napkin.app; rebuild after updating the source.
+  The app opens your last model, or Documents/Napkin/Untitled.FCStd on first use.
+- For development, double-click "Start Napkin.command". It opens models/model.FCStd;
   its worker log is worker.log. If macOS blocks the downloaded launcher, right-click > Open.
 - File > New / Open switches models; File > New Window opens another model.
   A compatible worker is shared between windows; the app starts/restarts it as needed.
-- Models autosave as .FCStd with an adjacent .shopsketch.json journal. Close Shop Sketch
+- Models autosave as .FCStd with an adjacent .napkin.json journal. Close Napkin
   before editing its model in FreeCAD; live merging of outside edits is planned work.
 - Drawing export produces SVG and a cut-list CSV; PDF/PNG also need CairoSVG in the
   Python environment used by the drawing script (python3 -m pip install cairosvg).

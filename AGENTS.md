@@ -1,4 +1,4 @@
-# Codex instructions for Shop Sketch
+# Codex instructions for Napkin
 
 [CLAUDE.md](CLAUDE.md) describes the project; its folder guides apply to you too. Other questions:
 [ARCHITECTURE.md#documentation-ownership](ARCHITECTURE.md#documentation-ownership).

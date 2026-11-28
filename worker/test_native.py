@@ -331,7 +331,7 @@ steps = [n for n, t in names.items() if t in ("Part::Extrusion", "Part::Compound
 origins = [n for n, t in names.items() if t in ("App::Origin", "App::Line", "App::Plane")]
 check("saved file has FreeCAD's view part: the board's solid shown, its steps and axes hidden",
       set(vis) == set(names) and all(vis[n] for n in tips) and not any(vis[n] for n in steps + origins), (tips, steps, vis))
-# FreeCAD's own view settings survive the next Shop Sketch save
+# FreeCAD's own view settings survive the next Napkin save
 with zipfile.ZipFile(lpath) as z:
     entries = {n: z.read(n) for n in z.namelist()}
 g = ET.fromstring(entries["GuiDocument.xml"])
@@ -351,7 +351,7 @@ s.save(tmp)
 s.close()
 vis2, g2 = gui_visibility(lpath)
 kept = [p for vp in g2.iter("ViewProvider") if vp.get("name") == tips[0] for p in vp.iter("Property") if p.get("name") == "LineWidth"]
-check("FreeCAD's own view settings (a line width, the camera) survive Shop Sketch's next save",
+check("FreeCAD's own view settings (a line width, the camera) survive Napkin's next save",
       bool(kept) and g2.find("Camera") is not None and "123" in g2.find("Camera").get("settings") and vis2.get(tips[0]), (kept, vis2.get(tips[0])))
 
 # ---------- M. linked copies, arrays, Make unique, Detach from array (T12: A22c, I25, I28, Q29) ----------

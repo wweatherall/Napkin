@@ -227,7 +227,7 @@ def write_glb(model, path):
             f.write(struct.pack("<I4s", len(js), b"JSON")); f.write(js)
         os.replace(tmp, path)
         return
-    gltf = {"asset": {"version": "2.0", "generator": "Shop Sketch worker 0.2"},
+    gltf = {"asset": {"version": "2.0", "generator": "Napkin worker 0.2"},
             "scene": 0, "scenes": [{"nodes": list(range(len(nodes)))}],
             "nodes": nodes, "meshes": meshes, "materials": mats,
             "accessors": accessors, "bufferViews": views, "buffers": [{"byteLength": offset}]}

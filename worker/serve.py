@@ -14,7 +14,7 @@ import length_input
 
 # The window <-> worker protocol's version (docs/protocol.md): bump it when a message or shared-file field changes.
 # Reported in hello; a window whose PROTOCOL_VERSION (viewport/main.gd) differs starts its own worker.
-PROTOCOL_VERSION = 21
+PROTOCOL_VERSION = 22
 
 
 def run_sync(session, req):
@@ -62,7 +62,7 @@ def open_reply(s, seq):
 
 
 def serve(port):
-    """Long-running worker serving Shop Sketch windows over localhost TCP (one worker per protocol version, W13).
+    """Long-running worker serving Napkin windows over localhost TCP (one worker per protocol version, W13).
     Wire messages, request/reply fields, events and save lifecycle are documented in docs/protocol.md."""
     import select
     import socket
@@ -122,7 +122,7 @@ def serve(port):
                     print(f"WORKER couldn't look at {os.path.basename(path)}: {type(e).__name__}: {e}", flush=True)
 
     def keep_both(path, sess):
-        """'Keep Shop Sketch's' (A36): FreeCAD's file aside first, then ours may go over it."""
+        """'Keep Napkin's' (A36): FreeCAD's file aside first, then ours may go over it."""
         sig = sess.disk_sig()
         aside = sess.copy_outside_aside() if sig is not None else None
         if sess.disk_sig() != sig:
@@ -227,7 +227,7 @@ def serve(port):
                 send(conn, length_input.handle(req))
                 return None
             if cmd == "hello":
-                send(conn, {"ok": True, "cmd": "hello", "seq": seq, "app": "shopsketch", "protocol": PROTOCOL_VERSION,
+                send(conn, {"ok": True, "cmd": "hello", "seq": seq, "app": "napkin", "protocol": PROTOCOL_VERSION,
                             "worker": me, "pid": os.getpid()})
                 return None
             if cmd == "quit":
@@ -271,7 +271,7 @@ def serve(port):
                 resp = dict(open_reply(s, seq), cmd="reload", outdir=outdir, **info)
                 print(f"WORKER reloaded {os.path.basename(path)}: changed {info['changed']}, removed "
                       f"{info['removed']}, dropped {len(info['dropped'])} actions", flush=True)
-            elif cmd == "keep_mine":                # keep Shop Sketch's version over FreeCAD's save (A36)
+            elif cmd == "keep_mine":                # keep Napkin's version over FreeCAD's save (A36)
                 path = os.path.abspath(req["model"])
                 if claim(conn, path) is not None:
                     raise OpError(f"{os.path.basename(path)} is open in another window")

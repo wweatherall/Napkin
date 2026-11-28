@@ -1,9 +1,9 @@
-"""Shop Sketch worker: keeps a live FreeCAD document and edits it with native features.
+"""Napkin worker: keeps a live FreeCAD document and edits it with native features.
 
-The FreeCAD file is the model (A21). Every Shop Sketch action becomes ordinary FreeCAD
+The FreeCAD file is the model (A21). Every Napkin action becomes ordinary FreeCAD
 features inside it - Part::Plane, Part::Extrusion, Part::Cut / Part::MultiFuse, App::Part
 placements, App::Link, Part::Mirroring - committed as one FreeCAD undo transaction.
-All Shop Sketch state lives on those objects (BodyId / SSRole / RectId ... properties),
+All Napkin state lives on those objects (BodyId / SSRole / RectId ... properties),
 so FreeCAD's undo, a save, a reopen or an edit made in FreeCAD all stay consistent.
 
 Run with:
@@ -15,7 +15,7 @@ Entry point only: puts worker/ on sys.path and calls serve.main() (freecadcmd ru
 
 Writes beside the model:
   model.FCStd                the document (autosaved atomically after every change)
-  model.shopsketch.json      journal: the op list, statuses, revision, file hash
+  model.napkin.json      journal: the op list, statuses, revision, file hash
 and into the output folder:
   bodies.json  status.json (one-off replay, or SERVE_STATUS_FILE=1)  meshes/<board>-<key>.bin (one per board, rewritten only when it changes)
   model.glb at each autosave (views.json when a drawing is asked for)

@@ -590,7 +590,7 @@ check('T62 moving target updates cut board extrusion length live',
 App.closeDocument(t62_session.doc.Name)
 
 # T162: property_edit refuses plane_fit/replace_fit; opening pre-protocol-17 files upgrades fits in journal,
-# dropped entries, and Meta ShopSketchOps, and first save writes the upgraded ops.
+# dropped entries, and Meta NapkinOps, and first save writes the upgraded ops.
 import json, shutil, zipfile
 from session import finalize_fcstd, read_journal, write_meta_journal
 
@@ -619,7 +619,7 @@ fitted_vol = upg_s.model.world_shape(upg_s.model.body('b1')).Volume
 upg_s.save()
 upg_s.close()
 
-# Rewrite ShopSketchJournal + Meta ShopSketchOps to pre-17 format (with a dropped legacy fit too).
+# Rewrite NapkinJournal + Meta NapkinOps to pre-17 format (with a dropped legacy fit too).
 legacy_fit = {'id': 'ufit1', 'type': 'property_edit', 'mode': 'plane_fit', 'body': 'b1',
               'target_body': 'b2', 'axis': 2, 'face': 4, 'fit_mode': 0}
 legacy_dropped = {'op': {'id': 'ufit_drop', 'type': 'property_edit', 'mode': 'replace_fit',
@@ -628,7 +628,7 @@ legacy_dropped = {'op': {'id': 'ufit_drop', 'type': 'property_edit', 'mode': 're
 j_old = read_journal(upg_path)
 j_old['ops'] = upg_base + [legacy_fit]
 j_old['dropped'] = [legacy_dropped]
-# Also patch Document.xml Meta ShopSketchOps to legacy format and update ShopSketchContentSha256.
+# Also patch Document.xml Meta NapkinOps to legacy format and update NapkinContentSha256.
 tmp_zip = upg_path + '.legacy.tmp'
 with zipfile.ZipFile(upg_path, 'r') as zin, zipfile.ZipFile(tmp_zip, 'w') as zout:
     for item in zin.infolist():
@@ -663,7 +663,7 @@ how_same, _ = reopened.sync([e['op'] for e in reopened.applied])
 check('T162 sync with upgraded ops after open does nothing (no undo or rebuild)',
       how_same == 'nothing')
 meta_ops = reopened._file_ops(upg_path, reopened.rev)
-check('T162 _file_ops reads upgraded Meta ShopSketchOps',
+check('T162 _file_ops reads upgraded Meta NapkinOps',
       meta_ops[-1]['op'] == upg_fit)
 # Undo across the fit and redo.
 reopened.sync(upg_base)
@@ -681,8 +681,8 @@ with zipfile.ZipFile(upg_path, 'r') as z:
     saved_root = ET.fromstring(z.read('Document.xml'))
 saved_meta = {i.get('key'): i.get('value')
               for i in saved_root.findall("./Properties/Property[@name='Meta']/Map/Item")}
-saved_meta_ops = saved_meta.get('ShopSketchOps', '')
-check('T162 first save after open writes upgraded ops to journal and Meta ShopSketchOps',
+saved_meta_ops = saved_meta.get('NapkinOps', '')
+check('T162 first save after open writes upgraded ops to journal and Meta NapkinOps',
       saved_j['ops'][-1] == upg_fit and saved_j['dropped'][0]['op']['type'] == 'unfit'
       and 'plane_fit' not in saved_meta_ops and 'replace_fit' not in saved_meta_ops)
 

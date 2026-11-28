@@ -1,5 +1,5 @@
 extends Node3D
-## Shop Sketch: tool-first viewport. Records an op log; FreeCAD (worker) catches up.
+## Napkin: tool-first viewport. Records an op log; FreeCAD (worker) catches up.
 ## Model space = Z-up millimetres (what the op log uses). Godot space = Y-up metres.
 ##
 ## Composition root: scene nodes, labels (ui_hint, ui_sync, ui_tip, ui_saved), m.cam, input dispatch to keys.gd /
@@ -757,7 +757,7 @@ var _first_open := true
 
 # The window <-> worker protocol's version (docs/protocol.md): bump it when a message or shared-file field changes.
 # The worker reports its own (worker/serve.py PROTOCOL_VERSION) in hello; a worker speaking another isn't shared.
-const PROTOCOL_VERSION := 21
+const PROTOCOL_VERSION := 22
 
 
 func _send_open() -> void:
@@ -819,19 +819,19 @@ func _open_preferences() -> void: live_prefs._open_preferences()
 
 func new_window() -> void:
 	"""Another window on a new Untitled model, sharing this window's FreeCAD worker (W13)."""
-	var docs := OS.get_system_dir(OS.SYSTEM_DIR_DOCUMENTS).path_join("Shop Sketch")
+	var docs := OS.get_system_dir(OS.SYSTEM_DIR_DOCUMENTS).path_join("Napkin")
 	DirAccess.make_dir_recursive_absolute(docs)
 	var path := ""
 	for i in range(2, 1000):
 		path = docs.path_join("Untitled %d.FCStd" % i)
-		if not FileAccess.file_exists(path) and not FileAccess.file_exists(path.get_basename() + ".shopsketch.json"): break
+		if not FileAccess.file_exists(path) and not FileAccess.file_exists(path.get_basename() + ".napkin.json"): break
 	var args := OS.get_cmdline_args()             # the engine's own arguments (--path when run from source)
 	args.append("--")
 	for a in OS.get_cmdline_user_args():
 		if not (a.begins_with("--model=") or a.begins_with("--out=")): args.append(a)
 	args.append("--model=" + path)
 	var pid := OS.create_process(OS.get_executable_path(), args)
-	print("SHOPSKETCH new window pid %d on %s" % [pid, path])
+	print("NAPKIN new window pid %d on %s" % [pid, path])
 
 
 # ---------------- drawing export ----------------
@@ -847,7 +847,7 @@ func _run_drawing_script() -> void:
 		ui_sync.text = "drawing page saved in model.FCStd (no --drawing script given for PDF)"
 		return
 	var out := []
-	var code := OS.execute("python3", [drawing_script, out_dir, model_path.get_basename() + ".shopsketch.json"], out, true)
+	var code := OS.execute("python3", [drawing_script, out_dir, model_path.get_basename() + ".napkin.json"], out, true)
 	ui_sync.text = ("✓ drawing written to %s/drawing.pdf" % out_dir) if code == 0 else ("✗ drawing failed: %s" % str(out))
 
 

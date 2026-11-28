@@ -1,7 +1,7 @@
 {
- "format": "shopsketch-journal/0.1",
+ "format": "napkin-journal/0.1",
  "rev": 2,
- "file_sha256": "92983e2b32347d86e540623102ddc03c545b56f54316f2caa4d14e6594a57658",
+ "file_sha256": "3bcc3aaa6c2890131d0313d95c59c91df434ee39ea8a1005827de18943b98703",
  "model": "model.FCStd",
  "name": "model",
  "ops": [
@@ -696,7 +696,7 @@
   "b14_0000000000000000000000000000000e": "body:pp14_0000000000000000000000000000000e"
  },
  "floor_copy": {
-  "sha256": "786af518e61601c26269caa6e7cfc77c222c908a691ff4a8aa90c95cd82df0aa",
+  "sha256": "038ea5b9bd4cb5b4f0cd347100693186d112d753a9d6cdf3309780b0d1375d0e",
   "ops": 4
  }
 }

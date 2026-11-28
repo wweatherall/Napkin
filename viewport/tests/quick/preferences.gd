@@ -1,7 +1,7 @@
 extends RefCounted
 ## Preferences wired in (T111 step 2, I63, I62): live tunables, test-mode guard, 0.5 s watch timer,
 ## status bar messages, bad file at start / mid-run / deleted, mid-gesture update, default units on File > New,
-## and Shop Sketch > Preferences… (⌘,) in NativeMenu.
+## and Napkin > Preferences… (⌘,) in NativeMenu.
 
 const Main := preload("res://main.gd")
 const Harness := preload("res://tests/harness.gd")
@@ -187,7 +187,7 @@ func run() -> void:
 	harness._ok("File > New model opens in the preference's default units",
 		m.measure.units == "in-dec:0.01", m.measure.units)
 
-	# 10. Shop Sketch > Preferences… menu item exists with ⌘, (where global menu is supported).
+	# 10. Napkin > Preferences… menu item exists with ⌘, (where global menu is supported).
 	# Note: Godot 4.6's macOS get_item_accelerator() maps keyEquivalent "," via find_keycode_from_string(","),
 	# which returns 0 (KEY_NONE) for punctuation while preserving KEY_MASK_META; check both the registered item
 	# and the accelerator constant passed to NativeMenu.add_item.
@@ -204,9 +204,9 @@ func run() -> void:
 					and Main.PREFERENCES_KEY == (KEY_MASK_META | KEY_COMMA) \
 					and (accel == (KEY_MASK_META | KEY_COMMA) or accel == KEY_MASK_META)
 				break
-		harness._ok("Shop Sketch > Preferences… exists in application menu with ⌘,", found, detail)
+		harness._ok("Napkin > Preferences… exists in application menu with ⌘,", found, detail)
 	else:
-		harness._ok("Shop Sketch > Preferences… menu check (SKIP: no global menu)", true)
+		harness._ok("Napkin > Preferences… menu check (SKIP: no global menu)", true)
 
 	# Cleanup: stop poll timer, remove temp file, restore built-in defaults and test units for any later section.
 	if m._prefs_timer != null:

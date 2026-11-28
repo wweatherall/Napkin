@@ -57,7 +57,7 @@ def run():
     with tempfile.TemporaryDirectory(prefix="uof-test-") as td:
         td_path = Path(td)
 
-        # 2. FCStd + companion .shopsketch.json + status.json
+        # 2. FCStd + companion .shopsketch.json + status.json (with ShopSketchFloor.FCStd)
         ops = [
             {"id": "r1", "type": "rect", "plane": {"origin": [0, 0, 0], "normal": [0, 0, 1]}, "size": [100, 50]},
             {"id": "pp1", "type": "push_pull", "target": {"rect": "r1"}, "distance": 18, "body": "b1"},
@@ -76,18 +76,25 @@ def run():
         fcstd = td_path / "m.FCStd"
         _make_fcstd(fcstd, {
             "ShopSketchOps": json.dumps(ops),
+            "ShopSketchRev": "1",
             "ShopSketchJournal": json.dumps(journal),
         })
+        with zipfile.ZipFile(fcstd, "a", zipfile.ZIP_DEFLATED) as z:
+            z.writestr("ShopSketchFloor.FCStd", b"floor-bytes")
         with zipfile.ZipFile(fcstd, "r") as z:
             init_entries = {n: z.read(n) for n in z.namelist()}
         _make_fcstd(fcstd, {
             "ShopSketchOps": json.dumps(ops),
+            "ShopSketchRev": "1",
             "ShopSketchJournal": json.dumps(journal),
             "ShopSketchContentSha256": uof._compute_content_sha256(init_entries),
         })
+        with zipfile.ZipFile(fcstd, "a", zipfile.ZIP_DEFLATED) as z:
+            z.writestr("ShopSketchFloor.FCStd", b"floor-bytes")
         old_sha = uof._sha256_file(fcstd)
-        sidecar = td_path / "m.shopsketch.json"
-        sidecar.write_text(json.dumps({**journal, "file_sha256": old_sha}, indent=1), encoding="utf-8")
+        old_sidecar = td_path / "m.shopsketch.json"
+        sidecar = td_path / "m.napkin.json"
+        old_sidecar.write_text(json.dumps({**journal, "file_sha256": old_sha}, indent=1), encoding="utf-8")
 
         status_file = td_path / "status.json"
         status_file.write_text(json.dumps({
@@ -112,8 +119,10 @@ def run():
 
         new_sha = uof._sha256_file(fcstd)
         sc_data = json.loads(sidecar.read_text(encoding="utf-8"))
-        check("sidecar file_sha256, ops, dropped, status, id_owners updated",
-              sc_data["file_sha256"] == new_sha
+        check("sidecar renamed to .napkin.json and format, file_sha256, ops, dropped, status, id_owners updated",
+              not old_sidecar.exists()
+              and sc_data["format"] == "napkin-journal/0.1"
+              and sc_data["file_sha256"] == new_sha
               and sc_data["ops"][1]["type"] == "new_board"
               and sc_data["ops"][2]["type"] == "push_pull"
               and sc_data["status"][1]["type"] == "new_board"
@@ -127,16 +136,20 @@ def run():
               st_data["ops"][1]["type"] == "new_board" and st_data["ops"][2]["type"] == "push_pull",
               st_data)
 
-        # Verify FCStd ShopSketchOps, ShopSketchJournal, and ShopSketchContentSha256
+        # Verify FCStd NapkinOps, NapkinRev, NapkinJournal, NapkinFloor.FCStd, and NapkinContentSha256
         with zipfile.ZipFile(fcstd) as z:
             root = ET.fromstring(z.read("Document.xml"))
             entries = {n: z.read(n) for n in z.namelist()}
         meta = {i.get("key"): i.get("value") for i in root.findall("./Properties/Property[@name='Meta']/Map/Item")}
-        check("FCStd ShopSketchOps and ContentSha256 updated",
-              json.loads(meta["ShopSketchOps"])[1]["type"] == "new_board"
-              and json.loads(meta["ShopSketchJournal"])["ops"][1]["type"] == "new_board"
-              and meta["ShopSketchContentSha256"] == uof._compute_content_sha256(entries),
-              meta.get("ShopSketchContentSha256"))
+        check("FCStd Napkin* Meta keys, NapkinFloor.FCStd, and ContentSha256 updated",
+              "ShopSketchOps" not in meta and "ShopSketchJournal" not in meta
+              and "ShopSketchFloor.FCStd" not in entries and "NapkinFloor.FCStd" in entries
+              and meta.get("NapkinRev") == "1"
+              and json.loads(meta["NapkinOps"])[1]["type"] == "new_board"
+              and json.loads(meta["NapkinJournal"])["format"] == "napkin-journal/0.1"
+              and json.loads(meta["NapkinJournal"])["ops"][1]["type"] == "new_board"
+              and meta["NapkinContentSha256"] == uof._compute_content_sha256(entries),
+              meta)
 
         # 3. Idempotency
         mtimes_before = {p: p.stat().st_mtime_ns for p in (fcstd, sidecar, status_file)}

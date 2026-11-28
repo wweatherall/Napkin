@@ -1120,7 +1120,7 @@ def pause_for_map(s):
     return s
 
 
-STATE = "shopsketch-integrate.json"     # a paused merge (P28 / P44), beside the job queue's state
+STATE = "napkin-integrate.json"     # a paused merge (P28 / P44), beside the job queue's state
 
 
 def state_file(root):

@@ -6,7 +6,7 @@ cd "$(dirname "$0")/.."
 . tools/gate.sh || exit 1
 set_test_tmpdir || exit 1
 GD=/Applications/Godot.app/Contents/MacOS/Godot
-OUT=$(mktemp -d "${TEST_TMPDIR%/}/shopsketch-parse.XXXXXX") || exit 1
+OUT=$(mktemp -d "${TEST_TMPDIR%/}/napkin-parse.XXXXXX") || exit 1
 i=0
 for f in viewport/*.gd viewport/tools/*.gd viewport/tests/*.gd viewport/tests/quick/*.gd viewport/tests/suites/*.gd; do
   ( ERR=$("$GD" --headless --path viewport --check-only --script "res://${f#viewport/}" 2>&1 | grep -E "SCRIPT ERROR|Parse Error" | head -3)

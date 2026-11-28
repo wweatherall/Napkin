@@ -53,7 +53,7 @@ _ = list(d_vals.values())
 check("values() marks all keys read", set(d_vals.read_keys()) == {"k1", "k2"})
 
 # 2. unread_fields and CLI main()
-tmp = os.path.abspath(os.environ.get("TESTDIR") or tempfile.mkdtemp(prefix="shopsketch-audit-"))
+tmp = os.path.abspath(os.environ.get("TESTDIR") or tempfile.mkdtemp(prefix="napkin-audit-"))
 os.makedirs(tmp, exist_ok=True)
 f1 = os.path.join(tmp, "a1.jsonl")
 f2 = os.path.join(tmp, "a2.jsonl")

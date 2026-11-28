@@ -1,4 +1,4 @@
-"""Board-local face references for Shop Sketch stock and extruded/cut boards.
+"""Board-local face references for Napkin stock and extruded/cut boards.
 
 `snapshot()` exports `fitted_end` on fitted boards and `rectangular: False` + `planar_faces` on non-rectangular/cut
 boards. `_resolve_face()` stores target plane in target local frame (`SSTargetNormal`, `SSTargetPoint`) and rewrites

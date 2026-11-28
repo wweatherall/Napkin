@@ -19,18 +19,18 @@ def check(name, ok):
 
 
 quiet = lambda *a: None
-path = os.path.join(tempfile.mkdtemp(prefix="lock-"), "shopsketch-integrator.lock")
-check("a free lock can be taken", g.take(path, "fretchup-73", out=quiet) and g.read(path)["holder"] == "fretchup-73")
-check("the holder can take it again (a cleared session keeps its name)", g.take(path, "fretchup-73", out=quiet))
+path = os.path.join(tempfile.mkdtemp(prefix="lock-"), "napkin-integrator.lock")
+check("a free lock can be taken", g.take(path, "napkin-73", out=quiet) and g.read(path)["holder"] == "napkin-73")
+check("the holder can take it again (a cleared session keeps its name)", g.take(path, "napkin-73", out=quiet))
 said = []
-check("another session is refused (the e1 case)", not g.take(path, "fretchup-e1", out=said.append) and "William" in said[0])
-check("only the holder can mark it in use", g.touch(path, "fretchup-73", out=quiet) and not g.touch(path, "fretchup-e1", out=quiet))
-check("William can hand it over", g.take(path, "fretchup-e1", william=True, out=quiet) and g.read(path)["holder"] == "fretchup-e1")
-check("the hand-over is logged", any("from fretchup-73 to fretchup-e1" in l for l in g.read(path)["log"]))
-check("only the holder can release it", not g.release(path, "fretchup-73", out=quiet) and g.release(path, "fretchup-e1", out=quiet))
+check("another session is refused (the e1 case)", not g.take(path, "napkin-e1", out=said.append) and "William" in said[0])
+check("only the holder can mark it in use", g.touch(path, "napkin-73", out=quiet) and not g.touch(path, "napkin-e1", out=quiet))
+check("William can hand it over", g.take(path, "napkin-e1", william=True, out=quiet) and g.read(path)["holder"] == "napkin-e1")
+check("the hand-over is logged", any("from napkin-73 to napkin-e1" in l for l in g.read(path)["log"]))
+check("only the holder can release it", not g.release(path, "napkin-73", out=quiet) and g.release(path, "napkin-e1", out=quiet))
 check("released means free", g.read(path) is None and "nobody" in g.status_line(path))
 check("the lock lives in git's common folder, shared by every worktree",
-      g.lock_path().endswith(os.path.join(".git", "shopsketch-integrator.lock")))
+      g.lock_path().endswith(os.path.join(".git", "napkin-integrator.lock")))
 
 check("parse_take_args parses --william, --archive and --push together",
       g.parse_take_args(["--william", "--archive", "H134", "--push"]) == (True, False, ["H134"], True, True, None))
@@ -45,8 +45,8 @@ check("parse_take_args rejects --push without --archive, missing ID, and unknown
 # H197: --hopper takes lock only when integrator_launched names the session, and logs by hopper (P74)
 import json
 h_dir = tempfile.mkdtemp(prefix="lock-hopper-")
-h_lock = os.path.join(h_dir, "shopsketch-integrator.lock")
-h_state = os.path.join(h_dir, "shopsketch-jobs.json")
+h_lock = os.path.join(h_dir, "napkin-integrator.lock")
+h_state = os.path.join(h_dir, "napkin-jobs.json")
 g.take(h_lock, "prev-integrator", out=quiet)
 check("take --hopper refuses when no hopper launch record exists",
       not g.take(h_lock, "integrator-h1", hopper=True, state_file=h_state, out=quiet)

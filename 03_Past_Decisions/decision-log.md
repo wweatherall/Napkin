@@ -377,7 +377,7 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | T136 | Self-generated architecture map: current and proposed, unbuilt work ghosted, job-board ... | Open |
 | T137 | Decimal commas for European typing of measurements. | Open |
 | T138 | Compress ARCHITECTURE.md heavily so the start-up brief can carry the map (about 80 KB t... | Open |
-| T139 | Rename the app to Napkin: what you see, the built app, folders, and the code and docs t... | On the board (H204) |
+| T139 | Rename the app to Napkin: what you see, the built app, folders, and the code and docs t... | Open |
 | T141 | William tries the Polygon tool by eye in a rebuilt app (tools/BUILD_THE_APP.sh). | Open |
 | T152 | Thin the tests without losing coverage: research how others do it (coverage-guided test... | Open |
 | T153 | Generated tests: inputs made fresh each run (a random seed, printed so a failure can be... | Open |

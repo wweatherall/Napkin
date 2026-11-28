@@ -63,7 +63,7 @@ func close_choice(choice: String) -> void:
 	match choice:
 		"retry": request_close()
 		"discard":
-			print("SHOPSKETCH closing without saving %s (rev %d not saved: %s)" % [m.model_path, m.doc.pending_rev, m.doc.save_error])
+			print("NAPKIN closing without saving %s (rev %d not saved: %s)" % [m.model_path, m.doc.pending_rev, m.doc.save_error])
 			close_now()
 		_:
 			m.doc.cancel_close()
@@ -81,7 +81,7 @@ func close_now() -> void:
 # ---------------- outside saves (A36, T64) ----------------
 # FreeCAD saved the open model. The document reloads it once nothing is on its way; if actions haven't landed in
 # OUTSIDE_SAVE_WAIT, a dialog asks: Use FreeCAD's version (reload; the unfinished actions stay in the journal) or
-# Keep Shop Sketch's (FreeCAD's file copied aside first). The worker writes nothing over FreeCAD's save meanwhile.
+# Keep Napkin's (FreeCAD's file copied aside first). The worker writes nothing over FreeCAD's save meanwhile.
 const OUTSIDE_SAVE_WAIT := 10.0     # seconds actions pending at an outside save get to land before asking (tunable)
 var _outside_try := 0               # numbers each wait, so an old wait's timer can't ask
 var _outside_dialog: ConfirmationDialog
@@ -95,7 +95,7 @@ var reload_waves: Array = []        # tests: the boards the last reload's wave r
 
 
 func on_outside_waiting() -> void:
-	m.worker.say_worker("FreeCAD saved %s - waiting for Shop Sketch's last actions to land" % m.model_path.get_file())
+	m.worker.say_worker("FreeCAD saved %s - waiting for Napkin's last actions to land" % m.model_path.get_file())
 	_outside_try += 1
 	var try_then := _outside_try
 	get_tree().create_timer(OUTSIDE_SAVE_WAIT).timeout.connect(func() -> void:
@@ -111,9 +111,9 @@ func ask_outside() -> void:
 	elif m.doc.in_flight:
 		reason = "the FreeCAD worker hasn't answered for %d s (it may be stuck)" % int(OUTSIDE_SAVE_WAIT)
 	m.worker.log_worker("outside save of %s with actions pending: %s; asking" % [m.model_path, reason])
-	var text := ("%s was saved in FreeCAD while Shop Sketch still had actions on their way: %s.\n\n"
-		+ "Use FreeCAD's version: its file becomes the model; Shop Sketch's unfinished actions stay in the journal.\n"
-		+ "Keep Shop Sketch's: FreeCAD's file is first copied aside as %s.freecad-<time>.FCStd.") % [
+	var text := ("%s was saved in FreeCAD while Napkin still had actions on their way: %s.\n\n"
+		+ "Use FreeCAD's version: its file becomes the model; Napkin's unfinished actions stay in the journal.\n"
+		+ "Keep Napkin's: FreeCAD's file is first copied aside as %s.freecad-<time>.FCStd.") % [
 		m.model_path.get_file(), reason, m.model_path.get_file().get_basename()]
 	_show_outside_question(text, reason)
 
@@ -123,9 +123,9 @@ func on_outside_failed(error: String) -> void:
 	_outside_closed_model = ""
 	var reason := "couldn't open FreeCAD's save: " + error
 	m.worker.log_worker("outside save of %s: %s; asking" % [m.model_path, reason])
-	var text := ("%s was saved in FreeCAD, but Shop Sketch couldn't open FreeCAD's save: %s.\n\n"
+	var text := ("%s was saved in FreeCAD, but Napkin couldn't open FreeCAD's save: %s.\n\n"
 		+ "Use FreeCAD's version: try opening it again.\n"
-		+ "Keep Shop Sketch's: FreeCAD's file is first copied aside as %s.freecad-<time>.FCStd.") % [
+		+ "Keep Napkin's: FreeCAD's file is first copied aside as %s.freecad-<time>.FCStd.") % [
 		m.model_path.get_file(), error, m.model_path.get_file().get_basename()]
 	_show_outside_question(text, reason)
 
@@ -154,9 +154,9 @@ func _show_outside_question(text: String, reason: String) -> void:
 		outside_question_model = m.model_path
 		outside_asked.append(reason)
 		return
-	var title := "FreeCAD saved this model while Shop Sketch was busy"
+	var title := "FreeCAD saved this model while Napkin was busy"
 	if DisplayServer.has_feature(DisplayServer.FEATURE_NATIVE_DIALOG):
-		DisplayServer.dialog_show(title, text, PackedStringArray(["Use FreeCAD's version", "Keep Shop Sketch's"]),
+		DisplayServer.dialog_show(title, text, PackedStringArray(["Use FreeCAD's version", "Keep Napkin's"]),
 			func(i: int) -> void: outside_choice("mine" if i == 1 else "freecad"))
 		return
 	var dlg := ConfirmationDialog.new()
@@ -165,7 +165,7 @@ func _show_outside_question(text: String, reason: String) -> void:
 	dlg.title = title
 	dlg.dialog_text = text
 	dlg.ok_button_text = "Use FreeCAD's version"
-	dlg.cancel_button_text = "Keep Shop Sketch's"
+	dlg.cancel_button_text = "Keep Napkin's"
 	dlg.confirmed.connect(func() -> void: outside_choice("freecad"))
 	dlg.canceled.connect(func() -> void: outside_choice("mine"))
 	add_child(dlg)
@@ -216,16 +216,16 @@ func on_reloaded(resp: Dictionary) -> void:
 	var n: int = resp.get("changed", []).size()
 	var dropped: int = resp.get("dropped", []).size()
 	m.ui_sync.text = "↻ took FreeCAD's save of %s: %d board%s changed%s" % [m.model_path.get_file(), n, "" if n == 1 else "s",
-		"" if dropped == 0 else "; %d Shop Sketch action%s it didn't have kept in the journal" % [dropped, "" if dropped == 1 else "s"]]
+		"" if dropped == 0 else "; %d Napkin action%s it didn't have kept in the journal" % [dropped, "" if dropped == 1 else "s"]]
 	if _outside_closed_model == m.model_path:
-		m.ui_sync.text += " (Shop Sketch's actions landed while you were deciding, so the question closed)"
+		m.ui_sync.text += " (Napkin's actions landed while you were deciding, so the question closed)"
 	_outside_closed_model = ""
 	m.ui_sync.add_theme_color_override("font_color", Color(0.1, 0.5, 0.15))
 
 
 func on_kept_mine(resp: Dictionary) -> void:
 	var aside = resp.get("aside")
-	m.ui_sync.text = "kept Shop Sketch's %s" % m.model_path.get_file()
+	m.ui_sync.text = "kept Napkin's %s" % m.model_path.get_file()
 	if aside is String and aside != "":
 		m.ui_sync.text += "; FreeCAD's save is beside it as %s" % aside.get_file()
 	m.ui_sync.add_theme_color_override("font_color", Color(0.1, 0.5, 0.15))

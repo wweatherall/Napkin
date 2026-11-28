@@ -245,7 +245,7 @@ static func _primary(tokens: Array, at: Array) -> Array:
 	return []
 
 # ---------- display formatting (I57, I59, I62) ----------
-## Canonical display unit specs: "<format>:<rounding>". Saved in doc.Meta["ShopSketchUnits"] and settings.cfg.
+## Canonical display unit specs: "<format>:<rounding>". Saved in doc.Meta["NapkinUnits"] and settings.cfg.
 ## Default (I57): fractional inches at 1/16". Tests start in mm:0.1 so existing bare-number mm suites stay unchanged.
 const DEFAULT_SPEC := "in-frac:1/16"
 const TEST_SPEC := "mm:0.1"

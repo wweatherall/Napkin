@@ -384,7 +384,7 @@ def journal_lines(root, limit=20):
     if not common:
         return []
     path = os.path.join(common if os.path.isabs(common) else os.path.join(root, common),
-                        "shopsketch-integrator-journal.log")
+                        "napkin-integrator-journal.log")
     if not os.path.isfile(path):
         return []
     try:
@@ -480,7 +480,7 @@ def parse_interrupted_merge(state, merge_head, state_path=""):
             "action": "inspect `git status` and finish or `git merge --abort`",
         }
     if state:
-        where = state_path or "shopsketch-integrate.json"
+        where = state_path or "napkin-integrate.json"
         return {
             "kind": "stale_state",
             "branch": state.get("branch", "?"),
@@ -495,7 +495,7 @@ def interrupted_merge(root):
     """Read-only check for an interrupted merge (integrate.py state file and/or MERGE_HEAD)."""
     common = git("rev-parse", "--git-common-dir", cwd=root).strip()
     state_path = os.path.join(common if os.path.isabs(common) else os.path.join(root, common),
-                              "shopsketch-integrate.json") if common else ""
+                              "napkin-integrate.json") if common else ""
     state = None
     if state_path and os.path.isfile(state_path):
         try:
@@ -674,7 +674,7 @@ def space_lines(root, space):
 
 def _usage_tool(root):
     """comitatus/09_Tools/MEASURE_TOKEN_USE.py when the main checkout sits under 08_Code_Bases, else ''."""
-    override = os.environ.get("SHOPSKETCH_USAGE_TOOL")
+    override = os.environ.get("NAPKIN_USAGE_TOOL")
     if override is not None:
         return override
     top = os.path.realpath(root)

@@ -1,4 +1,4 @@
-# Shop Sketch architecture
+# Napkin architecture
 
 Map of the current implementation: component boundaries, state ownership, data flow, communication, and persistence.
 
@@ -30,7 +30,7 @@ flowchart LR
     DC --> C[worker_client.gd]
     C -->|newline JSON / localhost TCP| W[serve.py & session.py]
     W --> G[model.py + *Actions: FreeCAD features]
-    G --> F[.FCStd & .shopsketch.json]
+    G --> F[.FCStd & .napkin.json]
     G --> E[bodies.json & meshes/*.bin]
     E --> M
     W -->|saved / save_failed| C
@@ -50,7 +50,7 @@ One-line index per module (`tools/architecture_map.py`). Per-file details, warni
 - `viewport/inference.gd` — The one snapping and inference engine every tool uses (T4, Q16): what's under the cursor (pick), point snaps in SketchUp's order (endpoint > midpoint > on edge…
 - `viewport/keys.gd` — The keyboard (T75): tool keys (each tool declares its own, tool_registry.gd), shortcuts, Esc, Enter, Delete / Backspace, typed values, Tab / ⌥ for Push/Pull
 - `viewport/live_preferences.gd` — Live preferences (I63, T111): loads, watches and applies user://preferences.json to live tunables and default units
-- `viewport/main.gd` — Shop Sketch: tool-first viewport
+- `viewport/main.gd` — Napkin: tool-first viewport
 - `viewport/measure_box.gd` — The measurements box (VCB, T75): the typed value at the bottom right, what it's labelled, and where the typed text goes
 - `viewport/menus.gd` — The native menu bar and menu command dispatch (T113)
 - `viewport/model_files.gd` — Model files: settings, last model, output folders, window title, and switching models (`m.files`)
@@ -94,29 +94,29 @@ One-line index per module (`tools/architecture_map.py`). Per-file details, warni
 - `worker/field_audit.py` — Runtime audit of op fields sent to Model.apply vs actually read by handlers
 - `worker/length_input.py` — Length-only evaluation using FreeCAD; no model-property references
 - `worker/line.py` — Saved, editable straight drawings and polygon profiles (T82)
-- `worker/materials.py` — Shop Sketch's wood library (T15, M03): one table, written out as FreeCAD material cards (.FCMat) where FreeCAD looks for user materials, and as materials.json…
+- `worker/materials.py` — Napkin's wood library (T15, M03): one table, written out as FreeCAD material cards (.FCMat) where FreeCAD looks for user materials, and as materials.json for t…
 - `worker/mirror.py` — Mirrored copies (Part::Mirroring) and mirror groups (A11b, T26)
-- `worker/model.py` — Model: Shop Sketch operations on a FreeCAD document
+- `worker/model.py` — Model: Napkin operations on a FreeCAD document
 - `worker/move.py` — Move and copy: moving boards and holes, linked copies and arrays (A22c, T12), detach and make unique
 - `worker/object_properties.py` — Inspectable native properties and journalled edits, shared by the worker and tests
 - `worker/op_contracts.py` — Per-op contracts (H189-H194): collect CONTRACT dicts from worker handler modules into tests/op_contracts.json, and validate(op), which Model.apply runs before…
 - `worker/paint.py` — Paint and grain (T15, M03): materials on a board definition, grain directions
-- `worker/plane_fit.py` — Board-local face references for Shop Sketch stock and extruded/cut boards
+- `worker/plane_fit.py` — Board-local face references for Napkin stock and extruded/cut boards
 - `worker/polygon.py` — Exact editable regular polygon profiles (T84): a native constrained sketch, like circle.py's circles
 - `worker/push.py` — Rectangles and Push/Pull: new boards, cuts and joins, through-cuts (I24), pocket-floor ties (T59)
-- `worker/replay.py` — Shop Sketch worker: keeps a live FreeCAD document and edits it with native features
+- `worker/replay.py` — Napkin worker: keeps a live FreeCAD document and edits it with native features
 - `worker/serve.py` — The connection loop: one worker serving every window (W13), and the one-off replay (main)
 - `worker/session.py` — Session: one live document bound to one .FCStd file; sync, undo, journal, saving (A23, A42)
-- `worker/update_old_files.py` — One-time updater for pre-H199 saved files (.FCStd and .json) (T159, A43, G09)
+- `worker/update_old_files.py` — One-time updater for pre-H199/H204 saved files (.FCStd and .json) (T159, T139, A43, G09); session.py reads its old-name tables to refuse a file not yet updated
 - `worker/visibility.py` — Hide and unhide (T28, I37): SketchUp-style hiding, kept as a board property so it is undoable and saved
 
 - `tools/architecture_map.py` — Generate and check the module map in ARCHITECTURE.md from each code file's own header line (T138)
-- `tools/build_app.sh` — Builds "dist/Shop Sketch.app" for this Mac: the viewport packed into Resources, run by a copy of the Godot program (no export templates needed), plus the FreeC…
+- `tools/build_app.sh` — Builds "dist/Napkin.app" for this Mac: the viewport packed into Resources, run by a copy of the Godot program (no export templates needed), plus the FreeCAD wo…
 - `tools/check_architecture.py` — Flag code changes whose architecture impact must be reviewed
 - `tools/comitatus_commit.py` — Commit generated files in the comitatus repo (William, 2026-11-26: "commit the generated files automatically")
 - `tools/compare_suites.py` — Compare viewport suite results with the reference runs: python3 tools/compare_suites.py <runs dir> [suite...] Each suite's final boards must match (volume with…
 - `tools/dependency_map.py` — Generate and check docs/dependency-map.md, and find callers / Touches lines
-- `tools/featuretest.sh` — Feature tests (~34 s): everything that checks Shop Sketch's answers with no window, all side by side
+- `tools/featuretest.sh` — Feature tests (~34 s): everything that checks Napkin's answers with no window, all side by side
 - `tools/front_sim.py` — Simulate the wave-front controller to tune smoothness before porting to GDScript
 - `tools/fulltest.sh` — Full check (~20 s): when tools/quicktest.sh fails, or before a merge
 - `tools/gate.sh` — The merge gate (P18): quick then full, one verdict; successful quick checks are reused (T90)
@@ -153,7 +153,7 @@ Newline JSON over localhost TCP. `worker_process.gd` probes port 7878 (`hello`) 
 | Desired operation sequence & `redo_stack` | Godot `document.gd` | What client wants materialized; linear in-memory redo |
 | Selection, context, hidden set, relationships | Godot `selection.gd` | Click unit; hidden/deleted follow `ops` immediately |
 | Accepted geometry & relationships | Live FreeCAD document | Authoritative computed model |
-| Saved model & provenance | `.FCStd` & `.shopsketch.json` | Durable native model, ops, revision, hash, undo floor |
+| Saved model & provenance | `.FCStd` & `.napkin.json` | Durable native model, ops, revision, hash, undo floor |
 | Meshes, bounds, GLB, TechDraw views | Derived export files | Rebuildable presentation/export products |
 | Confirmed visible states (up to 40) | Godot `presenter.gd` | Fast undo/redo restoration; not durable history |
 | Last model / units / preferences | `user://settings.cfg`, `preferences.json` | App preferences |
@@ -175,7 +175,7 @@ Typed lengths evaluate locally first (`units.gd:evaluate_length`, matching `leng
 
 ## Files, persistence and recovery
 
-- **Atomic generations**: `Session.save()` writes `<model>.saving.FCStd` and `.shopsketch.saving.json`, links current files to `.prev.*`, and renames new files into place so a whole pair is always on disk. `model.glb` writes only when `glb_dirty` or missing; `Session.drawing` is one-shot.
+- **Atomic generations**: `Session.save()` writes `<model>.saving.FCStd` and `.napkin.saving.json`, links current files to `.prev.*`, and renames new files into place so a whole pair is always on disk. `model.glb` writes only when `glb_dirty` or missing; `Session.drawing` is one-shot.
 - **Recovery**: `recover_generation()` picks the newest readable pair (`.FCStd` ZIP + `Document.xml`), finishes interrupted `.saving` saves, falls back to `.prev` only if main is missing/unreadable, and opens unexpected FreeCAD edits with an undo floor.
 - **Outside saves**: `serve.py` stats owned models every 0.25 s, holds modified models (`outside_sha256`), and sends `outside_save`. `document.gd` / `save_prompts.gd` reload at once if idle, or wait/ask (`reload_outside` writes `<model>.floor.FCStd` and moves newer ops to `dropped`; `keep_mine` copies FreeCAD's file aside and overwrites).
 - **Save failures & close**: Failed saves stay pending (retried on next `sync`/`flush`/`bye`/`quit`, skipped by autosave timer) and show `save_error` until `saved`. Window close waits for `flush` and prompts (`CLOSE_WAIT_S`) if saving stalls.
