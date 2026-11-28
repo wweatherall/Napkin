@@ -54,7 +54,7 @@ try:
     with open(os.path.join(HERE, "..", "viewport", "main.gd")) as f:
         window_version = int(re.search(r"^const PROTOCOL_VERSION := (\d+)$", f.read(), re.M).group(1))
     check("hello carries the protocol version (serve.py PROTOCOL_VERSION), the same main.gd checks for",
-          ha.get("protocol") == version == window_version == 23 and isinstance(ha.get("protocol"), int),
+          ha.get("protocol") == version == window_version == 24 and isinstance(ha.get("protocol"), int),
           (ha.get("protocol"), version, window_version))
     rp_unknown = a.ask({"cmd": "replay", "model": m1, "seq": 10}, "replay")
     check("replay command is rejected as an unknown command (H176)",

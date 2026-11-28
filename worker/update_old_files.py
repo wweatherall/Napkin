@@ -36,20 +36,68 @@ ZIP_ENTRY_RENAMES = {
 OLD_SIDECAR_SUFFIX = ".shopsketch.json"
 
 
-def upgrade_op(op, free_rects=None):
+def _v_sub(a, b):
+    return [a[0] - b[0], a[1] - b[1], a[2] - b[2]]
+
+
+def _v_add(a, b):
+    return [a[0] + b[0], a[1] + b[1], a[2] + b[2]]
+
+
+def _v_scale(v, s):
+    return [v[0] * s, v[1] * s, v[2] * s]
+
+
+def _v_dot(a, b):
+    return a[0] * b[0] + a[1] * b[1] + a[2] * b[2]
+
+
+def _v_cross(a, b):
+    return [a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0]]
+
+
+def _v_unit(v):
+    import math
+    n = math.sqrt(_v_dot(v, v))
+    return [v[0] / n, v[1] / n, v[2] / n] if n > 1e-12 else [0.0, 0.0, 1.0]
+
+
+def _rect_frame(op):
+    pl = op.get("plane") or {}
+    n = _v_unit(pl.get("normal") or [0.0, 0.0, 1.0])
+    x_raw = pl.get("x")
+    if not x_raw:
+        x_raw = [1.0, 0.0, 0.0] if abs(n[0]) < 0.9 else [0.0, 1.0, 0.0]
+    x = _v_unit(_v_sub(x_raw, _v_scale(n, _v_dot(x_raw, n))))
+    y = _v_unit(_v_cross(n, x))
+    return list(pl.get("origin") or [0.0, 0.0, 0.0]), [x, y, n], list(op.get("size") or [0.0, 0.0])
+
+
+def _face_ref_for_int(frame, face):
+    if frame is None or not isinstance(face, int) or isinstance(face, bool) or not (0 <= face <= 5):
+        return None
+    origin, axes, sizes = frame
+    idx, pos = divmod(face, 2)
+    n = axes[idx]
+    pt = _v_add(origin, _v_scale(n, sizes[idx])) if pos else list(origin)
+    outward = list(n) if pos else _v_scale(n, -1.0)
+    return {"normal": outward, "point": pt}
+
+
+def upgrade_op(op, free_rects=None, board_planes=None):
     """Upgrade a single op dict. Returns (new_op, note_or_None)."""
     if not isinstance(op, dict):
         return op, None
     t = op.get("type")
+    upgraded = op
     if t == "property_edit":
         mode = op.get("mode")
         if mode in ("plane_fit", "replace_fit"):
             upgraded = {k: v for k, v in op.items() if k != "mode"}
             upgraded["type"] = "fit" if mode == "plane_fit" else "unfit"
-            return upgraded, None
-        return op, None
-
-    if t == "push_pull":
+        else:
+            return op, None
+    elif t == "push_pull":
         tgt = op.get("target") if isinstance(op.get("target"), dict) else {}
         if op.get("resize_stock") and "face" in tgt and "region" not in tgt and not op.get("body"):
             upgraded = {k: v for k, v in op.items() if k != "resize_stock"}
@@ -69,8 +117,22 @@ def upgrade_op(op, free_rects=None):
             upgraded["type"] = "new_board"
             if not upgraded.get("body"):
                 upgraded["body"] = f"{op.get('id', 'nb')}_body"
-            return upgraded, None
-    return op, None
+
+    ut = upgraded.get("type")
+    if ut == "fit" and isinstance(upgraded.get("face"), int):
+        fref = _face_ref_for_int((board_planes or {}).get(upgraded.get("target_body")), upgraded["face"])
+        if fref is None:
+            return upgraded, "fit with integer face left as is"
+        upgraded = {**upgraded, "face": fref}
+        return upgraded, None
+    if ut == "new_board" and isinstance(upgraded.get("fit"), dict) and isinstance(upgraded["fit"].get("face"), int):
+        fit = upgraded["fit"]
+        fref = _face_ref_for_int((board_planes or {}).get(fit.get("target_body")), fit["face"])
+        if fref is None:
+            return upgraded, "new_board fit with integer face left as is"
+        upgraded = {**upgraded, "fit": {**fit, "face": fref}}
+        return upgraded, None
+    return upgraded, None
 
 
 def _free_rects_in(ops):
@@ -86,15 +148,35 @@ def _free_rects_in(ops):
 
 def _upgrade_op_list(ops, path_str, warnings):
     free_rects = _free_rects_in(ops)
+    rects = {}
+    board_planes = {}
     out = []
     changed = False
     for op in ops:
-        new_op, note = upgrade_op(op, free_rects=free_rects)
+        new_op, note = upgrade_op(op, free_rects=free_rects, board_planes=board_planes)
         if note:
             oid = op.get("id", "?") if isinstance(op, dict) else "?"
             warnings.append(f"{path_str}: {oid}: {note}")
         if new_op != op:
             changed = True
+        if isinstance(new_op, dict):
+            nt = new_op.get("type")
+            if nt == "rect" and new_op.get("id"):
+                rects[new_op["id"]] = _rect_frame(new_op)
+            elif nt == "new_board" and new_op.get("body"):
+                tgt = new_op.get("target") or {}
+                rid = tgt.get("rect")
+                if rid in rects:
+                    ro, rax, rsz = rects[rid]
+                    d = float(new_op.get("distance", 0.0))
+                    org = _v_add(ro, _v_scale(rax[2], d)) if d < 0 else list(ro)
+                    board_planes[new_op["body"]] = (org, rax, [rsz[0], rsz[1], abs(d)])
+            elif nt == "move" and not new_op.get("copy") and isinstance(new_op.get("vector"), list):
+                vec = new_op["vector"]
+                for bid in new_op.get("targets") or []:
+                    if bid in board_planes:
+                        bo, bax, bsz = board_planes[bid]
+                        board_planes[bid] = (_v_add(bo, vec), bax, bsz)
         out.append(new_op)
     return out, changed
 

@@ -81,7 +81,7 @@ func run() -> void:
 		await harness._click_at(mid_edge)
 		await harness._wait_confirm()
 		await harness._wait_properties()
-		harness._ok("dimension click links an edge midpoint without Apply",m.ops.back().get("type","") == "fit" and m.ops.back().get("id","").begins_with("ft") and m.ops.back().get("face",-1) == 5 and panel.data.boards.b1.fitted,m.ops.back())
+		harness._ok("dimension click links an edge midpoint without Apply",m.ops.back().get("type","") == "fit" and m.ops.back().get("id","").begins_with("ft") and m.ops.back().get("face") is Dictionary and panel.data.boards.b1.fitted,m.ops.back())
 		var visible_box: AABB = m.pres._sel_overlay.mesh.get_aabb()
 		var actual := AABB(Main.m2g(m.body_tris.b1[0]),Vector3.ZERO)
 		for vertex in m.body_tris.b1: actual = actual.expand(Main.m2g(vertex))
@@ -95,7 +95,7 @@ func run() -> void:
 		await harness._click_at(Vector3(-20,-10,100) + tilt*10)
 		await harness._wait_confirm()
 		await harness._wait_properties()
-		harness._ok("dimension corner click commits the inferred face",m.ops.back().get("type","") == "fit" and m.ops.back().get("id","").begins_with("ft") and m.ops.back().get("face",-1) == 5 and panel.data.boards.b1.fitted,m.ops.back())
+		harness._ok("dimension corner click commits the inferred face",m.ops.back().get("type","") == "fit" and m.ops.back().get("id","").begins_with("ft") and m.ops.back().get("face") is Dictionary and panel.data.boards.b1.fitted,m.ops.back())
 	m.properties_panel.hide()
 	await harness._fresh("edge_fit",fit_scene)
 	await harness._view(Vector3(55,30,65), -32,-25,0.45)
@@ -103,7 +103,7 @@ func run() -> void:
 	await harness._click_at(Vector3(45,18,20))
 	var face_interior := Vector3(-20,-10,100) + Vector3(tilt.z,0,-tilt.x)*60 + Vector3.UP*32 + tilt*10
 	await harness._drag_to(face_interior,12)
-	harness._ok("drag onto target face offers live fit",m.tools.push.state.get("edge_fit",{}).get("face",-1)==5,[m.tools.push.tip(),m.pick(m.cursor2d.position),m.tools.push.state.get("body")])
+	harness._ok("drag onto target face offers live fit",m.tools.push.state.get("edge_face_idx",-1)==5,[m.tools.push.tip(),m.pick(m.cursor2d.position),m.tools.push.state.get("body")])
 	if m.tools.push.state.has("edge_fit"):        # I41: Option cycles Butt -> Slice -> Fully reach -> Butt
 		var near: float = m.tools.push.state.dist
 		await harness._key(KEY_ALT)
@@ -115,15 +115,16 @@ func run() -> void:
 				and absf(m.tools.push.state.dist - near) < 0.01, [near, far, m.tools.push.tip()])
 	var rail_midpoint := Vector3(-20,30,100) + tilt*10
 	await harness._drag_to(rail_midpoint,12)
-	harness._ok("push midpoint infers adjacent rail face",m.tools.push.state.get("snap","") == "midpoint" and m.tools.push.state.get("edge_fit",{}).get("face",-1) == 5,m.tools.push.tip())
+	harness._ok("push midpoint infers adjacent rail face",m.tools.push.state.get("snap","") == "midpoint" and m.tools.push.state.get("edge_face_idx",-1) == 5,m.tools.push.tip())
 	var edge := Vector3(-20,10,100) + tilt*10
 	await harness._drag_to(edge,12)
 	var edge_tool = m.tools.push
-	harness._ok("edge infers the rail top",edge_tool.state.get("edge_fit",{}).get("face",-1)==5,[edge_tool.tip(),edge_tool.state.get("body"),edge_tool.state.get("n"),m.stock_frames.keys(),m.infer.point(m.cursor2d.position,"")])
+	harness._ok("edge infers the rail top",edge_tool.state.get("edge_face_idx",-1)==5,[edge_tool.tip(),edge_tool.state.get("body"),edge_tool.state.get("n"),m.stock_frames.keys(),m.infer.point(m.cursor2d.position,"")])
 	if edge_tool.state.has("edge_fit"):
-		var initial: int = edge_tool.state.edge_fit.face
+		var initial: int = edge_tool.state.edge_face_idx
+		var initial_face: Dictionary = edge_tool.state.edge_fit.face.duplicate(true)
 		await harness._key(KEY_TAB)
-		harness._ok("Tab previews the adjacent face",edge_tool.state.edge_fit.face != initial,edge_tool.tip())
+		harness._ok("Tab previews the adjacent face",edge_tool.state.edge_face_idx != initial,edge_tool.tip())
 		await harness._key(KEY_TAB)
 		await harness._key(KEY_ALT)                       # Slice at plane: the draft's end lies on the tilted rail
 		await harness._shot("push_edge_inferred_face")
@@ -134,7 +135,7 @@ func run() -> void:
 				[m.drafts_root.get_child_count(), m.pres.op_waves.keys()])
 		await harness._wait_confirm()
 		harness._ok("edge fit saved in a single push",m.ops.back().get("type","")=="fit"
-				and m.ops.back().get("face",-1)==initial and m.stock_frames.b1.fitted
+				and m.ops.back().get("face")==initial_face and m.stock_frames.b1.fitted
 				and m.ops.back().get("fit_mode",-1) == 1 and "Slice at plane" in str(m.stock_frames.b1.result),m.ops.back())
 		m.undo()
 		await harness._wait_confirm()
@@ -154,21 +155,23 @@ func run() -> void:
 	harness._ok("corner offers its three reachable faces",edge_tool.state.get("snap","") == "endpoint" and edge_tool.state.get("options",[]).size() == 3,[edge_tool.state.get("body"),edge_tool.state.get("n"),edge_tool.state.get("snap"),edge_tool.tip(),m.infer.point(m.cursor2d.position,""),m.stock_frames.keys()])
 	if edge_tool.state.get("options",[]).size() == 3:
 		var chosen := []
+		var chosen_faces := []
 		for j in 3:
-			chosen.append(edge_tool.state.edge_fit.face)
+			chosen.append(edge_tool.state.edge_face_idx)
+			chosen_faces.append(edge_tool.state.edge_fit.face.duplicate(true))
 			await harness._key(KEY_TAB)
 		var distinct := chosen.duplicate()
 		distinct.sort()
-		harness._ok("Tab cycles each incident face once",distinct == [0,2,5] and edge_tool.state.edge_fit.face == chosen[0],chosen)
+		harness._ok("Tab cycles each incident face once",distinct == [0,2,5] and edge_tool.state.edge_face_idx == chosen[0],chosen)
 		await harness._press()
 		await harness._wait_confirm()
-		harness._ok("corner click commits its previewed face",m.stock_frames.b1.fitted and m.ops.back().get("type","") == "fit" and m.ops.back().get("face",-1) == chosen[0])
+		harness._ok("corner click commits its previewed face",m.stock_frames.b1.fitted and m.ops.back().get("type","") == "fit" and m.ops.back().get("face") == chosen_faces[0])
 	# T60: Push/Pull edge-inference onto a fitted board B's fitted end creates A <- B <- C, and moving A updates both.
 	var chain_scene := harness._plank(1, Vector3(-100, 0, 200), Vector3(120, 60, 20))
 	chain_scene.append_array(harness._plank(2, Vector3(0, 0, 80), Vector3(80, 40, 20)))
 	chain_scene.append_array(harness._plank(3, Vector3(100, 0, 0), Vector3(40, 40, 20)))
 	chain_scene.append({"id": "fit_b2", "type": "fit", "body": "b2",
-			"target_body": "b1", "axis": 2, "face": 4, "fit_mode": 0})
+			"target_body": "b1", "axis": 2, "face": {"normal": [0, 0, -1], "point": [-100, 0, 200]}, "fit_mode": 0})
 	await harness._fresh("chain_fit", chain_scene)
 	await harness._view(Vector3(60, 20, 120), -35, -28, 0.65)
 	m.set_tool("push")
@@ -176,7 +179,7 @@ func run() -> void:
 	await harness._drag_to(Vector3(55, 20, 200), 12)
 	harness._ok("push onto fitted board end infers its fitted face",
 			m.tools.push.state.get("edge_fit", {}).get("target_body", "") == "b2"
-			and m.tools.push.state.get("edge_fit", {}).get("face", -1) == 5,
+			and m.tools.push.state.get("edge_face_idx", -1) == 5,
 			[m.tools.push.tip(), m.tools.push.state.get("edge_fit", {}), m.stock_frames.get("b2", {})])
 	if m.tools.push.state.has("edge_fit"):
 		await harness._press()
@@ -203,7 +206,7 @@ func run() -> void:
 	await harness._drag_to(Vector3(20, 20, 160), 12)
 	harness._ok("push from linked copy infers target face",
 			m.tools.push.state.get("edge_fit", {}).get("target_body", "") == "b2"
-			and m.tools.push.state.get("edge_fit", {}).get("face", -1) == 5,
+			and m.tools.push.state.get("edge_face_idx", -1) == 5,
 			[m.tools.push.tip(), m.tools.push.state.get("edge_fit", {}), m.stock_frames.get("b1", {})])
 	if m.tools.push.state.has("edge_fit"):
 		await harness._press()
@@ -287,7 +290,7 @@ func run() -> void:
 	nonrect_fit_scene.append({"id": "cp2", "type": "new_board", "target": {"rect": "c2"}, "distance": 20.0, "body": "b2"})
 	nonrect_fit_scene.append_array(harness._plank(3, Vector3(120, 0, 200), Vector3(40, 40, 20)))
 	nonrect_fit_scene.append({"id": "fit_b2", "type": "fit", "body": "b2",
-			"target_body": "b3", "axis": 2, "face": 4, "fit_mode": 0})
+			"target_body": "b3", "axis": 2, "face": {"normal": [0, 0, -1], "point": [120, 0, 200]}, "fit_mode": 0})
 	await harness._fresh("t147_nonrect_fitted_end", nonrect_fit_scene)
 	m.set_tool("select")
 	m.properties_panel.show()

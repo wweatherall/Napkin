@@ -16,14 +16,18 @@ def _board(bid, origin, size):
 
 def _cut(cid, body, origin, size, depth=200):
     return [
-        dict(id=cid + 'r', type='rect', plane=dict(normal=[0, 0, 1], origin=origin), size=size),
-        dict(id=cid + 'p', type='push_pull', target=dict(rect=cid + 'r', on=body), distance=-depth, new_board=False),
+        dict(id=cid + 'r', type='rect', plane=dict(on=dict(body=body, normal=[0, 0, 1], point=origin)), size=size),
+        dict(id=cid + 'p', type='push_pull', target=dict(rect=cid + 'r'), distance=-depth),
     ]
 
 
-def _fit(fid, body, target, axis=2, face=4, fit_mode=0):
+def _fit(fid, body, target, axis=2, face=None, fit_mode=0):
     return dict(id=fid, type='fit', body=body,
                 target_body=target, axis=axis, face=face, fit_mode=fit_mode)
+
+
+def _face(normal, point):
+    return dict(normal=list(normal), point=list(point))
 
 
 def _move(mid, targets, vector):
@@ -35,7 +39,7 @@ def run(ctx):
     s = Session(os.path.join(ctx.TESTDIR, 'plane-fit-identity.FCStd'), fresh=True)
     try:
         ops = _board('target', [0, 0, 200], [120, 80, 20]) + _board('leg', [10, 10, 0], [30, 30, 20])
-        ops += [_fit('f_leg', 'leg', 'target', face=4)]
+        ops += [_fit('f_leg', 'leg', 'target', face=_face([0, 0, -1], [0, 0, 200]))]
         s.sync(ops)
         ctx.check('fit identity: initial fit reaches z=200',
                   abs(s.model.world_shape(s.model.body('leg')).BoundBox.ZMax - 200.0) < 0.01)
@@ -68,14 +72,15 @@ def run(ctx):
         # instead cut t2's right end (face=1, x=100) with a board fitted along X to face=1.
         ops_rm = (_board('t3', [100, 0, 0], [40, 40, 20])
                   + _board('x_leg', [0, 10, 0], [20, 20, 20])
-                  + [_fit('f_x', 'x_leg', 't3', axis=0, face=1)])
+                  + [_fit('f_x', 'x_leg', 't3', axis=0, face=_face([1, 0, 0], [140, 0, 0]))])
         s.sync(ops_rm)
         ctx.check('fit identity: x_leg reaches x=140',
                   abs(s.model.world_shape(s.model.body('x_leg')).BoundBox.XMax - 140.0) < 0.01)
-        # Cut off the right half of t3 (x=120..140) -> x=140 face is gone, replaced by x=120.
-        # Wait: x=120 has same normal (+X), so nearest plane with +X normal is x=120.
-        # To remove the normal completely, bevel/tilt or cut? A rectangular cut keeps +X.
-        # That's fine: x=120 still has +X normal, so nearest +X face keeps following.
+        s.sync(ops_rm + _cut('c_rm', 't3', [120, 0, 20], [20, 40], depth=20))
+        ctx.check('I77 cutting away fitted face detaches and keeps length',
+                  s.model.body('x_leg').Tip.SSTargetId == ''
+                  and s.model.body('x_leg').Tip.SSFitResult == ''
+                  and abs(s.model.world_shape(s.model.body('x_leg')).BoundBox.XMax - 140.0) < 0.01)
     finally:
         s.close()
 
@@ -85,7 +90,7 @@ def run(ctx):
         ops = [
             dict(id='c1', type='circle', plane=dict(origin=[0, 0, 0], normal=[0, 0, 1]), radius=20.0),
             dict(id='cp1', type='new_board', target=dict(rect='c1'), distance=20.0, body='cyl'),
-        ] + _board('top', [-30, -30, 150], [60, 60, 20]) + [_fit('f_cyl', 'cyl', 'top', axis=2, face=4)]
+        ] + _board('top', [-30, -30, 150], [60, 60, 20]) + [_fit('f_cyl', 'cyl', 'top', axis=2, face=_face([0, 0, -1], [-30, -30, 150]))]
         s.sync(ops)
         snap = plane_fit.snapshot(s.model.body('cyl'))
         fe = snap.get('fitted_end', {})
@@ -104,7 +109,7 @@ def run(ctx):
     try:
         ops = (_board('target', [0, 0, 200], [100, 60, 20])
                + _board('post', [10, 10, 0], [30, 30, 20])
-               + [_fit('f_post', 'post', 'target', face=4)])
+               + [_fit('f_post', 'post', 'target', face=_face([0, 0, -1], [0, 0, 200]))])
         s.sync(ops)
         flip = dict(id='flip1', type='mirror', targets=['post'],
                     plane=dict(point=[25, 25, 0], normal=[1, 0, 0]), replace=True)
@@ -140,14 +145,14 @@ def run(ctx):
         ops = (_board('A', [0, 0, 300], [120, 60, 20])
                + _board('B', [0, 0, 100], [100, 40, 20])
                + _board('C', [10, 10, 0], [30, 30, 20])
-               + [_fit('f_B', 'B', 'A', axis=2, face=4)])
+               + [_fit('f_B', 'B', 'A', axis=2, face=_face([0, 0, -1], [0, 0, 300]))])
         s.sync(ops)
         # Cut B so B's Tip is Part::Cut above PlaneFit, then fit C to B's top face.
         ops_cut_b = ops + _cut('cutB', 'B', [70, 0, 300], [30, 40], depth=20)
         s.sync(ops_cut_b)
         b_faces = plane_fit.planar_faces(s.model.body('B'))
-        top_idx = next(i for i, (pt, n) in enumerate(b_faces) if n.z > 0.999 and abs(pt.z - 300.0) < 0.01)
-        ops_chain = ops_cut_b + [_fit('f_C', 'C', 'B', axis=2, face=top_idx)]
+        top_pt, top_n = next((pt, n) for pt, n in b_faces if n.z > 0.999 and abs(pt.z - 300.0) < 0.01)
+        ops_chain = ops_cut_b + [_fit('f_C', 'C', 'B', axis=2, face=_face(top_n, top_pt))]
         s.sync(ops_chain)
         ctx.check('fit identity: C initially reaches B top at z=300',
                   abs(s.model.world_shape(s.model.body('C')).BoundBox.ZMax - 300.0) < 0.01)
@@ -160,7 +165,7 @@ def run(ctx):
         # Cycle check: try fitting A to B (B is fitted to A and cut).
         s.sync(ops_chain)
         a_vol_before = s.model.world_shape(s.model.body('A')).Volume
-        s.sync(ops_chain + [_fit('f_cycle', 'A', 'B', axis=2, face=top_idx)])
+        s.sync(ops_chain + [_fit('f_cycle', 'A', 'B', axis=2, face=_face(top_n, top_pt))])
         last = s.status()[-1]
         ctx.check('a circular fit through a cut board is refused',
                   last['status'] == 'failed' and 'This fit would create a cycle' in last.get('message', '')
@@ -175,7 +180,7 @@ def run(ctx):
     try:
         ops = (_board('target', [0, 0, 200], [100, 60, 20])
                + _board('leg', [10, 10, 0], [30, 30, 20])
-               + [_fit('f_leg', 'leg', 'target', face=4)])
+               + [_fit('f_leg', 'leg', 'target', face=_face([0, 0, -1], [0, 0, 200]))])
         s.sync(ops)
         tip = s.model.body('leg').Tip
         tip.removeProperty('SSTargetNormal')

@@ -34,8 +34,14 @@ def _make_fcstd(path, meta_items):
 
 def run():
     # 1. Pure op upgrades
-    op_fit, note = uof.upgrade_op({"id": "f1", "type": "property_edit", "mode": "plane_fit", "body": "b1", "axis": 0, "face": 1})
-    check("property_edit plane_fit -> fit", op_fit == {"id": "f1", "type": "fit", "body": "b1", "axis": 0, "face": 1} and note is None, op_fit)
+    bp = {"b2": ([100.0, 0.0, 0.0], [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]], [40.0, 50.0, 20.0])}
+    op_fit, note = uof.upgrade_op(
+        {"id": "f1", "type": "property_edit", "mode": "plane_fit", "body": "b1", "target_body": "b2", "axis": 0, "face": 1},
+        board_planes=bp,
+    )
+    check("property_edit plane_fit -> fit with normal/point",
+          op_fit == {"id": "f1", "type": "fit", "body": "b1", "target_body": "b2", "axis": 0,
+                     "face": {"normal": [1.0, 0.0, 0.0], "point": [140.0, 0.0, 0.0]}} and note is None, op_fit)
 
     op_unfit, note = uof.upgrade_op({"id": "u1", "type": "property_edit", "mode": "replace_fit", "body": "b1", "axis": 0, "value": "100mm"})
     check("property_edit replace_fit -> unfit", op_unfit == {"id": "u1", "type": "unfit", "body": "b1", "axis": 0, "value": "100mm"} and note is None, op_unfit)
@@ -43,10 +49,13 @@ def run():
     op_nb, note = uof.upgrade_op({
         "id": "pp1", "type": "push_pull", "target": {"rect": "r1"}, "distance": 18, "body": "b1",
         "edge_fit": {"target_body": "b2", "face": 5, "fit_mode": 1},
-    })
-    check("push_pull with body + edge_fit -> new_board + fit",
+    }, board_planes=bp)
+    check("push_pull with body + edge_fit -> new_board + fit with normal/point",
           op_nb == {"id": "pp1", "type": "new_board", "target": {"rect": "r1"}, "distance": 18, "body": "b1",
-                    "fit": {"target_body": "b2", "face": 5, "fit_mode": 1}} and note is None, op_nb)
+                    "fit": {"target_body": "b2", "face": {"normal": [0.0, 0.0, 1.0], "point": [100.0, 0.0, 20.0]}, "fit_mode": 1}} and note is None, op_nb)
+
+    op_fit_unknown, note_u = uof.upgrade_op({"id": "f2", "type": "fit", "body": "b1", "target_body": "missing", "axis": 0, "face": 0})
+    check("fit with unknown target_body warns and leaves integer face", op_fit_unknown["face"] == 0 and note_u is not None, (op_fit_unknown, note_u))
 
     op_rs, note = uof.upgrade_op({"id": "pp_rs", "type": "push_pull", "target": {"face": {"body": "b1"}}, "distance": 5, "resize_stock": True})
     check("push_pull resize_stock -> resize_stock",

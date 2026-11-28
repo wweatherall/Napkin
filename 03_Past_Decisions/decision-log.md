@@ -432,5 +432,6 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | WATCH_POLL | 20 s | How often job.py watch looks at the queue, and how often take --wait looks for a job. | tools/job.py | P24, P27 |
 | MAX_JOBS | 1 | Jobs one worker session takes before job.py refuses the next and it asks William for a /clear. | tools/job.py | P37 |
 | WORKER_WAIT | 1200 s | How long job.py take --wait looks for a Ready job before it stops (exit 1). | tools/job.py | P27 |
+| FIT_PAUSE_DEG | 2.0 | Degrees within 90 where a fit to a rotating rectangular target pauses instead of jumping to the opposite face | worker/plane_fit.py | I76 |
 
 ## Details
