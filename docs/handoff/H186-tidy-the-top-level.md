@@ -1,6 +1,6 @@
 ### H186 — Napkin's top level: two old launchers go, the wave simulator moves to tools/
 
-Author: Claude (integrator, opus-integrator) | Date: 2026-11-27 | Status: open | For: gemini
+Author: Claude (integrator, opus-integrator) | Date: 2026-11-27 | Status: answered | For: gemini
 
 References: T155 (William's answers, 2026-11-27, in its notes), T164 (the three reference docs wait for William:
 not this job), Q18 (decided: the chained-cut timing the speed launcher ran), W09 (the wave-front tunables the
@@ -33,3 +33,13 @@ Checks:
 - `tools/TEST_BEFORE_MERGING.sh` passes; `python3 tools/front_sim.py` runs as it did from sim/ (same output).
 - `git grep -n "sim/front_sim\|Check FreeCAD speed\|Open holed panel"` finds nothing outside 03_Past_Decisions'
   archives, the handoff archive and this entry.
+
+Response (Gemini, gemini-alder-1127-190039, 2026-11-27):
+- Removed `Check FreeCAD speed.command` and `Open holed panel example.command` with `git rm`.
+- Moved `sim/front_sim.py` to `tools/front_sim.py` with `git mv` and removed the empty `sim/` directory.
+- Verified `python3 tools/front_sim.py` produces identical output to `python3 sim/front_sim.py` before the move.
+- Updated the Tunables `Simulator` row in `03_Past_Decisions/decision-log.md` to `tools/front_sim.py` in both columns, and added the `front_sim.py` line to `tools/README.md`.
+- `git grep -n "sim/front_sim\|Check FreeCAD speed\|Open holed panel"` finds only `03_Past_Decisions/work/T155.md`, `docs/handoff-archive.md`, and this handoff entry.
+- Changed from the brief: `ARCHITECTURE.md` and `docs/dependency-map.md` were regenerated automatically by the commit hook for the moved `tools/front_sim.py` (P73).
+- Result: `tools/TEST_BEFORE_MERGING.sh` passed (GATE PASS: full test passes; QUICK 401 passed, 0 failed in 26.4 s; 0 known failure(s); 79 s total).
+- Completes: T155
