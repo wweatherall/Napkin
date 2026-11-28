@@ -23,6 +23,7 @@ import os
 import re
 import subprocess
 import sys
+from fnmatch import fnmatchcase
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import handoff
@@ -39,7 +40,7 @@ ARCHIVE = sort_decision_log.ARCHIVE
 ENTRY_FOLDERS = [sort_decision_log.RULINGS_DIR, sort_decision_log.WORK_DIR, sort_decision_log.QUESTIONS_DIR]
 ID_FILES = [LOG, ARCHIVE, "docs/agent-handoff.md", "docs/handoff-archive.md"]
 HISTORY_FILES = (ARCHIVE, "docs/handoff-archive.md")
-SKIP = {"tools/test_number_ids.py", "tools/test_log_archive.py"}   # their checks are written with real placeholders
+SKIP = {"tools/test_*.py"}   # test fixtures are written with real placeholders, not records
 
 
 def taken(root):
@@ -91,7 +92,8 @@ def tracked(root):
         out = []
         for d, _, names in os.walk(root):
             out += [os.path.relpath(os.path.join(d, n), root) for n in names]
-    return sorted(p for p in out if p and p not in SKIP and os.path.isfile(os.path.join(root, p)))
+    return sorted(p for p in out if p and not any(fnmatchcase(p, pat) for pat in SKIP)
+                  and os.path.isfile(os.path.join(root, p)))
 
 
 def read_text(path):

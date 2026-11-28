@@ -96,25 +96,37 @@ check("a 'your call' row with a decision ID after it was answered and isn't list
 check("'Your call, <date>:' records an answer; Parked and Done rows aren't listed", [r[0] for r in rows] == ["T65"])
 check("a Tentative principle is waiting; an Active one isn't", s.tentative_principles(WLOG) == [("G14", "Measure twice.")])
 
-HO = {"H060-a.md": "### H060\n\nAuthor: x | Date: d | Status: open | For: Claude\n\nAsk William which key. Then build.\n",
-      "H061-b.md": "### H061\n\nAuthor: x | Date: d | Status: open | For: Claude\n\nAsk William which key.\n\n"
-                   "Response — Claude: logged as I70 (Option).\n",
-      "H062-c.md": "### H062\n\nAuthor: x | Date: d | Status: queued (after H060) | For: Codex\n\nFirst, ask William two"
-                   " things.\n\n- William's answers, logged: yes.\n",
-      "H063-d.md": "### H063\n\nAuthor: x | Date: d | Status: answered | For: Codex\n\nAsk William.\n",
-      "H064-e.md": "### H064\n\nAuthor: x | Date: d | Status: queued (after H060) | For: Codex\n\nNo question.\n"}
-check("an open handoff with an unanswered 'Ask William' is waiting, with its sentence",
-      s.waiting_handoffs(HO) == [("H060", "Ask William which key.")])
-check("a Response naming a logged decision, or a 'William's answers' line, answers it; an answered entry isn't open",
-      [h for h, _ in s.waiting_handoffs(HO)] == ["H060"])
+HO = {"H060-a.md": "### H060\n\nAuthor: x | Date: d | Status: open | For: Claude\n\nStop and ask William if needed.\n",
+      "H061-b.md": "### H061\n\nAuthor: x | Date: d | Status: open | For: Claude\n\nBuild it.\n\n"
+                   "Response — Claude:\n- Ask William which key.\n",
+      "H062-c.md": "### H062\n\nAuthor: x | Date: d | Status: open | For: Codex\n\nBuild it.\n\n"
+                   "Response — Codex:\n- Question for William: keep the old flag?\n\n- William's answer: no.\n",
+      "H063-d.md": "### H063\n\nAuthor: x | Date: d | Status: answered | For: Codex\n\n"
+                   "Response — Codex:\n- Ask William.\n",
+      "H064-e.md": "### H064\n\nAuthor: x | Date: d | Status: queued (after H060) | For: Codex\n\n"
+                   "Response — Codex:\n- Question for William: which default?\n",
+      "H065-f.md": "### H065\n\nAuthor: x | Date: d | Status: open | For: Gemini\n\n"
+                   "Response — Gemini:\n- Ask William which colour.\n\nResponse — Claude: logged as I70 (Option).\n",
+      "H066-g.md": "### H066\n\nAuthor: x | Date: d | Status: open | For: Gemini\n\nNo response yet.\n",
+      "H067-h.md": "### H067\n\nAuthor: x | Date: d | Status: open | For: Codex\n\nNo response yet.\n"}
+LIVE_Q = [("H066", {"state": "waiting", "question_kind": "behaviour", "question": "Which units default?"}),
+          ("H067", {"state": "waiting", "question_kind": "scope", "question": "Touch helpers?"})]
+check("a brief saying 'stop and ask William' with no question pending isn't waiting; response & queue questions are",
+      s.waiting_handoffs(HO, live_jobs=LIVE_Q) == [
+          ("H061", "Response — Claude: - Ask William which key."),
+          ("H064", "Response — Codex: - Question for William: which default?"),
+          ("H066", "Which units default?"),
+      ])
+check("William's answer, a Response naming a decision, a scope question, and an answered entry aren't waiting",
+      [h for h, _ in s.waiting_handoffs(HO, live_jobs=LIVE_Q)] == ["H061", "H064", "H066"])
 WBOARD = "## Notes\n\n- William: say whether to clear the old worktrees.\n- For William: T38's key.\n- Codex: take H046.\n"
 check("board notes addressed to William are listed; others aren't",
       s.william_notes(WBOARD) == ["William: say whether to clear the old worktrees.", "For William: T38's key."])
-out = s.waiting_on_william(WLOG, HO, WBOARD, True)
+out = s.waiting_on_william(WLOG, HO, WBOARD, True, live_jobs=LIVE_Q)
 check("the section has one line per source, with IDs, and the watch reminder when the lock is held",
       any(l.startswith("  T65 (Work list):") for l in out) and any(l.startswith("  G14 (principle") for l in out)
-      and any(l.startswith("  H060 (handoff):") for l in out) and sum("Board note:" in l for l in out) == 2
-      and "watch --next" in out[-1])
+      and any(l.startswith("  H061 (handoff):") for l in out) and any(l.startswith("  H066 (handoff):") for l in out)
+      and sum("Board note:" in l for l in out) == 2 and "watch --next" in out[-1])
 check("nothing waiting says so; no lock, no reminder", s.waiting_on_william("", {}, "", False) == ["  (nothing)"])
 
 FU = ("# Follow-ups\n\nLeftovers (P26). A line like `- H0NN (<date>): <what>` in prose isn't one.\n\n## Open\n\n"

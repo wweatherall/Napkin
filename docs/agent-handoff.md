@@ -31,7 +31,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H217 — Mutation testing for worker/: plant small bugs one at a time and record which tests catch each (T171 step 1)](handoff/H217-mutation-runner.md) — status: open; for: Codex
 - [H218 — Read the kill matrix: which tests stand for which, the gaps, and a draft tree of dense tests (T171 step 2)](handoff/H218-kill-matrix-report.md) — status: queued (after H217); for: either
 - [H219 — Mutation testing for the viewport's GDScript (T171 step 3)](handoff/H219-mutation-gdscript.md) — status: queued (after H217); for: Codex
-- [H220 — Small tools fixes from worker feedback and the integrator's follow-ups](handoff/H220-worker-feedback-fixes.md) — status: open; for: either
+- [H220 — Small tools fixes from worker feedback and the integrator's follow-ups](handoff/H220-worker-feedback-fixes.md) — status: answered; for: either
 
 <!-- end of open list -->
 

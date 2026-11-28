@@ -284,5 +284,16 @@ with TemporaryDirectory(prefix="handoff-tidy-test-") as folder:
           res.returncode == 1 and "NO_SUCH_FILE.md" in res.stdout and f"{handoff.HANDOFF}:3:" in res.stdout,
           res.stdout)
 
+    # 5. No command prints the open list read-only and one-line command hint, writing nothing.
+    (briefs / "H099-open.md").write_text(entry("H099", "tools/handoff.py"))
+    before_handoff = (root / handoff.HANDOFF).read_text()
+    res = run(root, sys.executable, "tools/handoff.py")
+    check("no command prints open list and one-line hint without writing docs/agent-handoff.md",
+          res.returncode == 0
+          and "- [H099 — Fixture](handoff/H099-open.md)" in res.stdout
+          and "commands: list, tidy, split, check, overlaps, archive (--help for the full text)" in res.stdout
+          and (root / handoff.HANDOFF).read_text() == before_handoff,
+          res.stdout)
+
 print(f"HANDOFF TESTS: {sum(RESULTS)} passed, {len(RESULTS) - sum(RESULTS)} failed")
 raise SystemExit(0 if all(RESULTS) else 1)

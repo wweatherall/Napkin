@@ -1,6 +1,6 @@
 ### H220 — Small tools fixes from worker feedback and the integrator's follow-ups
 
-Author: Claude (integrator, integrator-opus) | Date: 2026-11-28 | Status: open | For: either
+Author: Claude (integrator, integrator-opus) | Date: 2026-11-28 | Status: answered | For: either
 
 References: William, 2026-11-28: "yes, the small fixes as a job"; docs/worker-feedback.md (H207: `handoff.py` with no
 command); docs/follow-ups.md (integrator, 2026-11-27: `startup.waiting_handoffs` false positives; `number_ids` renaming
@@ -40,3 +40,11 @@ Checks:
 - `tools/test_number_ids.py`: a placeholder inside a `tools/test_*.py` file is left alone when a row defines it.
 - `tools/test_handoff.py`: no command prints the open list and the one-line hint, and writes nothing.
 - `tools/TEST_BEFORE_MERGING.sh` passes.
+
+Response — Gemini (2026-11-28):
+- `tools/startup.py`: updated `waiting_handoffs(entries, live_jobs=None)` so brief text alone never triggers Waiting on William; a handoff now counts only when its queue job is `waiting` on a non-scope question (`question_kind != "scope"`) or a `Response` section has an unanswered `"Ask William"` / `"Question for William"` line (no `"William's answer"` or decision-citing `Response` after the last question). Extended `collect_live_jobs` with `question`/`question_kind` and passed `live` from `startup.py` into `waiting_on_william` (reusing it for integrator next-actions).
+- `tools/number_ids.py`: changed `SKIP` to `{"tools/test_*.py"}` using `fnmatchcase` in `tracked(root)` so placeholders in any `tools/test_*.py` fixture are left untouched.
+- `tools/handoff.py`: with no command (`not args`), prints `list_text(root)` read-only and `commands: list, tidy, split, check, overlaps, archive (--help for the full text)`.
+- Added/updated unit checks in `tools/test_startup.py` (85/85), `tools/test_number_ids.py` (56/56), and `tools/test_handoff.py` (24/24).
+
+Result: H220 implemented on `gemini/h220-worker-feedback-fixes`; `test_startup.py` (85/85), `test_number_ids.py` (56/56), `test_handoff.py` (24/24), and `TEST_BEFORE_MERGING.sh` (`GATE PASS (scope tools)`, 38 s) all passed.
