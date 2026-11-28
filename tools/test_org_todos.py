@@ -41,6 +41,8 @@ open(os.path.join(root, "03_Past_Decisions", "work", "T13.md"), "w").write(
     "# T13 — Ready for integrator\n\nStatus: Open | Covers: —\n\nLater.\n\nResult / next step: Later.\n")
 open(os.path.join(root, "03_Past_Decisions", "work", "T14.md"), "w").write(
     "# T14 — Already on board\n\nStatus: On the board (H5) | Covers: —\n\nOn board.\n\nResult / next step:\n")
+open(os.path.join(root, "03_Past_Decisions", "work", "T15.md"), "w").write(
+    "# T15 — A someday idea\n\nStatus: Parked | Covers: —\n\nOne day.\n\nResult / next step:\n")
 open(os.path.join(root, "docs", "handoff", "H5-review-me.md"), "w").write(
     "### H5 — Make the thing\n\nAuthor: x | Date: 2026-11-26 | Status: answered | For: either\n")
 open(os.path.join(root, "docs", "follow-ups.md"), "w").write("# Follow-ups\n\n- H4 (2026-11-26): Tidy the drawer later.\n")
@@ -68,6 +70,9 @@ check("an item On the board has no to-do file",
 check("a stale generated file is removed, a hand-written one kept",
       "Proj_T1_OLD.md" not in names_w and "MY_OWN_NOTE.md" in names_w, names_w)
 check("each file says it is generated", open(os.path.join(i, "Proj_H5_MAKE_THE_THING.md")).read().startswith("<!-- generated"))
+names_d = sorted(os.listdir(os.path.join(org, "06_To-dos", "one_day_for_William")))
+check("a Parked Work list item goes in one_day_for_William, nowhere else",
+      names_d == ["Proj_T15_A_SOMEDAY_IDEA.md"] and not any("T15" in n for n in names_w + names_i), (names_d, names_w, names_i))
 before = {n: os.path.getmtime(os.path.join(i, n)) for n in names_i}
 run()
 check("a second run with nothing changed rewrites nothing",

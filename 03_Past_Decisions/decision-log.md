@@ -389,6 +389,7 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | T165 | User test for William, one day after the fit rulings are built (I76, I77): try fits und... | Open |
 | T166 | Integrator's doubts about H205, for William to look at once it has run for a few days: ... | Open |
 | T167 | William's notes from a session in Napkin (2026-11-28), as written: blue is select & 2D ... | Open |
+| T168 | Keep the array when one copy inside it is moved: a FreeCAD array that holds a per-copy ... | Parked |
 
 ## Tunables
 

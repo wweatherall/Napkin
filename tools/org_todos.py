@@ -7,6 +7,8 @@
 waiting_on_William/: each line of the start-up brief's "Waiting on William" (startup.waiting_on_william: Work list
 items left as "your call", Tentative principles, handoffs asking William, board notes for him).
 waiting_on_integrator/: each job answered and waiting for review, and each open follow-up (docs/follow-ups.md).
+one_day_for_William/: each Parked Work list item: ideas for one day in the future, nothing to do now (William,
+2026-11-28).
 A file is named <code base>_<ID>_<FIRST_WORDS>.md and says it is generated. Generated files that no longer match
 anything are removed; files written by hand (no generated line) are never touched. A checkout that isn't in
 comitatus/08_Code_Bases writes nothing."""
@@ -93,6 +95,14 @@ def integrator_items(root):
     return out
 
 
+def one_day_items(root):
+    """[(ID, kind, text)]: Parked Work list items, kept for one day in the future."""
+    work = os.path.join(root, startup.s.WORK_DIR)
+    entries = startup.s.read_entries(work)
+    return [(ident, "one day", entries[ident]["title"] or ident) for ident in startup.s.folder_ids(work)
+            if entries[ident]["meta"].get("Status", "") == "Parked"]
+
+
 def files_for(base, items, mark):
     files, seen = {}, {}
     for ident, kind, text in items:
@@ -141,6 +151,7 @@ def main(argv=None):
     changed = sync(os.path.join(todos, "waiting_on_William"), files_for(base, william_items(root), mark), mark, dry, quiet)
     changed += sync(os.path.join(todos, "waiting_on_integrator"), files_for(base, integrator_items(root), mark), mark,
                     dry, quiet)
+    changed += sync(os.path.join(todos, "one_day_for_William"), files_for(base, one_day_items(root), mark), mark, dry, quiet)
     if changed and not dry:
         import comitatus_commit
         comitatus_commit.commit(os.path.dirname(todos), [todos], f"06_To-dos: {base}'s items (generated)", out=quiet)
