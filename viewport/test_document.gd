@@ -730,6 +730,34 @@ func _init() -> void:
 	d.reset()
 	check("switching models clears rejection bookkeeping", d.rejected_ids("r3").is_empty())
 
+	# --- H182: _op_makes agrees with session.creations via tests/op_creations.json, and push_pull inside a rejected assembly joins it ---
+	var creations_path := ProjectSettings.globalize_path("res://").path_join("../tests/op_creations.json")
+	var creations_raw := FileAccess.get_file_as_string(creations_path)
+	var creations_cases = JSON.parse_string(creations_raw)
+	check("tests/op_creations.json parses as a non-empty array", creations_cases is Array and not creations_cases.is_empty())
+	if creations_cases is Array:
+		t = make(); d = t[0]
+		for i in creations_cases.size():
+			var c_case: Dictionary = creations_cases[i]
+			check("_op_makes matches tests/op_creations.json[%d] (%s)" % [i, c_case["op"].get("type", "")],
+				d._op_makes(c_case["op"]) == c_case["makes"])
+
+	t = make(); d = t[0]
+	d.ops = [
+		{"id": "r1", "type": "rect", "plane": {}},
+		{"id": "pp1", "type": "push_pull", "target": {"rect": "r1"}, "body": "b1"},
+		{"id": "as1", "type": "make_assembly", "targets": ["b1"], "new_id": "a1"},
+		{"id": "r2", "type": "rect", "plane": {}},
+		{"id": "pp2", "type": "push_pull", "target": {"rect": "r2"}, "body": "b2", "assembly": "a1"},
+	]
+	var asm_root: Dictionary = d.reject("as1", "bad assembly", 1000)
+	var in_asm: Dictionary = d.reject("pp2", "missing assembly", 2000)
+	check("a push_pull inside a rejected make_assembly joins its rejection",
+		asm_root["root"] == "as1" and not asm_root["joined"]
+		and in_asm["root"] == "as1" and in_asm["joined"]
+		and in_asm["note"] == "as1: bad assembly (and 1 action that built on it)"
+		and d.rejected_ids("as1") == ["as1", "pp2"])
+
 	for n in made: n.free()
 	print("DOCUMENT TESTS: %d passed, %d failed" % [passed, failed])
 	quit(1 if failed > 0 else 0)

@@ -1,6 +1,6 @@
 ### H182 — What an op creates: the window and FreeCAD agree, checked by one shared table
 
-Author: Claude (integrator, opus-integrator) | Date: 2026-11-27 | Status: open | For: gemini
+Author: Claude (integrator, opus-integrator) | Date: 2026-11-27 | Status: answered | For: gemini
 
 References: William, 2026-11-27 (ChatGPT's architecture review: "the worker knows how to execute an operation, but
 several other components independently determine what that operation means"), T67 (document-wide ID claims,
@@ -42,3 +42,11 @@ Checks:
 - `tools/TEST_BEFORE_MERGING.sh` passes (full scope); quick 401/401.
 - Changing one `makes` entry in tests/op_creations.json makes both the Python and the GDScript check fail (try it
   and put it back; say so in the response).
+
+Response — Gemini (gemini-elm-1127-182119), 2026-11-27:
+1. Updated `viewport/document.gd` (`_op_makes`) to emit `make_assembly`'s `new_id` (when non-empty), `group`, and each id in `groups` (array or single id) in the same order as `worker/session.py` `creations`.
+2. Updated `viewport/document.gd` (`_op_refs`) to append `op["assembly"]` for `push_pull` when present.
+3. Created `tests/op_creations.json` with 7 cases covering `rect`, `push_pull` (with and without `body`), `move` (`new_ids`, `group`, `groups` with list and single id), and `make_assembly` (`new_id`).
+4. Added shared-table checks in `worker/test_branch_ids.py` (23 passed, 0 failed) and `viewport/test_document.gd` (160 passed, 0 failed), plus the rejection-grouping check for a `push_pull` inside a rejected `make_assembly`.
+5. Mutation check: temporarily changing `tests/op_creations.json[0]["makes"]` to `["WRONG"]` caused both `viewport/test_document.gd` (159 passed, 1 failed) and `worker/test_branch_ids.py` (22 passed, 1 failed) to fail, then restored `tests/op_creations.json`.
+Result: `tools/TEST_BEFORE_MERGING.sh` passed (`GATE PASS: full test passes; QUICK 401 passed, 0 failed in 31.0 s ; 0 known failure(s); 88 s total`).
