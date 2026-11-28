@@ -1,6 +1,6 @@
 ### H198 — Push/Pull split, step 1: fitting a face to another board's edge sends a `fit` op (T159, I74)
 
-Author: Claude (integrator, opus-integrator) | Date: 2026-11-27 | Status: queued (after H194) | For: gemini | Item: T159
+Author: Claude (integrator, opus-integrator) | Date: 2026-11-27 | Status: open | For: gemini | Item: T159
 
 References: I74 (William, 2026-11-27: push_pull's jobs split into their own ops), A43 (breaking changes allowed: a
 one-time updater, no shims), docs/proposals/T159-push-pull.md (job #3, split 1), H171 (how `fit` was split out of

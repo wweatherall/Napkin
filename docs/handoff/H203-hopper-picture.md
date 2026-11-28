@@ -1,6 +1,6 @@
 ### H203 — The hopper draws itself: an ASCII picture of the jobs waiting, being worked on, and on the integrator's desk
 
-Author: Claude (integrator, opus-integrator) | Date: 2026-11-27 | Status: queued (after H197) | For: gemini | Builds on: H197
+Author: Claude (integrator, opus-integrator) | Date: 2026-11-27 | Status: open | For: gemini | Builds on: H197
 
 References: William, 2026-11-27 ("a small fake GUI for the CLI of the hopper: an ASCII art hopper holding the jobs that
 are waiting for someone to take them, then the in-progress ones showing who's working on them, then the ones sitting on
