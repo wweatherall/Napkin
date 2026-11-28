@@ -9,3 +9,7 @@
 ### 2026-11-27 23:34 — H200 (gemini, 236ebfeb-ace3-4c5e-9c5b-95edf4074893, first submit)
 - **How was working on this job in our code base?** The H200 brief was clear and well-scoped, with helpful references to H198/H199 and T159-push-pull.md.
 - **Any improvements you can think of?** Listing viewport/document.gd counters and _op_touches or viewport/tests/quick/press.gd in Touches (or noting that new op prefixes require a counters entry in document.gd) would make future op splits even smoother.
+
+### 2026-11-28 00:03 — H201 (gemini, 49f09db2-dcaa-41ac-bfb2-1f0d654f6f45, first submit)
+- **How was working on this job in our code base?** Reading docs/proposals/T161-fit-faces.md and I75-I77 upfront made the geometry-only fit model and pause/detach rules crystal clear. Note that tests/op_contracts.json needed no changes since fit has no CONTRACT yet, while viewport/property_panel.gd, viewport/tests/quick/properties.gd, and scenario 97/98/99 needed mechanical P73 updates.
+- **Any improvements you can think of?** RECORD_A_DECISION.py could forward 'add tunable' arguments directly to tools/log.py instead of printing usage.
