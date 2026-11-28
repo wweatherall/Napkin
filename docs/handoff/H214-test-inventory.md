@@ -1,6 +1,6 @@
 ### H214 — Test inventory: every check, its file, its suite and its time, in one generated file (T172 step 1)
 
-Author: Claude (integrator, integrator-opus) | Date: 2026-11-28 | Status: open | For: either | Item: T172
+Author: Claude (integrator, integrator-opus) | Date: 2026-11-28 | Status: answered | For: either | Item: T172
 
 References: William, 2026-11-28: "we need to work on our testing. It is spiraling out of control ... as dense as
 possible ... a test that would fail for what would cause the failures of any 10 other tests, that is the ideal. And
@@ -49,3 +49,77 @@ Checks:
   PASS/FAIL lines, a file whose counts don't add up gets `parsed: false`, detail text is cut off, the sort is stable.
 - Run it for real, commit tests/test_inventory.json, and paste the report into your response.
 - `tools/TEST_BEFORE_MERGING.sh` passes.
+
+Response (Gemini, gemini-maple-1128-095502):
+- Branch: `gemini/h214-test-inventory` (commit `3a2de3e`, merged `main` at `968ab50`).
+- Implemented `tools/test_inventory.py` (sources `tools/featuretest.sh` for `test_runner_for`/`run_test_command` and `tools/gate.sh` for `set_test_tmpdir`, runs feature tests side by side via `ThreadPoolExecutor` for per-process timing, `--quick` runs `tools/quicktest.sh --full` and parses `vp*.log` lane logs, `--report` prints from saved JSON), `tools/test_test_inventory.py` (`TEST INVENTORY TESTS: 9 passed, 0 failed`), and generated `tests/test_inventory.json`.
+- Changed from the brief: added `# runner: none` to line 2 of `tools/test_inventory.py` because its filename starts with `test_` (contrary to Touches' note), so `tools/featuretest.sh` would otherwise run it recursively as a test.
+- Tests: `python3 tools/test_test_inventory.py -v` (9/9 passed); `tools/TEST_BEFORE_MERGING.sh` (`GATE PASS: full test passes; QUICK 439 passed, 0 failed in 26.4 s ; 0 known failure(s); 77 s total`).
+
+Report from `python3 tools/test_inventory.py --report`:
+```
+Totals by suite:
+  quick        3 files,    0 checks,  72.30 s
+  tools       25 files,    0 checks, 245.68 s
+  viewport     7 files,  880 checks,  39.25 s
+  worker      20 files, 1180 checks, 294.18 s
+  total       55 files, 2060 checks, 651.42 s
+
+10 slowest files:
+   42.81 s  tools/test_job.py (tools, 0 checks)
+   42.35 s  worker/test_outside_save.py (worker, 53 checks)
+   42.05 s  tools/test_integrate.py (tools, 0 checks)
+   33.16 s  worker/test_scenario.py (worker, 578 checks)
+   28.50 s  quick/vp1 (quick, 0 checks)
+   27.30 s  quick/vp3 (quick, 0 checks)
+   24.63 s  tools/test_startup.py (tools, 0 checks)
+   22.81 s  worker/test_runs.py (worker, 8 checks)
+   22.62 s  worker/test_native.py (worker, 74 checks)
+   20.20 s  tools/test_log.py (tools, 0 checks)
+
+Unparsed files (40):
+  quick/vp1 (quick, 0 parsed checks)
+  quick/vp2 (quick, 0 parsed checks)
+  quick/vp3 (quick, 0 parsed checks)
+  tools/test_architecture_map.py (tools, 0 parsed checks)
+  tools/test_bookkeeping.py (tools, 0 parsed checks)
+  tools/test_comitatus_commit.py (tools, 0 parsed checks)
+  tools/test_dependency_map.py (tools, 0 parsed checks)
+  tools/test_featuretest.py (tools, 0 parsed checks)
+  tools/test_follow_ups.py (tools, 0 parsed checks)
+  tools/test_freecad_user_cfg.py (tools, 0 parsed checks)
+  tools/test_handoff.py (tools, 0 parsed checks)
+  tools/test_hopper_picture.py (tools, 0 parsed checks)
+  tools/test_integrate.py (tools, 0 parsed checks)
+  tools/test_integrator.py (tools, 0 parsed checks)
+  tools/test_job.py (tools, 0 parsed checks)
+  tools/test_launch.py (tools, 0 parsed checks)
+  tools/test_log.py (tools, 0 parsed checks)
+  tools/test_log_archive.py (tools, 0 parsed checks)
+  tools/test_named_scripts.py (tools, 0 parsed checks)
+  tools/test_number_ids.py (tools, 0 parsed checks)
+  tools/test_org_todos.py (tools, 0 parsed checks)
+  tools/test_personal_space.py (tools, 0 parsed checks)
+  tools/test_protocol_map.py (tools, 0 parsed checks)
+  tools/test_sort_decision_log.py (tools, 0 parsed checks)
+  tools/test_start_worker.py (tools, 0 parsed checks)
+  tools/test_startup.py (tools, 0 parsed checks)
+  tools/test_test_inventory.py (tools, 0 parsed checks)
+  tools/test_test_scope.py (tools, 0 parsed checks)
+  worker/test_combos.py (worker, 46 parsed checks)
+  worker/test_cut_ties.py (worker, 16 parsed checks)
+  worker/test_floor_copy.py (worker, 19 parsed checks)
+  worker/test_generations.py (worker, 25 parsed checks)
+  worker/test_length_input.py (worker, 0 parsed checks)
+  worker/test_length_protocol.py (worker, 0 parsed checks)
+  worker/test_native.py (worker, 74 parsed checks)
+  worker/test_op_contracts.py (worker, 133 parsed checks)
+  worker/test_plane_fit.py (worker, 14 parsed checks)
+  worker/test_properties.py (worker, 77 parsed checks)
+  worker/test_runs.py (worker, 8 parsed checks)
+  worker/test_scenario.py (worker, 578 parsed checks)
+
+Check names in more than one file (0):
+```
+
+Result: `tools/test_inventory.py`, `tools/test_test_inventory.py`, and `tests/test_inventory.json` added and verified (`TEST INVENTORY TESTS: 9 passed, 0 failed`, `GATE PASS`).

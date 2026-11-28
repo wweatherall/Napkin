@@ -27,7 +27,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
 - [H212 — Components and arrays the SketchUp way: one click takes the group, inside every copy is linked, the original is marked (I82)](handoff/H212-components-the-sketchup-way.md) — status: open; for: codex
 - [H213 — The hopper workshop: William's animated, width-aware hopper picture (made with ChatGPT) brought into Napkin](handoff/H213-hopper-workshop.md) — status: open; for: either
-- [H214 — Test inventory: every check, its file, its suite and its time, in one generated file (T172 step 1)](handoff/H214-test-inventory.md) — status: open; for: either
+- [H214 — Test inventory: every check, its file, its suite and its time, in one generated file (T172 step 1)](handoff/H214-test-inventory.md) — status: answered; for: either
 - [H215 — Line coverage per test file for worker/ and tools/, added to the inventory (T172 step 2)](handoff/H215-coverage-per-test.md) — status: queued (after H214); for: either
 
 <!-- end of open list -->
