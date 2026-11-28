@@ -12,7 +12,7 @@ func run() -> void:
 	# T3: the freeze when FreeCAD's answer arrives, on 40 panels with 24 holes each; one more hole in one panel
 	m.cursor2d.visible = false
 	var o := [{"id": "r1", "type": "rect", "plane": {"normal": [0, 0, 1], "origin": [0, 0, 0]}, "size": [1200, 600]},
-		{"id": "pp1", "type": "push_pull", "target": {"rect": "r1"}, "distance": 18, "body": "b1"}]
+		{"id": "pp1", "type": "new_board", "target": {"rect": "r1"}, "distance": 18, "body": "b1"}]
 	for k in 24:
 		o.append({"id": "r%d" % (k + 2), "type": "rect", "plane": {"on": {"body": "b1", "normal": [0, 0, 1],
 			"point": [50 + (k % 8) * 140, 50 + (k / 8) * 180, 18]}}, "size": [20, 20]})

@@ -40,7 +40,7 @@ var model_path := ""                # the FreeCAD file: the model itself (A21)
 var out_dir := ""                   # where the worker writes this model's meshes and exports
 
 var ops: Array = []
-var counters := {"pr": 0, "ft": 0, "uf": 0, "r": 0, "b": 0, "pp": 0, "m": 0, "mv": 0, "mu": 0, "dt": 0, "as": 0, "a": 0, "sm": 0, "tg": 0, "hd": 0, "del": 0}
+var counters := {"pr": 0, "ft": 0, "uf": 0, "r": 0, "b": 0, "nb": 0, "pp": 0, "m": 0, "mv": 0, "mu": 0, "dt": 0, "as": 0, "a": 0, "sm": 0, "tg": 0, "hd": 0, "del": 0}
 # Reservations outlive undo, rejected actions and abandoned futures; only reset() changes documents.
 var reserved_ids := {}
 var _crypto := Crypto.new()
@@ -549,7 +549,7 @@ func consumed_rects() -> Dictionary:
 	"""Rectangles a push/pull has used (a region push takes one cell and leaves the profile)."""
 	var c := {}
 	for op in ops:
-		if op["type"] == "push_pull" and op["target"].has("rect") and not op["target"].has("region"):
+		if op["type"] in ["push_pull", "new_board"] and op["target"].has("rect") and not op["target"].has("region"):
 			c[op["target"]["rect"]] = true
 	return c
 
@@ -568,7 +568,7 @@ static func _op_refs(op: Dictionary) -> Array:
 	var pl: Dictionary = op.get("plane", {})
 	if pl.has("on"): out.append(pl["on"]["body"])
 	var tg: Dictionary = op.get("target", {})
-	if op["type"] == "push_pull" and op.has("edge_fit"): out.append(op["edge_fit"]["target_body"])
+	if op["type"] == "new_board" and op.has("fit"): out.append(op["fit"]["target_body"])
 	if tg.has("region"): out.append_array(tg.region.get("lines", []))
 	if tg.has("rect"): out.append(tg["rect"])
 	if tg.has("face"): out.append(tg["face"]["body"])
@@ -576,13 +576,13 @@ static func _op_refs(op: Dictionary) -> Array:
 	if op.has("cut"): out.append_array([op["cut"]["body"], op["cut"]["op"]])
 	if op["type"] in ["make_component", "property_edit", "unfit"]: out.append(op["body"])
 	if op["type"] == "fit": out.append_array([op["body"], op["target_body"]])
-	if op["type"] == "push_pull" and op.get("assembly", "") != "": out.append(op["assembly"])
+	if op["type"] == "new_board" and op.get("assembly", "") != "": out.append(op["assembly"])
 	return out
 
 
 func _op_makes(op: Dictionary) -> Array:
 	var out: Array = [op["id"]]
-	if op["type"] == "push_pull" and op.get("body", "") != "": out.append(op["body"])
+	if op["type"] == "new_board" and op.get("body", "") != "": out.append(op["body"])
 	out.append_array(op.get("new_ids", []))
 	if op["type"] == "make_assembly" and op.get("new_id", "") != "": out.append(op["new_id"])
 	if op.get("group", "") != "": out.append(op["group"])
@@ -595,7 +595,7 @@ func _op_makes(op: Dictionary) -> Array:
 func _op_touches(op: Dictionary) -> Array:
 	"""Boards an op changes in place (a face on them may exist only because of it)."""
 	var tg: Dictionary = op.get("target", {})
-	if op["type"] == "push_pull" and not op.has("body"):
+	if op["type"] == "push_pull":
 		if tg.has("rect"):
 			var r := op_of(tg["rect"])
 			if not r.is_empty() and r["plane"].has("on"): return [r["plane"]["on"]["body"]]

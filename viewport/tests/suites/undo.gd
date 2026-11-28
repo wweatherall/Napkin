@@ -17,7 +17,7 @@ func run() -> void:
 	for i in 11:
 		m.ops.append({"id": "r%d" % (i + 1), "type": "rect", "plane": {"normal": [0, 0, 1], "origin": [120.0 * i, 0, 0]}, "size": [100, 50]})
 		m.sync(); await harness._wait_confirm(); seen[m.ops.size()] = harness._shown_ids()
-		m.ops.append({"id": "pp%d" % (i + 1), "type": "push_pull", "target": {"rect": "r%d" % (i + 1)}, "distance": 18 + 4 * i, "body": "b%d" % (i + 1)})
+		m.ops.append({"id": "pp%d" % (i + 1), "type": "new_board", "target": {"rect": "r%d" % (i + 1)}, "distance": 18 + 4 * i, "body": "b%d" % (i + 1)})
 		m.sync(); await harness._wait_confirm(); seen[m.ops.size()] = harness._shown_ids()
 	full = m.ops.duplicate(true)
 	print("UNDOTEST built %d ops, %d boards" % [m.ops.size(), seen[m.ops.size()].size()])

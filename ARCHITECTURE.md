@@ -107,6 +107,7 @@ One-line index per module (`tools/architecture_map.py`). Per-file details, warni
 - `worker/replay.py` — Shop Sketch worker: keeps a live FreeCAD document and edits it with native features
 - `worker/serve.py` — The connection loop: one worker serving every window (W13), and the one-off replay (main)
 - `worker/session.py` — Session: one live document bound to one .FCStd file; sync, undo, journal, saving (A23, A42)
+- `worker/update_old_files.py` — One-time updater for pre-H199 saved files (.FCStd and .json) (T159, A43, G09)
 - `worker/visibility.py` — Hide and unhide (T28, I37): SketchUp-style hiding, kept as a board property so it is undoable and saved
 
 - `tools/architecture_map.py` — Generate and check the module map in ARCHITECTURE.md from each code file's own header line (T138)

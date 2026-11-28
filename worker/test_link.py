@@ -198,7 +198,7 @@ def board_ops(width, rid="r1", bid="b1", origin=(0, 0, 0), ppid=None):
         ppid = "pp" + rid[1:] if rid.startswith("r") and rid[1:].isdigit() else f"pp_{rid}"
     return [
         {"id": rid, "type": "rect", "plane": {"normal": [0, 0, 1], "origin": list(origin)}, "size": [width, 100]},
-        {"id": ppid, "type": "push_pull", "target": {"rect": rid}, "distance": 18, "body": bid},
+        {"id": ppid, "type": "new_board", "target": {"rect": rid}, "distance": 18, "body": bid},
     ]
 
 

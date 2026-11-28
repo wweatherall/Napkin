@@ -13,7 +13,7 @@ def run(ctx):
         return dict(id=rid, type='polygon', plane=plane, radius=radius, sides=sides, **extra)
 
     def push(oid, rid, distance, **extra):
-        return dict(id=oid, type='push_pull', target={'rect': rid}, distance=distance, **extra)
+        return dict(id=oid, type='new_board' if 'body' in extra else 'push_pull', target={'rect': rid}, distance=distance, **extra)
 
     def area(sides, radius):
         return 0.5 * sides * radius ** 2 * math.sin(2 * math.pi / sides)

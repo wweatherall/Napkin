@@ -73,9 +73,8 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H199 | Gemini | In progress (gemini since 21:43) | Push/Pull split, step 2: creating a board is a `new_board` op, and the one-time updater (T159, I74, A43) | [H199](docs/handoff/H199-new-board-op.md) |  |
-| H206 | Codex | **Ready** | Codex usage at parity: every view of the token tool shows Codex beside Claude and Gemini | [H206](docs/handoff/H206-codex-usage-parity.md) |  |
-| H205 | Gemini | Queued | Fewer stops for workers: branch log checks ignore newer comitatus rulings, the gate's pass counts for SUBMIT_JOB, the Result line is checked first, one test file runs on its own | [H205](docs/handoff/H205-worker-friction-fixes.md) | H199 |
+| H206 | Codex | **Done**: for review (codex) | Codex usage at parity: every view of the token tool shows Codex beside Claude and Gemini | [H206](docs/handoff/H206-codex-usage-parity.md) |  |
+| H205 | Gemini | **Ready** | Fewer stops for workers: branch log checks ignore newer comitatus rulings, the gate's pass counts for SUBMIT_JOB, the Result line is checked first, one test file runs on its own | [H205](docs/handoff/H205-worker-friction-fixes.md) |  |
 | H204 | Gemini | Queued | Rename everything to Napkin: the app, its files, the names saved inside models, and the tools (T139, P51) | [H204](docs/handoff/H204-rename-to-napkin.md) | H205 |
 | H200 | Gemini | Queued | Push/Pull split, step 3: resizing plain stock is a `resize_stock` op (T159, I74) | [H200](docs/handoff/H200-resize-stock-op.md) | H204 |
 | H201 | Gemini | Queued | A fit names its target face by geometry, follows flips and rotations, and detaches when the face is gone (T161, T163, I75-I77) | [H201](docs/handoff/H201-fits-name-faces-by-geometry.md) | H200 |

@@ -25,7 +25,7 @@ def run(ctx):
                            for a, b in zip(outline, outline[1:] + outline[:1]))) / 2
     ops = [
         dict(id="tangent_base", type="rect", plane={"origin": [x, y, 0], "normal": normal}, size=[600, 400]),
-        dict(id="tangent_board", type="push_pull", target={"rect": "tangent_base"}, distance=top, body=board),
+        dict(id="tangent_board", type="new_board", target={"rect": "tangent_base"}, distance=top, body=board),
         arc,
         dict(id="tangent_cut", type="push_pull", distance=-top, through=True, target={
             "face": face(board, normal, [x + 5, y + 5, top]),

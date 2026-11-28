@@ -1,96 +1,96 @@
 {
  "oplog": "live",
- "total_ms": 2.5,
- "export_ms": 20.0,
+ "total_ms": 3.4,
+ "export_ms": 35.8,
  "how": "undid 0, applied 1",
  "ops": [
   {
-   "id": "r1",
+   "id": "r1_e223402703a19e959252dc8358fca40f",
    "type": "rect",
    "status": "ok",
    "changed": [],
-   "ms": 0.4
+   "ms": 368.2
   },
   {
-   "id": "pp1",
-   "type": "push_pull",
+   "id": "nb1_65cbb4b666fc99777087fd728b8665cf",
+   "type": "new_board",
    "status": "ok",
    "changed": [
-    "b1"
+    "b1_963ba9147b3c0e646f73c61272c23ee3"
    ],
-   "ms": 1.6
+   "ms": 9.8
   },
   {
-   "id": "r2",
+   "id": "r2_f85689232a573fe01147c829feb1e2f5",
    "type": "rect",
    "status": "ok",
    "changed": [],
-   "ms": 1.2
+   "ms": 2.6
   },
   {
-   "id": "pp2",
+   "id": "pp1_30e0bb7a4359d4582e0ab9f2a7bd24dc",
    "type": "push_pull",
    "status": "ok",
    "changed": [
-    "b1"
+    "b1_963ba9147b3c0e646f73c61272c23ee3"
    ],
-   "ms": 14.8
+   "ms": 53.2
   },
   {
-   "id": "m1",
+   "id": "m1_cff22cbae08cb3a49bb95c3276b13311",
    "type": "mirror",
    "status": "ok",
    "changed": [
-    "b2"
+    "b2_d9a2f44a28333334815a1bfeef325f67"
    ],
-   "ms": 2.2
+   "ms": 3.2
   },
   {
-   "id": "pp3",
+   "id": "pp2_24e0935d84d84ede4304727d1fd0d738",
    "type": "push_pull",
    "status": "ok",
    "changed": [
-    "b1"
+    "b1_963ba9147b3c0e646f73c61272c23ee3"
    ],
-   "ms": 13.4
+   "ms": 17.8
   },
   {
-   "id": "pp4",
+   "id": "pp3_410cbb1b7fe8c610c4e5243f44a45eb6",
    "type": "push_pull",
    "status": "ok",
    "changed": [
-    "b2"
+    "b2_d9a2f44a28333334815a1bfeef325f67"
    ],
-   "ms": 30.0
+   "ms": 42.9
   },
   {
-   "id": "m2",
+   "id": "m2_dd950b9d607fedc3919560dd1012f132",
    "type": "mirror",
    "status": "ok",
    "changed": [
-    "b3"
+    "b3_d9feb79eb44cce4f35c9b916573fd419"
    ],
-   "ms": 2.3
+   "ms": 2.8
   },
   {
-   "id": "m3",
+   "id": "m3_82812e43919b9822c89e32156a66fd29",
    "type": "mirror",
    "status": "ok",
    "changed": [
-    "b1"
+    "b1_963ba9147b3c0e646f73c61272c23ee3"
    ],
-   "ms": 3.8
+   "ms": 7.9
   },
   {
-   "id": "mv1",
+   "id": "mv1_7ac5fe84013c92bfc54eefb2698b1a09",
    "type": "move",
    "status": "ok",
    "changed": [
-    "b1"
+    "b1_963ba9147b3c0e646f73c61272c23ee3"
    ],
-   "ms": 2.4
+   "ms": 3.2
   }
  ],
- "rev": 10,
- "model": "/private/tmp/claude-501/-Users-Will/300ed889-a247-4a9d-ab68-891ccd0c6236/scratchpad/vp_st/mirrortest/out/model.FCStd"
+ "rev": 8,
+ "model": "/Users/Will/Sites/comitatus/08_Code_Bases/.worktrees/Napkin/h199/scratch/shopsketch-full.8LjmTS/mirrortest/out/model.FCStd"
 }

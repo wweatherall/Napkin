@@ -30,7 +30,7 @@ def check(name, condition, detail=None):
 def rect(rid='r1', x=0, width=100):
     return {'id':rid,'type':'rect','plane':{'normal':[0,0,1],'origin':[x,0,0]},'size':[width,50]}
 def push(pid='p1', rid='r1', bid='b1'):
-    return {'id':pid,'type':'push_pull','target':{'rect':rid},'distance':18,'body':bid}
+    return {'id':pid,'type':'new_board','target':{'rect':rid},'distance':18,'body':bid}
 def move(oid, target, vector, **kw):
     return dict(id=oid,type='move',targets=[target],vector=vector,**kw)
 def mirror(target='b2', group=True):

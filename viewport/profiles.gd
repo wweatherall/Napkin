@@ -269,8 +269,8 @@ func forget_op(op: Dictionary, ops: Array, used: Dictionary) -> void:
 	elif op["type"] in ["mirror", "move"]:
 		for nid in op.get("new_ids", []):
 			pres.body_tris.erase(nid); pres.body_verts.erase(nid); pres.body_edges.erase(nid)
-	elif op["type"] == "push_pull":
-		if op.has("body"):
+	elif op["type"] in ["push_pull", "new_board"]:
+		if op["type"] == "new_board" and op.has("body"):
 			pres.body_tris.erase(op["body"]); pres.body_verts.erase(op["body"]); pres.body_edges.erase(op["body"])
 		var rid: String = op["target"].get("rect", "")
 		if rid != "" and not op["target"].has("region"):

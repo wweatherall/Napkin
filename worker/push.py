@@ -156,33 +156,8 @@ class PushActions:
         self.group("Rectangles", "Rectangles").addObject(pl)
         return []
 
-    def op_push_pull(self, op):
-        d = float(op["distance"])
-        if abs(d) < TOL:
-            raise OpError("distance is zero")
-        tgt = op["target"]
-        oid = op["id"]
-        fit = op.get("edge_fit")
-        to_face = op.get("to_face")
-        if to_face is not None and (d >= 0 or op.get("through") or fit or op.get("resize_stock") or op.get("body")):
-            raise OpError("to_face is only for a cut into a board")
-        if fit and "face" in tgt and "region" not in tgt:
-            raise OpError("edge_fit is only for a new board; use fit for an existing face")
-        if "face" in tgt and not fit and "region" not in tgt:
-            import plane_fit
-            board = self.body(tgt["face"]["body"])
-            if plane_fit.fitted_end(board) is not None:      # pushing a tied end again detaches it (I26b, I40)
-                if plane_fit.push_fitted_end(self, board, unit(vec(tgt["face"]["normal"])), vec(tgt["face"]["point"]), d):
-                    if to_face is not None:
-                        raise OpError("to_face is only for a cut into a board")
-                    return plane_fit.family_bodies(self, board)
-            if not op.get("body"):
-                self._detach_floor_cuts(board, vec(tgt["face"]["normal"]), vec(tgt["face"]["point"]))
-        if op.get("resize_stock") and "face" in tgt and "region" not in tgt:
-            import plane_fit
-            board, _, normal = self.resolve_face(tgt["face"])
-            if plane_fit.resize_face(self,board,normal,d):
-                return plane_fit.family_bodies(self, board)
+    def _resolve_push_target(self, tgt):
+        """Resolve a push_pull or new_board target dict into (world_face, n, on, pl, geom)."""
         if "rect" in tgt:
             pl = self.rect_obj(tgt["rect"])
             if pl is None:
@@ -193,26 +168,30 @@ class PushActions:
             if polygonal:
                 world_face = pl.Shape.Faces[0]
                 n = world_face.normalAt(0, 0)
+                geom = ("poly", None)
             elif ngon:
                 p0, ex, ey, n, radius, sides = self.polygon_world(pl)
                 corners = [p0 + (ex * math.cos(2 * math.pi * i / sides) + ey * math.sin(2 * math.pi * i / sides)) * radius
                            for i in range(sides)]
                 world_face = Part.Face(Part.makePolygon(corners + corners[:1]))
+                geom = ("ngon", (p0, ex, ey, radius, sides))
             elif circular:
                 p0, ex, ey, n, radius = self.circle_world(pl)
                 world_face = Part.Face(Part.Wire([Part.makeCircle(radius, p0, n)]))
+                geom = ("circle", (p0, ex, ey, radius))
             else:
                 p0, ex, ey, n = self.rect_world(pl)
                 world_face = Part.Face(Part.makePolygon([p0, p0 + ex, p0 + ex + ey, p0 + ey, p0]))
+                geom = ("rect", (p0, ex, ey))
             on = pl.OnBody
             loose = any(g.TypeId == "App::DocumentObjectGroup" for g in pl.InList)
         elif "face" in tgt:
             _, world_face, n = self.resolve_face(tgt["face"])
             on = tgt["face"]["body"]
-            pl = None
+            pl, loose, geom = None, False, None
         elif "region" in tgt:
             world_face, n = self.region_face(tgt["region"])
-            on, pl = "", None
+            on, pl, loose, geom = "", None, False, None
         else:
             raise OpError("push needs a profile, face or closed region")
 
@@ -236,43 +215,87 @@ class PushActions:
                     sheet = self.ground_region_sheet(world_face, n, drawings)
                     world_face = self.native_region(sheet, world_face, tgt["region"], is_ground=True)
             pl = None  # materialize this region, never extrude the whole source profile
+        return world_face, n, on, pl, loose, geom
 
-        if not on or op.get("body"):
-            if to_face is not None:
-                raise OpError("to_face is only for a cut into a board")
-            # a free rectangle, or the user asked for a separate board: a new board, world frame
-            bid = op.get("body") or f"{oid}_body"
-            c = self.new_board(bid)
-            if pl is not None:
-                if polygonal:
-                    base = self.face_feature(world_face, f"{tgt['rect']} outline")
-                elif ngon:
-                    base = self.polygon_feature(p0, ex, ey, radius, sides, f"{tgt['rect']} again",
-                                                existing=pl if loose else None)
-                elif circular:
-                    base = self.circle_feature(p0, ex, ey, radius, f"{tgt['rect']} again", existing=pl if loose else None)
-                else:
-                    base = pl if loose else self.plane_feature(p0, ex, ey, f"{tgt['rect']} again")
-                    if loose:
-                        self.plane_feature(p0, ex, ey, "", existing=pl)
+    def _new_board_op(self, op):
+        """Create a new board from a profile or region, optionally fitted to another board (I74)."""
+        d = float(op["distance"])
+        if abs(d) < TOL:
+            raise OpError("distance is zero")
+        tgt = op["target"]
+        oid = op["id"]
+        bid = op["body"]
+        if not bid:
+            raise OpError("new_board needs a body id")
+        fit = op.get("fit")
+        world_face, n, _, pl, loose, geom = self._resolve_push_target(tgt)
+        c = self.new_board(bid)
+        if pl is not None:
+            kind, args = geom
+            if kind == "poly":
+                base = self.face_feature(world_face, f"{tgt['rect']} outline")
+            elif kind == "ngon":
+                p0, ex, ey, radius, sides = args
+                base = self.polygon_feature(p0, ex, ey, radius, sides, f"{tgt['rect']} again",
+                                            existing=pl if loose else None)
+            elif kind == "circle":
+                p0, ex, ey, radius = args
+                base = self.circle_feature(p0, ex, ey, radius, f"{tgt['rect']} again", existing=pl if loose else None)
             else:
-                base = self.face_feature(world_face, f"{oid} face")
-            self.put_in(c, base)
-            ext = self.extrusion(base, n * d, d, f"{oid} push")
-            add_props(ext, SSOp=oid)
-            self.set_tip(c, ext)
-            if op.get("assembly"):                   # drawn inside an entered assembly: it joins it (T20)
-                asm = self.assemblies().get(op["assembly"])
-                if asm is None:
-                    raise OpError(f"unknown assembly '{op['assembly']}'", about=[op["assembly"]])
-                asm.addObject(c)
-            self.doc.recompute()
-            if not Part.getShape(c).Solids:
-                raise OpError("the push didn't make a solid")
-            if fit:
-                import plane_fit
-                return plane_fit.apply(self, dict(body=bid,target_body=fit["target_body"],axis=2,face=fit["face"],fit_mode=fit.get("fit_mode", 0)))
-            return [bid]
+                p0, ex, ey = args
+                base = pl if loose else self.plane_feature(p0, ex, ey, f"{tgt['rect']} again")
+                if loose:
+                    self.plane_feature(p0, ex, ey, "", existing=pl)
+        else:
+            base = self.face_feature(world_face, f"{oid} face")
+        self.put_in(c, base)
+        ext = self.extrusion(base, n * d, d, f"{oid} push")
+        add_props(ext, SSOp=oid)
+        self.set_tip(c, ext)
+        if op.get("assembly"):                   # drawn inside an entered assembly: it joins it (T20)
+            asm = self.assemblies().get(op["assembly"])
+            if asm is None:
+                raise OpError(f"unknown assembly '{op['assembly']}'", about=[op["assembly"]])
+            asm.addObject(c)
+        self.doc.recompute()
+        if not Part.getShape(c).Solids:
+            raise OpError("the push didn't make a solid")
+        if fit:
+            import plane_fit
+            return plane_fit.apply(self, dict(body=bid, target_body=fit["target_body"], axis=2,
+                                              face=fit["face"], fit_mode=fit.get("fit_mode", 0)))
+        return [bid]
+
+    def op_push_pull(self, op):
+        d = float(op["distance"])
+        if abs(d) < TOL:
+            raise OpError("distance is zero")
+        tgt = op["target"]
+        oid = op["id"]
+        if op.get("body"):
+            raise OpError("use new_board to create a board")
+        if op.get("edge_fit"):
+            raise OpError("edge_fit is only on new_board; use fit for an existing face")
+        to_face = op.get("to_face")
+        if to_face is not None and (d >= 0 or op.get("through") or op.get("resize_stock")):
+            raise OpError("to_face is only for a cut into a board")
+        if "face" in tgt and "region" not in tgt:
+            import plane_fit
+            board = self.body(tgt["face"]["body"])
+            if plane_fit.fitted_end(board) is not None:      # pushing a tied end again detaches it (I26b, I40)
+                if plane_fit.push_fitted_end(self, board, unit(vec(tgt["face"]["normal"])), vec(tgt["face"]["point"]), d):
+                    if to_face is not None:
+                        raise OpError("to_face is only for a cut into a board")
+                    return plane_fit.family_bodies(self, board)
+            self._detach_floor_cuts(board, vec(tgt["face"]["normal"]), vec(tgt["face"]["point"]))
+        if op.get("resize_stock") and "face" in tgt and "region" not in tgt:
+            import plane_fit
+            board, _, normal = self.resolve_face(tgt["face"])
+            if plane_fit.resize_face(self,board,normal,d):
+                return plane_fit.family_bodies(self, board)
+        world_face, n, on, pl, loose, geom = self._resolve_push_target(tgt)
+        if not on:
+            raise OpError("use new_board to create a board")
 
         # draw-on-face edit: the extrusion lands in the target board's own frame
         target = self.body(on)
@@ -280,14 +303,21 @@ class PushActions:
         if c.Tip is None:
             raise OpError(f"'{on}' has no solid yet", about=[on])
         if pl is not None:
-            if polygonal:
+            kind, args = geom
+            if kind == "poly":
                 base = self.face_feature(fr.shape(world_face), f"{tgt['rect']} outline")
             else:
+                if kind == "ngon":
+                    p0, ex, ey, radius, sides = args
+                elif kind == "circle":
+                    p0, ex, ey, radius = args
+                else:
+                    p0, ex, ey = args
                 lp0, lex, ley = fr.pt(p0), fr.dir(ex), fr.dir(ey)
-                if ngon:
+                if kind == "ngon":
                     base = self.polygon_feature(lp0, lex, ley, radius, sides, f"{tgt['rect']} again",
                                                 existing=pl if loose else None)
-                elif circular:
+                elif kind == "circle":
                     base = self.circle_feature(lp0, lex, ley, radius, f"{tgt['rect']} again", existing=pl if loose else None)
                 elif loose:
                     base = self.plane_feature(lp0, lex, ley, "", existing=pl)

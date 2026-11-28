@@ -25,7 +25,6 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 <!-- open list: built from docs/handoff/ by tools/handoff.py; don't edit by hand -->
 
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
-- [H199 — Push/Pull split, step 2: creating a board is a `new_board` op, and the one-time updater (T159, I74, A43)](handoff/H199-new-board-op.md) — status: open; for: gemini
 - [H200 — Push/Pull split, step 3: resizing plain stock is a `resize_stock` op (T159, I74)](handoff/H200-resize-stock-op.md) — status: queued (after H204); for: gemini
 - [H201 — A fit names its target face by geometry, follows flips and rotations, and detaches when the face is gone (T161, T163, I75-I77)](handoff/H201-fits-name-faces-by-geometry.md) — status: queued (after H200); for: gemini
 - [H202 — Design: how a fit that lost its face looks (a chain crumbling, or another gentle metaphor), a proposal with drafts for William](handoff/H202-fit-detach-look.md) — status: queued (after H201); for: gemini
@@ -39,6 +38,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 Full entries in [handoff-archive.md](handoff-archive.md).
 
+- H199 — Push/Pull split, step 2: creating a board is a `new_board` op, and the one-time updater (T159, I74, A43). Resolved: merged into main by the integrator, 2026-11-27.
 - H203 — The hopper draws itself: an ASCII picture of the jobs waiting, being worked on, and on the integrator's desk. Resolved: merged into main by the integrator, 2026-11-27.
 - H198 — Push/Pull split, step 1: fitting a face to another board's edge sends a `fit` op (T159, I74). Resolved: merged into main by the integrator, 2026-11-27.
 - H194 — The worker checks each op against its contract before running it (ops with a contract only). Resolved: merged into main by the integrator, 2026-11-27.
@@ -48,9 +48,8 @@ Full entries in [handoff-archive.md](handoff-archive.md).
 - H196 — The hopper runs in its own Terminal window; the integrator waits for it separately (and Order is kept across agents). Resolved: merged into main by the integrator, 2026-11-27.
 - H192 — Contracts for the single-mode board ops (paint, grain, hide, delete, link, assembly, mirror, unfit). Resolved: merged into main by the integrator, 2026-11-27.
 - H191 — Contracts for every profile op (rect, polygon, line, arc), and the tool and draft checks Circle's pilot lacked. Resolved: merged into main by the integrator, 2026-11-27.
-- H190 — What each step cost: a member's Log shown with the quota used between its lines. Resolved: merged into main by the integrator, 2026-11-27.
 
-Older: docs/handoff-archive.md (197 entries; find one with grep "^### H0NN" docs/handoff-archive.md)
+Older: docs/handoff-archive.md (198 entries; find one with grep "^### H0NN" docs/handoff-archive.md)
 
 ## Entry template
 

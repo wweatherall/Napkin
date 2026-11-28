@@ -214,6 +214,43 @@
     "tool": "viewport/selection.gd",
     "type": "make_unique"
   },
+  "new_board": {
+    "creates": [
+      "id",
+      "body"
+    ],
+    "fields": {
+      "assembly": {
+        "kind": "string",
+        "required": false
+      },
+      "body": {
+        "kind": "string",
+        "required": true
+      },
+      "distance": {
+        "kind": "number",
+        "required": true
+      },
+      "fit": {
+        "kind": "FitSpec",
+        "required": false
+      },
+      "target": {
+        "kind": "Target",
+        "required": true
+      }
+    },
+    "refers_to": [
+      "target.rect",
+      "target.face.body",
+      "target.region.lines[]",
+      "assembly",
+      "fit.target_body"
+    ],
+    "tool": "viewport/tools/push_tool.gd",
+    "type": "new_board"
+  },
   "polygon": {
     "creates": [
       "id"

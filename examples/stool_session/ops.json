@@ -29,7 +29,7 @@
   },
   {
    "id": "pp1",
-   "type": "push_pull",
+   "type": "new_board",
    "distance": 400.0,
    "target": {
     "rect": "r1"
@@ -62,7 +62,7 @@
   },
   {
    "id": "pp2",
-   "type": "push_pull",
+   "type": "new_board",
    "distance": 400.0,
    "target": {
     "rect": "r2"
@@ -98,7 +98,7 @@
   },
   {
    "id": "pp3",
-   "type": "push_pull",
+   "type": "new_board",
    "distance": 20.0,
    "target": {
     "rect": "r3"

@@ -171,7 +171,7 @@ func _last_rect() -> Array:
 
 func _board_ops(w: float, h: float) -> Array:
 	return [{"id": "r1", "type": "rect", "plane": {"normal": [0, 0, 1], "origin": [0, 0, 0]}, "size": [w, 200]},
-		{"id": "pp1", "type": "push_pull", "target": {"rect": "r1"}, "distance": h, "body": "b1"}]
+		{"id": "pp1", "type": "new_board", "target": {"rect": "r1"}, "distance": h, "body": "b1"}]
 
 func _top() -> float:
 	for b in JSON.parse_string(FileAccess.get_file_as_string(m.out_dir.path_join("bodies.json"))):
@@ -224,7 +224,7 @@ func _q_lap(name: String) -> void:
 
 func _plank(i: int, origin: Vector3, size: Vector3) -> Array:
 	return [{"id": "r%d" % i, "type": "rect", "plane": {"normal": [0, 0, 1], "origin": [origin.x, origin.y, origin.z]}, "size": [size.x, size.y]},
-		{"id": "pp%d" % i, "type": "push_pull", "target": {"rect": "r%d" % i}, "distance": size.z, "body": "b%d" % i}]
+		{"id": "pp%d" % i, "type": "new_board", "target": {"rect": "r%d" % i}, "distance": size.z, "body": "b%d" % i}]
 
 
 # The quick test's sections, in the order one session runs them; --quick-lane=N runs lane N only, in a window

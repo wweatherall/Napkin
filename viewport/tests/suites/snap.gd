@@ -12,9 +12,9 @@ func run() -> void:
 	# Q16: Rectangle and Push/Pull snap like Move (endpoint > midpoint > on edge > grid; push to a point)
 	m.cursor2d.visible = false
 	m.ops.append({"id": "r1", "type": "rect", "plane": {"normal": [0, 0, 1], "origin": [0, 0, 0]}, "size": [300, 200]})
-	m.ops.append({"id": "pp1", "type": "push_pull", "target": {"rect": "r1"}, "distance": 18, "body": "b1"})
+	m.ops.append({"id": "pp1", "type": "new_board", "target": {"rect": "r1"}, "distance": 18, "body": "b1"})
 	m.ops.append({"id": "r2", "type": "rect", "plane": {"normal": [0, 0, 1], "origin": [400, 0, 0]}, "size": [100, 100]})
-	m.ops.append({"id": "pp2", "type": "push_pull", "target": {"rect": "r2"}, "distance": 50, "body": "b2"})
+	m.ops.append({"id": "pp2", "type": "new_board", "target": {"rect": "r2"}, "distance": 50, "body": "b2"})
 	m.counters["r"] = 2; m.counters["pp"] = 2; m.counters["b"] = 2
 	m.sync(); await harness._wait_confirm()
 	await harness._view(Vector3(250, 100, 20), -30, -35, 1.1)

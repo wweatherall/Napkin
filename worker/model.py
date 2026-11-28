@@ -17,17 +17,32 @@ from common import (
     Frame, NORMAL_TOL, OpError, TOL, V, add_props, board_label, rotation_from, unit, vec,
 )
 
-CONTRACT = {
-    "type": "unfit",
-    "fields": {
-        "body": {"required": True, "kind": "string"},
-        "axis": {"required": True, "kind": "integer"},
-        "value": {"required": True, "kind": "string"},
+CONTRACTS = [
+    {
+        "type": "unfit",
+        "fields": {
+            "body": {"required": True, "kind": "string"},
+            "axis": {"required": True, "kind": "integer"},
+            "value": {"required": True, "kind": "string"},
+        },
+        "refers_to": ["body"],
+        "creates": ["id"],
+        "tool": "viewport/property_panel.gd",
     },
-    "refers_to": ["body"],
-    "creates": ["id"],
-    "tool": "viewport/property_panel.gd",
-}
+    {
+        "type": "new_board",
+        "fields": {
+            "target": {"required": True, "kind": "Target"},
+            "distance": {"required": True, "kind": "number"},
+            "body": {"required": True, "kind": "string"},
+            "assembly": {"required": False, "kind": "string"},
+            "fit": {"required": False, "kind": "FitSpec"},
+        },
+        "refers_to": ["target.rect", "target.face.body", "target.region.lines[]", "assembly", "fit.target_body"],
+        "creates": ["id", "body"],
+        "tool": "viewport/tools/push_tool.gd",
+    },
+]
 
 
 def action_mixins():
@@ -332,6 +347,10 @@ class Model(*action_mixins()):
         add_props(b, SSOp=oid)
         self.set_tip(container, b)
         return b
+
+    def op_new_board(self, op):
+        """Create a new board from a profile or region, optionally fitted to another board (I74)."""
+        return self._new_board_op(op)
 
     def op_fit(self, op):
         """Fit a board's stock axis to a face on another board (T162): see plane_fit.apply."""

@@ -34,7 +34,7 @@ def run(ctx):
 
     def board(bid, z):
         return [dict(id=bid+'r', type='rect', plane=dict(normal=[0,0,1], origin=[0,0,z]), size=[40,20]),
-                dict(id=bid+'p', type='push_pull', target=dict(rect=bid+'r'), distance=20, body=bid)]
+                dict(id=bid+'p', type='new_board', target=dict(rect=bid+'r'), distance=20, body=bid)]
 
     def fit(bid, target):
         return dict(id=bid+'fit', type='fit', body=bid,

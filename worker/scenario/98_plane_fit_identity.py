@@ -10,7 +10,7 @@ requires = ()
 def _board(bid, origin, size):
     return [
         dict(id=bid + 'r', type='rect', plane=dict(normal=[0, 0, 1], origin=origin), size=size[:2]),
-        dict(id=bid + 'p', type='push_pull', target=dict(rect=bid + 'r'), distance=size[2], body=bid),
+        dict(id=bid + 'p', type='new_board', target=dict(rect=bid + 'r'), distance=size[2], body=bid),
     ]
 
 
@@ -84,7 +84,7 @@ def run(ctx):
     try:
         ops = [
             dict(id='c1', type='circle', plane=dict(origin=[0, 0, 0], normal=[0, 0, 1]), radius=20.0),
-            dict(id='cp1', type='push_pull', target=dict(rect='c1'), distance=20.0, body='cyl'),
+            dict(id='cp1', type='new_board', target=dict(rect='c1'), distance=20.0, body='cyl'),
         ] + _board('top', [-30, -30, 150], [60, 60, 20]) + [_fit('f_cyl', 'cyl', 'top', axis=2, face=4)]
         s.sync(ops)
         snap = plane_fit.snapshot(s.model.body('cyl'))

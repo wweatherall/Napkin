@@ -17,22 +17,22 @@ def run(ctx):
     try:
         slope_ops = [
             dict(id='sr', type='rect', plane=dict(origin=[0, 0, 200], normal=slope_n), size=[400, 400]),
-            dict(id='sp', type='push_pull', target=dict(rect='sr'), distance=20.0, body='slope'),
+            dict(id='sp', type='new_board', target=dict(rect='sr'), distance=20.0, body='slope'),
         ]
         s.sync(slope_ops)
         sc = s.model.world_shape(s.model.body('slope')).BoundBox.Center
         ops = slope_ops + [
             dict(id='sm', type='move', targets=['slope'], vector=[-sc.x, -sc.y, 0.0]),
             dict(id='cr', type='circle', plane=dict(origin=[0, 0, 0], normal=[0, 0, 1]), radius=50.0),
-            dict(id='cp', type='push_pull', target=dict(rect='cr'), distance=20.0, body='cyl'),
+            dict(id='cp', type='new_board', target=dict(rect='cr'), distance=20.0, body='cyl'),
             dict(id='cf', type='fit', body='cyl',
                  target_body='slope', axis=2, face=4, fit_mode=0),
             dict(id='pr', type='polygon', plane=dict(origin=[0, 0, 0], normal=[0, 0, 1]), sides=6, radius=50.0),
-            dict(id='pp', type='push_pull', target=dict(rect='pr'), distance=20.0, body='poly'),
+            dict(id='pp', type='new_board', target=dict(rect='pr'), distance=20.0, body='poly'),
             dict(id='pf', type='fit', body='poly',
                  target_body='slope', axis=2, face=4, fit_mode=2),
             dict(id='rr', type='rect', plane=dict(origin=[-50, -50, 0], normal=[0, 0, 1]), size=[100, 100]),
-            dict(id='rp', type='push_pull', target=dict(rect='rr'), distance=20.0, body='rect_b'),
+            dict(id='rp', type='new_board', target=dict(rect='rr'), distance=20.0, body='rect_b'),
             dict(id='rf', type='fit', body='rect_b',
                  target_body='slope', axis=2, face=4, fit_mode=0),
         ]

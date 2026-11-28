@@ -1,6 +1,6 @@
 [
   {"op": {"id": "r1", "type": "rect"}, "makes": ["r1"]},
-  {"op": {"id": "pp1", "type": "push_pull", "body": "b1"}, "makes": ["pp1", "b1"]},
+  {"op": {"id": "pp1", "type": "new_board", "body": "b1"}, "makes": ["pp1", "b1"]},
   {"op": {"id": "pp2", "type": "push_pull"}, "makes": ["pp2"]},
   {"op": {"id": "mv1", "type": "move", "new_ids": ["b2", "b3"]}, "makes": ["mv1", "b2", "b3"]},
   {"op": {"id": "as1", "type": "make_assembly", "new_id": "a1"}, "makes": ["as1", "a1"]},

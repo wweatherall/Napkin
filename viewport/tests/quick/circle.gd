@@ -100,7 +100,7 @@ func _check_predictions() -> void:
 		var radius: float = cases[i][2]
 		await harness._fresh("circle_prediction_%d" % i, [
 			{"id": "r1", "type": "circle", "plane": {"origin": Main.arr3(center), "normal": Main.arr3(normal)}, "radius": radius},
-			{"id": "pp1", "type": "push_pull", "target": {"rect": "r1"}, "distance": height, "body": "b1"},
+			{"id": "pp1", "type": "new_board", "target": {"rect": "r1"}, "distance": height, "body": "b1"},
 		])
 		var shape: Dictionary = m.pres.circle_geometry(center, normal, radius)
 		var predicted_radius: float = (shape.pts[0] - center).length()
