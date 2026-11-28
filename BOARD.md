@@ -76,7 +76,7 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 |---|---|---|---|---|---|
 | H212 | Codex | Claimed: branch codex/h212-components-the-sketchup-way | Components and arrays the SketchUp way: one click takes the group, inside every copy is linked, the original is marked (I82) | [H212](docs/handoff/H212-components-the-sketchup-way.md) |  |
 | H213 | either | Claimed: branch gemini/h213-hopper-workshop | The hopper workshop: William's animated, width-aware hopper picture (made with ChatGPT) brought into Napkin | [H213](docs/handoff/H213-hopper-workshop.md) |  |
-| H218 | either | **Ready** | Read the kill matrix: which tests stand for which, the gaps, and a draft tree of dense tests (T171 step 2) | [H218](docs/handoff/H218-kill-matrix-report.md) |  |
+| H218 | either | In progress (codex since 14:16) | Read the kill matrix: which tests stand for which, the gaps, and a draft tree of dense tests (T171 step 2) | [H218](docs/handoff/H218-kill-matrix-report.md) |  |
 | H219 | Codex | **Ready** | Mutation testing for the viewport's GDScript (T171 step 3) | [H219](docs/handoff/H219-mutation-gdscript.md) |  |
 
 <!-- end of job table -->

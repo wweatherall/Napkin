@@ -1,6 +1,6 @@
 ### H219 — Mutation testing for the viewport's GDScript (T171 step 3)
 
-Author: Claude (integrator, integrator-opus) | Date: 2026-11-28 | Status: queued (after H217) | For: Codex | Item: T171
+Author: Claude (integrator, integrator-opus) | Date: 2026-11-28 | Status: open | For: Codex | Item: T171
 
 References: H217 (`tools/mutate.py`: its runner, lanes, resume and matrix); T171, T172; viewport/CLAUDE.md (the
 viewport tests, the quick test's lanes).

@@ -1,6 +1,6 @@
 ### H218 — Read the kill matrix: which tests stand for which, the gaps, and a draft tree of dense tests (T171 step 2)
 
-Author: Claude (integrator, integrator-opus) | Date: 2026-11-28 | Status: queued (after H217) | For: either | Item: T171
+Author: Claude (integrator, integrator-opus) | Date: 2026-11-28 | Status: open | For: either | Item: T171
 
 References: H217 (`tests/kill_matrix.json`: per mutant, the tests that killed it); T172 and its notes (William's tree:
 ultra-dense tests at the top, each linking about 5 less dense ones; a bug may fail two branches, so a node may share

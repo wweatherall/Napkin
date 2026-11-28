@@ -35,6 +35,8 @@ Named scripts for every action a person or worker runs directly. Each script is 
 - `COMPARE_TEST_SUITES.py` — compare viewport suite runs with `tests/reference/` (`compare_suites.py`).
 - `test_inventory.py` — list every check, its file, suite and time in `tests/test_inventory.json` (`--quick` adds the quick lanes, `--report` prints the totals, slowest and unparsed files from the saved file; `--coverage` runs the worker and tools tests under `line_trace.py` and writes `tests/test_coverage.json`, `--coverage-report` prints it; T172, H214, H215).
 - `line_trace.py` — run one Python test under `sys.settrace` (child `python3` and `freecadcmd` processes too) and write the `worker/` and `tools/` lines and functions it ran (H215).
+- `mutate.py` — plant small bugs in `worker/` one at a time in detached worktrees and record which tests catch each (`--lanes N`, `--sample N`, `--budget-minutes M`; rerun to resume, skipping saved mutants; `--matrix` exports `tests/kill_matrix.json`; T171, H217).
+- `reading_cost.py` — what each agent read before and while doing a job, from the saved transcripts (`<H0NN>` for one job, `--all` writes `tests/reading_cost.json`, `--report` prints it by kind and day; T175, H216).
 - `CHECK_TYPED_LENGTHS_AGAINST_FREECAD.py` — regenerate `tests/length_cases.json` with `freecadcmd` (`length_cases.py`).
 - `UPDATE_OLD_FILES.py` — one-time updater rewriting pre-H199 ops in `.FCStd` and `.json` files (`worker/update_old_files.py`).
 - `TEST_YOUR_CODE_FAST.sh` — run the quick test (`quicktest.sh`).
