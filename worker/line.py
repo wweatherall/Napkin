@@ -12,6 +12,21 @@ import Sketcher
 from common import OpError, TOL, V, add_props, rotation_from, unit, vec
 
 
+CONTRACT = {
+    "type": "line",
+    "fields": {
+        "plane": {"required": True, "kind": "Plane"},
+        "end": {"required": True, "kind": "[number, number, number]"},
+        "outline": {"required": False, "kind": "[[number, number, number]]"},
+        "snap_start": {"required": False, "kind": "bool", "default": False, "viewport_only": True},
+        "snap_end": {"required": False, "kind": "bool", "default": False, "viewport_only": True},
+    },
+    "refers_to": ["plane.on.body"],
+    "creates": ["id"],
+    "tool": "viewport/tools/line_tool.gd",
+}
+
+
 class LineActions:
     def polygon_face(self, points, normal):
         pts = [vec(p) for p in points]

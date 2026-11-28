@@ -25,7 +25,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 <!-- open list: built from docs/handoff/ by tools/handoff.py; don't edit by hand -->
 
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
-- [H191 — Contracts for every profile op (rect, polygon, line, arc), and the tool and draft checks Circle's pilot lacked](handoff/H191-profile-op-contracts.md) — status: open; for: gemini
+- [H191 — Contracts for every profile op (rect, polygon, line, arc), and the tool and draft checks Circle's pilot lacked](handoff/H191-profile-op-contracts.md) — status: answered; for: gemini
 - [H192 — Contracts for the single-mode board ops (paint, grain, hide, delete, link, assembly, mirror, unfit)](handoff/H192-board-op-contracts.md) — status: open; for: gemini
 - [H193 — Design: contracts for the ops with modes (move, push_pull, property_edit, fit), a proposal for William](handoff/H193-moded-op-contracts-design.md) — status: open; for: gemini
 - [H194 — The worker checks each op against its contract before running it (ops with a contract only)](handoff/H194-enforce-op-contracts.md) — status: open; for: gemini

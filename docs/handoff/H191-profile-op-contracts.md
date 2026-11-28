@@ -1,6 +1,6 @@
 ### H191 — Contracts for every profile op (rect, polygon, line, arc), and the tool and draft checks Circle's pilot lacked
 
-Author: Claude (integrator, opus-integrator) | Date: 2026-11-27 | Status: open | For: gemini
+Author: Claude (integrator, opus-integrator) | Date: 2026-11-27 | Status: answered | For: gemini
 
 References: William, 2026-11-27 ("carry on with the contracts; close those gaps between the drawing tool and the
 draft drawing"), H189 (the Circle pilot: `CONTRACT`, worker/op_contracts.py, tests/op_contracts.json,
@@ -44,3 +44,16 @@ contract's shape beyond what these ops need.
 Checks:
 - `tools/TEST_BEFORE_MERGING.sh` passes (full scope); quick 401/401.
 - `python3 worker/op_contracts.py --check` and `python3 tools/protocol_map.py --check` pass.
+
+Response (Gemini, gemini-maple-1127-195450):
+- Added `CONTRACT` dicts to `worker/push.py` (`rect`), `worker/polygon.py` (`polygon`), `worker/line.py` (`line`), and `worker/arc.py` (`arc`), and regenerated `tests/op_contracts.json` via `python3 worker/op_contracts.py`.
+- `line` and `arc` mark `snap_start` and `snap_end` as `"viewport_only": True` (sent by `line_tool.gd` / `arc_tool.gd`, read by `register_line`, documented in `docs/protocol.md`, unread by `op_line` / `op_arc`).
+- Extended `worker/test_op_contracts.py` to support `integer`, `bool`, `[number, number, number]`, `[[number, number, number]]`, `max` bounds, and `viewport_only` fields across all contracts (52/52 passed).
+- Added `_test_profile_contracts()` in `viewport/test_tool_context.gd` checking all five profile tools (`circle`, `rect`, `polygon`, `line`, `arc`) against `tests/op_contracts.json` and checking `register_rect` / `register_line` on both required-only and full ops for all five contracts (165/165 passed).
+- Fixed `docs/protocol.md` `line` and `arc` rows (`snap_start?: boolean`, `snap_end?: boolean`) so `tools/protocol_map.py --check` parses all optional fields, and updated `docs/op-contracts.md` table and gaps.
+- Mutation checks (all 3 caught and reverted):
+  1. Required field tool does not send (`circle.bogus_req` added): caught by `H191: circle tool commits op matching contract (missing=["bogus_req"] extra=[])`.
+  2. Field tool sends that contract lacks (`circle.radius` removed): caught by `H191: circle tool commits op matching contract (missing=[] extra=["radius"])` (and `register_rect draws required/full circle op`).
+  3. Required field draft needs removed (`rect.size` removed): caught by `H191: register_rect draws required rect op` / `register_rect draws full rect op` (`Invalid access to property or key 'size'`, plus `rect tool commits op matching contract`).
+
+Result: `python3 worker/op_contracts.py --check` passed; `python3 tools/protocol_map.py --check` passed; `tools/TEST_BEFORE_MERGING.sh` passed (`GATE PASS: full test passes; QUICK 401 passed, 0 failed in 28.9 s ; 0 known failure(s); 88 s total`).

@@ -10,6 +10,20 @@ import Part
 from common import NORMAL_TOL, OpError, TOL, add_props, unit, vec
 
 
+CONTRACT = {
+    "type": "rect",
+    "fields": {
+        "plane": {"required": True, "kind": "Plane"},
+        "size": {"required": True, "kind": "[number, number]"},
+        "corner": {"required": False, "kind": "[number, number]", "default": [0, 0]},
+        "x": {"required": False, "kind": "[number, number, number]"},
+    },
+    "refers_to": ["plane.on.body"],
+    "creates": ["id"],
+    "tool": "viewport/tools/rect_tool.gd",
+}
+
+
 class PushActions:
     """Part of Model (model.py): works through self on the FreeCAD document."""
 
