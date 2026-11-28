@@ -41,3 +41,7 @@
 ### 2026-11-28 10:20 — H214 (gemini, ?, resubmit)
 - **How was the review round: were the return notes clear, and what would have avoided the return?** The return note was crystal clear and caught two real blind spots (-v for tools/*.py tests and QUICK timing (s): step parsing); resubmission was fast and clean.
 - **Any improvements you can think of?** Record quicktest.sh passes automatically for job.py done reuse (just like gate.sh does), so workers don't have to wait for a second quicktest run on submit.
+
+### 2026-11-28 10:31 — H215 (gemini, 6af2a9f7-b0af-486e-b5d4-546a2f71b0a5, first submit)
+- **How was working on this job in our code base?** Smooth, well-scoped brief: building on H214's test_inventory.py and featuretest.sh runner discovery made wiring --coverage straightforward, and the 5x slowdown threshold gave a clear target.
+- **Any improvements you can think of?** Note in docs/tools README that freecadcmd puts -u/-s flags before the script in sys.argv and runs top-level scripts with __name__ == <stem> rather than __main__, which is useful for any future freecadcmd wrapper.
