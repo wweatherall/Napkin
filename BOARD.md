@@ -3,7 +3,7 @@
 "Check the board" sends you here. Only the integrator edits this file; the job table is built from docs/handoff/
 and the job queue.
 
-Order: H182, H183, H184
+Order: H186
 Pace: one at a time
 
 ## If you're not the integrator
@@ -72,6 +72,7 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
+| H186 | Gemini | **Ready** | Napkin's top level: two old launchers go, the wave simulator moves to tools/ | [H186](docs/handoff/H186-tidy-the-top-level.md) |  |
 
 <!-- end of job table -->
 

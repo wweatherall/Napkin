@@ -25,6 +25,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 <!-- open list: built from docs/handoff/ by tools/handoff.py; don't edit by hand -->
 
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
+- [H186 — Napkin's top level: two old launchers go, the wave simulator moves to tools/](handoff/H186-tidy-the-top-level.md) — status: open; for: gemini
 
 <!-- end of open list -->
 
