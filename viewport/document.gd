@@ -576,13 +576,19 @@ static func _op_refs(op: Dictionary) -> Array:
 	if op.has("cut"): out.append_array([op["cut"]["body"], op["cut"]["op"]])
 	if op["type"] in ["make_component", "property_edit", "unfit"]: out.append(op["body"])
 	if op["type"] == "fit": out.append_array([op["body"], op["target_body"]])
+	if op["type"] == "push_pull" and op.get("assembly", "") != "": out.append(op["assembly"])
 	return out
 
 
 func _op_makes(op: Dictionary) -> Array:
 	var out: Array = [op["id"]]
-	if op["type"] == "push_pull" and op.has("body"): out.append(op["body"])
+	if op["type"] == "push_pull" and op.get("body", "") != "": out.append(op["body"])
 	out.append_array(op.get("new_ids", []))
+	if op["type"] == "make_assembly" and op.get("new_id", "") != "": out.append(op["new_id"])
+	if op.get("group", "") != "": out.append(op["group"])
+	for groups in op.get("groups", {}).values():
+		if groups is Array: out.append_array(groups)
+		else: out.append(groups)
 	return out
 
 

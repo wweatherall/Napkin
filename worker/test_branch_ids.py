@@ -1,10 +1,11 @@
 """T67: document-wide ID claims reject collisions and preserve logical creations across amendments and undo."""
+import json
 import os
 import sys
 import uuid
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from common import OpError, board_label
-from session import IdRegistry, Session
+from session import IdRegistry, Session, creations
 
 R = [0, 0]
 def check(name, condition):
@@ -106,4 +107,10 @@ try:
               'ID collision' in str(e) and dup_b not in s.ids.owners)
 finally:
     s.close()
+
+with open(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'tests', 'op_creations.json')) as f:
+    for idx, case in enumerate(json.load(f)):
+        got = [i for i, _ in creations(case['op'])]
+        check(f"creations matches tests/op_creations.json[{idx}] ({case['op'].get('type')})", got == case['makes'])
+
 print('BRANCH IDS TESTS: %d passed, %d failed' % tuple(R))

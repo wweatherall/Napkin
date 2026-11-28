@@ -1,0 +1,9 @@
+[
+  {"op": {"id": "r1", "type": "rect"}, "makes": ["r1"]},
+  {"op": {"id": "pp1", "type": "push_pull", "body": "b1"}, "makes": ["pp1", "b1"]},
+  {"op": {"id": "pp2", "type": "push_pull"}, "makes": ["pp2"]},
+  {"op": {"id": "mv1", "type": "move", "new_ids": ["b2", "b3"]}, "makes": ["mv1", "b2", "b3"]},
+  {"op": {"id": "as1", "type": "make_assembly", "new_id": "a1"}, "makes": ["as1", "a1"]},
+  {"op": {"id": "mv2", "type": "move", "new_ids": ["b4"], "group": "a2"}, "makes": ["mv2", "b4", "a2"]},
+  {"op": {"id": "mv3", "type": "move", "new_ids": ["b5", "b6"], "groups": {"a3": ["a4", "a5"], "a6": "a7"}}, "makes": ["mv3", "b5", "b6", "a4", "a5", "a7"]}
+]
