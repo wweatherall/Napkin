@@ -1,4 +1,4 @@
-### H205 — Fewer stops for workers: branch log checks ignore newer comitatus rulings, the gate's pass counts for SUBMIT_JOB, the Result line is checked first
+### H205 — Fewer stops for workers: branch log checks ignore newer comitatus rulings, the gate's pass counts for SUBMIT_JOB, the Result line is checked first, one test file runs on its own
 
 Author: Claude (integrator, opus-integrator) | Date: 2026-11-27 | Status: queued (after H199) | For: gemini
 
@@ -8,7 +8,8 @@ after handoff-only commits), T91 (the Result line), P73.
 
 Touches: tools/sort_decision_log.py (the index checks for comitatus rulings), tools/test_sort_decision_log.py,
 tools/gate.sh (record its quick-test pass), tools/job.py (`done`: the Result note before the tests; reading the pass
-the gate recorded), tools/test_job.py, docs/follow-ups.md (clear the branch log-check line).
+the gate recorded), tools/test_job.py, tools/RUN_ONE_TEST.sh (new), tools/featuretest.sh (only if the runner is shared),
+tools/test_featuretest.py, tools/README.md (one line), docs/follow-ups.md (clear the branch log-check line).
 
 Reading path:
 1. tools/sort_decision_log.py around `ruling file exists without an index line`: comitatus/03_Past_Decisions/rulings/
@@ -35,7 +36,11 @@ Request:
    a quick test of the same scope `job.py test` runs counts: a gate that ran a narrower scope (`scope tools`, `docs`,
    app tests skipped) records nothing, so SUBMIT_JOB never skips app tests on the strength of a tools-only run.
 3. `done` checks for the Result line before any test runs and says so first (same wording as today).
-4. Clear the follow-ups line this job takes on.
+4. `tools/RUN_ONE_TEST.sh <test file>` runs one test file the way featuretest.sh runs it (freecadcmd for worker tests
+   that need FreeCAD, Godot headless for viewport ones, python3 otherwise), found the same way common.sh finds them,
+   and prints its summary line (a Gemini worker on H198, 2026-11-27: `freecadcmd` isn't on PATH, so checking a
+   one-line fix took the whole two-minute gate). `--list` in featuretest.sh shows how each file is run.
+5. Clear the follow-ups line this job takes on.
 
 Not in this job: what counts as a handoff-only commit (H080), the Result line's format.
 

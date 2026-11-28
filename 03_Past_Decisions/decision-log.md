@@ -386,6 +386,7 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | T163 | Suspected bug (found by H179's T161 proposal): flipping a board (mirror with replace) t... | On the board (H201) |
 | T164 | Find a home for (or delete) Napkin's three top-level reference docs: 'Codex's suggestio... | Open |
 | T165 | User test for William, one day after the fit rulings are built (I76, I77): try fits und... | Open |
+| T166 | Integrator's doubts about H205, for William to look at once it has run for a few days: ... | Open |
 
 ## Tunables
 
