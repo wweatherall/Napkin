@@ -126,16 +126,25 @@ func make_ui() -> void:
 	bar.add_theme_stylebox_override("panel", bar_style)
 	root.add_child(bar)
 	var row := HBoxContainer.new()
-	row.add_theme_constant_override("separation", 10)
+	row.add_theme_constant_override("separation", 8)
+	var toolbar_theme := Theme.new()
+	toolbar_theme.set_font_size("font_size", "Button", 12)
+	row.theme = toolbar_theme
 	bar.add_child(row)
-	row.add_child(_segments(m.tool_list.map(func(t): return [t["label"], t["id"], t["tip"]]), false))   # tool_registry.gd
-	for spec in [["Undo", "undo", "Undo (⌘Z)"], ["Redo", "redo", "Redo (⇧⌘Z)"], ["Drawing", "drawing", "Drawing and cut list (D)"]]:
+	var registry := preload("res://tool_registry.gd")
+	row.add_child(_segments(m.tool_list.map(func(t): return [registry.menu_label(t), t["id"], t["tip"]]), false))
+	var command := func(label: String, tag: String, key: String, tip := "") -> Array:
+		var suffix := " (%s)" % key
+		return [label + suffix, tag, (label if tip.is_empty() else tip) + suffix]
+	for spec in [command.call("Undo", "undo", "⌘Z"), command.call("Redo", "redo", "⇧⌘Z"),
+			command.call("Drawing", "drawing", "D", "Drawing and cut list")]:
 		var b := Button.new(); b.text = spec[0]; b.tooltip_text = spec[2]; b.focus_mode = Control.FOCUS_NONE
 		b.pressed.connect(m.menus.run.bind(spec[1]))
 		row.add_child(b)
 	var gap := Control.new(); gap.size_flags_horizontal = Control.SIZE_EXPAND_FILL; gap.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	row.add_child(gap)
-	row.add_child(_segments([["Grid snap", "grid", "Snap to a 10 mm grid (G)"], ["New board", "newboard", "Pushing a profile drawn on a face makes a separate board (B)"]], true))
+	row.add_child(_segments([command.call("Grid snap", "grid", "G", "Snap to a 10 mm grid"),
+			command.call("New board", "newboard", "B", "Pushing a profile drawn on a face makes a separate board")], true))
 	var properties_button := Button.new()
 	properties_button.text = "Properties"
 	properties_button.focus_mode = Control.FOCUS_NONE
