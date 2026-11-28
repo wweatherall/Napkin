@@ -39,7 +39,7 @@ Request:
 4. Run it once on the default paths and commit the rewritten files in this job. The tests that read saved files must
    pass on the rewritten copies.
 5. Opening a file that still holds an old op (not updated) is a normal rejection, worded:
-   `This file was saved by an older Shop Sketch: run tools/UPDATE_OLD_FILES.py on it` (William may reword).
+   `This file was saved by an older Napkin: run tools/UPDATE_OLD_FILES.py on it` (William may reword).
 
 6. From H198's review: `commit_push` returns silently when a face fit has no stock frame or no axis matching the face
    (`if src.is_empty() ...: return`, `if axis == -1: return`), where the worker used to refuse with a reason. Show

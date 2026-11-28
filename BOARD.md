@@ -3,7 +3,7 @@
 "Check the board" sends you here. Only the integrator edits this file; the job table is built from docs/handoff/
 and the job queue.
 
-Order: H191, H192, H196, H197, H195, H193, H194, H198, H199, H200, H201, H202, H203
+Order: H191, H192, H196, H197, H195, H193, H194, H198, H199, H204, H200, H201, H202, H203
 Pace: one at a time
 
 ## If you're not the integrator
@@ -73,10 +73,11 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
 | H199 | Gemini | **Ready** | Push/Pull split, step 2: creating a board is a `new_board` op, and the one-time updater (T159, I74, A43) | [H199](docs/handoff/H199-new-board-op.md) |  |
-| H200 | Gemini | Queued | Push/Pull split, step 3: resizing plain stock is a `resize_stock` op (T159, I74) | [H200](docs/handoff/H200-resize-stock-op.md) | H199 |
+| H204 | Gemini | Queued | Rename everything to Napkin: the app, its files, the names saved inside models, and the tools (T139, P51) | [H204](docs/handoff/H204-rename-to-napkin.md) | H199 |
+| H200 | Gemini | Queued | Push/Pull split, step 3: resizing plain stock is a `resize_stock` op (T159, I74) | [H200](docs/handoff/H200-resize-stock-op.md) | H204 |
 | H201 | Gemini | Queued | A fit names its target face by geometry, follows flips and rotations, and detaches when the face is gone (T161, T163, I75-I77) | [H201](docs/handoff/H201-fits-name-faces-by-geometry.md) | H200 |
 | H202 | Gemini | Queued | Design: how a fit that lost its face looks (a chain crumbling, or another gentle metaphor), a proposal with drafts for William | [H202](docs/handoff/H202-fit-detach-look.md) | H201 |
-| H203 | Gemini | Waiting on the integrator (scope) (gemini): SUBMIT_JOB.py is blocked on f63afbb because quicktest fails on LOG TESTS (68/70) and LOG SORT TESTS (35/36) due to 03_Past_Decisions/decision-log.md on main not being tidy. Should I wait for main to be tidied and merge, or tidy it on this branch? | The hopper draws itself: an ASCII picture of the jobs waiting, being worked on, and on the integrator's desk | [H203](docs/handoff/H203-hopper-picture.md) |  |
+| H203 | Gemini | In progress (gemini since 21:05) | The hopper draws itself: an ASCII picture of the jobs waiting, being worked on, and on the integrator's desk | [H203](docs/handoff/H203-hopper-picture.md) |  |
 
 <!-- end of job table -->
 
