@@ -53,10 +53,12 @@ One-line index per module (`tools/architecture_map.py`). Per-file details, warni
 - `viewport/main.gd` — Shop Sketch: tool-first viewport
 - `viewport/measure_box.gd` — The measurements box (VCB, T75): the typed value at the bottom right, what it's labelled, and where the typed text goes
 - `viewport/menus.gd` — The native menu bar and menu command dispatch (T113)
+- `viewport/model_files.gd` — Model files: settings, last model, output folders, window title, and switching models (`m.files`)
 - `viewport/preferences.gd` — User preferences (I63, T111): reads, validates, watches and seeds a JSON file with default units and input-feel tunables
 - `viewport/presenter.gd` — Geometry presentation (A33b, T41), `m.pres`: what the model looks like on screen
 - `viewport/property_panel.gd` — Native FreeCAD properties
 - `viewport/regions.gd` — Planar arrangements in model mm (I51)
+- `viewport/rejections.gd` — Rejection handling: status notes, forced-rejection test hook, and rejection-wave cleanup (`m.rejections`)
 - `viewport/save_prompts.gd` — Closing-save and outside-save prompts (I55, A36): asks when a closing save stalls or FreeCAD saves with actions pending, and runs reload or keep-mine
 - `viewport/selection.gd` — Selection and context (A33b, T41): what a click stands for and what's picked
 - `viewport/selection_view.gd` — Selection, context and sibling highlights (A33b), `pres.selection_view`: draws selection, ghosting, hidden boards, mirror plane and siblings from selection.gd
