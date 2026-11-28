@@ -24,6 +24,7 @@ var _worker_restarts: Array = []
 var _worker_check := 0.0
 var lifecycle_test := false
 var _worker_shut := false
+var _warned_freecad_seed := false
 var m: Node
 
 
@@ -146,6 +147,25 @@ func pick_worker() -> int:
 	return worker_port
 
 
+func _freecad_config_args(folder: String, source: String = "") -> PackedStringArray:
+	if DirAccess.make_dir_recursive_absolute(folder) != OK:
+		log_worker("couldn't create the FreeCAD config folder: %s" % folder)
+		return []
+	var user_cfg := folder.path_join("user.cfg")
+	if source != "" and not FileAccess.file_exists(user_cfg):
+		# Stage the seed beside the destination so a failed copy cannot leave a partial user.cfg.
+		var seed := folder.path_join("user.cfg.seed-%d" % OS.get_process_id())
+		var copied := DirAccess.copy_absolute(source, seed) == OK
+		if copied and not FileAccess.file_exists(user_cfg):
+			copied = DirAccess.rename_absolute(seed, user_cfg) == OK
+		if FileAccess.file_exists(seed):
+			DirAccess.remove_absolute(seed)
+		if not copied and not _warned_freecad_seed:
+			_warned_freecad_seed = true
+			log_worker("couldn't copy FreeCAD user.cfg; using FreeCAD defaults", false)
+	return ["-u", user_cfg, "-s", folder.path_join("system.cfg")]
+
+
 func _start_worker() -> void:
 	if freecad_path == "":
 		for c in FREECAD_CANDIDATES:
@@ -158,6 +178,17 @@ func _start_worker() -> void:
 		say_worker("✗ couldn't find FreeCAD's command-line program (freecadcmd) or worker/replay.py")
 		worker_pid = -1
 		return
+	var config_folder := ProjectSettings.globalize_path("user://freecad")
+	var config_source := ""
+	if m.test_mode:
+		config_folder = m.out_dir.path_join("freecad")
+	elif OS.get_name() == "macOS":
+		config_source = OS.get_environment("HOME").path_join("Library/Preferences/FreeCAD/v1-1/user.cfg")
+	var args := _freecad_config_args(config_folder, config_source)
+	if args.is_empty():
+		worker_pid = -1
+		return
+	args.append(worker_script)
 	# a test's worker binds port 0 and writes the port the system gave it to a file: two test runs at once can't
 	# pick the same port before either binds it (T47). The app's workers keep their known ports (W13).
 	var port_file := ""
@@ -168,10 +199,13 @@ func _start_worker() -> void:
 	if OS.get_name() == "Windows":
 		OS.set_environment("SERVE_PORT", str(worker_port))
 		OS.set_environment("SERVE_PORT_FILE", port_file)
-		worker_pid = OS.create_process(freecad_path, [worker_script])
+		worker_pid = OS.create_process(freecad_path, args)
 	else:
-		worker_pid = OS.create_process("/bin/sh", ["-c", "SERVE_PORT=%d SERVE_PORT_FILE=%s SERVE_IDLE_EXIT=%d exec %s %s >> %s 2>&1" % [
-			worker_port, _sh(port_file), SHARED_IDLE_EXIT, _sh(freecad_path), _sh(worker_script), _sh(worker_log)]])   # never outlives its windows
+		var command := "SERVE_PORT=%d SERVE_PORT_FILE=%s SERVE_IDLE_EXIT=%d exec \"$@\" >> %s 2>&1" % [
+			worker_port, _sh(port_file), SHARED_IDLE_EXIT, _sh(worker_log)]
+		var shell_args := PackedStringArray(["-c", command, "napkin-worker", freecad_path])
+		shell_args.append_array(args)
+		worker_pid = OS.create_process("/bin/sh", shell_args)   # never outlives its windows
 	_port_file = port_file
 	if port_file != "" and m.client != null:           # a restarted worker: wait for its new port
 		worker_port = _await_port_file()
@@ -265,9 +299,9 @@ func shutdown_worker() -> void:
 	worker_pid = -1
 
 
-func log_worker(line: String) -> void:
-	"""A line in worker.log from this window (A36: a stuck or stopped worker at an outside save)."""
-	print("NAPKIN " + line)
+func log_worker(line: String, to_console := true) -> void:
+	"""A line in worker.log from this window."""
+	if to_console: print("NAPKIN " + line)
 	if worker_log == "": return
 	var f := FileAccess.open(worker_log, FileAccess.READ_WRITE) if FileAccess.file_exists(worker_log) else FileAccess.open(worker_log, FileAccess.WRITE)
 	if f == null: return

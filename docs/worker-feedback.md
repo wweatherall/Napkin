@@ -27,3 +27,6 @@
 ### 2026-11-28 08:34 — H202 (codex, 01a22280-8112-77d1-825e-f1ba4a0a07de, first submit)
 - **How was working on this job in our code base?** The existing stock and line helpers gave the standalone demo the same visual language as the viewport. The design brief made the comparison easy to verify.
 - **Any improvements you can think of?** Consider a gate scope for standalone demos that combines the tools gate with headless scene loads. Adding demo source currently triggers app checks in the ordinary scope resolver.
+### 2026-11-28 07:58 — H208 (codex, 01a22259-fffe-7730-ae03-79149a9938c1, first submit)
+- **How was working on this job in our code base?** The shared worker test helper covered several direct FreeCAD launches. The floor-copy check exposed an implicit dependency on the desktop backup preference once the suite ran with clean configs.
+- **Any improvements you can think of?** Keep test subprocesses behind their shared launch helpers and set any preferences a fixture depends on explicitly.

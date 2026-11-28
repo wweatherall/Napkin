@@ -18,8 +18,9 @@ import tempfile
 import time
 import zipfile
 
+from test_link import freecad_command
+
 HERE = os.path.dirname(os.path.abspath(__file__))
-FC = os.environ.get("FREECAD", "/Applications/FreeCAD.app/Contents/Resources/bin/freecadcmd")
 tmp = os.path.abspath(os.environ.get("TESTDIR") or tempfile.mkdtemp(prefix="napkin-units-"))
 os.makedirs(tmp, exist_ok=True)
 R = [0, 0]
@@ -108,7 +109,7 @@ env = dict(os.environ, SERVE_PORT="0", SERVE_PORT_FILE=port_file, SERVE_IDLE_EXI
 def start_worker():
     if os.path.exists(port_file):
         os.remove(port_file)
-    p = subprocess.Popen([FC, os.path.join(HERE, "replay.py")], env=env, stdout=log, stderr=subprocess.STDOUT)
+    p = subprocess.Popen(freecad_command(tmp, os.path.join(HERE, "replay.py")), env=env, stdout=log, stderr=subprocess.STDOUT)
     t0 = time.time()
     while time.time() - t0 < 60 and not os.path.exists(port_file):
         time.sleep(0.05)
@@ -147,7 +148,7 @@ elif mode == "edit_and_units":
 
 
 def run_helper(mode, model, **extra):
-    subprocess.run([FC, FC_HELPER], env=dict(os.environ, HELPER_MODE=mode, HELPER_MODEL=model, **extra),
+    subprocess.run(freecad_command(tmp, FC_HELPER), env=dict(os.environ, HELPER_MODE=mode, HELPER_MODEL=model, **extra),
                    stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=120, check=True)
 
 

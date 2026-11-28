@@ -74,7 +74,6 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
 | H211 | Codex | **Done**: for review (codex) | Double-click enters William's copies; drawings (2D shapes) can be selected; a compound's properties show (T167) | [H211](docs/handoff/H211-select-drawings-and-compounds.md) |  |
-| H208 | Codex | **Done**: for review (codex) | Napkin's freecadcmd never saves over William's FreeCAD settings (T167) | [H208](docs/handoff/H208-freecad-settings-kept.md) |  |
 
 <!-- end of job table -->
 
