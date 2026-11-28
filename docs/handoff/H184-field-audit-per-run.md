@@ -1,6 +1,6 @@
 ### H184 — The field audit checks each run of an op, not all runs of its type lumped together
 
-Author: Claude (integrator, opus-integrator) | Date: 2026-11-27 | Status: open | For: gemini
+Author: Claude (integrator, opus-integrator) | Date: 2026-11-27 | Status: answered | For: gemini
 
 References: William, 2026-11-27 (ChatGPT's architecture review: "the field auditor combines observations across all
 executions of an operation type: a parameter used in one execution but incorrectly ignored in another can escape
@@ -34,3 +34,15 @@ Not in this job: fixing any handler, or changing which runs the full test makes.
 Checks:
 - `tools/TEST_BEFORE_MERGING.sh` passes (full scope; the field audit stage included); quick 401/401.
 - The response lists every `UNREAD_WHEN` entry with its reason, the suspected bugs first.
+
+Response:
+- Updated `worker/field_audit.py` so `unread_fields(paths, allow=None)` checks each audit record individually instead of unioning `sent` and `read` per op type, and `format_report` groups by `(op_type, field)` with run count and an example of the run's sorted `sent` keys.
+- Added `UNREAD_WHEN` in `worker/field_audit.py` for the 4 `(op_type, field)` pairs flagged across the full test (no suspected bugs found):
+  - `("move", "targets")`: when `'cut'` is set, `op_move` dispatches to `move_cut` which reads `op['cut']` instead of `op['targets']` (`move_tool` sends `targets: []`).
+  - `("push_pull", "body")`: when `op_push_pull` rejects early with `OpError` (e.g. unknown rect in `rejecttest`), `Model.apply`'s `finally` block records the run before reaching `op.get('body')`.
+  - `("rect", "corner")`: when `op_rect` rejects early with `OpError` (e.g. invalid plane in `rejecttest`), `Model.apply`'s `finally` block records the run before reaching `op.get('corner')`.
+  - `("rect", "size")`: when `op_rect` rejects early with `OpError` (e.g. invalid plane in `rejecttest`), `Model.apply`'s `finally` block records the run before reaching `op['size']`.
+- Updated `worker/test_field_audit.py` (24/24) to test the per-run shape, a field read in one run and unread in another run of the same type (flagged), and a field in `UNREAD_WHEN` (passes).
+- Integrator scope note: initial gate hit a pre-existing `03_Past_Decisions/decision-log.md` failure on `main` (`90c9ede`); integrator confirmed `main` was updated (`19208f1`), merged `main` into the branch, and re-ran the full gate cleanly.
+
+Result: `tools/TEST_BEFORE_MERGING.sh` passed (`GATE PASS: full test passes; QUICK 401 passed, 0 failed in 28.6 s ; 0 known failure(s); 80 s total`, `full: field audit passed in 0 s`); `worker/test_field_audit.py` 24/24.
