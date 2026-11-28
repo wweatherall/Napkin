@@ -69,10 +69,9 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H185 | Gemini | **Ready** | The hopper: queued jobs run one at a time, each worker starting the next, and the integrator merges the batch once | [H185](docs/handoff/H185-the-hopper.md) |  |
-| H182 | Gemini | Queued | What an op creates: the window and FreeCAD agree, checked by one shared table | [H182](docs/handoff/H182-op-creations-agree.md) | H185 |
-| H183 | Gemini | Queued | A failed op names the ids it failed on, so the window stops reading FreeCAD's message text | [H183](docs/handoff/H183-rejections-name-their-ids.md) | H185 |
-| H184 | Gemini | Queued | The field audit checks each run of an op, not all runs of its type lumped together | [H184](docs/handoff/H184-field-audit-per-run.md) | H185 |
+| H182 | Gemini | **Ready** | What an op creates: the window and FreeCAD agree, checked by one shared table | [H182](docs/handoff/H182-op-creations-agree.md) |  |
+| H183 | Gemini | **Ready** | A failed op names the ids it failed on, so the window stops reading FreeCAD's message text | [H183](docs/handoff/H183-rejections-name-their-ids.md) |  |
+| H184 | Gemini | **Ready** | The field audit checks each run of an op, not all runs of its type lumped together | [H184](docs/handoff/H184-field-audit-per-run.md) |  |
 
 <!-- end of job table -->
 

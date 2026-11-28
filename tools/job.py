@@ -72,6 +72,7 @@ import handoff
 
 DEADLINE = 30 * 60          # seconds with no beat before a job in progress is stale (P24, tunable)
 HUNG_AFTER = 10 * 60        # a process from the worktree older than this looks hung (tunable)
+LAUNCH_TIMEOUT = 10 * 60    # seconds a launched worker has to take its job before the hopper wakes (H185)
 WATCH_POLL = 20             # seconds between watch, take --wait and wait polls (tunable)
 MAX_JOBS = 1                # jobs one session takes before it asks William for a /clear (P37, was 3 under P27; tunable)
 WORKER_WAIT = 20 * 60       # seconds a worker waits for a job or an answer before timing out (P27, tunable)
@@ -298,6 +299,29 @@ def board_order(board_text):
     return re.findall(r"\bH(?:\d+|-new-\d+)\b", line)
 
 
+VALID_PACES = ("all at once", "one at a time")
+
+
+def board_pace(board_text):
+    """(pace, warning) from the board's "Pace:" line. Missing or unknown values fall back to "all at once"."""
+    line = next((l for l in (board_text or "").split("\n") if l.startswith("Pace:")), None)
+    if line is None:
+        return "all at once", None
+    raw = line.split(":", 1)[1].strip()
+    if not raw:
+        return "all at once", None
+    val = raw.lower()
+    if val in VALID_PACES:
+        return val, None
+    return "all at once", f"warning: unknown Pace {raw!r} in {BOARD} (expected 'one at a time' or 'all at once'; treating as 'all at once')"
+
+
+def main_pace(root):
+    """(pace, warning) as main's BOARD.md has it."""
+    r = git(root, "show", f"main:{BOARD}")
+    return board_pace(r.stdout if r.returncode == 0 else "")
+
+
 def ordered(jobs, order):
     pos = {j: i for i, j in enumerate(order)}
     return sorted(jobs, key=lambda j: (pos.get(j["id"], len(pos)), handoff.order(j["name"])))
@@ -344,8 +368,14 @@ def resolve_dependencies(jobs, st=None):
     return out
 
 
-def takeable(root, st, agent, jobs, order, claims=None):
+def takeable(root, st, agent, jobs, order, claims=None, pace="all at once"):
     """(the job to take or None, [reasons others were passed over]). Returned jobs for the agent come first."""
+    if pace == "one at a time":
+        pacing = [jid for jid, s in st["jobs"].items()
+                  if s.get("state") == "in progress"
+                  or (s.get("state") == "waiting" and s.get("question_kind") == "scope")]
+        if pacing:
+            return None, [f"pace is one at a time ({', '.join(pacing)} active)"]
     jobs = resolve_dependencies(jobs, st)
     claims = branch_claims(root) if claims is None else claims
     mine = lambda j: j["for"] in (agent, "either")
@@ -353,11 +383,13 @@ def takeable(root, st, agent, jobs, order, claims=None):
             and st["jobs"][j["id"]].get("agent") == agent]
     if back:
         return back[0], []
-    busy = {jid: s for jid, s in st["jobs"].items() if s.get("state") in ACTIVE}
+    active_ids = {jid for jid, s in st["jobs"].items() if s.get("state") in ACTIVE}
+    blocking_states = ("in progress", "waiting", "returned") if pace == "one at a time" else ACTIVE
+    busy = {jid: s for jid, s in st["jobs"].items() if s.get("state") in blocking_states}
     held = {j["id"]: j["touches"] for j in jobs if j["id"] in busy}
     why = []
     for j in ordered(jobs, order):
-        if j["kind"] != "ready" or not mine(j) or j["id"] in busy:
+        if j["kind"] != "ready" or not mine(j) or j["id"] in active_ids:
             continue
         if j["id"] in claims and j["id"] not in st["jobs"]:
             why.append(f"{j['id']}: claimed by branch {claims[j['id']]}")
@@ -536,6 +568,7 @@ def _take(cwd, agent, session, now=None, out=print):
         session = f"{session}-{conv_id[:8]}"
     root = main_root(cwd)
     jobs, order = main_view(root)
+    pace, _ = main_pace(root)
     with locked(state_path(cwd)) as st:
         held = [jid for jid, s in st["jobs"].items() if s.get("session") == session and s.get("state") in WORKING]
         if held:
@@ -546,13 +579,14 @@ def _take(cwd, agent, session, now=None, out=print):
             out(f"refused: this session ({session}) has done {n} jobs ({', '.join(jobs_taken(st, session))}): "
                 f"tell William it's ready for a /clear (P27); if you didn't take them, the name was used before: pick a new one")
             return None, "refused"
-        job, why = takeable(root, st, agent, jobs, order)
+        job, why = takeable(root, st, agent, jobs, order, pace=pace)
         for w in why:
             out(f"passed over {w}")
         if not job:
             out(f"nothing Ready for {agent}: say so and stop (the integrator is told)")
             return None, "empty"
         prev = st["jobs"].get(job["id"], {})
+        base_ref = "main"
         if prev.get("state") == "returned":
             branch, wt = prev["branch"], prev.get("worktree") or worktree_for(root, job["id"])
             if not os.path.isdir(wt):
@@ -562,9 +596,19 @@ def _take(cwd, agent, session, now=None, out=print):
                     out(f"refused: couldn't make the worktree: {r.stderr.strip()}")
                     return None, "refused"
         else:
+            if pace == "one at a time":
+                touches_by_id = {jb["id"]: jb["touches"] for jb in jobs}
+                done_overlaps = [
+                    (jid, s) for jid, s in st["jobs"].items()
+                    if s.get("state") == "done" and s.get("branch")
+                    and overlap(job["touches"], touches_by_id.get(jid, ()))
+                ]
+                if done_overlaps:
+                    _, newest_s = max(done_overlaps, key=lambda pair: (pair[1].get("done") or 0, pair[1].get("taken") or 0))
+                    base_ref = newest_s["branch"]
             branch, wt = f"{agent}/{job['id'].lower()}-{job['slug']}", worktree_for(root, job["id"])
             os.makedirs(os.path.dirname(wt), exist_ok=True)
-            r = git(root, "worktree", "add", wt, "-b", branch, "main")
+            r = git(root, "worktree", "add", wt, "-b", branch, base_ref)
             if r.returncode:
                 out(f"refused: couldn't make the worktree: {r.stderr.strip()}")
                 return None, "refused"
@@ -576,9 +620,13 @@ def _take(cwd, agent, session, now=None, out=print):
         except Exception:
             default_space = f"{agent}-coder"
         space = os.environ.get("NAPKIN_SPACE") or default_space
-        st["jobs"][job["id"]] = {**{k: prev[k] for k in ("notes", "returned") if k in prev},
-                                 "state": "in progress", "agent": agent, "session": session, "branch": branch,
-                                 "worktree": wt, "handoff": job["name"], "space": space, "taken": now, "beat": now}
+        entry = {**{k: prev[k] for k in ("notes", "returned", "base") if k in prev},
+                 "state": "in progress", "agent": agent, "session": session, "branch": branch,
+                 "worktree": wt, "handoff": job["name"], "space": space, "taken": now, "beat": now}
+        if base_ref != "main":
+            entry["base"] = base_ref
+        st["jobs"][job["id"]] = entry
+        st.get("launched", {}).pop(job["id"], None)
         answers = prev.get("answers", []) if prev.get("state") == "returned" else []
         st.get("waiting_workers", {}).pop(session, None)
         if raw_session != session:
@@ -951,6 +999,23 @@ def next_step(st, session):
     return PERSONAL_TIME + "\n" + next_line
 
 
+def stacked_on(st, branch):
+    """Job IDs in ACTIVE states built directly or transitively on `branch` (via their `base` field)."""
+    if not branch:
+        return []
+    bases = {branch}
+    out = []
+    while True:
+        added = [k for k, j in st["jobs"].items()
+                 if k not in out and j.get("state") in ACTIVE and j.get("base") in bases]
+        if not added:
+            return out
+        out.extend(added)
+        for k in added:
+            if st["jobs"][k].get("branch"):
+                bases.add(st["jobs"][k]["branch"])
+
+
 def return_job(cwd, jid, notes, now=None, out=print):
     now = now or time.time()
     with locked(state_path(cwd)) as st:
@@ -959,8 +1024,14 @@ def return_job(cwd, jid, notes, now=None, out=print):
             out(f"{jid} isn't in the queue")
             return False
         j.update(state="returned", notes=notes, returned=now, session=None)
+        st.get("launched", {}).pop(jid, None)
         event(st, "returned", jid, notes, now)
+        branch = j.get("branch")
+        stacked = stacked_on(st, branch)
     out(f"{jid} returned: the next {j['agent']} worker to take a job resumes {j['branch']}")
+    if stacked:
+        out(f"warning: {', '.join(stacked)} {'was' if len(stacked) == 1 else 'were'} built on {branch} "
+            "(return them too or leave them for a later batch)")
     record_usage(main_root(cwd), "return", jid, quiet=True)
     record_journal(main_root(cwd), f"returned {jid} ({j['agent']}): {notes[:100]}")
     return True
@@ -1169,6 +1240,10 @@ def status(cwd, out=print, now=None, readonly=False):
     now = now or time.time()
     root = main_root(cwd)
     jobs, order = main_view(root)
+    bpath = os.path.join(root, BOARD)
+    pace, pace_warn = board_pace(open(bpath, encoding="utf-8").read()) if os.path.isfile(bpath) else main_pace(root)
+    if pace_warn:
+        out(pace_warn)
     with state_read(state_path(cwd), readonly=readonly) as st:
         live = [(k, j) for k, j in st["jobs"].items() if j.get("state") in ACTIVE]
         for k, j in live:
@@ -1180,7 +1255,7 @@ def status(cwd, out=print, now=None, readonly=False):
         if not live:
             out("no job in progress")
         for agent in AGENTS:
-            job, why = takeable(root, st, agent, jobs, order)
+            job, why = takeable(root, st, agent, jobs, order, pace=pace)
             out(f"next for {agent.capitalize()}: " + (f"{job['id']} ({job['item']})" if job else "nothing Ready")
                 + (f" [passed over: {'; '.join(why)}]" if why else ""))
 
@@ -1269,6 +1344,123 @@ def board(cwd, now=None, out=print):
     return new != text
 
 
+def _default_launch(agent):
+    import launch
+    return launch.main([agent])
+
+
+def hopper_step(root, now=None, dry_run=False, launcher=None, out=print, seen=None, procs=None):
+    """One poll of the hopper (H185). Returns (action, exit_code, detail, seen_key):
+    action is 'exit', 'launched', 'dry', or 'wait'."""
+    now = now or time.time()
+    launcher = launcher or _default_launch
+    jobs, order = main_view(root)
+    pace, _ = main_pace(root)
+    claims = branch_claims(root)
+    launch_target = None
+    with state_read(state_path(root), readonly=dry_run) as st:
+        for k, j in st["jobs"].items():
+            s = j.get("state")
+            if s in WORKING:
+                act = refresh(root, j, now, (procs or {}).get(k))
+                if j["state"] == "waiting":
+                    key = ("waiting", k, j.get("since"))
+                    if seen is None or key not in seen:
+                        return "exit", 0, waiting_line(k, j), key
+                elif stale(j, act, now):
+                    key = ("stale", k, act)
+                    if seen is None or key not in seen:
+                        return ("exit", 0,
+                                f"stale: {k} ({j.get('agent')}) no beat since {hhmm(act)}: check {j.get('branch')} in {j.get('worktree')}",
+                                key)
+        launched = st.get("launched", {})
+        for jid, info in list(launched.items()):
+            if st["jobs"].get(jid, {}).get("state") in ACTIVE:
+                if not dry_run:
+                    launched.pop(jid, None)
+            elif now - info.get("at", 0) >= LAUNCH_TIMEOUT:
+                if not dry_run:
+                    launched.pop(jid, None)
+                mins = int((now - info.get("at", 0)) // 60)
+                return "exit", 0, f"launch timeout: {jid} ({info.get('agent')}) hasn't taken its job in {mins} min", None
+        pacing = [jid for jid, s in st["jobs"].items()
+                  if s.get("state") == "in progress" or (s.get("state") == "waiting" and s.get("question_kind") == "scope")]
+        pending = list(st.get("launched", {}).items())
+        if pacing or pending:
+            if dry_run:
+                why = f"{', '.join(pacing)} active" if pacing else f"{pending[0][0]} launched, awaiting take"
+                out(f"waiting: {why}")
+                return "dry", 0, None, None
+            return "wait", None, None, None
+        # Pick the next takeable job in BOARD.md order (returned jobs for an agent come first via takeable).
+        candidates = [j for j in ordered(jobs, order)]
+        for j in candidates:
+            target_agent = "gemini" if j["for"] == "either" else j["for"]
+            picked, _ = takeable(root, st, target_agent, jobs, order, claims, pace=pace)
+            if not picked:
+                continue
+            if picked["id"] in st.get("launched", {}):
+                return "wait", None, None, None
+            if dry_run:
+                out(f"would launch {picked['id']} ({target_agent}: {picked['item']})")
+                return "dry", 0, None, None
+            st.setdefault("launched", {})[picked["id"]] = {"at": now, "agent": target_agent}
+            launch_target = (picked, target_agent)
+            break
+        if launch_target is None:
+            done_ids = [jid for jid, s in st["jobs"].items() if s.get("state") == "done"]
+            if done_ids:
+                msg = f"batch ready to merge: {', '.join(done_ids)} (run python3 tools/MERGE_THE_BATCH.py)"
+                if dry_run:
+                    out(msg)
+                    return "dry", 0, None, None
+                return "exit", 0, msg, None
+            if dry_run:
+                out("nothing Ready and nothing in progress")
+                return "dry", 0, None, None
+            return "wait", None, None, None
+    picked, target_agent = launch_target
+    rc = launcher(target_agent)
+    if rc != 0:
+        with locked(state_path(root)) as st:
+            st.get("launched", {}).pop(picked["id"], None)
+        return "exit", 1, f"launch failed for {picked['id']} ({target_agent})", None
+    out(f"{hhmm(now)} launched {target_agent} for {picked['id']} ({picked['item']})")
+    sys.stdout.flush()
+    return "launched", None, picked["id"], None
+
+
+def hopper(cwd, dry_run=False, launcher=None, out=print, now=None, sleep=time.sleep, poll=None):
+    """Run the hopper (H185): launch one worker at a time, wake the integrator when the batch is done or needs help."""
+    root = main_root(cwd)
+    poll = WATCH_POLL if poll is None else poll
+    if dry_run:
+        hopper_step(root, now=now, dry_run=True, launcher=launcher, out=out)
+        return 0
+    # Ignore waiting/stale events that were already active before this run started (like watch --next).
+    seen = set()
+    jobs, order = main_view(root)
+    t0 = now or time.time()
+    with state_read(state_path(root), readonly=True) as st:
+        for k, j in st["jobs"].items():
+            if j.get("state") == "waiting":
+                seen.add(("waiting", k, j.get("since")))
+            elif j.get("state") == "in progress":
+                act = refresh(root, j, t0)
+                if stale(j, act, t0):
+                    seen.add(("stale", k, act))
+    while True:
+        t = now or time.time()
+        action, code, detail, key = hopper_step(root, now=t, dry_run=False, launcher=launcher, out=out, seen=seen)
+        if action == "exit":
+            out(f"{hhmm(t)} {detail}")
+            sys.stdout.flush()
+            return code
+        if key is not None:
+            seen.add(key)
+        sleep(poll)
+
+
 def main(argv):
     cwd = os.getcwd()
     cmd = argv[0] if argv else "status"
@@ -1323,6 +1515,8 @@ def main(argv):
     if cmd == "watch":
         watch(cwd, once="--once" in argv, until_new="--next" in argv)
         return 0
+    if cmd == "hopper":
+        return hopper(cwd, dry_run="--dry-run" in argv)
     if cmd == "return" and len(argv) >= 3:
         return 0 if return_job(cwd, argv[1].upper(), argv[2]) else 1
     if cmd == "merged" and len(argv) >= 2:

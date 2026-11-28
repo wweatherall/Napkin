@@ -1311,5 +1311,122 @@ check("no structural change prints nothing about structure",
       rc_s == 0 and "structure:" not in out_s, out_s)
 shutil.rmtree(r_s)
 
+# 16. H185: MERGE_THE_BATCH.py / integrate.main(["--batch", ...])
+# 16a. Stacking order: job 2 based on job 1 listed FIRST in Order still merges job 1 first;
+#      job 3 built on a branch not in the batch is left out with a reason.
+b_base = tempfile.mkdtemp(prefix="int-batch-")
+b_origin = os.path.join(b_base, "origin.git")
+b_root = os.path.join(b_base, "repo")
+sh(b_base, "git", "init", "--bare", "-q", b_origin)
+sh(b_base, "git", "clone", "-q", b_origin, b_root)
+sh(b_root, "git", "config", "user.email", "t@example.invalid")
+sh(b_root, "git", "config", "user.name", "T")
+sh(b_root, "git", "checkout", "-qb", "main")
+os.makedirs(os.path.join(b_root, "docs", "handoff"))
+write(b_root, "03_Past_Decisions/decision-log.md", "# Log\n\n## Work list\n\n| # | Item | Status |\n|---|---|---|\n| T1 | a | Open |\n| T2 | b | Open |\n")
+write(b_root, "docs/handoff-archive.md", "# Archive\n")
+write(b_root, "docs/agent-handoff.md",
+      "# Handoff\n\n## Open exchanges\n\n<!-- open list: built from docs/handoff/ by tools/handoff.py; don't edit by hand -->\n\n(none open)\n\n<!-- end of open list -->\n\n## Archived\n")
+write(b_root, "docs/handoff/H201-first.md", "### H201 — T1: first\n\nAuthor: Gemini | Date: 2026-11-27 | Status: open | For: gemini\n\nTouches: app.txt.\n")
+write(b_root, "docs/handoff/H202-second.md", "### H202 — T2: second\n\nAuthor: Gemini | Date: 2026-11-27 | Status: open | For: gemini\n\nTouches: app.txt.\n")
+write(b_root, "docs/handoff/H203-orphan.md", "### H203 — orphan\n\nAuthor: Gemini | Date: 2026-11-27 | Status: open | For: gemini\n\nTouches: other.txt.\n")
+write(b_root, "BOARD.md", f"# Work board\n\nOrder: H202, H201, H203\nPace: one at a time\n\n## Jobs\n\n{job.START}\n\n(none)\n\n{job.END}\n")
+write(b_root, "app.txt", "v0\n")
+write(b_root, "tools/gate.sh", "#!/bin/sh\necho 'gate: PASS'\nexit 0\n")
+os.chmod(os.path.join(b_root, "tools/gate.sh"), 0o755)
+sh(b_root, "git", "add", "-A"); sh(b_root, "git", "commit", "-qm", "base"); sh(b_root, "git", "push", "-q", "-u", "origin", "main")
+
+# Create H201 branch from main
+sh(b_root, "git", "checkout", "-qb", "gemini/h201-first")
+write(b_root, "app.txt", "v1\n")
+write(b_root, "docs/handoff/H201-first.md",
+      "### H201 — T1: first\n\nAuthor: Gemini | Date: 2026-11-27 | Status: answered | For: gemini\n\nTouches: app.txt.\n\n## Response\n\nChanged from the brief: kept v1 short.\nResult: 1111111; tests pass; v1\n")
+sh(b_root, "git", "add", "-A"); sh(b_root, "git", "commit", "-qm", "H201 done")
+
+# Create H202 branch stacked on H201
+sh(b_root, "git", "checkout", "-qb", "gemini/h202-second")
+write(b_root, "app.txt", "v1\nv2\n")
+write(b_root, "docs/handoff/H202-second.md",
+      "### H202 — T2: second\n\nAuthor: Gemini | Date: 2026-11-27 | Status: answered | For: gemini\n\nTouches: app.txt.\n\nResponse: done.\nResult: 2222222; tests pass; v2\n")
+sh(b_root, "git", "add", "-A"); sh(b_root, "git", "commit", "-qm", "H202 done")
+
+# Create H203 branch stacked on a returned branch not in the batch
+sh(b_root, "git", "checkout", "-q", "main")
+sh(b_root, "git", "checkout", "-qb", "gemini/h203-orphan")
+write(b_root, "other.txt", "x\n")
+sh(b_root, "git", "add", "-A"); sh(b_root, "git", "commit", "-qm", "H203 done")
+sh(b_root, "git", "checkout", "-q", "main")
+
+open(job.state_path(b_root), "w").write(json.dumps({
+    "jobs": {
+        "H201": {"branch": "gemini/h201-first", "state": "done"},
+        "H202": {"branch": "gemini/h202-second", "state": "done", "base": "gemini/h201-first"},
+        "H203": {"branch": "gemini/h203-orphan", "state": "done", "base": "gemini/h200-returned"},
+    },
+    "events": [],
+}))
+integrator.take(integrator.lock_path(b_root), "tester", out=lambda *a: None)
+
+# Dry-run checks order and left-out reason
+cwd = os.getcwd(); os.chdir(b_root)
+buf_dry = io.StringIO()
+try:
+    with contextlib.redirect_stdout(buf_dry):
+        rc_dry = integrate.main(["--batch", "--dry-run"])
+finally:
+    os.chdir(cwd)
+dry_s = buf_dry.getvalue()
+check("batch --dry-run orders H201 before H202 (even with H202 first in Order) and leaves out H203",
+      rc_dry == 0 and "would merge in order: H201 (gemini/h201-first), H202 (gemini/h202-second)" in dry_s
+      and "left out H203 (gemini/h203-orphan): built on gemini/h200-returned" in dry_s, dry_s)
+
+# 16b. Failing gate resets main back to pre_batch and pushes nothing
+write(b_root, "tools/gate.sh", "#!/bin/sh\necho 'gate: FAIL'\nexit 1\n")
+os.chmod(os.path.join(b_root, "tools/gate.sh"), 0o755)
+sh(b_root, "git", "add", "tools/gate.sh"); sh(b_root, "git", "commit", "-qm", "failing gate")
+sh(b_root, "git", "push", "-q", "origin", "main")
+pre_fail_sha = sh(b_root, "git", "rev-parse", "HEAD").stdout.strip()
+cwd = os.getcwd(); os.chdir(b_root)
+buf_fail1, buf_fail2 = io.StringIO(), io.StringIO()
+try:
+    with contextlib.redirect_stdout(buf_fail1):
+        rc_f1 = integrate.main(["--batch", "--push", "--yes"])
+    with contextlib.redirect_stdout(buf_fail2):
+        rc_f2 = integrate.main(["--batch", "--continue", "--push", "--yes"])
+finally:
+    os.chdir(cwd)
+fail2_s = buf_fail2.getvalue()
+check("batch gate failure resets main to pre-batch commit, pushes nothing, and lists MERGE_JOB.py commands",
+      rc_f1 == 0 and "H201: changed: kept v1 short." in buf_fail1.getvalue()
+      and rc_f2 == 1 and sh(b_root, "git", "rev-parse", "HEAD").stdout.strip() == pre_fail_sha
+      and sh(b_root, "git", "rev-parse", "origin/main").stdout.strip() == pre_fail_sha
+      and "MERGE_JOB.py gemini/h201-first" in fail2_s and "MERGE_JOB.py gemini/h202-second" in fail2_s,
+      (rc_f1, rc_f2, sh(b_root, "git", "rev-parse", "HEAD").stdout.strip(), pre_fail_sha, fail2_s))
+
+# 16c. Passing gate merges both, pauses once for review, then --continue runs gate once and pushes once
+write(b_root, "tools/gate.sh", "#!/bin/sh\necho 'gate: PASS'\nexit 0\n")
+os.chmod(os.path.join(b_root, "tools/gate.sh"), 0o755)
+sh(b_root, "git", "add", "tools/gate.sh"); sh(b_root, "git", "commit", "-qm", "passing gate")
+sh(b_root, "git", "push", "-q", "origin", "main")
+cwd = os.getcwd(); os.chdir(b_root)
+buf_ok1, buf_ok2 = io.StringIO(), io.StringIO()
+try:
+    with contextlib.redirect_stdout(buf_ok1):
+        rc_ok1 = integrate.main(["--batch", "--push", "--yes"])
+    with contextlib.redirect_stdout(buf_ok2):
+        rc_ok2 = integrate.main(["--batch", "--continue", "--push", "--yes"])
+finally:
+    os.chdir(cwd)
+st_after_batch = job.read_state(job.state_path(b_root))
+check("batch merge with --continue runs gate once, marks H201/H202 merged, leaves H203 done, and pushes",
+      rc_ok1 == 0 and rc_ok2 == 0
+      and open(os.path.join(b_root, "app.txt")).read() == "v1\nv2\n"
+      and st_after_batch["jobs"]["H201"]["state"] == "merged"
+      and st_after_batch["jobs"]["H202"]["state"] == "merged"
+      and st_after_batch["jobs"]["H203"]["state"] == "done"
+      and sh(b_root, "git", "rev-parse", "HEAD").stdout.strip() == sh(b_root, "git", "rev-parse", "origin/main").stdout.strip(),
+      (rc_ok1, rc_ok2, buf_ok1.getvalue(), buf_ok2.getvalue(), st_after_batch))
+shutil.rmtree(b_base)
+
 print(f"INTEGRATE TESTS: {sum(RESULTS)} passed, {len(RESULTS) - sum(RESULTS)} failed")
 raise SystemExit(0 if all(RESULTS) else 1)   # a failed check fails the run, not only its summary
