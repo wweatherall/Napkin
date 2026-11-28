@@ -52,10 +52,11 @@ expected_golden = "\n".join([
     "                                    \\    /                                    ",
     "                                    |H201|                                    ",
     "                                      v                                       ",
-    "+-------------------------------- WORKBENCH ---------------------------------+",
-    "| ? H200 Split push pull step 3                            codex-pine  1h15m |",
-    "|   H199 Split push pull step 2                            gemini-larch  15m |",
-    "+----------------------------------------------------------------------------+",
+    "+----------- WORKBENCH -----------+ +-------------- QUESTIONS ---------------+",
+    "| H199 Split p… gemini-larch  15m | | H200 codex-pine asks William           |",
+    "|                                 | |   q?                             1h15m |",
+    "+---------------------------------+ +----------------------------------------+",
+    "  H199 started while H200 waits for an answer",
     "+---------------------------- INTEGRATOR'S DESK -----------------------------+",
     "| [=] H197 Wake or start integrator                                 (gemini) |",
     "| [=] H198 Split push pull step 1                                    (codex) |",
@@ -70,20 +71,27 @@ check("every line in golden picture fits within 78 columns",
       all(len(line) <= 78 for line in actual_golden.splitlines()),
       [len(line) for line in actual_golden.splitlines()])
 
-# 2. All three empty cases still draw
+# 2. All four empty cases still draw
 empty_pic = hopper_picture.render({"jobs": {}, "events": []}, [], [], now=now)
-check("empty hopper still draws (empty)", "(empty)" in empty_pic.split("+-------------------------------- WORKBENCH ---------------------------------+")[0], empty_pic)
-check("empty workbench still draws (empty)", "(empty)" in empty_pic.split("+-------------------------------- WORKBENCH ---------------------------------+")[1].split("+---------------------------- INTEGRATOR'S DESK -----------------------------+")[0], empty_pic)
-desk_part = empty_pic.split("+---------------------------- INTEGRATOR'S DESK -----------------------------+")[1]
+benches_header = "+----------- WORKBENCH -----------+ +-------------- QUESTIONS ---------------+"
+desk_header = "+---------------------------- INTEGRATOR'S DESK -----------------------------+"
+hopper_part, rest_part = empty_pic.split(benches_header)
+benches_part, desk_part = rest_part.split(desk_header)
+check("empty hopper still draws (empty)", "(empty)" in hopper_part, empty_pic)
+check("empty workbench and empty questions still draw (empty)",
+      benches_part.count("(empty)") == 2, benches_part)
 check("empty desk still draws (empty) and last merged: (none)",
       "(empty)" in desk_part and "last merged: (none)" in desk_part, desk_part)
 
-# 3. Long titles are cut to fit with …
+# 3. Long titles and multiline/long questions are cut to one line with …
 long_title = "A very long job title that definitely exceeds seventy-eight columns when rendered inside the hopper funnel"
+long_question = "First line of a very long question\nsecond line that should be collapsed and clipped cleanly"
 long_st = {
     "jobs": {
         "H301": {"state": "in progress", "agent": "gemini", "session": "gemini-larch", "taken": now - 60},
         "H302": {"state": "done", "agent": "codex", "branch": "codex/h302-long"},
+        "H303": {"state": "waiting", "agent": "gemini", "session": "gemini-larch",
+                 "since": now - 180, "question": long_question, "question_kind": "scope"},
     },
     "events": [],
 }
@@ -91,19 +99,40 @@ long_jobs = [
     {"id": "H300", "kind": "ready", "item": long_title, "waits": ""},
     {"id": "H301", "kind": "ready", "item": long_title, "waits": ""},
     {"id": "H302", "kind": "answered", "item": long_title, "waits": ""},
+    {"id": "H303", "kind": "ready", "item": long_title, "waits": ""},
 ]
-long_pic = hopper_picture.render(long_st, long_jobs, ["H300", "H301", "H302"], now=now)
-check("long titles are clipped with … and stay within 78 columns",
-      long_pic.count("…") >= 3 and all(len(l) <= 78 for l in long_pic.splitlines()),
+long_pic = hopper_picture.render(long_st, long_jobs, ["H300", "H301", "H302", "H303"], now=now)
+check("long titles and questions are clipped with … and stay within 78 columns",
+      long_pic.count("…") >= 4 and "gemini-larch asks the integrator" in long_pic
+      and all(len(l) <= 78 for l in long_pic.splitlines()),
       long_pic)
 
-# 4. Question mark on a waiting job (and not on non-waiting job)
-wait_lines = [l for l in actual_golden.splitlines() if "H200" in l]
-work_lines = [l for l in actual_golden.splitlines() if "H199" in l]
-check("waiting job shows ? and non-waiting job does not",
-      len(wait_lines) == 1 and wait_lines[0].startswith("| ? H200")
-      and len(work_lines) == 1 and work_lines[0].startswith("|   H199"),
-      (wait_lines, work_lines))
+# 4. Waiting job is drawn on the questions bench, never on the workbench, with 'started while' line
+golden_benches = actual_golden.split(benches_header)[1].split(desk_header)[0]
+wb_col_lines = [l.split(" + ")[0].split(" | ")[0] for l in golden_benches.splitlines() if l.startswith("|")]
+qs_col_lines = [l[36:] for l in golden_benches.splitlines() if l.startswith("|")]
+check("waiting job is on questions bench, never on workbench, with started-while line",
+      any("H199" in l for l in wb_col_lines)
+      and not any("H200" in l for l in wb_col_lines)
+      and any("H200 codex-pine asks William" in l for l in qs_col_lines)
+      and "H199 started while H200 waits for an answer" in golden_benches,
+      golden_benches)
+
+# Waiting alone (no running job) does not emit 'started while'
+alone_st = {
+    "jobs": {
+        "H200": {"state": "waiting", "agent": "gemini", "session": "gemini-larch",
+                 "since": now - 300, "question": "Which axis?", "question_kind": "scope"},
+    },
+    "events": [],
+}
+alone_pic = hopper_picture.render(alone_st, [{"id": "H200", "kind": "ready", "item": "Axis choice", "waits": ""}], ["H200"], now=now)
+check("waiting job without running job has no started-while line and shows asks the integrator",
+      "gemini-larch asks the integrator" in alone_pic
+      and "Which axis?" in alone_pic
+      and "5m" in alone_pic
+      and "started while" not in alone_pic,
+      alone_pic)
 
 # 5. SHOW_THE_HOPPER.py --help and single run work
 root = os.path.dirname(HERE)

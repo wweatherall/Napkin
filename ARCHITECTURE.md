@@ -120,7 +120,7 @@ One-line index per module (`tools/architecture_map.py`). Per-file details, warni
 - `tools/fulltest.sh` — Full check (~20 s): when tools/quicktest.sh fails, or before a merge
 - `tools/gate.sh` — The merge gate (P18): quick then full, one verdict; successful quick checks are reused (T90)
 - `tools/handoff.py` — The handoff's entries, one file each (T77): docs/handoff/H037-short-slug.md holds one entry, headed "### H037 — Subject" with the usual Author | Date | Status…
-- `tools/hopper_picture.py` — Draw the job queue as a three-part ASCII picture (H203): hopper, workbench, integrator's desk
+- `tools/hopper_picture.py` — Draw the job queue as a four-part ASCII picture (H203): hopper, workbench, questions, integrator's desk
 - `tools/integrate.py` — Merge one agent branch into main (P20): the integrator's steps, in one command
 - `tools/integrator.py` — Who is the integrator (P19): one lock, shared by every worktree (it lives in git's common folder, untracked)
 - `tools/job.py` — The job queue (P24): a worker takes a job and says done; a dead man's switch flags one gone quiet

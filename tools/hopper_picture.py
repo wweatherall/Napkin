@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Draw the job queue as a three-part ASCII picture (H203): hopper, workbench, integrator's desk."""
+"""Draw the job queue as a four-part ASCII picture (H203): hopper, workbench, questions, integrator's desk."""
 import os
 import re
 import sys
@@ -152,30 +152,94 @@ def _render_hopper(st, resolved_jobs, order, titles, width):
     return lines
 
 
+def _running_jobs(st):
+    running = [
+        (jid, j) for jid, j in st.get("jobs", {}).items()
+        if j.get("state") == "in progress"
+    ]
+    running.sort(key=lambda pair: (pair[1].get("taken") or 0, pair[0]))
+    return running
+
+
+def _waiting_jobs(st):
+    waiting = [
+        (jid, j) for jid, j in st.get("jobs", {}).items()
+        if j.get("state") == "waiting"
+    ]
+    waiting.sort(key=lambda pair: (pair[1].get("since") or pair[1].get("taken") or 0, pair[0]))
+    return waiting
+
+
 def _render_workbench(st, titles, now, width):
     lines = [_box_header("WORKBENCH", width)]
-    working = [
-        (jid, j) for jid, j in st.get("jobs", {}).items()
-        if j.get("state") in job.WORKING
-    ]
-    working.sort(key=lambda pair: (pair[1].get("taken") or 0, pair[0]))
+    working = _running_jobs(st)
     inner = width - 4
     if not working:
         lines.append(_centered_line("(empty)", width))
     else:
         for jid, j in working:
-            mark = "?" if j.get("state") == "waiting" else " "
             who = _format_worker(j)
             since = j.get("taken") or j.get("beat") or j.get("since") or now
             dur = _format_duration(now - since)
             right = f"{who}  {dur}"
             title = titles.get(jid, "") or j.get("branch", "")
-            prefix = f"{mark} {jid} "
-            avail = max(8, inner - len(prefix) - len(right) - 2)
+            prefix = f"{jid} "
+            avail = max(6, inner - len(prefix) - len(right) - 1)
             left = prefix + clip(title, avail)
             line = f"{left:<{inner - len(right)}}{right}"
             lines.append(_box_line(line, width))
     lines.append("+" + ("-" * (width - 2)) + "+")
+    return lines
+
+
+def _render_questions(st, now, width):
+    lines = [_box_header("QUESTIONS", width)]
+    waiting = _waiting_jobs(st)
+    inner = width - 4
+    if not waiting:
+        lines.append(_centered_line("(empty)", width))
+    else:
+        for jid, j in waiting:
+            who = _format_worker(j)
+            target = "the integrator" if j.get("question_kind") == "scope" else "William"
+            lines.append(_box_line(f"{jid} {who} asks {target}", width))
+            since = j.get("since") or j.get("beat") or j.get("taken") or now
+            dur = _format_duration(now - since)
+            q = j.get("question") or "(no question)"
+            q_avail = max(6, inner - 2 - len(dur) - 2)
+            q_left = f"  {clip(q, q_avail)}"
+            lines.append(_box_line(f"{q_left:<{inner - len(dur)}}{dur}", width))
+    lines.append("+" + ("-" * (width - 2)) + "+")
+    return lines
+
+
+def _join_side_by_side(left_lines, right_lines, left_w, right_w, gap=" "):
+    left_body, left_foot = left_lines[:-1], left_lines[-1]
+    right_body, right_foot = right_lines[:-1], right_lines[-1]
+    height = max(len(left_body), len(right_body))
+    while len(left_body) < height:
+        left_body.append(_box_line("", left_w))
+    while len(right_body) < height:
+        right_body.append(_box_line("", right_w))
+    return [
+        f"{l}{gap}{r}"
+        for l, r in zip(left_body + [left_foot], right_body + [right_foot])
+    ]
+
+
+def _render_benches(st, titles, now, width):
+    left_w = max(20, (width - 1) // 2 - 3)
+    right_w = width - 1 - left_w
+    wb = _render_workbench(st, titles, now, left_w)
+    qs = _render_questions(st, now, right_w)
+    lines = _join_side_by_side(wb, qs, left_w, right_w)
+    running = _running_jobs(st)
+    waiting = _waiting_jobs(st)
+    if running and waiting:
+        r_ids = ", ".join(jid for jid, _ in running)
+        w_ids = ", ".join(jid for jid, _ in waiting)
+        verb = "waits" if len(waiting) == 1 else "wait"
+        lines.append("  " + clip(f"{r_ids} started while {w_ids} {verb} for an answer", width - 2))
     return lines
 
 
@@ -207,13 +271,13 @@ def _render_desk(st, order, titles, width):
 
 
 def render(st, jobs, order, now=None, width=78):
-    """Render the three-part ASCII hopper picture from queue state `st`, `jobs`, and `order`."""
+    """Render the four-part ASCII hopper picture from queue state `st`, `jobs`, and `order`."""
     now = time.time() if now is None else now
     resolved = job.resolve_dependencies(jobs, st)
     titles = {j["id"]: j.get("item", "") for j in resolved}
     lines = []
     lines.extend(_render_hopper(st, resolved, order, titles, width))
-    lines.extend(_render_workbench(st, titles, now, width))
+    lines.extend(_render_benches(st, titles, now, width))
     lines.extend(_render_desk(st, order, titles, width))
     return "\n".join(lines)
 
