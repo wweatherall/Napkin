@@ -28,6 +28,7 @@ for _env_key in ("ANTIGRAVITY_CONVERSATION_ID", "ANTIGRAVITY_AGENT", "NAPKIN_SES
     os.environ.pop(_env_key, None)
 # Disable the external usage-tool subprocess by default; the usage-hook tests below override this with patch.dict.
 os.environ["NAPKIN_USAGE_TOOL"] = ""
+os.environ["AGY_USAGE_DIR"] = ""  # the real Gemini quota must not steer these tests' hopper
 
 RESULTS = []
 VERBOSE = "-v" in sys.argv[1:] or "--verbose" in sys.argv[1:]
@@ -2194,6 +2195,36 @@ check("feedback_read marks all entries read in state",
 
 job.QUICKTEST = _saved_qt
 shutil.rmtree(h207_base, ignore_errors=True)
+
+# Gemini's quota steers the hopper (William, 2026-11-28): at or under 10% left of the 5-hour or weekly quota, an
+# 'either' job goes to Codex and a Gemini-only job waits; a missing or stale sample fails open.
+_qdir = tempfile.mkdtemp(prefix="job-quota-")
+atexit.register(shutil.rmtree, _qdir, True)
+def _quota(five, week, age=0, now=2_000_000_000):
+    with open(os.path.join(_qdir, "history.jsonl"), "w") as f:
+        f.write(json.dumps({"ts": 1, "buckets": {"gemini-5h": 0.9, "gemini-weekly": 0.9}}) + "\n")
+        f.write(json.dumps({"ts": (now - age) * 1000, "buckets": {"gemini-5h": five, "gemini-weekly": week}}) + "\n")
+    return now
+with patch.dict(os.environ, {"AGY_USAGE_DIR": _qdir}):
+    check("gemini quota: plenty left is not low", not job.gemini_quota_low(_quota(0.5, 0.5)))
+    check("gemini quota: weekly at 10% left is low", job.gemini_quota_low(_quota(0.9, 0.10)))
+    check("gemini quota: 5-hour at 8% left is low", job.gemini_quota_low(_quota(0.08, 0.9)))
+    check("gemini quota: a sample over 30 min old fails open", not job.gemini_quota_low(_quota(0.01, 0.01, age=31 * 60)))
+    open(os.path.join(_qdir, "history.jsonl"), "w").write("not json\n")
+    check("gemini quota: an unreadable sample fails open", not job.gemini_quota_low(2_000_000_000))
+with patch.dict(os.environ, {"AGY_USAGE_DIR": os.path.join(_qdir, "missing")}):
+    check("gemini quota: no file fails open", not job.gemini_quota_low())
+_qjobs = [{"id": "H1", "name": "H1-g.md", "for": "gemini", "item": "g"}, {"id": "H2", "name": "H2-e.md", "for": "either", "item": "e"}]
+_qtake = lambda root, st, agent, jobs, order, claims, pace="": (
+    next((j for j in jobs if j["for"] in (agent, "either")), None), None)
+with patch.object(job, "takeable", _qtake):
+    _st = {"jobs": {}}
+    p, a = job._next_hopper_candidate("", _st, _qjobs, ["H1", "H2"], {}, "one at a time")
+    check("hopper: with quota, a Gemini job goes to Gemini first", (p["id"], a) == ("H1", "gemini"), (p, a))
+    p, a = job._next_hopper_candidate("", _st, _qjobs, ["H1", "H2"], {}, "one at a time", gemini_low=True)
+    check("hopper: quota low, the Gemini job waits and the 'either' job goes to Codex", (p["id"], a) == ("H2", "codex"), (p, a))
+    p, a = job._next_hopper_candidate("", _st, _qjobs[:1], ["H1"], {}, "one at a time", gemini_low=True)
+    check("hopper: quota low and only a Gemini job left, nothing launches", p is None, (p, a))
 
 print(f"JOB TESTS: {sum(RESULTS)} passed, {len(RESULTS) - sum(RESULTS)} failed")
 sys.exit(0 if all(RESULTS) else 1)

@@ -1844,10 +1844,36 @@ def _release_hopper_pid(cwd):
     _release_pid(hopper_pid_path(cwd))
 
 
-def _next_hopper_candidate(root, st, jobs, order, claims, pace):
-    """First entry in Order takeable as itself, or a returned job (H196)."""
+GEMINI_LOW = 0.10        # William, 2026-11-28: no new Gemini jobs at or under 10% left of its 5-hour or weekly quota
+QUOTA_FRESH_S = 30 * 60  # an older quota sample says nothing (the monitor may be off): fail open
+
+
+def gemini_quota_low(now=None):
+    """True when the newest Gemini quota sample (AGY_USAGE_DIR/history.jsonl, fractions left) is fresh and either
+    bucket is at or under GEMINI_LOW; False when there's no file, no fresh sample, or an unreadable one."""
+    base = os.environ.get("AGY_USAGE_DIR", "/Users/Will/Sites/agy-usage-monitor")
+    path = os.path.join(base, "history.jsonl") if base else ""
+    try:
+        with open(path, "rb") as f:
+            f.seek(0, 2)
+            f.seek(max(0, f.tell() - 4096))
+            last = f.read().decode("utf-8", "replace").strip().splitlines()[-1]
+        row = json.loads(last)
+        b = row["buckets"]
+        if (now or time.time()) - row["ts"] / 1000.0 > QUOTA_FRESH_S:
+            return False
+        return any(float(b[k]) <= GEMINI_LOW for k in ("gemini-5h", "gemini-weekly") if k in b)
+    except (OSError, ValueError, KeyError, IndexError, TypeError):
+        return False
+
+
+def _next_hopper_candidate(root, st, jobs, order, claims, pace, gemini_low=False):
+    """First entry in Order takeable as itself, or a returned job (H196). While Gemini's quota is low, an 'either'
+    job goes to Codex and a Gemini-only job waits."""
     for j in ordered(jobs, order):
-        target_agent = "gemini" if j["for"] == "either" else j["for"]
+        if gemini_low and j["for"] == "gemini":
+            continue
+        target_agent = ("codex" if gemini_low else "gemini") if j["for"] == "either" else j["for"]
         picked, _ = takeable(root, st, target_agent, jobs, order, claims, pace=pace)
         if not picked:
             continue
@@ -1897,7 +1923,7 @@ def hopper_wake_conditions(root, st, jobs, order, now, claims=None, pace="all at
     pending = [jid for jid, info in launched.items()
                if st["jobs"].get(jid, {}).get("state") not in TAKEN and now - info.get("at", 0) < LAUNCH_TIMEOUT]
     if not running and not pending:
-        picked, _ = _next_hopper_candidate(root, st, jobs, order, claims, pace)
+        picked, _ = _next_hopper_candidate(root, st, jobs, order, claims, pace, gemini_low=gemini_quota_low(now))
         if picked is None:
             done_ids = [jid for jid, s in st["jobs"].items() if s.get("state") == "done"]
             waiting_jobs = [(jid, s) for jid, s in st["jobs"].items() if s.get("state") == "waiting"]
@@ -1950,7 +1976,8 @@ def hopper_step(root, now=None, dry_run=False, launcher=None, out=print, seen=No
                     out(f"waiting: {why}")
                     return "dry", 0, None, None
                 return "wait", None, None, None
-            picked, target_agent = _next_hopper_candidate(root, st, jobs, order, claims, pace)
+            picked, target_agent = _next_hopper_candidate(root, st, jobs, order, claims, pace,
+                                                          gemini_low=gemini_quota_low(now))
             if picked is not None:
                 if picked["id"] in st.get("launched", {}):
                     return "wait", None, None, None
@@ -2019,7 +2046,8 @@ def hopper_has_work(root, now=None):
             return True
         if st.get("launched"):
             return True
-        picked, _ = _next_hopper_candidate(root, st, jobs, order, branch_claims(root), pace)
+        picked, _ = _next_hopper_candidate(root, st, jobs, order, branch_claims(root), pace,
+                                           gemini_low=gemini_quota_low(now))
         return picked is not None
 
 
