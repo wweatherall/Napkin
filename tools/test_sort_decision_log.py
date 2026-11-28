@@ -313,5 +313,79 @@ finally:
         os.environ["NAPKIN_COMITATUS"] = old_env
 shutil.rmtree(dual_org)
 
+# Branch log checks (H205): in a job worktree, comitatus rulings whose index line this branch didn't change
+# since its merge base with main are noted and don't fail check_files or tidy; on main, or when the branch
+# changed the line, they still fail.
+import subprocess
+wt_org = tempfile.mkdtemp(prefix="sdl-wt-")
+wt_main = os.path.join(wt_org, "08_Code_Bases", "Proj")
+wt_work = os.path.join(wt_org, "08_Code_Bases", ".worktrees", "Proj", "h1")
+wt_cdir = os.path.join(wt_org, "03_Past_Decisions", "rulings")
+os.makedirs(os.path.join(wt_main, "03_Past_Decisions", "rulings"))
+os.makedirs(wt_cdir)
+s.write_entry(os.path.join(wt_main, "03_Past_Decisions", "rulings"), "G01",
+              s.format_ruling("G01", "Keep it simple.", "Active", "2026-11-22"))
+s.write_entry(wt_cdir, "P01",
+              s.format_ruling("P01", "Original rule.", "Active", "2026-11-22", subject="Process", principles="G01"))
+wt_live_base = (
+    "# Log\n\n## Subjects\n\n| Subject | Covers | Decisions |\n|---|---|---|\n| Process | Work. | P01 |\n\n"
+    "## Principles\n\n| ID | Principle | Status |\n|---|---|---|\n| G01 | Keep it simple. | Active |\n\n"
+    "## Decisions\n\n### Process\n\n| ID | Decision | Status |\n|---|---|---|\n| P01 | Original rule. | Active |\n"
+)
+wt_arch_base = "# Archive\n\n## Superseded decisions\n\n| ID | Decision | Status |\n|---|---|---|\n"
+open(os.path.join(wt_main, "03_Past_Decisions", "decision-log.md"), "w", encoding="utf-8").write(wt_live_base)
+open(os.path.join(wt_main, "03_Past_Decisions", "decision-archive.md"), "w", encoding="utf-8").write(wt_arch_base)
+subprocess.run(["git", "init", "-b", "main"], cwd=wt_main, check=True, capture_output=True)
+subprocess.run(["git", "config", "user.email", "t@t"], cwd=wt_main, check=True, capture_output=True)
+subprocess.run(["git", "config", "user.name", "T"], cwd=wt_main, check=True, capture_output=True)
+subprocess.run(["git", "add", "."], cwd=wt_main, check=True, capture_output=True)
+subprocess.run(["git", "commit", "-m", "init"], cwd=wt_main, check=True, capture_output=True)
+subprocess.run(["git", "worktree", "add", "-b", "job/h1", wt_work, "main"], cwd=wt_main, check=True, capture_output=True)
+
+# Now update comitatus: reword P01 and add P75
+s.write_entry(wt_cdir, "P01",
+              s.format_ruling("P01", "Reworded rule.", "Active", "2026-11-27", subject="Process", principles="G01"))
+s.write_entry(wt_cdir, "P75",
+              s.format_ruling("P75", "New process rule.", "Active", "2026-11-27", subject="Process", principles="G01"))
+
+main_notes = []
+main_probs = s.check_files(
+    open(os.path.join(wt_main, "03_Past_Decisions", "decision-log.md"), encoding="utf-8").read(),
+    open(os.path.join(wt_main, "03_Past_Decisions", "decision-archive.md"), encoding="utf-8").read(),
+    rulings_dir=[os.path.join(wt_main, "03_Past_Decisions", "rulings"), wt_cdir],
+    notes=main_notes,
+)
+check("on main, newer comitatus rulings fail check_files with no branch note",
+      bool(main_probs) and not main_notes)
+
+wt_live = open(os.path.join(wt_work, "03_Past_Decisions", "decision-log.md"), encoding="utf-8").read()
+wt_arch = open(os.path.join(wt_work, "03_Past_Decisions", "decision-archive.md"), encoding="utf-8").read()
+wt_rdirs = [os.path.join(wt_work, "03_Past_Decisions", "rulings"), wt_cdir]
+wt_notes = []
+wt_probs = s.check_files(wt_live, wt_arch, rulings_dir=wt_rdirs, notes=wt_notes)
+check("in a job worktree, unchanged comitatus rulings pass check_files with a note",
+      wt_probs == []
+      and "note: P01 is newer in comitatus than this branch's index; merging main brings it" in wt_notes
+      and "note: P75 is newer in comitatus than this branch's index; merging main brings it" in wt_notes)
+wt_tidy_l, wt_tidy_a = s.tidy(wt_live, wt_arch, rulings_dir=wt_rdirs)
+check("in a job worktree, tidy leaves unchanged comitatus rulings untouched",
+      wt_tidy_l == wt_live and wt_tidy_a == wt_arch)
+
+# Deleting P01 from comitatus (in index without a file) also notes rather than fails when unchanged
+os.remove(os.path.join(wt_cdir, "P01.md"))
+del_notes = []
+del_probs = s.check_files(wt_live, wt_arch, rulings_dir=wt_rdirs, notes=del_notes)
+check("in a job worktree, a comitatus ruling removed from comitatus passes with a note when unchanged",
+      del_probs == [] and any("P01 is newer in comitatus" in n for n in del_notes))
+
+# If the branch itself changed P01's index line, check_files still fails
+changed_live = wt_live.replace("Original rule.", "Branch edited rule.")
+chg_notes = []
+chg_probs = s.check_files(changed_live, wt_arch, rulings_dir=wt_rdirs, notes=chg_notes)
+check("in a job worktree, a comitatus ruling whose index line this branch changed still fails",
+      bool(chg_probs) and not any("P01" in n for n in chg_notes))
+
+shutil.rmtree(wt_org, ignore_errors=True)
+
 print(f"LOG SORT TESTS: {sum(RESULTS)} passed, {len(RESULTS) - sum(RESULTS)} failed")
 raise SystemExit(0 if all(RESULTS) else 1)   # a failed check fails the run, not only its summary

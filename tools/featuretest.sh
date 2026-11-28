@@ -7,10 +7,31 @@
 # before its tool exists; tools/quicktest.sh runs them too, beside the viewport session.
 #   tools/featuretest.sh [--tools-only] [outdir]  exit status 0 = all passed; prints one summary line
 #   tools/featuretest.sh [--tools-only] --list    what it found and how it runs each, without running them
-cd "$(dirname "$0")/.."
 FC=/Applications/FreeCAD.app/Contents/Resources/bin/freecadcmd
 GD=/Applications/Godot.app/Contents/MacOS/Godot
 TAG='^[A-Z][A-Z -]* TESTS: [0-9]+ passed, [0-9]+ failed'
+
+test_runner_for() {
+  local f=$1 runner dir base
+  runner=$(head -5 "$f" | grep -oE 'runner: *[a-z0-9]+' | head -1 | sed 's/runner: *//')
+  if [ -z "$runner" ]; then
+    case "$f" in worker/*) runner=freecadcmd;; tools/*) runner=python3;; viewport/*) runner=godot;; *) runner=python3;; esac
+  fi
+  dir=${f%%/*}; base=$(basename "$f"); base=${base#test_}
+  TEST_NAME="$dir-${base%.*}"
+  TEST_RUNNER=$runner
+  case "$runner" in
+    none) TEST_CMD="";;
+    freecadcmd) TEST_CMD="$FC $f";;
+    python3) TEST_CMD="python3 $f";;
+    godot) TEST_CMD="$GD --headless --path viewport --script res://${f#viewport/}";;
+    *) TEST_CMD="false unknown-runner-$runner";;
+  esac
+}
+
+if [[ ${BASH_SOURCE[0]} != "$0" ]]; then return 0; fi
+
+cd "$(dirname "$0")/.."
 
 TOOLS_ONLY=0
 LIST=0
@@ -28,19 +49,9 @@ TESTS=()
 for f in worker/test_*.py tools/test_*.py viewport/test_*.gd; do
   [ -f "$f" ] || continue
   [ "$TOOLS_ONLY" -eq 1 ] && [[ "$f" != tools/* ]] && continue
-  runner=$(head -5 "$f" | grep -oE 'runner: *[a-z0-9]+' | head -1 | sed 's/runner: *//')
-  if [ -z "$runner" ]; then
-    case "$f" in worker/*) runner=freecadcmd;; tools/*) runner=python3;; viewport/*) runner=godot;; esac
-  fi
-  dir=${f%%/*}; base=$(basename "$f"); base=${base#test_}; name="$dir-${base%.*}"
-  case "$runner" in
-    none) continue;;
-    freecadcmd) cmd="$FC $f";;
-    python3) cmd="python3 $f";;
-    godot) cmd="$GD --headless --path viewport --script res://${f#viewport/}";;
-    *) cmd="false unknown-runner-$runner";;
-  esac
-  TESTS+=("$name|$cmd")
+  test_runner_for "$f"
+  [ -z "$TEST_CMD" ] && continue
+  TESTS+=("$TEST_NAME|$TEST_CMD")
 done
 
 if [ "$LIST" -eq 1 ]; then

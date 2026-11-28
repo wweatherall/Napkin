@@ -658,37 +658,145 @@ def _replace_table(lines, section, group, new_header, new_rows):
     return lines
 
 
-def generate_indexes(live, archive, entries, work_entries=None, question_entries=None):
+def _worktree_merge_base(root):
+    """Return merge-base SHA with main if `root` is a linked git worktree (not the main checkout), else None."""
+    if not root or not os.path.isdir(root):
+        return None
+    r_dir = subprocess.run(["git", "rev-parse", "--git-dir"], cwd=root, capture_output=True, text=True)
+    r_comm = subprocess.run(["git", "rev-parse", "--git-common-dir"], cwd=root, capture_output=True, text=True)
+    if r_dir.returncode != 0 or r_comm.returncode != 0:
+        return None
+    gdir = os.path.realpath(os.path.join(root, r_dir.stdout.strip()))
+    cdir = os.path.realpath(os.path.join(root, r_comm.stdout.strip()))
+    if gdir == cdir:
+        return None
+    r_mb = subprocess.run(["git", "merge-base", "HEAD", "main"], cwd=root, capture_output=True, text=True)
+    return r_mb.stdout.strip() if r_mb.returncode == 0 and r_mb.stdout.strip() else None
+
+
+def _index_row_map(text, sections):
+    """Return {ident: (section, group, line)} for every table row in `sections`."""
+    if not text:
+        return {}
+    lines = text.split("\n")
+    out = {}
+    for _, _, rs, sec, g in tables(lines):
+        if sec in sections:
+            for r in rs:
+                ident = row_id(lines[r])
+                if ident:
+                    out[ident] = (sec, g, lines[r])
+    return out
+
+
+def _branch_comitatus_skips(live, archive, rulings_dir, notes=None):
+    """In a job worktree, find comitatus rulings whose index line this branch didn't change since its
+    merge base with main, but which differ from live comitatus/rulings/. Returns {ident: (where, subj, row)}
+    and appends `note: <ID> is newer in comitatus...` to `notes` when given."""
+    if rulings_dir is None or archive is None:
+        return {}
+    dirs = _folders(rulings_dir)
+    if len(dirs) < 2:
+        return {}
+    d0 = os.path.abspath(dirs[0])
+    if os.path.basename(d0) != "rulings" or os.path.basename(os.path.dirname(d0)) != "03_Past_Decisions":
+        return {}
+    root = os.path.dirname(os.path.dirname(d0))
+    base = _worktree_merge_base(root)
+    if not base:
+        return {}
+    local_r = os.path.realpath(d0)
+    cdirs = [d for d in dirs if os.path.realpath(d) != local_r]
+    if not cdirs:
+        return {}
+    c_entries = read_entries(cdirs)
+    n_entries = read_entries(dirs[0])
+    r_live = subprocess.run(["git", "show", f"{base}:{LIVE}"], cwd=root, capture_output=True, text=True)
+    r_arch = subprocess.run(["git", "show", f"{base}:{ARCHIVE}"], cwd=root, capture_output=True, text=True)
+    base_live_map = _index_row_map(r_live.stdout if r_live.returncode == 0 else "", RULING_SECTIONS)
+    base_arch_map = _index_row_map(r_arch.stdout if r_arch.returncode == 0 else "", {"## Superseded decisions"})
+    cur_live = _index_row_map(live, RULING_SECTIONS)
+    cur_arch = _index_row_map(archive, {"## Superseded decisions"})
+
+    candidates = set(c_entries) | {
+        ident for ident in (set(cur_live) | set(cur_arch))
+        if ident not in n_entries and ident not in c_entries and kind_of(ident) == "P"
+    }
+    preserve = {}
+    for ident in sorted(candidates, key=lambda x: key(f"| {x} |")):
+        cur_l = cur_live.get(ident)
+        cur_a = cur_arch.get(ident)
+        if cur_l != base_live_map.get(ident) or cur_a != base_arch_map.get(ident):
+            continue
+        if ident in c_entries:
+            e = c_entries[ident]
+            st = e["meta"].get("Status", "")
+            expected = index_row(e)
+            if st in ("Active", "Tentative"):
+                exp_sec = "## Principles" if kind_of(ident) == "G" else "## Decisions"
+                exp_grp = e["meta"].get("Subject", "") if exp_sec == "## Decisions" else None
+                if (cur_a is None and cur_l is not None and cur_l[0] == exp_sec
+                        and (exp_sec != "## Decisions" or cur_l[1] == exp_grp) and cur_l[2] == expected):
+                    continue
+            elif st == "Superseded":
+                if cur_l is None and cur_a is not None and cur_a[2] == expected:
+                    continue
+            else:
+                continue
+        if cur_l is not None:
+            preserve[ident] = ("live", cur_l[1], cur_l[2])
+        elif cur_a is not None:
+            preserve[ident] = ("archive", None, cur_a[2])
+        else:
+            preserve[ident] = ("omit", None, None)
+        if notes is not None:
+            notes.append(f"note: {ident} is newer in comitatus than this branch's index; merging main brings it")
+    return preserve
+
+
+def generate_indexes(live, archive, entries, work_entries=None, question_entries=None, preserve=None):
     """Rebuild generated indexes in live and archive for rulings, work items, and questions."""
     lines = live.split("\n")
     alines = archive.split("\n") if archive is not None else None
+    preserve = preserve or {}
 
     if entries is not None:
-        active_p = sorted(
-            [e for e in entries.values() if kind_of(e["id"]) == "G" and e["meta"].get("Status") in ("Active", "Tentative")],
-            key=lambda e: key(f"| {e['id']} |"),
-        )
-        active_d = sorted(
-            [e for e in entries.values() if kind_of(e["id"]) != "G" and e["meta"].get("Status") in ("Active", "Tentative")],
-            key=lambda e: key(f"| {e['id']} |"),
-        )
-        superseded = sorted(
-            [e for e in entries.values() if e["meta"].get("Status") == "Superseded"],
-            key=lambda e: key(f"| {e['id']} |"),
-        )
-        lines = _replace_table(lines, "## Principles", None, ["ID", "Principle", "Status"], [index_row(e) for e in active_p])
+        active_p_items = [
+            (e["id"], index_row(e)) for e in entries.values()
+            if e["id"] not in preserve and kind_of(e["id"]) == "G" and e["meta"].get("Status") in ("Active", "Tentative")
+        ]
+        active_d_items = [
+            (e["id"], e["meta"].get("Subject", ""), index_row(e)) for e in entries.values()
+            if e["id"] not in preserve and kind_of(e["id"]) != "G" and e["meta"].get("Status") in ("Active", "Tentative")
+        ]
+        superseded_items = [
+            (e["id"], index_row(e)) for e in entries.values()
+            if e["id"] not in preserve and e["meta"].get("Status") == "Superseded"
+        ]
+        for ident, (where, subj, row_str) in preserve.items():
+            if where == "live" and kind_of(ident) == "G":
+                active_p_items.append((ident, row_str))
+            elif where == "live":
+                active_d_items.append((ident, subj, row_str))
+            elif where == "archive":
+                superseded_items.append((ident, row_str))
+        active_p_items.sort(key=lambda item: key(f"| {item[0]} |"))
+        active_d_items.sort(key=lambda item: key(f"| {item[0]} |"))
+        superseded_items.sort(key=lambda item: key(f"| {item[0]} |"))
+        lines = _replace_table(lines, "## Principles", None, ["ID", "Principle", "Status"],
+                               [row_str for _, row_str in active_p_items])
 
         if "## Subjects" in lines and "## Decisions" in lines:
             order = [cells(lines[r])[0] for h, hc, rs, sec, g in tables(lines) if sec == "## Subjects" for r in rs]
             by_subj = {}
-            for e in active_d:
-                by_subj.setdefault(e["meta"].get("Subject", ""), []).append(e)
+            for ident, subj, row_str in active_d_items:
+                by_subj.setdefault(subj, []).append((ident, row_str))
 
             a, b = section_range(lines, "## Decisions")
             first = next((k for k in range(a, b) if lines[k].startswith("### ")), b)
             body = []
             for subj in order:
-                rows_out = [index_row(e) for e in by_subj.get(subj, [])]
+                rows_out = [row_str for _, row_str in by_subj.get(subj, [])]
                 body += [f"### {subj}", "", "| ID | Decision | Status |", "|---|---|---|"] + rows_out + [""]
             lines = lines[:first] + body + lines[b:]
 
@@ -697,11 +805,11 @@ def generate_indexes(live, archive, entries, work_entries=None, question_entries
                     col = hc.index("Decisions")
                     for r in rs:
                         c = cells(lines[r])
-                        c[col] = ", ".join(e["id"] for e in by_subj.get(c[0], [])) or NONE
+                        c[col] = ", ".join(ident for ident, _ in by_subj.get(c[0], [])) or NONE
                         lines[r] = make_row(c)
         if alines is not None:
             alines = _replace_table(alines, "## Superseded decisions", None, ["ID", "Decision", "Status"],
-                                    [index_row(e) for e in superseded])
+                                    [row_str for _, row_str in superseded_items])
 
     if work_entries is not None:
         open_w = sorted(
@@ -784,9 +892,11 @@ def _atomize_section_rows(texts, sections, target_dir, row_converter, dry_run):
     return extra
 
 
-def tidy(live, archive, rulings_dir=None, work_dir=None, questions_dir=None, dry_run=False):
+def tidy(live, archive, rulings_dir=None, work_dir=None, questions_dir=None, dry_run=False, notes=None, _preserve=None):
     """(live, archive) with entry rows atomized (when their dirs are set), archival rows moved,
     Details beside their rows, everything sorted and generated."""
+    if _preserve is None:
+        _preserve = _branch_comitatus_skips(live, archive, rulings_dir, notes=notes)
     extra_r, extra_w, extra_q = {}, {}, {}
     texts = [live, archive]
     if rulings_dir is not None:
@@ -834,7 +944,7 @@ def tidy(live, archive, rulings_dir=None, work_dir=None, questions_dir=None, dry
         if questions_dir is not None:
             q_entries = read_entries(questions_dir)
             q_entries.update(extra_q)
-        live, archive = generate_indexes(live, archive, r_entries, work_entries=w_entries, question_entries=q_entries)
+        live, archive = generate_indexes(live, archive, r_entries, work_entries=w_entries, question_entries=q_entries, preserve=_preserve)
     return live, archive
 
 
@@ -862,9 +972,10 @@ def _check_qt_folder(folder, live_idx, arch_idx, allowed_statuses, closed_status
     return out
 
 
-def layout_problems(live, archive, rulings_dir=None, work_dir=None, questions_dir=None):
+def layout_problems(live, archive, rulings_dir=None, work_dir=None, questions_dir=None, skip_ids=()):
     """Problems that tidying can't fix: an ID in both files, the index and the subject headings out of step,
     a decision naming a principle that doesn't exist, or entry files out of sync with the indexes."""
+    skip_ids = set(skip_ids)
     out = []
     both = sorted(set(ids_of(live)) & set(ids_of(archive)), key=lambda x: key(f"| {x} |"))
     out += [f"{i} is in both {LIVE} and {ARCHIVE}" for i in both]
@@ -914,6 +1025,8 @@ def layout_problems(live, archive, rulings_dir=None, work_dir=None, questions_di
         principles_set = {ident for ident, e in entries.items()
                           if kind_of(ident) == "G" and e["meta"].get("Status") in ("Active", "Tentative")}
         for ident, e in sorted(entries.items(), key=lambda kv: key(f"| {kv[0]} |")):
+            if ident in skip_ids:
+                continue
             st = e["meta"].get("Status", "")
             if st not in ("Active", "Tentative", "Superseded"):
                 out.append(f"{ident}: status '{st}' in {rulings_dir}/{ident}.md isn't Active, Tentative, or Superseded")
@@ -934,6 +1047,8 @@ def layout_problems(live, archive, rulings_dir=None, work_dir=None, questions_di
                 if ident not in arch_idx:
                     out.append(f"{ident}: Superseded ruling file exists without an index line in {ARCHIVE}")
         for ident in sorted(set(live_idx) | set(arch_idx), key=lambda x: key(f"| {x} |")):
+            if ident in skip_ids:
+                continue
             if ident not in entries:
                 out.append(f"{ident} is in the index without a ruling file in {rulings_dir}")
         return out
@@ -1130,11 +1245,12 @@ def board_statuses(root, queue_state=None):
     return changed
 
 
-def check_files(live, archive=None, rulings_dir=None, work_dir=None, questions_dir=None):
+def check_files(live, archive=None, rulings_dir=None, work_dir=None, questions_dir=None, notes=None):
     """Every problem with the log (both files when there's an archive)."""
     if archive is None:
         out = [] if sort_text(live) == live else [f"{LIVE} is not sorted by ID: run python3 02_Habits/WHEN_THE_LOG_IS_COMMITTED_TIDY_IT.py"]
         return out + details_problems(live) + status_problems(live)
+    preserve = _branch_comitatus_skips(live, archive, rulings_dir, notes=notes)
     out = []
     for folder, sections in ((rulings_dir, RULING_SECTIONS), (work_dir, WORK_SECTIONS), (questions_dir, QUESTION_SECTIONS)):
         if folder is None:
@@ -1146,14 +1262,14 @@ def check_files(live, archive=None, rulings_dir=None, work_dir=None, questions_d
                     out.append(f"{ident} is in both {name} and {folder}/{ident}.md")
                 else:
                     out.append(f"{ident} is still a table row in {name}: run python3 02_Habits/WHEN_THE_LOG_IS_COMMITTED_TIDY_IT.py")
-    l2, a2 = tidy(live, archive, rulings_dir=rulings_dir, work_dir=work_dir, questions_dir=questions_dir, dry_run=True)
+    l2, a2 = tidy(live, archive, rulings_dir=rulings_dir, work_dir=work_dir, questions_dir=questions_dir, dry_run=True, _preserve=preserve)
     if l2 != live:
         out.append(f"{LIVE} is not tidy: run python3 02_Habits/WHEN_THE_LOG_IS_COMMITTED_TIDY_IT.py")
     if a2 != archive:
         out.append(f"{ARCHIVE} is not tidy: run python3 02_Habits/WHEN_THE_LOG_IS_COMMITTED_TIDY_IT.py")
     for name, text in ((LIVE, live), (ARCHIVE, archive)):
         out += [f"{name}: {p}" for p in details_problems(text) + status_problems(text)]
-    return out + layout_problems(live, archive, rulings_dir=rulings_dir, work_dir=work_dir, questions_dir=questions_dir)
+    return out + layout_problems(live, archive, rulings_dir=rulings_dir, work_dir=work_dir, questions_dir=questions_dir, skip_ids=set(preserve))
 
 
 def move_process_rulings(root, out=print):
@@ -1205,12 +1321,16 @@ def main():
     live = open(live_path, encoding="utf-8").read()
     archive = open(arch_path, encoding="utf-8").read() if os.path.isfile(arch_path) else None
     if "--check" in sys.argv:
+        notes = []
         problems = check_files(
             live, archive,
             rulings_dir=rulings_arg if archive is not None else None,
             work_dir=work_dir if archive is not None else None,
             questions_dir=questions_dir if archive is not None else None,
+            notes=notes,
         )
+        for n in notes:
+            print(n)
         if problems:
             print("\n".join(problems))
             sys.exit(1)
@@ -1221,7 +1341,10 @@ def main():
             open(live_path, "w", encoding="utf-8").write(new)
             print(f"sorted {live_path} by ID")
         return
-    l2, a2 = tidy(live, archive, rulings_dir=rulings_arg, work_dir=work_dir, questions_dir=questions_dir)
+    notes = []
+    l2, a2 = tidy(live, archive, rulings_dir=rulings_arg, work_dir=work_dir, questions_dir=questions_dir, notes=notes)
+    for n in notes:
+        print(n)
     for path, old, new in ((live_path, live, l2), (arch_path, archive, a2)):
         if new != old:
             open(path, "w", encoding="utf-8").write(new)

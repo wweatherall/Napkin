@@ -100,8 +100,14 @@ run_logged() {
 }
 resolve_test_scope "$@"
 echo "$TEST_SCOPE_DESC"
+GATE_HEAD=$(git rev-parse HEAD 2>/dev/null)
+GATE_CLEAN=0
+[ -z "$(git status --porcelain 2>/dev/null)" ] && GATE_CLEAN=1
 run_stage "gate: quick test" run_logged "$OUT/quick.log" tools/quicktest.sh
 QRC=$?
+if [ "$QRC" -eq 0 ] && [ "$TEST_SCOPE" != "tools" ] && [ -n "$GATE_HEAD" ]; then
+  python3 tools/job.py record-test --commit "$GATE_HEAD" --clean "$GATE_CLEAN" >/dev/null 2>&1 || true
+fi
 if [ "$TEST_SCOPE" = "tools" ]; then
   FRC=0
 else
