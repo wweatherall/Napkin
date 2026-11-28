@@ -72,7 +72,7 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H191 | Gemini | **Ready** | Contracts for every profile op (rect, polygon, line, arc), and the tool and draft checks Circle's pilot lacked | [H191](docs/handoff/H191-profile-op-contracts.md) |  |
+| H191 | Gemini | In progress (gemini since 19:54) | Contracts for every profile op (rect, polygon, line, arc), and the tool and draft checks Circle's pilot lacked | [H191](docs/handoff/H191-profile-op-contracts.md) |  |
 | H192 | Gemini | **Ready** | Contracts for the single-mode board ops (paint, grain, hide, delete, link, assembly, mirror, unfit) | [H192](docs/handoff/H192-board-op-contracts.md) |  |
 | H193 | Gemini | **Ready** | Design: contracts for the ops with modes (move, push_pull, property_edit, fit), a proposal for William | [H193](docs/handoff/H193-moded-op-contracts-design.md) |  |
 | H194 | Gemini | **Ready** | The worker checks each op against its contract before running it (ops with a contract only) | [H194](docs/handoff/H194-enforce-op-contracts.md) |  |
