@@ -224,7 +224,7 @@ class DocumentCapability extends _Capability:
 	func append(o: Dictionary) -> void:
 		"""Add an op (a copy of it) at the end. Doesn't sync: draw it, then call sync()."""
 		var copy := o.duplicate(true)
-		if _push_filter.is_valid() and copy.get("type") in ["push_pull", "new_board"]: _push_filter.call(copy)
+		if _push_filter.is_valid() and copy.get("type") in ["push_pull", "new_board", "resize_stock"]: _push_filter.call(copy)
 		_doc.ops.append(copy)
 
 	func remove(id: String, resync := true) -> void:

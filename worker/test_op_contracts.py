@@ -120,6 +120,10 @@ def _prepare_op(m, op_id, contract, include_optional, shared):
         op["body"] = _next_tag("nb_b")
         op["assembly"] = aid
         op["fit"] = {"target_body": tb, "face": 4, "fit_mode": 0}
+    elif op_type == "resize_stock":
+        bid = _make_board(m, "rs")
+        op["target"] = {"face": {"body": bid, "normal": [0.0, 0.0, 1.0], "point": [50.0, 25.0, 18.0]}}
+        op["distance"] = 5.0
     return op
 
 
@@ -297,11 +301,13 @@ try:
         leg_err = repr(e)
     check("H194 legacy op upgraded applies cleanly", leg_ok, leg_err)
 
-    # H199: push_pull refuses body/edge_fit/free target, and Session rejects un-updated files
+    # H199/H200: push_pull refuses body/edge_fit/resize_stock, and Session rejects un-updated files
     for label, bad_pp in [
         ("body", {"id": "bad_b", "type": "push_pull", "target": {"rect": "r_none"}, "distance": 18, "body": "b_none"}),
         ("edge_fit", {"id": "bad_ef", "type": "push_pull", "target": {"face": {"body": ba_leg, "normal": [1, 0, 0], "point": [100, 20, 9]}},
                       "distance": 10, "edge_fit": {"target_body": bb_leg, "face": 0}}),
+        ("resize_stock", {"id": "bad_rs", "type": "push_pull", "target": {"face": {"body": ba_leg, "normal": [1, 0, 0], "point": [100, 20, 9]}},
+                          "distance": 10, "resize_stock": True}),
     ]:
         refused = False
         try:

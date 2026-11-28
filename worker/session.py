@@ -269,7 +269,7 @@ def is_legacy_op(op):
     t = op.get("type")
     if t == "property_edit" and op.get("mode") in ("plane_fit", "replace_fit"):
         return True
-    if t == "push_pull" and (op.get("body") or op.get("edge_fit")):
+    if t == "push_pull" and (op.get("body") or op.get("edge_fit") or op.get("resize_stock")):
         return True
     return False
 

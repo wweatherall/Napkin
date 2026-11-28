@@ -322,6 +322,26 @@
     "tool": "viewport/tools/rect_tool.gd",
     "type": "rect"
   },
+  "resize_stock": {
+    "creates": [
+      "id"
+    ],
+    "fields": {
+      "distance": {
+        "kind": "number",
+        "required": true
+      },
+      "target": {
+        "kind": "Target",
+        "required": true
+      }
+    },
+    "refers_to": [
+      "target.face.body"
+    ],
+    "tool": "viewport/tools/push_tool.gd",
+    "type": "resize_stock"
+  },
   "set_material": {
     "creates": [
       "id"

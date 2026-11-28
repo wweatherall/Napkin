@@ -155,7 +155,7 @@ func present_draft(op: Dictionary, pieces: Array, wave: Dictionary) -> void:
 
 	if op.type in ["push_pull", "new_board"] and not op.target.has("region"): profiles.drop_draft(op.target.get("rect", ""))
 	var bodies: Array = wave.bodies
-	waves.begin_wave(op.id, wave.origin, wave.tris, wave.is_new, bodies[0] if op.type in ["push_pull", "new_board"] or op.has("cut") else bodies)
+	waves.begin_wave(op.id, wave.origin, wave.tris, wave.is_new, bodies[0] if op.type in ["push_pull", "new_board", "resize_stock"] or op.has("cut") else bodies)
 	if wave.attach == "drafts":
 		for surface in root.get_children():
 			waves.attach_wave(op.id, surface, surface.get_child(0), DEFAULT_BASE)

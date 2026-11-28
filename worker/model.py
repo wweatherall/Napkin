@@ -42,6 +42,16 @@ CONTRACTS = [
         "creates": ["id", "body"],
         "tool": "viewport/tools/push_tool.gd",
     },
+    {
+        "type": "resize_stock",
+        "fields": {
+            "target": {"required": True, "kind": "Target"},
+            "distance": {"required": True, "kind": "number"},
+        },
+        "refers_to": ["target.face.body"],
+        "creates": ["id"],
+        "tool": "viewport/tools/push_tool.gd",
+    },
 ]
 
 
@@ -351,6 +361,10 @@ class Model(*action_mixins()):
     def op_new_board(self, op):
         """Create a new board from a profile or region, optionally fitted to another board (I74)."""
         return self._new_board_op(op)
+
+    def op_resize_stock(self, op):
+        """Resize an unfitted rectangular stock face directly, falling back to a boolean pad/cut (I74)."""
+        return self._resize_stock_op(op)
 
     def op_fit(self, op):
         """Fit a board's stock axis to a face on another board (T162): see plane_fit.apply."""

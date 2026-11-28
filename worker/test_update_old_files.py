@@ -49,7 +49,9 @@ def run():
                     "fit": {"target_body": "b2", "face": 5, "fit_mode": 1}} and note is None, op_nb)
 
     op_rs, note = uof.upgrade_op({"id": "pp_rs", "type": "push_pull", "target": {"face": {"body": "b1"}}, "distance": 5, "resize_stock": True})
-    check("push_pull resize_stock left as is with note", op_rs["type"] == "push_pull" and note is not None, (op_rs, note))
+    check("push_pull resize_stock -> resize_stock",
+          op_rs == {"id": "pp_rs", "type": "resize_stock", "target": {"face": {"body": "b1"}}, "distance": 5} and note is None,
+          (op_rs, note))
 
     op_ef, note = uof.upgrade_op({"id": "pp_ef", "type": "push_pull", "target": {"face": {"body": "b1"}}, "distance": 5, "edge_fit": {"target_body": "b2", "face": 0}})
     check("push_pull edge_fit on face left as is with note", op_ef["type"] == "push_pull" and note is not None, (op_ef, note))
@@ -108,7 +110,8 @@ def run():
 
         warn_file = td_path / "warn.json"
         warn_file.write_text(json.dumps({
-            "ops": [{"id": "pp_w", "type": "push_pull", "target": {"face": {"body": "b1"}}, "distance": 5, "resize_stock": True}],
+            "ops": [{"id": "pp_w", "type": "push_pull", "target": {"face": {"body": "b1"}}, "distance": 5,
+                     "edge_fit": {"target_body": "b2", "face": 0}}],
         }), encoding="utf-8")
 
         out1, err1 = io.StringIO(), io.StringIO()

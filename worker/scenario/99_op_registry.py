@@ -4,14 +4,14 @@ from model import Model, action_mixins
 
 requires = ()
 
-TYPES = {"arc", "line", "circle", "polygon", "rect", "new_board", "push_pull", "mirror", "make_component", "move", "set_material", "detach", "make_unique",
+TYPES = {"arc", "line", "circle", "polygon", "rect", "new_board", "push_pull", "resize_stock", "mirror", "make_component", "move", "set_material", "detach", "make_unique",
          "make_assembly", "turn_grain", "property_edit", "fit", "unfit", "hide", "delete"}
 MIXINS = {"ArcActions", "LineActions", "CircleActions", "PolygonActions", "AssemblyActions", "DeleteActions", "MirrorActions", "MoveActions", "PaintActions", "PushActions",
           "VisibilityActions"}
 
 
 def run(ctx):
-    ctx.check("op registry: the op types are the twenty op_ methods", set(Model.HANDLERS) == TYPES,
+    ctx.check("op registry: the op types are the twenty-one op_ methods", set(Model.HANDLERS) == TYPES,
               sorted(set(Model.HANDLERS) ^ TYPES))
     ctx.check("op registry: every *Actions mixin joins Model", {c.__name__ for c in action_mixins()} == MIXINS
               and all(c in Model.__mro__ for c in action_mixins()), [c.__name__ for c in Model.__mro__])
