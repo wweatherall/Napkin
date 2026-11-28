@@ -223,6 +223,7 @@ Work list items that are finished (and Split ones whose parts are all done).
 | T159 | Clarify push_pull and separate its jobs: one op today extrudes a profile or face, cuts,... | Done |
 | T160 | Check every field the window sends in an op is one the worker reads (today unknown fiel... | Done |
 | T162 | Fits become their own ops: plane_fit and replace_fit leave property_edit as fit and unf... | Done |
+| T166 | Integrator's doubts about H205, for William to look at once it has run for a few days: ... | Done |
 
 ## Details
 
