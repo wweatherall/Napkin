@@ -232,15 +232,18 @@ tf = {"normal": [0, 0, 1], "point": [50, 50, 14]}
 bad_cases = [
     ("positive distance", [f_rect("rp", "b1", [10, 10, 20], [40, 40]), push("pp", "rp", 10, to_face=tf)]),
     ("with through=True", [f_rect("rt", "b1", [10, 10, 20], [40, 40]), push("pt", "rt", -20, through=True, to_face=tf)]),
-    ("with resize_stock", [{"id": "prs", "type": "push_pull",
-                            "target": {"face": {"body": "b1", "normal": [1, 0, 0], "point": [200, 50, 10]}},
-                            "distance": -10, "resize_stock": True, "to_face": tf}]),
 ]
 for label, extra in bad_cases:
     s.sync(base_ops + extra)
     last = s.status()[-1]
     check(f"reject to_face ({label})", last["status"] == "failed" and last.get("message") == MSG, last)
     s.sync(base_ops)
+s.sync(base_ops + [{"id": "prs", "type": "resize_stock",
+                    "target": {"face": {"body": "b1", "normal": [1, 0, 0], "point": [200, 50, 10]}},
+                    "distance": -10, "to_face": tf}])
+last = s.status()[-1]
+check("reject to_face (on resize_stock)", last["status"] == "failed" and "unknown field to_face" in last.get("message", ""), last)
+s.sync(base_ops)
 s.close()
 
 # 6. Region push on a tied floor does NOT detach the outer pocket's tie

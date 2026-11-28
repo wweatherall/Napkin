@@ -3,12 +3,12 @@
 Rewrites:
 - `property_edit` with `mode` in (`plane_fit`, `replace_fit`) -> `fit` / `unfit` (T162)
 - `push_pull` with `body` (or free rect/region without `body`) -> `new_board` (`edge_fit` -> `fit`)
+- `push_pull` with `resize_stock: true` on a face -> `resize_stock` (T159, I74)
 - `status.json` `push_pull` entries that created a body -> `new_board`
 - `ShopSketch*` Meta keys, `ShopSketchFloor.FCStd`, `shopsketch-journal/0.1`, and `.shopsketch.json` sidecars -> Napkin (T139)
 
 Reports and leaves untouched:
 - `push_pull` with `edge_fit` on a face (H198's old shape)
-- `push_pull` with `resize_stock` (H200's)
 
 Pure Python (no FreeCAD import required). Writes atomically via temp file + os.replace."""
 import hashlib
@@ -51,8 +51,10 @@ def upgrade_op(op, free_rects=None):
 
     if t == "push_pull":
         tgt = op.get("target") if isinstance(op.get("target"), dict) else {}
-        if op.get("resize_stock"):
-            return op, "push_pull with resize_stock left as is"
+        if op.get("resize_stock") and "face" in tgt and "region" not in tgt and not op.get("body"):
+            upgraded = {k: v for k, v in op.items() if k != "resize_stock"}
+            upgraded["type"] = "resize_stock"
+            return upgraded, None
         if op.get("edge_fit") and "face" in tgt and "region" not in tgt and not op.get("body"):
             return op, "push_pull with edge_fit on face left as is"
         is_free_rect = "rect" in tgt and "region" not in tgt and free_rects is not None and tgt["rect"] in free_rects

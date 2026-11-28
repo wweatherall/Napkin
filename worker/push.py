@@ -266,18 +266,35 @@ class PushActions:
                                               face=fit["face"], fit_mode=fit.get("fit_mode", 0)))
         return [bid]
 
+    def _resize_stock_op(self, op):
+        """Resize an unfitted rectangular stock face directly, falling back to boolean pad/cut if resize_face refuses."""
+        d = float(op["distance"])
+        if abs(d) < TOL:
+            raise OpError("distance is zero")
+        tgt = op["target"]
+        if "face" not in tgt or "region" in tgt:
+            raise OpError("resize_stock needs a face target")
+        import plane_fit
+        board = self.body(tgt["face"]["body"])
+        self._detach_floor_cuts(board, vec(tgt["face"]["normal"]), vec(tgt["face"]["point"]))
+        board, _, normal = self.resolve_face(tgt["face"])
+        if plane_fit.resize_face(self, board, normal, d):
+            return plane_fit.family_bodies(self, board)
+        return self._push_boolean(op)
+
     def op_push_pull(self, op):
         d = float(op["distance"])
         if abs(d) < TOL:
             raise OpError("distance is zero")
         tgt = op["target"]
-        oid = op["id"]
         if op.get("body"):
             raise OpError("use new_board to create a board")
         if op.get("edge_fit"):
             raise OpError("edge_fit is only on new_board; use fit for an existing face")
+        if op.get("resize_stock"):
+            raise OpError("use resize_stock to resize stock")
         to_face = op.get("to_face")
-        if to_face is not None and (d >= 0 or op.get("through") or op.get("resize_stock")):
+        if to_face is not None and (d >= 0 or op.get("through")):
             raise OpError("to_face is only for a cut into a board")
         if "face" in tgt and "region" not in tgt:
             import plane_fit
@@ -288,11 +305,13 @@ class PushActions:
                         raise OpError("to_face is only for a cut into a board")
                     return plane_fit.family_bodies(self, board)
             self._detach_floor_cuts(board, vec(tgt["face"]["normal"]), vec(tgt["face"]["point"]))
-        if op.get("resize_stock") and "face" in tgt and "region" not in tgt:
-            import plane_fit
-            board, _, normal = self.resolve_face(tgt["face"])
-            if plane_fit.resize_face(self,board,normal,d):
-                return plane_fit.family_bodies(self, board)
+        return self._push_boolean(op)
+
+    def _push_boolean(self, op):
+        d = float(op["distance"])
+        tgt = op["target"]
+        oid = op["id"]
+        to_face = op.get("to_face")
         world_face, n, on, pl, loose, geom = self._resolve_push_target(tgt)
         if not on:
             raise OpError("use new_board to create a board")

@@ -65,7 +65,7 @@ func run() -> void:
 	await harness._push(Vector3(50,50,20), Vector3(50,50,40), "10")
 	await harness._wait_wave()
 	bodies = harness._bodies()
-	harness._ok("one region op joins only the chosen quadrant", m.ops.back().target.has("region") and not m.ops.back().has("resize_stock") and absf(bodies.get(harness.id("b1"), {}).get("volume_mm3", 0.0) - 900000) < 0.1, bodies)
+	harness._ok("one region op joins only the chosen quadrant", m.ops.back().type == "push_pull" and m.ops.back().target.has("region") and not m.ops.back().has("resize_stock") and absf(bodies.get(harness.id("b1"), {}).get("volume_mm3", 0.0) - 900000) < 0.1, bodies)
 	await harness._push(Vector3(150,50,20), Vector3(150,50,0), "-5")
 	await harness._wait_wave()
 	bodies = harness._bodies()

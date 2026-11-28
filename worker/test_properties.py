@@ -164,7 +164,7 @@ check('detaching low end preserves high end',abs(bounds.ZMax-220)<0.01 and abs(b
 # Detach to a numeric length, then pull the entire top another 990 mm.
 test_board = edge_session.model.body('b1')
 pick = test_board.Shape.BoundBox
-repull = dict(type='push_pull',id='repull',distance=990,resize_stock=True,
+repull = dict(type='resize_stock',id='repull',distance=990,
               target={'face':{'body':'b1','normal':[0,0,1],'point':[40,20,pick.ZMax]}})
 recent = [item['op'] for item in edge_session.applied]
 edge_session.sync(recent+[repull])

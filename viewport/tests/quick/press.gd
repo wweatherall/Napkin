@@ -23,7 +23,7 @@ func run() -> void:
 	m.set_tool("push")
 	await harness._drag_to(Vector3(150, 100, 18), 4); await harness._button(true)
 	await harness._drag_to(Vector3(150, 100, 40), 6); await harness._button(false)
-	harness._ok("Push/Pull: press, drag, let go makes the push on release (I43)", m.ops.size() == n + 1 and m.ops.back()["type"] == "push_pull" and not m.tools["push"].busy(), [m.ops.size() - n, m.ops.back()])
+	harness._ok("Push/Pull: press, drag, let go makes the push on release (I43)", m.ops.size() == n + 1 and m.ops.back()["type"] == "resize_stock" and not m.tools["push"].busy(), [m.ops.size() - n, m.ops.back()])
 	await harness._wait_wave()
 	n = m.ops.size()
 	await harness._drag_to(Vector3(250, 150, 18), 4); await harness._press()

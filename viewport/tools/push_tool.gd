@@ -3,7 +3,7 @@ extends "res://tools/tool.gd"
 ##
 ## Context-only: hands predicted pieces and wave to `view.present_draft`. `_edge_inference` ranks reachable planes
 ## (Tab cycles, Option cycles end condition). `_finish_push` sends `to_face` only on a pointer cut whose snap is
-## "face behind" (never on a typed distance, nor with `through`, `body`, `edge_fit`, or `resize_stock`).
+## "face behind" (never on a typed distance, nor with `through`, `new_board`, `fit`, or `resize_stock`).
 ## Entry points: commit_push.
 
 const TOOL := {"id": "push", "label": "Push/Pull", "tip": "Push/Pull (P)", "key": KEY_P, "order": 40, "show_links": true}   # the toolbar, the Tools menu and the key (tool_registry.gd)
@@ -448,15 +448,15 @@ func commit_push(d: float, edge_fit := {}, snapped_to_floor := false) -> void:
 			op = {"id": ctx.document.next_id("nb"), "type": "new_board", "target": target, "distance": d, "body": new_id}
 			if ctx.selection.context_assembly() != "": op["assembly"] = ctx.selection.context_assembly()   # drawn inside: it joins (T20)
 			if not edge_fit.is_empty(): op["fit"] = edge_fit.duplicate()
+		elif not state.has("region") and state.rect == "" and not ctx.model.stock_frame(on).get("fitted", true) and ctx.model.stock_frame(on).get("rectangular", true):
+			op = {"id": ctx.document.next_id("rs"), "type": "resize_stock", "target": target, "distance": d}
 		else:
 			op = {"id": ctx.document.next_id("pp"), "type": "push_pull", "target": target, "distance": d}
 			var depths: Array = state.get("depths", [])
 			if d < 0 and not depths.is_empty() and absf(d - float(depths.back())) < 0.01:
 				op["through"] = true        # to the opposite face: FreeCAD keeps it through if the board changes (I24)
-			if not state.has("region") and state.rect == "" and not ctx.model.stock_frame(on).get("fitted", true) and ctx.model.stock_frame(on).get("rectangular", true):
-				op["resize_stock"] = true
 			if snapped_to_floor and d < 0 and on != "" and (state.rect != "" or state.has("region")) \
-					and not (op.has("through") or op.has("resize_stock")):
+					and not op.has("through"):
 				op["to_face"] = {"normal": Geo.arr3(state.n), "point": Geo.arr3(state.anchor + state.n * d)}
 	ctx.document.append(op)
 	var pr := _push_shape(d)

@@ -40,7 +40,7 @@ var model_path := ""                # the FreeCAD file: the model itself (A21)
 var out_dir := ""                   # where the worker writes this model's meshes and exports
 
 var ops: Array = []
-var counters := {"pr": 0, "ft": 0, "uf": 0, "r": 0, "b": 0, "nb": 0, "pp": 0, "m": 0, "mv": 0, "mu": 0, "dt": 0, "as": 0, "a": 0, "sm": 0, "tg": 0, "hd": 0, "del": 0}
+var counters := {"pr": 0, "ft": 0, "uf": 0, "r": 0, "b": 0, "nb": 0, "pp": 0, "rs": 0, "m": 0, "mv": 0, "mu": 0, "dt": 0, "as": 0, "a": 0, "sm": 0, "tg": 0, "hd": 0, "del": 0}
 # Reservations outlive undo, rejected actions and abandoned futures; only reset() changes documents.
 var reserved_ids := {}
 var _crypto := Crypto.new()
@@ -595,7 +595,7 @@ func _op_makes(op: Dictionary) -> Array:
 func _op_touches(op: Dictionary) -> Array:
 	"""Boards an op changes in place (a face on them may exist only because of it)."""
 	var tg: Dictionary = op.get("target", {})
-	if op["type"] == "push_pull":
+	if op["type"] in ["push_pull", "resize_stock"]:
 		if tg.has("rect"):
 			var r := op_of(tg["rect"])
 			if not r.is_empty() and r["plane"].has("on"): return [r["plane"]["on"]["body"]]

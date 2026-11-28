@@ -56,9 +56,9 @@ def run(ctx):
     region = dict(outline=[[800,0,20],[850,0,20],[850,100,20],[800,100,20]], holes=[], normal=[0,0,1], lines=["divider"])
     target = dict(face=face("split_stock", (0,0,1), (820,20,20)), region=region)
     for distance in (10, -5):
-        pushed = dict(id="split_push", type="push_pull", target=target, distance=distance, resize_stock=True)
+        pushed = dict(id="split_push", type="push_pull", target=target, distance=distance)
         ctx.step("region edits only half the stock %s" % distance, ctx.FIX + base + [line, pushed], lambda st, a, b, d=distance: [ok(st, 4),
-            ("half alone changes volume even with resize_stock requested", abs(b["boards"]["split_stock"]["vol"] - (200000 + 5000*d)) < 0.02, b["boards"]["split_stock"]),
+            ("half alone changes volume", abs(b["boards"]["split_stock"]["vol"] - (200000 + 5000*d)) < 0.02, b["boards"]["split_stock"]),
             ("other half still has its original top face", any(f.normalAt(0,0).z > 0.999 and f.isInside(V(875,50,20),0.001,True) for f in ctx.S.model.world_shape(ctx.S.model.body("split_stock")).Faces), "")])
     separate = dict(id="split_separate", type="new_board", target=target, distance=10, body="separate_region")
     story = ctx.FIX + base + [line, separate]
