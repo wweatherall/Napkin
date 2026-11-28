@@ -14,8 +14,10 @@ Reading path:
 2. worker/move.py `op_move` (its three paths: cut, selection, plain/copy/array), worker/push.py `op_push_pull` (the
    `target` variants and the mode flags with their exclusions), worker/model.py `op_property_edit` (its `mode`s) and
    `op_fit`; for each, `creations`, `_op_makes`, `_op_refs` and field_audit.py's `UNREAD_WHEN`.
-3. docs/proposals/T159-push-pull.md: a pending proposal that may change Push/Pull's fields; the design must work
-   whichever way William decides T159.
+3. docs/proposals/T159-push-pull.md and I74 (William decided it 2026-11-27): push_pull splits into `fit`,
+   `new_board` (with an optional `fit`) and `resize_stock`, pad/cut/fitted-end stay `push_pull`; I75: a fit names its
+   target face by {normal, point}. Write push_pull's and fit's options for the ops as they will be after the split,
+   and say what today's push_pull would need only until then.
 
 Today (checked 2026-11-27): the contract shape has one fixed field list per op. These four ops change which fields
 apply by mode (`cut` present, `target` variant, `mode` value), and several fields exclude others.

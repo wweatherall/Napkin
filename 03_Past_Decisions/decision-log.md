@@ -39,9 +39,9 @@ One subject per decision; the Decisions column is generated.
 |---|---|---|
 | Product | What Shop Sketch is for and the feel it aims at. | I01, P04, P51 |
 | Architecture | The processes, the worker link, the app and the code's main boundaries. | A02, A03, A06, A08, A09, A27, A29, A30, A31, A33b, A34, A35, A40, W13 |
-| Files, saving and undo | The .FCStd model and its journal, saving, opening, undo and redo. | A21, A23, A24, A25, A28, A36, A39, A41, A42, I38, I42, I54, I55, U01, U02, U03 |
+| Files, saving and undo | The .FCStd model and its journal, saving, opening, undo and redo. | A21, A23, A24, A25, A28, A36, A39, A41, A42, A43, I38, I42, I54, I55, U01, U02, U03 |
 | Drawing tools | Rectangle, Circle, Line: how a drawing gesture starts, follows and ends. | I02, I04b, I09, I11, I43, I44, I49, I50, I51, I58, I60, I61, I64, I65, I71, I73 |
-| Push/Pull | Extruding, cutting, and fitting a board's end to another board. | I05, I08, I23, I24, I34, I40, I41, I45, I56 |
+| Push/Pull | Extruding, cutting, and fitting a board's end to another board. | I05, I08, I23, I24, I34, I40, I41, I45, I56, I74, I75, I76, I77 |
 | Move, copies and arrays | Move, linked copies, arrays, mirrors, components and assemblies. | A10, A11b, A22c, A26, I10, I12c, I13b, I14, I15, I16, I17, I20, I21, I25, I28, I32, I46, I52, I53, I66, I69 |
 | Snapping | Points, edges, axes and the grid, shared by every tool. | I03b, I18, I19 |
 | Measurements | Typed values, units and the measurements box. | I35, I48, I57, I59, I62, I67, I70 |
@@ -49,7 +49,7 @@ One subject per decision; the Decisions column is generated.
 | Feedback | The confirmation wave and what colours mean. | I06, W01, W02, W03, W04, W05, W06, W07, W08, W09 |
 | Materials | Wood cards, grain and painting. | A05, I33, M01, M02, M03, M04 |
 | Output | Drawings, cut lists and renders. | A07, D01, D02, I68, P06 |
-| Process | How the agents work, test, merge and record decisions. | P01, P02, P03, P07, P09, P10, P14, P15, P16, P17, P18, P19, P20, P21, P22, P23, P24, P25, P26, P28, P29, P31, P32, P33, P34, P35, P36, P37, P38, P39, P40, P41, P42, P43, P44, P45, P46, P47, P49, P50, P52, P53, P54, P56, P57, P58, P60, P61, P62, P63, P64, P65, P66, P67, P68, P69, P70, P71, P72, P73 |
+| Process | How the agents work, test, merge and record decisions. | P01, P02, P03, P07, P09, P10, P14, P15, P16, P17, P18, P19, P20, P21, P22, P23, P24, P25, P26, P28, P29, P31, P32, P33, P34, P35, P36, P37, P38, P39, P40, P41, P42, P43, P44, P45, P46, P47, P49, P50, P52, P53, P54, P56, P57, P58, P60, P61, P62, P63, P64, P65, P66, P67, P68, P69, P70, P71, P72, P73, P74 |
 
 ## Principles
 
@@ -115,6 +115,7 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | A39 | When the actions pending under A36's 'FreeCAD saved this model' question land while it ... | Active |
 | A41 | The worker turns off FreeCAD's backup files only for the moment of its own save and the... | Active |
 | A42 | One file per model: everything Napkin keeps about a model (its edit history and results... | Active |
+| A43 | Until William says otherwise, a change to the op format may break old files: instead of... | Active |
 | I38 | Redo: Edit > Redo, ⇧⌘Z or the toolbar button; linear until U01 (a new action ends it). | Active |
 | I42 | A board's name in FreeCAD's tree is 'Board 3' for b3 (copies, mirrors and made-unique b... | Active |
 | I54 | When a save fails, the save indicator says "Couldn't save: <reason>" (in Saved's place,... | Active |
@@ -157,6 +158,10 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | I41 | Pulling into another board's face (Push/Pull or a Properties fit) has three end conditi... | Active |
 | I45 | Pushing in snaps to a face behind only when the cursor is nearer to it on screen than t... | Active |
 | I56 | In Push/Pull, ⌥ Option is the one key for how the pushed end meets what it hits: on a f... | Active |
+| I74 | push_pull's jobs split into their own ops: a face's end fitted to another board's edge ... | Active |
+| I75 | A fit names its target face by geometry, {normal, point} in world mm, as every other op... | Active |
+| I76 | A fit stays live when its target board is flipped, mirrored or rotated: it follows the ... | Active |
+| I77 | When the exact face a fit points to is cut away or deleted, the fit detaches (it doesn'... | Active |
 
 ### Move, copies and arrays
 
@@ -319,6 +324,7 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | P71 | Personal time: a coder whose job comes back clean (merged without being returned) may s... | Active |
 | P72 | The structural report (designs P31/P32): at merge, integrate.py works out the structura... | Active |
 | P73 | A worker doesn't ask the integrator before a change outside Touches that follows mechan... | Active |
+| P74 | The hopper brings in the integrator only when all work is paused: nothing in progress a... | Active |
 
 ## Open questions
 
@@ -377,6 +383,7 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | T161 | Think through plane-fit face numbering: faces are 0-5 (Left..Top) on plain stock but 't... | Open |
 | T163 | Suspected bug (found by H179's T161 proposal): flipping a board (mirror with replace) t... | Open |
 | T164 | Find a home for (or delete) Napkin's three top-level reference docs: 'Codex's suggestio... | Open |
+| T165 | User test for William, one day after the fit rulings are built (I76, I77): try fits und... | Open |
 
 ## Tunables
 

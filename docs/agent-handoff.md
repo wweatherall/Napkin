@@ -29,6 +29,9 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H192 — Contracts for the single-mode board ops (paint, grain, hide, delete, link, assembly, mirror, unfit)](handoff/H192-board-op-contracts.md) — status: answered; for: gemini
 - [H193 — Design: contracts for the ops with modes (move, push_pull, property_edit, fit), a proposal for William](handoff/H193-moded-op-contracts-design.md) — status: open; for: gemini
 - [H194 — The worker checks each op against its contract before running it (ops with a contract only)](handoff/H194-enforce-op-contracts.md) — status: open; for: gemini
+- [H195 — Codex in the token tool: its quota windows and each job's tokens, from Codex's own session logs](handoff/H195-codex-usage.md) — status: open; for: codex
+- [H196 — The hopper runs in its own Terminal window; the integrator waits for it separately (and Order is kept across agents)](handoff/H196-hopper-in-its-own-window.md) — status: open; for: gemini
+- [H197 — When all work is paused, the hopper brings in the integrator: wakes it, or starts a new one](handoff/H197-hopper-brings-the-integrator.md) — status: open; for: gemini
 
 <!-- end of open list -->
 

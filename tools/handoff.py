@@ -308,7 +308,7 @@ def archive_and_commit(root, hid, commit=False, push=False):
 
 PATH = re.compile(r"(?<![\w/.-])((?:[\w.-]+/)+(?:[\w.*-]+)?|[\w-]+\.(?:md|py|gd|sh|json|cfg|gdshader))(?![\w/])")
 TOP = {"ARCHITECTURE.md", "CLAUDE.md", "AGENTS.md", "GEMINI.md", "BOARD.md", "README.txt", "FREECAD_FEATURE_MAP.md"}
-SKIP = re.compile(r"^(not |read-only|if |nothing |no )", re.I)
+SKIP = re.compile(r"^(not |read-only|if |nothing |no |(?:also )?in the [\w-]+ repo\b)", re.I)  # another repo's paths aren't ours
 NOT_ASIDE = re.compile(r"\((?:not|don't|do not|never)\b[^()]*\)", re.I)
 
 
@@ -338,6 +338,11 @@ def _listed_names(text, start):
     return None
 
 
+def _one_line(text):
+    """A Touches paragraph as one line; a path wrapped after its slash (`worker/` then `x.py`) is joined back whole."""
+    return re.sub(r"(?<=/)[^\S\n]*\n[^\S\n]*", "", text).replace("\n", " ")
+
+
 def touches_named(body):
     """Map each Touches path to its named functions or constants, or None for the whole path."""
     lines = body.split("\n")
@@ -349,7 +354,7 @@ def touches_named(body):
         if not l.strip():
             break
         para.append(l)
-    text = " ".join(para)[len("Touches:"):]
+    text = _one_line("\n".join(para))[len("Touches:"):]
     text = NOT_ASIDE.sub("", text)      # "(don't add it to tools/x.sh: ...)" names a file the job stays off
     out = {}
     # Keep each sentence's offset so an annotation can extend across a sentence boundary.
@@ -377,7 +382,7 @@ TOUCHES_WORD = re.compile(
     r"|README\.txt\b|[\w.*-]*\*[\w.*-]*)(?![\w/*-]|\.[\w.*-])"
 )
 NEW_BEFORE = re.compile(r"\ba new\s+`?$", re.I)
-NEW_AFTER = re.compile(r"^`?\s*\(new\)", re.I)
+NEW_AFTER = re.compile(r"^`?\s*\(new\b", re.I)      # (new), (new, generated), (new: the moved file)
 
 
 def touches_problems(body, exists):
@@ -385,7 +390,7 @@ def touches_problems(body, exists):
     paragraph = TOUCHES_PARAGRAPH.search(body)
     if not paragraph:
         return
-    text = NOT_ASIDE.sub("", " ".join(paragraph[1].splitlines()))
+    text = NOT_ASIDE.sub("", _one_line(paragraph[1]))
     for sentence in re.split(r"(?<=[.;])(?=\s+[A-Z(])", text):
         if SKIP.match(sentence.strip()):
             continue
