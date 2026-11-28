@@ -26,7 +26,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
 - [H182 — What an op creates: the window and FreeCAD agree, checked by one shared table](handoff/H182-op-creations-agree.md) — status: answered; for: gemini
-- [H183 — A failed op names the ids it failed on, so the window stops reading FreeCAD's message text](handoff/H183-rejections-name-their-ids.md) — status: open; for: gemini
+- [H183 — A failed op names the ids it failed on, so the window stops reading FreeCAD's message text](handoff/H183-rejections-name-their-ids.md) — status: answered; for: gemini
 - [H184 — The field audit checks each run of an op, not all runs of its type lumped together](handoff/H184-field-audit-per-run.md) — status: open; for: gemini
 
 <!-- end of open list -->

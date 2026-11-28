@@ -14,9 +14,9 @@ class MoveActions:
         bid = op["body"]
         obj = self.body(bid)
         if self.is_instance(obj):
-            raise OpError(f"'{bid}' is already a component instance")
+            raise OpError(f"'{bid}' is already a component instance", about=[bid])
         if self.is_mirror(obj) or obj.TypeId != "App::Part":
-            raise OpError(f"'{bid}' can't be made a component")
+            raise OpError(f"'{bid}' can't be made a component", about=[bid])
         dfn = obj
         asm = self.assembly_of(obj)
         dfn.SSRole = "definition"
@@ -140,7 +140,7 @@ class MoveActions:
                 src = t.Base if self.is_array(t) else t
                 if getattr(src, "SSOp", None) == oid:
                     return o, t
-        raise OpError(f"no cut from '{oid}' on this board")
+        raise OpError(f"no cut from '{oid}' on this board", about=[oid])
 
     @staticmethod
     def shift(obj, v):
@@ -272,7 +272,7 @@ class MoveActions:
         for t in op["targets"]:
             obj = self.body(t)
             if not getattr(obj, "SSArray", ""):
-                raise OpError(f"'{t}' isn't a copy in an array")
+                raise OpError(f"'{t}' isn't a copy in an array", about=[t])
             if self.is_mirror(obj):
                 source = obj
                 while self.is_mirror(source):
@@ -292,7 +292,7 @@ class MoveActions:
         for t in op["targets"]:
             link = self.body(t)
             if not self.is_instance(link):
-                raise OpError(f"'{t}' isn't linked to anything")
+                raise OpError(f"'{t}' isn't linked to anything", about=[t])
             dfn = link.LinkedObject
             copy = self.doc.copyObject(dfn, True)
             for g in copy.InList:

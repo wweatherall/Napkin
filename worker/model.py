@@ -62,7 +62,7 @@ class Model(*action_mixins()):
     def body(self, bid):
         obj = self.bodies().get(bid)
         if obj is None:
-            raise OpError(f"unknown body '{bid}'")
+            raise OpError(f"unknown body '{bid}'", about=[bid])
         return obj
 
     def assemblies(self):
@@ -150,9 +150,9 @@ class Model(*action_mixins()):
             if f.distToShape(Part.Vertex(p))[0] < TOL:
                 hits.append(f)
         if not hits:
-            raise OpError(f"no face of '{ref['body']}' faces {list(ref['normal'])} through {list(ref['point'])}")
+            raise OpError(f"no face of '{ref['body']}' faces {list(ref['normal'])} through {list(ref['point'])}", about=[ref["body"]])
         if len(hits) > 1:
-            raise OpError(f"{len(hits)} faces of '{ref['body']}' match; reference is ambiguous")
+            raise OpError(f"{len(hits)} faces of '{ref['body']}' match; reference is ambiguous", about=[ref["body"]])
         return obj, hits[0], n_want
 
     def plane_from(self, spec):
@@ -178,7 +178,7 @@ class Model(*action_mixins()):
     # ---------- building blocks ----------
     def new_board(self, bid, placement=None):
         if bid in self.bodies():
-            raise OpError(f"body id '{bid}' already exists")
+            raise OpError(f"body id '{bid}' already exists", about=[bid])
         c = self.doc.addObject("App::Part", "Board")
         c.Label = board_label(bid)
         add_props(c, BodyId=bid, SSRole="body", SSMaterial="", ComponentName="", Tip=None, SSGrain=App.Vector(0, 0, 0),

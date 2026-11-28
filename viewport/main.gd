@@ -745,7 +745,7 @@ func _on_wave_rejected_done(oid: String) -> void:
 
 
 func _on_rejected(o: Dictionary, w, drop_now: Array) -> void:
-	var res: Dictionary = doc.reject(o["id"], o.get("message", ""), Time.get_ticks_msec(), func(r): return op_waves.has(r))
+	var res: Dictionary = doc.reject(o["id"], o.get("message", ""), Time.get_ticks_msec(), func(r): return op_waves.has(r), o.get("about", []))
 	if res.is_empty(): return
 	reject_note = res["note"]
 	if not res["joined"]:
@@ -765,7 +765,7 @@ var _first_open := true
 
 # The window <-> worker protocol's version (docs/protocol.md): bump it when a message or shared-file field changes.
 # The worker reports its own (worker/serve.py PROTOCOL_VERSION) in hello; a worker speaking another isn't shared.
-const PROTOCOL_VERSION := 18
+const PROTOCOL_VERSION := 19
 
 
 func _send_open() -> void:

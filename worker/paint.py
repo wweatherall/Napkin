@@ -23,7 +23,7 @@ class PaintActions:
         for t in op["targets"]:
             dfn = self.definition(self.body(t))
             if not hasattr(dfn, "SSMaterial"):
-                raise OpError(f"'{t}' has no material field")
+                raise OpError(f"'{t}' has no material field", about=[t])
             dfn.SSMaterial = key
             tip = getattr(dfn, "Tip", None)
             if card is not None and tip is not None and hasattr(tip, "ShapeMaterial"):
@@ -52,7 +52,7 @@ class PaintActions:
         for t in op["targets"]:
             dfn = self.definition(self.body(t))
             if not hasattr(dfn, "SSGrain"):
-                raise OpError(f"'{t}' was made before grain direction existed: make it unique or redraw it")
+                raise OpError(f"'{t}' was made before grain direction existed: make it unique or redraw it", about=[t])
             long_ax, mid_ax, _ = self.board_axes(dfn)
             g = self.grain_local(dfn)
             dfn.SSGrain = mid_ax if abs(g.dot(long_ax)) > 0.9 else long_ax

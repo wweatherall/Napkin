@@ -1,6 +1,6 @@
 ### H183 — A failed op names the ids it failed on, so the window stops reading FreeCAD's message text
 
-Author: Claude (integrator, opus-integrator) | Date: 2026-11-27 | Status: open | For: gemini
+Author: Claude (integrator, opus-integrator) | Date: 2026-11-27 | Status: answered | For: gemini
 
 References: William, 2026-11-27 (ChatGPT's architecture review: "rejection grouping sometimes searches
 human-readable error messages for body IDs"), document.gd's rejection bookkeeping, docs/protocol.md (`sync`,
@@ -52,3 +52,34 @@ What can fail:
 Checks:
 - `tools/TEST_BEFORE_MERGING.sh` passes (full scope); quick 401/401.
 - `python3 tools/protocol_map.py --check` passes.
+
+Response (Gemini, gemini-birch-1127-182813):
+- Added `about=()` to `OpError` (`worker/common.py`), recorded `about` on failed entries in `Session._apply` when non-empty and copied it in `Session.status` (`worker/session.py`).
+- Passed `o.get("about", [])` from `viewport/main.gd` (`_on_rejected`) into `Document.reject(..., about: Array = [])` (`viewport/document.gd`), matching `e["bodies"]` against `about` instead of searching `msg`.
+- Updated `viewport/test_document.gd` so the rejection-joining check passes `about` and added a check verifying a message quoting a board without `about` no longer joins.
+- Bumped `PROTOCOL_VERSION` 18 -> 19 in `worker/serve.py`, `viewport/main.gd`, `docs/protocol.md` (including `hello` and `OpStatus`), and `worker/test_serve.py`.
+
+Changed from the brief:
+- Updated `worker/test_serve.py:57` (`== 18` -> `== 19`) and `docs/protocol.md` `hello` lines 3, 57, 61 (`18` -> `19`) for the protocol version bump. Scope approved by integrator: `"Yes: update worker/test_serve.py's PROTOCOL_VERSION check to 19, and any other test that pins 18 the same way (the bump is in the brief). Name them in Changed from the brief."`
+
+Raises given `about`:
+- `worker/assembly.py:26` (`about=[aid]`), `:33` (`about=[t]`), `:45` (`about=[aid]`), `:78` (`about=[o.BodyId]`), `:83` (`about=[o.BodyId]`)
+- `worker/circle.py:37` (`about=[rid]`)
+- `worker/mirror.py:43` (`about=[nid]`), `:57` (`about=[t]`)
+- `worker/model.py:65` (`about=[bid]`), `:153` (`about=[ref["body"]]`), `:155` (`about=[ref["body"]]`), `:181` (`about=[bid]`)
+- `worker/move.py:17` (`about=[bid]`), `:19` (`about=[bid]`), `:143` (`about=[oid]`), `:275` (`about=[t]`), `:295` (`about=[t]`)
+- `worker/paint.py:26` (`about=[t]`), `:55` (`about=[t]`)
+- `worker/polygon.py:45` (`about=[rid]`)
+- `worker/push.py:127` (`about=[rid]`), `:186` (`about=[tgt["rect"]]`), `:264` (`about=[op["assembly"]]`), `:278` (`about=[on]`)
+- `worker/visibility.py:21` (`about=[t]`)
+
+Quoting raises left without `about`:
+- `worker/model.py:124` (`obj.Label`): FreeCAD label, not an op/body id.
+- `worker/model.py:337` (`op.get('mode')!r`), `:343` (`op['type']`): op mode and op type, not ids.
+- `worker/model.py:364` (`bad[:3]`): FreeCAD object labels, not ids.
+- `worker/paint.py:21` (`key`): material key, not an id.
+- `worker/polygon.py:53` (`MIN_SIDES`..`MAX_SIDES`): integer side bounds, not an id.
+- `worker/serve.py:262,277,293,312` (`os.path.basename(...)`), `:320` (`cmd`): filenames and command name (outside op `_apply`).
+- `worker/session.py:86` (`identity` in `accept` before `_apply`), `:375` (`bad_entry` zip member), `:811` (`self.undo_floor` int), `:893` (`units`): request-level / file / unit errors, not op-handler ids.
+
+Result: `tools/TEST_BEFORE_MERGING.sh` passed (GATE PASS: full test passes; QUICK 401/401, 0 failures, 80 s total); `python3 tools/protocol_map.py --check` passed.

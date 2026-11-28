@@ -604,7 +604,7 @@ func _op_touches(op: Dictionary) -> Array:
 	return []
 
 
-func reject(oid: String, msg: String, now_ms: int, still_playing: Callable = Callable()) -> Dictionary:
+func reject(oid: String, msg: String, now_ms: int, still_playing: Callable = Callable(), about: Array = []) -> Dictionary:
 	for r in _rejected.keys():
 		if now_ms - int(_rejected[r]["at"]) > REJECT_WINDOW_MS and not (still_playing.is_valid() and still_playing.call(r)):
 			_rejected.erase(r)
@@ -615,8 +615,8 @@ func reject(oid: String, msg: String, now_ms: int, still_playing: Callable = Cal
 		var e: Dictionary = _rejected[r]
 		for ref in _op_refs(op):
 			if e["ids"].has(ref): root = r
-		for b in e["bodies"]:
-			if msg.contains("'%s'" % b): root = r
+		for b in about:
+			if e["bodies"].has(b): root = r
 		if root != "": break
 	if root == "":                                   # a rejection of its own
 		root = oid

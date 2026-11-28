@@ -124,7 +124,7 @@ class PushActions:
     def op_rect(self, op):
         rid = op["id"]
         if self.rect_obj(rid) is not None:
-            raise OpError(f"rect id '{rid}' already exists")
+            raise OpError(f"rect id '{rid}' already exists", about=[rid])
         origin, x, y, n, on = self.plane_from(op["plane"])
         if op.get("x") is not None:
             rx = vec(op["x"])
@@ -183,7 +183,7 @@ class PushActions:
         if "rect" in tgt:
             pl = self.rect_obj(tgt["rect"])
             if pl is None:
-                raise OpError(f"unknown rect '{tgt['rect']}'")
+                raise OpError(f"unknown rect '{tgt['rect']}'", about=[tgt["rect"]])
             polygonal = getattr(pl, "SSRole", "") == "line-profile"
             ngon = getattr(pl, "SSRole", "") == "polygon-profile"
             circular = pl.TypeId == "Sketcher::SketchObject" and not ngon
@@ -261,7 +261,7 @@ class PushActions:
             if op.get("assembly"):                   # drawn inside an entered assembly: it joins it (T20)
                 asm = self.assemblies().get(op["assembly"])
                 if asm is None:
-                    raise OpError(f"unknown assembly '{op['assembly']}'")
+                    raise OpError(f"unknown assembly '{op['assembly']}'", about=[op["assembly"]])
                 asm.addObject(c)
             self.doc.recompute()
             if not Part.getShape(c).Solids:
@@ -275,7 +275,7 @@ class PushActions:
         target = self.body(on)
         c, fr = self.edit_frame(target)
         if c.Tip is None:
-            raise OpError(f"'{on}' has no solid yet")
+            raise OpError(f"'{on}' has no solid yet", about=[on])
         if pl is not None:
             if polygonal:
                 base = self.face_feature(fr.shape(world_face), f"{tgt['rect']} outline")
