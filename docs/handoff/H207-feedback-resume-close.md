@@ -1,6 +1,6 @@
 ### H207 — Workers give feedback at every submit and resubmit; resume commands are recorded; windows close after the merge
 
-Author: Claude (integrator, opus-integrator) | Date: 2026-11-27 | Status: queued (after H204) | For: gemini
+Author: Claude (integrator, opus-integrator) | Date: 2026-11-27 | Status: open | For: gemini
 
 References: William, 2026-11-27 ("after the jobs pass, the hopper could ask the coder windows for feedback, which I've
 been doing by hand, then close the window after they give it; and record the restart key the Gemini coders give, so
