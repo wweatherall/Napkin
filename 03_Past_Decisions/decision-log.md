@@ -40,13 +40,13 @@ One subject per decision; the Decisions column is generated.
 | Product | What Shop Sketch is for and the feel it aims at. | I01, P04, P51 |
 | Architecture | The processes, the worker link, the app and the code's main boundaries. | A02, A03, A06, A08, A09, A27, A29, A30, A31, A33b, A34, A35, A40, W13 |
 | Files, saving and undo | The .FCStd model and its journal, saving, opening, undo and redo. | A21, A23, A24, A25, A28, A36, A39, A41, A42, A43, I38, I42, I54, I55, I78, U01, U02, U03 |
-| Drawing tools | Rectangle, Circle, Line: how a drawing gesture starts, follows and ends. | I02, I04b, I09, I11, I43, I44, I49, I50, I51, I58, I60, I61, I64, I65, I71, I73 |
+| Drawing tools | Rectangle, Circle, Line: how a drawing gesture starts, follows and ends. | I02, I04b, I09, I11, I43, I44, I49, I50, I51, I58, I60, I61, I64, I65, I71, I73, I81 |
 | Push/Pull | Extruding, cutting, and fitting a board's end to another board. | I05, I08, I23, I24, I34, I40, I41, I45, I56, I74, I75, I76, I77 |
-| Move, copies and arrays | Move, linked copies, arrays, mirrors, components and assemblies. | A10, A11b, A22c, A26, I10, I12c, I13b, I14, I15, I16, I17, I20, I21, I25, I28, I32, I46, I52, I53, I66, I69 |
+| Move, copies and arrays | Move, linked copies, arrays, mirrors, components and assemblies. | A10, A11b, A22c, A26, I10, I12c, I13b, I14, I15, I16, I17, I20, I21, I25, I28, I32, I46, I52, I53, I66, I69, I80 |
 | Snapping | Points, edges, axes and the grid, shared by every tool. | I03b, I18, I19 |
 | Measurements | Typed values, units and the measurements box. | I35, I48, I57, I59, I62, I67, I70 |
 | View and look | Camera and input devices, panels, the Mac look, lines, lighting, hiding. | I22, I30, I31, I36, I37, I63, W10, W11, W12, W14 |
-| Feedback | The confirmation wave and what colours mean. | I06, W01, W02, W03, W04, W05, W06, W07, W08, W09 |
+| Feedback | The confirmation wave and what colours mean. | I06, I79, W01, W02, W03, W04, W05, W06, W07, W08, W09 |
 | Materials | Wood cards, grain and painting. | A05, I33, M01, M02, M03, M04 |
 | Output | Drawings, cut lists and renders. | A07, D01, D02, I68, P06 |
 | Process | How the agents work, test, merge and record decisions. | P01, P02, P03, P07, P09, P10, P14, P15, P16, P17, P18, P19, P20, P21, P22, P23, P24, P25, P26, P28, P29, P31, P32, P33, P34, P35, P36, P37, P38, P39, P40, P41, P42, P43, P44, P45, P46, P47, P49, P50, P52, P53, P54, P56, P57, P58, P60, P61, P62, P63, P64, P65, P66, P67, P68, P69, P70, P71, P72, P73, P74, P75 |
@@ -145,6 +145,7 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | I65 | Numbers typed after creating a rectangle, before any other action, alter that rectangle... | Active |
 | I71 | A corner fillet radius too big for the corner's edges (typed 50r on a corner) leaves th... | Active |
 | I73 | Before a Polygon gesture the measurements box is the side count: a number typed there s... | Active |
+| I81 | Drawn edges select one at a time, as they were drawn (H211 kept). | Active |
 
 ### Push/Pull
 
@@ -189,6 +190,7 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | I53 | Inside an entered assembly row, moving a copied assembly detaches that whole assembly's... | Active |
 | I66 | Typing an array count (Nx, xN, *N, /N) during a Move previews the array live before cli... | Active |
 | I69 | Double-clicking a linked component (board family) enters and isolates it like an assemb... | Active |
+| I80 | A drawing drawn on a board face stays attached to that board while a move keeps it on t... | Active |
 
 ### Snapping
 
@@ -230,6 +232,7 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | ID | Decision | Status |
 |---|---|---|
 | I06 | A rejected operation is removed from the op log after its red wave; the reason stays in... | Active |
+| I79 | A drawing's Properties will let you edit it (native drawing edits), with the most signi... | Active |
 | W01 | Every push/pull plays a colour wave that starts where the cursor finished the operation. | Active |
 | W02 | Cuttlefish look: a noise-wobbled front with pigment cells blooming just ahead of it. | Active |
 | W03 | Softer: one smooth, noise-blurred front (~5 cm) and round blurry pigment cells at 40% s... | Active |
