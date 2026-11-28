@@ -1772,6 +1772,47 @@ check("a --forever hopper that sees the stop exits 0 before launching anything, 
       ks_rc == 0 and not ks_launched and any("hopper stopped by int-A" in l for l in ks_out)
       and not os.path.exists(job.hopper_stop_path(h196_root)) and not os.path.exists(job.hopper_pid_path(h196_root)),
       (ks_rc, ks_launched, ks_out))
+# P79 (William, 2026-11-28): the lock holder relaunches a stalled job's session with full permissions, and the digest
+# tells William later
+json.dump({"holder": "int-A"}, open(_integrator.lock_path(h196_root), "w"))
+with job.locked(job.state_path(h196_root)) as _st:
+    _st["jobs"]["H777"] = {"state": "in progress", "agent": "codex", "session": "s1", "branch": "codex/h777-x",
+                           "worktree": "/wt/h777", "taken": 1, "beat": 1,
+                           "windows": [{"id": 41, "tty": "/dev/ttys041"}]}
+    _st["jobs"]["H778"] = {"state": "merged", "agent": "codex"}
+rl_calls, rl_closed, rl_out = [], [], []
+_rl_launch = lambda *a, **k: rl_calls.append((a, k)) or (0, {"id": 42})
+check("relaunch refuses a session that doesn't hold the lock",
+      job.relaunch_full(h196_root, "H777", "worker-B", out=rl_out.append, launcher=_rl_launch) == 1 and not rl_calls, rl_out)
+check("relaunch refuses a merged job",
+      job.relaunch_full(h196_root, "H778", "int-A", out=rl_out.append, launcher=_rl_launch) == 1 and not rl_calls, rl_out)
+with patch.object(job, "_close_merged_windows", lambda root, **k: rl_closed.append(k.get("only"))):
+    rc = job.relaunch_full(h196_root, "H777", "int-A", now=8000, out=rl_out.append, launcher=_rl_launch,
+                           finder=lambda *a, **k: "codex resume abc")
+with job.state_read(job.state_path(h196_root), readonly=True) as _st:
+    _j = _st["jobs"]["H777"]
+check("relaunch closes only that job's windows, resumes its session with full=True, and records it",
+      rc == 0 and rl_closed == [{"H777"}] and rl_calls and rl_calls[0][1].get("full") is True
+      and rl_calls[0][0][2] == "codex resume abc" and _j["relaunched"] == [8000] and {"id": 42} in _j["windows"],
+      (rc, rl_closed, rl_calls, _j))
+check("relaunch writes a digest line for William",
+      "H777 (codex) stalled; relaunched" in open(job.digest_path(h196_root)).read())
+import launch as _launch
+check("full permissions: Codex's bypass flag goes before the session id",
+      _launch.with_full_permissions("codex", "codex resume abc") == "codex resume --dangerously-bypass-approvals-and-sandbox abc")
+check("full permissions: Claude's flag is added once",
+      _launch.with_full_permissions("claude", _launch.with_full_permissions("claude", "claude --resume x"))
+      == "claude --resume x --dangerously-skip-permissions")
+check("a relaunched Gemini resume doesn't get the skip flag twice",
+      _launch.resume_command("gemini", "agy --conversation c", "/wt", "/p.txt", space="g", full=True).count(
+          "--dangerously-skip-permissions") == 1)
+check("a relaunch's first message says it stalled and to check git before redoing steps",
+      "stalled" in _launch.stalled_prompt("H777", "b", "/wt") and "git log" in _launch.stalled_prompt("H777", "b", "/wt"))
+os.remove(job.digest_path(h196_root))
+with job.locked(job.state_path(h196_root)) as _st:    # leave the queue as the later hopper checks expect it
+    for _jid in ("H777", "H778"):
+        _st["jobs"].pop(_jid, None)
+    _st["events"] = [e for e in _st["events"] if e.get("job") not in ("H777", "H778")]
 os.remove(_integrator.lock_path(h196_root))
 
 job.CAFFEINATE = [sys.executable, "-c", "import time; time.sleep(30)"]

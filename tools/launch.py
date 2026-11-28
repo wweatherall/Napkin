@@ -6,9 +6,10 @@ and can't skip the brief.
 
 Runs `tools/startup.py --role worker` in the main checkout, writes the brief and the worker's instruction ("check the
 board") to scratch/launch/<name>.txt, and opens a Terminal window running the agent with that file as its first
-prompt. William's own permission settings apply, with one exception: Gemini runs with --dangerously-skip-permissions
-for now (William, 2026-11-27), while we find out which prompt stalls Gemini workers before they commit; set
-GEMINI_SKIP_PERMISSIONS to False to stop. Claude and Codex never get a bypass or full-access flag. --dry-run prints the
+prompt. William's own permission settings apply, with two exceptions: Gemini runs with --dangerously-skip-permissions
+for now (William, 2026-11-27), while we find out which prompt stalls Gemini workers before they commit (set
+GEMINI_SKIP_PERMISSIONS to False to stop); and a stalled job's session that the integrator relaunches gets its agent's
+bypass flag (FULL_PERMISSIONS, P79, William 2026-11-28). A fresh Claude or Codex launch never gets one. --dry-run prints the
 Terminal command and the prompt's first lines instead of opening the window. Run outside the sandbox (osascript).
 
 Models: Gemini `gemini-4-hydrogen-medium` (default; `gemini-4-neon-medium` when asked), Claude `sonnet` at medium effort
@@ -156,12 +157,40 @@ def resume_prompt(jid, notes, branch, worktree):
     )
 
 
-def resume_command(agent, resume_cmd, worktree, prompt_file, space=None, root=None):
-    """The shell command to resume a returned job's session in its worktree (H207)."""
+# Full permissions for a relaunched stalled worker (P79, William, 2026-11-28): the flag each agent's CLI takes.
+FULL_PERMISSIONS = {"claude": "--dangerously-skip-permissions", "codex": "--dangerously-bypass-approvals-and-sandbox",
+                    "gemini": "--dangerously-skip-permissions"}
+
+
+def with_full_permissions(agent, resume_cmd):
+    """Put the agent's bypass flag into its resume command (Codex wants options before the session id)."""
+    flag = FULL_PERMISSIONS[agent]
+    if flag in resume_cmd:
+        return resume_cmd
+    if agent == "codex" and resume_cmd.startswith("codex resume "):
+        return "codex resume " + flag + " " + resume_cmd[len("codex resume "):]
+    return f"{resume_cmd} {flag}"
+
+
+def stalled_prompt(jid, branch, worktree):
+    """First message when the integrator relaunches a stalled job's session with full permissions (P79)."""
+    return (
+        f"Job {jid} stalled (no sign of life past its deadline, most likely on a permission prompt nobody could answer), "
+        f"so the integrator relaunched this session with full permissions (William, 2026-11-28).\n\n"
+        f"Carry on with the job where you left off, in {worktree} (branch {branch}). Don't redo finished steps: check "
+        f"`git log` and `git status` there first. Submit as usual with `python3 tools/SUBMIT_JOB.py`.\n"
+    )
+
+
+def resume_command(agent, resume_cmd, worktree, prompt_file, space=None, root=None, full=False):
+    """The shell command to resume a returned job's session in its worktree (H207); full: with the bypass flag (P79)."""
     space = space or space_of(agent)
     first = f'"$(cat {shlex.quote(prompt_file)})"'
+    if full:
+        resume_cmd = with_full_permissions(agent, resume_cmd)
     if agent == "gemini":
-        skip = " --dangerously-skip-permissions" if GEMINI_SKIP_PERMISSIONS else ""
+        skip = (" --dangerously-skip-permissions"
+                if GEMINI_SKIP_PERMISSIONS and "--dangerously-skip-permissions" not in resume_cmd else "")
         run = f"{resume_cmd}{skip} -i {first}"
     elif agent == "claude" and root:
         wt = shlex.quote(worktrees_dir(root))
@@ -322,16 +351,17 @@ def launch_agent(agent, model=None, name=None, wake=None, dry_run=False, out=pri
     return 0, win
 
 
-def launch_resume(agent, jid, resume_cmd, notes, branch, worktree, space=None, dry_run=False, out=print):
-    """Resume a returned job's session in a new Terminal window with the return notes (H207) -> (rc, window_info)."""
+def launch_resume(agent, jid, resume_cmd, notes, branch, worktree, space=None, dry_run=False, out=print, full=False):
+    """Resume a returned job's session in a new Terminal window with the return notes (H207) -> (rc, window_info).
+    full: a stalled job relaunched with full permissions (P79): the stalled prompt instead of return notes."""
     root = main_root()
     folder = os.path.join(root, "scratch", "launch")
     os.makedirs(folder, exist_ok=True)
     name = f"{jid.lower()}-resume-{datetime.datetime.now():%m%d-%H%M%S}"
     path = os.path.join(folder, name + ".txt")
     with open(path, "w", encoding="utf-8") as f:
-        f.write(resume_prompt(jid, notes, branch, worktree))
-    command = resume_command(agent, resume_cmd, worktree, path, space=space, root=root)
+        f.write(stalled_prompt(jid, branch, worktree) if full else resume_prompt(jid, notes, branch, worktree))
+    command = resume_command(agent, resume_cmd, worktree, path, space=space, root=root, full=full)
     if dry_run:
         open_terminal(command, dry_run=True, out=out)
         return 0, None

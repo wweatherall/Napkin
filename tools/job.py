@@ -1674,7 +1674,7 @@ CLOSE_AFTER_DONE = 120   # seconds after SUBMIT_JOB before the hopper closes a w
 
 
 def _close_merged_windows(root, now=None, out=print, closer=None, alive_fn=None, kill_fn=None,
-                          tty_pids_fn=None, sleep=time.sleep, window_tty_fn=None):
+                          tty_pids_fn=None, sleep=time.sleep, window_tty_fn=None, only=None):
     """End recorded agent processes and close recorded Terminal windows once a job is submitted (CLOSE_AFTER_DONE
     later) or merged (H207, G09). A returned job resumes its session in a new window, so nothing is lost by closing at
     submit (the integrator's call, William 2026-11-27: idle windows cost memory, not tokens). Before ending anything,
@@ -1691,7 +1691,10 @@ def _close_merged_windows(root, now=None, out=print, closer=None, alive_fn=None,
         for jid, j in st["jobs"].items():
             submitted = (j.get("state") == "done" and j.get("done") is not None
                          and now - float(j["done"]) >= CLOSE_AFTER_DONE)
-            if j.get("state") != "merged" and not submitted:
+            if only is not None:
+                if jid not in only:      # P79: a stalled job's own windows, whatever its state
+                    continue
+            elif j.get("state") != "merged" and not submitted:
                 continue
             for idx, w in enumerate(j.get("windows") or []):
                 if isinstance(w, dict) and w.get("id") is not None and not w.get("closed"):
@@ -1731,6 +1734,62 @@ def _close_merged_windows(root, now=None, out=print, closer=None, alive_fn=None,
                 wins = st["jobs"].get(jid, {}).get("windows") or []
                 if idx < len(wins) and isinstance(wins[idx], dict):
                     wins[idx]["closed"] = now
+
+
+DIGEST = "integrator-digest.md"   # in .git/: what the integrator did on William's standing permissions (P79, P80)
+
+
+def digest_path(cwd=None):
+    return os.path.join(common_dir(cwd), DIGEST)
+
+
+def add_to_digest(root, line, now=None):
+    """One dated line for William's digest; `job.py digest` prints it and `--clear` empties it once read."""
+    with open(digest_path(root), "a", encoding="utf-8") as f:
+        f.write(f"- {datetime.datetime.fromtimestamp(now or time.time()):%Y-%m-%d %H:%M} {line}\n")
+
+
+def relaunch_full(cwd, jid, session, now=None, out=print, launcher=None, closer=None, finder=None):
+    """P79 (William, 2026-11-28): the lock holder relaunches a stalled job's session with full permissions: its
+    recorded windows are ended and closed, its session resumed with the agent's bypass flag, and a digest line
+    written for William."""
+    import integrator
+    import launch
+    root = main_root(cwd)
+    now = now or time.time()
+    lock = integrator.read(integrator.lock_path(root)) or {}
+    if not session or lock.get("holder") != session:
+        out(f"refused: only the integrator holding the lock can relaunch a job (holder: {lock.get('holder') or 'nobody'})")
+        return 1
+    with state_read(state_path(root), readonly=True) as st:
+        j = dict(st["jobs"].get(jid) or {})
+    if j.get("state") not in ("in progress", "waiting"):
+        out(f"refused: {jid} is {j.get('state') or 'not in the queue'}; only a job in progress or waiting can be relaunched")
+        return 1
+    agent = j.get("agent")
+    finder = finder or find_resume_command
+    resume_cmd = j.get("resume_cmd") or finder(agent, j.get("worktree"), taken=j.get("taken"), session=j.get("session"))
+    if not resume_cmd:
+        out(f"refused: no session to resume for {jid} ({agent}); relaunch it by hand")
+        return 1
+    _close_merged_windows(root, now=now, out=out, closer=closer, only={jid})
+    launcher = launcher or launch.launch_resume
+    rc, win = launcher(agent, jid, resume_cmd, "", j.get("branch", ""), j.get("worktree", ""), space=j.get("space"),
+                       full=True)
+    if rc != 0:
+        out(f"relaunch failed for {jid} ({agent})")
+        return 1
+    with locked(state_path(root)) as st:
+        cur = st["jobs"].get(jid, {})
+        cur["resume_cmd"] = resume_cmd
+        cur["beat"] = now
+        cur.setdefault("relaunched", []).append(now)
+        if win:
+            cur.setdefault("windows", []).append(win)
+        event(st, "relaunched", jid, f"{session} relaunched {jid} ({agent}) with full permissions", now)
+    add_to_digest(root, f"{jid} ({agent}) stalled; relaunched its session with full permissions ({resume_cmd})", now)
+    out(f"relaunched {jid} ({agent}) with full permissions; noted in the digest")
+    return 0
 
 
 def _integrator_session_name(root):
@@ -2353,6 +2412,18 @@ def main(argv):
         return hopper_wait(cwd)
     if cmd == "hopper-stop":
         return hopper_stop(cwd, argv[1] if len(argv) > 1 else "")
+    if cmd == "relaunch" and len(argv) >= 3:
+        return relaunch_full(cwd, argv[1].upper(), argv[2])
+    if cmd == "digest":
+        path = digest_path(cwd)
+        if len(argv) >= 3 and argv[1] == "add":
+            add_to_digest(main_root(cwd), argv[2])
+            return 0
+        text = open(path, encoding="utf-8").read() if os.path.isfile(path) else ""
+        print(text.rstrip() or "the digest is empty")
+        if "--clear" in argv and text:
+            os.remove(path)
+        return 0
     if cmd == "return" and len(argv) >= 3:
         return 0 if return_job(cwd, argv[1].upper(), argv[2]) else 1
     if cmd == "merged" and len(argv) >= 2:

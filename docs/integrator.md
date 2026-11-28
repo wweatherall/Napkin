@@ -26,6 +26,13 @@ Architecture: lines, the response) and CLAUDE.md (commit trailers); this page sa
   worker waiting on William; the queue empty while a worker waits on `GET_A_JOB.py --wait`: check in with William — self-triggered
   `returned` events are ignored by `--next` and reported only by `--once`). Start
   it again after each. After a context clear, re-arm it.
+- Stalled jobs and William's questions while he's away (William, 2026-11-28): a stale job (no sign of life past
+  its deadline, most likely a permission prompt) is relaunched with full permissions, `python3
+  tools/RELAUNCH_A_STALLED_JOB.py H0NN <your session>` (outside the sandbox; P79); a worker's question for William
+  that he isn't there to answer gets your best answer, `ANSWER_A_WORKERS_QUESTION.py H0NN "<answer>" --from integrator`,
+  logged as your call where a ruling is needed (unless it would countermand an Active ruling: that waits, P01; P80).
+  Both go in the digest, `python3 tools/SHOW_THE_DIGEST.py add "<line>"` (the relaunch adds its own line); give
+  William the digest when he's back, then `SHOW_THE_DIGEST.py --clear`.
 - A worker's question (T114) shows as `waiting: H0NN asks the integrator (scope): <q>` or `waiting: H0NN asks
   William: <q>`. Answer a scope question with `python3 tools/ANSWER_A_WORKERS_QUESTION.py H0NN "<text>"`; relay William's answer
   with `--from william` (he can run it himself). The worker's background `wait` prints it; answers sent before

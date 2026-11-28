@@ -5,6 +5,8 @@ Named scripts for every action a person or worker runs directly. Each script is 
 - `GET_A_JOB.py` — claim the next Ready job (`job.py take`).
 - `SUBMIT_JOB.py` — mark your finished job answered and ready for review (`job.py done`).
 - `ANSWER_A_WORKERS_QUESTION.py` — answer a waiting worker's question (`job.py answer`).
+- `RELAUNCH_A_STALLED_JOB.py` — relaunch a stalled job's session with full permissions, lock holder only (`job.py relaunch`, P79).
+- `SHOW_THE_DIGEST.py` — what the integrator did on William's standing permissions (`job.py digest`; `add "<line>"`, `--clear`; P79, P80).
 - `RETURN_JOB.py` — return a job to the board with review notes (`job.py return`).
 - `CHECK_THE_JOB_BOARD.py` — show the live job queue status (`job.py status`).
 - `WAIT_FOR_THE_NEXT_JOB.py` — wait for the next worker or queue event (`job.py watch --next`).
