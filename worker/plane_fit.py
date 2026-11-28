@@ -384,6 +384,47 @@ def _along_dir(board, tip):
     return -along if getattr(tip, 'SSReverse', False) else along
 
 
+def _stock_face_planes(target):
+    """List of 6 world (point, outward_normal) for `target`'s underlying extrusion stock faces, or []."""
+    if getattr(target, 'TypeId', '') == 'Part::Mirroring':
+        dfn, _ = _def(target)
+        frame = source_frame(dfn) if dfn is not None else None
+        if frame is None:
+            return []
+        _, origin, axes, sizes = frame
+        fr = _target_frame(target)
+        inv = dfn.Placement.inverse()
+        out = []
+        for face in range(6):
+            index, positive = divmod(face, 2)
+            normal = axes[index]
+            point = origin + normal * sizes[index] if positive else origin
+            outward = normal if positive else -normal
+            pt_w, n_w = _frame_to_world(fr, inv.multVec(point), inv.Rotation.multVec(outward))
+            out.append((pt_w, n_w))
+        return out
+    frame = source_frame(target)
+    if frame is None:
+        return []
+    _, origin, axes, sizes = frame
+    out = []
+    for face in range(6):
+        index, positive = divmod(face, 2)
+        normal = axes[index]
+        point = origin + normal * sizes[index] if positive else origin
+        outward = normal if positive else -normal
+        out.append((point, outward))
+    return out
+
+
+def _match_stock_face(target, world_point, world_normal):
+    """Return 0..5 if (world_point, world_normal) lies on one of `target`'s underlying stock faces, else -1."""
+    for i, (pt, n) in enumerate(_stock_face_planes(target)):
+        if n.dot(world_normal) > 0.9999 and abs((pt - world_point).dot(n)) < 0.1:
+            return i
+    return -1
+
+
 def _resolve_face(target, tip, along=None):
     """Return (face_index, (world_point, world_normal), state) where state is 'live', 'paused', or 'detached'."""
     if target is None:
@@ -416,10 +457,18 @@ def _resolve_face(target, tip, along=None):
         if is_cut_or_nonrect:
             t_dfn, _ = _def(target)
             pf_tip = _underlying_plane_fit(getattr(t_dfn, 'Tip', None)) if t_dfn is not None else None
+            matched_fe = False
             if pf_tip is not None and len(getattr(pf_tip, 'SSFitCorners', ())) == 8:
                 fe = fitted_end(target, pf_tip)
                 if fe is not None and fe[0].dot(want_n) > 0.9999:
                     ref_pt = fe[1]
+                    matched_fe = True
+            if not matched_fe:
+                sf_idx = int(getattr(tip, 'SSTargetStockFace', -1))
+                if 0 <= sf_idx < 6:
+                    sf_planes = _stock_face_planes(target)
+                    if sf_planes and sf_planes[sf_idx][1].dot(want_n) > 0.9999:
+                        ref_pt = sf_planes[sf_idx][0]
         idx, pl = min(matches, key=lambda item: abs((item[1][0] - ref_pt).dot(want_n)))
         if is_cut_or_nonrect and abs((pl[0] - ref_pt).dot(want_n)) > 0.1:
             return None, None, 'detached'
@@ -679,7 +728,10 @@ def update(model, board, tip):
         tip.addProperty('App::PropertyInteger', 'SSTargetSign')
     if getattr(tip, 'SSTargetSign', 0) == 0 and along is not None:
         tip.SSTargetSign = 1 if along.dot(plane[1]) > 0 else -1
-    if stock(target) is not None and n_local is not None and n_local.Length > 1e-6:
+    if 'SSTargetStockFace' not in tip.PropertiesList:
+        tip.addProperty('App::PropertyInteger', 'SSTargetStockFace')
+        tip.SSTargetStockFace = _match_stock_face(target, plane[0], plane[1])
+    if n_local is not None and n_local.Length > 1e-6:
         fr = _target_frame(target)
         _, want_n = _frame_to_world(fr, tip.SSTargetPoint, n_local)
         if plane[1].dot(want_n) > 0.9999:
@@ -801,11 +853,14 @@ def apply(model, op):
         tip.addProperty("App::PropertyInteger","SSTargetSign")
     if "SSFitPaused" not in tip.PropertiesList:
         tip.addProperty("App::PropertyBool","SSFitPaused")
+    if "SSTargetStockFace" not in tip.PropertiesList:
+        tip.addProperty("App::PropertyInteger","SSTargetStockFace")
     pt_l, n_l = _target_local_plane(target, t_plane[0], t_plane[1])
     tip.SSTargetPoint = pt_l
     tip.SSTargetNormal = n_l
     along = -src[2][axis] if op.get("reverse", False) else src[2][axis]
     tip.SSTargetSign = 1 if along.dot(t_plane[1]) > 0 else -1
+    tip.SSTargetStockFace = _match_stock_face(target, t_plane[0], t_plane[1])
     tip.SSFitPaused = False
     tip.SSReverse = op.get("reverse",False)
     tip.SSSourceBodyId = board.BodyId if board_dfn is not board else ''

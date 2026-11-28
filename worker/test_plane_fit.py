@@ -266,7 +266,41 @@ def main():
     finally:
         s.close()
 
+    # 4. G04 + I77: a fit to a cut target follows when the target is lengthened (pocket away from fitted face).
+    s = Session(os.path.join(folder, "cut_lengthen.FCStd"), fresh=True)
+    try:
+        from object_properties import inspect
+        ops_len = (
+            _board("t3", [100, 0, 0], [40, 40, 20])
+            + _board("x_leg", [0, 10, 0], [20, 20, 20])
+            + [{"id": "f_x", "type": "fit", "body": "x_leg", "target_body": "t3", "axis": 0,
+                "face": {"normal": [1, 0, 0], "point": [140, 0, 0]}, "fit_mode": 0}]
+            + _cut("c_pkt", "t3", [110, 10, 20], [10, 10], depth=5)
+        )
+        s.sync(ops_len)
+        rect_obj = next(
+            ob for ob in inspect(s.model, "t3")["objects"]
+            if any(f["path"] == "Length" and f["editable"] for f in ob["fields"])
+        )
+        len_field = next(f for f in rect_obj["fields"] if f["path"] == "Length")
+        s.sync(ops_len + [{
+            "id": "pe_len", "type": "property_edit", "body": "t3", "object": rect_obj["name"],
+            "property": "Length", "value": "60mm", "mode": "value",
+            "expected": {"value": len_field["value"], "expression": len_field["expression"]},
+        }])
+        tip = s.model.body("x_leg").Tip
+        leg_xmax = s.model.world_shape(s.model.body("x_leg")).BoundBox.XMax
+        t3_xmax = s.model.world_shape(s.model.body("t3")).BoundBox.XMax
+        check("G04 fit follows lengthened cut target and stays live",
+              tip.SSTargetId == "t3"
+              and abs(t3_xmax - 160.0) < 0.01
+              and abs(leg_xmax - 160.0) < 0.01,
+              (tip.SSTargetId, t3_xmax, leg_xmax, tip.SSFitResult))
+    finally:
+        s.close()
+
     print(f"PLANE FIT TESTS: {R[0]} passed, {R[1]} failed", flush=True)
 
 
-main()
+if __name__ == "__main__" or any(os.path.basename(a) == Path(__file__).name for a in sys.argv):
+    main()
