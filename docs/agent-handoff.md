@@ -27,7 +27,6 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
 - [H202 — Design: how a fit that lost its face looks (a chain crumbling, or another gentle metaphor), a proposal with drafts for William](handoff/H202-fit-detach-look.md) — status: open; for: codex
 - [H208 — Napkin's freecadcmd never saves over William's FreeCAD settings (T167)](handoff/H208-freecad-settings-kept.md) — status: open; for: codex
-- [H209 — The toolbar shows each tool's key in brackets next to its name (T167)](handoff/H209-toolbar-shows-hotkeys.md) — status: open; for: codex
 - [H211 — Double-click enters William's copies; drawings (2D shapes) can be selected; a compound's properties show (T167)](handoff/H211-select-drawings-and-compounds.md) — status: open; for: codex
 
 <!-- end of open list -->
@@ -36,6 +35,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 Full entries in [handoff-archive.md](handoff-archive.md).
 
+- H209 — The toolbar shows each tool's key in brackets next to its name (T167). Resolved: merged into main by the integrator, 2026-11-28.
 - H210 — Typed copy counts: 5x, x5, *5 (and 5*) all work after a move or copy (T167). Resolved: merged into main by the integrator, 2026-11-28.
 - H201 — A fit names its target face by geometry, follows flips and rotations, and detaches when the face is gone (T161, T163, I75-I77). Resolved: merged into main by the integrator, 2026-11-28.
 - H200 — Push/Pull split, step 3: resizing plain stock is a `resize_stock` op (T159, I74). Resolved: merged into main by the integrator, 2026-11-27.
@@ -45,9 +45,8 @@ Full entries in [handoff-archive.md](handoff-archive.md).
 - H206 — Codex usage at parity: every view of the token tool shows Codex beside Claude and Gemini. Resolved: merged into main by the integrator, 2026-11-27.
 - H199 — Push/Pull split, step 2: creating a board is a `new_board` op, and the one-time updater (T159, I74, A43). Resolved: merged into main by the integrator, 2026-11-27.
 - H203 — The hopper draws itself: an ASCII picture of the jobs waiting, being worked on, and on the integrator's desk. Resolved: merged into main by the integrator, 2026-11-27.
-- H198 — Push/Pull split, step 1: fitting a face to another board's edge sends a `fit` op (T159, I74). Resolved: merged into main by the integrator, 2026-11-27.
 
-Older: docs/handoff-archive.md (205 entries; find one with grep "^### H0NN" docs/handoff-archive.md)
+Older: docs/handoff-archive.md (206 entries; find one with grep "^### H0NN" docs/handoff-archive.md)
 
 ## Entry template
 

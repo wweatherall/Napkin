@@ -21,3 +21,6 @@
 ### 2026-11-28 08:12 — H210 (codex, 01a22279-cf6b-7661-aa86-11c57842643c, first submit)
 - **How was working on this job in our code base?** A shifted punctuation key needed both its character and its modifier events to reproduce the app failure.
 - **Any improvements you can think of?** For keyboard bugs, include physical modifier events in the baseline and check active and post-click paths separately.
+### 2026-11-28 08:05 — H209 (codex, 01a22273-35ee-79f0-ac09-adb534271f8e, first submit)
+- **How was working on this job in our code base?** The existing registry check exercised the actual toolbar. Adding a width check made the first layout failure as easy to measure as it was to see in the capture.
+- **Any improvements you can think of?** The merge gate already records a clean quick-test pass. The worker checklist could accept that pass in place of asking for a second quick run on the same commit.
