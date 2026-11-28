@@ -36,13 +36,12 @@ Checks:
 - The response lists every `UNREAD_WHEN` entry with its reason, the suspected bugs first.
 
 Response:
-- Updated `worker/field_audit.py` so `unread_fields(paths, allow=None)` checks each audit record individually instead of unioning `sent` and `read` per op type, and `format_report` groups by `(op_type, field)` with run count and an example of the run's sorted `sent` keys.
-- Added `UNREAD_WHEN` in `worker/field_audit.py` for the 4 `(op_type, field)` pairs flagged across the full test (no suspected bugs found):
-  - `("move", "targets")`: when `'cut'` is set, `op_move` dispatches to `move_cut` which reads `op['cut']` instead of `op['targets']` (`move_tool` sends `targets: []`).
-  - `("push_pull", "body")`: when `op_push_pull` rejects early with `OpError` (e.g. unknown rect in `rejecttest`), `Model.apply`'s `finally` block records the run before reaching `op.get('body')`.
-  - `("rect", "corner")`: when `op_rect` rejects early with `OpError` (e.g. invalid plane in `rejecttest`), `Model.apply`'s `finally` block records the run before reaching `op.get('corner')`.
-  - `("rect", "size")`: when `op_rect` rejects early with `OpError` (e.g. invalid plane in `rejecttest`), `Model.apply`'s `finally` block records the run before reaching `op['size']`.
-- Updated `worker/test_field_audit.py` (24/24) to test the per-run shape, a field read in one run and unread in another run of the same type (flagged), and a field in `UNREAD_WHEN` (passes).
+- Updated `worker/model.py` (`Model.apply`) and `worker/field_audit.py` (`append_record`) to record `"failed": true` when an op handler raises, and `"failed": false` otherwise.
+- Updated `worker/field_audit.py` so `unread_fields(paths, allow=None)` checks each audit record individually, skips failed runs (a rejected op stops reading at its error, by design), and `format_report` groups by `(op_type, field)` with run count and an example of the run's sorted `sent` keys.
+- Updated `UNREAD_WHEN` in `worker/field_audit.py` to `{(op_type, field): (when_key or None, reason)}`, dropped the three rejection-only entries (`push_pull.body`, `rect.corner`, `rect.size`), and scoped `("move", "targets")` to `when_key="cut"` (no suspected bugs found):
+  - `("move", "targets")` (`when_key="cut"`): when `'cut'` is set, `op_move` dispatches to `move_cut` which reads `op['cut']` instead of `op['targets']` (`move_tool` sends `targets: []`).
+- Updated `worker/test_field_audit.py` (30/30) to test the per-run shape, a field read in one run and unread in another run of the same type (flagged), `move.targets` with `cut` (passes) and without `cut` (flagged), failed runs with unread fields (passes) vs successful runs with unread fields (flagged), and `Model.apply` recording `failed=True` on handler error.
+- Changed from the brief: `worker/model.py` (added to Touches by integrator review notes to record `failed` in `Model.apply` around the handler).
 - Integrator scope note: initial gate hit a pre-existing `03_Past_Decisions/decision-log.md` failure on `main` (`90c9ede`); integrator confirmed `main` was updated (`19208f1`), merged `main` into the branch, and re-ran the full gate cleanly.
 
-Result: `tools/TEST_BEFORE_MERGING.sh` passed (`GATE PASS: full test passes; QUICK 401 passed, 0 failed in 28.6 s ; 0 known failure(s); 80 s total`, `full: field audit passed in 0 s`); `worker/test_field_audit.py` 24/24.
+Result: `tools/TEST_BEFORE_MERGING.sh` passed (`GATE PASS: full test passes; QUICK 401 passed, 0 failed in 28.4 s ; 0 known failure(s); 79 s total`, `full: field audit passed in 0 s`); `worker/test_field_audit.py` 30/30.
