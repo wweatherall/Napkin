@@ -255,7 +255,8 @@ FaceRef = `{body: string, normal: Vec3, point: Vec3}`: world face identified geo
 | `move` with cut | additionally `cut: {body: string, op: string}` selects a rectangular cutter/row; same vector/copy/count/divide fields; targets may be empty; new_ids unused for cutter arrays | [move.py](../worker/move.py):`MoveActions.move_cut` (called by `op_move`) |
 | `mirror` | `targets: string[]`, `plane: {point: Vec3, normal: Vec3}`, `replace?: boolean = false`, `new_ids?: string[]` (fallback `<target>_m`), `group?: string` mirror assembly ID if originals ungrouped; replacement retains original BodyId | [mirror.py](../worker/mirror.py):`MirrorActions.op_mirror` |
 | `make_component` | `body: string`, `name: string` | [move.py](../worker/move.py):`MoveActions.op_make_component` |
-| `detach` / `make_unique` | `targets: string[]`; detach clears array membership; unique deep-copies shared definition | [move.py](../worker/move.py):`MoveActions.op_detach`, `op_make_unique` |
+| `detach` | `targets: string[]`; detach clears array membership | [move.py](../worker/move.py):`MoveActions.op_detach` |
+| `make_unique` | `targets: string[]`; deep-copies shared definition | [move.py](../worker/move.py):`MoveActions.op_make_unique` |
 | `make_assembly` | `targets: string[]`, `new_id: string`, `name?: string = new_id` | [assembly.py](../worker/assembly.py):`AssemblyActions.op_make_assembly` |
 | `set_material` | `targets: string[]`, `material: string` library key (empty clears); linked definitions share material | [paint.py](../worker/paint.py):`PaintActions.op_set_material` |
 | `turn_grain` | `targets: string[]`; toggles definition's longest/middle axis, including linked siblings | [paint.py](../worker/paint.py):`PaintActions.op_turn_grain` |

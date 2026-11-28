@@ -215,6 +215,40 @@ func _init() -> void:
 	s.set_boards([{"id": "b8", "assembly": "a2"}, {"id": "b9", "family": "f2"}])
 	check("if entered component disappears, context falls back to parent assembly", s.context == "assembly:a2")
 
+	# --- H192: selection builders match op contracts ---
+	var contracts_path := ProjectSettings.globalize_path("res://").path_join("../tests/op_contracts.json")
+	var contracts = JSON.parse_string(FileAccess.get_file_as_string(contracts_path))
+	check("H192: tests/op_contracts.json loads for selection tool checks", contracts is Dictionary and not contracts.is_empty())
+	if contracts is Dictionary:
+		r = make(); s = r[0]; d = r[1]
+		s.set_selection(["b6"])
+		s.hide_selected()
+		s.set_selection(["b3"])
+		s.make_assembly()
+		s.hover_body = "b4"
+		s.linked_op("make_unique")
+		s.hover_body = "b5"
+		s.linked_op("detach")
+		s.set_selection(["b6"])
+		s.delete_selected()
+		var built := {}
+		for op in d.ops:
+			built[op["type"]] = op
+		for op_type in ["hide", "make_assembly", "make_unique", "detach", "delete"]:
+			var contract: Dictionary = contracts.get(op_type, {})
+			var op: Dictionary = built.get(op_type, {})
+			var fields: Dictionary = contract.get("fields", {})
+			var missing_req := []
+			for fname in fields:
+				if fields[fname].get("required", true) and not op.has(fname):
+					missing_req.append(fname)
+			var extra := []
+			for k in op:
+				if k != "id" and k != "type" and not fields.has(k):
+					extra.append(k)
+			check("H192: selection %s matches contract (missing=%s extra=%s)" % [op_type, missing_req, extra],
+				op.get("type", "") == op_type and missing_req.is_empty() and extra.is_empty())
+
 	for n in made: n.free()
 	print("SELECTION TESTS: %d passed, %d failed" % [passed, failed])
 	quit(1 if failed else 0)

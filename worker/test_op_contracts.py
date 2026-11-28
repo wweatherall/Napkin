@@ -29,6 +29,14 @@ def _sample_value(spec, fname=""):
         return int(spec.get("min", 1))
     if kind == "bool":
         return not bool(spec.get("default", False))
+    if kind == "string":
+        if fname == "material":
+            return "white-oak"
+        if fname == "value":
+            return "150mm"
+        return "sample_str"
+    if kind == "[string]":
+        return ["sample_id"]
     if kind == "[number, number]":
         return list(spec.get("default", [5.0, 5.0]))
     if kind == "[number, number, number]":
@@ -40,11 +48,61 @@ def _sample_value(spec, fname=""):
     raise ValueError(f"unsupported contract field kind: {kind!r}")
 
 
-def _build_op(op_id, contract, include_optional=True):
-    op = {"id": op_id, "type": contract["type"]}
+_SEQ = [0]
+
+
+def _next_tag(prefix):
+    _SEQ[0] += 1
+    return f"{prefix}_{_SEQ[0]}"
+
+
+def _make_board(m, prefix="b", origin_x=0.0):
+    rid = _next_tag(f"r_{prefix}")
+    bid = _next_tag(prefix)
+    m.apply({"id": rid, "type": "rect", "plane": {"origin": [origin_x, 0, 0], "normal": [0, 0, 1]}, "size": [100, 100]})
+    m.apply({"id": _next_tag(f"pp_{prefix}"), "type": "push_pull", "target": {"rect": rid}, "distance": 18, "body": bid})
+    return bid
+
+
+def _prepare_op(m, op_id, contract, include_optional, shared):
+    op_type = contract["type"]
+    op = {"id": op_id, "type": op_type}
     for name, spec in contract["fields"].items():
         if spec.get("required", True) or include_optional:
             op[name] = _sample_value(spec, name)
+    if op_type in ("set_material", "turn_grain", "hide"):
+        if "plain" not in shared:
+            shared["plain"] = _make_board(m, "plain")
+        op["targets"] = [shared["plain"]]
+    elif op_type in ("delete", "make_component"):
+        bid = _make_board(m, op_type)
+        if "targets" in op:
+            op["targets"] = [bid]
+        if "body" in op:
+            op["body"] = bid
+    elif op_type == "make_assembly":
+        op["targets"] = [_make_board(m, "asm")]
+        op["new_id"] = _next_tag("asm")
+    elif op_type == "detach":
+        src = _make_board(m, "arr")
+        c1, c2 = _next_tag("arr_c"), _next_tag("arr_c")
+        m.apply({"id": _next_tag("mv"), "type": "move", "targets": [src], "vector": [200, 0, 0],
+                 "copy": True, "count": 2, "new_ids": [c1, c2]})
+        op["targets"] = [c1]
+    elif op_type == "make_unique":
+        src = _make_board(m, "comp")
+        c1 = _next_tag("comp_c")
+        m.apply({"id": _next_tag("mv"), "type": "move", "targets": [src], "vector": [200, 0, 0],
+                 "copy": True, "count": 1, "new_ids": [c1]})
+        op["targets"] = [c1]
+    elif op_type == "unfit":
+        ba = _make_board(m, "fit_a", origin_x=0.0)
+        bb = _make_board(m, "fit_b", origin_x=200.0)
+        m.apply({"id": _next_tag("fit"), "type": "fit", "body": ba, "target_body": bb,
+                 "axis": 0, "face": 0, "fit_mode": 0})
+        op["body"] = ba
+        op["axis"] = 0
+        op["value"] = "150mm"
     return op
 
 
@@ -65,13 +123,14 @@ check("at least one op contract is registered", bool(contracts))
 doc = App.newDocument("OpContractTest")
 try:
     m = Model(doc)
+    shared = {}
     for op_type, contract in sorted(contracts.items()):
         fields = contract["fields"]
         required = {k for k, v in fields.items() if v.get("required", True)}
         handler_fields = {k for k, v in fields.items() if not v.get("viewport_only", False)}
 
         # 1. Required-only op succeeds and reads every sent field, none outside contract.fields
-        req_op = AuditedDict(_build_op(f"{op_type}_req", contract, include_optional=False))
+        req_op = AuditedDict(_prepare_op(m, f"{op_type}_req", contract, False, shared))
         try:
             m.apply(req_op)
             req_ok = True
@@ -85,7 +144,7 @@ try:
         check(f"{op_type}: required-only op reads no undocumented fields", req_read <= handler_fields, f"extra={sorted(req_read - handler_fields)}")
 
         # 2. Full op (with all optional fields) reads every handler field in contract.fields
-        full_op = AuditedDict(_build_op(f"{op_type}_all", contract, include_optional=True))
+        full_op = AuditedDict(_prepare_op(m, f"{op_type}_all", contract, True, shared))
         try:
             m.apply(full_op)
             full_ok = True
@@ -100,7 +159,7 @@ try:
 
         # 3. Missing each required field is rejected
         for req_name in sorted(required):
-            bad = _build_op(f"{op_type}_no_{req_name}", contract, include_optional=False)
+            bad = _prepare_op(m, f"{op_type}_no_{req_name}", contract, False, shared)
             del bad[req_name]
             rejected = False
             try:
@@ -114,7 +173,7 @@ try:
             is_int = spec.get("kind") == "integer"
             if "min" in spec:
                 min_val = int(spec["min"]) if is_int else float(spec["min"])
-                at_min = _build_op(f"{op_type}_at_min_{fname}", contract, include_optional=False)
+                at_min = _prepare_op(m, f"{op_type}_at_min_{fname}", contract, False, shared)
                 at_min[fname] = min_val
                 try:
                     m.apply(at_min)
@@ -123,7 +182,7 @@ try:
                     at_ok = False
                 check(f"{op_type}: {fname} == {min_val} (min) is accepted", at_ok)
 
-                below_min = _build_op(f"{op_type}_below_min_{fname}", contract, include_optional=False)
+                below_min = _prepare_op(m, f"{op_type}_below_min_{fname}", contract, False, shared)
                 below_min[fname] = min_val - 1 if is_int else min_val * 0.5
                 below_rejected = False
                 try:
@@ -134,7 +193,7 @@ try:
 
             if "max" in spec:
                 max_val = int(spec["max"]) if is_int else float(spec["max"])
-                at_max = _build_op(f"{op_type}_at_max_{fname}", contract, include_optional=False)
+                at_max = _prepare_op(m, f"{op_type}_at_max_{fname}", contract, False, shared)
                 at_max[fname] = max_val
                 try:
                     m.apply(at_max)
@@ -143,7 +202,7 @@ try:
                     at_max_ok = False
                 check(f"{op_type}: {fname} == {max_val} (max) is accepted", at_max_ok)
 
-                above_max = _build_op(f"{op_type}_above_max_{fname}", contract, include_optional=False)
+                above_max = _prepare_op(m, f"{op_type}_above_max_{fname}", contract, False, shared)
                 above_max[fname] = max_val + 1 if is_int else max_val * 2.0
                 above_rejected = False
                 try:
@@ -153,7 +212,13 @@ try:
                 check(f"{op_type}: {fname} > {max_val} (max) is rejected", above_rejected)
 
         # 5. session.creations yields exactly contract['creates']
-        expected_ids = [_resolve_path(full_op, p) for p in contract.get("creates", [])]
+        expected_ids = []
+        for p in contract.get("creates", []):
+            val = _resolve_path(full_op, p)
+            if isinstance(val, list):
+                expected_ids.extend(val)
+            elif val is not None:
+                expected_ids.append(val)
         got_ids = [identity for identity, _ in creations(full_op)]
         check(f"{op_type}: creations matches contract.creates", got_ids == expected_ids,
               f"got={got_ids} expected={expected_ids}")

@@ -8,6 +8,28 @@ import Part
 from common import OpError, material_card, unit
 from export import PALETTE
 
+CONTRACTS = [
+    {
+        "type": "set_material",
+        "fields": {
+            "targets": {"required": True, "kind": "[string]"},
+            "material": {"required": True, "kind": "string"},
+        },
+        "refers_to": ["targets"],
+        "creates": ["id"],
+        "tool": "viewport/appearance.gd",
+    },
+    {
+        "type": "turn_grain",
+        "fields": {
+            "targets": {"required": True, "kind": "[string]"},
+        },
+        "refers_to": ["targets"],
+        "creates": ["id"],
+        "tool": "viewport/appearance.gd",
+    },
+]
+
 
 class PaintActions:
     """Part of Model (model.py): works through self on the FreeCAD document."""
