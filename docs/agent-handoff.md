@@ -27,6 +27,10 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
 - [H212 — Components and arrays the SketchUp way: one click takes the group, inside every copy is linked, the original is marked (I82)](handoff/H212-components-the-sketchup-way.md) — status: open; for: codex
 - [H213 — The hopper workshop: William's animated, width-aware hopper picture (made with ChatGPT) brought into Napkin](handoff/H213-hopper-workshop.md) — status: open; for: either
+- [H216 — Reading cost per job: what each agent read before and while doing its job, from the saved transcripts (T175)](handoff/H216-reading-cost-per-job.md) — status: open; for: Codex
+- [H217 — Mutation testing for worker/: plant small bugs one at a time and record which tests catch each (T171 step 1)](handoff/H217-mutation-runner.md) — status: open; for: Codex
+- [H218 — Read the kill matrix: which tests stand for which, the gaps, and a draft tree of dense tests (T171 step 2)](handoff/H218-kill-matrix-report.md) — status: queued (after H217); for: either
+- [H219 — Mutation testing for the viewport's GDScript (T171 step 3)](handoff/H219-mutation-gdscript.md) — status: queued (after H217); for: Codex
 
 <!-- end of open list -->
 
