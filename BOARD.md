@@ -73,7 +73,7 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H201 | Gemini | Returned: **Ready** for Gemini (resumes gemini/h201-fits-name-faces-by-geometry) | A fit names its target face by geometry, follows flips and rotations, and detaches when the face is gone (T161, T163, I75-I77) | [H201](docs/handoff/H201-fits-name-faces-by-geometry.md) |  |
+| H201 | Gemini | Returned: **Ready** for Codex (resumes gemini/h201-fits-name-faces-by-geometry) | A fit names its target face by geometry, follows flips and rotations, and detaches when the face is gone (T161, T163, I75-I77) | [H201](docs/handoff/H201-fits-name-faces-by-geometry.md) |  |
 | H202 | Gemini | Queued | Design: how a fit that lost its face looks (a chain crumbling, or another gentle metaphor), a proposal with drafts for William | [H202](docs/handoff/H202-fit-detach-look.md) | H201 |
 
 <!-- end of job table -->

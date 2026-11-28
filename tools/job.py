@@ -1386,6 +1386,11 @@ def reassign_job(cwd, jid, to_agent, notes=None, now=None, out=print):
             wt = target
         old_agent = j.get("agent")
         note = notes if notes else f"reassigned from {old_agent} by the integrator"
+        if j.get("notes") and j["notes"] not in note:
+            note = f"{note}\n\nEarlier notes: {j['notes']}"     # a return's notes (the repro) survive a reassign
+        if agent != old_agent:
+            j.pop("resume_cmd", None)    # another agent's session can't be resumed by this one
+            j.pop("space", None)
         for sess_jobs in st.get("sessions", {}).values():
             while jid in sess_jobs:
                 sess_jobs.remove(jid)
