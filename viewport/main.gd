@@ -16,6 +16,7 @@ const Inference := preload("res://inference.gd")
 const Presenter := preload("res://presenter.gd")
 const Preferences := preload("res://preferences.gd")
 const LivePreferences := preload("res://live_preferences.gd")
+const ModelFiles := preload("res://model_files.gd")
 const Tool := preload("res://tools/tool.gd")
 const GRID := Inference.GRID          # the grid and snap settings are inference's (T88); old names for consumers
 const SNAP_PX := Inference.SNAP_PX
@@ -144,7 +145,7 @@ func _make_presenter() -> void:
 	pres.sel = sel
 	add_child(pres)
 	pres.boards_read.connect(history._on_boards_read)
-	pres.wave_rejected_done.connect(_on_wave_rejected_done)
+	pres.wave_rejected_done.connect(rejections._on_wave_rejected_done)
 
 
 var fx_points := {}           # op id -> model point where the operation ended (wave origin)
@@ -255,10 +256,10 @@ func _ready() -> void:
 		elif a == "--nobias": overlay_bias = 0.0
 		elif a.begins_with("--preload="): preload_path = a.substr(10)
 	if oplog_path == "": oplog_path = ProjectSettings.globalize_path("user://ops.json")
-	out_root = out_dir if out_dir != "" else ProjectSettings.globalize_path("user://out")
+	files.out_root = out_dir if out_dir != "" else ProjectSettings.globalize_path("user://out")
 	if model_path == "":
-		model_path = (out_root + "/model.FCStd") if test_mode else _last_model()
-	out_dir = out_root if test_mode else _out_for(model_path)
+		model_path = (files.out_root + "/model.FCStd") if test_mode else files._last_model()
+	out_dir = files.out_root if test_mode else files._out_for(model_path)
 	DirAccess.make_dir_recursive_absolute(out_dir)
 	if drawing_script == "" and not test_mode:
 		drawing_script = _beside_project("worker/drawing.py")
@@ -282,8 +283,8 @@ func _ready() -> void:
 	properties_panel.format_length = measure.format_length
 	_init_preferences()
 	menus.make_menus()
-	_set_title()
-	if not test_mode: _remember_model(model_path)
+	files._set_title()
+	if not test_mode: files._remember_model(model_path)
 	client = WorkerClient.new()
 	add_child(client)
 	doc.name = "Document"
@@ -712,13 +713,18 @@ func _on_sync_failed(error: String) -> void: history._on_sync_failed(error)
 static func _ops_key(list: Array) -> String: return Document.ops_key(list)
 
 
-# ---------------- the frame ----------------
+# ---------------- the frame & rejections (rejections.gd) ----------------
 const DEFAULT_BASE := Presenter.DEFAULT_BASE   # a board's colour before FreeCAD says (tools start waves with it)
-var reject_note := ""
-var last_reject_note := ""          # the latest rejection message (kept for tests; the status bar clears on your next action)
+var rejections = load("res://rejections.gd").new(self)
+var reject_note: String:
+	get: return rejections.reject_note
+	set(v): rejections.reject_note = v
+var last_reject_note: String:        # the latest rejection message (kept for tests; the status bar clears on your next action)
+	get: return rejections.last_reject_note
+	set(v): rejections.last_reject_note = v
 var force_reject_next: bool:
-	get: return pres.draft_tests.reject_next
-	set(v): pres.draft_tests.reject_next = v
+	get: return rejections.force_reject_next
+	set(v): rejections.force_reject_next = v
 
 
 func _process(delta: float) -> void:
@@ -734,29 +740,8 @@ func _process(delta: float) -> void:
 	pres.step_waves(delta)
 
 
-func _on_wave_rejected_done(oid: String) -> void:
-	var ids: Array = doc.rejected_ids(oid)
-	if not ids.is_empty():                              # a rejection: it goes with the actions that built on it
-		doc.remove_ops(ids)
-	else:
-		var w: Dictionary = op_waves[oid]
-		if not w.get("dependent", false) or not op_waves.has(w["root"]):
-			doc.remove_op(oid)                          # ends the wave, frees the draft, resyncs
-
-
 func _on_rejected(o: Dictionary, w, drop_now: Array) -> void:
-	var res: Dictionary = doc.reject(o["id"], o.get("message", ""), Time.get_ticks_msec(), func(r): return op_waves.has(r), o.get("about", []))
-	if res.is_empty(): return
-	reject_note = res["note"]
-	if not res["joined"]:
-		if w != null: w["state"] = "rejected"        # red wave plays, then it goes with its dependents
-		else: drop_now.append(o["id"])
-		return
-	last_reject_note = reject_note
-	if w != null:
-		w["state"] = "rejected"; w["dependent"] = true; w["root"] = res["root"]
-	if not op_waves.has(res["root"]):                # its rejection has already played: remove it now
-		drop_now.append(o["id"])
+	rejections._on_rejected(o, w, drop_now)
 
 
 # ---------------- the FreeCAD worker (T6) ----------------
@@ -795,79 +780,15 @@ func _notification(what: int) -> void:
 		prompts.request_close()
 
 
-# ---------------- documents, menus, dialogs (T8) ----------------
-# Shop Sketch works on one FreeCAD file at a time. File > New / Open switch files without restarting; the last
-# file reopens next time. Native macOS menus and file dialogs where the system has them.
-const SETTINGS := "user://settings.cfg"
-var out_root := ""                  # each model's outputs go in a folder of their own under here
-
-
-func _beside_project(rel: String) -> String:
-	"""A file shipped next to the viewport: the repo when run from source, the app bundle's Resources otherwise."""
-	var src := ProjectSettings.globalize_path("res://")
-	if src != "" and FileAccess.file_exists(src.path_join("..").path_join(rel).simplify_path()):
-		return src.path_join("..").path_join(rel).simplify_path()
-	return OS.get_executable_path().get_base_dir().path_join("../Resources").path_join(rel).simplify_path()
-
-
-func _last_model() -> String:
-	var cfg := ConfigFile.new()
-	if cfg.load(SETTINGS) == OK:
-		var p: String = cfg.get_value("files", "last_model", "")
-		if p != "" and (FileAccess.file_exists(p) or DirAccess.dir_exists_absolute(p.get_base_dir())):
-			return p
-	var docs := OS.get_system_dir(OS.SYSTEM_DIR_DOCUMENTS).path_join("Shop Sketch")
-	DirAccess.make_dir_recursive_absolute(docs)
-	return docs.path_join("Untitled.FCStd")
-
-
-func _remember_model(path: String) -> void:
-	var cfg := ConfigFile.new()
-	cfg.load(SETTINGS)
-	cfg.set_value("files", "last_model", path)
-	cfg.save(SETTINGS)
-
-
-func _out_for(path: String) -> String:
-	return out_root.path_join("%s-%s" % [path.get_file().get_basename(), path.md5_text().left(8)])
-
-
-func _set_title() -> void:
-	if test_mode: return
-	DisplayServer.window_set_title("%s — Shop Sketch" % model_path.get_file().get_basename())
-
-
-var _model_before := ""                # the model this window had before an Open (to go back if it's taken)
-
-
-func switch_model(path: String, fresh := false) -> void:
-	"""Close the current model (the worker keeps it saved) and open another; fresh = start it empty."""
-	if path.get_extension().to_lower() != "fcstd": path += ".FCStd"
-	if path == model_path and not fresh: return
-	if opened: _model_before = model_path
-	_reset_model_state()
-	model_path = path
-	if not test_mode:
-		out_dir = _out_for(path)
-		_remember_model(path)
-	DirAccess.make_dir_recursive_absolute(out_dir)
-	_set_title()
-	doc.open(path, fresh)
-	ui_sync.text = "opening %s" % path.get_file()
-
-
-func _reset_model_state() -> void:
-	prompts.reset_outside_question()
-	properties_seq = -1
-	properties_request += 1
-	sel.set_selection([])
-	doc.reset()                     # a reply still on its way belongs to the old model: it's ignored
-	measure.reset_for_model()
-	pres.reset()
-	reject_note = ""
-	tools["move"].last_oid = ""; tools["move"].memo.clear()
-	set_tool(tool)
-	marker.visible = false
+# ---------------- model files (model_files.gd, T8) ----------------
+const SETTINGS := ModelFiles.SETTINGS
+var files := ModelFiles.new(self)
+var _model_before: String:
+	get: return files._model_before
+	set(v): files._model_before = v
+func _beside_project(rel: String) -> String: return files._beside_project(rel)
+func switch_model(path: String, fresh := false) -> void: files.switch_model(path, fresh)
+func _reset_model_state() -> void: files._reset_model_state()
 
 
 # ---------------- preferences (live_preferences.gd, I63, T111) ----------------

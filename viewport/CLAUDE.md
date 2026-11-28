@@ -6,10 +6,12 @@ evaluator; this side predicts. The top-level CLAUDE.md has the overview; ARCHITE
 protocol (update it in the same commit when you change either). Tools have their own guide in `tools/CLAUDE.md`.
 
 ## Files
-- `main.gd` (~980 lines; split in T39 / T41 / T75 / T113 / H177): setup, materials (`_lines` still forwards to the presenter for callers that want a node),
-  worker process and lifecycle, rejection wave/status glue, input dispatch (camera input to `camera_rig.gd`, menus in `menus.gd`, the interface built by `ui.gd`), model switching.
+- `main.gd` (~890 lines; split in T39 / T41 / T75 / T113 / H177 / H187): setup, materials (`_lines` still forwards to the presenter for callers that want a node),
+  worker process and lifecycle, input dispatch (camera input to `camera_rig.gd`, menus in `menus.gd`, the interface built by `ui.gd`).
 - `history.gd` (H177): open, undo, redo, worker sync dispatch, and confirmed-board glue, `m.history`; main forwards `undo`, `redo`, `sync`, `_rebuild_rect_drafts`, `_on_worker`, `_on_sync_failed`, and `_ops_key`.
 - `live_preferences.gd` (H177): loads, watches and applies `user://preferences.json` to live tunables and default units, `m.live_prefs`; main forwards its properties and entry points for menus and tests.
+- `model_files.gd` (H187): settings, last model, output folders, window title, and switching models, `m.files`; main forwards `SETTINGS`, `_beside_project`, `_model_before`, `switch_model`, and `_reset_model_state`.
+- `rejections.gd` (H187): rejection status notes, forced-rejection test hook, and rejection-wave cleanup, `m.rejections`; main forwards `reject_note`, `last_reject_note`, `force_reject_next`, and `_on_rejected`.
 - `keys.gd` (T75): the keyboard, `m.keys`: shortcuts, tool keys (`m.tool_keys`, from each tool's `TOOL`), Esc, Enter, Delete / Backspace (I48), typed
   characters, Tab / ⌥ for Push/Pull. main's `_input` / `_unhandled_input` stay the entry points (tests call
   `m._unhandled_input`) and hand it key presses.

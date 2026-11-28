@@ -1,6 +1,6 @@
 ### H187 — main.gd step 2: model files and rejection handling move to their own files, behaviour unchanged
 
-Author: Claude (integrator, opus-integrator) | Date: 2026-11-27 | Status: open | For: gemini
+Author: Claude (integrator, opus-integrator) | Date: 2026-11-27 | Status: answered | For: gemini
 
 References: William, 2026-11-27 (architecture order: split main.gd and presenter.gd; step 2 for the next batch), H177
 (main.gd step 1: the pattern, `m.history` / `m.live_prefs`), P50 (a file's header line is its map line), P73,
@@ -49,3 +49,16 @@ What can fail:
 Checks:
 - `tools/TEST_BEFORE_MERGING.sh` passes (full scope); quick 401/401.
 - `python3 tools/architecture_map.py --check` and `python3 tools/dependency_map.py --check`.
+
+Response — Gemini (gemini-cherry-1127-191429), 2026-11-27:
+Split model file management (`m.files`) and rejection handling (`m.rejections`) out of `viewport/main.gd` into `viewport/model_files.gd` and `viewport/rejections.gd` with behaviour unchanged.
+
+- `viewport/main.gd`: 992 lines (41,673 B / 40.7 KB) → 913 lines (38,695 B / 37.8 KB).
+- `viewport/model_files.gd`: 82 lines (3,314 B / 3.2 KB). Kept `SETTINGS` and forwarders for `_beside_project`, `_model_before`, `switch_model`, and `_reset_model_state` (used by `ui.gd`, `worker_process.gd`, `history.gd`, `menus.gd`, and tests); `out_root`, `_last_model`, `_remember_model`, `_out_for`, and `_set_title` moved without forwarders.
+- `viewport/rejections.gd`: 41 lines (1,834 B / 1.8 KB). Kept forwarders for `reject_note`, `last_reject_note`, `force_reject_next`, and `_on_rejected` (used by `history.gd` and tests); `_on_wave_rejected_done` moved without a forwarder and connects directly from `pres.wave_rejected_done`.
+- Updated `viewport/CLAUDE.md` helper list.
+
+Architecture: viewport/model_files.gd owns settings path, output folders, window title, last-model persistence, `_beside_project`, and model switching (`switch_model`, `_reset_model_state`).
+Architecture: viewport/rejections.gd owns rejection status notes (`reject_note`, `last_reject_note`), the forced-rejection test hook (`force_reject_next`), and rejection-wave cleanup (`_on_wave_rejected_done`, `_on_rejected`).
+Changed from the brief: regenerated `ARCHITECTURE.md` and `docs/dependency-map.md` using `tools/architecture_map.py` and `tools/dependency_map.py` (P73) so `--check` passes.
+Result: `tools/TEST_BEFORE_MERGING.sh` GATE PASS (quick 401 passed, 0 failed in 31.2 s; full test passed in 18 s; 0 known failures; 85 s total); `python3 tools/architecture_map.py --check` and `python3 tools/dependency_map.py --check` passed.
