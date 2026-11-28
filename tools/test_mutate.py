@@ -3,8 +3,10 @@
 from collections import Counter
 import hashlib
 import json
+import os
 from pathlib import Path
 import shutil
+import signal
 import sys
 import time
 from tempfile import TemporaryDirectory
@@ -163,24 +165,48 @@ with TemporaryDirectory(prefix="mutate-test-", dir=ROOT / "scratch") as folder:
           after["outcome"] == "killed" and after["reason"] in ("exit 1", "missing summary")
           and not after["checks"] and not list((root / "scratch").iterdir()))
 
+    test.write_text("# runner: python3\nimport time\ntime.sleep(15)\n")
+    timeout = run_test(root, "worker/test_sample.py", 0.2, Budget())
+    check("a timed-out test returns its distinct outcome and removes its test files",
+          timeout["outcome"] == "timeout" and not list((root / "scratch").iterdir()))
+
     test.write_text(
         '# runner: python3\n'
+        'import os, subprocess, sys, time\n'
         'from pathlib import Path\n'
-        'import subprocess, sys, time\n'
-        'marker = Path(__file__).parent.parent / "scratch"\n'
+        'marker = Path(__file__).parent.parent / "scratch" / "child"\n'
         'if len(sys.argv) > 1:\n'
-        '    (marker / "started").touch()\n'
-        '    time.sleep(1.6)\n'
-        '    (marker / "escaped").touch()\n'
+        '    marker.write_text(f"{os.getpid()} {os.getpgrp()}")\n'
+        '    print("started", flush=True)\n'
+        '    time.sleep(40)\n'
         'else:\n'
-        '    subprocess.Popen([sys.executable, __file__, "child"])\n'
-        '    time.sleep(10)\n'
+        '    child = subprocess.Popen([sys.executable, __file__, "child"], stdout=subprocess.PIPE)\n'
+        '    assert child.stdout.readline() == b"started\\n"\n'
+        '    print("DEMO TESTS: 1 passed, 0 failed")\n'
     )
-    timeout = run_test(root, "worker/test_sample.py", 0.4, Budget())
-    time.sleep(0.7)
-    check("a timed-out test loses its subprocess and disposable test files",
-          timeout["outcome"] == "timeout"
-          and {path.name for path in (root / "scratch").iterdir()} == {"started"})
+    orphan = run_test(root, "worker/test_sample.py", 10, Budget())
+    marker = root / "scratch/child"
+    child_stopped = False
+    if marker.is_file():
+        pid, group = map(int, marker.read_text().split())
+        deadline = time.monotonic() + 10
+        while time.monotonic() < deadline:
+            try:
+                if os.getpgid(pid) != group:
+                    child_stopped = True
+                    break
+            except ProcessLookupError:
+                child_stopped = True
+                break
+            time.sleep(0.05)
+        if not child_stopped:
+            try:
+                os.kill(pid, signal.SIGKILL)
+            except ProcessLookupError:
+                pass
+        marker.unlink()
+    check("the runner stops an already-started child after its test exits",
+          orphan["outcome"] == "survived" and child_stopped)
 
     module = Module(source, hashlib.sha256(source).hexdigest(), mutants)
     row = {"id": crash.id, "function": crash.function, "operator": crash.operator,
