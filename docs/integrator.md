@@ -38,8 +38,9 @@ Architecture: lines, the response) and CLAUDE.md (commit trailers); this page sa
   `python3 tools/WAIT_FOR_THE_HOPPER.py` in the background: it launches nothing and wakes you when all work is paused
   (nothing `in progress`, no launch pending, and nothing takeable, with at least one job submitted or waiting on a
   question; stale jobs and launch failures still wake at once), with no need to restart the hopper after a clear.
-  Questions don't hold the queue (P74): a waiting worker idles while the hopper launches the next takeable job, and
-  stacks overlapping Ready jobs onto `done` branches (`base:`). Leave the integrator running or close it: either way,
+  Everything runs one job at a time (P75): a missing Pace means `one at a time`, and a job waiting on a question
+  holds the queue too, so no two workers' tests run together; the hopper still wakes you for the question, and
+  stacks overlapping Ready jobs onto `done` branches (`base:`). Don't run a gate yourself while a job is in progress. Leave the integrator running or close it: either way,
   when all work pauses, the hopper wakes a running `WAIT_FOR_THE_HOPPER.py` or starts a new integrator with William's
   standing permission (`launch.py integrator`, P74). When the batch is submitted, merge all `done` jobs together with
   `python3 tools/MERGE_THE_BATCH.py [--push] [--yes]` (shows all review pauses together first, takes one `--continue`,
