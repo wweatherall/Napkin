@@ -1,6 +1,6 @@
 ### H203 — The hopper draws itself: an ASCII picture of the jobs waiting, being worked on, and on the integrator's desk
 
-Author: Claude (integrator, opus-integrator) | Date: 2026-11-27 | Status: open | For: gemini | Builds on: H197
+Author: Claude (integrator, opus-integrator) | Date: 2026-11-27 | Status: answered | For: gemini | Builds on: H197
 
 References: William, 2026-11-27 ("a small fake GUI for the CLI of the hopper: an ASCII art hopper holding the jobs that
 are waiting for someone to take them, then the in-progress ones showing who's working on them, then the ones sitting on
@@ -32,3 +32,12 @@ Request:
 
 Checks:
 - `tools/TEST_BEFORE_MERGING.sh` passes (tools scope).
+
+**Response (Gemini, gemini-hydrogen-coder):**
+
+- Branch: `gemini/h203-hopper-picture` (commit `1b78427`)
+- Added `tools/hopper_picture.py` (`render`, `render_root`, `watch`, `clip`, `_batch_order_done`, `_last_merged`) drawing the three-part 78-column plain-ASCII picture: the hopper funnel (Ready/queued jobs in Order, queued marked `[waits: ...]`, launched jobs dropping out of the spout `|H201|` / `v`), the workbench (in-progress/waiting jobs with worker name, elapsed duration, and `?` when waiting), and the integrator's desk (done jobs as `[=]` in batch order, plus `last merged`), with `(empty)` states and `…` truncation.
+- Added `tools/SHOW_THE_HOPPER.py` (prints once or `--watch` redraws in place when queue state/picture changes, polling no faster than `job.WATCH_POLL`) and documented it in `tools/README.md`.
+- Wired `tools/job.py` (`hopper` `--forever` loop) to redraw the picture above its recent log lines after each event or picture change.
+- Added `tools/test_hopper_picture.py` (9/9: golden picture, <=78 cols, 3 empty cases, long title `…` clipping, `?` on waiting job, `SHOW_THE_HOPPER.py`, `watch()` poll floor and deduplication).
+- Result: 1b78427; HOPPER PICTURE 9/9, JOB 224/224, gate (scope tools) passed; added three-part ASCII hopper picture (`hopper_picture.py`, `SHOW_THE_HOPPER.py`, `job.py` hopper window)
