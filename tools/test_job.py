@@ -299,7 +299,7 @@ with open(os.path.join(wt1, "tools", "test_bookkeeping.py"), "w") as f:
             f"sys.exit(int(os.path.exists({book_fail!r})))\n")
 job.handoff.write_list(wt1)
 commit(wt1, "answered")
-r, out = run(job.done, wt1)
+r, out = run(job.done, wt1, feedback="good", improvements="none")
 check("done runs the quick test when the latest commit has no pass, and refuses on a failure",
       not r and "QUICK TEST FAILED" in out and "refused" in out and "personal time:" not in out, out)
 job.QUICKTEST = ["true"]
@@ -314,20 +314,20 @@ commit(wt1, "other response")
 run(job.test, wt1)
 sh(wt1, "git", "switch", "-q", branch)
 job.QUICKTEST = ["false"]
-r, out = run(job.done, wt1)
+r, out = run(job.done, wt1, feedback="good", improvements="none")
 check("done reruns the quick test for a non-ancestor pass even with only a handoff difference",
       not r and "QUICK TEST FAILED" in out and not os.path.exists(book_runs), out)
 job.QUICKTEST = ["true"]
 run(job.test, wt1)
 open(os.path.join(wt1, "more.txt"), "w").write("x\n"); commit(wt1, "one more")
 job.QUICKTEST = ["sh", "-c", "exit 1"]
-r, out = run(job.done, wt1)
+r, out = run(job.done, wt1, feedback="good", improvements="none")
 check("a code change after a pass reruns the quick test",
       not r and "QUICK TEST FAILED" in out and not os.path.exists(book_runs), out)
 job.QUICKTEST = ["true"]
 _procs = job.processes
 job.processes = lambda wt: [(4242, job.HUNG_AFTER + 60, "godot --quicktest")]
-r, out = run(job.done, wt1)
+r, out = run(job.done, wt1, feedback="good", improvements="none")
 job.processes = _procs
 check("done refuses while a process from the worktree looks hung, and names it (P40)",
       not r and "pid 4242" in out and "looks hung" in out and state(root)["jobs"]["H001"]["state"] != "done", out)
@@ -336,7 +336,7 @@ open(os.path.join(wt1, "more.txt"), "a").write("temporary change\n")
 commit(wt1, "change code")
 sh(wt1, "git", "revert", "--no-edit", "HEAD")
 with patch.object(job, "test", return_value=False) as quick:
-    r, out = run(job.done, wt1)
+    r, out = run(job.done, wt1, feedback="good", improvements="none")
 check("even a reverted code change requires the quick test", not r and quick.called and not os.path.exists(book_runs), out)
 run(job.test, wt1)
 passed = sh(wt1, "git", "rev-parse", "HEAD").stdout.strip()
@@ -348,19 +348,19 @@ listed = open(index_path).read()
 open(index_path, "w").write(listed.replace("status: answered", "status: open"))
 commit(wt1, "stale open list")
 with patch.object(job, "test", return_value=False) as quick:
-    r, out = run(job.done, wt1)
+    r, out = run(job.done, wt1, feedback="good", improvements="none")
 check("a stale open list refuses reuse", not r and quick.called and "out of date" in out, out)
 job.handoff.write_list(wt1)
 commit(wt1, "refresh open list")
 
 open(book_fail, "w").close()
 with patch.object(job, "test", return_value=False) as quick:
-    r, out = run(job.done, wt1)
+    r, out = run(job.done, wt1, feedback="good", improvements="none")
 check("a bookkeeping failure refuses reuse and falls back to the quick test",
       not r and quick.called and "bookkeeping check failed" in out and state(root)["jobs"]["H001"]["state"] != "done", out)
 os.remove(book_fail)
 job.QUICKTEST = ["false"]  # success below requires skipping the full quick test
-r, out = run(job.done, wt1)
+r, out = run(job.done, wt1, feedback="good", improvements="none")
 j = state(root)["jobs"]["H001"]
 check("after handoff-only commits done runs only bookkeeping and names the reused pass",
       r and open(book_runs).read().splitlines() == ["run", "run"] and f"reused the quick-test pass from {passed[:7]}" in out, out)
@@ -530,7 +530,7 @@ body = open(hp).read()
 open(hp, "w").write(body.replace("Status: open", "Status: answered") + "\nResponse: done.\n")
 commit(wt, "answered")
 job.QUICKTEST = ["true"]
-r, out = run(job.done, wt)
+r, out = run(job.done, wt, feedback="good", improvements="none")
 check("done's closing message at the 3rd job: tell William you're ready for a /clear",
       r and "ready for a /clear" in out and "take --wait" not in out, out)
 r, out = run(job.take, root, "claude", "w")
@@ -744,7 +744,7 @@ _qt = job.QUICKTEST
 try:
     job.QUICKTEST = ["true"]
     r_test, out_test = run(job.test, old_wt)
-    r_done, out_done = run(job.done, old_wt)
+    r_done, out_done = run(job.done, old_wt, feedback="good", improvements="none")
 finally:
     job.QUICKTEST = _qt
 check("test and done use the old-style recorded worktree, not the new -jobs path",
@@ -1113,7 +1113,7 @@ with patch.dict(os.environ, {"NAPKIN_USAGE_TOOL": u_stub}):
     _qt = job.QUICKTEST
     try:
         job.QUICKTEST = ["true"]
-        r_done, out_done = run(job.done, wt_u1)
+        r_done, out_done = run(job.done, wt_u1, feedback="good", improvements="none")
     finally:
         job.QUICKTEST = _qt
     r_ret, out_ret = run(job.return_job, u_root, "H001", "needs tweak")
@@ -1147,7 +1147,7 @@ with patch.dict(os.environ, {"NAPKIN_USAGE_TOOL": u_missing}):
     _qt = job.QUICKTEST
     try:
         job.QUICKTEST = ["true"]
-        r_m_done, _ = run(job.done, wt_u1)
+        r_m_done, _ = run(job.done, wt_u1, feedback="good", improvements="none")
     finally:
         job.QUICKTEST = _qt
     r_m_ret, _ = run(job.return_job, u_root, "H001", "still needs tweak")
@@ -1160,7 +1160,7 @@ with patch.dict(os.environ, {"NAPKIN_USAGE_TOOL": u_fail}):
     _qt = job.QUICKTEST
     try:
         job.QUICKTEST = ["true"]
-        r_f_done, _ = run(job.done, wt_u1)
+        r_f_done, _ = run(job.done, wt_u1, feedback="good", improvements="none")
     finally:
         job.QUICKTEST = _qt
     r_f_ret, _ = run(job.return_job, u_root, "H001", "fail-open check")
@@ -1294,7 +1294,7 @@ commit(wt_agy1, "H003 answered")
 _qt = job.QUICKTEST
 try:
     job.QUICKTEST = ["true"]
-    r_agy_done, out_agy_done = run(job.done, wt_agy1)
+    r_agy_done, out_agy_done = run(job.done, wt_agy1, feedback="good", improvements="none")
 finally:
     job.QUICKTEST = _qt
 rc_after_done, out_after_done = cli_take(agy_root, ["--as", "gemini"], {"ANTIGRAVITY_CONVERSATION_ID": conv1})
@@ -1464,7 +1464,7 @@ sh(ps_wt, "git", "add", "-A"); sh(ps_wt, "git", "commit", "-qm", "answer H201")
 
 open(os.path.join(ps_org, "04_Personal_Space", "gemini-coder", "Creative_Expression", "haiku.txt"), "w").write("leaf\n")
 open(os.path.join(ps_org, "04_Personal_Space", "claude-coder", "Ideas", "other.txt"), "w").write("other\n")
-r_ps_done, out_ps_done = run(job.done, ps_wt)
+r_ps_done, out_ps_done = run(job.done, ps_wt, feedback="good", improvements="none")
 ps_remote_files = sh(ps_remote, "git", "show", "--name-only", "--pretty=", "main").stdout.splitlines()
 ps_org_status = sh(ps_org, "git", "status", "--porcelain").stdout
 check("done() commits and pushes the worker's personal space without touching other spaces",
@@ -1496,7 +1496,7 @@ ps_text2 = open(ps_hp2).read()
 open(ps_hp2, "w").write(ps_text2.replace("Status: open", "Status: answered") + "\nResponse: done.\n")
 sh(ps_wt2, "git", "add", "-A"); sh(ps_wt2, "git", "commit", "-qm", "answer H202")
 open(os.path.join(ps_org, "04_Personal_Space", "gemini-neon-coder", "Creative_Expression", "neon.txt"), "w").write("glow\n")
-r_ps_done2, out_ps_done2 = run(job.done, ps_wt2)
+r_ps_done2, out_ps_done2 = run(job.done, ps_wt2, feedback="good", improvements="none")
 ps_remote_files2 = sh(ps_remote, "git", "show", "--name-only", "--pretty=", "main").stdout.splitlines()
 check("done() without NAPKIN_SPACE in env uses the space recorded on the job at take()",
       r_ps_done2 is True
@@ -1520,7 +1520,7 @@ m_br = state(m_root)["jobs"][m_jid]["branch"]
 open(m_hp, "w").write(open(m_hp).read().replace("Status: open", "Status: answered") + "\nResponse: done.\n")
 sh(m_wt, "git", "add", "-A"); sh(m_wt, "git", "commit", "-qm", f"{m_jid} answered")
 job.QUICKTEST = ["true"]
-run(job.done, m_wt)
+run(job.done, m_wt, feedback="good", improvements="none")
 sh(m_root, "git", "merge", "--no-ff", "-m", f"hand merge {m_jid}", m_br)
 ok_m, out_m = run(job.merged_job, m_root, m_jid)
 ok_missing, out_missing = run(job.merged_job, m_root, "H999")
@@ -1586,8 +1586,8 @@ t3 = open(hp3).read()
 open(hp3, "w").write(t3.replace("Status: open", "Status: answered") + "\nResponse: done.\n")
 sh(wt3, "git", "add", "-A"); sh(wt3, "git", "commit", "-qm", "H003 work")
 job.QUICKTEST = ["true"]
-run(job.done, wt1, now=2040)
-run(job.done, wt3, now=2045)
+run(job.done, wt1, now=2040, feedback="good", improvements="none")
+run(job.done, wt3, now=2045, feedback="good", improvements="none")
 
 # Now H002 (overlaps H001 on tools/a.py) is taken: it stacks on H001's branch and records base
 j2, out_j2 = run(job.take, h_root, "claude", "s-h185-3", now=2050)
@@ -1889,7 +1889,7 @@ with job.locked(job.state_path(h205_root)) as st:
 # 1. done checks for Result line BEFORE running any test
 _saved_qt = job.QUICKTEST
 job.QUICKTEST = ["false"]
-r, out = run(job.done, h205_wt)
+r, out = run(job.done, h205_wt, feedback="good", improvements="none")
 job.QUICKTEST = _saved_qt
 check("done prints the missing Result line note before running the quick test",
       not r and "has no line \"Result:" in out and "no quick-test pass recorded" in out
@@ -1921,13 +1921,165 @@ open(os.path.join(h205_wt, "docs", "handoff", "H010-sample.md"), "a").write(
 job.handoff.write_list(h205_wt)
 commit(h205_wt, "handoff result")
 job.QUICKTEST = ["false"]
-r, out = run(job.done, h205_wt)
+r, out = run(job.done, h205_wt, feedback="good", improvements="none")
 job.QUICKTEST = _saved_qt
 check("after passing gate and a handoff-only commit, done reuses the gate's pass",
       r and f"reused the quick-test pass from {gate_head[:7]}" in out
       and state(h205_root)["jobs"]["H010"]["state"] == "done", out)
 
 shutil.rmtree(h205_base, ignore_errors=True)
+
+# --- H207: feedback at submit/resubmit, resume command matching, resume on return, close after merge ---
+h207_base = tempfile.mkdtemp(prefix="job-h207-")
+h207_root = os.path.join(h207_base, "repo")
+os.makedirs(h207_root)
+sh(h207_root, "git", "init", "-q", "-b", "main")
+sh(h207_root, "git", "config", "user.email", "t@example.invalid"); sh(h207_root, "git", "config", "user.name", "T")
+os.makedirs(os.path.join(h207_root, "docs", "handoff"))
+open(os.path.join(h207_root, "docs", "agent-handoff.md"), "w").write(job.handoff.START + "\n" + job.handoff.END + "\n")
+open(os.path.join(h207_root, "BOARD.md"), "w").write("Order: H020, H021\n" + job.START + "\n" + job.END + "\n")
+open(os.path.join(h207_root, "docs", "handoff", "H020-fb.md"), "w").write(
+    "### H020 — Feedback test\n\nAuthor: Claude | Date: 2026-11-27 | Status: open | For: gemini\n\nTouches: a.py\n"
+)
+open(os.path.join(h207_root, "docs", "handoff", "H021-other.md"), "w").write(
+    "### H021 — Other test\n\nAuthor: Claude | Date: 2026-11-27 | Status: open | For: gemini\n\nTouches: b.py\n"
+)
+job.handoff.write_list(h207_root)
+commit(h207_root, "init h207")
+
+# 1. Submit refused without feedback/improvements; succeeds with them and commits docs/worker-feedback.md
+run(job.take, h207_root, "gemini", "s-h207", now=1000)
+wt20 = state(h207_root)["jobs"]["H020"]["worktree"]
+sh(wt20, "git", "config", "user.email", "t@example.invalid"); sh(wt20, "git", "config", "user.name", "T")
+h20_path = os.path.join(wt20, "docs", "handoff", "H020-fb.md")
+h20_txt = open(h20_path).read().replace("Status: open", "Status: answered")
+with open(h20_path, "w") as f:
+    f.write(h20_txt + "\nResponse — Gemini: done.\nResult: abc1234; 1/1; built.\n")
+commit(wt20, "answer h20")
+job.QUICKTEST = ["true"]
+
+r_no_fb, out_no_fb = run(job.done, wt20, now=1010)
+check("done refuses without --feedback and --improvements and asks first-submit questions",
+      not r_no_fb and "How was working on this job in our code base?" in out_no_fb
+      and "Any improvements you can think of?" in out_no_fb, out_no_fb)
+
+r_fb, out_fb = run(job.done, wt20, now=1020, feedback="Smooth and fast.", improvements="Add a shortcut.")
+fb_file = os.path.join(wt20, "docs", "worker-feedback.md")
+fb_text = open(fb_file).read() if os.path.isfile(fb_file) else ""
+check("done writes dated first-submit entry to docs/worker-feedback.md and commits it",
+      r_fb and "H020 (gemini, s-h207, first submit)" in fb_text
+      and "Smooth and fast." in fb_text and "Add a shortcut." in fb_text
+      and not sh(wt20, "git", "status", "--porcelain").stdout.strip(), (out_fb, fb_text))
+
+# 2. Resubmit asks the review-round question and appends a resubmit entry
+run(job.return_job, h207_root, "H020", "fix edge case", now=1030)
+run(job.take, h207_root, "gemini", "s-h207-2", now=1040)
+r_no_rfb, out_no_rfb = run(job.done, wt20, now=1050)
+check("resubmit refuses without feedback and asks the review-round question",
+      not r_no_rfb and "How was the review round: were the return notes clear, and what would have avoided the return?" in out_no_rfb,
+      out_no_rfb)
+r_rfb, out_rfb = run(job.done, wt20, now=1060, feedback="Clear notes, missed a branch.", improvements="Run gate earlier.")
+fb_text2 = open(fb_file).read()
+check("resubmit appends resubmit entry while keeping first-submit entry",
+      r_rfb and "first submit" in fb_text2 and "H020 (gemini, s-h207-2, resubmit)" in fb_text2
+      and "Clear notes, missed a branch." in fb_text2, (out_rfb, fb_text2))
+
+# 3. find_resume_command matches worktree across two sessions in the same hour for Gemini, Claude, Codex
+brain = os.path.join(h207_base, "agy_brain")
+for cid, wt_ref, extra_role in [
+    ("conv-int-999", wt20, "You are the integrator"),
+    ("conv-other-222", os.path.join(h207_base, "other-wt"), "worker"),
+    ("conv-right-111", wt20, "worker"),
+]:
+    tdir = os.path.join(brain, cid, ".system_generated", "logs")
+    os.makedirs(tdir)
+    tpath = os.path.join(tdir, "transcript.jsonl")
+    with open(tpath, "w") as f:
+        f.write(json.dumps({"type": "USER_INPUT", "content": extra_role}) + "\n")
+        f.write(json.dumps({"type": "PLANNER_RESPONSE", "tool_calls": [{"args": {"Path": os.path.join(wt_ref, "a.py")}}]}) + "\n")
+    os.utime(tpath, (1050, 1050))
+check("find_resume_command picks the Gemini worker transcript matching worktree (ignoring integrator and other wt)",
+      job.find_resume_command("gemini", wt20, taken=1000, agy_brain=brain) == "agy --conversation conv-right-111",
+      job.find_resume_command("gemini", wt20, taken=1000, agy_brain=brain))
+
+cdir = os.path.join(h207_base, "claude_usage")
+os.makedirs(cdir)
+with open(os.path.join(cdir, "sessions.jsonl"), "w") as f:
+    f.write(json.dumps({"ts": 1010, "cwd": os.path.join(h207_base, "other"), "session_id": "cld-other"}) + "\n")
+    f.write(json.dumps({"ts": 1020, "cwd": wt20, "session_id": "cld-right"}) + "\n")
+check("find_resume_command picks Claude session matching worktree",
+      job.find_resume_command("claude", wt20, taken=1000, claude_dir=cdir) == "claude --resume cld-right")
+
+xdir = os.path.join(h207_base, "codex_sessions", "2026", "11")
+os.makedirs(xdir)
+for fn, cwd_v, sid in [("rollout-1.jsonl", os.path.join(h207_base, "other"), "cdx-other"),
+                       ("rollout-2.jsonl", wt20, "cdx-right")]:
+    p = os.path.join(xdir, fn)
+    open(p, "w").write(json.dumps({"type": "session_meta", "payload": {"id": sid, "cwd": cwd_v}}) + "\n")
+    os.utime(p, (1050, 1050))
+check("find_resume_command picks Codex rollout matching worktree",
+      job.find_resume_command("codex", wt20, taken=1000, codex_dir=os.path.join(h207_base, "codex_sessions")) == "codex resume cdx-right")
+
+# 4. status shows resume_cmd, hopper resumes on return when resume_cmd is known, and closes window only after merge + process end
+with job.locked(job.state_path(h207_root)) as st:
+    st["jobs"]["H020"]["resume_cmd"] = "agy --conversation conv-right-111"
+    st["jobs"]["H020"]["windows"] = [{"id": 7001, "pid": 88001}]
+st_out = []
+job.status(h207_root, out=st_out.append)
+check("job.status shows the recorded resume command",
+      any("resume: agy --conversation conv-right-111" in l for l in st_out), st_out)
+
+# While done (not merged), _close_merged_windows must NOT close window 7001
+closed_ids = []
+job._close_merged_windows(h207_root, now=1070, out=lambda _: None, closer=lambda wid: closed_ids.append(wid) or 0,
+                          alive_fn=lambda p: False, kill_fn=lambda p, s: None, tty_pids_fn=lambda t: [])
+check("done job keeps its window open until merge", closed_ids == [], closed_ids)
+
+# Returned job with resume_cmd uses resume_launcher in hopper_step
+run(job.return_job, h207_root, "H020", "needs one more fix", now=1080)
+resumed_calls = []
+fresh_calls = []
+act_res, _, _, _ = job.hopper_step(
+    h207_root, now=1090,
+    launcher=lambda a: fresh_calls.append(a) or 0,
+    resume_launcher=lambda a, jid, prev: resumed_calls.append((a, jid, prev["resume_cmd"], prev["notes"])) or (0, {"id": 7002, "pid": 88002}),
+    window_closer=lambda wid: closed_ids.append(wid) or 0,
+)
+check("hopper_step resumes returned job with resume_cmd and records new window",
+      act_res == "launched" and not fresh_calls
+      and resumed_calls == [("gemini", "H020", "agy --conversation conv-right-111", "needs one more fix")]
+      and {"id": 7002, "pid": 88002} in state(h207_root)["jobs"]["H020"]["windows"],
+      (act_res, resumed_calls, state(h207_root)["jobs"]["H020"].get("windows")))
+
+# Mark merged: if process is still alive, window stays open; once process ends, recorded windows close; unrecorded job untouched
+with job.locked(job.state_path(h207_root)) as st:
+    st["jobs"]["H020"]["state"] = "merged"
+    st["jobs"]["H021"] = {"state": "merged", "branch": "gemini/h021-other"}  # no recorded windows
+    st.get("launched", {}).pop("H020", None)
+killed_pids = []
+job._close_merged_windows(h207_root, now=1100, out=lambda _: None, closer=lambda wid: closed_ids.append(wid) or 0,
+                          alive_fn=lambda p: True, kill_fn=lambda p, s: killed_pids.append(p),
+                          tty_pids_fn=lambda t: [], sleep=lambda _: None)
+check("merged job sends SIGTERM but does NOT close window while process is still alive",
+      88001 in killed_pids and 88002 in killed_pids and closed_ids == [], (killed_pids, closed_ids))
+
+job._close_merged_windows(h207_root, now=1110, out=lambda _: None, closer=lambda wid: closed_ids.append(wid) or 0,
+                          alive_fn=lambda p: False, kill_fn=lambda p, s: None,
+                          tty_pids_fn=lambda t: [], sleep=lambda _: None)
+check("merged job closes recorded windows once processes have ended, and never touches unrecorded jobs",
+      closed_ids == [7001, 7002] and all(w.get("closed") for w in state(h207_root)["jobs"]["H020"]["windows"]),
+      (closed_ids, state(h207_root)["jobs"]["H020"]["windows"]))
+
+# 5. feedback_read marks entries read while keeping docs/worker-feedback.md intact
+sh(h207_root, "git", "merge", "--no-ff", "-q", state(h207_root)["jobs"]["H020"]["branch"], "-m", "merge h20")
+fb_read_out = []
+job.feedback_read(h207_root, out=fb_read_out.append)
+check("feedback_read marks all entries read in state",
+      len(state(h207_root).get("feedback_read", [])) == 2 and "marked 2 feedback entries read" in fb_read_out[0],
+      (fb_read_out, state(h207_root).get("feedback_read")))
+
+job.QUICKTEST = _saved_qt
+shutil.rmtree(h207_base, ignore_errors=True)
 
 print(f"JOB TESTS: {sum(RESULTS)} passed, {len(RESULTS) - sum(RESULTS)} failed")
 sys.exit(0 if all(RESULTS) else 1)

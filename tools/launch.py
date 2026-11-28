@@ -124,18 +124,110 @@ def agent_command(agent, root, prompt_file, name, model=None):
     return f"cd {shlex.quote(root)} && NAPKIN_SPACE={shlex.quote(space)} {run}"
 
 
+def resume_prompt(jid, notes, branch, worktree):
+    """First message when resuming a returned job's session with the integrator's return notes (H207)."""
+    return (
+        f"Job {jid} was returned by the integrator.\n\n"
+        f"Return notes:\n{notes}\n\n"
+        f"Fix what the integrator noted in {worktree} (branch {branch}), run `tools/TEST_YOUR_CODE_FAST.sh`, "
+        f"commit your changes, update `docs/handoff/` (`Status: answered` and your `Response` / `Result:`), "
+        f"and resubmit with `python3 tools/SUBMIT_JOB.py --feedback \"<answer 1>\" --improvements \"<answer 2>\"`.\n"
+    )
+
+
+def resume_command(agent, resume_cmd, worktree, prompt_file, space=None, root=None):
+    """The shell command to resume a returned job's session in its worktree (H207)."""
+    space = space or space_of(agent)
+    first = f'"$(cat {shlex.quote(prompt_file)})"'
+    if agent == "gemini":
+        skip = " --dangerously-skip-permissions" if GEMINI_SKIP_PERMISSIONS else ""
+        run = f"{resume_cmd}{skip} -i {first}"
+    elif agent == "claude" and root:
+        wt = shlex.quote(worktrees_dir(root))
+        run = f"{resume_cmd} --add-dir {wt} {first}"
+    else:
+        run = f"{resume_cmd} {first}"
+    return f"cd {shlex.quote(worktree)} && NAPKIN_SPACE={shlex.quote(space)} {run}"
+
+
 def applescript(command):
     """`tell application "Terminal" to do script "<command>"`, the command escaped for an AppleScript string."""
     escaped = command.replace("\\", "\\\\").replace('"', '\\"')
     return f'tell application "Terminal" to do script "{escaped}"'
 
 
-def open_terminal(command, dry_run=False, out=print):
-    """Open a Terminal window running `command` via osascript, or print the command on --dry-run (H196)."""
+def _open_terminal_script(command):
+    escaped = command.replace("\\", "\\\\").replace('"', '\\"')
+    return (
+        'tell application "Terminal"\n'
+        f'    set t to do script "{escaped}"\n'
+        '    set wid to id of (first window whose tabs contains t)\n'
+        '    set ttty to tty of t\n'
+        '    return (wid as text) & " " & ttty\n'
+        'end tell'
+    )
+
+
+def tty_pids(tty):
+    """[(pid, comm)] for non-shell processes running on `tty`."""
+    if not tty:
+        return []
+    short = tty.removeprefix("/dev/")
+    r = subprocess.run(["ps", "-t", short, "-o", "pid=,comm="], capture_output=True, text=True)
+    if r.returncode != 0:
+        return []
+    shells = {"login", "zsh", "-zsh", "bash", "-bash", "sh", "-sh", "ps"}
+    out = []
+    for line in r.stdout.splitlines():
+        parts = line.split(None, 1)
+        if len(parts) == 2 and parts[0].isdigit():
+            comm = os.path.basename(parts[1].strip())
+            if comm not in shells:
+                out.append((int(parts[0]), comm))
+    return out
+
+
+def open_terminal_window(command, dry_run=False, out=print):
+    """Open a Terminal window running `command` via osascript -> (rc, {'id': wid, 'tty': tty} or None) (H207)."""
     if dry_run:
         out(command)
+        return 0, None
+    s = subprocess.run(["osascript", "-e", _open_terminal_script(command)], capture_output=True, text=True)
+    if s.returncode != 0:
+        out(s.stderr.strip() or "osascript failed")
+        return 1, None
+    parts = s.stdout.strip().split(None, 1)
+    info = {}
+    if parts and parts[0].isdigit():
+        info["id"] = int(parts[0])
+    if len(parts) > 1 and parts[1].startswith("/dev/"):
+        info["tty"] = parts[1]
+        pids = tty_pids(parts[1])
+        if pids:
+            info["pid"] = pids[-1][0]
+    return 0, (info or None)
+
+
+def open_terminal(command, dry_run=False, out=print):
+    """Open a Terminal window running `command` via osascript, or print the command on --dry-run (H196)."""
+    return open_terminal_window(command, dry_run=dry_run, out=out)[0]
+
+
+def close_terminal(window_id, dry_run=False, out=print):
+    """Close a recorded Terminal window by its integer id (H207). Never touches unrecorded windows."""
+    if window_id is None:
+        return 1
+    script = (
+        'tell application "Terminal"\n'
+        f'    if exists (window id {int(window_id)}) then\n'
+        f'        close window id {int(window_id)}\n'
+        '    end if\n'
+        'end tell'
+    )
+    if dry_run:
+        out(script)
         return 0
-    s = subprocess.run(["osascript", "-e", applescript(command)], capture_output=True, text=True)
+    s = subprocess.run(["osascript", "-e", script], capture_output=True, text=True)
     if s.returncode != 0:
         out(s.stderr.strip() or "osascript failed")
         return 1
@@ -159,41 +251,74 @@ def parse(argv):
     return opts
 
 
+def launch_agent(agent, model=None, name=None, wake=None, dry_run=False, out=print):
+    """Launch an agent or integrator in a new Terminal window -> (rc, window_info or None)."""
+    root = main_root()
+    folder = os.path.join(root, "scratch", "launch")
+    os.makedirs(folder, exist_ok=True)
+    name = name or session_name(agent, folder=folder)
+    model = model or DEFAULT_MODEL[agent]
+    role = "integrator" if agent == "integrator" else "worker"
+    startup_cmd = [sys.executable, os.path.join(TOOLS, "startup.py"), "--role", role, "--space",
+                   space_of(agent, model)]
+    if agent == "integrator":
+        startup_cmd.extend(["--hopper", name])
+    r = subprocess.run(startup_cmd, cwd=root, capture_output=True, text=True)
+    if r.returncode != 0:
+        out(r.stdout + r.stderr)
+        return 1, None
+    path = os.path.join(folder, name + ".txt")
+    with open(path, "w", encoding="utf-8") as f:
+        if agent == "integrator":
+            f.write(integrator_prompt(name, r.stdout, wake_line=wake))
+        else:
+            f.write(prompt(agent, name, r.stdout, model=model))
+    command = agent_command(agent, root, path, name, model if model != DEFAULT_MODEL[agent] else None)
+    if dry_run:
+        open_terminal(command, dry_run=True, out=out)
+        out("".join(open(path, encoding="utf-8").readlines()[:3]))
+        return 0, None
+    rc, win = open_terminal_window(command, out=out)
+    if rc != 0:
+        return 1, None
+    if win is not None:
+        win["name"] = name
+        win["agent"] = agent
+    out(f"launched {name} ({agent}) with its brief in {os.path.relpath(path, root)}")
+    return 0, win
+
+
+def launch_resume(agent, jid, resume_cmd, notes, branch, worktree, space=None, dry_run=False, out=print):
+    """Resume a returned job's session in a new Terminal window with the return notes (H207) -> (rc, window_info)."""
+    root = main_root()
+    folder = os.path.join(root, "scratch", "launch")
+    os.makedirs(folder, exist_ok=True)
+    name = f"{jid.lower()}-resume-{datetime.datetime.now():%m%d-%H%M%S}"
+    path = os.path.join(folder, name + ".txt")
+    with open(path, "w", encoding="utf-8") as f:
+        f.write(resume_prompt(jid, notes, branch, worktree))
+    command = resume_command(agent, resume_cmd, worktree, path, space=space, root=root)
+    if dry_run:
+        open_terminal(command, dry_run=True, out=out)
+        return 0, None
+    rc, win = open_terminal_window(command, out=out)
+    if rc != 0:
+        return 1, None
+    if win is not None:
+        win["name"] = name
+        win["agent"] = agent
+    out(f"resumed {jid} ({agent}) via {resume_cmd}")
+    return 0, win
+
+
 def main(argv=None):
     argv = sys.argv[1:] if argv is None else argv
     if "-h" in argv or "--help" in argv:
         print(__doc__)
         return 0
     o = parse(argv)
-    root = main_root()
-    folder = os.path.join(root, "scratch", "launch")
-    os.makedirs(folder, exist_ok=True)
-    name = o["name"] or session_name(o["agent"], folder=folder)
-    model = o["model"] or DEFAULT_MODEL[o["agent"]]
-    role = "integrator" if o["agent"] == "integrator" else "worker"
-    startup_cmd = [sys.executable, os.path.join(TOOLS, "startup.py"), "--role", role, "--space",
-                   space_of(o["agent"], model)]
-    if o["agent"] == "integrator":
-        startup_cmd.extend(["--hopper", name])
-    r = subprocess.run(startup_cmd, cwd=root, capture_output=True, text=True)
-    if r.returncode != 0:
-        print(r.stdout + r.stderr)
-        return 1
-    path = os.path.join(folder, name + ".txt")
-    with open(path, "w", encoding="utf-8") as f:
-        if o["agent"] == "integrator":
-            f.write(integrator_prompt(name, r.stdout, wake_line=o["wake"]))
-        else:
-            f.write(prompt(o["agent"], name, r.stdout, model=model))
-    command = agent_command(o["agent"], root, path, name, o["model"])
-    if o["dry"]:
-        open_terminal(command, dry_run=True)
-        print("".join(open(path, encoding="utf-8").readlines()[:3]))
-        return 0
-    if open_terminal(command) != 0:
-        return 1
-    print(f"launched {name} ({o['agent']}) with its brief in {os.path.relpath(path, root)}")
-    return 0
+    rc, _ = launch_agent(o["agent"], model=o["model"], name=o["name"], wake=o["wake"], dry_run=o["dry"])
+    return rc
 
 
 if __name__ == "__main__":

@@ -423,5 +423,32 @@ with tempfile.TemporaryDirectory(prefix="startup-h190-") as tmp:
           s.fetch_log_claude_5h(tmp, "opus-integrator", usage_tool=good_tool)
           == {"2026-11-27 18:54 merged H184": 0.012})
 
+# H207: integrator_next_actions shows resume_cmd, and unread_worker_feedback shows unread entries until marked read
+acts_res = s.integrator_next_actions(None, [], None, [("H207", {"state": "done", "branch": "gemini/h207-x", "resume_cmd": "agy --conversation abc123"})], 0)
+check("integrator_next_actions lists resume_cmd for jobs on the desk",
+      any("resume: agy --conversation abc123" in a for a in acts_res))
+
+with tempfile.TemporaryDirectory() as fb_tmp:
+    fb_repo = os.path.join(fb_tmp, "repo")
+    os.makedirs(os.path.join(fb_repo, "docs"))
+    subprocess.run(["git", "init", "-q", "-b", "main", fb_repo], check=True)
+    subprocess.run(["git", "-C", fb_repo, "config", "user.email", "t@example.invalid"], check=True)
+    subprocess.run(["git", "-C", fb_repo, "config", "user.name", "T"], check=True)
+    fb_doc = os.path.join(fb_repo, "docs", "worker-feedback.md")
+    open(fb_doc, "w").write(
+        "# Worker feedback\n\n### 2026-11-27 23:00 — H207 (gemini, s1, first submit)\n- **Q1** Great.\n- **Q2** None.\n"
+    )
+    subprocess.run(["git", "-C", fb_repo, "add", "docs/worker-feedback.md"], check=True)
+    subprocess.run(["git", "-C", fb_repo, "commit", "-q", "-m", "add feedback"], check=True)
+    unread1 = s.unread_worker_feedback(fb_repo)
+    check("unread_worker_feedback returns unread entries from main:docs/worker-feedback.md",
+          len(unread1) == 1 and unread1[0][0].startswith("2026-11-27 23:00 — H207"))
+    sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+    import job
+    job.feedback_read(fb_repo, out=lambda _: None)
+    unread2 = s.unread_worker_feedback(fb_repo)
+    check("after job.feedback_read, unread_worker_feedback is empty while docs/worker-feedback.md keeps the entry",
+          unread2 == [] and "2026-11-27 23:00 — H207" in open(fb_doc).read())
+
 print(f"STARTUP TESTS: {sum(RESULTS)} passed, {len(RESULTS) - sum(RESULTS)} failed")
 sys.exit(0 if all(RESULTS) else 1)

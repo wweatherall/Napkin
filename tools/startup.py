@@ -552,14 +552,17 @@ def integrator_next_actions(lock_holder, state_note_ids, merge_info, live_jobs, 
         actions.append(f"Interrupted merge: {merge_info['summary']} -> {merge_info['action']}")
     for jid, info in live_jobs:
         st = info.get("state")
+        res_note = f" [resume: {info['resume_cmd']}]" if info.get("resume_cmd") else ""
         if st == "waiting":
-            actions.append(f"Answer waiting worker {jid}: {info.get('label', '')} -> python3 tools/ANSWER_A_WORKERS_QUESTION.py {jid} \"<answer>\"")
+            actions.append(f"Answer waiting worker {jid}: {info.get('label', '')} -> python3 tools/ANSWER_A_WORKERS_QUESTION.py {jid} \"<answer>\"{res_note}")
         elif st == "done":
-            actions.append(f"Review and integrate {jid} ({info.get('branch', '?')}): python3 tools/MERGE_JOB.py {info.get('branch', '?')} --as <session> --push --yes")
+            actions.append(f"Review and integrate {jid} ({info.get('branch', '?')}): python3 tools/MERGE_JOB.py {info.get('branch', '?')} --as <session> --push --yes{res_note}")
         elif st == "stale":
-            actions.append(f"Inspect stale job {jid} ({info.get('branch', '?')} in {info.get('worktree', '?')})")
+            actions.append(f"Inspect stale job {jid} ({info.get('branch', '?')} in {info.get('worktree', '?')}){res_note}")
         elif st == "returned":
-            actions.append(f"Returned job {jid} waits for a {info.get('agent', '?')} worker")
+            actions.append(f"Returned job {jid} waits for a {info.get('agent', '?')} worker{res_note}")
+        elif st == "in progress" and res_note:
+            actions.append(f"In progress {jid} ({info.get('agent', '?')}){res_note}")
     if hopper_session:
         actions.append("Wait for the next pause in the background after answering/merging: python3 tools/WAIT_FOR_THE_HOPPER.py (no timed check-ins, P39)")
     else:
@@ -568,6 +571,20 @@ def integrator_next_actions(lock_holder, state_note_ids, merge_info, live_jobs, 
         noun = "job" if ready_count == 1 else "jobs"
         actions.append(f"{ready_count} Ready {noun} on BOARD.md (spin up workers on William's word)")
     return actions
+
+
+def unread_worker_feedback(root):
+    """Return [(heading, [lines])] from main:docs/worker-feedback.md not yet marked read (H207)."""
+    text = git("show", "main:docs/worker-feedback.md", cwd=root)
+    if not text:
+        return []
+    try:
+        import job
+        entries = job.parse_feedback_entries(text)
+        read_keys = set(job.read_state(job.state_path(root)).get("feedback_read", []))
+    except Exception:
+        return []
+    return [(k, lines) for k, lines in entries if k not in read_keys]
 
 
 def role_summary(lock_holder, state_note_ids, ready_count, merge_info, in_job_id=None):
@@ -603,7 +620,7 @@ def role_brief(role):
             "  Guide: follow BOARD.md (and AGENTS.md / GEMINI.md for your agent); one job per session (P37).",
             "  Take: python3 tools/GET_A_JOB.py --as <claude|codex|gemini> (Gemini without --session: job.py reads its conversation id, GEMINI.md).",
             "  Scope: work only in ../.worktrees/<checkout>/<id> (P63) and only on Touches; mechanical consequences of the brief need no question (P73: name them in Changed from the brief:); ask other scope via job.py wait --scope.",
-            "  Done: run tools/TEST_YOUR_CODE_FAST.sh, record response + Result:, set Status: answered, run python3 tools/SUBMIT_JOB.py, tell William.",
+            "  Done: run tools/TEST_YOUR_CODE_FAST.sh, record response + Result:, set Status: answered, run python3 tools/SUBMIT_JOB.py --feedback \"<answer 1>\" --improvements \"<answer 2>\", tell William.",
         ]
     return []
 
@@ -624,7 +641,7 @@ def collect_live_jobs(root):
             state = "stale" if job.stale(jcopy, act, now) else jcopy.get("state")
             label = job.waiting_line(k, jcopy) if state == "waiting" else job.live_label(jcopy, act, now)
             out.append((k, {"state": state, "branch": jcopy.get("branch"), "worktree": jcopy.get("worktree"),
-                            "agent": jcopy.get("agent"), "label": label}))
+                            "agent": jcopy.get("agent"), "label": label, "resume_cmd": jcopy.get("resume_cmd")}))
         return out
     except Exception:
         return []
@@ -1038,6 +1055,17 @@ def main(argv):
                     if is_state_note(fname, texts.get(fname, "")):
                         for bline in state_note_body(texts[fname]):
                             print("    " + bline if bline else "")
+            else:
+                print("  (none)")
+            fb_unread = unread_worker_feedback(root)
+            print("Worker feedback (unread, main:docs/worker-feedback.md):")
+            if fb_unread:
+                for key, flines in fb_unread:
+                    print(f"  ### {key}")
+                    for fl in flines:
+                        if fl.strip():
+                            print(f"    {fl}")
+                print("  Mark read: python3 tools/job.py feedback-read")
             else:
                 print("  (none)")
             live = collect_live_jobs(root)

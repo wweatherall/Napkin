@@ -139,5 +139,34 @@ check("integrator --dry-run prints the Terminal command and first message, and w
 if os.path.exists(i_made):
     os.remove(i_made)
 
+# H207: resume command, resume prompt, and faked osascript open_terminal_window / close_terminal
+rp = launch.resume_prompt("H207", "fix the edge case", "gemini/h207-x", "/tmp/wt/h207")
+check("resume_prompt carries job id, return notes, worktree, branch, and SUBMIT_JOB.py --feedback",
+      "Job H207" in rp and "fix the edge case" in rp and "/tmp/wt/h207" in rp and "SUBMIT_JOB.py --feedback" in rp, rp)
+rg_cmd = launch.resume_command("gemini", "agy --conversation 1f3e", "/tmp/wt/h207", "/tmp/p.txt", space="gemini-hydrogen-coder")
+check("resume_command for gemini runs from worktree with agy --conversation and -i",
+      rg_cmd.startswith("cd /tmp/wt/h207 && NAPKIN_SPACE=gemini-hydrogen-coder agy --conversation 1f3e")
+      and "-i \"$(cat /tmp/p.txt)\"" in rg_cmd, rg_cmd)
+rc_cmd = launch.resume_command("claude", "claude --resume abc", "/tmp/wt/h207", "/tmp/p.txt", space="sonnet-coder", root=root)
+check("resume_command for claude includes --add-dir and prompt",
+      "NAPKIN_SPACE=sonnet-coder claude --resume abc --add-dir /x/comitatus/08_Code_Bases/.worktrees/Napkin \"$(cat /tmp/p.txt)\"" in rc_cmd, rc_cmd)
+rx_cmd = launch.resume_command("codex", "codex resume xyz", "/tmp/wt/h207", "/tmp/p.txt", space="codex-coder")
+check("resume_command for codex runs from worktree",
+      rx_cmd == "cd /tmp/wt/h207 && NAPKIN_SPACE=codex-coder codex resume xyz \"$(cat /tmp/p.txt)\"", rx_cmd)
+
+from unittest.mock import patch
+with patch.object(launch.subprocess, "run", return_value=subprocess.CompletedProcess(["osascript"], 0, stdout="98765 /dev/ttys009\n", stderr="")) as mock_run:
+    with patch.object(launch, "tty_pids", return_value=[(55555, "agy")]):
+        w_rc, w_info = launch.open_terminal_window("echo hi")
+check("open_terminal_window parses window id, tty, and pid from osascript",
+      w_rc == 0 and w_info == {"id": 98765, "tty": "/dev/ttys009", "pid": 55555} and mock_run.called, (w_rc, w_info))
+
+with patch.object(launch.subprocess, "run", return_value=subprocess.CompletedProcess(["osascript"], 0, stdout="", stderr="")) as mock_close:
+    c_rc = launch.close_terminal(98765)
+    c_script = mock_close.call_args[0][0][2]
+check("close_terminal targets only the recorded window id",
+      c_rc == 0 and "window id 98765" in c_script and "close window id 98765" in c_script, (c_rc, c_script))
+check("close_terminal refuses None", launch.close_terminal(None) == 1)
+
 print(f"LAUNCH TESTS: {passed} passed, {failed} failed")
 sys.exit(1 if failed else 0)

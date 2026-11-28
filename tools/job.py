@@ -57,7 +57,9 @@ The live state (claims, beats, done) is a JSON file beside the integrator lock i
 (napkin-jobs.json): shared by every worktree, never committed. The jobs themselves are docs/handoff/ entries:
 Status "open" is Ready, "queued (after ...)" Queued, "answered" awaiting review; "For" says whose."""
 import contextlib
+import datetime
 import fcntl
+import glob
 import json
 import os
 import re
@@ -632,13 +634,15 @@ def _take(cwd, agent, session, now=None, out=print):
         except Exception:
             default_space = f"{agent}-coder"
         space = os.environ.get("NAPKIN_SPACE") or default_space
-        entry = {**{k: prev[k] for k in ("notes", "returned", "base") if k in prev},
+        entry = {**{k: prev[k] for k in ("notes", "returned", "base", "windows", "resume_cmd") if k in prev},
                  "state": "in progress", "agent": agent, "session": session, "branch": branch,
                  "worktree": wt, "handoff": job["name"], "space": space, "taken": now, "beat": now}
         if base_ref != "main":
             entry["base"] = base_ref
+        launched_info = st.get("launched", {}).pop(job["id"], None) or {}
+        if launched_info.get("window") and launched_info["window"] not in entry.get("windows", []):
+            entry.setdefault("windows", []).append(launched_info["window"])
         st["jobs"][job["id"]] = entry
-        st.get("launched", {}).pop(job["id"], None)
         answers = prev.get("answers", []) if prev.get("state") == "returned" else []
         st.get("waiting_workers", {}).pop(session, None)
         if raw_session != session:
@@ -949,7 +953,260 @@ def quick_pass_covers(top, recorded, head, out):
     return True
 
 
-def done(cwd, jid=None, now=None, out=print):
+FEEDBACK_FILE = "docs/worker-feedback.md"
+FEEDBACK_HEADER = (
+    "# Worker feedback\n\n"
+    "<!-- Recorded by tools/SUBMIT_JOB.py (job.py done). Kept here in full; unread entries appear in the integrator brief. -->\n"
+)
+FEEDBACK_Q1 = "How was working on this job in our code base?"
+FEEDBACK_Q1_RESUBMIT = "How was the review round: were the return notes clear, and what would have avoided the return?"
+FEEDBACK_Q2 = "Any improvements you can think of?"
+
+
+def _path_in(path, wt):
+    if not path or not wt:
+        return False
+    p = os.path.realpath(path)
+    return p == wt or p.startswith(wt + os.sep)
+
+
+def _parse_ts(val):
+    if isinstance(val, (int, float)):
+        return float(val)
+    if not isinstance(val, str) or not val.strip():
+        return None
+    try:
+        return datetime.datetime.fromisoformat(val.strip().replace("Z", "+00:00")).timestamp()
+    except ValueError:
+        return None
+
+
+def _extract_agy_tool_strings(row):
+    parts = []
+    for tc in row.get("tool_calls") or []:
+        if not isinstance(tc, dict):
+            continue
+        args = tc.get("args")
+        if isinstance(args, dict):
+            parts.extend(v for v in args.values() if isinstance(v, str))
+        elif args is not None:
+            parts.append(str(args))
+    return " ".join(parts)
+
+
+def _find_gemini_conv(wt, taken=None, session=None, agy_brain=None):
+    brain = os.path.expanduser(agy_brain) if agy_brain else os.environ.get(
+        "AGY_BRAIN_DIR", os.path.expanduser("~/.gemini/antigravity-cli/brain")
+    )
+    env_conv = os.environ.get("ANTIGRAVITY_CONVERSATION_ID") if agy_brain is None else None
+    candidates = []
+    if brain and os.path.isdir(brain):
+        try:
+            entries = os.listdir(brain)
+        except OSError:
+            entries = []
+        for entry in entries:
+            tpath = os.path.join(brain, entry, ".system_generated", "logs", "transcript.jsonl")
+            try:
+                mt = os.stat(tpath).st_mtime
+            except OSError:
+                continue
+            if taken is not None and mt < taken - 60:
+                continue
+            candidates.append((mt, entry, tpath))
+        candidates.sort(key=lambda x: x[0], reverse=True)
+    matched = []
+    for _, conv_id, tpath in candidates:
+        is_int = False
+        touches_wt = False
+        try:
+            with open(tpath, encoding="utf-8", errors="replace") as f:
+                for line in f:
+                    try:
+                        row = json.loads(line)
+                    except ValueError:
+                        continue
+                    if not isinstance(row, dict):
+                        continue
+                    rtype = row.get("type")
+                    if rtype == "USER_INPUT":
+                        content = str(row.get("content") or "")
+                        if "you are the integrator" in content.lower():
+                            is_int = True
+                        if wt and wt in content:
+                            touches_wt = True
+                    elif rtype == "PLANNER_RESPONSE":
+                        tstr = _extract_agy_tool_strings(row)
+                        if "integrator.py take" in tstr or "--role integrator" in tstr:
+                            is_int = True
+                        if wt and wt in tstr:
+                            touches_wt = True
+        except OSError:
+            continue
+        if not is_int and touches_wt:
+            matched.append(conv_id)
+    if env_conv and env_conv in matched:
+        return env_conv
+    if session and session in matched:
+        return session
+    if matched:
+        return matched[0]
+    return env_conv
+
+
+def _find_claude_session(wt, taken=None, session=None, claude_dir=None):
+    cdir = claude_dir if claude_dir is not None else os.environ.get("CLAUDE_USAGE_DIR", "/Users/Will/Sites/claude-usage")
+    env_sid = os.environ.get("CLAUDE_CODE_SESSION_ID") if claude_dir is None else None
+    spath = os.path.join(os.path.expanduser(cdir), "sessions.jsonl") if cdir else ""
+    matched = []
+    if spath and os.path.isfile(spath):
+        try:
+            with open(spath, encoding="utf-8", errors="replace") as f:
+                for line in f:
+                    try:
+                        row = json.loads(line)
+                    except ValueError:
+                        continue
+                    if not isinstance(row, dict):
+                        continue
+                    ts = _parse_ts(row.get("ts"))
+                    if taken is not None and ts is not None and ts < taken - 60:
+                        continue
+                    if _path_in(row.get("cwd"), wt) and row.get("session_id"):
+                        matched.append((ts or 0.0, row["session_id"]))
+        except OSError:
+            pass
+    if matched:
+        matched.sort(key=lambda x: x[0])
+        sids = [sid for _, sid in matched]
+        if env_sid and env_sid in sids:
+            return env_sid
+        return sids[-1]
+    return env_sid
+
+
+def _find_codex_session(wt, taken=None, session=None, codex_dir=None):
+    cdir = codex_dir if codex_dir is not None else os.environ.get("CODEX_SESSIONS_DIR", os.path.expanduser("~/.codex/sessions"))
+    env_sid = (os.environ.get("CODEX_SESSION_ID") or os.environ.get("CODEX_THREAD_ID")) if codex_dir is None else None
+    files = []
+    if cdir and os.path.isdir(os.path.expanduser(cdir)):
+        pattern = os.path.join(os.path.expanduser(cdir), "**", "rollout-*.jsonl")
+        for path in glob.iglob(pattern, recursive=True):
+            try:
+                mt = os.stat(path).st_mtime
+            except OSError:
+                continue
+            if taken is not None and mt < taken - 60:
+                continue
+            files.append((mt, path))
+        files.sort(key=lambda x: x[0], reverse=True)
+    cwd_matches, text_matches = [], []
+    for _, path in files:
+        try:
+            with open(path, encoding="utf-8", errors="replace") as f:
+                first = f.readline()
+                meta = json.loads(first)
+                if not isinstance(meta, dict) or meta.get("type") != "session_meta":
+                    continue
+                payload = meta.get("payload") or {}
+                sid = payload.get("id")
+                if not sid:
+                    continue
+                if _path_in(payload.get("cwd"), wt):
+                    cwd_matches.append(sid)
+                    continue
+                if wt and wt in f.read():
+                    text_matches.append(sid)
+        except (OSError, ValueError):
+            continue
+    matches = cwd_matches or text_matches
+    if matches:
+        if session and session in matches:
+            return session
+        if env_sid and env_sid in matches:
+            return env_sid
+        return matches[0]
+    return env_sid
+
+
+def find_resume_command(agent, worktree, taken=None, session=None, claude_dir=None, agy_brain=None, codex_dir=None):
+    """Find the session's resume command from the agent's transcript/rollout matching `worktree` (H207)."""
+    wt = os.path.realpath(worktree) if worktree else None
+    if agent == "gemini":
+        cid = _find_gemini_conv(wt, taken=taken, session=session, agy_brain=agy_brain)
+        return f"agy --conversation {cid}" if cid else None
+    if agent == "claude":
+        sid = _find_claude_session(wt, taken=taken, session=session, claude_dir=claude_dir)
+        return f"claude --resume {sid}" if sid else None
+    if agent == "codex":
+        sid = _find_codex_session(wt, taken=taken, session=session, codex_dir=codex_dir)
+        return f"codex resume {sid}" if sid else None
+    return None
+
+
+def parse_feedback_entries(text):
+    """Parse docs/worker-feedback.md into [(heading_key, [lines])]."""
+    entries, cur_key, cur_lines = [], None, []
+    for line in text.splitlines():
+        if line.startswith("### "):
+            if cur_key is not None:
+                entries.append((cur_key, cur_lines))
+            cur_key = line[4:].strip()
+            cur_lines = []
+        elif cur_key is not None:
+            cur_lines.append(line)
+    if cur_key is not None:
+        entries.append((cur_key, cur_lines))
+    return entries
+
+
+def record_feedback(top, jid, agent, session, resubmit, feedback, improvements, now=None):
+    """Append one dated entry to docs/worker-feedback.md and commit it on the job's branch (H207)."""
+    fb_path = os.path.join(top, FEEDBACK_FILE)
+    os.makedirs(os.path.dirname(fb_path), exist_ok=True)
+    if not os.path.isfile(fb_path):
+        with open(fb_path, "w", encoding="utf-8") as f:
+            f.write(FEEDBACK_HEADER)
+    stamp = time.strftime("%Y-%m-%d %H:%M", time.localtime(now or time.time()))
+    kind = "resubmit" if resubmit else "first submit"
+    q1 = FEEDBACK_Q1_RESUBMIT if resubmit else FEEDBACK_Q1
+    entry = (
+        f"\n### {stamp} — {jid} ({agent or '?'}, {session or '?'}, {kind})\n"
+        f"- **{q1}** {' '.join(feedback.split())}\n"
+        f"- **{FEEDBACK_Q2}** {' '.join(improvements.split())}\n"
+    )
+    with open(fb_path, "a", encoding="utf-8") as f:
+        f.write(entry)
+    git(top, "add", FEEDBACK_FILE)
+    r = git(top, "-c", "core.hooksPath=.githooks", "commit", "-m", f"{jid}: record worker feedback")
+    return r.returncode == 0
+
+
+def feedback_read(cwd, out=print):
+    """Mark all current docs/worker-feedback.md entries as read in the queue state (H207)."""
+    root = main_root(cwd)
+    r = git(root, "show", f"main:{FEEDBACK_FILE}")
+    text = r.stdout if r.returncode == 0 else ""
+    if not text:
+        local = os.path.join(root, FEEDBACK_FILE)
+        if os.path.isfile(local):
+            text = open(local, encoding="utf-8").read()
+    keys = [k for k, _ in parse_feedback_entries(text)]
+    if not keys:
+        out("no feedback entries to mark read")
+        return True
+    with locked(state_path(root)) as st:
+        seen = st.setdefault("feedback_read", [])
+        added = 0
+        for k in keys:
+            if k not in seen:
+                seen.append(k)
+                added += 1
+    out(f"marked {added} feedback {'entry' if added == 1 else 'entries'} read")
+    return True
+
+
+def done(cwd, jid=None, now=None, out=print, feedback=None, improvements=None):
     top = toplevel(cwd)
     with locked(state_path(cwd)) as st:
         k = find_job(st, cwd, jid)
@@ -957,6 +1214,8 @@ def done(cwd, jid=None, now=None, out=print):
     if not j:
         out("no job of yours here")
         return False
+    resubmit = bool(j.get("returned"))
+    q1 = FEEDBACK_Q1_RESUBMIT if resubmit else FEEDBACK_Q1
     path = os.path.join(top, handoff.FOLDER, j["handoff"])
     text = open(path, encoding="utf-8").read() if os.path.isfile(path) else ""
     problems = []
@@ -971,6 +1230,12 @@ def done(cwd, jid=None, now=None, out=print):
         if age >= HUNG_AFTER:
             problems.append(f"pid {pid} has run {age // 60} min from this worktree and looks hung: {cmd[:100]} "
                             "(kill it, or let it finish)")
+    if not (feedback and feedback.strip()):
+        problems.append(f'missing --feedback: answer "{q1}" '
+                        '(pass --feedback "<answer 1>" --improvements "<answer 2>" to SUBMIT_JOB.py)')
+    if not (improvements and improvements.strip()):
+        problems.append(f'missing --improvements: answer "{FEEDBACK_Q2}" '
+                        '(pass --feedback "<answer 1>" --improvements "<answer 2>" to SUBMIT_JOB.py)')
     if problems:
         for p in problems:
             out("refused: " + p)
@@ -987,9 +1252,16 @@ def done(cwd, jid=None, now=None, out=print):
             out("refused: the quick test failed on the latest commit")
             return False
     now = now or time.time()
+    if not record_feedback(top, k, j.get("agent"), j.get("session"), resubmit, feedback, improvements, now=now):
+        out("refused: could not commit docs/worker-feedback.md")
+        return False
+    head = git(top, "rev-parse", "HEAD").stdout.strip()
+    resume_cmd = find_resume_command(j.get("agent"), j.get("worktree"), taken=j.get("taken"), session=j.get("session"))
 
     def go(st, k, j):
         j.update(state="done", done=now, commit=head, beat=now)
+        if resume_cmd:
+            j["resume_cmd"] = resume_cmd
         event(st, "done", k, f"{k} done on {j['branch']} ({head[:7]})", now)
         return k
     with_job(cwd, k, out, go)
@@ -1272,7 +1544,8 @@ def status(cwd, out=print, now=None, readonly=False):
             left = DEADLINE - (now - act)
             extra = f"; deadline in {int(left // 60)} min" if j.get("state") == "in progress" and left > 0 else ""
             label = waiting_line(k, j) if j.get("state") == "waiting" else f"{k}: {live_label(j, act, now)}"
-            out(f"{label}; {j.get('branch')}; last sign of life {hhmm(act)}{extra}")
+            resume = f"; resume: {j['resume_cmd']}" if j.get("resume_cmd") else ""
+            out(f"{label}; {j.get('branch')}; last sign of life {hhmm(act)}{extra}{resume}")
         if not live:
             out("no job in progress")
         for agent in AGENTS:
@@ -1367,12 +1640,71 @@ def board(cwd, now=None, out=print):
 
 def _default_launch(agent):
     import launch
-    return launch.main([agent])
+    return launch.launch_agent(agent)
+
+
+def _default_resume_launch(agent, jid, prev):
+    import launch
+    return launch.launch_resume(
+        agent, jid, prev["resume_cmd"], prev.get("notes", ""),
+        prev.get("branch", ""), prev.get("worktree", ""), space=prev.get("space"),
+    )
 
 
 def _default_launch_integrator(session, wake_line):
     import launch
     return launch.main(["integrator", "--name", session, "--wake", wake_line])
+
+
+def _close_merged_windows(root, now=None, out=print, closer=None, alive_fn=None, kill_fn=None,
+                          tty_pids_fn=None, sleep=time.sleep):
+    """End recorded agent processes and close recorded Terminal windows for merged jobs only (H207, G09)."""
+    import launch
+    now = now or time.time()
+    closer = closer or launch.close_terminal
+    alive_fn = alive_fn or _pid_alive
+    kill_fn = kill_fn or os.kill
+    tty_pids_fn = tty_pids_fn or launch.tty_pids
+    with state_read(state_path(root)) as st:
+        targets = []
+        for jid, j in st["jobs"].items():
+            if j.get("state") != "merged":
+                continue
+            for idx, w in enumerate(j.get("windows") or []):
+                if isinstance(w, dict) and w.get("id") is not None and not w.get("closed"):
+                    targets.append((jid, idx, dict(w)))
+    if not targets:
+        return
+    closed = []
+    for jid, idx, w in targets:
+        pids = []
+        if isinstance(w.get("pid"), int) and w["pid"] > 1 and w["pid"] != os.getpid():
+            pids.append(w["pid"])
+        for p, _ in tty_pids_fn(w.get("tty")):
+            if p > 1 and p != os.getpid() and p not in pids:
+                pids.append(p)
+        for p in pids:
+            if alive_fn(p):
+                try:
+                    kill_fn(p, signal.SIGTERM)
+                except OSError:
+                    pass
+        if any(alive_fn(p) for p in pids):
+            for _ in range(5):
+                sleep(0.2)
+                if not any(alive_fn(p) for p in pids):
+                    break
+        if any(alive_fn(p) for p in pids):
+            continue  # process hasn't ended yet; wait for next poll instead of closing with live work
+        if closer(w["id"]) == 0:
+            out(f"{hhmm(now)} closed window {w['id']} for merged {jid}")
+            closed.append((jid, idx))
+    if closed:
+        with locked(state_path(root)) as st:
+            for jid, idx in closed:
+                wins = st["jobs"].get(jid, {}).get("windows") or []
+                if idx < len(wins) and isinstance(wins[idx], dict):
+                    wins[idx]["closed"] = now
 
 
 def _integrator_session_name(root):
@@ -1515,11 +1847,14 @@ def hopper_wake_conditions(root, st, jobs, order, now, claims=None, pace="all at
 
 
 def hopper_step(root, now=None, dry_run=False, launcher=None, out=print, seen=None, procs=None,
-                launch_integrator=False, integrator_launcher=None):
-    """One poll of the hopper (H185, H197). Returns (action, exit_code, detail, seen_key):
+                launch_integrator=False, integrator_launcher=None, resume_launcher=None, window_closer=None):
+    """One poll of the hopper (H185, H197, H207). Returns (action, exit_code, detail, seen_key):
     action is 'exit', 'launched', 'dry', or 'wait'."""
     now = now or time.time()
+    custom_launcher = launcher is not None
     launcher = launcher or _default_launch
+    if not dry_run:
+        _close_merged_windows(root, now=now, out=out, closer=window_closer)
     jobs, order = main_view(root)
     pace, _ = main_pace(root)
     claims = branch_claims(root)
@@ -1558,11 +1893,14 @@ def hopper_step(root, now=None, dry_run=False, launcher=None, out=print, seen=No
             if picked is not None:
                 if picked["id"] in st.get("launched", {}):
                     return "wait", None, None, None
+                prev = st["jobs"].get(picked["id"], {})
+                prev_resume = dict(prev) if prev.get("state") == "returned" and prev.get("resume_cmd") else None
                 if dry_run:
-                    out(f"would launch {picked['id']} ({target_agent}: {picked['item']})")
+                    how = f"resume {prev_resume['resume_cmd']}" if prev_resume else f"{target_agent}"
+                    out(f"would launch {picked['id']} ({how}: {picked['item']})")
                     return "dry", 0, None, None
                 st.setdefault("launched", {})[picked["id"]] = {"at": now, "agent": target_agent}
-                launch_target = (picked, target_agent)
+                launch_target = (picked, target_agent, prev_resume)
             if launch_target is None:
                 if dry_run:
                     out("nothing Ready and nothing in progress")
@@ -1579,13 +1917,29 @@ def hopper_step(root, now=None, dry_run=False, launcher=None, out=print, seen=No
         out(f"{hhmm(now)} launched integrator ({int_session})")
         sys.stdout.flush()
         return "exit", 0, detail, key
-    picked, target_agent = launch_target
-    rc = launcher(target_agent)
+    picked, target_agent, prev_resume = launch_target
+    if prev_resume is not None:
+        if resume_launcher is not None:
+            res = resume_launcher(target_agent, picked["id"], prev_resume)
+        elif not custom_launcher:
+            res = _default_resume_launch(target_agent, picked["id"], prev_resume)
+        else:
+            res = launcher(target_agent)
+    else:
+        res = launcher(target_agent)
+    rc, win_info = res if isinstance(res, tuple) else (res, None)
     if rc != 0:
         with locked(state_path(root)) as st:
             st.get("launched", {}).pop(picked["id"], None)
         return "exit", 1, f"launch failed for {picked['id']} ({target_agent})", None
-    out(f"{hhmm(now)} launched {target_agent} for {picked['id']} ({picked['item']})")
+    if win_info:
+        with locked(state_path(root)) as st:
+            if picked["id"] in st.get("launched", {}):
+                st["launched"][picked["id"]]["window"] = win_info
+            if picked["id"] in st["jobs"]:
+                st["jobs"][picked["id"]].setdefault("windows", []).append(win_info)
+    verb = "resumed" if prev_resume is not None else "launched"
+    out(f"{hhmm(now)} {verb} {target_agent} for {picked['id']} ({picked['item']})")
     sys.stdout.flush()
     return "launched", None, picked["id"], None
 
@@ -1761,7 +2115,9 @@ def main(argv):
             return 2
         return 0 if answer(cwd, argv[1].upper(), argv[2], source) else 1
     if cmd == "done":
-        return 0 if done(cwd, opt("--job")) else 1
+        return 0 if done(cwd, opt("--job"), feedback=opt("--feedback"), improvements=opt("--improvements")) else 1
+    if cmd == "feedback-read":
+        return 0 if feedback_read(cwd) else 1
     if cmd == "status":
         status(cwd)
         return 0
