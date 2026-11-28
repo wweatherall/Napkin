@@ -13,6 +13,7 @@ import tempfile
 import threading
 import time
 from unittest.mock import patch
+os.environ.pop("GATE_FULL", None)   # fixture gates pick their own scope, even under a forced full gate (H201)
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -1594,9 +1595,14 @@ job.QUICKTEST = ["true"]
 run(job.done, wt1, now=2040, feedback="good", improvements="none")
 run(job.done, wt3, now=2045, feedback="good", improvements="none")
 
+# H001's branch predates H002's brief (H211): take still finds and prints main's copy
+h2_brief = [n for n in os.listdir(os.path.join(wt1, "docs", "handoff")) if n.startswith("H002")][0]
+sh(wt1, "git", "rm", "-q", os.path.join("docs", "handoff", h2_brief)); sh(wt1, "git", "commit", "-qm", "before H002's brief")
 # Now H002 (overlaps H001 on tools/a.py) is taken: it stacks on H001's branch and records base
 j2, out_j2 = run(job.take, h_root, "claude", "s-h185-3", now=2050)
 wt2 = job.worktree_for(h_root, "H002")
+check("a job stacked on a branch without its brief gets main's brief in its worktree and prints it (H211)",
+      os.path.isfile(os.path.join(wt2, "docs", "handoff", h2_brief)) and "### H002" in out_j2, out_j2)
 check("overlapping Ready job stacks on newest done job's branch and records base",
       j2 == "H002"
       and state(h_root)["jobs"]["H002"].get("base") == state(h_root)["jobs"]["H001"]["branch"]

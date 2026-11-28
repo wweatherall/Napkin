@@ -123,6 +123,8 @@ protocol (update it in the same commit when you change either). Tools have their
   get 2 frames' pad and frames skip the physics tick (T48: 26 → 14 s). It prints where its time goes (`QUICK timing`).
   `--fast` gives any suite that pace but keeps the physics tick (picking a draft drawn a moment ago needs one: the
   face test's draw-on-a-draft step misses without it). Not for recordings (P03).
+- A keyboard step sends the physical modifier events too (`_key_state(KEY_SHIFT, true)` around Shift+8, not just the
+  `*` character), and checks both while a gesture runs and right after it ends: they take different paths (H210).
 - Recorded suites (`--facetest --movetest --mirrortest --infertest --holetest --zfighttest`) are compared with
   `tests/reference/` by the full test; targeted: `--undotest --snaptest --recttest --shelltest --jointest
   --rejecttest`. Visual only: `--linetest`, `--zfighttest`; timing `--perftest`; `--heavytest --model=<file>`.

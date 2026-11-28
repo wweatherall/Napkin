@@ -94,6 +94,7 @@ TOOLS_FILES = [
     "GEMINI.md",
     "ARCHITECTURE.md",
     "README.txt",
+    "viewport/demos/fit_detach_demo.gd",
 ]
 
 for path in TOOLS_FILES:

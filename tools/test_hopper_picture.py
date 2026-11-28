@@ -146,9 +146,19 @@ check("SHOW_THE_HOPPER.py --help and single run succeed",
       (help_r.returncode, run_r.returncode, run_r.stderr))
 
 # 6. watch() clamps poll >= WATCH_POLL and redraws once when state doesn't change
+# against a fixed queue file and picture, so another worker writing the live queue can't make it redraw (H211)
 sleeps = []
 outs = []
-hopper_picture.watch(root, poll=1, out=outs.append, sleep=sleeps.append, clock=lambda: now, clear=False, max_iterations=2)
+fixture_q = os.path.join(os.environ.get("TESTDIR") or os.path.join(root, "scratch"), "hopper-watch-queue.json")
+os.makedirs(os.path.dirname(fixture_q), exist_ok=True)
+open(fixture_q, "w").write("{}")
+real_state_path, real_render = job.state_path, hopper_picture.render_root
+job.state_path = lambda _root: fixture_q
+hopper_picture.render_root = lambda _root, now=None: "fixed picture"
+try:
+    hopper_picture.watch(root, poll=1, out=outs.append, sleep=sleeps.append, clock=lambda: now, clear=False, max_iterations=2)
+finally:
+    job.state_path, hopper_picture.render_root = real_state_path, real_render
 check("watch() polls no faster than WATCH_POLL and skips duplicate redraws",
       sleeps == [job.WATCH_POLL] and len(outs) == 1,
       (sleeps, len(outs)))

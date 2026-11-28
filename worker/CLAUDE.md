@@ -108,6 +108,8 @@ ARCHITECTURE.md the module map and protocol (update it in the same commit when y
   `start_worker` / `Worker` (`kill`, `restart`, `stop`), `Window` (`send`, `ask`, `wait`, `drop`), `fresh_model`,
   `board_ops`, `sync`, `freecad_save`, `Checks`, and the restoring context managers `read_only`, `unreadable`, and
   `missing`.
+- Tests run with clean FreeCAD config files (`-u`/`-s`, H208): a fixture that depends on a FreeCAD preference (backups,
+  units) sets it itself, and a test that starts freecadcmd does it through `test_link.py` or the test scripts.
 - The T48 scenario (`test_scenario.py`): one busy fixture model from `tests/scenario_fixture.json`, each step checked
   and undone back to the fixture, then cumulative stories that must equal fresh builds and reopened files. A new
   worker behaviour: add a numbered `scenario/NN_feature.py` with `run(ctx)` first; the thin runner discovers these

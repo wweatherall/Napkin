@@ -35,6 +35,7 @@ TOOLS_DIRS = (
     "01_Principles/",
     "03_Past_Decisions/",
     "docs/",
+    "viewport/demos/",   # stand-alone scenes nothing in the app loads; the parse check still covers their scripts (H202)
 )
 
 

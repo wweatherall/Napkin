@@ -8,9 +8,16 @@ set_test_tmpdir || exit 1
 GD=/Applications/Godot.app/Contents/MacOS/Godot
 OUT=$(mktemp -d "${TEST_TMPDIR%/}/napkin-parse.XXXXXX") || exit 1
 i=0
-for f in viewport/*.gd viewport/tools/*.gd viewport/tests/*.gd viewport/tests/quick/*.gd viewport/tests/suites/*.gd; do
+shopt -s nullglob
+for f in viewport/*.gd viewport/tools/*.gd viewport/tests/*.gd viewport/tests/quick/*.gd viewport/tests/suites/*.gd viewport/demos/*.gd; do
   ( ERR=$("$GD" --headless --path viewport --check-only --script "res://${f#viewport/}" 2>&1 | grep -E "SCRIPT ERROR|Parse Error" | head -3)
     [ -n "$ERR" ] && printf 'PARSE %s:\n%s\n' "$f" "$ERR" > "$OUT/$i" ) &
+  i=$((i + 1))
+done
+# stand-alone demo scenes (H202) also open headless for a few frames
+for f in viewport/demos/*.tscn; do
+  ( ERR=$("$GD" --headless --path viewport "res://${f#viewport/}" --quit-after 3 2>&1 | grep -E "SCRIPT ERROR|Parse Error|ERROR" | head -3)
+    [ -n "$ERR" ] && printf 'SCENE %s:\n%s\n' "$f" "$ERR" > "$OUT/$i" ) &
   i=$((i + 1))
 done
 wait

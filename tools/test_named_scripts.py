@@ -81,6 +81,11 @@ for rel, needle, runner in PY_SCRIPTS:
     check(f"reaches library from another dir: {rel}", r.returncode in (0, 2) and needle in out,
           f"rc={r.returncode} out={out[:120]!r}")
 
+r = subprocess.run([sys.executable, os.path.join(ROOT, "tools/RECORD_A_DECISION.py"), "add", "tunable", "x"],
+                   cwd=ROOT, capture_output=True, text=True, timeout=30)
+check("RECORD_A_DECISION.py add tunable ... reaches the tunable rules, not the usage line (H201)",
+      "a tunable needs" in r.stdout + r.stderr, (r.stdout + r.stderr)[:160])
+
 for rel, target in SH_WRAPPERS.items():
     path = os.path.join(ROOT, rel)
     check(f"exists: {rel}", os.path.isfile(path) and os.access(path, os.X_OK))

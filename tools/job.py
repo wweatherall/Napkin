@@ -64,6 +64,7 @@ import json
 import os
 import re
 import shlex
+import shutil
 import signal
 import subprocess
 import sys
@@ -630,6 +631,11 @@ def _take(cwd, agent, session, now=None, out=print):
                 return None, "refused"
         wt = os.path.realpath(wt)
         os.makedirs(os.path.join(wt, "scratch"), exist_ok=True)     # where the job's logs go (P25); git ignores it
+        brief = os.path.join(wt, handoff.FOLDER, job["name"])
+        if base_ref != "main" and not os.path.isfile(brief):
+            # Stacked on a done branch that predates the brief (H211): bring main's brief in; the worker commits it.
+            os.makedirs(os.path.dirname(brief), exist_ok=True)
+            shutil.copyfile(os.path.join(root, handoff.FOLDER, job["name"]), brief)
         try:
             import launch
             default_space = launch.space_of(agent)
@@ -663,7 +669,7 @@ def _take(cwd, agent, session, now=None, out=print):
         f"`python3 tools/SUBMIT_JOB.py`\n")
     if counted(session):
         out(f"job {n} of {MAX_JOBS} for this session (P27)")
-    out(open(os.path.join(wt, handoff.FOLDER, job["name"]), encoding="utf-8").read())
+    out(open(brief, encoding="utf-8").read())
     print_answers(answers, out)
     record_usage(root, "take", job["id"], agent=agent, session=session, quiet=True)
     return job["id"], None

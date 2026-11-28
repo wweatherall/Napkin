@@ -49,7 +49,8 @@ worktree (T102).
    clean `job.py test` pass across handoff-only commits):
    - Commit your code changes first (if committing watched code with `Architecture-Impact: in the handoff - <ID>`,
      include the `Architecture: <what>` line(s) in the handoff in that commit so the pre-commit hook passes), then
-     run `python3 tools/job.py test` once.
+     run `python3 tools/job.py test` once, unless `tools/TEST_BEFORE_MERGING.sh` (full scope) already passed on that
+     commit: the gate records its quick-test pass and `job.py done` reuses it.
    - Append your response to the handoff entry (dated and signed: branch, commit, what you verified, IDs you added,
      open questions; then a line each: `Changed from the brief: <what it said>; <what you did>; <why>` per departure
      (P44); `Architecture:` lines (any number of each):

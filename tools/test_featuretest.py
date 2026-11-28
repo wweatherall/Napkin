@@ -10,6 +10,7 @@ import shutil
 import subprocess
 import sys
 import tempfile
+os.environ.pop("GATE_FULL", None)   # fixture gates pick their own scope, even under a forced full gate (H201)
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 SCRIPT = os.path.join(ROOT, "tools", "featuretest.sh")
