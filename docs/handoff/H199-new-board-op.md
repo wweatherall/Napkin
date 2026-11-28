@@ -41,6 +41,11 @@ Request:
 5. Opening a file that still holds an old op (not updated) is a normal rejection, worded:
    `This file was saved by an older Shop Sketch: run tools/UPDATE_OLD_FILES.py on it` (William may reword).
 
+6. From H198's review: `commit_push` returns silently when a face fit has no stock frame or no axis matching the face
+   (`if src.is_empty() ...: return`, `if axis == -1: return`), where the worker used to refuse with a reason. Show
+   the worker's old messages as a normal rejection instead (G10: a rejected action says why): `Source has no
+   extrudable stock` and `Source face no longer matches the chosen dimension`. Test both.
+
 Not in this job: `resize_stock` (H200), the fit's face naming (H201).
 
 What can fail:
