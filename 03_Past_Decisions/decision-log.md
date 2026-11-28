@@ -326,7 +326,7 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | P72 | The structural report (designs P31/P32): at merge, integrate.py works out the structura... | Active |
 | P73 | A worker doesn't ask the integrator before a change outside Touches that follows mechan... | Active |
 | P74 | The hopper brings in the integrator only when all work is paused: nothing in progress a... | Active |
-| P75 | Jobs run strictly one at a time until William says otherwise: the hopper's pace default... | Active |
+| P75 | The hopper's pace defaults to one at a time: a board without a Pace line, or with an unknown one, runs... | Active |
 
 ## Open questions
 
