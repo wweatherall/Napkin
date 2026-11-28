@@ -27,6 +27,10 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
 - [H201 — A fit names its target face by geometry, follows flips and rotations, and detaches when the face is gone (T161, T163, I75-I77)](handoff/H201-fits-name-faces-by-geometry.md) — status: answered; for: codex
 - [H202 — Design: how a fit that lost its face looks (a chain crumbling, or another gentle metaphor), a proposal with drafts for William](handoff/H202-fit-detach-look.md) — status: queued (after H201); for: codex
+- [H208 — Napkin's freecadcmd never saves over William's FreeCAD settings (T167)](handoff/H208-freecad-settings-kept.md) — status: open; for: codex
+- [H209 — The toolbar shows each tool's key in brackets next to its name (T167)](handoff/H209-toolbar-shows-hotkeys.md) — status: open; for: codex
+- [H210 — Typed copy counts: 5x, x5, *5 (and 5*) all work after a move or copy (T167)](handoff/H210-typed-copy-counts.md) — status: open; for: codex
+- [H211 — Double-click enters William's copies; drawings (2D shapes) can be selected; a compound's properties show (T167)](handoff/H211-select-drawings-and-compounds.md) — status: open; for: codex
 
 <!-- end of open list -->
 
