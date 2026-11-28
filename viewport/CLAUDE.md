@@ -33,12 +33,16 @@ protocol (update it in the same commit when you change either). Tools have their
   and the presenter draw on its signals. main forwards its properties (`m.selection`, `m.context`, ...); its methods are
   called as `m.sel.*` (H114).
 - `presenter.gd` (T41, A33b): geometry on screen, `m.pres`. Owns `body_tris` / `body_verts` / `body_edges` /
-  `body_cuts`, drafts and rects, confirmed board nodes, remembered states, and through `waves` / `selection_view` the waves (`step_waves` each frame) and the
+  `body_cuts`, `drafts`, confirmed board nodes, remembered states, and through `profiles` / `waves` / `selection_view` the drawn profiles (`rects`, `loose_lines`), the waves (`step_waves` each frame) and the
   selection / context highlights. Also owns a unit's joined triangles (`m.pres.unit_tris`), Select's drag box (T88 step 2), the mesh / line / collision /
   marker helpers (`tri_mesh`, `line_mesh` (a mesh for a node already in the scene: previews, outlines, guides), `lines` (a new node), `add_collision`, `show_marker`), Push/Pull's face highlight, Move's guides (`draw_guides` / `clear_guides`) and
   `mirror_preview` (T88 step 6), and `present_draft` (a committed draft and its wave, Push/Pull's and Move's);
   `draft_tests` (was `push_tests`) is the test recorder of new boards' draft bounds and the rejection filter. main forwards the old
   names (`m.body_tris`, `m.drafts`, `m._begin_wave`, ...). main routes the document's signals to it.
+- `profiles.gd` (H188): drawn profiles (rectangles, circles, polygons, lines and arcs), `pres.profiles`: owns `rects`
+  and `loose_lines`, their drafts, closed ground-loop fills, and op cleanup; the presenter forwards `rects`,
+  `loose_lines`, `CIRCLE_SEGMENTS`, `arc_points`, `polyline_segments`, `register_line`, `lines_on`, `drawn_region`,
+  `register_rect`, `circle_geometry`, `polygon_geometry`, `rebuild_rect_drafts`, `forget_op`, `drop_confirmed_drafts`.
 - `waves.gd` (H181): the confirmation and rejection waves (W01-W09), `pres.waves`: `op_waves`, `begin_wave`,
   `attach_wave`, `end_wave`, `step_waves`; the presenter forwards `op_waves`, `trace_wave`, `trace_rows`, `begin_wave`, `step_waves`.
 - `selection_view.gd` (H181, A33b): selection, context ghosting/hiding, the mirror plane and linked-sibling overlays,

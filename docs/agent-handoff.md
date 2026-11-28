@@ -25,7 +25,6 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 <!-- open list: built from docs/handoff/ by tools/handoff.py; don't edit by hand -->
 
 - [H067 — Agent roles: direction from William and request for a transition plan](handoff/H067-agent-role-system.md) — status: open; for: the integrator
-- [H188 — presenter.gd step 2: drawn profiles (rectangles, circles, polygons, lines) move to their own file, behaviour unchanged](handoff/H188-split-presenter-gd-step-2.md) — status: open; for: gemini
 - [H189 — An op contract, piloted on Circle: what it takes, refers to and creates, written once beside its handler and checked everywhere else](handoff/H189-circle-op-contract.md) — status: open; for: gemini
 - [H190 — What each step cost: a member's Log shown with the quota used between its lines](handoff/H190-log-with-usage.md) — status: open; for: gemini
 
@@ -35,6 +34,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 
 Full entries in [handoff-archive.md](handoff-archive.md).
 
+- H188 — presenter.gd step 2: drawn profiles (rectangles, circles, polygons, lines) move to their own file, behaviour unchanged. Resolved: merged into main by the integrator, 2026-11-27.
 - H187 — main.gd step 2: model files and rejection handling move to their own files, behaviour unchanged. Resolved: merged into main by the integrator, 2026-11-27.
 - H186 — Napkin's top level: two old launchers go, the wave simulator moves to tools/. Resolved: merged into main by the integrator, 2026-11-27.
 - H184 — The field audit checks each run of an op, not all runs of its type lumped together. Resolved: merged into main by the integrator, 2026-11-27.
@@ -44,9 +44,8 @@ Full entries in [handoff-archive.md](handoff-archive.md).
 - H177 — main.gd step 1: history replies and live preferences move to their own files, behaviour unchanged. Resolved: merged into main by the integrator, 2026-11-27.
 - H181 — presenter.gd step 1: confirmation waves and selection drawing move to their own files, behaviour unchanged. Resolved: merged into main by the integrator, 2026-11-27.
 - H180 — The structural report: the merge works out what changed in the structure, the worker only explains it. Resolved: merged into main by the integrator, 2026-11-27.
-- H179 — Two proposals for William: push_pull's jobs as separate ops (T159), and how a fit names its face (T161). Resolved: merged into main by the integrator, 2026-11-27.
 
-Older: docs/handoff-archive.md (185 entries; find one with grep "^### H0NN" docs/handoff-archive.md)
+Older: docs/handoff-archive.md (186 entries; find one with grep "^### H0NN" docs/handoff-archive.md)
 
 ## Entry template
 

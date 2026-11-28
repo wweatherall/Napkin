@@ -56,6 +56,7 @@ One-line index per module (`tools/architecture_map.py`). Per-file details, warni
 - `viewport/model_files.gd` — Model files: settings, last model, output folders, window title, and switching models (`m.files`)
 - `viewport/preferences.gd` — User preferences (I63, T111): reads, validates, watches and seeds a JSON file with default units and input-feel tunables
 - `viewport/presenter.gd` — Geometry presentation (A33b, T41), `m.pres`: what the model looks like on screen
+- `viewport/profiles.gd` — Drawn profiles (rectangles, circles, polygons, lines and arcs), `pres.profiles`: owns `rects` and `loose_lines`, their drafts, loop fills, and op cleanup
 - `viewport/property_panel.gd` — Native FreeCAD properties
 - `viewport/regions.gd` — Planar arrangements in model mm (I51)
 - `viewport/rejections.gd` — Rejection handling: status notes, forced-rejection test hook, and rejection-wave cleanup (`m.rejections`)
