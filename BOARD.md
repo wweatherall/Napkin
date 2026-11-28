@@ -77,8 +77,8 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 | H196 | Gemini | **Done**: for review (gemini) | The hopper runs in its own Terminal window; the integrator waits for it separately (and Order is kept across agents) | [H196](docs/handoff/H196-hopper-in-its-own-window.md) |  |
 | H197 | Gemini | **Done**: for review (gemini) | When all work is paused, the hopper brings in the integrator: wakes it, or starts a new one | [H197](docs/handoff/H197-hopper-brings-the-integrator.md) |  |
 | H195 | Codex | **Ready** | Codex in the token tool: its quota windows and each job's tokens, from Codex's own session logs | [H195](docs/handoff/H195-codex-usage.md) |  |
-| H193 | Gemini | **Ready** | Design: contracts for the ops with modes (move, push_pull, property_edit, fit), a proposal for William | [H193](docs/handoff/H193-moded-op-contracts-design.md) |  |
-| H194 | Gemini | **Ready** | The worker checks each op against its contract before running it (ops with a contract only) | [H194](docs/handoff/H194-enforce-op-contracts.md) |  |
+| H193 | Gemini | **Done**: for review (gemini) | Design: contracts for the ops with modes (move, push_pull, property_edit, fit), a proposal for William | [H193](docs/handoff/H193-moded-op-contracts-design.md) |  |
+| H194 | Gemini | In progress (gemini since 20:29) | The worker checks each op against its contract before running it (ops with a contract only) | [H194](docs/handoff/H194-enforce-op-contracts.md) |  |
 
 <!-- end of job table -->
 
