@@ -73,7 +73,6 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H206 | Codex | **Done**: for review (codex) | Codex usage at parity: every view of the token tool shows Codex beside Claude and Gemini | [H206](docs/handoff/H206-codex-usage-parity.md) |  |
 | H205 | Gemini | **Ready** | Fewer stops for workers: branch log checks ignore newer comitatus rulings, the gate's pass counts for SUBMIT_JOB, the Result line is checked first, one test file runs on its own | [H205](docs/handoff/H205-worker-friction-fixes.md) |  |
 | H204 | Gemini | Queued | Rename everything to Napkin: the app, its files, the names saved inside models, and the tools (T139, P51) | [H204](docs/handoff/H204-rename-to-napkin.md) | H205 |
 | H200 | Gemini | Queued | Push/Pull split, step 3: resizing plain stock is a `resize_stock` op (T159, I74) | [H200](docs/handoff/H200-resize-stock-op.md) | H204 |
