@@ -75,8 +75,8 @@ check("a Claude session's first message says where the code base is; others' say
       and launch.start_where("claude", root) and launch.start_where("gemini", root) == ""
       and launch.start_where("codex", root) == "", launch.start_where("integrator", root))
 x = launch.agent_command("codex", root, "/x/p.txt", "codex-a")
-check("Codex gets NAPKIN_SPACE, its root, the worktrees folder and gpt-6.1-terra", "NAPKIN_SPACE=codex-coder codex -C /x/comitatus/08_Code_Bases/Napkin --add-dir "
-      "/x/comitatus/08_Code_Bases/.worktrees/Napkin -m gpt-6.1-terra \"$(cat /x/p.txt)\"" in x, x)
+check("Codex gets NAPKIN_SPACE, its root, the worktrees folder and gpt-6.2-sol", "NAPKIN_SPACE=codex-coder codex -C /x/comitatus/08_Code_Bases/Napkin --add-dir "
+      "/x/comitatus/08_Code_Bases/.worktrees/Napkin -m gpt-6.2-sol \"$(cat /x/p.txt)\"" in x, x)
 check("only Gemini skips permissions (for now, William 2026-11-27); Claude and Codex add no bypass or full-access flag",
       not any(w in c + x for w in ("dangerously", "skip-permissions", "full-auto", "yolo", "bypass")))
 check("--model replaces the default and updates NAPKIN_SPACE",
