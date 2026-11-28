@@ -802,7 +802,7 @@ r_re, out_re = run(job.reassign_job, root, "H003", "gemini", now=now0 + 30)
 j3 = state(root)["jobs"]["H003"]
 check("reassign of a returned job moves its worktree into ../.worktrees/<checkout>/, updates agent/state/notes/event",
       r_re and j3["agent"] == "gemini" and j3["state"] == "returned" and j3["session"] is None
-      and j3["notes"] == "reassigned from codex by the integrator"
+      and j3["notes"].startswith("reassigned from codex by the integrator\n\nEarlier notes: ")
       and j3["worktree"] == target3 and os.path.isdir(target3) and not os.path.exists(old_wt3)
       and any(e["kind"] == "reassigned" and e["job"] == "H003" for e in state(root)["events"]), (r_re, out_re, j3))
 check("reassign removes the job from the old session's count",
@@ -823,16 +823,21 @@ check("take --as <new> resumes the reassigned job's branch in the moved worktree
       and "reassigned from codex by the integrator" in out_take, out_take)
 
 # 2. Reassign of an in-progress job whose worker beat recently: allowed, prints beat warning.
+with job.locked(job.state_path(root)) as st:
+    st["jobs"]["H003"]["resume_cmd"] = "agy --conversation gem-conv-1"
 r_inprog, out_inprog = run(job.reassign_job, root, "H003", "claude", "take over", now=now0 + 40 + 5 * 60)
 check("reassign of an in-progress job with recent beat warns to stop the worker and applies custom notes",
       r_inprog and "H003: its worker beat 5 min ago; tell that worker to stop" in out_inprog
       and state(root)["jobs"]["H003"]["agent"] == "claude"
-      and state(root)["jobs"]["H003"]["notes"] == "take over"
+      and state(root)["jobs"]["H003"]["notes"].startswith("take over\n\nEarlier notes: ")
       and "H003" not in state(root)["sessions"].get("gem-1", []), out_inprog)
 
 # 3. Reassign of a job whose session was never counted (fallback session name): no error.
 r_fb, _ = run(job.take, root, "claude", "claude", now=now0 + 400)
 # H003 is returned for claude, so claude takes H003 with fallback session "claude" (not in sessions).
+check("reassign to another agent drops the old agent's resume command and keeps the earlier notes (2026-11-28 H201)",
+      "resume_cmd" not in state(root)["jobs"]["H003"]
+      and "reassigned from codex by the integrator" in state(root)["jobs"]["H003"]["notes"], state(root)["jobs"]["H003"])
 check("fallback session takes H003 without being added to sessions",
       r_fb == "H003" and "claude" not in state(root).get("sessions", {}))
 r_fb_re, out_fb_re = run(job.reassign_job, root, "H003", "codex", now=now0 + 400 + job.DEADLINE + 60)
@@ -870,7 +875,7 @@ finally:
     os.chdir(cwd0)
 check("job.py reassign CLI parses <id> --to <agent> [notes]",
       rc_cli == 0 and state(root)["jobs"][r_w]["agent"] == "codex"
-      and state(root)["jobs"][r_w]["notes"] == "cli note", buf.getvalue())
+      and state(root)["jobs"][r_w]["notes"].startswith("cli note"), buf.getvalue())
 
 # 6. take --wait writes waiting_workers under locked, watch fires empty while waiting, and taking a job clears it.
 # Nothing is Ready for gemini (H003 is merged, H001 is returned for codex, H002/H006 are Claude, H005 is Codex).
