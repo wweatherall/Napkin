@@ -776,12 +776,16 @@ func _init() -> void:
 			var built_op := _build_op_from_contract(contract)
 			var expected_makes := []
 			for p in contract.get("creates", []):
-				expected_makes.append(_read_dotted_path(built_op, p))
+				var v = _read_dotted_path(built_op, p)
+				if v is Array: expected_makes.append_array(v)
+				elif v != null: expected_makes.append(v)
 			check("_op_makes matches contract.creates for %s" % op_type,
 				d._op_makes(built_op) == expected_makes)
 			var expected_refs := []
 			for p in contract.get("refers_to", []):
-				expected_refs.append(_read_dotted_path(built_op, p))
+				var v = _read_dotted_path(built_op, p)
+				if v is Array: expected_refs.append_array(v)
+				elif v != null: expected_refs.append(v)
 			check("_op_refs matches contract.refers_to for %s" % op_type,
 				Document._op_refs(built_op) == expected_refs)
 
@@ -800,8 +804,22 @@ static func _build_op_from_contract(contract: Dictionary) -> Dictionary:
 			op[fname] = {"on": {"body": "b_contract_1", "normal": [0, 0, 1], "point": [0, 0, 0]}}
 		elif kind == "number":
 			op[fname] = maxf(float(spec.get("min", 1.0)) * 10.0, 10.0)
+		elif kind == "integer":
+			op[fname] = int(spec.get("min", 1))
+		elif kind == "bool":
+			op[fname] = not bool(spec.get("default", false))
+		elif kind == "string":
+			if fname == "body": op[fname] = "b_contract_1"
+			elif fname == "new_id": op[fname] = "a_contract_1"
+			else: op[fname] = "val_1"
+		elif kind == "[string]":
+			op[fname] = ["b_contract_1"]
 		elif kind == "[number, number]":
 			op[fname] = spec.get("default", [0, 0])
+		elif kind == "[number, number, number]":
+			op[fname] = [5.0, 5.0, 0.0] if fname == "mid" else [10.0, 0.0, 0.0]
+		elif kind == "[[number, number, number]]":
+			op[fname] = [[0.0, 0.0, 0.0], [10.0, 0.0, 0.0], [10.0, 10.0, 0.0]]
 	return op
 
 

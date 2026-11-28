@@ -6,6 +6,17 @@ expression links. `Model.bodies()` excludes `SSRole=deleted` from picking metada
 For a deleted row source, a surviving member is detached as the new original and holders update `SSSource`."""
 
 
+CONTRACT = {
+    "type": "delete",
+    "fields": {
+        "targets": {"required": True, "kind": "[string]"},
+    },
+    "refers_to": ["targets"],
+    "creates": ["id"],
+    "tool": "viewport/selection.gd",
+}
+
+
 class DeleteActions:
     def op_delete(self, op):
         targets = list(dict.fromkeys(op["targets"]))

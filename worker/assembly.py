@@ -6,6 +6,18 @@ per source board with expressions tying follower holders to the first holder."""
 import FreeCAD as App
 from common import OpError, add_props, unit
 
+CONTRACT = {
+    "type": "make_assembly",
+    "fields": {
+        "targets": {"required": True, "kind": "[string]"},
+        "new_id": {"required": True, "kind": "string"},
+        "name": {"required": False, "kind": "string"},
+    },
+    "refers_to": ["targets"],
+    "creates": ["id", "new_id"],
+    "tool": "viewport/selection.gd",
+}
+
 
 class AssemblyActions:
     """Part of Model (model.py): works through self on the FreeCAD document."""

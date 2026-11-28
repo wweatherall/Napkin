@@ -22,37 +22,37 @@ def _has_actions_class(tree):
     )
 
 
-def _extract_contract(tree, filename):
+def _extract_contracts(tree, filename):
+    found = []
     for node in tree.body:
         if isinstance(node, ast.Assign):
             for target in node.targets:
-                if isinstance(target, ast.Name) and target.id == "CONTRACT":
-                    return ast.literal_eval(node.value)
-    return None
+                if isinstance(target, ast.Name) and target.id in ("CONTRACT", "CONTRACTS"):
+                    val = ast.literal_eval(node.value)
+                    found.extend(val if isinstance(val, list) else [val])
+    return found
 
 
 def collect_contracts(worker_dir=WORKER_DIR):
-    """Discover every *Actions module in worker_dir and return {op_type: contract}."""
+    """Discover every *Actions module (and model.py) in worker_dir and return {op_type: contract}."""
     worker_dir = Path(worker_dir)
     if not worker_dir.is_dir():
         return {}
     contracts = {}
     for name in sorted(os.listdir(worker_dir)):
-        if not name.endswith(".py") or name.startswith("test_") or name == "model.py":
+        if not name.endswith(".py") or name.startswith("test_"):
             continue
         path = worker_dir / name
         tree = ast.parse(path.read_text(encoding="utf-8"), str(path))
-        if not _has_actions_class(tree):
+        if not (_has_actions_class(tree) or name == "model.py"):
             continue
-        contract = _extract_contract(tree, name)
-        if contract is None:
-            continue
-        op_type = contract.get("type")
-        if not op_type:
-            raise ValueError(f"{name}: CONTRACT missing 'type'")
-        if op_type in contracts:
-            raise ValueError(f"{name}: duplicate CONTRACT for op type '{op_type}'")
-        contracts[op_type] = contract
+        for contract in _extract_contracts(tree, name):
+            op_type = contract.get("type")
+            if not op_type:
+                raise ValueError(f"{name}: CONTRACT missing 'type'")
+            if op_type in contracts:
+                raise ValueError(f"{name}: duplicate CONTRACT for op type '{op_type}'")
+            contracts[op_type] = contract
     return contracts
 
 

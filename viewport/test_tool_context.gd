@@ -892,6 +892,33 @@ func _test_profile_contracts() -> void:
 				pres.register_rect(draft_op)
 				check("H191: register_rect draws %s %s op" % [tag, op_type], pres.drafts.has(draft_id), draft_op)
 
+	# 3. H192: Appearance builders (set_material, turn_grain) match their contracts.
+	var Appearance = load("res://appearance.gd")
+	var app = Appearance.new(t.doc)
+	app.wood_library["white-oak"] = {"key": "white-oak", "name": "White Oak"}
+	app.paint_material = "white-oak"
+	app.set_boards([{"id": "b1", "material": "white-oak"}])
+	var app_start: int = t.doc.ops.size()
+	app.apply(["b1"])
+	app.turn_grain("b1")
+	var app_ops := {}
+	for i in range(app_start, t.doc.ops.size()):
+		app_ops[t.doc.ops[i]["type"]] = t.doc.ops[i]
+	for op_type in ["set_material", "turn_grain"]:
+		var contract: Dictionary = contracts.get(op_type, {})
+		var op: Dictionary = app_ops.get(op_type, {})
+		var fields: Dictionary = contract.get("fields", {})
+		var missing_req := []
+		for fname in fields:
+			if fields[fname].get("required", true) and not op.has(fname):
+				missing_req.append(fname)
+		var extra := []
+		for k in op:
+			if k != "id" and k != "type" and not fields.has(k):
+				extra.append(k)
+		check("H192: appearance %s matches contract (missing=%s extra=%s)" % [op_type, missing_req, extra],
+			op.get("type", "") == op_type and missing_req.is_empty() and extra.is_empty(), op)
+
 
 static func _sample_contract_value(spec: Dictionary, fname: String) -> Variant:
 	var kind: String = spec.get("kind", "")

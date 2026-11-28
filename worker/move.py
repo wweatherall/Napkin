@@ -6,6 +6,37 @@ component; array holders are `App::Placement` objects with expression-driven mem
 import FreeCAD as App
 from common import OpError, TOL, V, add_props, board_label, unit, vec
 
+CONTRACTS = [
+    {
+        "type": "make_component",
+        "fields": {
+            "body": {"required": True, "kind": "string"},
+            "name": {"required": True, "kind": "string"},
+        },
+        "refers_to": ["body"],
+        "creates": ["id"],
+        "tool": "",
+    },
+    {
+        "type": "detach",
+        "fields": {
+            "targets": {"required": True, "kind": "[string]"},
+        },
+        "refers_to": ["targets"],
+        "creates": ["id"],
+        "tool": "viewport/selection.gd",
+    },
+    {
+        "type": "make_unique",
+        "fields": {
+            "targets": {"required": True, "kind": "[string]"},
+        },
+        "refers_to": ["targets"],
+        "creates": ["id"],
+        "tool": "viewport/selection.gd",
+    },
+]
+
 
 class MoveActions:
     """Part of Model (model.py): works through self on the FreeCAD document."""

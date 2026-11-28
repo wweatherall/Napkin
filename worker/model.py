@@ -17,6 +17,18 @@ from common import (
     Frame, NORMAL_TOL, OpError, TOL, V, add_props, board_label, rotation_from, unit, vec,
 )
 
+CONTRACT = {
+    "type": "unfit",
+    "fields": {
+        "body": {"required": True, "kind": "string"},
+        "axis": {"required": True, "kind": "integer"},
+        "value": {"required": True, "kind": "string"},
+    },
+    "refers_to": ["body"],
+    "creates": ["id"],
+    "tool": "viewport/property_panel.gd",
+}
+
 
 def action_mixins():
     """The action mixins: every class named *Actions at the top level of a worker module (push.py: PushActions,

@@ -5,6 +5,17 @@ board's `Visibility` directly; `Session.sync` calls `show_as_hidden()` after eve
 on open via `add_hidden_props` (outside any transaction)."""
 from common import OpError, add_props
 
+CONTRACT = {
+    "type": "hide",
+    "fields": {
+        "targets": {"required": True, "kind": "[string]"},
+        "hidden": {"required": False, "kind": "bool", "default": True},
+    },
+    "refers_to": ["targets"],
+    "creates": ["id"],
+    "tool": "viewport/selection.gd",
+}
+
 
 class VisibilityActions:
     """Part of Model (model.py): works through self on the FreeCAD document.

@@ -64,6 +64,59 @@
     "tool": "viewport/tools/circle_tool.gd",
     "type": "circle"
   },
+  "delete": {
+    "creates": [
+      "id"
+    ],
+    "fields": {
+      "targets": {
+        "kind": "[string]",
+        "required": true
+      }
+    },
+    "refers_to": [
+      "targets"
+    ],
+    "tool": "viewport/selection.gd",
+    "type": "delete"
+  },
+  "detach": {
+    "creates": [
+      "id"
+    ],
+    "fields": {
+      "targets": {
+        "kind": "[string]",
+        "required": true
+      }
+    },
+    "refers_to": [
+      "targets"
+    ],
+    "tool": "viewport/selection.gd",
+    "type": "detach"
+  },
+  "hide": {
+    "creates": [
+      "id"
+    ],
+    "fields": {
+      "hidden": {
+        "default": true,
+        "kind": "bool",
+        "required": false
+      },
+      "targets": {
+        "kind": "[string]",
+        "required": true
+      }
+    },
+    "refers_to": [
+      "targets"
+    ],
+    "tool": "viewport/selection.gd",
+    "type": "hide"
+  },
   "line": {
     "creates": [
       "id"
@@ -99,6 +152,67 @@
     ],
     "tool": "viewport/tools/line_tool.gd",
     "type": "line"
+  },
+  "make_assembly": {
+    "creates": [
+      "id",
+      "new_id"
+    ],
+    "fields": {
+      "name": {
+        "kind": "string",
+        "required": false
+      },
+      "new_id": {
+        "kind": "string",
+        "required": true
+      },
+      "targets": {
+        "kind": "[string]",
+        "required": true
+      }
+    },
+    "refers_to": [
+      "targets"
+    ],
+    "tool": "viewport/selection.gd",
+    "type": "make_assembly"
+  },
+  "make_component": {
+    "creates": [
+      "id"
+    ],
+    "fields": {
+      "body": {
+        "kind": "string",
+        "required": true
+      },
+      "name": {
+        "kind": "string",
+        "required": true
+      }
+    },
+    "refers_to": [
+      "body"
+    ],
+    "tool": "",
+    "type": "make_component"
+  },
+  "make_unique": {
+    "creates": [
+      "id"
+    ],
+    "fields": {
+      "targets": {
+        "kind": "[string]",
+        "required": true
+      }
+    },
+    "refers_to": [
+      "targets"
+    ],
+    "tool": "viewport/selection.gd",
+    "type": "make_unique"
   },
   "polygon": {
     "creates": [
@@ -170,5 +284,65 @@
     ],
     "tool": "viewport/tools/rect_tool.gd",
     "type": "rect"
+  },
+  "set_material": {
+    "creates": [
+      "id"
+    ],
+    "fields": {
+      "material": {
+        "kind": "string",
+        "required": true
+      },
+      "targets": {
+        "kind": "[string]",
+        "required": true
+      }
+    },
+    "refers_to": [
+      "targets"
+    ],
+    "tool": "viewport/appearance.gd",
+    "type": "set_material"
+  },
+  "turn_grain": {
+    "creates": [
+      "id"
+    ],
+    "fields": {
+      "targets": {
+        "kind": "[string]",
+        "required": true
+      }
+    },
+    "refers_to": [
+      "targets"
+    ],
+    "tool": "viewport/appearance.gd",
+    "type": "turn_grain"
+  },
+  "unfit": {
+    "creates": [
+      "id"
+    ],
+    "fields": {
+      "axis": {
+        "kind": "integer",
+        "required": true
+      },
+      "body": {
+        "kind": "string",
+        "required": true
+      },
+      "value": {
+        "kind": "string",
+        "required": true
+      }
+    },
+    "refers_to": [
+      "body"
+    ],
+    "tool": "viewport/property_panel.gd",
+    "type": "unfit"
   }
 }

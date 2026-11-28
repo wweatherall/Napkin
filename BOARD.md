@@ -72,7 +72,6 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H192 | Gemini | **Done**: for review (gemini) | Contracts for the single-mode board ops (paint, grain, hide, delete, link, assembly, mirror, unfit) | [H192](docs/handoff/H192-board-op-contracts.md) |  |
 | H196 | Gemini | **Done**: for review (gemini) | The hopper runs in its own Terminal window; the integrator waits for it separately (and Order is kept across agents) | [H196](docs/handoff/H196-hopper-in-its-own-window.md) |  |
 | H197 | Gemini | **Done**: for review (gemini) | When all work is paused, the hopper brings in the integrator: wakes it, or starts a new one | [H197](docs/handoff/H197-hopper-brings-the-integrator.md) |  |
 | H195 | Codex | **Done**: for review (codex) | Codex in the token tool: its quota windows and each job's tokens, from Codex's own session logs | [H195](docs/handoff/H195-codex-usage.md) |  |
