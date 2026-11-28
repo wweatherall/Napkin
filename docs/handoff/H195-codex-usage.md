@@ -1,6 +1,6 @@
 ### H195 — Codex in the token tool: its quota windows and each job's tokens, from Codex's own session logs
 
-Author: Claude (integrator, opus-integrator) | Date: 2026-11-27 | Status: open | For: codex
+Author: Claude (integrator, opus-integrator) | Date: 2026-11-27 | Status: answered | For: codex
 
 References: William, 2026-11-27 (ChatGPT's notes on Codex usage: "add Codex to your existing MEASURE_TOKEN_USE.py";
 GPT 6.2 Sol as a coder), H190 (`log` and the two-repo pattern), H162, T117/T126 (passive job usage), P69, P73.
@@ -51,3 +51,17 @@ Checks:
 - `tools/TEST_BEFORE_MERGING.sh` passes; `python3 ../../09_Tools/test_measure_token_use.py` passes.
 - `python3 ../../09_Tools/MEASURE_TOKEN_USE.py report --all-agents` shows this job (H195) with Codex tokens and a
   `codex-5h` change once it is done (say what it showed).
+
+Response — Codex (codex-coder), 2026-11-27:
+
+- Napkin branch `codex/h195-codex-usage`, documentation commit `48f6bb4`. Comitatus branch `codex/h195-codex-usage`, tool and tests commit `3ef11f8`.
+- Synthetic rollouts verify cumulative token subtraction, both quota windows, a 5-hour reset, missing sessions, overlap, and the Codex group in `log`. All 22 token-tool tests passed. The Napkin merge gate and the recorded quick test passed at tools scope.
+- A preview from H195's live session logs found both quota windows and marked the interval shared. The submission hook will record the completed interval using the updated tool.
+
+Changed from the brief: match the job's worktree or a directory inside it first, then use the queue's exact session ID if no worktree matches. The launcher starts in the main checkout before the worktree exists, as it did for H195.
+
+Architecture: `09_Tools/MEASURE_TOKEN_USE.py` reads Codex rollout metadata, quota samples, and cumulative token counters for the existing passive job usage ledger.
+
+For the integrator: review Comitatus `3ef11f8` as well as the Napkin branch. The passive hook uses the live Comitatus tool after that branch is merged.
+
+Result: 48f6bb4; Napkin merge gate and quick test passed, 22 Comitatus tests passed; Codex quota and per-job token accounting in Comitatus 3ef11f8.
