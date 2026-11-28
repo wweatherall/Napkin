@@ -28,7 +28,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H187 — main.gd step 2: model files and rejection handling move to their own files, behaviour unchanged](handoff/H187-split-main-gd-step-2.md) — status: open; for: gemini
 - [H188 — presenter.gd step 2: drawn profiles (rectangles, circles, polygons, lines) move to their own file, behaviour unchanged](handoff/H188-split-presenter-gd-step-2.md) — status: open; for: gemini
 - [H189 — An op contract, piloted on Circle: what it takes, refers to and creates, written once beside its handler and checked everywhere else](handoff/H189-circle-op-contract.md) — status: open; for: gemini
-- [H190 — What each step cost: a member's Log shown with the quota used between its lines](handoff/H190-log-with-usage.md) — status: open; for: gemini
+- [H190 — What each step cost: a member's Log shown with the quota used between its lines](handoff/H190-log-with-usage.md) — status: answered; for: gemini
 
 <!-- end of open list -->
 
