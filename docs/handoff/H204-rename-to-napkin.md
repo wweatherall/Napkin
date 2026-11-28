@@ -1,6 +1,6 @@
 ### H204 — Rename everything to Napkin: the app, its files, the names saved inside models, and the tools (T139, P51)
 
-Author: Claude (integrator, opus-integrator) | Date: 2026-11-27 | Status: queued (after H199) | For: gemini | Item: T139 | Completes: T139
+Author: Claude (integrator, opus-integrator) | Date: 2026-11-27 | Status: queued (after H205) | For: gemini | Item: T139 | Completes: T139
 
 References: P51 (the app is named Napkin, replacing Shop Sketch and FretchUp), T139 (William, 2026-11-26: change every
 name, including the .shopsketch.json files and the names stored inside .FCStd files; existing models must still open;
