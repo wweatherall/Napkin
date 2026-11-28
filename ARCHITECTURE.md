@@ -127,6 +127,7 @@ One-line index per module (`tools/architecture_map.py`). Per-file details, warni
 - `tools/job.py` — The job queue (P24): a worker takes a job and says done; a dead man's switch flags one gone quiet
 - `tools/launch.py` — Start a worker session with its start-up brief already in its first message (T134), so it skips the start-up round and can't skip the brief
 - `tools/length_cases.py` — Writes tests/length_cases.json: what FreeCAD's length input (worker/length_input.py evaluate) gives for a fixed set of typed lengths, plus random expressions b…
+- `tools/line_trace.py` — Run a Python test script under sys.settrace and record executed lines and functions
 - `tools/log.py` — Add to and read the decision log (T92, P09, P23) without editing its tables by hand
 - `tools/number_ids.py` — Give placeholder IDs their numbers at merge (T74), so two branches never take the same number
 - `tools/org_todos.py` — Fill comitatus/06_To-dos (T134, P57's way): one file per thing waiting on someone, from this code base's main

@@ -15,6 +15,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "tools"))
 
 import test_inventory  # noqa: E402
+import line_trace  # noqa: E402
 
 RESULTS: list[bool] = []
 VERBOSE = "-v" in sys.argv[1:] or "--verbose" in sys.argv[1:]
@@ -163,6 +164,84 @@ with tempfile.TemporaryDirectory() as tmp:
     check("--report prints saved JSON report and exits 0",
           rc == 0 and "Totals by suite:" in buf.getvalue(),
           buf.getvalue())
+
+# 7. line_trace: tiny traced script gives expected lines and functions, and excludes non-repo files
+with tempfile.TemporaryDirectory() as tmp:
+    tmp_root = Path(tmp)
+    (tmp_root / "worker").mkdir()
+    (tmp_root / "tools").mkdir()
+    (tmp_root / "outside").mkdir()
+    (tmp_root / "outside" / "ext.py").write_text(
+        "def ext_fn():\n"
+        "    return 41\n",
+        encoding="utf-8",
+    )
+    (tmp_root / "worker" / "mod.py").write_text(
+        "def helper(x):\n"
+        "    return x + 1\n"
+        "\n"
+        "def unused():\n"
+        "    return 0\n",
+        encoding="utf-8",
+    )
+    (tmp_root / "worker" / "test_tiny.py").write_text(
+        "import sys\n"
+        "from pathlib import Path\n"
+        "sys.path.insert(0, str(Path(__file__).resolve().parent.parent / 'outside'))\n"
+        "import ext\n"
+        "import mod\n"
+        "val = mod.helper(ext.ext_fn())\n"
+        "print('PASS tiny check')\n"
+        "print('TINY TESTS: 1 passed, 0 failed')\n",
+        encoding="utf-8",
+    )
+    trace_out = tmp_root / "trace.json"
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        rc = line_trace.run_traced_script(
+            script_path=tmp_root / "worker" / "test_tiny.py",
+            script_args=[],
+            out_path=trace_out,
+            root=tmp_root,
+        )
+    trace_data = json.loads(trace_out.read_text(encoding="utf-8"))
+    traced_checks, traced_parsed = test_inventory.parse_feature_log(buf.getvalue())
+    check("line_trace records expected lines and functions and excludes outside/ files",
+          rc == 0
+          and "worker/mod.py:2" in trace_data["lines"]
+          and "worker/mod.py:5" not in trace_data["lines"]
+          and trace_data["functions"] == ["worker/mod.py:helper"]
+          and not any(ln.startswith("outside/") for ln in trace_data["lines"]),
+          str(trace_data))
+    check("traced test preserves summary line and check counts",
+          traced_parsed is True and traced_checks == ["tiny check"],
+          buf.getvalue())
+
+    # 8. build_coverage & format_coverage_report omit raw lines and compute unique/uncovered stats
+    cov = test_inventory.build_coverage(
+        traced_entries=[{
+            "file": "worker/test_tiny.py",
+            "suite": "worker",
+            "runner": "python3",
+            "seconds": 0.05,
+            "parsed": True,
+            "check_count": 1,
+            "line_count": trace_data["line_count"],
+            "lines": trace_data["lines"],
+            "functions": trace_data["functions"],
+        }],
+        excluded_viewport=["viewport/test_tools.gd"],
+        root=tmp_root,
+    )
+    cov_report = test_inventory.format_coverage_report(cov)
+    check("build_coverage omits raw lines and identifies uncovered worker functions + unique lines",
+          "lines" not in cov["files"][0]
+          and cov["files"][0]["unique_line_count"] > 0
+          and cov["uncovered_worker_functions"] == ["worker/mod.py:unused"]
+          and "viewport/test_tools.gd" in cov["excluded_files"]
+          and "Worker module line coverage:" in cov_report
+          and "worker/mod.py:unused" in cov_report,
+          f"cov={cov}\nreport={cov_report}")
 
 passed = sum(1 for r in RESULTS if r)
 failed = len(RESULTS) - passed
