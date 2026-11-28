@@ -59,7 +59,7 @@ Each defect was introduced in turn, `tests/op_contracts.json` regenerated where 
 
 Gaps (ops left out, for H193 + H194):
 - **`mirror`** (`worker/mirror.py:op_mirror`): left out of H192 because `group` (and `new_ids` / `creates`) depend on `replace` (`replace=False` copy mode reads `group` and creates `new_ids`/`group`; `replace=True` flip-in-place mode short-circuits `group` unread and reuses target `BodyId`s).
-- **`move`**, **`push_pull`**, **`property_edit`**, **`fit`**: ops with modes or conditional field sets (H193 designs for these).
+- **`move`**, **`push_pull`**, **`property_edit`**, **`fit`**: ops with modes or conditional field sets (proposal: [op-contracts-with-modes.md](proposals/op-contracts-with-modes.md)).
 - Runtime validation against `CONTRACT` in handlers is deferred to H194.
 
 ## 5. What Move and Push/Pull contracts would need
