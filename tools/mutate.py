@@ -382,8 +382,9 @@ def load_coverage(root, budget):
     return trace_index(traces)
 
 
-def classify_test(rc, lines):
-    checks = []
+def classify_test(rc, lines, known_checks=()):
+    checks = set()
+    known_checks = set(known_checks)
     failed_line = False
     summary = None
     for line in lines:
@@ -391,7 +392,16 @@ def classify_test(rc, lines):
         if line.startswith("FAIL"):
             failed_line = True
             if line.startswith("FAIL "):
-                checks.append(strip_detail(line[5:]))
+                checks.add(strip_detail(line[5:]))
+        # FreeCAD reports a failed assert as a bracketed message and can exit 0.
+        # Match against the inventory so arbitrary exception details stay unnamed.
+        if line.startswith("Exception while processing file: ") and line.endswith("]"):
+            name = line.partition(" [")[2][:-1]
+        else:
+            name = line.removeprefix("AssertionError: ") if line.startswith("AssertionError: ") else None
+        if name in known_checks:
+            checks.add(name)
+            failed_line = True
         if summary is None:
             summary = FEATURE_SUMMARY_RE.match(line)
     if rc is None:
@@ -402,10 +412,10 @@ def classify_test(rc, lines):
         outcome, reason = "killed", f"exit {rc}" if rc else "missing summary"
     else:
         outcome, reason = "survived", ""
-    return {"outcome": outcome, "reason": reason, "checks": sorted(set(checks))}
+    return {"outcome": outcome, "reason": reason, "checks": sorted(checks)}
 
 
-def run_test(tree, file, seconds, budget):
+def run_test(tree, file, seconds, budget, known_checks=()):
     started = time.monotonic()
     with tempfile.TemporaryDirectory(prefix="test-", dir=tree / "scratch") as folder:
         # macOS Qt resolves FreeCAD's application data through CoreFoundation.
@@ -416,7 +426,7 @@ def run_test(tree, file, seconds, budget):
             rc = wait_for_process(["bash", "-c", RUN_TEST, "_", file], tree, env, log, budget,
                                   timeout=3 * seconds)
             log.seek(0)
-            result = classify_test(rc, log)
+            result = classify_test(rc, log, known_checks)
     return {"file": file, **result, "seconds": round(time.monotonic() - started, 3)}
 
 
@@ -455,7 +465,7 @@ def mutation_status(tests):
     return "killed" if any(test["outcome"] != "survived" for test in tests) else "survived"
 
 
-def run_mutant(tree, mutant, module, covering_tests, timings, budget):
+def run_mutant(tree, mutant, module, covering_tests, inventory, budget):
     results = []
     elapsed = 0
     if covering_tests:
@@ -466,7 +476,8 @@ def run_mutant(tree, mutant, module, covering_tests, timings, budget):
         clear_bytecode(path)
         try:
             path.write_bytes(mutant.apply(module.source))
-            results = [run_test(tree, file, timings[file], budget) for file in covering_tests]
+            results = [run_test(tree, file, inventory[file]["seconds"], budget, inventory[file]["checks"])
+                       for file in covering_tests]
         finally:
             path.write_bytes(module.source)
             clear_bytecode(path)
@@ -497,9 +508,9 @@ def record_result(stream, result):
     stream.flush()
 
 
-def run_mutations(root, directory, modules, pending, journal, coverage, timings, lanes, budget):
+def run_mutations(root, directory, modules, pending, journal, coverage, inventory, lanes, budget):
     unknown = {test for mutant in pending for test in coverage.get((mutant.file, mutant.line), ())
-               if test not in timings}
+               if test not in inventory}
     if unknown:
         raise RuntimeError(f"refresh tests/test_inventory.json for covering tests: {', '.join(sorted(unknown))}")
     revision = git(root, "rev-parse", "HEAD").strip()
@@ -521,7 +532,7 @@ def run_mutations(root, directory, modules, pending, journal, coverage, timings,
                 if mutant is None:
                     return
                 covering = coverage.get((mutant.file, mutant.line), [])
-                result = run_mutant(tree, mutant, modules[mutant.file], covering, timings, budget)
+                result = run_mutant(tree, mutant, modules[mutant.file], covering, inventory, budget)
                 with lock:
                     record_result(journal, result)
                     completed += 1
@@ -632,15 +643,14 @@ def run_or_export(args, directory, budget):
                 for mutant in sample_mutants(module.mutants, args.sample)]
     journal = directory / "results.jsonl"
     saved = saved_results(journal, modules)
-    inventory = json.loads((ROOT / "tests" / "test_inventory.json").read_text())
-    timings = {test["file"]: test["seconds"] for test in inventory["files"]
-               if test["suite"] in ("worker", "tools")}
+    feature_tests = json.loads((ROOT / "tests" / "test_inventory.json").read_text())["files"]
+    inventory = {test["file"]: test for test in feature_tests if test["suite"] in ("worker", "tools")}
     if args.matrix:
         results = [saved[mutant.id] for mutant in selected if mutant.id in saved]
         if not results:
             raise RuntimeError("no saved results for the current selection")
         path = ROOT / "tests" / "kill_matrix.json"
-        write_matrix(path, results, timings)
+        write_matrix(path, results, {file: test["seconds"] for file, test in inventory.items()})
         print(f"Wrote {len(results)}/{len(selected)} mutants to {path.relative_to(ROOT)}")
         return 0
 
@@ -656,7 +666,7 @@ def run_or_export(args, directory, budget):
         coverage = load_coverage(ROOT, budget)
         with journal.open("a") as stream:
             completed = run_mutations(ROOT, directory, modules, pending, stream, coverage,
-                                      timings, args.lanes, budget)
+                                      inventory, args.lanes, budget)
         print(f"Recorded {completed}; {len(pending) - completed} remain.", flush=True)
     finally:
         for sig, handler in previous_handlers.items():

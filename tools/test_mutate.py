@@ -118,6 +118,12 @@ check("a nonzero exit kills even when the summary reports no failures",
 check("a FAIL line kills and carries the check name without detail",
       classify_test(0, ["FAIL moved box  expected 1", "DEMO TESTS: 1 passed, 0 failed"]) ==
       {"outcome": "killed", "reason": "failed check", "checks": ["moved box"]})
+check("known assertion labels survive FreeCAD's exception formatting",
+      classify_test(0, ["Exception while processing file: worker/test_sample.py [moved box]"],
+                    ["moved box"])["checks"] == ["moved box"]
+      and classify_test(1, ["AssertionError: moved box"], ["moved box"])["checks"] == ["moved box"]
+      and not classify_test(0, ["Exception while processing file: worker/test_sample.py [not a check]"],
+                            ["moved box"])["checks"])
 check("timeout is distinct and retains any check names printed first",
       classify_test(None, ["FAIL moved box"])["outcome"] == "timeout"
       and classify_test(None, ["FAIL moved box"])["checks"] == ["moved box"])
