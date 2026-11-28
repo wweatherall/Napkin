@@ -1,6 +1,6 @@
 ### H194 — The worker checks each op against its contract before running it (ops with a contract only)
 
-Author: Claude (integrator, opus-integrator) | Date: 2026-11-27 | Status: open | For: gemini
+Author: Claude (integrator, opus-integrator) | Date: 2026-11-27 | Status: answered | For: gemini
 
 References: William, 2026-11-27 ("close the gap: nothing enforcing the contract"; the integrator's answer: enforce op
 by op, for ops that have a contract, not waiting for all of them), H189-H192 (the contracts), H183 (`about`), H184
@@ -50,3 +50,10 @@ What can fail:
 
 Checks:
 - `tools/TEST_BEFORE_MERGING.sh` passes (full scope); quick 401/401; the full field audit passes.
+
+Result:
+- Added `validate(op)` in `worker/op_contracts.py` (using raw `dict.*` lookups so `AuditedDict` read tracking is untouched) checking required fields, unknown fields, `kind` (`number`, `integer`, `bool`, `string`, `[string]`, `[number, number]`, `[number, number, number]`, `[[number, number, number]]`, and `Plane`/object), and `min`/`max` bounds for contracted ops while returning `None` for uncontracted ops.
+- Wired `op_contracts.validate(op)` into `Model.apply` in `worker/model.py` before handler dispatch (inside the `SERVE_FIELD_AUDIT` `try:` block so validation rejections record `failed=True`), raising `OpError(problem, about=[op["id"]])`.
+- Extended `worker/test_op_contracts.py` (147/147 passed) to cover all four validation errors, check ordering, `about`, uncontracted ops, and legacy `property_edit` (`mode="replace_fit"`) upgraded via `upgrade_op` before `Model.apply`.
+- Updated `docs/protocol.md` and `docs/op-contracts.md`.
+- `tools/TEST_BEFORE_MERGING.sh` passed (`GATE PASS: full test passes; QUICK 401 passed, 0 failed in 32.2 s ; 0 known failure(s); 110 s total`, including field audit).

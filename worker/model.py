@@ -353,6 +353,7 @@ class Model(*action_mixins()):
     def apply(self, op):
         if op["type"] not in self.HANDLERS:
             raise OpError(f"unknown op type '{op['type']}'")
+        import op_contracts
         import plane_fit
         fit_inputs = plane_fit.refit_inputs(self)
         audit_path = os.environ.get("SERVE_FIELD_AUDIT")
@@ -362,11 +363,17 @@ class Model(*action_mixins()):
             audited = AuditedDict(op)
             failed = True
             try:
+                problem = op_contracts.validate(op)
+                if problem:
+                    raise OpError(problem, about=[op["id"]] if "id" in op else ())
                 changed = getattr(self, "op_" + op["type"])(audited)
                 failed = False
             finally:
                 append_record(audit_path, op["type"], sent, audited.read_keys(), failed=failed)
         else:
+            problem = op_contracts.validate(op)
+            if problem:
+                raise OpError(problem, about=[op["id"]] if "id" in op else ())
             changed = getattr(self, "op_" + op["type"])(op)
         self.doc.recompute()  # Resolve native features and expressions before reading fit frames.
         fitted = plane_fit.refit_changed(self, fit_inputs)
