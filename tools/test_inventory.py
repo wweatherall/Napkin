@@ -26,6 +26,12 @@ import time
 
 ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_OUT_JSON = ROOT / "tests" / "test_inventory.json"
+DEFAULT_COV_JSON = ROOT / "tests" / "test_coverage.json"
+DEFAULT_TRACE_DIR = ROOT / "scratch" / "coverage"
+
+if str(Path(__file__).resolve().parent) not in sys.path:
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+import line_trace  # noqa: E402
 
 FEATURE_SUMMARY_RE = re.compile(r"^[A-Z][A-Z -]* TESTS:\s*(\d+)\s+passed,\s*(\d+)\s+failed")
 CHECK_LINE_RE = re.compile(r"^(?:PASS|FAIL)\s+(.+)$")
@@ -302,14 +308,279 @@ def format_report(inventory: dict) -> str:
     return "\n".join(lines)
 
 
+def _is_non_test_repo_line(file_line: str) -> bool:
+    """Return True if 'file:line' refers to a non-test file under worker/ or tools/."""
+    rel = file_line.split(":", 1)[0]
+    name = Path(rel).name
+    return not name.startswith("test_")
+
+
+def run_coverage_tests(
+    root: Path = ROOT,
+    trace_dir: Path | None = None,
+    mode: str = "line",
+) -> tuple[list[dict], list[str]]:
+    """Run all worker and tools feature tests under line_trace.py.
+
+    Returns (traced_entries, excluded_viewport_files). Per-test line traces are
+    written to trace_dir (default: scratch/coverage/) so H216 can inspect them.
+    """
+    tests, test_tmpdir = discover_feature_tests(root)
+    excluded_viewport = sorted(t["file"] for t in tests if t["suite"] == "viewport")
+    py_tests = [t for t in tests if t["suite"] in ("worker", "tools")]
+
+    out_dir = Path(tempfile.mkdtemp(prefix="napkin-cov-", dir=test_tmpdir))
+    if trace_dir is None:
+        trace_dir = root / "scratch" / "coverage"
+    trace_dir.mkdir(parents=True, exist_ok=True)
+    hook_dir, fc_wrapper = line_trace.install_trace_hooks(trace_dir / "hook", root)
+    trace_script = str((root / "tools" / "line_trace.py").resolve())
+
+    def _run_one(t: dict[str, str]) -> dict:
+        testdir = out_dir / t["name"]
+        testdir.mkdir(parents=True, exist_ok=True)
+        log_path = out_dir / f"{t['name']}.log"
+        trace_path = trace_dir / f"{t['name']}.json"
+        if trace_path.exists():
+            trace_path.unlink()
+
+        env = os.environ.copy()
+        env["TMPDIR"] = test_tmpdir
+        env["NAPKIN_TRACE_OUT"] = str(trace_path)
+        env["NAPKIN_TRACE_SCRIPT"] = t["file"]
+        env["NAPKIN_TRACE_MODE"] = mode
+        env["NAPKIN_TRACE_ROOT"] = str(root)
+        prev_pp = env.get("PYTHONPATH", "")
+        env["PYTHONPATH"] = os.pathsep.join([str(hook_dir)] + ([prev_pp] if prev_pp else []))
+        env["NAPKIN_REAL_FREECAD"] = env.get("FREECAD", line_trace.DEFAULT_FREECAD)
+        env["FREECAD"] = str(fc_wrapper)
+        if t["suite"] == "tools" and t["file"].endswith(".py"):
+            env["NAPKIN_TRACE_ARGS"] = json.dumps(["-v"])
+        else:
+            env.pop("NAPKIN_TRACE_ARGS", None)
+
+        if t["runner"] == "freecadcmd":
+            shell_cmd = (
+                'source tools/featuretest.sh; test_runner_for "$1"; '
+                'TESTDIR="$2" run_test_command "$FC" "$3"'
+            )
+            cmd = ["bash", "-c", shell_cmd, "_", t["file"], str(testdir), trace_script]
+        else:
+            cmd = [sys.executable, trace_script]
+
+        t0 = time.monotonic()
+        with open(log_path, "w", encoding="utf-8") as log_fh:
+            proc = subprocess.Popen(cmd, cwd=root, env=env, stdout=log_fh, stderr=subprocess.STDOUT)
+            rc = proc.wait()
+        elapsed = round(time.monotonic() - t0, 3)
+
+        text = log_path.read_text(encoding="utf-8", errors="replace")
+        checks, parsed = parse_feature_log(text)
+        trace_data = json.loads(trace_path.read_text(encoding="utf-8")) if trace_path.exists() else {}
+        return {
+            "file": t["file"],
+            "suite": t["suite"],
+            "runner": t["runner"],
+            "seconds": elapsed,
+            "exit_code": rc,
+            "parsed": parsed,
+            "check_count": len(checks),
+            "line_count": int(trace_data.get("line_count", 0)),
+            "lines": list(trace_data.get("lines", [])),
+            "functions": sorted(set(trace_data.get("functions", []))),
+            "children_untraced": bool(trace_data.get("children_untraced", False)),
+        }
+
+    with ThreadPoolExecutor(max_workers=max(1, len(py_tests))) as pool:
+        entries = list(pool.map(_run_one, py_tests))
+    return entries, excluded_viewport
+
+
+def build_coverage(
+    traced_entries: list[dict],
+    excluded_viewport: list[str],
+    root: Path = ROOT,
+    mode: str = "line",
+    inventory: dict | None = None,
+) -> dict:
+    """Build the committed tests/test_coverage.json structure (without line numbers)."""
+    line_owners: Counter[str] = Counter()
+    all_covered_lines_by_file: dict[str, set[int]] = defaultdict(set)
+    all_covered_funcs: set[str] = set()
+
+    for entry in traced_entries:
+        for fl in entry.get("lines", []):
+            rel, _, ln_str = fl.partition(":")
+            if ln_str.isdigit():
+                all_covered_lines_by_file[rel].add(int(ln_str))
+            if _is_non_test_repo_line(fl):
+                line_owners[fl] += 1
+        for fn in entry.get("functions", []):
+            all_covered_funcs.add(fn)
+
+    files_out: list[dict] = []
+    zero_unique_tests: list[str] = []
+    for entry in sorted(traced_entries, key=lambda e: e["file"]):
+        unique_count = sum(
+            1 for fl in entry.get("lines", [])
+            if _is_non_test_repo_line(fl) and line_owners[fl] == 1
+        )
+        children_untraced = bool(entry.get("children_untraced", False))
+        if unique_count == 0 and not children_untraced:
+            zero_unique_tests.append(entry["file"])
+        item: dict = {
+            "file": entry["file"],
+            "suite": entry["suite"],
+            "runner": entry["runner"],
+            "seconds": round(float(entry["seconds"]), 3),
+            "parsed": bool(entry.get("parsed", False)),
+            "check_count": int(entry.get("check_count", 0)),
+            "line_count": int(entry.get("line_count", 0)),
+            "unique_line_count": unique_count,
+            "functions": sorted(entry.get("functions", [])),
+        }
+        if children_untraced:
+            item["children_untraced"] = True
+        files_out.append(item)
+
+    worker_modules: list[dict] = []
+    uncovered_worker_functions: list[str] = []
+    worker_dir = root / "worker"
+    if worker_dir.is_dir():
+        for py_path in sorted(worker_dir.glob("*.py")):
+            if py_path.name.startswith("test_"):
+                continue
+            rel = f"worker/{py_path.name}"
+            _, _, all_funcs, exec_lines = line_trace.extract_file_structure(py_path)
+            covered_set = all_covered_lines_by_file.get(rel, set()) & exec_lines
+            total_lines = len(exec_lines)
+            covered_lines = len(covered_set)
+            pct = round((100.0 * covered_lines / total_lines), 1) if total_lines else 100.0
+            uncovered_fns = sorted(
+                fn for fn in all_funcs if f"{rel}:{fn}" not in all_covered_funcs
+            )
+            for fn in uncovered_fns:
+                uncovered_worker_functions.append(f"{rel}:{fn}")
+            worker_modules.append({
+                "file": rel,
+                "covered_lines": covered_lines,
+                "total_lines": total_lines,
+                "coverage_pct": pct,
+                "uncovered_functions": uncovered_fns,
+            })
+
+    result: dict = {
+        "mode": mode,
+        "excluded_suites": ["viewport"] if excluded_viewport else [],
+        "excluded_files": sorted(excluded_viewport),
+        "files": files_out,
+        "worker_modules": worker_modules,
+        "uncovered_worker_functions": sorted(uncovered_worker_functions),
+        "zero_unique_tests": sorted(zero_unique_tests),
+    }
+
+    if inventory is not None:
+        untraced_by_file = {
+            e["file"]: float(e["seconds"])
+            for e in inventory.get("files", [])
+            if e.get("suite") in ("worker", "tools")
+        }
+        traced_total = sum(float(e["seconds"]) for e in files_out)
+        untraced_total = sum(untraced_by_file.get(e["file"], 0.0) for e in files_out)
+        if untraced_total > 0:
+            result["timing"] = {
+                "traced_seconds": round(traced_total, 2),
+                "untraced_seconds": round(untraced_total, 2),
+                "slowdown": round(traced_total / untraced_total, 2),
+            }
+
+    return result
+
+
+def format_coverage_report(coverage: dict) -> str:
+    """Format a human-readable coverage report from a test_coverage.json dict."""
+    lines: list[str] = []
+    mode = coverage.get("mode", "line")
+    excluded = coverage.get("excluded_files", [])
+    lines.append(f"Coverage mode: {mode} (viewport GDScript excluded: {len(excluded)} files, no GDScript tracer)")
+
+    timing = coverage.get("timing")
+    if timing:
+        lines.append(
+            f"Traced runtime: {timing['traced_seconds']:.2f} s vs untraced {timing['untraced_seconds']:.2f} s "
+            f"({timing['slowdown']:.2f}x)"
+        )
+
+    lines.append("")
+    lines.append("Worker module line coverage:")
+    total_cov = 0
+    total_exec = 0
+    for mod in coverage.get("worker_modules", []):
+        total_cov += int(mod["covered_lines"])
+        total_exec += int(mod["total_lines"])
+        lines.append(
+            f"  {mod['file']:28s} {mod['covered_lines']:4d}/{mod['total_lines']:4d} ({mod['coverage_pct']:5.1f}%)"
+        )
+    overall_pct = (100.0 * total_cov / total_exec) if total_exec else 100.0
+    lines.append(f"  {'total':28s} {total_cov:4d}/{total_exec:4d} ({overall_pct:5.1f}%)")
+
+    uncovered = coverage.get("uncovered_worker_functions", [])
+    op_handlers = [fn for fn in uncovered if ":op_" in fn or ".op_" in fn]
+    lines.append("")
+    lines.append(f"Uncovered worker functions ({len(uncovered)}):")
+    if op_handlers:
+        lines.append(f"  RED FLAG op handlers ({len(op_handlers)}): {', '.join(op_handlers)}")
+    for fn in uncovered:
+        flag = "  [OP HANDLER]" if fn in op_handlers else ""
+        lines.append(f"  {fn}{flag}")
+
+    files = coverage.get("files", [])
+    lines.append("")
+    lines.append("Unique non-test lines per test file (lines only that test runs):")
+    for entry in sorted(files, key=lambda e: (-int(e["unique_line_count"]), e["file"])):
+        mark = "  [children untraced]" if entry.get("children_untraced") else ""
+        lines.append(
+            f"  {entry['unique_line_count']:5d} unique  ({entry['line_count']:5d} total)  {entry['file']}{mark}"
+        )
+
+    zero_unique = coverage.get("zero_unique_tests", [])
+    lines.append("")
+    lines.append(f"Candidate probes with 0 unique non-test lines ({len(zero_unique)}, not cuts; excludes children_untraced):")
+    for f in zero_unique:
+        lines.append(f"  {f}")
+
+    return "\n".join(lines)
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Build and report the Napkin test inventory.")
     parser.add_argument("--quick", action="store_true", help="Also run quicktest.sh --full and include lane logs")
     parser.add_argument("--report", action="store_true", help="Print report from saved JSON without running tests")
     parser.add_argument("--out", default=str(DEFAULT_OUT_JSON), help="Path to inventory JSON")
+    parser.add_argument("--coverage", action="store_true", help="Run worker/tools tests under line_trace.py")
+    parser.add_argument("--coverage-report", action="store_true", help="Print coverage report from saved JSON")
+    parser.add_argument("--coverage-out", default=str(DEFAULT_COV_JSON), help="Path to coverage JSON")
     args = parser.parse_args(argv)
 
+    cov_path = Path(args.coverage_out)
+    if args.coverage_report:
+        if not cov_path.exists():
+            print(f"error: coverage file not found: {cov_path}", file=sys.stderr)
+            return 1
+        cov = json.loads(cov_path.read_text(encoding="utf-8"))
+        print(format_coverage_report(cov))
+        return 0
+
     out_path = Path(args.out)
+    if args.coverage:
+        inventory = json.loads(out_path.read_text(encoding="utf-8")) if out_path.exists() else None
+        traced_entries, excluded_vp = run_coverage_tests(ROOT, DEFAULT_TRACE_DIR)
+        cov = build_coverage(traced_entries, excluded_vp, ROOT, mode="line", inventory=inventory)
+        cov_path.parent.mkdir(parents=True, exist_ok=True)
+        cov_path.write_text(json.dumps(cov, indent=2) + "\n", encoding="utf-8")
+        print(format_coverage_report(cov))
+        return 0
+
     if args.report:
         if not out_path.exists():
             print(f"error: inventory file not found: {out_path}", file=sys.stderr)

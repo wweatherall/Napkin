@@ -76,7 +76,6 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 |---|---|---|---|---|---|
 | H212 | Codex | Claimed: branch codex/h212-components-the-sketchup-way | Components and arrays the SketchUp way: one click takes the group, inside every copy is linked, the original is marked (I82) | [H212](docs/handoff/H212-components-the-sketchup-way.md) |  |
 | H213 | either | Claimed: branch gemini/h213-hopper-workshop | The hopper workshop: William's animated, width-aware hopper picture (made with ChatGPT) brought into Napkin | [H213](docs/handoff/H213-hopper-workshop.md) |  |
-| H215 | either | **Ready** | Line coverage per test file for worker/ and tools/, added to the inventory (T172 step 2) | [H215](docs/handoff/H215-coverage-per-test.md) |  |
 
 <!-- end of job table -->
 
