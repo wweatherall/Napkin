@@ -7,6 +7,7 @@ import contextlib
 import io
 import json
 from pathlib import Path
+import shutil
 import sys
 import tempfile
 
@@ -62,24 +63,61 @@ check("missing summary line sets parsed=False",
       parsed_ns is False and checks_ns == ["check a", "check b"],
       f"parsed={parsed_ns}, checks={checks_ns}")
 
-# 4. Quick lane log parsing
+# 4. Quick lane log parsing with real-format timing line and repeated step names
 quick_log = """\
-QUICK timing (s): rect 1.2 | push 2.3 | opening fresh models 0.5
-QUICK 42 passed, 0 failed in 8.4 s
+QUICK timing (s): rect 0.2  rect_amend 2.4  move_copy_counts 0.5  move_copy_counts 0.4  | opening fresh models 6.6
+QUICK 158 passed, 0 failed in 26.4 s
 """
-q_checks, q_sec, q_parsed = test_inventory.parse_quick_lane_log(quick_log)
-check("parse_quick_lane_log extracts seconds and marks unprinted PASS lines parsed=False",
-      q_sec == 8.4 and q_parsed is False and q_checks == [],
-      f"sec={q_sec}, parsed={q_parsed}, checks={q_checks}")
+q_steps, q_sec, q_count, q_parsed = test_inventory.parse_quick_lane_log(quick_log)
+check("parse_quick_lane_log parses steps, indexes repeats, ignores fresh-models tail, sets parsed=True",
+      q_parsed is True
+      and q_sec == 26.4
+      and q_count == 158
+      and q_steps == [
+          {"name": "move_copy_counts#1", "seconds": 0.5},
+          {"name": "move_copy_counts#2", "seconds": 0.4},
+          {"name": "rect", "seconds": 0.2},
+          {"name": "rect_amend", "seconds": 2.4},
+      ],
+      f"sec={q_sec}, count={q_count}, parsed={q_parsed}, steps={q_steps}")
 
-quick_log_with_fail = """\
+quick_log_no_timing = """\
 QUICK FAIL [rect] snap to corner  got (1,2)
 QUICK 41 passed, 1 failed in 7.5 s
 """
-qf_checks, qf_sec, qf_parsed = test_inventory.parse_quick_lane_log(quick_log_with_fail)
-check("parse_quick_lane_log strips detail on QUICK FAIL",
-      qf_sec == 7.5 and qf_parsed is False and qf_checks == ["[rect] snap to corner"],
-      f"sec={qf_sec}, parsed={qf_parsed}, checks={qf_checks}")
+qf_steps, qf_sec, qf_count, qf_parsed = test_inventory.parse_quick_lane_log(quick_log_no_timing)
+check("parse_quick_lane_log sets parsed=False when timing line is missing",
+      qf_sec == 7.5 and qf_count == 42 and qf_parsed is False and qf_steps == [],
+      f"sec={qf_sec}, count={qf_count}, parsed={qf_parsed}, steps={qf_steps}")
+
+# 5. tools/*.py tests are run with -v so VERBOSE tests are parsed, while non-VERBOSE stay parsed=False
+with tempfile.TemporaryDirectory() as tmp:
+    tmp_root = Path(tmp)
+    (tmp_root / "tools").mkdir()
+    shutil.copy(ROOT / "tools" / "featuretest.sh", tmp_root / "tools" / "featuretest.sh")
+    shutil.copy(ROOT / "tools" / "gate.sh", tmp_root / "tools" / "gate.sh")
+    (tmp_root / "tools" / "test_with_v.py").write_text(
+        "import sys\n"
+        "if '-v' in sys.argv[1:]:\n"
+        "    print('PASS alpha check')\n"
+        "    print('PASS beta check')\n"
+        "print('WITH V TESTS: 2 passed, 0 failed')\n",
+        encoding="utf-8",
+    )
+    (tmp_root / "tools" / "test_no_v.py").write_text(
+        "print('NO V TESTS: 2 passed, 0 failed')\n",
+        encoding="utf-8",
+    )
+    entries, _ = test_inventory.run_feature_tests(tmp_root)
+    by_file = {e["file"]: e for e in entries}
+    check("tools test with -v switch prints checks and gets parsed=True",
+          by_file["tools/test_with_v.py"]["parsed"] is True
+          and by_file["tools/test_with_v.py"]["checks"] == ["alpha check", "beta check"],
+          str(by_file.get("tools/test_with_v.py")))
+    check("tools test without -v switch stays parsed=False",
+          by_file["tools/test_no_v.py"]["parsed"] is False
+          and by_file["tools/test_no_v.py"]["checks"] == [],
+          str(by_file.get("tools/test_no_v.py")))
 
 # 5. Stable sort: different input order and different seconds produce identical JSON except seconds
 entries_a = [

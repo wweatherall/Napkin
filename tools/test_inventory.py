@@ -13,7 +13,7 @@ Usage:
 from __future__ import annotations
 
 import argparse
-from collections import defaultdict
+from collections import Counter, defaultdict
 from concurrent.futures import ThreadPoolExecutor
 import json
 import os
@@ -30,7 +30,8 @@ DEFAULT_OUT_JSON = ROOT / "tests" / "test_inventory.json"
 FEATURE_SUMMARY_RE = re.compile(r"^[A-Z][A-Z -]* TESTS:\s*(\d+)\s+passed,\s*(\d+)\s+failed")
 CHECK_LINE_RE = re.compile(r"^(?:PASS|FAIL)\s+(.+)$")
 QUICK_SUMMARY_RE = re.compile(r"^QUICK\s+(\d+)\s+passed,\s*(\d+)\s+failed\s+in\s+([0-9.]+)\s+s")
-QUICK_CHECK_RE = re.compile(r"^QUICK\s+(?:PASS|FAIL)\s+(.+)$")
+QUICK_TIMING_RE = re.compile(r"^QUICK\s+timing\s+\(s\):\s*(.+)$")
+QUICK_STEP_RE = re.compile(r"(\S+)\s+([0-9]+(?:\.[0-9]+)?)")
 QUICK_LOGS_RE = re.compile(r"\(logs:\s*([^)]+)\)")
 
 
@@ -60,23 +61,44 @@ def parse_feature_log(text: str) -> tuple[list[str], bool]:
     return sorted(checks), parsed
 
 
-def parse_quick_lane_log(text: str) -> tuple[list[str], float, bool]:
-    """Parse check lines, lane seconds, and parsed status from a quicktest vp*.log."""
-    checks: list[str] = []
-    expected_total: int | None = None
+def parse_quick_lane_log(text: str) -> tuple[list[dict[str, object]], float, int | None, bool]:
+    """Parse step timings, lane seconds, check count, and parsed status from a quicktest vp*.log.
+
+    Reads the 'QUICK timing (s): <step> <sec> ... | opening fresh models <sec>' line (disambiguating
+    repeated step names with #<index>) and the 'QUICK N passed, M failed in T s' summary line.
+    """
+    raw_steps: list[tuple[str, float]] = []
+    saw_timing = False
+    check_count: int | None = None
     seconds = 0.0
     for line in text.splitlines():
-        m_chk = QUICK_CHECK_RE.match(line)
-        if m_chk:
-            checks.append(strip_detail(m_chk.group(1)))
-            continue
-        if expected_total is None:
+        if not saw_timing:
+            m_tim = QUICK_TIMING_RE.match(line)
+            if m_tim:
+                saw_timing = True
+                left = m_tim.group(1).split("|", 1)[0]
+                for step_name, sec_str in QUICK_STEP_RE.findall(left):
+                    raw_steps.append((step_name, round(float(sec_str), 3)))
+                continue
+        if check_count is None:
             m_sum = QUICK_SUMMARY_RE.match(line)
             if m_sum:
-                expected_total = int(m_sum.group(1)) + int(m_sum.group(2))
+                check_count = int(m_sum.group(1)) + int(m_sum.group(2))
                 seconds = float(m_sum.group(3))
-    parsed = expected_total is not None and len(checks) == expected_total
-    return sorted(checks), seconds, parsed
+
+    counts = Counter(name for name, _ in raw_steps)
+    seen: Counter[str] = Counter()
+    steps: list[dict[str, object]] = []
+    for name, sec in raw_steps:
+        if counts[name] > 1:
+            seen[name] += 1
+            labeled = f"{name}#{seen[name]}"
+        else:
+            labeled = name
+        steps.append({"name": labeled, "seconds": sec})
+    steps.sort(key=lambda s: str(s["name"]))
+    parsed = saw_timing and len(steps) > 0 and check_count is not None
+    return steps, seconds, check_count, parsed
 
 
 def discover_feature_tests(root: Path = ROOT) -> tuple[list[dict[str, str]], str]:
@@ -130,10 +152,11 @@ def run_feature_tests(root: Path = ROOT) -> tuple[list[dict], str]:
         testdir = out_dir / t["name"]
         testdir.mkdir(parents=True, exist_ok=True)
         log_path = out_dir / f"{t['name']}.log"
+        extra_args = " -v" if (t["suite"] == "tools" and t["file"].endswith(".py")) else ""
         cmd = [
             "bash",
             "-c",
-            'source tools/featuretest.sh; test_runner_for "$1"; TESTDIR="$2" run_test_command $TEST_CMD',
+            f'source tools/featuretest.sh; test_runner_for "$1"; TESTDIR="$2" run_test_command $TEST_CMD{extra_args}',
             "_",
             t["file"],
             str(testdir),
@@ -182,16 +205,20 @@ def run_quick_tests(root: Path = ROOT, test_tmpdir: str | None = None) -> list[d
     entries: list[dict] = []
     for vp_log in sorted(logs_dir.glob("vp*.log")):
         text = vp_log.read_text(encoding="utf-8", errors="replace")
-        checks, seconds, parsed = parse_quick_lane_log(text)
+        steps, seconds, check_count, parsed = parse_quick_lane_log(text)
         lane_name = vp_log.stem  # e.g. vp1, vp2, vp3
-        entries.append({
+        entry: dict = {
             "file": f"quick/{lane_name}",
             "suite": "quick",
             "runner": "godot",
             "seconds": round(seconds, 3),
-            "checks": checks,
+            "checks": [str(s["name"]) for s in steps],
+            "steps": steps,
             "parsed": parsed,
-        })
+        }
+        if check_count is not None:
+            entry["check_count"] = check_count
+        entries.append(entry)
     return entries
 
 
@@ -201,14 +228,22 @@ def build_inventory(file_entries: list[dict]) -> dict:
     checks_flat: list[dict[str, str]] = []
     for entry in sorted(file_entries, key=lambda e: e["file"]):
         sorted_checks = sorted(entry["checks"])
-        sorted_files.append({
+        item: dict = {
             "file": entry["file"],
             "suite": entry["suite"],
             "runner": entry["runner"],
             "seconds": round(float(entry["seconds"]), 3),
             "checks": sorted_checks,
             "parsed": bool(entry["parsed"]),
-        })
+        }
+        if "steps" in entry:
+            item["steps"] = sorted(
+                [{"name": str(s["name"]), "seconds": round(float(s["seconds"]), 3)} for s in entry["steps"]],
+                key=lambda s: str(s["name"]),
+            )
+        if "check_count" in entry:
+            item["check_count"] = int(entry["check_count"])
+        sorted_files.append(item)
         for chk in sorted_checks:
             checks_flat.append({"name": chk, "file": entry["file"]})
 
