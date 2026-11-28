@@ -333,6 +333,7 @@ def run_coverage_tests(
     if trace_dir is None:
         trace_dir = root / "scratch" / "coverage"
     trace_dir.mkdir(parents=True, exist_ok=True)
+    hook_dir, fc_wrapper = line_trace.install_trace_hooks(trace_dir / "hook", root)
     trace_script = str((root / "tools" / "line_trace.py").resolve())
 
     def _run_one(t: dict[str, str]) -> dict:
@@ -349,6 +350,10 @@ def run_coverage_tests(
         env["NAPKIN_TRACE_SCRIPT"] = t["file"]
         env["NAPKIN_TRACE_MODE"] = mode
         env["NAPKIN_TRACE_ROOT"] = str(root)
+        prev_pp = env.get("PYTHONPATH", "")
+        env["PYTHONPATH"] = os.pathsep.join([str(hook_dir)] + ([prev_pp] if prev_pp else []))
+        env["NAPKIN_REAL_FREECAD"] = env.get("FREECAD", line_trace.DEFAULT_FREECAD)
+        env["FREECAD"] = str(fc_wrapper)
         if t["suite"] == "tools" and t["file"].endswith(".py"):
             env["NAPKIN_TRACE_ARGS"] = json.dumps(["-v"])
         else:
@@ -383,6 +388,7 @@ def run_coverage_tests(
             "line_count": int(trace_data.get("line_count", 0)),
             "lines": list(trace_data.get("lines", [])),
             "functions": sorted(set(trace_data.get("functions", []))),
+            "children_untraced": bool(trace_data.get("children_untraced", False)),
         }
 
     with ThreadPoolExecutor(max_workers=max(1, len(py_tests))) as pool:
@@ -419,9 +425,10 @@ def build_coverage(
             1 for fl in entry.get("lines", [])
             if _is_non_test_repo_line(fl) and line_owners[fl] == 1
         )
-        if unique_count == 0:
+        children_untraced = bool(entry.get("children_untraced", False))
+        if unique_count == 0 and not children_untraced:
             zero_unique_tests.append(entry["file"])
-        files_out.append({
+        item: dict = {
             "file": entry["file"],
             "suite": entry["suite"],
             "runner": entry["runner"],
@@ -431,7 +438,10 @@ def build_coverage(
             "line_count": int(entry.get("line_count", 0)),
             "unique_line_count": unique_count,
             "functions": sorted(entry.get("functions", [])),
-        })
+        }
+        if children_untraced:
+            item["children_untraced"] = True
+        files_out.append(item)
 
     worker_modules: list[dict] = []
     uncovered_worker_functions: list[str] = []
@@ -528,13 +538,14 @@ def format_coverage_report(coverage: dict) -> str:
     lines.append("")
     lines.append("Unique non-test lines per test file (lines only that test runs):")
     for entry in sorted(files, key=lambda e: (-int(e["unique_line_count"]), e["file"])):
+        mark = "  [children untraced]" if entry.get("children_untraced") else ""
         lines.append(
-            f"  {entry['unique_line_count']:5d} unique  ({entry['line_count']:5d} total)  {entry['file']}"
+            f"  {entry['unique_line_count']:5d} unique  ({entry['line_count']:5d} total)  {entry['file']}{mark}"
         )
 
     zero_unique = coverage.get("zero_unique_tests", [])
     lines.append("")
-    lines.append(f"Candidate probes with 0 unique non-test lines ({len(zero_unique)}, not cuts):")
+    lines.append(f"Candidate probes with 0 unique non-test lines ({len(zero_unique)}, not cuts; excludes children_untraced):")
     for f in zero_unique:
         lines.append(f"  {f}")
 

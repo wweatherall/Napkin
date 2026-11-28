@@ -3,7 +3,10 @@
 """Run a Python test script under sys.settrace and record executed lines and functions.
 
 Traces only files under worker/ and tools/ of the repository (excluding this script),
-so FreeCAD's own Python modules and stdlib are never line-traced.
+so FreeCAD's own Python modules and stdlib are never line-traced. Also follows child
+Python processes via a temporary sitecustomize.py on PYTHONPATH and child freecadcmd
+processes via a FREECAD wrapper script, merging their <out>.child-<pid>.json files
+into the parent trace.
 
 Usage:
   python3 tools/line_trace.py --out trace.json worker/test_drawing_ids.py
@@ -16,12 +19,100 @@ import ast
 import json
 import os
 from pathlib import Path
+import re
 import runpy
+import signal
+import stat
+import subprocess
 import sys
 import time
 import types
 
 ROOT = Path(__file__).resolve().parent.parent
+DEFAULT_FREECAD = "/Applications/FreeCAD.app/Contents/Resources/bin/freecadcmd"
+_CHILD_PID_RE = re.compile(r"\.child-(\d+)\.json$")
+
+_SITECUSTOMIZE_SRC = """\
+import atexit
+import json
+import os
+from pathlib import Path
+import sys
+import time
+
+_child_base = os.environ.get("NAPKIN_TRACE_CHILD_BASE")
+_parent_pid = os.environ.get("NAPKIN_TRACE_PARENT_PID")
+_root_str = os.environ.get("NAPKIN_TRACE_ROOT")
+_mode = os.environ.get("NAPKIN_TRACE_MODE", "line")
+
+if _child_base and _root_str and str(os.getpid()) != _parent_pid and sys.gettrace() is None:
+    _tools_dir = str(Path(_root_str) / "tools")
+    if _tools_dir not in sys.path:
+        sys.path.insert(0, _tools_dir)
+    try:
+        import line_trace as _lt
+    except Exception:
+        _lt = None
+    if _lt is not None:
+        _root = Path(_root_str)
+        _tracer = _lt.LineTracer(root=_root, mode=_mode)
+        _t0 = time.monotonic()
+        sys.settrace(_tracer.trace_call)
+
+        def _napkin_flush_child_trace():
+            sys.settrace(None)
+            _elapsed = time.monotonic() - _t0
+            _out = Path(f"{_child_base}.child-{os.getpid()}.json")
+            _script = sys.argv[0] if sys.argv else "<child>"
+            try:
+                _rel = Path(_script).resolve().relative_to(_root.resolve()).as_posix()
+            except Exception:
+                _rel = str(_script)
+            _payload = _lt.build_trace_payload(_rel, _tracer, _elapsed, root=_root)
+            _out.parent.mkdir(parents=True, exist_ok=True)
+            _out.write_text(json.dumps(_payload, indent=2) + "\\n", encoding="utf-8")
+
+        atexit.register(_napkin_flush_child_trace)
+"""
+
+_FREECAD_WRAPPER_SRC = """\
+#!/bin/bash
+REAL_FC="${NAPKIN_REAL_FREECAD:-/Applications/FreeCAD.app/Contents/Resources/bin/freecadcmd}"
+if [ -z "$NAPKIN_TRACE_CHILD_BASE" ] || [ -z "$NAPKIN_TRACE_ROOT" ]; then
+  exec "$REAL_FC" "$@"
+fi
+ARGS=()
+SCRIPT=""
+for a in "$@"; do
+  if [[ "$a" == *.py ]] && [ -z "$SCRIPT" ]; then
+    SCRIPT="$a"
+    ARGS+=("$NAPKIN_TRACE_ROOT/tools/line_trace.py")
+  else
+    ARGS+=("$a")
+  fi
+done
+if [ -z "$SCRIPT" ]; then
+  exec "$REAL_FC" "$@"
+fi
+export NAPKIN_TRACE_OUT="${NAPKIN_TRACE_CHILD_BASE}.child-$$.json"
+export NAPKIN_TRACE_SCRIPT="$SCRIPT"
+unset NAPKIN_TRACE_ARGS
+exec "$REAL_FC" "${ARGS[@]}"
+"""
+
+
+def install_trace_hooks(hook_dir: Path, root: Path = ROOT) -> tuple[Path, Path]:
+    """Write sitecustomize.py and freecadcmd wrapper into hook_dir.
+
+    Returns (hook_dir, freecad_wrapper_path).
+    """
+    hook_dir.mkdir(parents=True, exist_ok=True)
+    site_path = hook_dir / "sitecustomize.py"
+    site_path.write_text(_SITECUSTOMIZE_SRC, encoding="utf-8")
+    fc_wrapper = hook_dir / "freecadcmd"
+    fc_wrapper.write_text(_FREECAD_WRAPPER_SRC, encoding="utf-8")
+    fc_wrapper.chmod(fc_wrapper.stat().st_mode | stat.S_IXUSR | stat.S_IXGRP | stat.S_IXOTH)
+    return hook_dir, fc_wrapper
 
 
 def _resolve_repo_rel(filename: str, root: Path = ROOT) -> str | None:
@@ -130,6 +221,13 @@ class LineTracer:
         return self._get_line_tracer(rel)
 
 
+def _sort_lines(lines: set[str] | list[str]) -> list[str]:
+    def _key(fl: str) -> tuple[str, int]:
+        rel, _, ln = fl.partition(":")
+        return (rel, int(ln) if ln.isdigit() else 0)
+    return sorted(set(lines), key=_key)
+
+
 def build_trace_payload(
     test_rel: str,
     tracer: LineTracer,
@@ -165,21 +263,149 @@ def build_trace_payload(
     }
 
 
+def _classify_child_cmd(args: object, root: Path) -> str | None:
+    """Return a short label if a subprocess command runs repo/test code, else None.
+
+    Ordinary external tools (git, ls, osascript, etc.) return None so they do not
+    trigger children_untraced.
+    """
+    if isinstance(args, (list, tuple)):
+        tokens = [str(a) for a in args]
+    elif isinstance(args, (str, os.PathLike)):
+        tokens = [str(args)]
+    else:
+        return None
+    if not tokens:
+        return None
+
+    exe = Path(tokens[0]).name.lower()
+    joined = " ".join(tokens)
+    root_str = str(root.resolve())
+
+    if "godot" in exe:
+        return "godot"
+    if "freecad" in exe:
+        return "freecadcmd"
+    if exe in ("bash", "sh", "zsh") or tokens[0].endswith(".sh"):
+        if ".sh" in joined or "worker/" in joined or "tools/" in joined or "viewport/" in joined:
+            return tokens[0] if tokens[0].endswith(".sh") else "shell"
+        return None
+    if "python" in exe:
+        for tok in tokens[1:]:
+            if tok.endswith(".py") or "worker/" in tok or "tools/" in tok or root_str in tok:
+                return tok
+        return None
+    if tokens[0].endswith(".py") or tokens[0].endswith(".sh"):
+        return tokens[0]
+    return None
+
+
+def merge_child_traces(
+    payload: dict,
+    child_base: Path,
+    spawned_children: list[tuple[int, str]],
+) -> dict:
+    """Merge <child_base>.child-<pid>.json files into payload and flag untraced children."""
+    lines_set = set(payload.get("lines", []))
+    funcs_set = set(payload.get("functions", []))
+    traced_pids: set[int] = set()
+
+    pattern = f"{child_base.name}.child-*.json"
+    for child_path in sorted(child_base.parent.glob(pattern)):
+        m = _CHILD_PID_RE.search(child_path.name)
+        if m:
+            traced_pids.add(int(m.group(1)))
+        try:
+            child_data = json.loads(child_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        lines_set.update(child_data.get("lines", []))
+        funcs_set.update(child_data.get("functions", []))
+
+    untraced = [cmd for pid, cmd in spawned_children if pid not in traced_pids]
+
+    merged = dict(payload)
+    merged["lines"] = _sort_lines(lines_set)
+    merged["line_count"] = len(merged["lines"])
+    merged["functions"] = sorted(funcs_set)
+    merged["traced_child_count"] = len(traced_pids)
+    if untraced:
+        merged["children_untraced"] = True
+        merged["untraced_children"] = sorted(set(untraced))
+    else:
+        merged["children_untraced"] = False
+    return merged
+
+
 def run_traced_script(
     script_path: Path,
     script_args: list[str],
     out_path: Path,
     root: Path = ROOT,
     mode: str = "line",
+    hook_dir: Path | None = None,
 ) -> int:
     """Execute script_path under sys.settrace and write trace JSON to out_path."""
     script_abs = script_path.resolve()
+    root_abs = root.resolve()
     try:
-        test_rel = script_abs.relative_to(root.resolve()).as_posix()
+        test_rel = script_abs.relative_to(root_abs).as_posix()
     except ValueError:
         test_rel = str(script_path)
 
-    tracer = LineTracer(root=root, mode=mode)
+    is_child_invocation = bool(_CHILD_PID_RE.search(out_path.name))
+    child_base = out_path.with_suffix("")
+    spawned_children: list[tuple[int, str]] = []
+
+    saved_env: dict[str, str | None] = {}
+
+    def _set_env(key: str, val: str | None) -> None:
+        if key not in saved_env:
+            saved_env[key] = os.environ.get(key)
+        if val is None:
+            os.environ.pop(key, None)
+        else:
+            os.environ[key] = val
+
+    if not is_child_invocation:
+        # Remove stale child traces from previous runs before executing.
+        for stale in child_base.parent.glob(f"{child_base.name}.child-*.json"):
+            try:
+                stale.unlink()
+            except OSError:
+                pass
+
+        _set_env("NAPKIN_TRACE_CHILD_BASE", str(child_base))
+        _set_env("NAPKIN_TRACE_PARENT_PID", str(os.getpid()))
+        _set_env("NAPKIN_TRACE_ROOT", str(root_abs))
+        _set_env("NAPKIN_TRACE_MODE", mode)
+
+        if hook_dir is not None:
+            hook_path, fc_wrapper = install_trace_hooks(hook_dir, root_abs)
+            prev_pp = os.environ.get("PYTHONPATH", "")
+            pp_parts = [str(hook_path)] + ([prev_pp] if prev_pp else [])
+            _set_env("PYTHONPATH", os.pathsep.join(pp_parts))
+            if not os.environ.get("NAPKIN_REAL_FREECAD"):
+                _set_env("NAPKIN_REAL_FREECAD", os.environ.get("FREECAD", DEFAULT_FREECAD))
+            _set_env("FREECAD", str(fc_wrapper))
+
+    orig_popen_init = subprocess.Popen.__init__
+    if not is_child_invocation:
+        def _tracked_popen_init(self, args, *pargs, **kwargs):
+            orig_popen_init(self, args, *pargs, **kwargs)
+            label = _classify_child_cmd(args, root_abs)
+            if label is not None and getattr(self, "pid", None):
+                spawned_children.append((self.pid, label))
+
+        subprocess.Popen.__init__ = _tracked_popen_init
+
+    prev_sigterm = signal.getsignal(signal.SIGTERM)
+    if prev_sigterm == signal.SIG_DFL:
+        def _handle_sigterm(signum, frame):
+            raise SystemExit(128 + signum)
+        signal.signal(signal.SIGTERM, _handle_sigterm)
+
+    tracer = LineTracer(root=root_abs, mode=mode)
     old_argv = sys.argv[:]
     script_dir = str(script_abs.parent)
     added_sys_path = False
@@ -207,7 +433,19 @@ def run_traced_script(
         sys.argv = old_argv
         if added_sys_path and script_dir in sys.path:
             sys.path.remove(script_dir)
-        payload = build_trace_payload(test_rel, tracer, elapsed, root=root)
+        if not is_child_invocation:
+            subprocess.Popen.__init__ = orig_popen_init
+        if prev_sigterm == signal.SIG_DFL:
+            signal.signal(signal.SIGTERM, prev_sigterm)
+        for k, v in saved_env.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+
+        payload = build_trace_payload(test_rel, tracer, elapsed, root=root_abs)
+        if not is_child_invocation:
+            payload = merge_child_traces(payload, child_base, spawned_children)
         out_path.parent.mkdir(parents=True, exist_ok=True)
         out_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
@@ -234,6 +472,7 @@ def main(argv: list[str] | None = None) -> int:
         out_arg = os.environ["NAPKIN_TRACE_OUT"]
         mode_arg = os.environ.get("NAPKIN_TRACE_MODE", "line")
         root_arg = os.environ.get("NAPKIN_TRACE_ROOT", str(ROOT))
+        hook_arg = os.environ.get("NAPKIN_TRACE_HOOK_DIR")
         extra_raw = os.environ.get("NAPKIN_TRACE_ARGS", "")
         script_args = json.loads(extra_raw) if extra_raw else []
     else:
@@ -241,6 +480,7 @@ def main(argv: list[str] | None = None) -> int:
         parser.add_argument("--out", required=True, help="Output JSON path")
         parser.add_argument("--mode", choices=["line", "call"], default="line", help="Tracing mode")
         parser.add_argument("--root", default=str(ROOT), help="Repository root to restrict tracing")
+        parser.add_argument("--hook-dir", default=None, help="Directory for sitecustomize.py and freecadcmd hook")
         parser.add_argument("script", help="Path to the Python test script to run")
         parser.add_argument("script_args", nargs=argparse.REMAINDER, help="Arguments passed to the script")
         args = parser.parse_args(raw_args)
@@ -248,6 +488,7 @@ def main(argv: list[str] | None = None) -> int:
         out_arg = args.out
         mode_arg = args.mode
         root_arg = args.root
+        hook_arg = args.hook_dir
         script_args = list(args.script_args)
 
     script_path = Path(script_arg)
@@ -260,6 +501,7 @@ def main(argv: list[str] | None = None) -> int:
         out_path=Path(out_arg),
         root=Path(root_arg),
         mode=mode_arg,
+        hook_dir=Path(hook_arg) if hook_arg else None,
     )
 
 

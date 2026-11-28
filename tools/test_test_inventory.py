@@ -243,6 +243,71 @@ with tempfile.TemporaryDirectory() as tmp:
           and "worker/mod.py:unused" in cov_report,
           f"cov={cov}\nreport={cov_report}")
 
+# 9. Child python3 process lines are traced and merged; untraced children are marked and kept off candidate probes
+with tempfile.TemporaryDirectory() as tmp:
+    tmp_root = Path(tmp)
+    (tmp_root / "worker").mkdir()
+    (tmp_root / "tools").mkdir()
+    shutil.copy(ROOT / "tools" / "line_trace.py", tmp_root / "tools" / "line_trace.py")
+    (tmp_root / "worker" / "child_mod.py").write_text(
+        "def run_in_child():\n"
+        "    return 99\n"
+        "\n"
+        "if __name__ == '__main__':\n"
+        "    print(run_in_child())\n",
+        encoding="utf-8",
+    )
+    (tmp_root / "worker" / "test_spawner.py").write_text(
+        "import subprocess, sys\n"
+        "from pathlib import Path\n"
+        "r = subprocess.run([sys.executable, str(Path(__file__).with_name('child_mod.py'))], capture_output=True, text=True, check=True)\n"
+        "assert r.stdout.strip() == '99'\n"
+        "print('PASS child ran')\n"
+        "print('SPAWNER TESTS: 1 passed, 0 failed')\n",
+        encoding="utf-8",
+    )
+    trace_out = tmp_root / "spawner.json"
+    buf = io.StringIO()
+    with contextlib.redirect_stdout(buf):
+        rc = line_trace.run_traced_script(
+            script_path=tmp_root / "worker" / "test_spawner.py",
+            script_args=[],
+            out_path=trace_out,
+            root=tmp_root,
+            hook_dir=tmp_root / "hook",
+        )
+    spawner_data = json.loads(trace_out.read_text(encoding="utf-8"))
+    check("traced script running a child python3 script records and merges the child's lines and functions",
+          rc == 0
+          and spawner_data.get("traced_child_count", 0) == 1
+          and spawner_data.get("children_untraced") is False
+          and "worker/child_mod.py:2" in spawner_data["lines"]
+          and "worker/child_mod.py:run_in_child" in spawner_data["functions"],
+          str(spawner_data))
+
+    cov_untraced = test_inventory.build_coverage(
+        traced_entries=[{
+            "file": "tools/test_shell.py",
+            "suite": "tools",
+            "runner": "python3",
+            "seconds": 0.05,
+            "parsed": True,
+            "check_count": 1,
+            "line_count": 5,
+            "lines": ["tools/test_shell.py:1"],
+            "functions": [],
+            "children_untraced": True,
+        }],
+        excluded_viewport=[],
+        root=tmp_root,
+    )
+    rep_untraced = test_inventory.format_coverage_report(cov_untraced)
+    check("children_untraced test is flagged in JSON and report and stays off candidate probes",
+          cov_untraced["files"][0].get("children_untraced") is True
+          and "tools/test_shell.py" not in cov_untraced["zero_unique_tests"]
+          and "[children untraced]" in rep_untraced,
+          f"cov={cov_untraced}\nreport={rep_untraced}")
+
 passed = sum(1 for r in RESULTS if r)
 failed = len(RESULTS) - passed
 print(f"TEST INVENTORY TESTS: {passed} passed, {failed} failed")
