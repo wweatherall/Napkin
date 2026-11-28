@@ -17,3 +17,7 @@
 ### 2026-11-28 02:15 — H201 (codex, 01a2210d-f942-7420-9648-4a5151725b4e, resubmit)
 - **How was the review round: were the return notes clear, and what would have avoided the return?** The return notes were clear and their exact FreeCAD reproduction made verification easy. A resize-after-pocket case in the original matrix would have caught the detach. The review also exposed the first resize after reopen and a cut after rotation as useful regressions.
 - **Any improvements you can think of?** Keep GATE_FULL out of the nested tools-scope fixture so an explicitly forced full gate can pass the same checks as an automatically selected full gate.
+
+### 2026-11-28 08:34 — H202 (codex, 01a22280-8112-77d1-825e-f1ba4a0a07de, first submit)
+- **How was working on this job in our code base?** The existing stock and line helpers gave the standalone demo the same visual language as the viewport. The design brief made the comparison easy to verify.
+- **Any improvements you can think of?** Consider a gate scope for standalone demos that combines the tools gate with headless scene loads. Adding demo source currently triggers app checks in the ordinary scope resolver.
