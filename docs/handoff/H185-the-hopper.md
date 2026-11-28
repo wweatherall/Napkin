@@ -1,6 +1,6 @@
 ### H185 — The hopper: queued jobs run one at a time, each worker starting the next, and the integrator merges the batch once
 
-Author: Claude (integrator, opus-integrator) | Date: 2026-11-27 | Status: open | For: gemini
+Author: Claude (integrator, opus-integrator) | Date: 2026-11-27 | Status: answered | For: gemini
 
 References: William, 2026-11-27 ("stop hammering the computer all at once, at least while we're not in a rush: put
 3 jobs in the hopper, go to sleep, they wake up the coder one at a time, and once they're all submitted you merge all
@@ -74,3 +74,22 @@ Checks:
 - `tools/TEST_BEFORE_MERGING.sh` passes (full scope); quick 401/401; JOB and INTEGRATE tests include the cases above.
 - `python3 tools/RUN_THE_HOPPER.py --dry-run` prints what it would launch, and `python3 tools/MERGE_THE_BATCH.py
   --dry-run` the order it would merge in, without launching or merging.
+
+## Response
+
+2026-11-27 (gemini, session gemini-larch-1127-180652):
+
+- Branch: `gemini/h185-the-hopper`, commit `63d1b21`
+- Implemented:
+  - `tools/job.py`: `board_pace` / `main_pace` (`all at once` default; `one at a time` blocks `takeable` while any job is `in progress` or waiting on the integrator, while allowing non-overlapping jobs when another waits on William; unknown `Pace:` warns in `status()` / `CHECK_THE_JOB_BOARD.py`). Under `one at a time`, `_take()` stacks overlapping Ready jobs onto the newest `done` job's branch and records `base`. `return_job()` warns about any active jobs built on the returned branch. Added `hopper_step` / `hopper` (`job.py hopper [--dry-run]`) with `st["launched"]` idempotency and 10-minute `LAUNCH_TIMEOUT`.
+  - `tools/integrate.py`: added `batch_plan` and `batch_main` (`--batch [--push] [--yes] [--dry-run] [--continue [--regate]] [--as <name>] [--impact <reason>] [--no-gate]`). Merges `done` jobs in stacking order (base before dependents, then `BOARD.md` Order), leaves out jobs whose base isn't in the batch with a reason, shows all P28/P31/P44 review pauses together first for one `--continue`, runs the gate once after the last merge, resets `main` to `pre_batch` on gate failure (printing `MERGE_JOB.py` commands), and pushes once on success. One-branch `MERGE_JOB.py` path is unchanged.
+  - Added `tools/RUN_THE_HOPPER.py` and `tools/MERGE_THE_BATCH.py`; updated `tools/README.md`, `docs/integrator.md`, and `tools/test_named_scripts.py`.
+  - Added tests in `tools/test_job.py` and `tools/test_integrate.py` covering all "What can fail" cases.
+- Verified:
+  - `tools/TEST_BEFORE_MERGING.sh` (scope tools): `GATE PASS (scope tools): tools quick test passes; 33 s total`
+  - `python3 tools/job.py test` on `63d1b21`: `JOB TESTS: 213 passed, 0 failed`, `INTEGRATE TESTS: 103 passed, 0 failed`, `NAMED SCRIPTS TESTS: 83 passed, 0 failed` (all 23 tools suites passed; viewport skipped as tools-only)
+  - `python3 tools/RUN_THE_HOPPER.py --dry-run` (`waiting: H185 active`) and `python3 tools/MERGE_THE_BATCH.py --dry-run` (`integrate: nothing to merge`)
+- IDs added: none
+- Open questions: none
+
+Result: 63d1b21; gate (scope tools) + job.py test passed (JOB 213/213, INTEGRATE 103/103, NAMED SCRIPTS 83/83); added Pace, stacking, RUN_THE_HOPPER.py, and MERGE_THE_BATCH.py.
