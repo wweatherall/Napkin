@@ -72,7 +72,6 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H186 | Gemini | **Ready** | Napkin's top level: two old launchers go, the wave simulator moves to tools/ | [H186](docs/handoff/H186-tidy-the-top-level.md) |  |
 
 <!-- end of job table -->
 

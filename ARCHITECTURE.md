@@ -112,6 +112,7 @@ One-line index per module (`tools/architecture_map.py`). Per-file details, warni
 - `tools/compare_suites.py` — Compare viewport suite results with the reference runs: python3 tools/compare_suites.py <runs dir> [suite...] Each suite's final boards must match (volume with…
 - `tools/dependency_map.py` — Generate and check docs/dependency-map.md, and find callers / Touches lines
 - `tools/featuretest.sh` — Feature tests (~34 s): everything that checks Shop Sketch's answers with no window, all side by side
+- `tools/front_sim.py` — Simulate the wave-front controller to tune smoothness before porting to GDScript
 - `tools/fulltest.sh` — Full check (~20 s): when tools/quicktest.sh fails, or before a merge
 - `tools/gate.sh` — The merge gate (P18): quick then full, one verdict; successful quick checks are reused (T90)
 - `tools/handoff.py` — The handoff's entries, one file each (T77): docs/handoff/H037-short-slug.md holds one entry, headed "### H037 — Subject" with the usual Author | Date | Status…

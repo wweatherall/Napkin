@@ -373,7 +373,7 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | T141 | William tries the Polygon tool by eye in a rebuilt app (tools/BUILD_THE_APP.sh). | Open |
 | T152 | Thin the tests without losing coverage: research how others do it (coverage-guided test... | Open |
 | T153 | Generated tests: inputs made fresh each run (a random seed, printed so a failure can be... | Open |
-| T155 | Find a home for (or delete) the loose files at Napkin's top level: 'Codex's suggestions... | On the board (H186) |
+| T155 | Find a home for (or delete) the loose files at Napkin's top level: 'Codex's suggestions... | Open |
 | T159 | Clarify push_pull and separate its jobs: one op today extrudes a profile or face, cuts,... | Open |
 | T161 | Think through plane-fit face numbering: faces are 0-5 (Left..Top) on plain stock but 't... | Open |
 | T163 | Suspected bug (found by H179's T161 proposal): flipping a board (mirror with replace) t... | Open |
@@ -399,7 +399,7 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | draft_alpha | 0.55 | Opacity of draft (unconfirmed) boards. | viewport/confirm_wave.gdshader | W05 |
 | GRID | 10 | Grid snap step, mm. | viewport/inference.gd (main.gd keeps the name) | I03 |
 | SNAP_PX | 14 | Corner snap radius on screen, pixels. | viewport/inference.gd (main.gd keeps the name) | I03 |
-| Simulator | sim/front_sim.py | Try SLOW/TAU/LEAD/AMP_COMP values without launching Godot. | sim/front_sim.py | W09 |
+| Simulator | tools/front_sim.py | Try SLOW/TAU/LEAD/AMP_COMP values without launching Godot. | tools/front_sim.py | W09 |
 | INFER_DEG | 8 | Drag within this many degrees of an axis's on-screen direction to stick to it. | viewport/main.gd | I18 |
 | RELEASE_DEG | 12 | Angle at which an inferred axis lets go (bigger than INFER_DEG so it doesn't flicker). | viewport/main.gd | I18 |
 | EDGE_PX | 8 | On-edge snap radius on screen, pixels. | viewport/main.gd | I18 |
