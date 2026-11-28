@@ -21,3 +21,15 @@
 ### 2026-11-28 07:56 — H211 (codex, 01a22258-3cfc-7fa2-8c49-9f4489f9d04a, first submit)
 - **How was working on this job in our code base?** The saved model and explicit checks made the bug easy to reproduce. GET_A_JOB claimed H211 on top of H201 before the H211 brief existed on that branch, then failed trying to print it. Merging main into the H211 worktree restored the brief.
 - **Any improvements you can think of?** When taking a stacked job, ensure its current brief is present before printing it. In the hopper redraw test, use an isolated queue fixture so another worker writing to the live queue cannot make the merge gate fail.
+### 2026-11-28 08:12 — H210 (codex, 01a22279-cf6b-7661-aa86-11c57842643c, first submit)
+- **How was working on this job in our code base?** A shifted punctuation key needed both its character and its modifier events to reproduce the app failure.
+- **Any improvements you can think of?** For keyboard bugs, include physical modifier events in the baseline and check active and post-click paths separately.
+### 2026-11-28 08:05 — H209 (codex, 01a22273-35ee-79f0-ac09-adb534271f8e, first submit)
+- **How was working on this job in our code base?** The existing registry check exercised the actual toolbar. Adding a width check made the first layout failure as easy to measure as it was to see in the capture.
+- **Any improvements you can think of?** The merge gate already records a clean quick-test pass. The worker checklist could accept that pass in place of asking for a second quick run on the same commit.
+### 2026-11-28 08:34 — H202 (codex, 01a22280-8112-77d1-825e-f1ba4a0a07de, first submit)
+- **How was working on this job in our code base?** The existing stock and line helpers gave the standalone demo the same visual language as the viewport. The design brief made the comparison easy to verify.
+- **Any improvements you can think of?** Consider a gate scope for standalone demos that combines the tools gate with headless scene loads. Adding demo source currently triggers app checks in the ordinary scope resolver.
+### 2026-11-28 07:58 — H208 (codex, 01a22259-fffe-7730-ae03-79149a9938c1, first submit)
+- **How was working on this job in our code base?** The shared worker test helper covered several direct FreeCAD launches. The floor-copy check exposed an implicit dependency on the desktop backup preference once the suite ran with clean configs.
+- **Any improvements you can think of?** Keep test subprocesses behind their shared launch helpers and set any preferences a fixture depends on explicitly.

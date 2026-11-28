@@ -22,7 +22,7 @@ import xml.etree.ElementTree as ET
 HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
-from test_link import (FC, Checks, Window, board_ops,
+from test_link import (freecad_command, Checks, Window, board_ops,
                        fresh_model as _fresh_model, start_worker, sync)
 
 tmp = os.path.abspath(os.environ.get("TESTDIR") or tempfile.mkdtemp(prefix="napkin-outside-"))
@@ -70,7 +70,7 @@ for line in sys.stdin:
         print("HELPER_RESP:" + json.dumps({"ok": True, "label": label}), flush=True)
 ''')
 
-_fc_proc = subprocess.Popen([FC, FC_HELPER], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+_fc_proc = subprocess.Popen(freecad_command(tmp, FC_HELPER), stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                             stderr=subprocess.STDOUT, text=True)
 while True:
     _line = _fc_proc.stdout.readline()
@@ -600,7 +600,7 @@ retried = [e["op"] for e in session._file_ops(session.path, 2)] == ops
 print("META SAVE ROLLBACK:", restored and session.rev == 2 and retried, flush=True)
 session.close()
 ''')
-    meta_run = subprocess.run([FC, META_CHECK], env=dict(os.environ, SESSION_SRC=HERE,
+    meta_run = subprocess.run(freecad_command(tmp, META_CHECK), env=dict(os.environ, SESSION_SRC=HERE,
                               META_MODEL=fresh_model("meta_failed_save"), META_OPS=json.dumps(board_ops(300) + second(200))),
                               capture_output=True, text=True, timeout=120)
     for marker, name in (

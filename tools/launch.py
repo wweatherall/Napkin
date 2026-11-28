@@ -107,6 +107,20 @@ def integrator_prompt(name, brief, wake_line=None):
     )
 
 
+def comitatus_of(root):
+    """The organization's folder holding this code base (<comitatus>/08_Code_Bases/<code base>), else root."""
+    up = os.path.dirname(os.path.dirname(root))
+    return up if os.path.basename(os.path.dirname(root)) == "08_Code_Bases" else root
+
+
+def start_where(agent, root):
+    """A Claude session starts in comitatus (William, 2026-11-28), so it says where the code base is first."""
+    if agent not in ("claude", "integrator") or comitatus_of(root) == root:
+        return ""
+    return (f"You start in {comitatus_of(root)} (comitatus). The code base is {root}: cd there before "
+            f"running anything below (its paths are relative to it).\n\n")
+
+
 def agent_command(agent, root, prompt_file, name, model=None):
     """The shell command the Terminal window runs."""
     model = model or DEFAULT_MODEL[agent]
@@ -121,7 +135,8 @@ def agent_command(agent, root, prompt_file, name, model=None):
                f"{shlex.quote(name)} {first}")
     else:
         run = f"codex -C {shlex.quote(root)} --add-dir {wt}" + (f" -m {shlex.quote(model)}" if model else "") + f" {first}"
-    return f"cd {shlex.quote(root)} && NAPKIN_SPACE={shlex.quote(space)} {run}"
+    start = comitatus_of(root) if agent in ("claude", "integrator") else root   # Claude starts in comitatus (William)
+    return f"cd {shlex.quote(start)} && NAPKIN_SPACE={shlex.quote(space)} {run}"
 
 
 def resume_prompt(jid, notes, branch, worktree):
@@ -281,6 +296,7 @@ def launch_agent(agent, model=None, name=None, wake=None, dry_run=False, out=pri
         return 1, None
     path = os.path.join(folder, name + ".txt")
     with open(path, "w", encoding="utf-8") as f:
+        f.write(start_where(agent, root))
         if agent == "integrator":
             f.write(integrator_prompt(name, r.stdout, wake_line=wake))
         else:

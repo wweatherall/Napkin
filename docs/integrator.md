@@ -44,6 +44,9 @@ Architecture: lines, the response) and CLAUDE.md (commit trailers); this page sa
   standing permission (`launch.py integrator`, P74). When the batch is submitted, merge all `done` jobs together with
   `python3 tools/MERGE_THE_BATCH.py [--push] [--yes]` (shows all review pauses together first, takes one `--continue`,
   runs the gate once, and resets `main` if the gate fails).
+- **Kill switch** (William, 2026-11-28): `python3 tools/STOP_THE_HOPPER.py <your session name>` stops the running
+  hopper at its next poll (outside the sandbox); only the lock holder may, and running workers carry on. Restart it with
+  `RUN_THE_HOPPER.py --window`.
 - Spinning up a worker window: `python3 tools/LAUNCH_A_WORKER.py <gemini|claude|codex> [--model M]` (T134; outside the sandbox;
   tell William) opens it with its start-up brief already in the first message; `--dry-run` shows the command. The
   commands it runs, for reference:

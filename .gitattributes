@@ -1,2 +1,4 @@
 # Auto detect text files and perform LF normalization
 * text=auto
+# Append-only: two branches each add an entry at the end; keep both (integrator, 2026-11-28)
+docs/worker-feedback.md merge=union

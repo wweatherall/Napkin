@@ -11855,3 +11855,289 @@ Architecture: `PROTOCOL_VERSION` bumped 22 -> 23 across `worker/serve.py`, `view
 Result: `tools/TEST_BEFORE_MERGING.sh` passed (`GATE PASS: full test passes; QUICK 405 passed, 0 failed in 33.5 s ; 0 known failure(s); 97 s total`, including full field audit, 170/170 op contracts, 17/17 protocol map, 714/714 scenario, 13/13 update_old_files, 22/22 cut_ties, 99/99 properties, 34/34 serve).
 
 Resolution: merged into main by the integrator, 2026-11-27.
+
+### H201 — A fit names its target face by geometry, follows flips and rotations, and detaches when the face is gone (T161, T163, I75-I77)
+
+Author: Claude (integrator, opus-integrator) | Date: 2026-11-27 | Status: resolved | For: codex | Item: T161
+
+References: I75 (a fit names its face by {normal, point}), I76 (it stays live when the target is flipped, mirrored or
+rotated; the 90-degree pause for rectangular targets; a rotation ending in the pause leaves it paused), I77 (when the
+face is cut away or deleted it detaches, keeping its length, without "Reference unavailable"), T163 (the flip bug),
+docs/proposals/T161-fit-faces.md, A43, T165 (William's user test, later), P73.
+
+Touches: worker/plane_fit.py (`_def`, `planar_faces`, `_resolve_face`, `apply`), viewport/tools/push_tool.gd
+(`_edge_inference`'s option: send `option.plane_normal` / `option.plane_point`), worker/model.py (`op_fit` only),
+worker/serve.py and viewport/main.gd (PROTOCOL_VERSION), docs/protocol.md (fit and new_board.fit), tests/op_contracts.json,
+worker/update_old_files.py (new in H199) and worker/test_update_old_files.py (new in H199) (integer `face` -> {normal, point}),
+worker/test_properties.py, worker/test_plane_fit.py (new), 03_Past_Decisions/decision-log.md (the FIT_PAUSE_DEG Tunables row,
+added with the log tool's `add tunable`).
+
+Reading path:
+1. docs/proposals/T161-fit-faces.md section 2 (the three uncovered cases) and worker/plane_fit.py `_def` (only
+   `App::Part` / `App::Link`), `_resolve_face` (re-finds the face by SSTargetNormal + SSTargetPoint, nearest parallel
+   face, no distance limit).
+2. worker/mirror.py `op_mirror`: `replace=True` swaps the board for a `Part::Mirroring` under the same BodyId.
+
+Request (in this order; each step's test first, P10):
+1. T163: a test that fits a shelf to a panel, flips the panel (`mirror`, `replace=True`), recomputes, and shows today's
+   detach. Then make `_def`/`planar_faces` accept `Part::Mirroring` so the fit follows (I76).
+2. The fit op's `face` becomes `{normal, point}` (world mm, like every FaceRef); push_tool.gd sends it; the worker
+   resolves it against the target's planar faces. The updater converts any integer `face` (none on disk today).
+3. I76 for a rectangular target: the fit uses whichever of the two opposite faces faces the fitted board. As the
+   target rotates, it holds its face up to 90 degrees; within FIT_PAUSE_DEG (a tunable, start at 2 degrees) of 90 it
+   pauses (the board keeps its length, the fit isn't removed); past that it resumes on the opposite face. Rotating both
+   boards together changes nothing. A rotation that ends in the pause leaves it paused; rotating on resumes it; it
+   saves and reopens paused. Tests at 45, 89, 90, 91 and 180 degrees, and both boards rotated together.
+4. I77: when no face of the target matches any more (cut away, or the target deleted), the fit detaches instead of
+   jumping to another parallel face; the board keeps its length; the message is not "Reference unavailable": until
+   H202's look is chosen, it shows no message at all, and the fit's state is `detached` in bodies.json so H202 can draw it.
+   Undo of the cut brings the fit back. Tests for the cut, the delete and the Undo.
+
+Not in this job: the detachment's look (H202), other shapes than rectangular targets for the rotation rule.
+
+What can fail:
+- A paused or detached fit lost on save/reopen (G09). Check: a test saves a paused fit and a detached one and reopens both.
+- An existing fit test whose target is cut later now detaches where it used to jump. Check: name each such test in
+  `Changed from the brief:` with why it's I77.
+
+Checks:
+- `tools/TEST_BEFORE_MERGING.sh` passes (full scope); the full field audit passes.
+
+**Response (Gemini, gemini-teak-1127-234138, 2026-11-28):**
+Branch `gemini/h201-fits-name-faces-by-geometry` (commit `12f2d2b`).
+- **T163**: Added `Part::Mirroring` support in `worker/plane_fit.py` (`_unwrap_mirror`, `_def`, `_target_frame`, `_frame_to_world`, `planar_faces`, `_driving_body`, `stock`). Verified with `worker/test_plane_fit.py`.
+- **I75**: Switched `fit.face` and `new_board.fit.face` to `{normal, point}` in world mm (`_resolve_face_spec` in `worker/plane_fit.py`), updated `viewport/tools/push_tool.gd` and `docs/protocol.md`, bumped `PROTOCOL_VERSION` 23 -> 24 (`worker/serve.py`, `viewport/main.gd`), added legacy integer `face` detection in `worker/session.py` (`is_legacy_op`) and conversion in `worker/update_old_files.py` + `worker/test_update_old_files.py`.
+- **I76**: Added `FIT_PAUSE_DEG = 2.0` (`worker/plane_fit.py` and `03_Past_Decisions/decision-log.md`), `SSTargetSign` and `SSFitPaused` properties on `PlaneFit`, rectangular target rotation pause within `FIT_PAUSE_DEG` of 90° and opposite-face resume past it, and `fit_state` (`"live"` / `"paused"` / `"detached"`) in `plane_fit.snapshot` (`bodies.json`).
+- **I77**: Non-rectangular/cut target face resolution detaches (`SSTargetId = ''`, `SSFitResult = ''`, `fit_state = 'detached'`) instead of jumping to another parallel face when no matching face exists within 0.1 mm of the target point (or `fitted_end` when target is fitted-then-cut). Undo of the cut restores the fit; deleting the target detaches gently.
+
+Changed from the brief (P73):
+- `viewport/property_panel.gd` and `viewport/tests/quick/properties.gd`: updated `apply_fit` and test assertions to send/expect `{normal, point}` instead of integer `face`.
+- `worker/test_op_contracts.py`, `worker/test_floor_copy.py`, `worker/test_serve.py`, `worker/scenario/97_plane_fit_refit.py`, `worker/scenario/99_plane_fit_flush.py`: updated `fit` op fixtures and `PROTOCOL_VERSION` 24 check.
+- `worker/test_properties.py` (line 293): updated `SSFitResult` assertion on deleted target from `'Reference unavailable · last geometry retained'` to `''` (I77).
+- `worker/scenario/98_plane_fit_identity.py` (lines 73-82): updated `t3` cut test from jumping to `x=120` to detaching with `SSTargetId == ''`, `SSFitResult == ''`, and `XMax == 140.0` (I77), and updated `_cut` to use `rect` `plane.on` + `push_pull` without `new_board=False`.
+- `worker/model.py` and `tests/op_contracts.json`: untouched because `fit` has no `CONTRACT` yet.
+
+Result: `tools/TEST_BEFORE_MERGING.sh` (full scope) passed on `12f2d2b` (QUICK 405 passed, 0 failed; full test, viewport suites, compare suites, and field audit passed; `PLANE FIT TESTS: 17 passed, 0 failed`; `PROPERTY TESTS: 99 passed, 0 failed`; `SCENARIO TESTS: 715 passed, 0 failed`; `UPDATE OLD FILES TESTS: 14 passed, 0 failed`; `OP CONTRACTS TESTS: 170 passed, 0 failed`).
+
+**Response (Codex, codex-cherry-1128-012811, 2026-11-28):**
+Resumed `gemini/h201-fits-name-faces-by-geometry`, merged main, and committed the return fix as `e0f2d2d`.
+- A fit now compares the plane it followed before the edit with FreeCAD's current geometry. A surviving face on resized stock follows its new position, including on a pocketed target, a reopened model, and a placed component. The worker derives this from the existing plane and native features, so it needs no saved stock-face marker.
+- A pocket made after a rotation preserves the opposite face the fit switched to. An explicit refit can pick a different face on the same target. The existing cut-away, deletion, Undo, and save/reopen checks pass.
+- The original reproduction now moves the leg from x=140 to x=160 with and without the pocket. Its import of `test_plane_fit` does not run the suite.
+
+Changed from the brief: `worker/scenario/97_plane_fit_refit.py` forwards the pre-edit reference through the test wrapper that counts refits (P73).
+
+`tools/TEST_BEFORE_MERGING.sh` selected full scope and passed. `job.py test` recorded a clean quick-test pass on `e0f2d2d`. The explicit `--full` run propagated `GATE_FULL` into a nested tools-scope fixture, which failed its scope assertion. The full viewport suites and field audit passed in that run as well.
+
+Result: e0f2d2d; full merge gate and field audit passed, 405 quick viewport checks, 22 plane fit checks, and 715 scenario checks with zero failures; fits follow surviving faces on cut targets through resizes and keep the selected face after a rotation.
+
+Resolution: merged into main by the integrator, 2026-11-28.
+
+### H210 — Typed copy counts: 5x, x5, *5 (and 5*) all work after a move or copy (T167)
+
+Author: Claude (integrator, opus-integrator) | Date: 2026-11-28 | Status: resolved | For: codex | Item: T167
+
+References: T167 (William, 2026-11-28: "having trouble with the times feature, maybe we should make x5 as well as 5x,
+*5 too work if there aren't side effects"), G06 (typed values understood however you write them), G03 (SketchUp:
+type 5x or *5 after a copy-move for an array, /5 to divide), `viewport/tools/move_tool.gd` `_parse_array`, `accepts`,
+`typed`, `_amend_last_move`; `viewport/measure_box.gd` `apply`; `viewport/tools/tool.gd` `accepts`.
+
+Today: `_parse_array` already reads "5x", "x5", "*5" and "/5". So William's trouble is upstream of it, and finding
+where is the job. Candidates seen reading the code (check each, don't assume): `tool.gd` `accepts` lets letters in
+only once something is typed, and `move_tool.gd` adds "x" as a first key; "*5" or "5*" may be read as arithmetic by
+the measure box before `_parse_array` sees it; X may be bound as a key (`viewport/keys.gd`) that wins before the
+tool; amending after a move (`_amend_last_move`) may take a different path from typing during one; Push/Pull's
+copies (Option-push, if it takes counts) may not parse counts at all.
+
+Touches: viewport/tools/move_tool.gd, viewport/measure_box.gd (count text only), viewport/tools/tool.gd (`accepts`
+only), viewport/tools/push_tool.gd (only if Option-push copies take counts and don't parse them; ask before changing it),
+a viewport test (`viewport/test_tools.gd` or the move tool's test), a quick-test step.
+
+Request:
+1. Reproduce William's trouble: in the app, copy-move a board (Option while moving), then type each of "5x", "x5",
+   "*5", "5*", "/5" + Enter, both right after the move and during it. Write down which ones fail and why
+   (the exact function where the text goes wrong) in the response.
+2. Make all five work in both places: "5x", "x5", "*5", "5*" give 5 copies; "/5" divides. Keep plain lengths and
+   arithmetic working ("50*2" is still 100 mm while dragging a distance: a count only when the text is a bare whole
+   number with one x or * and nothing else). That rule is what "no side effects" means: no length that worked
+   before reads differently.
+3. If anything here would change what a typed value means elsewhere (another tool's arithmetic), stop and ask the
+   integrator before changing it.
+
+Checks:
+- A named check per form ("5x", "x5", "*5", "5*", "/5") after a move and during one, and one that "50*2" while
+  dragging is still a 100 mm distance.
+- `tools/TEST_BEFORE_MERGING.sh` passes.
+
+Response — Codex, 2026-11-28 (`codex/h210-typed-copy-counts`, code commit `ecec8bb`).
+
+Reproduced in the app with an Option-copy of a board and viewport keyboard events, including Shift+8 for the asterisk.
+
+| Form | During the copy-move before the fix | Right after the copy-move before the fix |
+|---|---|---|
+| `5x` | Previewed and committed five copies at the dragged spacing | Amended to five copies at that spacing |
+| `x5` | Previewed and committed five copies at the dragged spacing | Amended to five copies at that spacing |
+| `*5` | Shift switched to Mirror, Return ignored the count, and clicking committed a mirror | Amended to five copies, with Mirror left on |
+| `5*` | Return sent a length request and the click committed one copy | Return sent a length request and the original single copy stayed |
+| `/5` | Previewed and committed five copies across the dragged distance | Amended to five copies across that distance |
+
+`Move.key()` toggled Mirror as soon as Shift went down. `Move.typed()` then took its mirror branch
+during the gesture, while the post-click path went straight to `_amend_last_move()`. `MeasureBox.apply()`
+omitted trailing `*` from its count matcher and sent `5*` to the length evaluator before Move could see it.
+`Move.accepts()` already accepts leading `x`, the base `Tool.accepts()` already accepts `*` and `/`,
+and the input dispatch gives a busy Move the character before tool shortcuts. Push/Pull uses Option
+to cycle the fit end condition (I41) and has no copy-count path.
+
+Move now supplies the same whole-number count parser to Measurements, its live preview, and its amendment
+path. The quick test names each form in both paths and checks the positions FreeCAD confirmed. It also
+checks that `50*2` moves the board 100 mm without a worker length request. The existing mirror suites
+still pass with a standalone Shift tap. No new decision IDs or open questions.
+
+Changed from the brief: `viewport/keys.gd` forwards Move's Shift events and intervening key presses through its existing early input path so Move can distinguish a standalone tap on release from Shift+8.
+
+Result: ecec8bb; merge gate and recorded `job.py test` passed with 416 quick viewport checks, full suites and field audit passed at the gate; all five count forms work during and immediately after an Option-copy, and length arithmetic still works.
+
+Resolution: merged into main by the integrator, 2026-11-28.
+
+### H209 — The toolbar shows each tool's key in brackets next to its name (T167)
+
+Author: Claude (integrator, opus-integrator) | Date: 2026-11-28 | Status: resolved | For: codex | Item: T167
+
+References: T167 (William, 2026-11-28: "hotkeys in brackets next to names"), G05 (one key per idea), G03 (Mac app
+feel), `viewport/tool_registry.gd` `menu_label` (the Tools menu already shows "Rectangle (R)").
+
+Today: `viewport/ui.gd` (line ~131) builds the toolbar from `m.tool_list` with `t["label"]` only; the key is in the
+tooltip. The fixed buttons after it (Undo, Redo, Drawing, Grid snap, New board) also show names only.
+
+Touches: viewport/ui.gd (the toolbar row only), viewport/tool_registry.gd (`menu_label`, if you share it), and
+the viewport test that already covers `menu_label` (find it with grep; a new test file is fine).
+
+Request:
+1. Toolbar tool buttons read like the Tools menu: `tool_registry.gd`'s `menu_label` ("Select (Space)", "Rectangle (R)").
+   Use the same function, so the toolbar, the menu and the key can't disagree (one spot per idea, C06).
+2. The fixed buttons get their keys too: "Undo (⌘Z)", "Redo (⇧⌘Z)", "Drawing (D)", "Grid snap (G)", "New board (B)",
+   taken from where those keys are bound (`viewport/keys.gd`) if you can do it without a new module; otherwise
+   from the tooltip strings already in ui.gd.
+3. The toolbar must still fit a 1280-pixel-wide window without clipping (William uses a laptop): if it doesn't,
+   shrink the separation or font a little, and say so in the response with a screenshot in scratch/.
+
+Checks:
+- A named viewport check that every toolbar tool button's text equals `menu_label` of its tool.
+- `tools/TEST_BEFORE_MERGING.sh` passes. A screenshot at 1280 wide in the response.
+
+Response — Codex, 2026-11-28 (branch `codex/h209-toolbar-shows-hotkeys`, code commit `b393296`)
+
+Toolbar tool buttons use the same `menu_label` as the Tools menu. The five fixed buttons take their
+shortcut text from the existing tooltips. I reduced the toolbar button font from 13 to 12 pixels and the
+top-level spacing from 10 to 8 pixels after the first capture clipped Properties. The viewport checks
+cover the tool labels, the fixed labels, and the full row's minimum width. The
+[1280×800 capture](../../scratch/H209-toolbar-1280.png) shows the full row through Properties.
+
+Changed from the brief: The commit hook regenerated `docs/dependency-map.md` to record the toolbar's use of `tool_registry.gd`.
+
+Result: b393296; full merge gate and recorded quick test passed with 408 quick viewport checks; toolbar labels show their shortcuts and fit at 1280 pixels.
+
+Resolution: merged into main by the integrator, 2026-11-28.
+
+### H202 — Design: how a fit that lost its face looks (a chain crumbling, or another gentle metaphor), a proposal with drafts for William
+
+Author: Claude (integrator, opus-integrator) | Date: 2026-11-27 | Status: resolved | For: codex
+
+References: I77 (William, 2026-11-27: "Reference unavailable is a bit harsh, it still has the length it got"; give it a
+metaphor, "like a chain crumbling to the ground"), G07 (violet cuts, red rejects, amber is new: none of them here),
+G01 (feel first), H201 (the fit's `detached` state in bodies.json), docs/proposals/T159-push-pull.md (a proposal's shape).
+
+Touches: docs/proposals/fit-detach-look.md (new), viewport/demos/fit_detach_demo.tscn (new) and viewport/demos/fit_detach_demo.gd (new: a scene William can open in Godot to watch each option; nothing in the app loads it).
+
+Request:
+1. Two or three looks for the moment a fit detaches and for a detached fit afterwards (for example: a short chain
+   between the boards whose links fall and fade; a thread that goes slack; a small broken-link badge on the end face),
+   each drawn in the demo scene with the app's own board and line styles, under 1.5 s, using no violet, red or amber.
+2. For each: what the user sees at the moment and afterwards, how it says the board kept its length, how it reads
+   with a paused fit (I76) beside a detached one, and what it costs to build (files, frame time).
+3. A recommendation and what to ask William. No change to the app.
+
+Checks:
+- `tools/TEST_BEFORE_MERGING.sh` passes (docs scope); the demo scene opens headless without errors.
+
+Response — Codex, 2026-11-28 · `codex/h202-fit-detach-look` · `7b029c4`
+
+[The proposal](../proposals/fit-detach-look.md) and [the Godot comparison](../../viewport/demos/fit_detach_demo.tscn)
+show falling links and slack thread beside an intact paused fit. Each effect takes 1.08 s, or 1.32 s including
+replay lead-in. Both fitted boards stay at 600 mm and the detached end keeps a charcoal mark. I recommend
+falling links because the intact and opened shapes read more distinctly side by side.
+
+The docs-scope merge gate passed for the proposal. The recorded quick run on the complete commit passed
+405 viewport checks and all feature tests. The stand-alone scene opened headlessly in Godot 4.6.1. I checked
+both variants' held length, settled mark, paused connector and mid-effect replay, and inspected 1280 × 800
+Compatibility renders. The proposal estimates draw calls and outlines the production frame-time check.
+
+Follow-up: After William replays both, ask which look best shows that the board kept its length and the fit let go.
+
+Result: 7b029c4; docs-scope merge gate, recorded quick test, headless scene and both rendered drafts passed; proposed two standalone fit detachment effects and recommended falling links
+
+Resolution: merged into main by the integrator, 2026-11-28.
+
+### H208 — Napkin's freecadcmd never saves over William's FreeCAD settings (T167)
+
+Author: Claude (integrator, opus-integrator) | Date: 2026-11-28 | Status: resolved | For: codex | Item: T167
+
+References: T167 (William, 2026-11-28: "my FreeCAD settings appear to be gone"), G09 (never lose work: his settings
+are his work too), A41 (`worker/session.py` `no_backups`, which already restores the one setting Napkin changes),
+FreeCAD 1.1.4 `freecadcmd --help`: `-u [ --user-cfg ] arg  User config file to load/save user settings`.
+
+Today: FreeCAD keeps its preferences in `~/Library/Preferences/FreeCAD/v1-1/user.cfg`. Every `freecadcmd` loads that
+file at start and writes it back at exit. Napkin starts many: the app's worker (`viewport/worker_process.gd`, two
+`OS.create_process` calls near line 171), each test lane's worker, and the feature/full tests (`tools/featuretest.sh`
+and `tools/fulltest.sh` `FC=`, `common.sh`, `tools/length_cases.py`, `tools/job.py` where it runs one). On
+2026-11-28 the file was rewritten at 01:20 with no FreeCAD window open; a `freecadcmd` that started before William
+changed a setting in FreeCAD, and exited after, writes its stale copy over his change.
+
+Touches: viewport/worker_process.gd, tools/featuretest.sh, tools/fulltest.sh, tools/length_cases.py,
+tools/job.py (only where it builds a freecadcmd command line), worker/CLAUDE.md (a short trap note; also the top-level common sh script), tools/test_freecad_user_cfg.py (new; or a check added to an existing tools test).
+
+Request:
+1. Every `freecadcmd` Napkin starts passes `-u <file>` (and `-s <file>` for system.cfg) pointing at Napkin's own copy,
+   so FreeCAD never writes William's file: for the app, `user://freecad/user.cfg` (resolved with
+   `ProjectSettings.globalize_path`); for tests, a file in the run's own scratch/out folder. Its purpose: nothing
+   Napkin runs can change the preferences William set in FreeCAD.
+2. Napkin's copy starts as a copy of William's `v1-1/user.cfg` when that exists and Napkin's copy doesn't (so the
+   worker sees the same units and document settings he chose), and is never copied back.
+3. Check by hand that `-u` is honoured by `freecadcmd` 1.1.4 (run one with `-u scratch/u.cfg`, change a parameter
+   with `App.ParamGet(...).SetBool`, exit, and confirm William's file's mtime is unchanged and the scratch file has
+   it). Put what you saw in the response. If `-u` isn't honoured, stop and say so: don't build a workaround.
+4. Add a one-line trap to `worker/CLAUDE.md`: launch freecadcmd only through these paths, always with `-u`.
+
+What can fail (P42):
+- The copy can't be made (William's file missing or unreadable): start the worker with an empty Napkin copy, say
+  nothing to the user, and log one line in worker.log. Check: the test runs the launcher's copy step with a missing source.
+- `user://freecad/` doesn't exist yet: the launcher creates it. Check: the same test, from an empty folder.
+- An app built into `dist/Napkin.app` (A30): the same path works from the bundle. Check: say in the response that
+  you ran `tools/BUILD_THE_APP.sh` and the app's worker started (worker.log shows its port).
+
+Checks:
+- A named check that every freecadcmd command line in the files above carries `-u` (a grep-style test in tools/ is
+  fine: it fails if a new launch site is added without it).
+- `tools/TEST_BEFORE_MERGING.sh` passes.
+- The response says William's `v1-1/user.cfg` mtime before and after a full gate run (unchanged).
+
+Architecture: viewport/worker_process.gd owns the app's FreeCAD user and system config paths. Its launcher seeds user.cfg from the macOS FreeCAD profile on first use, then passes the app-owned paths on every start. Each test process uses paths in its own output folder.
+
+Response — Codex, 2026-11-28: Worked on `codex/h208-freecad-settings-kept` (`8f08dd8`, tested after bringing main into the job branch at `66ff5b1`). The app passes explicit `-u` and `-s` under `user://freecad/`. It seeds `user.cfg` from the macOS FreeCAD profile once, with a log-only fallback to FreeCAD defaults when the source is unavailable. Test processes and the source-launcher version check use separate scratch configs. `tools/job.py` delegates to the test scripts and has no direct FreeCAD command to change.
+
+- FreeCAD 1.1.4 wrote both `App.ParamGet(...).SetBool` probe values to scratch configs on exit. The desktop configs had the same mtimes before and after that probe.
+- `tools/BUILD_THE_APP.sh` built the signed bundle. In a scratch home, its `worker.log` showed the worker listening on port 43808 and the app's `freecad/user.cfg` contained the seed marker.
+- `tools/test_freecad_user_cfg.py` passed all 12 checks, including both launch flags, an absent source and destination, a single log line, and preservation of the existing copy. The named typed-length tool regenerated 2,521 cases with a byte-for-byte match.
+- Recorded quick test passed on `66ff5b1`. The full merge gate passed with 405 viewport checks, zero failures and a passing field audit. An earlier gate overlapped H211's unflagged FreeCAD processes, so the timestamp check was repeated after they exited. Before and after the final gate, the desktop `v1-1/user.cfg` mtime was `2026-11-28 07:56:01.832355814 CST`, and `system.cfg` was `2026-11-28 07:56:01.831326073 CST`. Both SHA-256 hashes matched before and after.
+
+Changed from the brief: `tools/RUN_ONE_TEST.sh` now calls the shared feature test launcher so its direct runner uses the same private config paths.
+
+Changed from the brief: `worker/test_link.py`, `worker/test_length_protocol.py`, `worker/test_model_units.py`, `worker/test_outside_save.py`, and `worker/test_serve.py` also start FreeCAD. Their calls now use a common helper with private config paths per process.
+
+Changed from the brief: `worker/test_floor_copy.py` explicitly disables backups during its external-edit fixture. Its file-count checks had depended on the desktop FreeCAD preference.
+
+Changed from the brief: `tools/test_named_scripts.py` expects the named length-case tool in its help text, which now documents the isolated entry point.
+
+Result: 8f08dd8; recorded quick test, full merge gate (405 viewport checks), 12 config checks and signed bundle smoke passed; isolated all FreeCAD command-line launches and verified the desktop settings files kept their timestamps and contents.
+
+Resolution: merged into main by the integrator, 2026-11-28.

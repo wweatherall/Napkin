@@ -19,10 +19,17 @@ import shutil
 import socket
 import stat
 import subprocess
+import tempfile
 import time
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 FC = os.environ.get("FREECAD", "/Applications/FreeCAD.app/Contents/Resources/bin/freecadcmd")
+
+
+def freecad_command(folder, script):
+    """A FreeCAD test process with its own settings in the test output folder."""
+    config = tempfile.mkdtemp(prefix="freecad-", dir=folder)
+    return [FC, "-u", os.path.join(config, "user.cfg"), "-s", os.path.join(config, "system.cfg"), script]
 
 
 class Checks:
@@ -168,7 +175,7 @@ def start_worker(folder, _append_log=False, **env):
     for k, v in env.items():
         proc_env[k] = str(v)
     with open(log_path, "a" if _append_log else "w") as log_fh:
-        proc = subprocess.Popen([FC, os.path.join(HERE, "replay.py")],
+        proc = subprocess.Popen(freecad_command(folder, os.path.join(HERE, "replay.py")),
                                 env=proc_env, stdout=log_fh, stderr=subprocess.STDOUT)
     deadline = time.monotonic() + 60
     port = 0
@@ -239,7 +246,7 @@ def freecad_save(model, add=12, **meta):
         f.write(_FREECAD_EDIT_SCRIPT)
     try:
         subprocess.run(
-            [FC, script],
+            freecad_command(os.path.dirname(os.path.abspath(model)), script),
             env=dict(os.environ, EDIT_MODEL=model, EDIT_ADD=str(add), EDIT_META=json.dumps(meta)),
             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, timeout=120, check=True,
         )

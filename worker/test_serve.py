@@ -13,7 +13,7 @@ import time
 HERE = os.path.dirname(os.path.abspath(__file__))
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
-from test_link import (FC, Checks, Window, board_ops, fresh_model, missing,
+from test_link import (freecad_command, Checks, Window, board_ops, fresh_model, missing,
                        read_only, start_worker, sync, unreadable)
 
 tmp = os.path.abspath(os.environ.get("TESTDIR") or tempfile.mkdtemp(prefix="napkin-serve-"))
@@ -270,7 +270,7 @@ try:
     json.dump({"units": "mm", "ops": board_ops(240)}, open(rp_log, "w"))
     rp_env = {k: v for k, v in os.environ.items() if k not in ("SERVE_PORT", "SERVE_PORT_FILE", "SERVE_STATUS_FILE")}
     rp_env.update({"OPLOG": rp_log, "OUTDIR": rp_out})
-    rp_proc = subprocess.run([FC, os.path.join(HERE, "replay.py")], env=rp_env, capture_output=True, text=True, timeout=60)
+    rp_proc = subprocess.run(freecad_command(tmp, os.path.join(HERE, "replay.py")), env=rp_env, capture_output=True, text=True, timeout=60)
     rp_st_path = os.path.join(rp_out, "status.json")
     rp_st = json.load(open(rp_st_path)) if os.path.exists(rp_st_path) else None
     check("one-off replay writes status.json with expected fields (H172)",

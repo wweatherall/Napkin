@@ -66,6 +66,14 @@ check("Gemini runs agy with the hydrogen model by default, NAPKIN_SPACE, and the
 c = launch.agent_command("claude", root, "/x/p.txt", "claude-a")
 check("Claude runs sonnet at medium effort with NAPKIN_SPACE, the worktrees folder and remote control",
       "NAPKIN_SPACE=sonnet-coder claude --model sonnet --effort medium --add-dir /x/comitatus/08_Code_Bases/.worktrees/Napkin --remote-control claude-a" in c, c)
+check("Claude workers and the integrator start in comitatus (William, 2026-11-28); Gemini and Codex in the code base",
+      c.startswith("cd /x/comitatus && ")
+      and launch.agent_command("integrator", root, "/x/int.txt", "i").startswith("cd /x/comitatus && ")
+      and g.startswith("cd /x/comitatus/08_Code_Bases/Napkin && "), c)
+check("a Claude session's first message says where the code base is; others' say nothing extra",
+      "The code base is /x/comitatus/08_Code_Bases/Napkin: cd there" in launch.start_where("integrator", root)
+      and launch.start_where("claude", root) and launch.start_where("gemini", root) == ""
+      and launch.start_where("codex", root) == "", launch.start_where("integrator", root))
 x = launch.agent_command("codex", root, "/x/p.txt", "codex-a")
 check("Codex gets NAPKIN_SPACE, its root, the worktrees folder and gpt-6.2-sol", "NAPKIN_SPACE=codex-coder codex -C /x/comitatus/08_Code_Bases/Napkin --add-dir "
       "/x/comitatus/08_Code_Bases/.worktrees/Napkin -m gpt-6.2-sol \"$(cat /x/p.txt)\"" in x, x)
