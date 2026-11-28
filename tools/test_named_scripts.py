@@ -35,6 +35,7 @@ PY_SCRIPTS = [
     ("tools/CHECK_THE_JOB_BOARD.py", "job.py", sys.executable),
     ("tools/WAIT_FOR_THE_NEXT_JOB.py", "job.py", sys.executable),
     ("tools/RUN_THE_HOPPER.py", "job.py", sys.executable),
+    ("tools/STOP_THE_HOPPER.py", "job.py", sys.executable),
     ("tools/REBUILD_THE_JOB_BOARD.py", "job.py", sys.executable),
     ("tools/MERGE_JOB.py", "integrate.py", sys.executable),
     ("tools/MERGE_THE_BATCH.py", "integrate.py", sys.executable),
