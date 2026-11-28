@@ -39,7 +39,7 @@ One subject per decision; the Decisions column is generated.
 |---|---|---|
 | Product | What Shop Sketch is for and the feel it aims at. | I01, P04, P51 |
 | Architecture | The processes, the worker link, the app and the code's main boundaries. | A02, A03, A06, A08, A09, A27, A29, A30, A31, A33b, A34, A35, A40, W13 |
-| Files, saving and undo | The .FCStd model and its journal, saving, opening, undo and redo. | A21, A23, A24, A25, A28, A36, A39, A41, A42, A43, I38, I42, I54, I55, U01, U02, U03 |
+| Files, saving and undo | The .FCStd model and its journal, saving, opening, undo and redo. | A21, A23, A24, A25, A28, A36, A39, A41, A42, A43, I38, I42, I54, I55, I78, U01, U02, U03 |
 | Drawing tools | Rectangle, Circle, Line: how a drawing gesture starts, follows and ends. | I02, I04b, I09, I11, I43, I44, I49, I50, I51, I58, I60, I61, I64, I65, I71, I73 |
 | Push/Pull | Extruding, cutting, and fitting a board's end to another board. | I05, I08, I23, I24, I34, I40, I41, I45, I56, I74, I75, I76, I77 |
 | Move, copies and arrays | Move, linked copies, arrays, mirrors, components and assemblies. | A10, A11b, A22c, A26, I10, I12c, I13b, I14, I15, I16, I17, I20, I21, I25, I28, I32, I46, I52, I53, I66, I69 |
@@ -120,6 +120,7 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | I42 | A board's name in FreeCAD's tree is 'Board 3' for b3 (copies, mirrors and made-unique b... | Active |
 | I54 | When a save fails, the save indicator says "Couldn't save: <reason>" (in Saved's place,... | Active |
 | I55 | Closing a window whose latest revision isn't saved waits for it; if the save fails, a d... | Active |
+| I78 | New and Open start in 04_Napkin_Drawings/ (William's own models) while the open model i... | Active |
 | U01 | Undo keeps the paths you leave: a new edit after undoing starts a branch and the old pa... | Active |
 | U02 | Branch-safe identities: no new board, rectangle or hole reuses an ID a kept branch uses... | Active |
 | U03 | Merging branches, conservatively: an explicit command with a preview that keeps both or... | Active |
