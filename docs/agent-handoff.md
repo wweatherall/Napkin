@@ -31,7 +31,7 @@ Which job is whose, and what's next: [BOARD.md](../BOARD.md) (P14).
 - [H202 — Design: how a fit that lost its face looks (a chain crumbling, or another gentle metaphor), a proposal with drafts for William](handoff/H202-fit-detach-look.md) — status: queued (after H201); for: gemini
 - [H204 — Rename everything to Napkin: the app, its files, the names saved inside models, and the tools (T139, P51)](handoff/H204-rename-to-napkin.md) — status: queued (after H205); for: gemini
 - [H205 — Fewer stops for workers: branch log checks ignore newer comitatus rulings, the gate's pass counts for SUBMIT_JOB, the Result line is checked first, one test file runs on its own](handoff/H205-worker-friction-fixes.md) — status: queued (after H199); for: gemini
-- [H206 — Codex usage at parity: every view of the token tool shows Codex beside Claude and Gemini](handoff/H206-codex-usage-parity.md) — status: open; for: codex
+- [H206 — Codex usage at parity: every view of the token tool shows Codex beside Claude and Gemini](handoff/H206-codex-usage-parity.md) — status: answered; for: codex
 
 <!-- end of open list -->
 
