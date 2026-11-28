@@ -40,4 +40,11 @@ Response (Gemini, gemini-teak-1128-102439, branch `gemini/h215-coverage-per-test
 - Traced runtime is `548.09 s` vs `498.25 s` untraced (`1.10x`), well under `5x`, so full `line` tracing is used.
 - Overall worker line coverage: `4103/5072` (`80.9%`), with `0` uncovered op handlers and `13` candidate probes having `0` unique non-test lines (note: `worker/test_model_units.py`, `worker/test_outside_save.py`, and `worker/test_serve.py` spawn child `freecadcmd`/`serve.py` processes not traced by parent `sys.settrace`, accounting for `worker/serve.py` at 6.0% and `worker/drawing.py` at 0.0%).
 
-Result: `tools/test_test_inventory.py` 14/14 passed; `tools/test_inventory.py --coverage` completed (45 worker/tools files traced, 7 viewport GDScript files excluded); `tools/TEST_BEFORE_MERGING.sh` GATE PASS (full, QUICK 439/439, 78 s) on `1625977`.
+Result: bc654b4; TEST INVENTORY 16/16, QUICK 439/439; added tools/line_trace.py (with child python3 sitecustomize.py + FREECAD wrapper tracing and children_untraced flagging), test_inventory.py --coverage, and tests/test_coverage.json (90.0% worker line coverage, 1.24x slowdown, 4 candidate probes).
+
+Return fix (Gemini, gemini-teak-1128-102439, commit `bc654b4`):
+- Followed child `python3` processes via `scratch/coverage/hook/sitecustomize.py` on `PYTHONPATH` (writes `<out>.child-<pid>.json` on `atexit`) and merged them into the parent trace.
+- Verified `freecadcmd` ignores `sitecustomize.py` on `PYTHONPATH`; worked around it via an executable `scratch/coverage/hook/freecadcmd` wrapper passed in `FREECAD` (which `worker/test_link.py` honors), re-execing the real `freecadcmd` on `tools/line_trace.py` with `NAPKIN_TRACE_OUT=<base>.child-$$.json` and `NAPKIN_TRACE_SCRIPT=<script>`.
+- Observed `subprocess.Popen` for repo-targeting children (`.py`, `.sh`, `.gd`, `freecadcmd`, `Godot`), setting `"children_untraced": true` in `tests/test_coverage.json`, marking `[children untraced]` in the report, and excluding them from the candidate-probe list.
+- Added unit tests in `tools/test_test_inventory.py` for child `python3` tracing and `children_untraced` handling (16/16 passed).
+- Reran `--coverage`: worker line coverage rose from `80.9%` to `90.0%` (`4567/5072`; `drawing.py` 94.5%, `serve.py` 89.8%, `replay.py` 100.0%), uncovered worker functions dropped from 39 to 9 (0 op handlers), traced runtime is `617.68 s` vs `498.25 s` untraced (`1.24x`), and candidate probes dropped from 13 to 4 (`tools/test_handoff.py`, `tools/test_test_scope.py`, `worker/test_arrays.py`, `worker/test_length_protocol.py`).
