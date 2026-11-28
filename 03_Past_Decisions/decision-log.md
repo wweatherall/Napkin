@@ -392,6 +392,7 @@ Active and Tentative decisions, grouped by subject. A long one has its full text
 | T167 | William's notes from a session in Napkin (2026-11-28), as written: blue is select & 2D ... | Open |
 | T168 | Keep the array when one copy inside it is moved: a FreeCAD array that holds a per-copy ... | Parked |
 | T169 | Build I82 (components and arrays the SketchUp way): check each part against the app, fi... | On the board (H212) |
+| T170 | Bring William's hopper workshop (an animated, width-aware hopper picture made with Chat... | On the board (H213) |
 
 ## Tunables
 

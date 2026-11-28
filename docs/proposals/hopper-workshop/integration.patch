@@ -1,0 +1,77 @@
+--- a/tools/job.py
++++ b/tools/job.py
+@@ -2003,5 +2003,9 @@
+         import hopper_picture
+-        tty_draw = forever and out is print and sys.stdout.isatty()
++        tty_draw = (forever and out is print and sys.stdout.isatty()
++                    and os.environ.get("TERM") != "dumb")
++        if tty_draw:
++            import hopper_workshop
++            workshop = hopper_workshop.WorkshopDisplay(sleep=sleep)
+         log_lines = []
+         last_pic = None
+ 
+@@ -2029,20 +2033,18 @@
+                     seen.add(key)
+                 if forever and action == "launched":
+                     seen = {k for k in seen if k[0] != "paused"}
+-            if forever:
+-                pic = hopper_picture.render_root(root, now=t)
+-                if pic != last_pic or action in ("launched", "exit"):
+-                    if tty_draw:
+-                        sys.stdout.write("\033[H\033[J")
++            if tty_draw:
++                # Render from a single snapshot while waiting for the next dispatch poll.
++                workshop.draw_for(hopper_workshop.load_snapshot(root), poll, now=t, logs=log_lines)
++            else:
++                if forever:
++                    pic = hopper_picture.render_root(root, now=t)
++                    if pic != last_pic or action in ("launched", "exit"):
++                        if pic != last_pic:
++                            out(pic)
+                         sys.stdout.flush()
+-                        out(pic)
+-                        for line in log_lines:
+-                            out(line)
+-                    elif pic != last_pic:
+-                        out(pic)
+-                    sys.stdout.flush()
+-                    last_pic = pic
+-            sleep(poll)
++                        last_pic = pic
++                sleep(poll)
+     finally:
+         if forever:
+             _release_hopper_pid(root)
+--- a/tools/SHOW_THE_HOPPER.py
++++ b/tools/SHOW_THE_HOPPER.py
+@@ -1,7 +1,7 @@
+ #!/usr/bin/env python3
+-"""Show the job queue as a three-part ASCII picture (H203): hopper, workbench, integrator's desk.
++"""Show the responsive Hopper workshop; use --plain for the original ASCII picture.
+ 
+-  python3 tools/SHOW_THE_HOPPER.py [--watch]
++  python3 tools/SHOW_THE_HOPPER.py [--watch] [--plain]
+ """
+ import os
+ import sys
+@@ -17,6 +17,19 @@
+     if "-h" in argv or "--help" in argv:
+         print(__doc__.strip())
+         return 0
++    if "--plain" not in argv and sys.stdout.isatty() and os.environ.get("TERM") != "dumb":
++        import job
++        import hopper_workshop
++        root = job.main_root(os.getcwd())
++        try:
++            if "--watch" in argv:
++                hopper_workshop.watch(root)
++            else:
++                print(hopper_workshop.render(hopper_workshop.load_snapshot(root),
++                                             width=hopper_workshop.terminal_width()))
++        except KeyboardInterrupt:
++            pass
++        return 0
+     if "--watch" in argv:
+         try:
+             hopper_picture.watch(os.getcwd())

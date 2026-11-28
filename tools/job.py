@@ -2005,6 +2005,65 @@ def hopper_step(root, now=None, dry_run=False, launcher=None, out=print, seen=No
     return "launched", None, picked["id"], None
 
 
+CAFFEINATE = ["caffeinate", "-i"]    # keeps the Mac from idle-sleeping while the hopper has work (William, 2026-11-28)
+
+
+def hopper_has_work(root, now=None):
+    """True while anything is left for a worker or the integrator: a job in progress, waiting, done (not yet merged)
+    or returned, a launch pending, or a job the hopper could launch."""
+    now = now or time.time()
+    jobs, order = main_view(root)
+    pace, _ = main_pace(root)
+    with state_read(state_path(root), readonly=True) as st:
+        if any(j.get("state") in ("in progress", "waiting", "done", "returned") for j in st["jobs"].values()):
+            return True
+        if st.get("launched"):
+            return True
+        picked, _ = _next_hopper_candidate(root, st, jobs, order, branch_claims(root), pace)
+        return picked is not None
+
+
+class KeepAwake:
+    """One `caffeinate` for the hopper: started with it, stopped when no work is left anywhere and started again
+    when work comes back. `-w <hopper pid>` ends it if the hopper dies without its finally."""
+
+    def __init__(self, out=print, command=None, popen=subprocess.Popen):
+        self.out, self.popen, self.proc = out, popen, None
+        self.command = list(CAFFEINATE if command is None else command)
+
+    def running(self):
+        return self.proc is not None and self.proc.poll() is None
+
+    def start(self, now=None):
+        if self.running() or not self.command or not shutil.which(self.command[0]):
+            return
+        cmd = self.command + (["-w", str(os.getpid())] if self.command[0] == "caffeinate" else [])
+        try:
+            self.proc = self.popen(cmd, stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        except OSError as e:
+            self.out(f"{hhmm(now or time.time())} couldn't keep the Mac awake ({e})")
+            return
+        self.out(f"{hhmm(now or time.time())} keeping the Mac awake ({' '.join(self.command)}, pid {self.proc.pid})")
+
+    def stop(self, now=None, why="no work left anywhere"):
+        if not self.running():
+            self.proc = None
+            return
+        self.proc.terminate()
+        try:
+            self.proc.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            self.proc.kill()
+        self.proc = None
+        self.out(f"{hhmm(now or time.time())} let the Mac sleep: {why}")
+
+    def follow(self, has_work, now=None):
+        if has_work:
+            self.start(now)
+        else:
+            self.stop(now)
+
+
 def hopper(cwd, dry_run=False, launcher=None, out=print, now=None, sleep=time.sleep, poll=None,
            forever=False, window=False, integrator_launcher=None):
     """Run the hopper (H185, H196, H197): launch one worker at a time, wake or start the integrator when all work pauses."""
@@ -2032,6 +2091,7 @@ def hopper(cwd, dry_run=False, launcher=None, out=print, now=None, sleep=time.sl
         if existing is not None:
             out(f"hopper already running (pid {existing})")
             return 1
+    awake = None
     try:
         # Ignore stale events that were already active before this run started (like watch --next).
         seen = set()
@@ -2052,6 +2112,10 @@ def hopper(cwd, dry_run=False, launcher=None, out=print, now=None, sleep=time.sl
             del log_lines[:-6]
             if not tty_draw:
                 out(line)
+
+        if forever:
+            awake = KeepAwake(out=emit)
+            awake.start()
 
         while True:
             t = now or time.time()
@@ -2076,6 +2140,8 @@ def hopper(cwd, dry_run=False, launcher=None, out=print, now=None, sleep=time.sl
                     seen.add(key)
                 if forever and action == "launched":
                     seen = {k for k in seen if k[0] != "paused"}
+            if awake is not None:
+                awake.follow(hopper_has_work(root, now=t), now=t)
             if forever:
                 pic = hopper_picture.render_root(root, now=t)
                 if pic != last_pic or action in ("launched", "exit"):
@@ -2091,6 +2157,8 @@ def hopper(cwd, dry_run=False, launcher=None, out=print, now=None, sleep=time.sl
                     last_pic = pic
             sleep(poll)
     finally:
+        if awake is not None:
+            awake.stop(why="the hopper stopped")
         if forever:
             _release_hopper_pid(root)
 

@@ -20,6 +20,7 @@ sys.path.insert(0, HERE)
 import integrate
 import integrator
 import job
+job.CAFFEINATE = []     # no real caffeinate from the tests; the KeepAwake checks set their own command
 os.environ.pop("NAPKIN_SPACE", None)  # a worker session sets it (launch.py); the tests pick their own spaces
 
 # Isolate from host agent env vars so tests behave identically whether run by Claude, Codex, Gemini, or CI.
@@ -1769,6 +1770,54 @@ check("a --forever hopper that sees the stop exits 0 before launching anything, 
       and not os.path.exists(job.hopper_stop_path(h196_root)) and not os.path.exists(job.hopper_pid_path(h196_root)),
       (ks_rc, ks_launched, ks_out))
 os.remove(_integrator.lock_path(h196_root))
+
+job.CAFFEINATE = [sys.executable, "-c", "import time; time.sleep(30)"]
+loop_out = []
+try:
+    job.hopper(h196_root, forever=True, launcher=lambda a: 0, integrator_launcher=lambda s, d: 0,
+               out=loop_out.append, now=7200, sleep=lambda _: (_ for _ in ()).throw(SystemExit(1)), poll=0)
+except SystemExit:
+    pass
+job.CAFFEINATE = []
+check("a --forever hopper keeps the Mac awake from its start and lets it sleep when it stops",
+      any("keeping the Mac awake" in l for l in loop_out) and any("let the Mac sleep" in l for l in loop_out)
+      and not os.path.exists(job.hopper_pid_path(h196_root)), loop_out)
+# --- the hopper keeps the Mac awake while there is work (William, 2026-11-28) ---
+ka_out = []
+ka = job.KeepAwake(out=ka_out.append, command=[sys.executable, "-c", "import time; time.sleep(30)"])
+ka.start(now=1)
+first = ka.proc
+ka.start(now=2)
+check("KeepAwake starts one keep-awake process and doesn't start a second", ka.running() and ka.proc is first, ka_out)
+ka.follow(False, now=3)
+check("KeepAwake stops it when no work is left, and says so",
+      not ka.running() and first.poll() is not None and any("let the Mac sleep" in l for l in ka_out), ka_out)
+ka.follow(True, now=4)
+check("KeepAwake starts it again when work comes back", ka.running() and ka.proc is not first, ka_out)
+ka.stop(why="the hopper stopped")
+check("KeepAwake's stop at hopper exit ends it", not ka.running(), ka_out)
+check("KeepAwake with no command (tests) or a missing program does nothing",
+      not (lambda k: (k.start(), k.running())[1])(job.KeepAwake(out=ka_out.append, command=[]))
+      and not (lambda k: (k.start(), k.running())[1])(job.KeepAwake(out=ka_out.append, command=["no-such-program-xyz"])))
+with job.locked(job.state_path(h196_root)) as st:
+    saved_jobs, saved_launched = json.loads(json.dumps(st["jobs"])), st.pop("launched", None)
+    st["jobs"] = {k: {**v, "state": "merged"} for k, v in st["jobs"].items()}
+with patch.object(job, "_next_hopper_candidate", lambda *a, **k: (None, None)):
+    idle = job.hopper_has_work(h196_root)
+    with job.locked(job.state_path(h196_root)) as st:
+        st["jobs"]["H002"] = {"state": "done", "branch": "codex/h002-x"}
+    review = job.hopper_has_work(h196_root)
+    with job.locked(job.state_path(h196_root)) as st:
+        st["jobs"]["H002"]["state"] = "merged"
+        st["launched"] = {"H003": {"at": 1, "agent": "codex"}}
+    launching = job.hopper_has_work(h196_root)
+with job.locked(job.state_path(h196_root)) as st:
+    st["jobs"] = saved_jobs
+    st.pop("launched", None)
+    if saved_launched is not None:
+        st["launched"] = saved_launched
+check("hopper_has_work: false with everything merged and nothing to launch; true for a job to review or a launch pending",
+      idle is False and review is True and launching is True, (idle, review, launching))
 
 # hopper_wait reports already-paused batch immediately with the same line as hopper_step, without launching
 with job.locked(job.state_path(h196_root)) as st:

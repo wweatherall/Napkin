@@ -41,7 +41,9 @@ Architecture: lines, the response) and CLAUDE.md (commit trailers); this page sa
   Questions don't hold the queue (P74): a waiting worker idles while the hopper launches the next takeable job, and
   stacks overlapping Ready jobs onto `done` branches (`base:`). A board with no Pace line runs one at a time (P75). Leave the integrator running or close it: either way,
   when all work pauses, the hopper wakes a running `WAIT_FOR_THE_HOPPER.py` or starts a new integrator with William's
-  standing permission (`launch.py integrator`, P74). When the batch is submitted, merge all `done` jobs together with
+  standing permission (`launch.py integrator`, P74). A `--forever` hopper runs `caffeinate -i` from its start and stops it
+  when nothing is left anywhere (no job in progress, waiting, done or returned, no launch pending, nothing to launch),
+  starting it again when work comes back (William, 2026-11-28). When the batch is submitted, merge all `done` jobs together with
   `python3 tools/MERGE_THE_BATCH.py [--push] [--yes]` (shows all review pauses together first, takes one `--continue`,
   runs the gate once, and resets `main` if the gate fails).
 - **Kill switch** (William, 2026-11-28): `python3 tools/STOP_THE_HOPPER.py <your session name>` stops the running
