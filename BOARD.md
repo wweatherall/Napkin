@@ -3,7 +3,7 @@
 "Check the board" sends you here. Only the integrator edits this file; the job table is built from docs/handoff/
 and the job queue.
 
-Order: H186
+Order: H187, H188, H189
 Pace: one at a time
 
 ## If you're not the integrator
@@ -72,6 +72,9 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
+| H187 | Gemini | **Ready** | main.gd step 2: model files and rejection handling move to their own files, behaviour unchanged | [H187](docs/handoff/H187-split-main-gd-step-2.md) |  |
+| H188 | Gemini | **Ready** | presenter.gd step 2: drawn profiles (rectangles, circles, polygons, lines) move to their own file, behaviour unchanged | [H188](docs/handoff/H188-split-presenter-gd-step-2.md) |  |
+| H189 | Gemini | **Ready** | An op contract, piloted on Circle: what it takes, refers to and creates, written once beside its handler and checked everywhere else | [H189](docs/handoff/H189-circle-op-contract.md) |  |
 
 <!-- end of job table -->
 
