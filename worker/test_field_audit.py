@@ -11,7 +11,7 @@ if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
 import field_audit
-from model import Model
+from model import Model, OpError
 from test_link import Checks
 
 checks = Checks("FIELD AUDIT")
@@ -66,8 +66,53 @@ field_audit.append_record(f2, "board", ["id", "type", "w", "h"], ["type", "w", "
 field_audit.append_record(f2, "extrude", ["id", "type", "face", "distnace"], ["type", "face"])
 
 unread = field_audit.unread_fields([f1, f2])
-check("unread report", unread == {"board": ["typo"], "extrude": ["distnace"]}, str(unread))
+check(
+    "one run reads h and another run of the same type doesn't -> flagged",
+    set(unread.keys()) == {"board", "extrude"}
+    and set(unread["board"].keys()) == {"h", "typo"}
+    and unread["board"]["h"]["count"] == 1
+    and unread["board"]["h"]["example"] == ["h", "id", "type", "typo", "w"]
+    and unread["board"]["typo"]["count"] == 1
+    and set(unread["extrude"].keys()) == {"distnace"}
+    and unread["extrude"]["distnace"]["count"] == 1,
+    str(unread),
+)
 check("main exits 1 when unread fields exist", field_audit.main([f1, f2]) == 1)
+
+f_allow = os.path.join(tmp, "allow.jsonl")
+if os.path.exists(f_allow):
+    os.remove(f_allow)
+field_audit.append_record(f_allow, "move", ["id", "type", "cut", "targets"], ["cut"])
+check("move.targets with cut in UNREAD_WHEN passes", field_audit.unread_fields([f_allow]) == {})
+check("main exits 0 when unread field matches UNREAD_WHEN", field_audit.main([f_allow]) == 0)
+
+f_no_cut = os.path.join(tmp, "no_cut.jsonl")
+if os.path.exists(f_no_cut):
+    os.remove(f_no_cut)
+field_audit.append_record(f_no_cut, "move", ["id", "type", "targets"], [])
+no_cut_unread = field_audit.unread_fields([f_no_cut])
+check(
+    "move.targets without cut is flagged",
+    list(no_cut_unread.keys()) == ["move"] and list(no_cut_unread["move"].keys()) == ["targets"],
+    str(no_cut_unread),
+)
+
+f_failed = os.path.join(tmp, "failed.jsonl")
+if os.path.exists(f_failed):
+    os.remove(f_failed)
+field_audit.append_record(f_failed, "push_pull", ["id", "type", "rect", "body"], ["rect"], failed=True)
+check("failed run with unread fields passes", field_audit.unread_fields([f_failed]) == {})
+
+f_succ = os.path.join(tmp, "succ.jsonl")
+if os.path.exists(f_succ):
+    os.remove(f_succ)
+field_audit.append_record(f_succ, "push_pull", ["id", "type", "rect", "body"], ["rect"], failed=False)
+succ_unread = field_audit.unread_fields([f_succ])
+check(
+    "successful run with unread fields is flagged",
+    list(succ_unread.keys()) == ["push_pull"] and list(succ_unread["push_pull"].keys()) == ["body"],
+    str(succ_unread),
+)
 
 f_clean = os.path.join(tmp, "clean.jsonl")
 if os.path.exists(f_clean):
@@ -97,7 +142,27 @@ try:
         m.apply({"id": "p2", "type": "audit_probe", "used": 42, "unused": 99})
         check("with SERVE_FIELD_AUDIT, apply wraps op in AuditedDict", seen[-1][1] is field_audit.AuditedDict)
         got = field_audit.unread_fields([audit_file])
-        check("apply wrote audit record", got == {"audit_probe": ["unused"]}, str(got))
+        check("apply wrote audit record", list(got.keys()) == ["audit_probe"] and list(got["audit_probe"].keys()) == ["unused"], str(got))
+
+        fail_audit = os.path.join(tmp, "model_apply_fail.jsonl")
+        if os.path.exists(fail_audit):
+            os.remove(fail_audit)
+        os.environ["SERVE_FIELD_AUDIT"] = fail_audit
+        Model.HANDLERS = orig_handlers | frozenset({"audit_probe", "audit_fail"})
+        Model.op_audit_fail = lambda self, op: (_ for _ in ()).throw(OpError("boom"))
+        try:
+            raised = False
+            try:
+                m.apply({"id": "p3", "type": "audit_fail", "unused": 1})
+            except OpError:
+                raised = True
+            check("failing handler raises OpError", raised)
+            with open(fail_audit, "r", encoding="utf-8") as f:
+                rec = json.loads(f.read().strip())
+            check("failing handler records failed=True", rec.get("failed") is True, str(rec))
+            check("failing handler record passes unread_fields", field_audit.unread_fields([fail_audit]) == {})
+        finally:
+            delattr(Model, "op_audit_fail")
     finally:
         if prev is None:
             os.environ.pop("SERVE_FIELD_AUDIT", None)

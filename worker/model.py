@@ -348,10 +348,12 @@ class Model(*action_mixins()):
             from field_audit import AuditedDict, append_record
             sent = list(op.keys())
             audited = AuditedDict(op)
+            failed = True
             try:
                 changed = getattr(self, "op_" + op["type"])(audited)
+                failed = False
             finally:
-                append_record(audit_path, op["type"], sent, audited.read_keys())
+                append_record(audit_path, op["type"], sent, audited.read_keys(), failed=failed)
         else:
             changed = getattr(self, "op_" + op["type"])(op)
         self.doc.recompute()  # Resolve native features and expressions before reading fit frames.

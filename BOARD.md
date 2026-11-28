@@ -72,7 +72,6 @@ Only if William said so in this session and you hold the lock (P16, P19): read
 
 | Job | For | Status | Item | Handoff | Waits for |
 |---|---|---|---|---|---|
-| H184 | Gemini | Returned: **Ready** for Gemini (resumes gemini/h184-field-audit-per-run) | The field audit checks each run of an op, not all runs of its type lumped together | [H184](docs/handoff/H184-field-audit-per-run.md) |  |
 
 <!-- end of job table -->
 
