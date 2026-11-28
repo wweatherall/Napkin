@@ -33,8 +33,8 @@ ICON_TMP=$(mktemp -d)
 qlmanage -t -s 1024 -o "$ICON_TMP" tools/napkin_icon.svg > /dev/null 2>&1
 mkdir -p "$ICON_TMP/Napkin.iconset"
 for s in 16 32 128 256 512; do
-  sips -z $s $s "$ICON_TMP/napkin_napkin_icon.svg.png" --out "$ICON_TMP/Napkin.iconset/icon_${s}x${s}.png" > /dev/null
-  sips -z $((s * 2)) $((s * 2)) "$ICON_TMP/napkin_napkin_icon.svg.png" --out "$ICON_TMP/Napkin.iconset/icon_${s}x${s}@2x.png" > /dev/null
+  sips -z $s $s "$ICON_TMP/napkin_icon.svg.png" --out "$ICON_TMP/Napkin.iconset/icon_${s}x${s}.png" > /dev/null
+  sips -z $((s * 2)) $((s * 2)) "$ICON_TMP/napkin_icon.svg.png" --out "$ICON_TMP/Napkin.iconset/icon_${s}x${s}@2x.png" > /dev/null
 done
 iconutil -c icns "$ICON_TMP/Napkin.iconset" -o "$L/Resources/Napkin.icns"
 rm -rf "$ICON_TMP"
