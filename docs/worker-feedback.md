@@ -17,3 +17,7 @@
 ### 2026-11-28 02:15 — H201 (codex, 01a2210d-f942-7420-9648-4a5151725b4e, resubmit)
 - **How was the review round: were the return notes clear, and what would have avoided the return?** The return notes were clear and their exact FreeCAD reproduction made verification easy. A resize-after-pocket case in the original matrix would have caught the detach. The review also exposed the first resize after reopen and a cut after rotation as useful regressions.
 - **Any improvements you can think of?** Keep GATE_FULL out of the nested tools-scope fixture so an explicitly forced full gate can pass the same checks as an automatically selected full gate.
+
+### 2026-11-28 07:56 — H211 (codex, 01a22258-3cfc-7fa2-8c49-9f4489f9d04a, first submit)
+- **How was working on this job in our code base?** The saved model and explicit checks made the bug easy to reproduce. GET_A_JOB claimed H211 on top of H201 before the H211 brief existed on that branch, then failed trying to print it. Merging main into the H211 worktree restored the brief.
+- **Any improvements you can think of?** When taking a stacked job, ensure its current brief is present before printing it. In the hopper redraw test, use an isolated queue fixture so another worker writing to the live queue cannot make the merge gate fail.
